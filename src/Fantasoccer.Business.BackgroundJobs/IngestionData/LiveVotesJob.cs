@@ -12,7 +12,7 @@ namespace FantacalcioV4.Engine.IngestionData
         private readonly Manager Manager;
         private readonly IHttpClientFactory HttpClientFactory;
         private readonly HttpClient HttpClient;
-        public LiveVotesJob(Logger logger, Manager manager, IHttpClientFactory httpClientFactory)
+        public LiveVotesJob( IRepository<FantacalcioLog, string> logger, Manager manager, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             Manager = manager;

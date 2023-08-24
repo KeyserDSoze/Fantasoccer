@@ -16,7 +16,7 @@ namespace FantacalcioV4.Engine.IngestionData
         };
         private readonly IRepository<FantacalcioLog, string> _logger;
         private readonly HttpClient HttpClient;
-        public PlayerOddsJob(Logger logger, IHttpClientFactory httpClientFactory)
+        public PlayerOddsJob( IRepository<FantacalcioLog, string> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             HttpClient = httpClientFactory.CreateClient("base");

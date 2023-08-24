@@ -16,7 +16,7 @@ namespace FantacalcioV4.Engine.IngestionData
         private const string Goalkeeper = "<span class=\"role\" data-value=\"p\"></span>";
         private readonly IRepository<FantacalcioLog, string> _logger;
         private readonly HttpClient HttpClient;
-        public AllPlayersJob(Logger logger, IHttpClientFactory httpClientFactory)
+        public AllPlayersJob( IRepository<FantacalcioLog, string> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             HttpClient = httpClientFactory.CreateClient("base");

@@ -6,7 +6,7 @@ namespace FantacalcioV4.Engine
     {
         private readonly Manager Manager;
         private readonly IRepository<FantacalcioLog, string> _logger;
-        public CreateNewYearJob(Manager manager, Logger logger)
+        public CreateNewYearJob(Manager manager,  IRepository<FantacalcioLog, string> logger)
         {
             Manager = manager;
             _logger = logger;

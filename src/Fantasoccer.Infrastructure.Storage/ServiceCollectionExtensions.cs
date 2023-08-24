@@ -15,7 +15,21 @@ namespace Fantasoccer.Infrastructure
                     storageBuilder.Settings.ConnectionString = storageConnectionString;
                 });
             });
-            await services.AddRepositoryAsync<RealCalendar, int>(async builder =>
+            await services.AddRepositoryAsync<RealPlayersWrapper, int>(async builder =>
+            {
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                });
+            });
+            await services.AddRepositoryAsync<VotePlayersWrapper, int>(async builder =>
+            {
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                });
+            });
+            await services.AddRepositoryAsync<Group, string>(async builder =>
             {
                 await builder.WithBlobStorageAsync(storageBuilder =>
                 {

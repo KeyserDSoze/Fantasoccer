@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Fantasoccer
+﻿namespace Fantasoccer
 {
     public record Group(string Name, List<League> Leagues);
 }

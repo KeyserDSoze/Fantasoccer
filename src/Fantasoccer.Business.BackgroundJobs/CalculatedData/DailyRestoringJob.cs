@@ -1,24 +1,25 @@
 ﻿using Fantasoccer;
+using RepositoryFramework;
 using System.Timers;
 
 namespace FantacalcioV4.Engine
 {
     public class DailyRestoringJob : IBackgroundJob
     {
-        private readonly Manager Manager;
         private readonly IRepository<FantacalcioLog, string> _logger;
-        public DailyRestoringJob(Manager manager, Logger logger)
+        private readonly IRepository<Group, string> _group;
+
+        public DailyRestoringJob(IRepository<FantacalcioLog, string> logger, IRepository<Group, string> group)
         {
-            Manager = manager;
             _logger = logger;
+            _group = group;
         }
         public async Task ActionToDoAsync()
         {
-            foreach (var group in await Manager.Group.ListAsync())
+            await foreach (var group in _group.QueryAsEntityAsync())
             {
-                var groupFromMemory = await new GroupKey() { Name = group }.InstanceAsync().NoContext();
                 List<Task> leaguesForGroup = new();
-                foreach (var league in groupFromMemory.Leagues)
+                foreach (var league in group.Leagues)
                 {
                     //if (!league.IsMain && league.Name.StartsWith("Champions"))
                     leaguesForGroup.Add(CalculateAsync());

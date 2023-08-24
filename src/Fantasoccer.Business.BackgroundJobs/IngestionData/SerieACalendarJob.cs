@@ -12,7 +12,7 @@ namespace FantacalcioV4.Engine.IngestionData
         private static readonly Regex RowCellRegex = new("<div role=\"cell\">");
         private readonly IRepository<FantacalcioLog, string> _logger;
         private readonly HttpClient HttpClient;
-        public SerieACalendarJob(Logger logger, IHttpClientFactory httpClientFactory)
+        public SerieACalendarJob( IRepository<FantacalcioLog, string> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             HttpClient = httpClientFactory.CreateClient("base");

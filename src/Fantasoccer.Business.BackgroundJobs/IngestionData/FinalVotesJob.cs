@@ -6,7 +6,7 @@ namespace FantacalcioV4.Engine.IngestionData
     {
         private readonly Manager Manager;
         private readonly IRepository<FantacalcioLog, string> _logger;
-        public FinalVotesJob(Manager manager, Logger logger)
+        public FinalVotesJob(Manager manager,  IRepository<FantacalcioLog, string> logger)
         {
             Manager = manager;
             _logger = logger;

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Fantasoccer
+﻿namespace Fantasoccer
 {
     public record Daily(int SerieADay, Dictionary<int, List<PlayedGame>> Games)
     {
