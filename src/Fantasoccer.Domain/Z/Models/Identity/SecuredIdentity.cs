@@ -1,8 +1,4 @@
-﻿using Rystem;
-using Rystem.Security.Cryptography;
-using System;
-using System.Collections.Generic;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Fantasoccer
 {

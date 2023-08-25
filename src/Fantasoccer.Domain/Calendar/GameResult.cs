@@ -1,18 +1,10 @@
-﻿using System.Text.Json.Serialization;
-
-namespace Fantasoccer
+﻿namespace Fantasoccer
 {
-    public enum GameResultType
+    public record GameResult()
     {
-        HomeWon,
-        AwayWon,
-        Tie
-    }
-    public record GameResult(Point Home, Point Away)
-    {
-        [JsonIgnore]
+        public Point Home { get; set; }
+        public Point Away { get; set; }
         public bool HasValue => Home?.Value > 0 || Away?.Value > 0;
-        [JsonIgnore]
         public GameResultType Value =>
             this switch
             {

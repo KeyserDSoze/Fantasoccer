@@ -1,17 +1,8 @@
 ﻿namespace Fantasoccer
 {
-    public record Daily(int SerieADay, Dictionary<int, List<PlayedGame>> Games)
+    public class Daily
     {
-        public void SetVote(List<Player> votes, LeagueSetting settings)
-        {
-            foreach (var group in Games)
-            {
-                foreach (var game in group.Value)
-                {
-                    if (game.Result == default || !game.Result.HasValue)
-                        game.SetVote(votes, settings);
-                }
-            }
-        }
+        public int SerieADay { get; set; }
+        public Dictionary<int, List<CalendarGame>> Games { get; set; }
     }
 }
