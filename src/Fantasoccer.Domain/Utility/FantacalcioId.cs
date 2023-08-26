@@ -1,6 +1,4 @@
-﻿using Rystem.Security.Cryptography;
-
-namespace Fantasoccer
+﻿namespace Fantasoccer
 {
     public static class FantacalcioId
     {

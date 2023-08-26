@@ -1,6 +1,6 @@
 ﻿namespace Fantasoccer
 {
-    public record GameResult()
+    public class GameResult
     {
         public Point Home { get; set; }
         public Point Away { get; set; }
@@ -21,7 +21,7 @@
 
             int GetGoals(float value, float opponentValue)
             {
-                int goalTeam = 0;
+                var goalTeam = 0;
                 if (value - settings.PointForFirstGoal >= 0)
                     goalTeam = 1 + (int)((value - settings.PointForFirstGoal) / settings.PointForNextGoal);
                 if (settings.DifferencePointForOwnGoal > 0 && value < 66 && opponentValue <= (65.5 - settings.DifferencePointForOwnGoal) && value - opponentValue >= settings.DifferencePointForOwnGoal)
