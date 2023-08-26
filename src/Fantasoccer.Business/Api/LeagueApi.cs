@@ -36,7 +36,7 @@ namespace Fantasoccer.Business
                 LeagueName = leagueName,
                 Year = year
             }.InstanceAsync();
-        public async Task<Daily> GetDayAsync(string groupName, string leagueName, int year, int serieADay)
+        public async Task<Day> GetDayAsync(string groupName, string leagueName, int year, int serieADay)
             => (await new CalendarKey { GroupName = groupName, Year = year, LeagueName = leagueName }.InstanceAsync().NoContext())?.Days.FirstOrDefault(x => x.SerieADay == serieADay);
         public async Task<(PlayedGame Game, RealDay RealDay, bool IsLive)> GetGameAsync(string gameId, bool isLive)
         {

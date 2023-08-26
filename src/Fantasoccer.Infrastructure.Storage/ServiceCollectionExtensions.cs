@@ -8,34 +8,13 @@ namespace Fantasoccer.Infrastructure
         public static async Task<IServiceCollection> AddStorageInfrastructuresAsync(this IServiceCollection services, IConfiguration configuration)
         {
             var storageConnectionString = configuration["ConnectionStrings:BlobStorage"];
-            await services.AddRepositoryAsync<RealCalendar, int>(async builder =>
-            {
-                await builder.WithBlobStorageAsync(storageBuilder =>
-                {
-                    storageBuilder.Settings.ConnectionString = storageConnectionString;
-                });
-            });
-            await services.AddRepositoryAsync<RealPlayersWrapper, int>(async builder =>
-            {
-                await builder.WithBlobStorageAsync(storageBuilder =>
-                {
-                    storageBuilder.Settings.ConnectionString = storageConnectionString;
-                });
-            });
-            await services.AddRepositoryAsync<ChancedRealPlayer, YearDayKey>(async builder =>
-            {
-                await builder.WithBlobStorageAsync(storageBuilder =>
-                {
-                    storageBuilder.Settings.ConnectionString = storageConnectionString;
-                });
-            });
-            await services.AddRepositoryAsync<Group, string>(async builder =>
-            {
-                await builder.WithBlobStorageAsync(storageBuilder =>
-                {
-                    storageBuilder.Settings.ConnectionString = storageConnectionString;
-                });
-            });
+            await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
+            await services.AddBlobStorage<RealPlayersWrapper, int>(storageConnectionString);
+            await services.AddBlobStorage<ChancedRealPlayer, YearDayKey>(storageConnectionString);
+            await services.AddBlobStorage<Group, string>(storageConnectionString);
+            await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
+            await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);
+            await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
             await services.AddRepositoryAsync<FantacalcioLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>
@@ -48,6 +27,17 @@ namespace Fantasoccer.Infrastructure
                 });
             });
             return services;
+        }
+        private static Task<IServiceCollection> AddBlobStorage<T, TKey>(this IServiceCollection services, string connectionString)
+            where TKey : notnull
+        {
+            return services.AddRepositoryAsync<T, TKey>(async builder =>
+             {
+                 await builder.WithBlobStorageAsync(storageBuilder =>
+                 {
+                     storageBuilder.Settings.ConnectionString = connectionString;
+                 });
+             });
         }
     }
 }

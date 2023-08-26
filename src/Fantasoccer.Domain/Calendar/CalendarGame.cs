@@ -2,6 +2,7 @@
 {
     public class CalendarGame
     {
+        public string Id { get; set; }
         public string Home { get; set; }
         public string Away { get; set; }
         public GameResult Result { get; set; }
