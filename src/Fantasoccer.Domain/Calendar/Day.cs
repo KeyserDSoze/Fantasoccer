@@ -3,6 +3,6 @@
     public class Day
     {
         public int SerieADay { get; set; }
-        public Dictionary<string, List<CalendarGame>> Games { get; set; }
+        public Dictionary<int, List<CalendarGame>> Games { get; set; }
     }
 }

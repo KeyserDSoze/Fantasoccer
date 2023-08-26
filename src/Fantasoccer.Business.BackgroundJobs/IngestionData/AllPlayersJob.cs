@@ -1,7 +1,8 @@
-﻿using Fantasoccer;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using System.Timers;
 using System.Web;
+using Fantasoccer;
+using RepositoryFramework;
 
 namespace FantacalcioV4.Engine.IngestionData
 {
@@ -15,23 +16,27 @@ namespace FantacalcioV4.Engine.IngestionData
         private const string Defensor = "<span class=\"role\" data-value=\"d\"></span>";
         private const string Goalkeeper = "<span class=\"role\" data-value=\"p\"></span>";
         private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IRepository<RealPlayersWrapper, int> _realPlayersRepository;
         private readonly HttpClient HttpClient;
-        public AllPlayersJob( IRepository<FantacalcioLog, string> logger, IHttpClientFactory httpClientFactory)
+        public AllPlayersJob(IRepository<FantacalcioLog, string> logger,
+            IRepository<RealPlayersWrapper, int> realPlayersRepository,
+            IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
+            _realPlayersRepository = realPlayersRepository;
             HttpClient = httpClientFactory.CreateClient("base");
         }
 
         public async Task ActionToDoAsync()
         {
             List<RealPlayer> players = new();
-            string fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
-
+            var fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
+            var year = FantacalcioTime.ActualYear;
             foreach (var playerFromFanta in PlayerRowRegex.Split(fantapage).Skip(1))
             {
-                string name = HttpUtility.HtmlDecode(PlayerNameRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim()).Replace("\'", string.Empty);
-                string team = HttpUtility.HtmlDecode(PlayerTeamRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim());
-                Role role = Role.Undefined;
+                var name = HttpUtility.HtmlDecode(PlayerNameRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim()).Replace("\'", string.Empty);
+                var team = HttpUtility.HtmlDecode(PlayerTeamRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim());
+                var role = Role.Undefined;
                 if (playerFromFanta.Contains(Forward))
                     role = Role.Forward;
                 else if (playerFromFanta.Contains(Midfielder))
@@ -40,23 +45,32 @@ namespace FantacalcioV4.Engine.IngestionData
                     role = Role.Defensor;
                 else if (playerFromFanta.Contains(Goalkeeper))
                     role = Role.GoalKeeper;
-                RealPlayer player = new(name, team.ToLower(), role, FantacalcioTime.ActualYear);
-                player.IsActive = true;
+                var player = new RealPlayer
+                {
+                    Name = name,
+                    RealTeam = team.ToLower(),
+                    Role = role,
+                    IsActive = true,
+                    Year = year
+                };
                 players.Add(player);
             }
 
-            var oldPlayers = await new AllPlayerContext(FantacalcioTime.ActualYear).GetAsync().NoContext() ?? new List<RealPlayer>();
-            foreach (var oldPlayer in oldPlayers)
+            var oldPlayers = await _realPlayersRepository.GetAsync(year).NoContext() ?? new RealPlayersWrapper { Players = new List<RealPlayer>() };
+            foreach (var oldPlayer in oldPlayers.Players)
             {
-                if (!players.Any(x => x.Key == oldPlayer.Key))
+                var oldPlayerKey = KeyUtils.GetPlayerKey(oldPlayer.Name);
+                if (!players.Any(x => KeyUtils.GetPlayerKey(x.Name) == oldPlayerKey))
                 {
-                    oldPlayer.IsActive = false;
                     players.Add(oldPlayer);
                 }
+                else
+                {
+                    oldPlayer.IsActive = false;
+                }
             }
-            await new AllPlayerContext(FantacalcioTime.ActualYear).SaveAsync(players).NoContext();
-            await new AllPlayerKey { Year = FantacalcioTime.ActualYear }.RestoreAsync().NoContext();
-            await Logger.MessageAsync<AllPlayersJob>($"Players count: {players.Count} for year {FantacalcioTime.ActualYear}").NoContext();
+            await _realPlayersRepository.UpdateAsync(year, oldPlayers).NoContext();
+            await _logger.InsertAsync(Guid.NewGuid().ToString(), new FantacalcioLog { Message = $"Players count: {players.Count} for year {FantacalcioTime.ActualYear}" }).NoContext();
         }
 
         public Task OnException(Exception exception)

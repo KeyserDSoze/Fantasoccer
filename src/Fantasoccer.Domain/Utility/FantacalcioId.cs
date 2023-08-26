@@ -3,7 +3,7 @@
     public static class FantacalcioId
     {
         public static string GetPlayerKey(int year, string name)
-            => KeyUtils.GetPlayerKey(year, name);
+            => KeyUtils.GetPlayerKey(name);
         public static string GetPlayedDay(string group, int year, string league, int day)
             => $"{GetLeague(group, year, league)}/Day/{day}";
         public static string GetRank(string group, int year, string league)

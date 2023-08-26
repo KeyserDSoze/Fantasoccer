@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Business.Backgr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Business", "src\Fantasoccer.Business\Fantasoccer.Business.csproj", "{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Tests", "src\Fantasoccer.Tests\Fantasoccer.Tests.csproj", "{A2755DAD-8857-401D-925F-591EFF2DF5B2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -44,6 +50,7 @@ Global
 		{6F85C404-68B0-4D5A-A71E-AE34FE8104EF} = {91114266-E644-452D-8132-7D762C9B8968}
 		{BD3C33C2-AB3F-41C0-A8F4-1D23BFC1D6AC} = {91114266-E644-452D-8132-7D762C9B8968}
 		{7D9DE7F3-EA0D-406F-B706-2BCA44D94540} = {91114266-E644-452D-8132-7D762C9B8968}
+		{A2755DAD-8857-401D-925F-591EFF2DF5B2} = {91114266-E644-452D-8132-7D762C9B8968}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}
