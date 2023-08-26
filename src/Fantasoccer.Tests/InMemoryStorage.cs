@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Fantasoccer.Domain.SerieA;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework.InMemory;
@@ -20,6 +21,7 @@ namespace Fantasoccer.Tests
             services.AddInMemoryInfrastructure<Rank, LeagueKey>();
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
+            services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
             services.AddInMemoryInfrastructure<FantacalcioLog, string>();
             return services;
         }

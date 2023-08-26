@@ -1,10 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Net.Http;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using System.Text.RegularExpressions;
 using System.Web;
 
-namespace FantacalcioV4.Engine.IngestionData.FormationParser
+namespace Fantasoccer.Engine.IngestionData
 {
     internal class Gazzetta : IFormationParser
     {
@@ -12,9 +9,9 @@ namespace FantacalcioV4.Engine.IngestionData.FormationParser
         private static readonly Regex AboveContainerRegex = new("class=\"go-above-container");
         private static readonly Regex UlRegex = new("<ul");
         private static readonly Regex SpanRegex = new("<span class=\"team-player\">[^<]*</span>");
-        public async Task<List<Player>> GetPlayersAsync(HttpClient httpClient)
+        public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
         {
-            List<Player> players = new();
+            List<ChancedRealPlayer> players = new();
             string returnedValue = await httpClient.GetStringAsync("https://www.gazzetta.it/Calcio/prob_form/").NoContext();
             List<string> games = new();
             string[] appoggio1 = MatchFieldContainerRegex.Split(returnedValue);
@@ -33,9 +30,14 @@ namespace FantacalcioV4.Engine.IngestionData.FormationParser
                     foreach (Match m in values)
                     {
                         string name = HttpUtility.HtmlDecode(m.ToString().Split('>')[1].Split('<')[0].ToLower());
-                        Player player = new(FantacalcioId.GetPlayerKey(FantacalcioTime.ActualYear, name), 0, default)
+                        var player = new ChancedRealPlayer
                         {
-                            Chance = new Chance(false, true, false, false, ChanceType.Normal)
+                            Name = KeyUtils.GetPlayerKey(name),
+                            Year = FantacalcioTime.ActualYear,
+                            Chance = new Chance()
+                            {
+                                Gazzetta = true
+                            }
                         };
                         players.Add(player);
                     }

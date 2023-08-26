@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Fantasoccer.Domain.SerieA;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Infrastructure
@@ -15,6 +16,15 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
+            await services.AddRepositoryAsync<SerieATeamsWrapper, int>(async builder =>
+            {
+                await builder.WithTableStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                    storageBuilder
+                        .WithPartitionKey(x => x.Year, x => x);
+                });
+            });
             await services.AddRepositoryAsync<FantacalcioLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>

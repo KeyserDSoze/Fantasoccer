@@ -1,30 +1,39 @@
-﻿using FantacalcioV4.Database;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
+﻿using System.Net.Http.Json;
+using System.Xml.Linq;
+using Fantasoccer.Domain.SerieA;
+using RepositoryFramework;
 
-namespace FantacalcioV4.Engine.IngestionData.FormationParser
+namespace Fantasoccer.Engine.IngestionData
 {
     internal class Mediaset : IFormationParser
     {
-        public async Task<List<Player>> GetPlayersAsync(HttpClient httpClient)
+        private readonly IRepository<SerieATeamsWrapper, int> _repository;
+
+        public Mediaset(IRepository<SerieATeamsWrapper, int> repository)
         {
-            List<Player> players = new();
-            var teams = await AllTeamKey.Active.InstanceAsync().NoContext();
-            foreach (var team in teams)
+            _repository = repository;
+        }
+        public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
+        {
+            List<ChancedRealPlayer> players = new();
+            var teams = await _repository.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            foreach (var team in teams.Teams)
             {
                 try
                 {
                     var returnedValue = await httpClient.
-                        GetFromJsonAsync<Rootobject>($"https://www.sportmediaset.mediaset.it/calcio/squadre/squadra-{team.PrimaryKey.ToLower()}.json")
+                        GetFromJsonAsync<Rootobject>($"https://www.sportmediaset.mediaset.it/calcio/squadre/squadra-{team.Name.ToLower()}.json")
                             .NoContext();
                     foreach (var player in returnedValue.titolari.content.Tables[0].Rows)
                     {
-                        Player chancedPlayer = new(FantacalcioId.GetPlayerKey(FantacalcioTime.ActualYear, player.giocatore.ToLower()), 0, default)
+                        var chancedPlayer = new ChancedRealPlayer
                         {
-                            Chance = new Chance(false, false, true, false, ChanceType.Normal)
+                            Name = KeyUtils.GetPlayerKey(player.giocatore.ToLower()),
+                            Year = FantacalcioTime.ActualYear,
+                            Chance = new Chance()
+                            {
+                                Gazzetta = true
+                            }
                         };
                         players.Add(chancedPlayer);
                     }
