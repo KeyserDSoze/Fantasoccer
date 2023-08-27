@@ -5,9 +5,9 @@ namespace FantacalcioV4.Engine.IngestionData
 {
     public class SetFormationJob : IBackgroundJob
     {
-        private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IRepository<FantasoccerLog, string> _logger;
         private readonly Manager Manager;
-        public SetFormationJob( IRepository<FantacalcioLog, string> logger, Manager manager)
+        public SetFormationJob( IRepository<FantasoccerLog, string> logger, Manager manager)
         {
             _logger = logger;
             Manager = manager;

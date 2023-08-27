@@ -6,9 +6,9 @@ namespace FantacalcioV4.Engine.IngestionData
 {
     public class RestoreActualLiveJob : IBackgroundJob
     {
-        private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IRepository<FantasoccerLog, string> _logger;
         private readonly Manager Manager;
-        public RestoreActualLiveJob(IRepository<FantacalcioLog, string> logger, IRepository<RealCalendar, int> calendar)
+        public RestoreActualLiveJob(IRepository<FantasoccerLog, string> logger, IRepository<RealCalendar, int> calendar)
         {
             _logger = logger;
             Manager = manager;

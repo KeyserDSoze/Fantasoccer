@@ -1,4 +1,5 @@
 ﻿using Fantasoccer.Domain.SerieA;
+using Fantasoccer.Infrastructure.Storage.Logger;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,7 +26,7 @@ namespace Fantasoccer.Infrastructure
                         .WithPartitionKey(x => x.Year, x => x);
                 });
             });
-            await services.AddRepositoryAsync<FantacalcioLog, string>(async builder =>
+            await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>
                 {
@@ -33,7 +34,8 @@ namespace Fantasoccer.Infrastructure
                     storageBuilder
                         .WithPartitionKey(x => x.PrimaryKey, x => x)
                         .WithRowKey(x => x.SecondaryKey)
-                        .WithTimestamp(x => x.Timestamp);
+                        .WithTimestamp(x => x.Timestamp)
+                        .WithTableStorageKeyReader<LoggerKeyReader>();
                 });
             });
             return services;

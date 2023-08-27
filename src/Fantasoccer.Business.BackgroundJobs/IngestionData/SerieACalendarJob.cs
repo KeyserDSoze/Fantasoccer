@@ -10,9 +10,9 @@ namespace FantacalcioV4.Engine.IngestionData
         private static readonly Regex ResultDateRegex = new("class=\"Results_date");
         private static readonly Regex ResultRowRegex = new("class=\"ResultsRow_row");
         private static readonly Regex RowCellRegex = new("<div role=\"cell\">");
-        private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IRepository<FantasoccerLog, string> _logger;
         private readonly HttpClient HttpClient;
-        public SerieACalendarJob( IRepository<FantacalcioLog, string> logger, IHttpClientFactory httpClientFactory)
+        public SerieACalendarJob( IRepository<FantasoccerLog, string> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             HttpClient = httpClientFactory.CreateClient("base");

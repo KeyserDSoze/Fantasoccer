@@ -15,6 +15,10 @@ namespace Fantasoccer.Tests.Tests.Services.FormationParsers
         }
         [Theory]
         [InlineData("Fantagazzetta")]
+        [InlineData("Gazzetta")]
+        [InlineData("Sky")]
+        [InlineData("Mediaset")]
+        [InlineData("Injury")]
         public async Task TestParserAsync(string name)
         {
             var parser = _factory.Create(name);

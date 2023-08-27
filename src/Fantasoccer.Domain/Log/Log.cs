@@ -1,6 +1,6 @@
 ﻿namespace Fantasoccer
 {
-    public class FantacalcioLog
+    public class FantasoccerLog
     {
         public string PrimaryKey { get; set; }
         public string SecondaryKey { get; set; }

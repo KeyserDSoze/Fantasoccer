@@ -8,11 +8,11 @@ namespace FantacalcioV4.Engine.IngestionData
 {
     public class LiveVotesJob : IBackgroundJob
     {
-        private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IRepository<FantasoccerLog, string> _logger;
         private readonly Manager Manager;
         private readonly IHttpClientFactory HttpClientFactory;
         private readonly HttpClient HttpClient;
-        public LiveVotesJob( IRepository<FantacalcioLog, string> logger, Manager manager, IHttpClientFactory httpClientFactory)
+        public LiveVotesJob( IRepository<FantasoccerLog, string> logger, Manager manager, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             Manager = manager;

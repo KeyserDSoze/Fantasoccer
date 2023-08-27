@@ -5,24 +5,24 @@ namespace Fantasoccer.Engine.IngestionData
 {
     internal class Gazzetta : IFormationParser
     {
-        private static readonly Regex MatchFieldContainerRegex = new("class=\"matchFieldContainer");
-        private static readonly Regex AboveContainerRegex = new("class=\"go-above-container");
-        private static readonly Regex UlRegex = new("<ul");
-        private static readonly Regex SpanRegex = new("<span class=\"team-player\">[^<]*</span>");
+        private static readonly Regex s_matchFieldContainerRegex = new("class=\"matchFieldContainer");
+        private static readonly Regex s_aboveContainerRegex = new("class=\"go-above-container");
+        private static readonly Regex s_ulRegex = new("<ul");
+        private static readonly Regex s_spanRegex = new("<span class=\"team-player\">[^<]*</span>");
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
         {
             List<ChancedRealPlayer> players = new();
             string returnedValue = await httpClient.GetStringAsync("https://www.gazzetta.it/Calcio/prob_form/").NoContext();
             List<string> games = new();
-            string[] appoggio1 = MatchFieldContainerRegex.Split(returnedValue);
+            string[] appoggio1 = s_matchFieldContainerRegex.Split(returnedValue);
             for (int i = 1; i < appoggio1.Length; i++)
-                games.Add(AboveContainerRegex.Split(appoggio1[i])[0]);
+                games.Add(s_aboveContainerRegex.Split(appoggio1[i])[0]);
             foreach (string app in games)
             {
                 string s = app;
-                string[] leul = UlRegex.Split(s);
-                MatchCollection playersi1Tit = SpanRegex.Matches(leul[2]);
-                MatchCollection playersI2Tit = SpanRegex.Matches(leul[3]);
+                string[] leul = s_ulRegex.Split(s);
+                MatchCollection playersi1Tit = s_spanRegex.Matches(leul[2]);
+                MatchCollection playersI2Tit = s_spanRegex.Matches(leul[3]);
                 SetPlayers(playersi1Tit);
                 SetPlayers(playersI2Tit);
                 void SetPlayers(MatchCollection values)

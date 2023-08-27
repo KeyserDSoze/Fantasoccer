@@ -1,15 +1,16 @@
 ﻿using Fantasoccer;
 using RepositoryFramework;
+using System.Security.Cryptography;
 using System.Timers;
 
 namespace FantacalcioV4.Engine
 {
     public class DailyRestoringJob : IBackgroundJob
     {
-        private readonly IRepository<FantacalcioLog, string> _logger;
+        private readonly IFantasoccerLogger _logger;
         private readonly IRepository<Group, string> _group;
 
-        public DailyRestoringJob(IRepository<FantacalcioLog, string> logger, IRepository<Group, string> group)
+        public DailyRestoringJob(IFantasoccerLogger logger, IRepository<Group, string> group)
         {
             _logger = logger;
             _group = group;
@@ -72,7 +73,7 @@ namespace FantacalcioV4.Engine
                     }
                 }
                 await Task.WhenAll(leaguesForGroup).NoContext();
-                await Logger.MessageAsync<DailyRestoringJob>($"{group} restored.").NoContext();
+                await _logger.LogAsync<DailyRestoringJob>($"{group} restored.").NoContext();
             }
         }
         private static async Task CalculateNextChampionsCalendarAsync(AnnualLeague league, int serieADay)
@@ -122,7 +123,7 @@ namespace FantacalcioV4.Engine
                             else if (valueB > valueA)
                                 nextTeams.Add(game.AwayUsername);
                             else
-                                nextTeams.Add(Alea.GetNumber(100) < 50 ? game.HomeUsername : game.AwayUsername);
+                                nextTeams.Add(RandomNumberGenerator.GetInt32(100) < 50 ? game.HomeUsername : game.AwayUsername);
                         }
                     }
                 }
@@ -152,6 +153,6 @@ namespace FantacalcioV4.Engine
         }
 
         public Task OnException(Exception exception)
-             => Logger.CatchAsync<DailyRestoringJob>(exception);
+             => _logger.LogErrorAsync<DailyRestoringJob>(exception);
     }
 }

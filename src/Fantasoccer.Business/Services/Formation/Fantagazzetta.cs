@@ -5,21 +5,21 @@ namespace Fantasoccer.Engine.IngestionData
 {
     internal class Fantagazzetta : IFormationParser
     {
-        private static readonly Regex PlayerListRegex = new("<ul class=\"player-list starters\">");
-        private static readonly Regex PlayerItemRegex = new("<li class=\"player-item");
-        private static readonly Regex SpanRegex = new(@"<span>[^<]*</span>");
+        private static readonly Regex s_playerListRegex = new("<ul class=\"player-list starters\">");
+        private static readonly Regex s_playerItemRegex = new("<li class=\"player-item");
+        private static readonly Regex s_spanRegex = new(@"<span>[^<]*</span>");
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
         {
             List<ChancedRealPlayer> players = new();
             var returnedValue = await httpClient.GetStringAsync("https://www.fantacalcio.it/probabili-formazioni-serie-a").NoContext();
-            var matches = PlayerListRegex.Split(returnedValue);
+            var matches = s_playerListRegex.Split(returnedValue);
             foreach (var match in matches.Skip(1))
             {
-                foreach (var player in PlayerItemRegex.Split(match).Skip(1).Take(11))
+                foreach (var player in s_playerItemRegex.Split(match).Skip(1).Take(11))
                 {
                     if (string.IsNullOrWhiteSpace(player))
                         continue;
-                    var name = SpanRegex.IsMatch(player) ? HttpUtility.HtmlDecode(SpanRegex.Match(player).Value.Split('>')[1].Split('<')[0]) : string.Empty;
+                    var name = s_spanRegex.IsMatch(player) ? HttpUtility.HtmlDecode(s_spanRegex.Match(player).Value.Split('>')[1].Split('<')[0]) : string.Empty;
                     if (string.IsNullOrWhiteSpace(name))
                         continue;
                     players.Add(new()

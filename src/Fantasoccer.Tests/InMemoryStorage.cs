@@ -22,7 +22,7 @@ namespace Fantasoccer.Tests
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
-            services.AddInMemoryInfrastructure<FantacalcioLog, string>();
+            services.AddInMemoryInfrastructure<FantasoccerLog, string>();
             return services;
         }
         private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services)
