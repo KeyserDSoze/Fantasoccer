@@ -1,6 +1,6 @@
 ﻿using System.Timers;
 using Fantasoccer;
-using Fantasoccer.Engine.IngestionData;
+using Fantasoccer.Business.IngestionData;
 using RepositoryFramework;
 
 namespace FantacalcioV4.Engine.IngestionData
@@ -28,8 +28,7 @@ namespace FantacalcioV4.Engine.IngestionData
             var oldPlayers = await _realPlayersRepository.GetAsync(year).NoContext() ?? new RealPlayersWrapper { Players = new List<RealPlayer>() };
             foreach (var oldPlayer in oldPlayers.Players)
             {
-                var oldPlayerKey = KeyUtils.GetPlayerKey(oldPlayer.Name);
-                if (!players.Any(x => KeyUtils.GetPlayerKey(x.Name) == oldPlayerKey))
+                if (!players.Any(x => x.Key == oldPlayer.Key))
                 {
                     players.Add(oldPlayer);
                 }

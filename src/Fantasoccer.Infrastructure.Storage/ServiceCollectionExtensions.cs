@@ -12,7 +12,20 @@ namespace Fantasoccer.Infrastructure
             var storageConnectionString = configuration["ConnectionStrings:BlobStorage"];
             await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
             await services.AddBlobStorage<RealPlayersWrapper, int>(storageConnectionString);
-            await services.AddBlobStorage<ChancedRealPlayer, YearDayKey>(storageConnectionString);
+            await services.AddBlobStorage<ChancedRealPlayerWrapper, YearDayKey>(storageConnectionString);
+            await services.AddRepositoryAsync<VotedRealPlayerWrapper, YearDayKey>(async builder =>
+            {
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                    storageBuilder.Settings.ContainerName = "live";
+                }, "live");
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                    storageBuilder.Settings.ContainerName = "official";
+                }, "official");
+            });
             await services.AddBlobStorage<Group, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);

@@ -1,4 +1,4 @@
-﻿using Fantasoccer.Engine.IngestionData;
+﻿using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Tests.Tests.Services.FormationParsers
@@ -6,12 +6,9 @@ namespace Fantasoccer.Tests.Tests.Services.FormationParsers
     public class FormationParserTests
     {
         private readonly IFactory<IFormationParser> _factory;
-        private readonly HttpClient _httpClient;
-        public FormationParserTests(IFactory<IFormationParser> factory,
-            IHttpClientFactory httpClientFactory)
+        public FormationParserTests(IFactory<IFormationParser> factory)
         {
             _factory = factory;
-            _httpClient = httpClientFactory.CreateClient("base");
         }
         [Theory]
         [InlineData("Fantagazzetta")]
@@ -22,7 +19,7 @@ namespace Fantasoccer.Tests.Tests.Services.FormationParsers
         public async Task TestParserAsync(string name)
         {
             var parser = _factory.Create(name);
-            var players = await parser.GetPlayersAsync(_httpClient);
+            var players = await parser.GetPlayersAsync();
             Assert.NotEmpty(players);
         }
     }

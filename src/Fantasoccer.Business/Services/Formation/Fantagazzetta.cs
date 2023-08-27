@@ -1,17 +1,22 @@
 ﻿using System.Text.RegularExpressions;
 using System.Web;
 
-namespace Fantasoccer.Engine.IngestionData
+namespace Fantasoccer.Business.IngestionData
 {
     internal class Fantagazzetta : IFormationParser
     {
         private static readonly Regex s_playerListRegex = new("<ul class=\"player-list starters\">");
         private static readonly Regex s_playerItemRegex = new("<li class=\"player-item");
         private static readonly Regex s_spanRegex = new(@"<span>[^<]*</span>");
-        public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
+        private readonly HttpClient _httpClient;
+        public Fantagazzetta(IHttpClientFactory httpClientFactory)
+        {
+            _httpClient = httpClientFactory.CreateClient("base");
+        }
+        public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
             List<ChancedRealPlayer> players = new();
-            var returnedValue = await httpClient.GetStringAsync("https://www.fantacalcio.it/probabili-formazioni-serie-a").NoContext();
+            var returnedValue = await _httpClient.GetStringAsync("https://www.fantacalcio.it/probabili-formazioni-serie-a").NoContext();
             var matches = s_playerListRegex.Split(returnedValue);
             foreach (var match in matches.Skip(1))
             {
@@ -24,7 +29,7 @@ namespace Fantasoccer.Engine.IngestionData
                         continue;
                     players.Add(new()
                     {
-                        Name = KeyUtils.GetPlayerKey(name),
+                        Name = name,
                         Year = FantacalcioTime.ActualYear,
                         Chance = new Chance()
                         {

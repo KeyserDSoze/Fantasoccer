@@ -1,4 +1,4 @@
-﻿namespace Fantasoccer.Engine.IngestionData
+﻿namespace Fantasoccer.Business.IngestionData
 {
     public interface IAllPlayers
     {

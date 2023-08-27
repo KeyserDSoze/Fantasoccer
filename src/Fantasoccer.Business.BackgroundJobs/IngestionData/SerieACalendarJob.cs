@@ -1,6 +1,6 @@
-﻿using Fantasoccer;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using System.Timers;
+using Fantasoccer;
 
 namespace FantacalcioV4.Engine.IngestionData
 {

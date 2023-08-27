@@ -3,17 +3,19 @@ using System.Xml.Linq;
 using Fantasoccer.Domain.SerieA;
 using RepositoryFramework;
 
-namespace Fantasoccer.Engine.IngestionData
+namespace Fantasoccer.Business.IngestionData
 {
     internal class Mediaset : IFormationParser
     {
         private readonly IRepository<SerieATeamsWrapper, int> _repository;
 
-        public Mediaset(IRepository<SerieATeamsWrapper, int> repository)
+        private readonly HttpClient _httpClient;
+        public Mediaset(IHttpClientFactory httpClientFactory, IRepository<SerieATeamsWrapper, int> repository)
         {
+            _httpClient = httpClientFactory.CreateClient("base");
             _repository = repository;
         }
-        public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
+        public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
             List<ChancedRealPlayer> players = new();
             var teams = await _repository.GetAsync(FantacalcioTime.ActualYear).NoContext();
@@ -21,7 +23,7 @@ namespace Fantasoccer.Engine.IngestionData
             {
                 try
                 {
-                    var returnedValue = await httpClient.
+                    var returnedValue = await _httpClient.
                         GetFromJsonAsync<Rootobject>($"https://www.sportmediaset.mediaset.it/calcio/squadre/squadra-{team.Name.ToLower()}.json")
                             .NoContext();
                     foreach (var player in returnedValue.titolari.content.Tables[0].Rows)

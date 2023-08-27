@@ -1,29 +1,48 @@
 ﻿using System.Timers;
+using Fantasoccer;
+using Fantasoccer.Business.IngestionData;
+using Microsoft.Extensions.DependencyInjection;
+using RepositoryFramework;
 
 namespace FantacalcioV4.Engine.IngestionData
 {
     public class FinalVotesJob : IBackgroundJob
     {
-        private readonly Manager Manager;
-        private readonly IRepository<FantacalcioLog, string> _logger;
-        public FinalVotesJob(Manager manager,  IRepository<FantacalcioLog, string> logger)
+        private readonly IFantasoccerLogger _logger;
+        private readonly IOfficialVote _finalVote;
+        private readonly IRepository<RealCalendar, int> _realCalendar;
+        private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _repository;
+
+        public FinalVotesJob(IFantasoccerLogger logger, IOfficialVote finalVote,
+            IRepository<RealCalendar, int> realCalendar,
+            IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> factory)
         {
-            Manager = manager;
             _logger = logger;
+            _finalVote = finalVote;
+            _realCalendar = realCalendar;
+            _repository = factory.Create("official");
         }
 
         public async Task ActionToDoAsync()
         {
-            var calendar = await new RealCalendarKey().InstanceAsync().NoContext();
-            var liveDay = calendar.LiveDay;
+            var calendar = await _realCalendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            var liveDay = calendar?.LiveDay;
             if (liveDay != default)
             {
-                var players = await Manager.Job.SaveFinalVoteAsync(FantacalcioTime.ActualYear, liveDay.SerieADay, true).NoContext();
-                await Logger.MessageAsync<FinalVotesJob>($"Players count: {players.Count} for day {liveDay.SerieADay} year {liveDay.Year}").NoContext();
+                var players = await _finalVote.GetAsync(FantacalcioTime.ActualYear, liveDay.SerieADay).NoContext();
+                await _repository.UpdateAsync(new YearDayKey
+                {
+                    Day = liveDay.SerieADay,
+                    Year = liveDay.Year,
+                }, new VotedRealPlayerWrapper
+                {
+                    Players = players,
+                });
+                await _logger.LogAsync<FinalVotesJob>($"Players count: {players.Count} for day {liveDay.SerieADay} year {liveDay.Year}").NoContext();
             }
         }
 
-        public Task OnException(Exception exception) 
-            => Logger.CatchAsync<FinalVotesJob>(exception);
+        public Task OnException(Exception exception)
+            => _logger.LogErrorAsync<FinalVotesJob>(exception);
     }
 }

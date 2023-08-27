@@ -1,58 +1,84 @@
-﻿using FantacalcioV4.Engine.IngestionData.FormationParser;
+﻿using System.Timers;
 using Fantasoccer;
-using System.Timers;
+using Fantasoccer.Business.IngestionData;
+using Microsoft.Extensions.DependencyInjection;
+using RepositoryFramework;
 
 namespace FantacalcioV4.Engine.IngestionData
 {
     public class PlayerOddsJob : IBackgroundJob
     {
-        private static readonly List<IFormationParser> Parsers = new()
-        {
-            new Fantagazzetta(),
-            new Gazzetta(),
-            new Mediaset(),
-            new Sky(),
-            new Injury()
-        };
-        private readonly IRepository<FantasoccerLog, string> _logger;
-        private readonly HttpClient HttpClient;
-        public PlayerOddsJob( IRepository<FantasoccerLog, string> logger, IHttpClientFactory httpClientFactory)
+        private readonly List<IFormationParser> _parsers;
+        private readonly IFantasoccerLogger _logger;
+        private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _repository;
+        private readonly IRepository<RealCalendar, int> _calendar;
+
+        public PlayerOddsJob(IFantasoccerLogger logger,
+            IFactory<IFormationParser> formations,
+            IRepository<ChancedRealPlayerWrapper, YearDayKey> repository,
+            IRepository<RealCalendar, int> calendar)
         {
             _logger = logger;
-            HttpClient = httpClientFactory.CreateClient("base");
+            _repository = repository;
+            _calendar = calendar;
+            _parsers = new List<IFormationParser>()
+            {
+                formations.Create("Fantagazzetta"),
+                formations.Create("Gazzetta"),
+                formations.Create("Mediaset"),
+                formations.Create("Sky"),
+                formations.Create("Injury"),
+            };
         }
         public async Task ActionToDoAsync()
         {
-            List<Player> players = new();
-            foreach (var parser in Parsers)
+            var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            if (calendar != null)
             {
-                var playersFromParser = await parser.GetPlayersAsync(HttpClient).NoContext();
-                if (players.Count == 0)
-                    players = playersFromParser;
-                else
+                var day = (calendar.LiveDay ?? calendar.NextDay)?.SerieADay ?? 0;
+                if (day > 0)
                 {
-                    foreach (var parsedPlayer in playersFromParser)
+                    var key = new YearDayKey
                     {
-                        Player chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
-                        if (chancedPlayer == default)
-                            players.Add(parsedPlayer);
+                        Year = FantacalcioTime.ActualYear,
+                        Day = day
+                    };
+                    var players = (await _repository.GetAsync(key).NoContext())?.Players ?? new();
+                    foreach (var parser in _parsers)
+                    {
+                        var playersFromParser = await parser.GetPlayersAsync().NoContext();
+                        if (players.Count == 0)
+                            players = playersFromParser;
                         else
-                            chancedPlayer.Chance = chancedPlayer.Chance with
+                        {
+                            foreach (var parsedPlayer in playersFromParser)
                             {
-                                Fantagazzetta = chancedPlayer.Chance.Fantagazzetta || parsedPlayer.Chance.Fantagazzetta,
-                                Gazzetta = chancedPlayer.Chance.Gazzetta || parsedPlayer.Chance.Gazzetta,
-                                Mediaset = chancedPlayer.Chance.Mediaset || parsedPlayer.Chance.Mediaset,
-                                Sky = chancedPlayer.Chance.Sky || parsedPlayer.Chance.Sky,
-                                Status = chancedPlayer.Chance.Status == ChanceType.Normal ? parsedPlayer.Chance.Status : chancedPlayer.Chance.Status
-                            };
+                                var chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
+                                if (chancedPlayer == default)
+                                    players.Add(parsedPlayer);
+                                else
+                                    chancedPlayer.Chance = new Chance
+                                    {
+                                        Fantagazzetta = chancedPlayer.Chance.Fantagazzetta || parsedPlayer.Chance.Fantagazzetta,
+                                        Gazzetta = chancedPlayer.Chance.Gazzetta || parsedPlayer.Chance.Gazzetta,
+                                        Mediaset = chancedPlayer.Chance.Mediaset || parsedPlayer.Chance.Mediaset,
+                                        Sky = chancedPlayer.Chance.Sky || parsedPlayer.Chance.Sky,
+                                        Status = chancedPlayer.Chance.Status == ChanceType.Normal ? parsedPlayer.Chance.Status : chancedPlayer.Chance.Status
+                                    };
+                            }
+                        }
                     }
+                    await _repository.UpdateAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                    await _logger.LogAsync<PlayerOddsJob>($"Players {players.Count} parsate.").NoContext();
                 }
+                else
+                    await _logger.LogAsync<PlayerOddsJob>($"Day è zero").NoContext();
             }
-            await new PlayerOddsContext().SaveAsync(players).NoContext();
-            await Logger.MessageAsync<PlayerOddsJob>($"Players {players.Count} parsate.").NoContext();
+            else
+                await _logger.LogAsync<PlayerOddsJob>($"Il calendario è vuoto").NoContext();
         }
 
         public Task OnException(Exception exception)
-            => Logger.CatchAsync<PlayerOddsJob>(exception);
+            => _logger.LogErrorAsync<PlayerOddsJob>(exception);
     }
 }

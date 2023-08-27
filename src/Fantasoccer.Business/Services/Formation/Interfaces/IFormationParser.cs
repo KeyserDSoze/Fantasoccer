@@ -1,7 +1,7 @@
-﻿namespace Fantasoccer.Engine.IngestionData
+﻿namespace Fantasoccer.Business.IngestionData
 {
     public interface IFormationParser
     {
-        Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient);
+        Task<List<ChancedRealPlayer>> GetPlayersAsync();
     }
 }

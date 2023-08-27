@@ -16,7 +16,7 @@ namespace Fantasoccer.Tests
         {
             services.AddInMemoryInfrastructure<RealCalendar, int>();
             services.AddInMemoryInfrastructure<RealPlayersWrapper, int>();
-            services.AddInMemoryInfrastructure<ChancedRealPlayer, YearDayKey>();
+            services.AddInMemoryInfrastructure<ChancedRealPlayerWrapper, YearDayKey>();
             services.AddInMemoryInfrastructure<Group, string>();
             services.AddInMemoryInfrastructure<Rank, LeagueKey>();
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();

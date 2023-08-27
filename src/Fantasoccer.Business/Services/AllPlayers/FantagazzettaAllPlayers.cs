@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using System.Web;
 
-namespace Fantasoccer.Engine.IngestionData
+namespace Fantasoccer.Business.IngestionData
 {
     internal sealed class FantagazzettaAllPlayers : IAllPlayers
     {

@@ -1,9 +1,4 @@
-﻿using FantacalcioV4.Database;
-using Rystem.Background;
-using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-using System.Timers;
+﻿using System.Timers;
 
 namespace FantacalcioV4.Engine.IngestionData
 {

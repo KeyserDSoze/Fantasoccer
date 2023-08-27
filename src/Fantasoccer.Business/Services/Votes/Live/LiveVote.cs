@@ -1,0 +1,174 @@
+﻿using System.Text;
+using System.Text.RegularExpressions;
+using ProtoBuf;
+using RepositoryFramework;
+
+namespace Fantasoccer.Business.IngestionData
+{
+    internal sealed class LiveVote : ILiveVote
+    {
+        public int Day { get; private set; }
+        private readonly HttpClient _httpClient;
+        private readonly IRepository<RealCalendar, int> _realCalendar;
+        public LiveVote(IHttpClientFactory httpClientFactory,
+            IRepository<RealCalendar, int> realCalendar)
+        {
+            _httpClient = httpClientFactory.CreateClient("base");
+            _realCalendar = realCalendar;
+        }
+        public async Task<List<VotedRealPlayer>> GetAsync()
+        {
+            var players = new List<VotedRealPlayer>();
+            var actualYear = FantacalcioTime.ActualYear;
+            var realCalendar = await _realCalendar.GetAsync(actualYear).NoContext();
+            if (realCalendar != null)
+            {
+                var liveDay = realCalendar.LiveDay;
+                Day = liveDay?.SerieADay ?? 0;
+                if (liveDay != default && realCalendar.IsLive)
+                {
+                    var protoData = await GetLiveAsync(actualYear + 6, realCalendar.LiveDay.SerieADay);
+                    foreach (var game in protoData.ProtoData)
+                    {
+                        if (game.PlayersHome != null)
+                            foreach (var player in game.PlayersHome)
+                                SetPlayer(player);
+                        if (game.PlayersAway != null)
+                            foreach (var player in game.PlayersAway)
+                                SetPlayer(player);
+                    }
+
+                    void SetPlayer(PlayerProto playerProto)
+                    {
+                        if (playerProto.Position == "ALL")
+                            return;
+                        VotedRealPlayer player = new()
+                        {
+                            Name = playerProto.Name[..1].ToUpper() + playerProto.Name[1..].ToLower(),
+                        };
+                        Dictionary<int, int> currentEvents = new();
+                        if (playerProto.Events != null)
+                            foreach (var theEvent in playerProto.Events)
+                            {
+                                if (!currentEvents.ContainsKey(theEvent))
+                                    currentEvents.Add(theEvent, 0);
+                                currentEvents[theEvent]++;
+                            }
+                        var role = playerProto.Position.ToLower() switch
+                        {
+                            "p" => Role.GoalKeeper,
+                            "d" => Role.Defensor,
+                            "c" => Role.Midfielder,
+                            "a" => Role.Forward,
+                            _ => Role.Undefined
+                        };
+                        var vote = (float)playerProto.Vote;
+                        player.Vote = new Vote
+                        {
+                            Role = role,
+                            Value = vote == 55f ? 0 : vote,
+                            IsFinal = false,
+                            Goal = getValue(3),
+                            Penalty = getValue(9),
+                            Assist = (currentEvents.ContainsKey(5) ? currentEvents[5] : 0) + (currentEvents.ContainsKey(6) ? currentEvents[6] : 0) +
+                                    (currentEvents.ContainsKey(24) ? currentEvents[24] : 0) + (currentEvents.ContainsKey(21) ? currentEvents[21] : 0) + (currentEvents.ContainsKey(22) ? currentEvents[22] : 0) +
+                                    (currentEvents.ContainsKey(23) ? currentEvents[23] : 0),
+                            StoppedPenalty = getValue(7),
+                            SufferedGoal = getValue(4),
+                            WrongedPenalty = getValue(8),
+                            OwnGoal = getValue(10),
+                            Status = currentEvents.ContainsKey(1) ? Behaviour.YellowCard : (currentEvents.ContainsKey(2) ? Behaviour.RedCard : Behaviour.Nothing),
+                            HasVote = vote != 55f,
+                            IsIn = currentEvents.ContainsKey(14),
+                            IsOut = currentEvents.ContainsKey(15),
+                        };
+                        int getValue(int x)
+                        {
+                            return currentEvents.ContainsKey(x) ? currentEvents[x] : 0;
+                        }
+                        players.Add(player);
+                    }
+                }
+            }
+            return players;
+        }
+        private static readonly Regex s_regexForSplitting = new("signedUri");
+
+        private async Task<LiveMessage> GetLiveAsync(int year, int day)
+        {
+            var httpContent = new StringContent($"{{\"resourcesUri\":[\"https://api.fantacalcio.it/v1/st/{year}/matches/live/{day}.dat\"]}}", Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync("https://www.fantacalcio.it/api/v1/SignedUri", httpContent);
+            var responseAsString = await response.Content.ReadAsStringAsync();
+            var result = s_regexForSplitting.Split(responseAsString)[1].Split('"')[2];
+
+            var theResponse = await _httpClient.GetStreamAsync(result);
+            var liveMessage = Serializer.Deserialize<LiveMessage>(theResponse);
+            return liveMessage;
+        }
+
+        [ProtoContract]
+        private class LiveMessage
+        {
+            [ProtoMember(1)]
+            public List<ProtoData> ProtoData { get; set; }
+        }
+        [ProtoContract]
+        private class ProtoData
+        {
+            [ProtoMember(1)]
+            public UInt32 Id { get; set; }
+            [ProtoMember(2)]
+            public UInt32 MatchId { get; set; }
+            [ProtoMember(3)]
+            public UInt32 TeamIdHome { get; set; }
+            [ProtoMember(4)]
+            public UInt32 TeamIdAway { get; set; }
+            [ProtoMember(5)]
+            public UInt32 GoalHome { get; set; }
+            [ProtoMember(6)]
+            public UInt32 GoalAway { get; set; }
+            [ProtoMember(7)]
+            public UInt64 FhDate { get; set; }
+            [ProtoMember(8)]
+            public UInt64 ShDate { get; set; }
+            [ProtoMember(9)]
+            public UInt64 MatchDate { get; set; }
+            [ProtoMember(10)]
+            public UInt32 Status { get; set; }
+            [ProtoMember(11)]
+            public string TrendHome { get; set; }
+            [ProtoMember(12)]
+            public string TrendAway { get; set; }
+            [ProtoMember(13)]
+            public string TeamHome { get; set; }
+            [ProtoMember(14)]
+            public string TeamAway { get; set; }
+            [ProtoMember(15)]
+            public List<PlayerProto> PlayersHome { get; set; }
+            [ProtoMember(16)]
+            public List<PlayerProto> PlayersAway { get; set; }
+        }
+        [ProtoContract]
+        private class PlayerProto
+        {
+            [ProtoMember(1)]
+            public UInt32 Id { get; set; }
+            [ProtoMember(2)]
+            public string Name { get; set; }
+            [ProtoMember(3)]
+            public string Position { get; set; }
+            [ProtoMember(4)]
+            public double Vote { get; set; }
+            [ProtoMember(5)]
+            public List<int> Events { get; set; }
+            [ProtoMember(6)]
+            public List<int> EventsMinutes { get; set; }
+            [ProtoMember(7)]
+            public int StampId { get; set; }
+            [ProtoMember(8)]
+            public UInt32 Index { get; set; }
+            [ProtoMember(9)]
+            public UInt32 SubstitutionId { get; set; }
+        }
+    }
+}

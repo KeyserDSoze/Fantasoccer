@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using System.Web;
 
-namespace Fantasoccer.Engine.IngestionData
+namespace Fantasoccer.Business.IngestionData
 {
     internal class Injury : IFormationParser
     {
@@ -14,12 +14,17 @@ namespace Fantasoccer.Engine.IngestionData
             //"https://www.fantacalcio.it/squalificati-e-diffidati-campionato-serie-a",
             //"https://www.fantacalcio.it/infortunati-serie-a"
         };
-        public async Task<List<ChancedRealPlayer>> GetPlayersAsync(HttpClient httpClient)
+        private readonly HttpClient _httpClient;
+        public Injury(IHttpClientFactory httpClientFactory)
+        {
+            _httpClient = httpClientFactory.CreateClient("base");
+        }
+        public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
             List<ChancedRealPlayer> players = new();
             foreach (var url in s_urls)
             {
-                var returnedValue = await httpClient.GetStringAsync(url).NoContext();
+                var returnedValue = await _httpClient.GetStringAsync(url).NoContext();
                 foreach (string teamValue in s_teamsRegex.Split(returnedValue).Skip(1).Take(20))
                 {
                     try
@@ -29,10 +34,10 @@ namespace Fantasoccer.Engine.IngestionData
                         {
                             foreach (var possiblePlayer in s_playerNameRegex.Split(headers[i]).Skip(1))
                             {
-                                string name = HttpUtility.HtmlDecode(possiblePlayer.Split('<').First().Trim().ToLower());
+                                var name = HttpUtility.HtmlDecode(possiblePlayer.Split('<').First().Trim().ToLower());
                                 var player = new ChancedRealPlayer
                                 {
-                                    Name = KeyUtils.GetPlayerKey(name),
+                                    Name = name,
                                     Year = FantacalcioTime.ActualYear,
                                     Chance = new Chance()
                                     {
