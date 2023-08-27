@@ -2,7 +2,7 @@
 
 namespace Fantasoccer
 {
-    public class GameKey: IDefaultKey
+    public class GameKey : IDefaultKey
     {
         public string Group { get; set; }
         public string League { get; set; }

@@ -17,6 +17,7 @@ namespace Fantasoccer.Business
             services.AddTransient<IFantasoccerLogger, FantasoccerLogger>();
             services.AddTransient<IOfficialVote, OfficialVote>();
             services.AddTransient<ILiveVote, LiveVote>();
+            services.AddTransient<ISerieACalendar, SerieACalendar>();
             services.AddHttpClient("base", client =>
             {
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");

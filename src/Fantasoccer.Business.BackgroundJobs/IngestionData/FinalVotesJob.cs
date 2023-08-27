@@ -1,10 +1,9 @@
 ﻿using System.Timers;
-using Fantasoccer;
 using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
-namespace FantacalcioV4.Engine.IngestionData
+namespace Fantasoccer.Engine.IngestionData
 {
     public class FinalVotesJob : IBackgroundJob
     {

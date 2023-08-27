@@ -17,12 +17,22 @@ namespace Fantasoccer.Tests
             services.AddInMemoryInfrastructure<RealCalendar, int>();
             services.AddInMemoryInfrastructure<RealPlayersWrapper, int>();
             services.AddInMemoryInfrastructure<ChancedRealPlayerWrapper, YearDayKey>();
+            services.AddRepository<VotedRealPlayerWrapper, YearDayKey>(builder =>
+            {
+                builder.WithInMemory(name: "live");
+                builder.WithInMemory(name: "official");
+            });
             services.AddInMemoryInfrastructure<Group, string>();
             services.AddInMemoryInfrastructure<Rank, LeagueKey>();
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
+            services.AddInMemoryInfrastructure<Team, TeamKey>();
+            services.AddInMemoryInfrastructure<Team, TeamDayKey>();
             services.AddInMemoryInfrastructure<FantasoccerLog, string>();
+            services
+                .AddContentRepository()
+                .WithInMemoryIntegration("images");
             return services;
         }
         private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services)

@@ -1,9 +1,8 @@
 ﻿using System.Timers;
-using Fantasoccer;
 using Fantasoccer.Business.IngestionData;
 using RepositoryFramework;
 
-namespace FantacalcioV4.Engine.IngestionData
+namespace Fantasoccer.Engine.IngestionData
 {
     public class AllPlayersJob : IBackgroundJob
     {

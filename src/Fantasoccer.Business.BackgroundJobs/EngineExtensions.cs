@@ -1,7 +1,7 @@
-﻿using FantacalcioV4.Engine.IngestionData;
+﻿using Fantasoccer.Engine.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FantacalcioV4.Engine
+namespace Fantasoccer.Engine
 {
     public static class EngineExtensions
     {
@@ -31,16 +31,6 @@ namespace FantacalcioV4.Engine
                     options.Cron = "0 0 5 * * *";
                     //options.RunImmediately = true;
                 })
-                .AddBackgroundJob<DailyRestoringJob>(options =>
-                {
-                    options.Cron = "0 35 7 * * *";
-                    //options.RunImmediately = true;
-                })
-                .AddBackgroundJob<CreateNewYearJob>(options =>
-                {
-                    options.Cron = "0 0 20-25 8 *";
-                    //options.RunImmediately = true;
-                })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
                 {
                     options.Cron = "0 0 1 9 *";
@@ -48,11 +38,6 @@ namespace FantacalcioV4.Engine
                 .AddBackgroundJob<SetFormationJob>(options =>
                 {
                     options.Cron = "0 * * * *";
-                })
-                .AddBackgroundJob<RestoreActualLiveJob>(options =>
-                {
-                    options.Cron = "*/4 * * * *";
-                    options.RunImmediately = true;
                 });
             return services;
         }
