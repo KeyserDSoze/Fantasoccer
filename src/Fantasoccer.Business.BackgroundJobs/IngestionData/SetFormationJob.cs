@@ -66,6 +66,6 @@ namespace Fantasoccer.Engine.IngestionData
         }
 
         public Task OnException(Exception exception)
-            => _logger.LogErrorAsync<AllPlayersJob>(exception);
+            => _logger.LogErrorAsync<SetFormationJob>(exception);
     }
 }
