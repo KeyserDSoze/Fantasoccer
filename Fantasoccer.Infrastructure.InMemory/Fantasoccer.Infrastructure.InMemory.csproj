@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\src\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="5.0.9" />
+        <PackageReference Include="Rystem.RepositoryFramework.Infrastructure.InMemory" Version="5.0.9" />
+    </ItemGroup>
+</Project>

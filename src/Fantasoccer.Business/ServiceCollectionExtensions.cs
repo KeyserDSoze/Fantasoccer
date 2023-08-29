@@ -5,7 +5,7 @@ namespace Fantasoccer.Business
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddBusiness(this IServiceCollection services)
+        public static IServiceCollection AddFantasoccerBusiness(this IServiceCollection services)
         {
             services.AddSingleton<RandomCalendar>();
             services.AddFactory<IFormationParser, Fantagazzetta>(nameof(Fantagazzetta));

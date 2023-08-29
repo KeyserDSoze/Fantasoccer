@@ -16,4 +16,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
+    <ProjectReference Include="..\..\Fantasoccer.Business.BackgroundJobs\Fantasoccer.Business.BackgroundJobs.csproj" />
+  </ItemGroup>
+
 </Project>

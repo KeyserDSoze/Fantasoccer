@@ -12,9 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="6.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
-    <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="5.0.9" />
-    <PackageReference Include="Rystem.RepositoryFramework.Infrastructure.InMemory" Version="5.0.9" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />    <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="5.0.9" />
     <PackageReference Include="xunit" Version="2.4.2" />
     <PackageReference Include="Xunit.DependencyInjection" Version="8.8.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
@@ -28,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
     <ProjectReference Include="..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
     <ProjectReference Include="..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
   </ItemGroup>

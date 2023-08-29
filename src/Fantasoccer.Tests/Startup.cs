@@ -1,5 +1,6 @@
 ﻿using Fantasoccer.Business;
 using Microsoft.Extensions.DependencyInjection;
+using Fantasoccer.InMemory;
 
 namespace Fantasoccer.Tests
 {
@@ -9,7 +10,7 @@ namespace Fantasoccer.Tests
         {
             services.AddPopulationService();
             services.AddInMemoryInfrastructures();
-            services.AddBusiness();
+            services.AddFantasoccerBusiness();
         }
     }
 }
