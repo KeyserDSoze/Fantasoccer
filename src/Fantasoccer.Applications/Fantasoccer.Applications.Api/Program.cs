@@ -3,11 +3,20 @@ using Microsoft.Identity.Web;
 using Fantasoccer.Engine;
 using Fantasoccer.Business;
 using Fantasoccer.InMemory;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAdB2c"));
+     .AddMicrosoftIdentityWebApi(options =>
+     {
+         builder.Configuration.Bind("AzureAdB2c", options);
+         options.TokenValidationParameters.NameClaimType = "name";
+     },
+    options =>
+    {
+        builder.Configuration.Bind("AzureAdB2c", options);
+    });
 builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>
@@ -27,6 +36,7 @@ builder.Services.AddApiFromRepositoryFramework()
 var app = builder.Build();
 await app.Services.WarmUpAsync();
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.UseApiFromRepositoryFramework()
