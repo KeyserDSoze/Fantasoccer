@@ -11,9 +11,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Business.BackgroundJobs", "src\Fantasoccer.Business.BackgroundJobs\Fantasoccer.Business.BackgroundJobs.csproj", "{BD3C33C2-AB3F-41C0-A8F4-1D23BFC1D6AC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Business", "src\Fantasoccer.Business\Fantasoccer.Business.csproj", "{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Business", "src\Fantasoccer.Business\Fantasoccer.Business.csproj", "{7D9DE7F3-EA0D-406F-B706-2BCA44D94540}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Tests", "src\Fantasoccer.Tests\Fantasoccer.Tests.csproj", "{A2755DAD-8857-401D-925F-591EFF2DF5B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Tests", "src\Fantasoccer.Tests\Fantasoccer.Tests.csproj", "{A2755DAD-8857-401D-925F-591EFF2DF5B2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Applications", "{7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Applications.Api", "src\Fantasoccer.Applications\Fantasoccer.Applications.Api\Fantasoccer.Applications.Api.csproj", "{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Applications.App", "src\Fantasoccer.Applications\Fantasoccer.Applications.App\Fantasoccer.Applications.App.csproj", "{F264A069-C165-4F79-9EE8-ED7AF0D2057B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,6 +47,14 @@ Global
 		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A2755DAD-8857-401D-925F-591EFF2DF5B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -51,6 +65,9 @@ Global
 		{BD3C33C2-AB3F-41C0-A8F4-1D23BFC1D6AC} = {91114266-E644-452D-8132-7D762C9B8968}
 		{7D9DE7F3-EA0D-406F-B706-2BCA44D94540} = {91114266-E644-452D-8132-7D762C9B8968}
 		{A2755DAD-8857-401D-925F-591EFF2DF5B2} = {91114266-E644-452D-8132-7D762C9B8968}
+		{7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9} = {91114266-E644-452D-8132-7D762C9B8968}
+		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
+		{F264A069-C165-4F79-9EE8-ED7AF0D2057B} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}
