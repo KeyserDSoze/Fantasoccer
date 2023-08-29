@@ -40,7 +40,7 @@ namespace Fantasoccer.Business.IngestionData
                     if (!s_trRegex.IsMatch(squadra))
                         continue;
                     var realTeam = s_nameOfTeamRegex.Split(squadra)[1].Split('"')[1].ToLower();
-                    realTeam = realTeam.Substring(0, 1).ToUpper() + realTeam.Substring(1).ToLower();
+                    realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                     foreach (var element in s_trRegex.Split(s_tbodyRegex.Split(squadra)[1]).Skip(1))
                     {
                         var elementSplitted = s_tdedRegex.Split(element);

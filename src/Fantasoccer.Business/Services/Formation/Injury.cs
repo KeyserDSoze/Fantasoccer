@@ -25,12 +25,14 @@ namespace Fantasoccer.Business.IngestionData
             foreach (var url in s_urls)
             {
                 var returnedValue = await _httpClient.GetStringAsync(url).NoContext();
-                foreach (string teamValue in s_teamsRegex.Split(returnedValue).Skip(1).Take(20))
+                foreach (var teamValue in s_teamsRegex.Split(returnedValue).Skip(1).Take(20))
                 {
                     try
                     {
+                        var realTeam = teamValue.Split("<span class=\"team-name\">")[1].Split('<')[0];
+                        realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                         var headers = s_headerRegex.Split(teamValue).Skip(1).ToList();
-                        for (int i = 0; i < headers.Count; i++)
+                        for (var i = 0; i < headers.Count; i++)
                         {
                             foreach (var possiblePlayer in s_playerNameRegex.Split(headers[i]).Skip(1))
                             {
@@ -39,6 +41,7 @@ namespace Fantasoccer.Business.IngestionData
                                 {
                                     Name = name,
                                     Year = FantacalcioTime.ActualYear,
+                                    RealTeam = realTeam,
                                     Chance = new Chance()
                                     {
                                         Status = (ChanceType)(i + 1)

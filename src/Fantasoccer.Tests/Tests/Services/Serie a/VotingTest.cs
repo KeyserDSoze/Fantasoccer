@@ -22,7 +22,7 @@ namespace Fantasoccer.Tests.Tests.Services
         public async Task FetchOfficialAsync()
         {
             var players = await _official.GetAsync(FantacalcioTime.ActualYear, 1).NoContext();
-            Assert.NotNull(players);
+            Assert.NotEmpty(players);
             Assert.True(players.Count > 60);
             Assert.Equal(20, players.GroupBy(x => x.RealTeam).Count());
         }

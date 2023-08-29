@@ -17,27 +17,30 @@ namespace Fantasoccer.Business.IngestionData
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
             List<ChancedRealPlayer> players = new();
-            string returnedValue = await _httpClient.GetStringAsync("https://www.gazzetta.it/Calcio/prob_form/").NoContext();
+            var returnedValue = await _httpClient.GetStringAsync("https://www.gazzetta.it/Calcio/prob_form/").NoContext();
             List<string> games = new();
-            string[] appoggio1 = s_matchFieldContainerRegex.Split(returnedValue);
+            var appoggio1 = s_matchFieldContainerRegex.Split(returnedValue);
             for (int i = 1; i < appoggio1.Length; i++)
                 games.Add(s_aboveContainerRegex.Split(appoggio1[i])[0]);
-            foreach (string app in games)
+            foreach (var app in games)
             {
-                string s = app;
-                string[] leul = s_ulRegex.Split(s);
-                MatchCollection playersi1Tit = s_spanRegex.Matches(leul[2]);
-                MatchCollection playersI2Tit = s_spanRegex.Matches(leul[3]);
-                SetPlayers(playersi1Tit);
-                SetPlayers(playersI2Tit);
-                void SetPlayers(MatchCollection values)
+                var s = app;
+                var leul = s_ulRegex.Split(s);
+                var playersi1Tit = s_spanRegex.Matches(leul[2]);
+                var playersI2Tit = s_spanRegex.Matches(leul[3]);
+                var teams = leul[0].Split("https://www.gazzetta.it/calcio/squadre/");
+                SetPlayers(playersi1Tit, teams[1].Split('/')[0]);
+                SetPlayers(playersI2Tit, teams[2].Split('/')[0]);
+                void SetPlayers(MatchCollection values, string realTeam)
                 {
+                    realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                     foreach (Match m in values)
                     {
                         var name = HttpUtility.HtmlDecode(m.ToString().Split('>')[1].Split('<')[0].ToLower());
                         var player = new ChancedRealPlayer
                         {
                             Name = name,
+                            RealTeam = realTeam,
                             Year = FantacalcioTime.ActualYear,
                             Chance = new Chance()
                             {
