@@ -7,7 +7,6 @@ namespace Fantasoccer.Business.IngestionData
 {
     internal sealed class LiveVote : ILiveVote
     {
-        public int Day { get; private set; }
         private readonly HttpClient _httpClient;
         private readonly IRepository<RealCalendar, int> _realCalendar;
         public LiveVote(IHttpClientFactory httpClientFactory,
@@ -16,94 +15,99 @@ namespace Fantasoccer.Business.IngestionData
             _httpClient = httpClientFactory.CreateClient("base");
             _realCalendar = realCalendar;
         }
-        public async Task<List<VotedRealPlayer>> GetAsync()
+        public async Task<List<VotedRealPlayer>> GetAsync(int year, int day)
         {
             var players = new List<VotedRealPlayer>();
-            var actualYear = FantacalcioTime.ActualYear;
-            var realCalendar = await _realCalendar.GetAsync(actualYear).NoContext();
-            if (realCalendar != null)
+            var protoData = await GetLiveAsync(year + 6, day);
+            if (protoData != null)
             {
-                var liveDay = realCalendar.LiveDay;
-                Day = liveDay?.SerieADay ?? 0;
-                if (liveDay != default && realCalendar.IsLive)
+                foreach (var game in protoData.ProtoData)
                 {
-                    var protoData = await GetLiveAsync(actualYear + 6, realCalendar.LiveDay.SerieADay);
-                    foreach (var game in protoData.ProtoData)
-                    {
-                        if (game.PlayersHome != null)
-                            foreach (var player in game.PlayersHome)
-                                SetPlayer(player);
-                        if (game.PlayersAway != null)
-                            foreach (var player in game.PlayersAway)
-                                SetPlayer(player);
-                    }
-
-                    void SetPlayer(PlayerProto playerProto)
-                    {
-                        if (playerProto.Position == "ALL")
-                            return;
-                        VotedRealPlayer player = new()
-                        {
-                            Name = playerProto.Name[..1].ToUpper() + playerProto.Name[1..].ToLower(),
-                        };
-                        Dictionary<int, int> currentEvents = new();
-                        if (playerProto.Events != null)
-                            foreach (var theEvent in playerProto.Events)
-                            {
-                                if (!currentEvents.ContainsKey(theEvent))
-                                    currentEvents.Add(theEvent, 0);
-                                currentEvents[theEvent]++;
-                            }
-                        var role = playerProto.Position.ToLower() switch
-                        {
-                            "p" => Role.GoalKeeper,
-                            "d" => Role.Defensor,
-                            "c" => Role.Midfielder,
-                            "a" => Role.Forward,
-                            _ => Role.Undefined
-                        };
-                        var vote = (float)playerProto.Vote;
-                        player.Vote = new Vote
-                        {
-                            Role = role,
-                            Value = vote == 55f ? 0 : vote,
-                            IsFinal = false,
-                            Goal = getValue(3),
-                            Penalty = getValue(9),
-                            Assist = (currentEvents.ContainsKey(5) ? currentEvents[5] : 0) + (currentEvents.ContainsKey(6) ? currentEvents[6] : 0) +
-                                    (currentEvents.ContainsKey(24) ? currentEvents[24] : 0) + (currentEvents.ContainsKey(21) ? currentEvents[21] : 0) + (currentEvents.ContainsKey(22) ? currentEvents[22] : 0) +
-                                    (currentEvents.ContainsKey(23) ? currentEvents[23] : 0),
-                            StoppedPenalty = getValue(7),
-                            SufferedGoal = getValue(4),
-                            WrongedPenalty = getValue(8),
-                            OwnGoal = getValue(10),
-                            Status = currentEvents.ContainsKey(1) ? Behaviour.YellowCard : (currentEvents.ContainsKey(2) ? Behaviour.RedCard : Behaviour.Nothing),
-                            HasVote = vote != 55f,
-                            IsIn = currentEvents.ContainsKey(14),
-                            IsOut = currentEvents.ContainsKey(15),
-                        };
-                        int getValue(int x)
-                        {
-                            return currentEvents.ContainsKey(x) ? currentEvents[x] : 0;
-                        }
-                        players.Add(player);
-                    }
+                    if (game.PlayersHome != null)
+                        foreach (var player in game.PlayersHome)
+                            SetPlayer(player);
+                    if (game.PlayersAway != null)
+                        foreach (var player in game.PlayersAway)
+                            SetPlayer(player);
                 }
+            }
+
+            void SetPlayer(PlayerProto playerProto)
+            {
+                if (playerProto.Position == "ALL")
+                    return;
+                VotedRealPlayer player = new()
+                {
+                    Name = playerProto.Name[..1].ToUpper() + playerProto.Name[1..].ToLower(),
+                };
+                Dictionary<int, int> currentEvents = new();
+                if (playerProto.Events != null)
+                    foreach (var theEvent in playerProto.Events)
+                    {
+                        if (!currentEvents.ContainsKey(theEvent))
+                            currentEvents.Add(theEvent, 0);
+                        currentEvents[theEvent]++;
+                    }
+                var role = playerProto.Position.ToLower() switch
+                {
+                    "p" => Role.GoalKeeper,
+                    "d" => Role.Defensor,
+                    "c" => Role.Midfielder,
+                    "a" => Role.Forward,
+                    _ => Role.Undefined
+                };
+                var vote = (float)playerProto.Vote;
+                player.Vote = new Vote
+                {
+                    Role = role,
+                    Value = vote == 55f ? 0 : vote,
+                    IsFinal = false,
+                    Goal = getValue(3),
+                    Penalty = getValue(9),
+                    Assist = (currentEvents.ContainsKey(5) ? currentEvents[5] : 0) + (currentEvents.ContainsKey(6) ? currentEvents[6] : 0) +
+                            (currentEvents.ContainsKey(24) ? currentEvents[24] : 0) + (currentEvents.ContainsKey(21) ? currentEvents[21] : 0) + (currentEvents.ContainsKey(22) ? currentEvents[22] : 0) +
+                            (currentEvents.ContainsKey(23) ? currentEvents[23] : 0),
+                    StoppedPenalty = getValue(7),
+                    SufferedGoal = getValue(4),
+                    WrongedPenalty = getValue(8),
+                    OwnGoal = getValue(10),
+                    Status = currentEvents.ContainsKey(1) ? Behaviour.YellowCard : (currentEvents.ContainsKey(2) ? Behaviour.RedCard : Behaviour.Nothing),
+                    HasVote = vote != 55f,
+                    IsIn = currentEvents.ContainsKey(14),
+                    IsOut = currentEvents.ContainsKey(15),
+                };
+                int getValue(int x)
+                {
+                    return currentEvents.ContainsKey(x) ? currentEvents[x] : 0;
+                }
+                players.Add(player);
             }
             return players;
         }
         private static readonly Regex s_regexForSplitting = new("signedUri");
 
-        private async Task<LiveMessage> GetLiveAsync(int year, int day)
+        private async Task<LiveMessage?> GetLiveAsync(int year, int day)
         {
             var httpContent = new StringContent($"{{\"resourcesUri\":[\"https://api.fantacalcio.it/v1/st/{year}/matches/live/{day}.dat\"]}}", Encoding.UTF8, "application/json");
+            _httpClient.DefaultRequestHeaders.Add("Origin", "https://www.fantacalcio.it");
+            _httpClient.DefaultRequestHeaders.Add("Referer", "https://www.fantacalcio.it/live-serie-a");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua", "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Google Chrome\";v=\"116\"");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua-Mobile", "?0");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua-Platform", "Windows");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
+            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
             var response = await _httpClient.PostAsync("https://www.fantacalcio.it/api/v1/SignedUri", httpContent);
             var responseAsString = await response.Content.ReadAsStringAsync();
-            var result = s_regexForSplitting.Split(responseAsString)[1].Split('"')[2];
-
-            var theResponse = await _httpClient.GetStreamAsync(result);
-            var liveMessage = Serializer.Deserialize<LiveMessage>(theResponse);
-            return liveMessage;
+            if (!responseAsString.Contains("Not Found"))
+            {
+                var result = s_regexForSplitting.Split(responseAsString)[1].Split('"')[2];
+                var theResponse = await _httpClient.GetStreamAsync(result);
+                var liveMessage = Serializer.Deserialize<LiveMessage>(theResponse);
+                return liveMessage;
+            }
+            else
+                return null;
         }
 
         [ProtoContract]

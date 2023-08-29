@@ -47,6 +47,8 @@ namespace Fantasoccer.Business.IngestionData
                         VotedRealPlayer player = new()
                         {
                             Name = GetName(element),
+                            RealTeam = realTeam,
+                            IsActive = true
                         };
                         var vote = GetVote(elementSplitted[1]);
                         player.Role = GetRole(element).ToLower() switch

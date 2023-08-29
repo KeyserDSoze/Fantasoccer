@@ -2,7 +2,6 @@
 {
     public interface ILiveVote
     {
-        Task<List<VotedRealPlayer>> GetAsync();
-        int Day { get; }
+        Task<List<VotedRealPlayer>> GetAsync(int year, int day);
     }
 }

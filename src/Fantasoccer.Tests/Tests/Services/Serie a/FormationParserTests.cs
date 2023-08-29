@@ -1,7 +1,7 @@
 ﻿using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Fantasoccer.Tests.Tests.Services.FormationParsers
+namespace Fantasoccer.Tests.Tests.Services
 {
     public class FormationParserTests
     {
