@@ -1,0 +1,52 @@
+﻿@using Blazorise;
+<Blazorise.ThemeProvider Theme="@theme">
+    <CascadingValue Value="@identity">
+        <Router AppAssembly="@typeof(App).Assembly">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <p role="alert">Sorry, there's nothing at this address.</p>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </CascadingValue>
+</Blazorise.ThemeProvider>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationState { get; set; }
+    private AppIdentity? identity;
+    private Theme theme = new Theme
+        {
+            ColorOptions = new ThemeColorOptions
+            {
+                Primary = "#8b2c62",
+                Secondary = "#db3258",
+                Light = "#e8fcdc",
+                Dark = "#2d2c39",
+                Info = "#01854d",
+                Success = "#019e6b",
+                Warning = "#d3ce01",
+                Danger = "#df3d00",
+                Link = "#ffffff"
+            }
+        };
+    protected override async Task OnParametersSetAsync()
+    {
+        if (authenticationState is not null)
+        {
+            var authState = await authenticationState;
+            var user = authState?.User;
+
+            if (user?.Identity is not null && user.Identity.IsAuthenticated)
+            {
+                identity = await Api.AppIdentity.GetAsync(user.Identity.Name!);
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
+}

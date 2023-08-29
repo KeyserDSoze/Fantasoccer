@@ -1,6 +1,11 @@
-﻿using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+﻿using Fantasoccer.Applications.App;
+using Fantasoccer.Applications.App.Extensions;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using Blazorise.Bootstrap5;
+using Blazorise.Icons.FontAwesome;
+using Blazorise;
 
 var builder = WebApplication.CreateBuilder(args);
 var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
@@ -11,7 +16,15 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddInMemoryTokenCaches();
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
-
+builder.Services
+    .AddBlazorise(options =>
+    {
+        options.Immediate = true;
+    })
+    .AddBootstrap5Providers()
+    .AddFontAwesomeIcons();
+builder.Services.AddTransient<ApiService>();
+builder.Services.AddHttpClientForApi(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
     // By default, all incoming requests will be authorized according to the default policy

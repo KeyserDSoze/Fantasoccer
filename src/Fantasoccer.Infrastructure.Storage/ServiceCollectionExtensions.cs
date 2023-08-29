@@ -32,6 +32,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString);
+            await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
             await services.AddRepositoryAsync<SerieATeamsWrapper, int>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>
