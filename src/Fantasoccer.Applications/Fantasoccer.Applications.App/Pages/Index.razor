@@ -23,7 +23,7 @@
                                 Striped
                                 Responsive>
                      <DataGridCommandColumn />
-                     <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable=false/>
+                     <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable=false />
                      <DataGridColumn Field="@nameof(RankedTeam.Owner)" Caption="Owner" Sortable=false />
                      <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="Points" Sortable />
                          <DataGridColumn Field="@nameof(RankedTeam.ValuePoint)" Caption="Value Points" Sortable />
@@ -40,15 +40,16 @@
 }
 else
 {
-    <DisplayHeading Size="DisplayHeadingSize.Is4">Year not presented.</DisplayHeading>
+    <DisplayHeading Size="DisplayHeadingSize.Is4">@nullRank</DisplayHeading>
 }
 
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     private Rank? rank;
-    private RankedTeam selectedTeam;
+    private RankedTeam? selectedTeam;
     private string? selectedTab;
+    private string nullRank = "Loading...";
 
     private Task OnSelectedTabChanged(string name)
     {
@@ -62,6 +63,8 @@ else
             rank = await Api.Ranks.GetAsync(State.LeagueKey);
             if (rank != null)
                 selectedTab = rank.RankedTeams.First().Key;
+            else
+                nullRank = "Year not presented.";
         }
         await base.OnParametersSetAsync();
     }
