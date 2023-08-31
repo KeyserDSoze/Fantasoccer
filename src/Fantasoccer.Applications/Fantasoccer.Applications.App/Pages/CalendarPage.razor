@@ -1,0 +1,102 @@
+﻿@page "/calendar"
+@using Blazorise.DataGrid
+
+<PageTitle>Calendar</PageTitle>
+
+@if (calendar != null)
+{
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
+        <Items>
+            @foreach (var calendarByRound in calendar.Rounds)
+            {
+                <Tab Name="@calendarByRound.Key">Round @calendarByRound.Key</Tab>
+            }
+        </Items>
+        <Content>
+            @foreach (var calendarByRound in calendar.Rounds)
+            {
+                <TabPanel Name="@calendarByRound.Key">
+                    @foreach (var day in calendarByRound.Value)
+                    {
+                        <Card>
+                            <CardBody>
+                                <CardTitle Size="3">
+                                    Day @day.SerieADay
+                                </CardTitle>
+                                <CardText>
+                                    <Table Striped>
+                                     <TableHeader>
+                                         <TableRow>
+                                             <TableHeaderCell>#</TableHeaderCell>
+                                             <TableHeaderCell>Home Team</TableHeaderCell>
+                                             <TableHeaderCell>Points</TableHeaderCell>
+                                             <TableHeaderCell>Away Team</TableHeaderCell>
+                                         </TableRow>
+                                     </TableHeader>
+                                     <TableBody>
+                                         @{
+                                                var counter = 0;
+                                            }
+                                            @foreach (var game in day.Games)
+                                            {
+                                                var x = counter++;
+                                                <TableRow>
+                                                    <TableRowHeader>@x</TableRowHeader>
+                                                    <TableRowCell>@game.Home</TableRowCell>
+                                                    @if (game.Result != null)
+                                                    {
+                                                        <TableRowCell>
+                                                            @game.Result.HomeGoal (@game.Result.Home.Value) - (@game.Result.Away.Value) @game.Result.AwayGoal
+                                                        </TableRowCell>
+                                                    }
+                                                    else
+                                                    {
+                                                        <TableRowCell>
+                                                            to play
+                                                        </TableRowCell>
+                                                    }
+                                                    <TableRowCell>@game.Away</TableRowCell>
+                                                </TableRow>
+                                            }
+                                        </TableBody>
+                                    </Table>
+                                </CardText>
+                            </CardBody>
+                        </Card>
+                    }
+                </TabPanel>
+            }
+        </Content>
+    </Tabs>
+}
+else
+{
+    <DisplayHeading Size="DisplayHeadingSize.Is4">@nullRank</DisplayHeading>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    private Calendar? calendar;
+    private RankedTeam? selectedTeam;
+    private string? selectedTab;
+    private string nullRank = "Loading...";
+
+    private Task OnSelectedTabChanged(string name)
+    {
+        selectedTab = name;
+        return Task.CompletedTask;
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            if (calendar != null)
+                selectedTab = calendar.Rounds.First().Key;
+            else
+                nullRank = "Year not presented.";
+        }
+        await base.OnParametersSetAsync();
+    }
+}

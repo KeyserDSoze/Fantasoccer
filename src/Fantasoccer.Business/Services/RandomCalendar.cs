@@ -11,7 +11,7 @@ namespace Fantasoccer.Business
             var calendar = new Calendar()
             {
                 Year = year,
-                Days = new()
+                Rounds = new()
             };
             for (var round = startRound; startRound == 0 ? round < 1 : round < 5; round++)
             {
@@ -26,32 +26,25 @@ namespace Fantasoccer.Business
                 } while (numberOfDay + teamsInRound.Count - 1 <= (startRound == 0 ? 38 : 12));
                 for (var homeAwayRound = 0; homeAwayRound < homeAndAwayCount; homeAwayRound++)
                 {
-                    foreach (var gameByDay in randomizedCalendar.GroupBy(x => x.Day))
+                    foreach (var gameByDay in randomizedCalendar.GroupBy(x => x.Round))
                     {
-                        var serieADay = calendar.Days.Where(x => x.Games.Any(t => t.Key == round)).LastOrDefault()?.SerieADay + 1 ?? league.Settings.DelayedDay + 1;
-                        var daily = calendar.Days.FirstOrDefault(x => x.SerieADay == serieADay);
-                        if (daily == default)
+                        var key = ((char)(65 + round)).ToString();
+                        if (!calendar.Rounds.ContainsKey(key))
+                            calendar.Rounds.Add(key, new());
+                        var singleRound = calendar.Rounds[key];
+                        foreach (var games in gameByDay.GroupBy(x => x.Day))
                         {
-                            daily = new Day
-                            {
-                                Games = new(),
-                                SerieADay = serieADay
-                            };
-                            calendar.Days.Add(daily);
-                        }
-                        foreach (var gameByRound in gameByDay.OrderBy(x => x.Round).GroupBy(x => x.Round))
-                        {
-                            if (!daily.Games.ContainsKey(gameByRound.Key))
-                                daily.Games.Add(gameByRound.Key, new());
-                            foreach (var game in gameByRound)
+                            var day = new Day { Games = new(), SerieADay = games.Key + league.Settings.DelayedDay };
+                            singleRound.Add(day);
+                            foreach (var game in games)
                             {
                                 var home = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.TeamA] : teamsInRound[game.Game.TeamB];
                                 var away = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.TeamB] : teamsInRound[game.Game.TeamA];
-                                daily.Games[game.Round].Add(new CalendarGame
+                                day.Games.Add(new CalendarGame
                                 {
                                     Id = Guid.NewGuid().ToString(),
-                                    Away = away.Name,
                                     Home = home.Name,
+                                    Away = away.Name,
                                 });
                             }
                         }

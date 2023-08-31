@@ -97,7 +97,7 @@ namespace Fantasoccer.InMemory
                     };
                     for (var i = 0; i < 4; i++)
                     {
-                        var key = ((char)(65 + i)).ToString();
+                        var key = ((char)(41 + i)).ToString();
                         newRank.RankedTeams.Add(key, new());
                         for (var j = 0; j < 10; j++)
                         {

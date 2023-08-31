@@ -5,7 +5,7 @@ namespace Fantasoccer.Engine
 {
     public static class EngineExtensions
     {
-        public static async Task<IServiceCollection> AddFantacalcioBackgroundWorkAsync(this IServiceCollection services)
+        public static IServiceCollection AddFantasoccerBackgroundWork(this IServiceCollection services)
         {
             services
                 .AddBackgroundJob<PlayerOddsJob>(options =>

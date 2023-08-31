@@ -20,7 +20,7 @@
                 return $"{(date.Year - 1)}/{date.Year}";
             return $"{date.Year}/{(date.Year + 1)}";
         }
-        public static string LabelYear(int year) 
+        public static string LabelYear(int year)
             => $"{2011 + year}/{(2012 + year)}";
         public static string LabelYearWithSmallerYear(int year)
            => $"{2011 + year}-{(12 + year)}";

@@ -14,9 +14,9 @@ namespace Fantasoccer.Tests
             _populationService = populationService;
         }
         [Theory]
-        [InlineData(10, LeagueType.League, 36)]
-        [InlineData(16, LeagueType.Cup, 12)]
-        public void Create(int numberOfTeams, LeagueType leagueType, int numberOfDays)
+        [InlineData(10, LeagueType.League, 36, 1)]
+        [InlineData(16, LeagueType.Cup, 12, 4)]
+        public void Create(int numberOfTeams, LeagueType leagueType, int numberOfDays, int rounds)
         {
             var calendar = _randomCalendar.GetRandomCalendar(2, new AnnualLeague
             {
@@ -30,7 +30,8 @@ namespace Fantasoccer.Tests
             });
 
             Assert.NotNull(calendar);
-            Assert.Equal(calendar.Days.Count, numberOfDays);
+            Assert.Equal(calendar.Rounds.Count, rounds);
+            Assert.Equal(calendar.Rounds.First().Value.Count, numberOfDays);
         }
     }
 }
