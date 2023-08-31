@@ -4,9 +4,9 @@
     {
         public string Name { get; set; }
         public string Owner { get; set; }
-        public int Point { get; private set; }
-        public int Victories { get; private set; }
-        public int Draws { get; private set; }
+        public int Point { get; set; }
+        public int Victories { get; set; }
+        public int Draws { get; set; }
         public int Defeats { get; set; }
         public int Goal { get; set; }
         public int SufferedGoal { get; set; }

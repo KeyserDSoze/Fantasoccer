@@ -1,39 +1,101 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Fantasoccer.Applications.App</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="oi oi-plus" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="fetchdata">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
-            </NavLink>
-        </div>
-    </nav>
-</div>
+﻿<Bar Mode="BarMode.VerticalInline"
+     CollapseMode="BarCollapseMode.Small"
+     Breakpoint="Breakpoint.Desktop"
+     NavigationBreakpoint="Breakpoint.Tablet"
+     ThemeContrast="ThemeContrast.Dark">
+    <BarBrand>
+        <BarItem>
+            <BarLink To="#">
+                <BarIcon IconName="IconName.Dashboard" />
+                Fantasoccer
+            </BarLink>
+        </BarItem>
+    </BarBrand>
+    <BarMenu>
+        <BarStart>
+            <BarItem>
+                <BarLink To="#home">
+                    <BarIcon IconName="IconName.Dashboard" />
+                    Home
+                </BarLink>
+            </BarItem>
+            <BarItem>
+                <BarLink To="#docs">Documentation</BarLink>
+            </BarItem>
+            @if (Identity != null)
+            {
+                <BarItem>
+                    <BarDropdown>
+                        <BarDropdownToggle>
+                            <BarIcon IconName="IconName.LayerGroup" />
+                            Group
+                        </BarDropdownToggle>
+                        <BarDropdownMenu>
+                            @foreach (var group in Identity.Groups)
+                            {
+                                <BarDropdown>
+                                    <BarDropdownToggle>
+                                        <BarIcon IconName="IconName.Flag" />
+                                        @group.Name
+                                    </BarDropdownToggle>
+                                    <BarDropdownMenu>
+                                        @foreach (var league in group.Leagues)
+                                        {
+                                            <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => ChangeLeague(group.Id, league.Id)">
+                                                <BarIcon IconName="IconName.DotCircle" />
+                                                @league.Name
+                                            </BarDropdownItem>
+                                        }
+                                    </BarDropdownMenu>
+                                </BarDropdown>
+                            }
+                        </BarDropdownMenu>
+                    </BarDropdown>
+                </BarItem>
+            }
+            <BarItem>
+                <BarDropdown>
+                    <BarDropdownToggle>
+                        <BarIcon IconName="IconName.CalendarTimes" />
+                        Years
+                    </BarDropdownToggle>
+                    <BarDropdownMenu>
+                        @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
+                        {
+                            var actualYear = year;
+                            <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
+                                             Clicked="x => ChangeYear(actualYear)">
+                                <BarIcon IconName="IconName.Times" />
+                                @FantacalcioTime.LabelYear(actualYear)
+                            </BarDropdownItem>
+                        }
+                    </BarDropdownMenu>
+                </BarDropdown>
+            </BarItem>
+        </BarStart>
+    </BarMenu>
+</Bar>
 
 @code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
+    [CascadingParameter]
+    private AppIdentity? Identity { get; set; }
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    private void ChangeLeague(string groupId, string leagueId)
     {
-        collapseNavMenu = !collapseNavMenu;
+        if (State != null)
+        {
+            State.GroupId = groupId;
+            State.LeagueId = leagueId;
+            State.Update();
+        }
+    }
+    private void ChangeYear(int year)
+    {
+        if (State != null)
+        {
+            State.Year = year;
+            State.Update();
+        }
     }
 }

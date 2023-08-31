@@ -30,6 +30,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddInMemoryInfrastructures();
 builder.Services.AddFantasoccerBusiness();
+builder.Services.AddDefaultValues();
 await builder.Services.AddFantacalcioBackgroundWorkAsync();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()

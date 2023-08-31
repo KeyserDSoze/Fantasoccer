@@ -6,6 +6,7 @@ using Microsoft.Identity.Web.UI;
 using Blazorise.Bootstrap5;
 using Blazorise.Icons.FontAwesome;
 using Blazorise;
+using Blazored.LocalStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
@@ -23,6 +24,7 @@ builder.Services
     })
     .AddBootstrap5Providers()
     .AddFontAwesomeIcons();
+builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddTransient<ApiService>();
 builder.Services.AddHttpClientForApi(builder.Configuration);
 builder.Services.AddAuthorization(options =>

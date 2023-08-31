@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Domain.SerieA;
+﻿using System.Security.Cryptography;
+using Fantasoccer.Domain.SerieA;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 using RepositoryFramework.InMemory;
@@ -57,26 +58,26 @@ namespace Fantasoccer.InMemory
                     {
                         new GroupForIdentity
                         {
-                            Id = Guid.NewGuid().ToString(),
+                            Id = "Fantasoccer1",
                             Name = "Fantasoccer1",
                             Role = IdentityRole.Admin | IdentityRole.Participant,
                             Leagues = new List<LeagueForIdentity>
                             {
                                 new LeagueForIdentity
                                 {
-                                    Id = Guid.NewGuid().ToString(),
+                                    Id = "Liga1",
                                     Name = "Liga 1",
                                     Role = IdentityRole.Participant
                                 },
                                 new LeagueForIdentity
                                 {
-                                    Id = Guid.NewGuid().ToString(),
+                                    Id = "Liga2",
                                     Name = "Liga 2",
                                     Role = IdentityRole.Reader
                                 },
                                 new LeagueForIdentity
                                 {
-                                    Id = Guid.NewGuid().ToString(),
+                                    Id = "Liga4",
                                     Name = "Liga 4",
                                     Role = IdentityRole.Admin
                                 }
@@ -84,6 +85,41 @@ namespace Fantasoccer.InMemory
                         }
                     }
                 });
+                var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
+                await rank.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga1", Year = FantacalcioTime.ActualYear }, GetRandomRank());
+                await rank.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga2", Year = FantacalcioTime.ActualYear }, GetRandomRank());
+                await rank.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga4", Year = FantacalcioTime.ActualYear }, GetRandomRank());
+                Rank GetRandomRank()
+                {
+                    var newRank = new Rank
+                    {
+                        RankedTeams = new Dictionary<string, List<RankedTeam>>()
+                    };
+                    for (var i = 0; i < 4; i++)
+                    {
+                        var key = ((char)(41 + i)).ToString();
+                        newRank.RankedTeams.Add(key, new());
+                        for (var j = 0; j < 10; j++)
+                        {
+                            newRank.RankedTeams[key].Add(new RankedTeam
+                            {
+                                Name = $"Team{j}",
+                                Defeats = 3,
+                                Draws = 3,
+                                Money = 3,
+                                Goal = 3,
+                                PlusMoney = 20,
+                                Owner = "email",
+                                Point = RandomNumberGenerator.GetInt32(20, 100),
+                                SufferedGoal = 20,
+                                SufferedValuePoint = 23,
+                                ValuePoint = 34,
+                                Victories = 45
+                            });
+                        }
+                    }
+                    return newRank;
+                }
             });
             return services;
         }

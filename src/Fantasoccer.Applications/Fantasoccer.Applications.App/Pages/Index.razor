@@ -1,9 +1,62 @@
 ﻿@page "/"
+@using Blazorise.DataGrid
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Rank</PageTitle>
 
-<h1>Hello, world!</h1>
+@if (rank != null)
+{
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
+        <Items>
+            @foreach (var rankByRound in rank.RankedTeams)
+            {
+                <Tab Name="@rankByRound.Key">Round @rankByRound.Key</Tab>
+            }
+        </Items>
+        <Content>
+            @foreach (var rankByRound in rank.RankedTeams)
+            {
+                <TabPanel Name="@rankByRound.Key">
+                    <DataGrid TItem="RankedTeam"
+                              Data="@rankByRound.Value"
+                    @bind-SelectedRow="@selectedTeam"
+                                Responsive>
+                     <DataGridCommandColumn />
+                     <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable="false" />
+                     <DataGridColumn Field="@nameof(RankedTeam.Owner)" Caption="Owner"
+                                                Sortable />
+                         <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="Points"
+                                                Editable />
+                     </DataGrid>
+                 </TabPanel>
+            }
+        </Content>
+    </Tabs>
+}
+else
+{
+    <DisplayHeading Size="DisplayHeadingSize.Is4">Year not presented.</DisplayHeading>
+}
 
-Welcome to your new app.
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    private Rank? rank;
+    private RankedTeam selectedTeam;
+    private string? selectedTab;
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+    private Task OnSelectedTabChanged(string name)
+    {
+        selectedTab = name;
+        return Task.CompletedTask;
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            rank = await Api.Ranks.GetAsync(State.LeagueKey);
+            if (rank != null)
+                selectedTab = rank.RankedTeams.First().Key;
+        }
+        await base.OnParametersSetAsync();
+    }
+}

@@ -1,25 +1,31 @@
-﻿@using Blazorise;
+﻿@using Blazored.LocalStorage;
+@using Blazorise;
 <Blazorise.ThemeProvider Theme="@theme">
     <CascadingValue Value="@identity">
-        <Router AppAssembly="@typeof(App).Assembly">
-            <Found Context="routeData">
-                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-            </Found>
-            <NotFound>
-                <PageTitle>Not found</PageTitle>
-                <LayoutView Layout="@typeof(MainLayout)">
-                    <p role="alert">Sorry, there's nothing at this address.</p>
-                </LayoutView>
-            </NotFound>
-        </Router>
+        <CascadingValue Value="@state">
+            <Router AppAssembly="@typeof(App).Assembly">
+                <Found Context="routeData">
+                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                    <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+                </Found>
+                <NotFound>
+                    <PageTitle>Not found</PageTitle>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <p role="alert">Sorry, there's nothing at this address.</p>
+                    </LayoutView>
+                </NotFound>
+            </Router>
+        </CascadingValue>
     </CascadingValue>
 </Blazorise.ThemeProvider>
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? authenticationState { get; set; }
+    [Inject]
+    private ILocalStorageService? localStorage { get; set; }
     private AppIdentity? identity;
+    private FantasoccerState? state;
     private Theme theme = new Theme
         {
             ColorOptions = new ThemeColorOptions
@@ -35,7 +41,32 @@
                 Link = "#ffffff"
             }
         };
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var fantasoccerState = (localStorage != null && await localStorage.ContainKeyAsync(nameof(FantasoccerState))) ?
+            await localStorage.GetItemAsync<FantasoccerState>(nameof(FantasoccerState))
+            : new FantasoccerState();
+            if (identity != null && identity.Email != fantasoccerState.Email)
+            {
+                fantasoccerState = new() { Email = identity.Email, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
+            }
+            else if (identity == null)
+            {
+                fantasoccerState = new();
+            }
+            state = fantasoccerState;
+            state.Update = () =>
+            {
+                StateHasChanged();
+                return localStorage?.SetItemAsync(nameof(FantasoccerState), state) ?? ValueTask.CompletedTask;
+            };
+            _ = state.Update();
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+    protected override async Task OnInitializedAsync()
     {
         if (authenticationState is not null)
         {
@@ -46,8 +77,9 @@
             {
                 var email = user.Claims.First(x => x.Type == "emails").Value;
                 identity = await Api.AppIdentity.GetAsync(email);
+
             }
         }
-        await base.OnParametersSetAsync();
+        await base.OnInitializedAsync();
     }
 }
