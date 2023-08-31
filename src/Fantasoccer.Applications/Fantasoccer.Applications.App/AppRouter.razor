@@ -45,11 +45,7 @@
             if (user?.Identity is not null && user.Identity.IsAuthenticated)
             {
                 var email = user.Claims.First(x => x.Type == "emails").Value;
-                try
-                {
-                    identity = await Api.AppIdentity.GetAsync(email);
-                }
-                catch { }
+                identity = await Api.AppIdentity.GetAsync(email);
             }
         }
         await base.OnParametersSetAsync();

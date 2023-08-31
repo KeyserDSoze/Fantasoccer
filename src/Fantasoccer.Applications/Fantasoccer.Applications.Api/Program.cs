@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Identity.Web;
-using Fantasoccer.Engine;
+﻿using System.Security.Claims;
+using Fantasoccer;
 using Fantasoccer.Business;
+using Fantasoccer.Engine;
 using Fantasoccer.InMemory;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Identity.Web;
+using RepositoryFramework;
 
 var builder = WebApplication.CreateBuilder(args);
 

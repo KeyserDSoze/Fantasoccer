@@ -24,6 +24,7 @@ namespace Fantasoccer.Business
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Cache-Control", "no-cache");
             });
+            services.ScanAuthorizationForRepositoryFramework();
             return services;
         }
     }
