@@ -5,10 +5,10 @@ namespace Fantasoccer.Tests
 {
     public class RandomCalendarTest
     {
-        private readonly RandomCalendar _randomCalendar;
+        private readonly IRandomCalendar _randomCalendar;
         private readonly IPopulation<AnnualTeam> _populationService;
 
-        public RandomCalendarTest(RandomCalendar randomCalendar, IPopulation<AnnualTeam> populationService)
+        public RandomCalendarTest(IRandomCalendar randomCalendar, IPopulation<AnnualTeam> populationService)
         {
             _randomCalendar = randomCalendar;
             _populationService = populationService;

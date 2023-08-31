@@ -2,7 +2,7 @@
 
 namespace Fantasoccer.Business
 {
-    public sealed class RandomCalendar
+    internal sealed class RandomCalendar : IRandomCalendar
     {
         public Calendar GetRandomCalendar(int year, AnnualLeague league)
         {
@@ -28,14 +28,16 @@ namespace Fantasoccer.Business
                 {
                     foreach (var gameByDay in randomizedCalendar.GroupBy(x => x.Round))
                     {
-                        var key = ((char)(65 + round)).ToString();
+                        var key = ((char)(64 + gameByDay.Key)).ToString();
                         if (!calendar.Rounds.ContainsKey(key))
                             calendar.Rounds.Add(key, new());
                         var singleRound = calendar.Rounds[key];
                         foreach (var games in gameByDay.GroupBy(x => x.Day))
                         {
-                            var day = new Day { Games = new(), SerieADay = games.Key + league.Settings.DelayedDay };
+                            var serieADay = games.Key + (homeAwayRound * (teamsInRound.Count - 1));
+                            var day = new Day { Games = new(), SerieADay = serieADay, Number = serieADay - league.Settings.DelayedDay };
                             singleRound.Add(day);
+                            var gameCount = 1;
                             foreach (var game in games)
                             {
                                 var home = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.TeamA] : teamsInRound[game.Game.TeamB];
@@ -43,9 +45,11 @@ namespace Fantasoccer.Business
                                 day.Games.Add(new CalendarGame
                                 {
                                     Id = Guid.NewGuid().ToString(),
+                                    Number = gameCount,
                                     Home = home.Name,
                                     Away = away.Name,
                                 });
+                                gameCount++;
                             }
                         }
                     }

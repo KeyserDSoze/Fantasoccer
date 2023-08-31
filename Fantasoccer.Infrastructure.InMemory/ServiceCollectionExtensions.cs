@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Population.Random;
+using System.Security.Cryptography;
 using Fantasoccer.Domain.SerieA;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -97,7 +98,7 @@ namespace Fantasoccer.InMemory
                     };
                     for (var i = 0; i < 4; i++)
                     {
-                        var key = ((char)(41 + i)).ToString();
+                        var key = ((char)(65 + i)).ToString();
                         newRank.RankedTeams.Add(key, new());
                         for (var j = 0; j < 10; j++)
                         {
@@ -119,6 +120,29 @@ namespace Fantasoccer.InMemory
                         }
                     }
                     return newRank;
+                }
+            });
+            services.AddWarmUp(async serviceProvider =>
+            {
+                var population = serviceProvider.GetRequiredService<IPopulation<AnnualTeam>>();
+                var randomCalendar = serviceProvider.GetRequiredService<IRandomCalendar>();
+                var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
+                await calendar.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga1", Year = FantacalcioTime.ActualYear }, GetRandomCalendar(LeagueType.League));
+                await calendar.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga2", Year = FantacalcioTime.ActualYear }, GetRandomCalendar(LeagueType.League));
+                await calendar.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga4", Year = FantacalcioTime.ActualYear }, GetRandomCalendar(LeagueType.Cup));
+                Calendar GetRandomCalendar(LeagueType league)
+                {
+                    var finalCalendar = randomCalendar.GetRandomCalendar(2, new AnnualLeague
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Settings = new LeagueSetting
+                        {
+                            DelayedDay = 2
+                        },
+                        Type = league,
+                        Teams = population.Populate(league == LeagueType.Cup ? 16 : 10)
+                    });
+                    return finalCalendar;
                 }
             });
             return services;

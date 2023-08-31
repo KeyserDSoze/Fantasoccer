@@ -21,7 +21,7 @@
                         <Card>
                             <CardBody>
                                 <CardTitle Size="3">
-                                    Day @day.SerieADay
+                                    Day @day.Number (@day.SerieADay)
                                 </CardTitle>
                                 <CardText>
                                     <Table Striped>
@@ -34,14 +34,10 @@
                                          </TableRow>
                                      </TableHeader>
                                      <TableBody>
-                                         @{
-                                                var counter = 0;
-                                            }
                                             @foreach (var game in day.Games)
                                             {
-                                                var x = counter++;
                                                 <TableRow>
-                                                    <TableRowHeader>@x</TableRowHeader>
+                                                    <TableRowHeader>@game.Number</TableRowHeader>
                                                     <TableRowCell>@game.Home</TableRowCell>
                                                     @if (game.Result != null)
                                                     {
