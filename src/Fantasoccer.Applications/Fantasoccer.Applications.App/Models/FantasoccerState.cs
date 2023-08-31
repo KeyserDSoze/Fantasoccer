@@ -6,7 +6,7 @@
         public string? GroupId { get; set; }
         public string? LeagueId { get; set; }
         public int Year { get; set; } = FantacalcioTime.ActualYear;
-        public Func<ValueTask> Update;
-        public LeagueKey LeagueKey => new LeagueKey { Group = GroupId, League = LeagueId, Year = Year };
+        public Func<ValueTask>? Update { get; set; }
+        public LeagueKey LeagueKey => new() { Group = GroupId!, League = LeagueId!, Year = Year };
     }
 }
