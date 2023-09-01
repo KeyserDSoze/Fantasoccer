@@ -73,7 +73,7 @@ a, .btn-link {
 
     .field .backgroundField {
         position: absolute;
-        top: 0px;
+        top: 85px;
         left: 0px;
         width: 1140px;
         height: 720px;
@@ -108,6 +108,7 @@ a, .btn-link {
         display: block;
         left: 1154px;
         top: 0px;
+        height: auto;
     }
 
     .field .invisible {

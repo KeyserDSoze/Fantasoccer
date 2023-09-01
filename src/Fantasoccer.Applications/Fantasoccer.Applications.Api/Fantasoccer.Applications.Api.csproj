@@ -13,13 +13,14 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="7.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.10" />
     <PackageReference Include="Microsoft.Identity.Web" Version="2.13.3" />
-    <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="5.0.12" />
+    <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="5.0.13" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
     <ProjectReference Include="..\..\Fantasoccer.Business.BackgroundJobs\Fantasoccer.Business.BackgroundJobs.csproj" />
+    <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
   </ItemGroup>
 
 </Project>

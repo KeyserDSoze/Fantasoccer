@@ -26,7 +26,7 @@ builder.Services
     .AddFontAwesomeIcons();
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddTransient<ApiService>();
-builder.Services.AddHttpClientForApi(builder.Configuration);
+builder.Services.AddHttpClientIntegrationForApi(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = options.DefaultPolicy;
@@ -39,6 +39,7 @@ builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient(settings =>
 {
     settings.Scopes = scopes;
 });
+builder.Services.AddSharedBusiness();
 
 var app = builder.Build();
 await app.Services.WarmUpAsync();

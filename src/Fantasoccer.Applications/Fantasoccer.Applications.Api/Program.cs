@@ -33,6 +33,7 @@ builder.Services.AddInMemoryInfrastructures();
 builder.Services.AddFantasoccerBusiness();
 builder.Services.AddDefaultValues();
 builder.Services.AddFantasoccerBackgroundWork();
+builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()
     .WithDefaultCorsWithAllOrigins();

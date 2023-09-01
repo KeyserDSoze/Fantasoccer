@@ -9,10 +9,11 @@
         public Func<ValueTask>? Update { get; set; }
         public LeagueKey LeagueKey => new() { Group = GroupId!, League = LeagueId!, Year = Year };
         public TeamKey TeamKey => new() { Group = GroupId!, Year = Year, Email = Email! };
-        public TeamDayKey TeamDayKey(int day) => new()
+        public TeamKey OtherTeamKey(string email) => new() { Group = GroupId!, Year = Year, Email = email };
+        public TeamDayKey TeamDayKey(int day, string? email = null) => new()
         {
             Group = GroupId!,
-            Email = Email!,
+            Email = email ?? Email!,
             Year = Year,
             Day = day
         };

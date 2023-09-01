@@ -26,7 +26,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>();
-            services.AddInMemoryInfrastructure<Team, TeamDayKey>(factoryName: "day");
+            services.AddInMemoryInfrastructure<Team, TeamDayKey>(onlyQuery: false, factoryName: "day");
             services.AddInMemoryInfrastructure<AppIdentity, string>();
             services.AddInMemoryInfrastructure<FantasoccerLog, string>(true);
             services
@@ -34,14 +34,17 @@ namespace Fantasoccer.InMemory
                 .WithInMemoryIntegration("images");
             return services;
         }
-        private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services, bool notExposable = false, string? factoryName = null)
+        private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services, bool notExposable = false, bool onlyQuery = true, string? factoryName = null)
             where TKey : notnull
         {
             return services.AddRepository<T, TKey>(builder =>
             {
                 builder.WithInMemory(name: factoryName);
                 if (!notExposable)
-                    builder.SetOnlyQueryExposable();
+                    if (onlyQuery)
+                        builder.SetOnlyQueryExposable();
+                    else
+                        builder.SetExposable();
                 else
                     builder.SetNotExposable();
             });
@@ -91,7 +94,7 @@ namespace Fantasoccer.InMemory
                 var teamKey = new TeamKey { Email = "alessandro.rapiti44@gmail.com", Year = FantacalcioTime.ActualYear, Group = "Fantasoccer1" };
                 var team = new Team
                 {
-                    Name = "Super team",
+                    Name = "Soze Heaven",
                     Owner = "alessandro.rapiti44@gmail.com",
                     RevenueMoney = 230,
                     MoneyFromRank = 345,
@@ -173,6 +176,13 @@ namespace Fantasoccer.InMemory
                 await calendar.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga4", Year = FantacalcioTime.ActualYear }, GetRandomCalendar(LeagueType.Cup));
                 Calendar GetRandomCalendar(LeagueType league)
                 {
+                    var annualTeam = new AnnualTeam
+                    {
+                        Name = "Soze Heaven",
+                        Owner = "alessandro.rapiti44@gmail.com"
+                    };
+                    var list = population.Populate(league == LeagueType.Cup ? 15 : 9).ToList();
+                    list.Add(annualTeam);
                     var finalCalendar = randomCalendar.GetRandomCalendar(2, new AnnualLeague
                     {
                         Id = Guid.NewGuid().ToString(),
@@ -181,7 +191,7 @@ namespace Fantasoccer.InMemory
                             DelayedDay = 2
                         },
                         Type = league,
-                        Teams = population.Populate(league == LeagueType.Cup ? 16 : 10)
+                        Teams = list
                     });
                     return finalCalendar;
                 }

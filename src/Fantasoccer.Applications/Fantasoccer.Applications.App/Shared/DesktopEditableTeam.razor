@@ -1,0 +1,82 @@
+﻿<DropContainer TItem="Player" Items="@Team.ActivePlayers.OrderBy(x => x.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
+    <ChildContent>
+        @{
+            var counter = 0;
+        }
+        @foreach (var position in FantaSoccerPosition.Default)
+        {
+            <div class="@position.Css">
+                <DropZone Class="columnContainer" TItem="Player" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
+            </div>
+            counter++;
+        }
+    </ChildContent>
+    <ItemTemplate>
+        <PlayerCard Player="context" Chancer="GetChance(context)" Voter="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
+    </ItemTemplate>
+</DropContainer>
+<Snackbar @ref="snackbar">
+    <SnackbarBody>
+        @message
+    </SnackbarBody>
+</Snackbar>
+
+@code {
+    [Parameter]
+    public required Team Team { get; set; }
+    [Parameter]
+    public required FantasoccerState State { get; set; }
+    [Parameter]
+    public required RealCalendar RealCalendar { get; set; }
+    [Parameter]
+    public required int SerieADay { get; set; }
+    [Parameter]
+    public required RealDay? RealDay { get; set; }
+    [Parameter]
+    public required ChancedRealPlayerWrapper? Chance { get; set; }
+    [Parameter]
+    public required VotedRealPlayerWrapper? Live { get; set; }
+    [Parameter]
+    public required VotedRealPlayerWrapper? Official { get; set; }
+    private Snackbar? snackbar;
+    private string? message;
+    private bool Filter(Player player, string zoneName)
+    {
+        var result = player.Position.ToString() == zoneName;
+        return result;
+    }
+    private async Task ItemDropped(DraggableDroppedEventArgs<Player> dropItem)
+    {
+        dropItem.Item.Position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
+        if (State != null && RealCalendar != null && RealCalendar.NextDay?.SerieADay == SerieADay)
+        {
+            var key = State.TeamDayKey(SerieADay);
+            var state = await Api.DailyTeam.ExistAsync(key) ?
+                await Api.DailyTeam.UpdateAsync(key, Team) :
+                await Api.DailyTeam.InsertAsync(key, Team);
+            if (snackbar != null)
+            {
+                snackbar.Color = state.IsOk ? SnackbarColor.Success : SnackbarColor.Danger;
+                message = state.Message ?? (state.IsOk ? "Formazione salvata correttamente." : "Errore durante il savaltaggio della formazione.");
+                snackbar.Show();
+            }
+        }
+    }
+    private ChancedRealPlayer? GetChance(Player player)
+    {
+        var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return chancedPlayer;
+    }
+    private VotedRealPlayer? GetVote(Player player)
+    {
+        var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
+        if (votePlayer == null)
+            votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return votePlayer;
+    }
+    private RealGame? GetRealGame(Player player)
+    {
+        var game = RealDay?.Games.FirstOrDefault(x => x.Home == player.RealTeam || x.Away == player.RealTeam);
+        return game;
+    }
+}

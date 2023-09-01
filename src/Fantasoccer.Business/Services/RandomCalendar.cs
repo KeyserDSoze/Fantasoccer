@@ -48,7 +48,9 @@ namespace Fantasoccer.Business
                                     Id = Guid.NewGuid().ToString(),
                                     Number = gameCount,
                                     Home = home.Name,
+                                    HomeOwner = home.Owner,
                                     Away = away.Name,
+                                    AwayOwner = away.Owner,
                                 });
                                 gameCount++;
                             }

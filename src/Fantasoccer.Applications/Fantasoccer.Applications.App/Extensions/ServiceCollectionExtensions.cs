@@ -4,7 +4,7 @@ namespace Fantasoccer.Applications.App.Extensions
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddHttpClientForApi(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddHttpClientIntegrationForApi(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
@@ -48,6 +48,8 @@ namespace Fantasoccer.Applications.App.Extensions
                     apiBuilder
                         .WithHttpClient(configuration["Api:Uri"]!)
                         .WithDefaultRetryPolicy();
+                    if (factoryName != null)
+                        apiBuilder.WithServerFactoryName(factoryName);
                 }, factoryName);
             });
         }

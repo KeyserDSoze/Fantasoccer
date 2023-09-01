@@ -23,6 +23,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.Ap
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{0A3C6292-2436-44AA-9A74-78E14A57482C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Business.Shared", "src\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj", "{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +63,10 @@ Global
 		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -75,6 +81,7 @@ Global
 		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 		{F264A069-C165-4F79-9EE8-ED7AF0D2057B} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 		{0A3C6292-2436-44AA-9A74-78E14A57482C} = {91114266-E644-452D-8132-7D762C9B8968}
+		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55} = {91114266-E644-452D-8132-7D762C9B8968}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}
