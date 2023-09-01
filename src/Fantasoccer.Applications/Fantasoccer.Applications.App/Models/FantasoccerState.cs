@@ -16,5 +16,10 @@
             Year = Year,
             Day = day
         };
+        public YearDayKey YearDayKey(int day) => new()
+        {
+            Day = day,
+            Year = Year
+        };
     }
 }

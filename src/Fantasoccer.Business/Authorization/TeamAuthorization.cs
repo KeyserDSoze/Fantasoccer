@@ -26,6 +26,10 @@ namespace Fantasoccer.Business.Authorization
                     return Task.FromResult(s_authorized);
                 }
             }
+            else if (method == RepositoryMethods.Get || method == RepositoryMethods.Exist)
+            {
+                return Task.FromResult(s_authorized);
+            }
             return Task.FromResult(s_notAuthorized);
         }
     }

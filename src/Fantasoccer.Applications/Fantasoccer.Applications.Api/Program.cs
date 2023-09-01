@@ -26,6 +26,7 @@ builder.Services.AddAuthorization(configure =>
         policy.RequireClaim("name");
     });
 });
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddInMemoryInfrastructures();

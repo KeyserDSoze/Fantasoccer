@@ -19,7 +19,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {
@@ -65,4 +65,63 @@ a, .btn-link {
 
     .blazor-error-boundary::after {
         content: "An error has occurred."
+    }
+
+.field {
+    position: relative;
+}
+
+    .field .backgroundField {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 1140px;
+        height: 720px;
+    }
+
+    .field .playerContainer {
+        position: relative;
+        float: left;
+        width: 570px;
+        height: 720px;
+    }
+
+    .field .playerVerticalAlign {
+        position: relative;
+        float: left;
+        width: 136px;
+        height: 720px;
+        display: flex;
+        align-items: center;
+    }
+
+    .field .firstBackupContainer {
+        height: 150px;
+    }
+
+    .field .secondBackupContainer {
+        height: 150px;
+    }
+
+    .field .tribuneContainer {
+        position: absolute;
+        display: block;
+        left: 1154px;
+        top: 0px;
+    }
+
+    .field .invisible {
+        visibility: hidden;
+    }
+
+    .field .columnContainer {
+        width: 125px;
+        margin-left: 2%;
+        position: relative;
+        float: left;
+        min-width: 125px;
+        background: rgba(255,255,255,0.3);
+        padding-top: 30px;
+        padding-left: 15px;
+        min-height: 160px;
     }

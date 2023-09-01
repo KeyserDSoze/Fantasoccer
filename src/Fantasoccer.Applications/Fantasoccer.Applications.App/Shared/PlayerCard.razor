@@ -1,0 +1,90 @@
+﻿<div class="player @Player.Role">
+    <img class="playerimage" onerror="this.src ='./static/nogioc.jpg'" src="" />
+    @if (Game?.IsPlayed == true)
+    {
+        <div class="playerrealteam">@Player.RealTeam</div>
+        <div class="playerenemy">
+            <div class="enemyname">@EnemyName</div>
+            <div class="enemyhour">@Game?.HomeGoal - @Game?.AwayGoal</div>
+        </div>
+    }
+    else
+    {
+        <div class="playerrealteam @Chancer?.Chance?.Status">@Player.RealTeam</div>
+        <div class="playerenemy">
+            <div class="enemyname">@EnemyName</div>
+            @if (Game != default && Game.Date.HasValue)
+            {
+                <div class="enemyhour">@Game.Date.Value.ToString("MM/dd HH:mm")</div>
+            }
+        </div>
+        @if (Chancer?.Chance != default)
+        {
+            <div class="playerchance">
+                <div title="Fantagazetta" id="fantagazzetta" class="playerstatus status@(Chancer.Chance.Fantagazzetta)">F</div>
+                <div title="Gazzetta" class="playerstatus status@(Chancer.Chance.Gazzetta)">G</div>
+                <div title="Mediaset" class="playerstatus status@(Chancer.Chance.Mediaset)">M</div>
+                <div title="Sky" class="playerstatus status@(Chancer.Chance.Sky)">S</div>
+            </div>
+        }
+    }
+
+    <div title="@Player.Name" class="playername @Player.Position">@Player.Name</div>
+    @if (Voter?.Vote != null)
+    {
+        if (Voter.Vote.FinalValue != default && !Voter.Vote.FinalValue.IsEmpty)
+        {
+            <div class="playervote @(Voter.Vote.HasVote ? "": "transparent")">
+                <div class="finalvote finalvote@(Voter.Vote.IsFinal)">@Voter.Vote.FinalValue.Value</div>
+            </div>
+
+            <div class="playerchance">
+                @if (Voter.Vote.FinalValue.Special)
+                {
+                    <img class="playervoteevent" src="./static/special.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.Goal; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.Penalty; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal_blue_v2.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.Assist; i++)
+                {
+                    <img class="playervoteevent" src="./static/assist_total.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.StoppedPenalty; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal_green_all.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.WrongedPenalty; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal_silver_all.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.SufferedGoal; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal_red_all.png" />
+                }
+                @for (int i = 0; i < Voter.Vote.OwnGoal; i++)
+                {
+                    <img class="playervoteevent" src="./static/goal_red_v2.png" />
+                }
+                <div class="playervoteevent behavior@(Voter.Vote.Status)"></div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public required Player Player { get; set; }
+    [Parameter]
+    public RealGame? Game { get; set; }
+    [Parameter]
+    public ChancedRealPlayer? Chancer { get; set; }
+    [Parameter]
+    public VotedRealPlayer? Voter { get; set; }
+    private string EnemyName => Player == null || Game == null ? string.Empty : (Player.RealTeam != Game.Home ? Game.Away : Game.Home);
+}

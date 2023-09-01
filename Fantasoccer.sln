@@ -17,11 +17,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Tests", "src\Fa
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Applications", "{7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Applications.Api", "src\Fantasoccer.Applications\Fantasoccer.Applications.Api\Fantasoccer.Applications.Api.csproj", "{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.Api", "src\Fantasoccer.Applications\Fantasoccer.Applications.Api\Fantasoccer.Applications.Api.csproj", "{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Applications.App", "src\Fantasoccer.Applications\Fantasoccer.Applications.App\Fantasoccer.Applications.App.csproj", "{F264A069-C165-4F79-9EE8-ED7AF0D2057B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.App", "src\Fantasoccer.Applications\Fantasoccer.Applications.App\Fantasoccer.Applications.App.csproj", "{F264A069-C165-4F79-9EE8-ED7AF0D2057B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Infrastructure.InMemory", "Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{0A3C6292-2436-44AA-9A74-78E14A57482C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{0A3C6292-2436-44AA-9A74-78E14A57482C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

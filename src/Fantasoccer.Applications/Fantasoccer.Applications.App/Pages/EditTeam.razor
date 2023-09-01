@@ -1,59 +1,85 @@
 ﻿@page "/edit"
-
-@if (players != null)
-{
-    <DropContainer TItem="Player" Items="@players" ItemsFilter="@((item, dropZone) => item.Position.ToString() == dropZone)" ItemDropped="@ItemDropped" Flex="Flex.Wrap.Grow.Is1">
-        <ChildContent>
-            <DropZone TItem="Player" Name="Goalkeeper" DropAllowed="@((item) =>  item.Role == Role.GoalKeeper)" Border="Border.Rounded" Background="Background.Light" Padding="Padding.Is3" Margin="Margin.Is3" Flex="Flex.Grow.Is1">
-                <Heading Size="HeadingSize.Is4" Margin="Margin.Is3.FromBottom">Goalkeeper</Heading>
-            </DropZone>
-            <DropZone TItem="Player" Name="Defensor" DropAllowed="@((item) =>  item.Role == Role.Defensor)" Border="Border.Rounded" Background="Background.Light" Padding="Padding.Is3" Margin="Margin.Is3" Flex="Flex.Grow.Is1">
-                <Heading Size="HeadingSize.Is4" Margin="Margin.Is3.FromBottom">Defensor</Heading>
-            </DropZone>
-            <DropZone TItem="Player" Name="Midfielder" DropAllowed="@((item) =>  item.Role == Role.Midfielder)" Border="Border.Rounded" Background="Background.Light" Padding="Padding.Is3" Margin="Margin.Is3" Flex="Flex.Grow.Is1">
-                <Heading Size="HeadingSize.Is4" Margin="Margin.Is3.FromBottom">Midfielder</Heading>
-            </DropZone>
-            <DropZone TItem="Player" Name="Forward" DropAllowed="@((item) => item.Role == Role.Forward)" Border="Border.Rounded" Background="Background.Light" Padding="Padding.Is3" Margin="Margin.Is3" Flex="Flex.Grow.Is1">
-                <Heading Size="HeadingSize.Is4" Margin="Margin.Is3.FromBottom">Forward</Heading>
-            </DropZone>
-        </ChildContent>
-        <ItemTemplate>
-            <Card Shadow="Shadow.Default" Margin="Margin.Is3.OnY">
-                <CardBody>
-                    @* <Image Source="@context.Image" Text="DragDrop image example" Style="width:48px;height:48px;" /> *@
-                    @context.Name
-                </CardBody>
-            </Card>
-        </ItemTemplate>
-    </DropContainer>
-}
-
+<div class="field">
+    <Image class="backgroundField" Source="./static/field.jpg"></Image>
+    @if (players != null)
+    {
+        <DropContainer TItem="Player" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
+            <ChildContent>
+                @{
+                    var counter = 0;
+                }
+                @foreach (var position in FantaSoccerPosition.Default)
+                {
+                    <div class="@position.Css">
+                        <DropZone Class="columnContainer" TItem="Player" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
+                    </div>
+                    counter++;
+                }
+            </ChildContent>
+            <ItemTemplate>
+                <PlayerCard Player="context" Chancer="GetChance(context)" Voter="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
+            </ItemTemplate>
+        </DropContainer>
+    }
+</div>
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     private IEnumerable<Player>? players;
+    private RealDay? RealDay { get; set; }
+    private ChancedRealPlayerWrapper? Chance { get; set; }
+    private VotedRealPlayerWrapper? Live { get; set; }
+    private VotedRealPlayerWrapper? Official { get; set; }
+
     protected override async Task OnParametersSetAsync()
     {
         if (State != null)
         {
             var realCalendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
-            var day = realCalendar?.LiveDay?.SerieADay ?? realCalendar?.LastDay?.SerieADay ?? 1;
-            var actualTeam = await Api.DailyTeam.GetAsync(State.TeamDayKey(day));
+            var serieADay = realCalendar?.LiveDay?.SerieADay ?? realCalendar?.LastDay?.SerieADay ?? 1;
+            RealDay = realCalendar?.Days.FirstOrDefault(x => x.SerieADay == serieADay);
+            var yearDayKey = State.YearDayKey(serieADay);
+            Chance = await Api.Chances.GetAsync(yearDayKey);
+            Live = await Api.LiveVote.GetAsync(yearDayKey);
+            Official = await Api.OfficialVote.GetAsync(yearDayKey);
+            var actualTeam = await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay));
             while (actualTeam == null)
             {
-                day--;
-                if (day == -1)
+                serieADay--;
+                if (serieADay == -1)
                     break;
-                actualTeam = day > 0 ? await Api.DailyTeam.GetAsync(State.TeamDayKey(day)) : await Api.Team.GetAsync(State.TeamKey);
+                actualTeam = serieADay > 0 ? await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay)) : await Api.Team.GetAsync(State.TeamKey);
             }
             if (actualTeam != null)
-                players = actualTeam.ActivePlayers;
+                players = actualTeam.ActivePlayers.OrderBy(x => x.Position);
         }
         await base.OnParametersSetAsync();
     }
+    private ChancedRealPlayer? GetChance(Player player)
+    {
+        var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return chancedPlayer;
+    }
+    private VotedRealPlayer? GetVote(Player player)
+    {
+        var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
+        if (votePlayer == null)
+            votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return votePlayer;
+    }
+    private RealGame? GetRealGame(Player player)
+    {
+        var game = RealDay?.Games.FirstOrDefault(x => x.Home == player.RealTeam || x.Away == player.RealTeam);
+        return game;
+    }
+    private bool Filter(Player player, string zoneName)
+    {
+        var result = player.Position.ToString() == zoneName;
+        return result;
+    }
     private Task ItemDropped(DraggableDroppedEventArgs<Player> dropItem)
     {
-        // dropItem.Item.Position = dropItem.DropZoneName;
+        dropItem.Item.Position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
         return Task.CompletedTask;
     }
 }

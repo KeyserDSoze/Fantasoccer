@@ -118,8 +118,10 @@ namespace Fantasoccer.InMemory
                         if (role != Role.Undefined)
                         {
                             created.Role = role;
-                            created.Position = fantaSoccerRole;
                         }
+                        created.Position = fantaSoccerRole;
+                        created.IsActive = true;
+                        created.Status = PlayerInTeamStatus.Active;
                         players.Add(created);
                     }
                     return players;

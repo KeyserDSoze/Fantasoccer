@@ -1,0 +1,264 @@
+﻿.playerimage {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.playerzindex {
+    z-index: 3;
+}
+
+.player {
+    position: relative;
+    width: 75px;
+    height: 97px;
+    cursor: pointer;
+    border-width: 1px;
+    border-style: solid;
+    background: #1A3151;
+    transition: transform 0.3s;
+    margin-bottom: 45px;
+    margin-left: 20px;
+}
+
+    .player.GoalKeeper {
+        border-color: #1346a0;
+    }
+
+    .player.Defensor {
+        border-color: #44d920;
+    }
+
+    .player.Midfielder {
+        border-color: #ebd54c;
+    }
+
+    .player.Forward {
+        border-color: #bb3b1e;
+    }
+
+    .player .playerrealteam {
+        position: absolute;
+        left: -96px;
+        top: -20px;
+        height: 20px;
+        line-height: 20px;
+        font-size: 12px;
+        padding-left: 10px;
+        width: 95px;
+        /*background: rgba(0,0,0,0.4);*/
+        background: linear-gradient(to right,black,transparent);
+        color: #fff;
+        transform: rotate(-90deg);
+        transform-origin: bottom right;
+    }
+
+        .player .playerrealteam.Disqualified:after,
+        .player .playerrealteam.Maybe:after,
+        .player .playerrealteam.Injury:after {
+            position: absolute;
+            top: 3px;
+            right: 5px;
+            width: 14px;
+            height: 14px;
+            overflow: hidden;
+            border-radius: 4px;
+            line-height: 14px;
+            text-align: center;
+        }
+
+        .player .playerrealteam.Disqualified:after {
+            background: #f00;
+            color: #fff;
+            content: "S";
+            transform: rotate(90deg);
+        }
+
+        .player .playerrealteam.Maybe:after {
+            content: "+";
+            color: #ffbb1a;
+            background: #fff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .player .playerrealteam.Injury:after {
+            content: "+";
+            color: #f00;
+            background: #fff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+    .player .playername {
+        position: absolute;
+        width: 100%;
+        left: 0;
+        bottom: -10px;
+        color: #fff;
+        height: 20px;
+        line-height: 20px;
+        font-size: 12px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 1px;
+    }
+
+        .player .playername.GoalKeeper,
+        .player .playername.Defensor,
+        .player .playername.Midfielder,
+        .player .playername.Forward {
+            background: #0b8e46;
+        }
+
+        .player .playername.Invasion,
+        .player .playername.Tribune,
+        .player .playername.All {
+            background: #dd3d27;
+        }
+
+        .player .playername.BackupGoalKeeper,
+        .player .playername.FirstBackupDefensor,
+        .player .playername.FirstBackupMidfielder,
+        .player .playername.FirstBackupForward {
+            background: #5672B8;
+        }
+
+        .player .playername.SecondBackupDefensor,
+        .player .playername.SecondBackupMidfielder,
+        .player .playername.SecondBackupForward {
+            background: #9a1c93;
+        }
+
+    .player .playerchance {
+        position: absolute;
+        top: 2px;
+        width: 16px;
+        right: -10px;
+        color: #fafafa;
+    }
+
+        .player .playerchance .playerstatus {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            border-radius: 100%;
+            text-align: center;
+            font-size: 10px;
+            line-height: 16px;
+        }
+
+            .player .playerchance .playerstatus.statusTrue {
+                background: #2a9d0e;
+            }
+
+            .player .playerchance .playerstatus.statusFalse {
+                background: #92280f;
+            }
+
+    .player .playerrealteam.statusNormal {
+    }
+
+    .player .playerrealteam.statusDisqualified {
+        background: #eb1212;
+    }
+
+    .player .playerrealteam.statusMaybe {
+        background: #eea91c;
+    }
+
+    .player .playerrealteam.statusInjury {
+        background: #3c3c3c;
+    }
+
+    .player .playervote {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        top: -30px;
+        left: -20px;
+        z-index: 2;
+    }
+
+    .player .playervoteevent {
+        position: relative;
+        width: 100%;
+        display: block;
+    }
+
+    .player .playervote .finalvote {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-width: 1px;
+        border-style: solid;
+        background: #333;
+        text-align: center;
+        line-height: 30px;
+        font-size: 12px;
+        border-radius: 200px;
+    }
+
+    .player .behaviorYellowCard {
+        margin-left: 2px;
+        width: 11px;
+        height: 15px;
+        background: yellow;
+        border: 1px solid lightgray;
+    }
+
+    .player .behaviorRedCard {
+        margin-left: 2px;
+        width: 11px;
+        height: 15px;
+        background: red;
+    }
+
+    .player .playervote .finalvoteFalse {
+        color: #fafafa;
+        border-color: #fafafa;
+    }
+
+    .player .playervote .finalvoteTrue {
+        color: #e56a13;
+        border-color: #e56a13;
+    }
+
+    .player .playervote.transparent {
+        opacity: 0.5;
+    }
+
+        .player .playervote.transparent .finalvoteTrue {
+            background: #dd3d27;
+            color: #fff;
+            border-color: #fff;
+        }
+
+    .player .playerenemy {
+        position: absolute;
+        right: 0;
+        top: -25px;
+        width: 63px;
+        height: 24px;
+        background: rgba(0,0,0,0.4);
+        color: #fff;
+    }
+
+        .player .playerenemy .enemyname,
+        .player .playerenemy .enemyhour {
+            position: relative;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            height: 12px;
+            line-height: 12px;
+        }
+
+        .player .playerenemy .enemyhour {
+            /*font-size: 8px;*/
+        }

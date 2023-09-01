@@ -14,6 +14,7 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAdB2c"))
     .EnableTokenAcquisitionToCallDownstreamApi(scopes)
     .AddInMemoryTokenCaches();
+builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
 builder.Services
