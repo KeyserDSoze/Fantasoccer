@@ -24,6 +24,7 @@ namespace Fantasoccer.Business
                     numberOfDay += teamsInRound.Count - 1;
                     homeAndAwayCount++;
                 } while (numberOfDay + teamsInRound.Count - 1 <= (startRound == 0 ? 38 : 12));
+                var actualDay = 1;
                 for (var homeAwayRound = 0; homeAwayRound < homeAndAwayCount; homeAwayRound++)
                 {
                     foreach (var gameByDay in randomizedCalendar.GroupBy(x => x.Round))
@@ -34,8 +35,8 @@ namespace Fantasoccer.Business
                         var singleRound = calendar.Rounds[key];
                         foreach (var games in gameByDay.GroupBy(x => x.Day))
                         {
-                            var serieADay = games.Key + (homeAwayRound * (teamsInRound.Count - 1));
-                            var day = new Day { Games = new(), SerieADay = serieADay, Number = serieADay - league.Settings.DelayedDay };
+                            var serieADay = actualDay + league.Settings.DelayedDay;
+                            var day = new Day { Games = new(), SerieADay = serieADay, Number = actualDay };
                             singleRound.Add(day);
                             var gameCount = 1;
                             foreach (var game in games)
@@ -51,6 +52,7 @@ namespace Fantasoccer.Business
                                 });
                                 gameCount++;
                             }
+                            actualDay++;
                         }
                     }
                 }
