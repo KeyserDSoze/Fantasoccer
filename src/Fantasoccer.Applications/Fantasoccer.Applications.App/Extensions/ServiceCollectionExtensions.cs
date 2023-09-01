@@ -32,11 +32,13 @@ namespace Fantasoccer.Applications.App.Extensions
             services.AddHttpClientIntegration<PlayedGame, GameKey>(configuration);
             services.AddHttpClientIntegration<SerieATeamsWrapper, int>(configuration);
             services.AddHttpClientIntegration<Team, TeamKey>(configuration);
-            services.AddHttpClientIntegration<Team, TeamDayKey>(configuration);
+            services.AddHttpClientIntegration<Team, TeamDayKey>(configuration, "day");
             services.AddHttpClientIntegration<AppIdentity, string>(configuration);
             return services;
         }
-        private static IServiceCollection AddHttpClientIntegration<T, TKey>(this IServiceCollection services, IConfiguration configuration)
+        private static IServiceCollection AddHttpClientIntegration<T, TKey>(this IServiceCollection services,
+            IConfiguration configuration,
+            string? factoryName = null)
            where TKey : notnull
         {
             return services.AddRepository<T, TKey>(builder =>
@@ -46,7 +48,7 @@ namespace Fantasoccer.Applications.App.Extensions
                     apiBuilder
                         .WithHttpClient(configuration["Api:Uri"]!)
                         .WithDefaultRetryPolicy();
-                });
+                }, factoryName);
             });
         }
     }

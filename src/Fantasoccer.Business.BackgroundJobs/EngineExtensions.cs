@@ -8,14 +8,15 @@ namespace Fantasoccer.Engine
         public static IServiceCollection AddFantasoccerBackgroundWork(this IServiceCollection services)
         {
             services
+                .AddBackgroundJob<SerieACalendarJob>(options =>
+                {
+                    options.Cron = "0 0 2,6,12,18 * * *";
+                    options.RunImmediately = true;
+                })
                 .AddBackgroundJob<PlayerOddsJob>(options =>
                 {
                     options.Cron = "0 0 6,10,12,14,18,20 * * *";
                     options.RunImmediately = true;
-                })
-                .AddBackgroundJob<SerieACalendarJob>(options =>
-                {
-                    options.Cron = "0 0 2,6,12,18 * * *";
                 })
                 .AddBackgroundJob<LiveVotesJob>(options =>
                 {

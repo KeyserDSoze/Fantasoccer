@@ -19,8 +19,16 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync()
         {
             var calendar = await _calendar.GetAsync().NoContext();
-            var result = await _repository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
-            await _logger.LogAsync<SerieACalendarJob>($"Giornate {calendar.Days.Count} parsate e salvate con risultato {result.IsOk}.").NoContext();
+            var result = false;
+            if (await _repository.ExistAsync(FantacalcioTime.ActualYear).NoContext())
+            {
+                result = await _repository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+            }
+            else
+            {
+                result = await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+            }
+            await _logger.LogAsync<SerieACalendarJob>($"Giornate {calendar.Days.Count} parsate e salvate con risultato {result}.").NoContext();
         }
 
         public Task OnException(Exception exception)

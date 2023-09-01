@@ -26,7 +26,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>();
-            services.AddInMemoryInfrastructure<Team, TeamDayKey>();
+            services.AddInMemoryInfrastructure<Team, TeamDayKey>(factoryName: "day");
             services.AddInMemoryInfrastructure<AppIdentity, string>();
             services.AddInMemoryInfrastructure<FantasoccerLog, string>(true);
             services
@@ -34,12 +34,12 @@ namespace Fantasoccer.InMemory
                 .WithInMemoryIntegration("images");
             return services;
         }
-        private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services, bool notExposable = false)
+        private static IServiceCollection AddInMemoryInfrastructure<T, TKey>(this IServiceCollection services, bool notExposable = false, string? factoryName = null)
             where TKey : notnull
         {
             return services.AddRepository<T, TKey>(builder =>
             {
-                builder.WithInMemory();
+                builder.WithInMemory(name: factoryName);
                 if (!notExposable)
                     builder.SetOnlyQueryExposable();
                 else
@@ -86,6 +86,45 @@ namespace Fantasoccer.InMemory
                         }
                     }
                 });
+                var population = serviceProvider.GetRequiredService<IPopulation<Player>>();
+                var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
+                var teamKey = new TeamKey { Email = "alessandro.rapiti44@gmail.com", Year = FantacalcioTime.ActualYear, Group = "Fantasoccer1" };
+                var team = new Team
+                {
+                    Name = "Super team",
+                    Owner = "alessandro.rapiti44@gmail.com",
+                    RevenueMoney = 230,
+                    MoneyFromRank = 345,
+                    Players = new List<Player>()
+                };
+                team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.GoalKeeper));
+                team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Defensor));
+                team.Players.AddRange(Create(4, Role.Midfielder, FantaSoccerRole.Midfielder));
+                team.Players.AddRange(Create(3, Role.Forward, FantaSoccerRole.Forward));
+                team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.BackupGoalKeeper));
+                team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.FirstBackupDefensor));
+                team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.SecondBackupDefensor));
+                team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder));
+                team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder));
+                team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.FirstBackupForward));
+                team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.SecondBackupForward));
+                team.Players.AddRange(Create(7, Role.Undefined, FantaSoccerRole.Tribune));
+                List<Player> Create(int number, Role role, FantaSoccerRole fantaSoccerRole)
+                {
+                    var players = new List<Player>();
+                    var createds = population.Populate(number);
+                    foreach (var created in createds)
+                    {
+                        if (role != Role.Undefined)
+                        {
+                            created.Role = role;
+                            created.Position = fantaSoccerRole;
+                        }
+                        players.Add(created);
+                    }
+                    return players;
+                }
+                await teamRepository.InsertAsync(teamKey, team);
                 var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
                 await rank.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga1", Year = FantacalcioTime.ActualYear }, GetRandomRank());
                 await rank.InsertAsync(new LeagueKey { Group = "Fantasoccer1", League = "Liga2", Year = FantacalcioTime.ActualYear }, GetRandomRank());
