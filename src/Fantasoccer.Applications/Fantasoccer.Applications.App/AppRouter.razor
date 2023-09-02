@@ -50,7 +50,7 @@
             : new FantasoccerState();
             if (identity != null && identity.Email != fantasoccerState.Email)
             {
-                fantasoccerState = new() { Email = identity.Email, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
+                fantasoccerState = new() { Email = identity.Email, Username = identity.Username, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
             }
             else if (identity == null)
             {

@@ -3,7 +3,7 @@
      Breakpoint="Breakpoint.Desktop"
      NavigationBreakpoint="Breakpoint.Tablet"
      ThemeContrast="ThemeContrast.Dark">
-    <BarToggler />
+    <BarToggler Bar="@Sidebar" />
     <BarBrand>
         <BarItem>
             <BarLink To="../../">
@@ -91,6 +91,8 @@
     private AppIdentity? Identity { get; set; }
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [Parameter]
+    public Bar Sidebar { get; set; }
     private void ChangeLeague(string groupId, string leagueId)
     {
         if (State != null)

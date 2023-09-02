@@ -195,13 +195,16 @@ a, .btn-link {
     .fieldMobile .playerContainerMobile50-1, .fieldMobile .playerContainerMobile50-0 {
         position: relative;
         float: left;
-        width: 50%;
+        width: 45%;
         padding-top: 52px;
-        background: yellow;
+        margin-left: 3%;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        background: #ccffcc;
     }
 
     .fieldMobile .playerContainerMobile50-0 {
-        background: green;
+        background: #99ccff;
     }
 
     .fieldMobile .playerContainerMobileTribune {

@@ -4,16 +4,128 @@
 
 <PageTitle>Fantasoccer</PageTitle>
 
-<Layout>
-    <Layout Sider>
-        <LayoutSider>
-            <LayoutSiderContent>
-                <NavMenu />
-            </LayoutSiderContent>
-        </LayoutSider>
-        <Layout>
-            <LayoutContent Padding="Padding.Is1">
-                <LoadingIndicator @ref="loadingIndicator" FullScreen>
+<Layout Sider>
+    <LayoutSider>
+        <LayoutSiderContent>
+            <Bar @ref="@Sidebar" Mode="BarMode.VerticalInline"
+                 CollapseMode="BarCollapseMode.Hide"
+                 Breakpoint="Breakpoint.Desktop"
+                 NavigationBreakpoint="Breakpoint.Tablet"
+                 ThemeContrast="ThemeContrast.Dark">
+                <BarBrand>
+                    <BarItem>
+                        <BarLink To="../../">
+                            <BarIcon IconName="IconName.Walking" />
+                            Fantasoccer
+                        </BarLink>
+                    </BarItem>
+                </BarBrand>
+                <BarMenu>
+                    <BarStart>
+                        <BarItem>
+                            <BarLink To="../../">
+                                <BarIcon IconName="IconName.Star" />
+                                Rank
+                            </BarLink>
+                        </BarItem>
+                        <BarItem>
+                            <BarLink To="../../calendar">
+                                <BarIcon IconName="IconName.CalendarDay" />
+                                Calendar
+                            </BarLink>
+                        </BarItem>
+                        <BarItem>
+                            <BarLink To="../../game">
+                                <BarIcon IconName="IconName.Users" />
+                                My team
+                            </BarLink>
+                        </BarItem>
+                        @if (Identity != null)
+                        {
+                            <BarItem>
+                                <BarDropdown>
+                                    <BarDropdownToggle>
+                                        <BarIcon IconName="IconName.LayerGroup" />
+                                        Group
+                                    </BarDropdownToggle>
+                                    <BarDropdownMenu>
+                                        @foreach (var group in Identity.Groups)
+                                        {
+                                            <BarDropdown>
+                                                <BarDropdownToggle>
+                                                    <BarIcon IconName="IconName.Flag" />
+                                                    @group.Name
+                                                </BarDropdownToggle>
+                                                <BarDropdownMenu>
+                                                    @foreach (var league in group.Leagues)
+                                                    {
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => ChangeLeague(group.Id, league.Id)">
+                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                            @league.Name
+                                                        </BarDropdownItem>
+                                                    }
+                                                </BarDropdownMenu>
+                                            </BarDropdown>
+                                        }
+                                    </BarDropdownMenu>
+                                </BarDropdown>
+                            </BarItem>
+                        }
+                        <BarItem>
+                            <BarDropdown>
+                                <BarDropdownToggle>
+                                    <BarIcon IconName="IconName.CalendarTimes" />
+                                    Years
+                                </BarDropdownToggle>
+                                <BarDropdownMenu>
+                                    @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
+                                    {
+                                        var actualYear = year;
+                                        <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
+                                                         Clicked="x => ChangeYear(actualYear)">
+                                            <BarIcon IconName="IconName.Times" />
+                                            @FantacalcioTime.LabelYear(actualYear)
+                                        </BarDropdownItem>
+                                    }
+                                </BarDropdownMenu>
+                            </BarDropdown>
+                        </BarItem>
+                    </BarStart>
+                </BarMenu>
+            </Bar>
+        </LayoutSiderContent>
+    </LayoutSider>
+    <Layout>
+        <LayoutHeader Fixed Style="background:#001529 !important;">
+             <Bar Breakpoint="Breakpoint.Widescreen"
+                  CollapseMode="BarCollapseMode.Hide"
+                  NavigationBreakpoint="Breakpoint.None"
+                  ThemeContrast="ThemeContrast.Dark">
+                 <BarMenu>
+                     <BarStart>
+                         <BarToggler Style="position: fixed; right: 0px; z-index: 9999" Bar="Sidebar" />
+                         <BarItem>
+                             <BarDropdown>
+                                 <BarDropdownToggle>
+                                     &nbsp;&nbsp;Ciao @State?.Username
+                                 </BarDropdownToggle>
+                                 <BarDropdownMenu>
+                                     <BarDropdownItem>
+                                         Settings
+                                     </BarDropdownItem>
+                                     <BarDropdownItem>
+                                         Logout
+                                     </BarDropdownItem>
+                                 </BarDropdownMenu>
+                             </BarDropdown>
+                         </BarItem>
+                     </BarStart>
+                 </BarMenu>
+             </Bar>
+         </LayoutHeader>
+         <LayoutContent>
+             <LayoutContent Padding="Padding.Is1.OnDesktop.Is0.OnMobile.Is0.OnTablet">
+                 <LoadingIndicator @ref="loadingIndicator" FullScreen>
                     <ChildContent>
                         @Body
                     </ChildContent>
@@ -22,12 +134,37 @@
                     </IndicatorTemplate>
                 </LoadingIndicator>
             </LayoutContent>
-        </Layout>
+        </LayoutContent>
     </Layout>
 </Layout>
 
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private AppIdentity? Identity { get; set; }
+
+    private void ChangeLeague(string groupId, string leagueId)
+    {
+        if (State != null)
+        {
+            State.GroupId = groupId;
+            State.LeagueId = leagueId;
+            State.Update();
+        }
+    }
+    private void ChangeYear(int year)
+    {
+        if (State != null)
+        {
+            State.Year = year;
+            State.Update();
+        }
+    }
     LoadingIndicator loadingIndicator;
+    private Bar? Sidebar = new();
+    public void Toggle()
+    {
+        Sidebar.Visible = !Sidebar.Visible;
+    }
 }
