@@ -39,10 +39,9 @@ namespace Fantasoccer.Business.IngestionData
                 var player = new RealPlayer
                 {
                     Name = name,
-                    RealTeam = team.ToLower(),
+                    RealTeam = new RealTeam { Name = team },
                     Role = role,
                     IsActive = true,
-                    Year = year
                 };
                 players.Add(player);
             }

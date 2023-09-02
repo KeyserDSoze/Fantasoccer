@@ -1,0 +1,166 @@
+﻿@page "/game/{gameId?}"
+@using System.Text.RegularExpressions;
+<div class="field">
+    @if (Game != null)
+    {
+        <ResultCard Game="Game"></ResultCard>
+    }
+    @if (Teams != null)
+    {
+        @if (!isMobile)
+        {
+            <Image class="backgroundField" Source="./static/field.jpg"></Image>
+            foreach (var team in Teams)
+            {
+                if (team.CanModify)
+                {
+                    <DesktopEditableTeam Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></DesktopEditableTeam>
+                }
+                else
+                {
+                    <DesktopGame Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></DesktopGame>
+                }
+            }
+        }
+    }
+</div>
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    private RealDay? RealDay { get; set; }
+    private ChancedRealPlayerWrapper? Chance { get; set; }
+    private VotedRealPlayerWrapper? Live { get; set; }
+    private VotedRealPlayerWrapper? Official { get; set; }
+    private CalendarGame? Game { get; set; }
+    private RealCalendar? RealCalendar { get; set; }
+    private List<TeamsWrapper>? Teams { get; set; }
+    [Parameter]
+    public string? GameId { get; set; }
+    [Inject]
+    public IJSRuntime JsRuntime { get; set; }
+    private int serieADay;
+    private bool isInEdit => GameId == null;
+
+    private sealed class TeamsWrapper
+    {
+        public required Team? Team { get; set; }
+        public bool CanModify { get; set; }
+        public required bool Inverted { get; set; }
+    }
+    private static readonly Regex TestMobile = new Regex("android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile");
+    private bool isMobile;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
+            isMobile = TestMobile.IsMatch(userAgent);
+            var realCalendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
+            if (realCalendar != null)
+                RealCalendar = realCalendar;
+            var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            serieADay = 0;
+            if (GameId != null && calendar != null)
+            {
+                Check();
+
+                void Check()
+                {
+                    foreach (var round in calendar.Rounds)
+                    {
+                        foreach (var day in round.Value)
+                        {
+                            foreach (var game in day.Games)
+                            {
+                                if (game.Id == GameId)
+                                {
+                                    Game = game;
+                                    serieADay = day.SerieADay;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (serieADay <= 0)
+            {
+                serieADay = realCalendar?.NextDay?.SerieADay ?? realCalendar?.LiveDay?.SerieADay ?? 1;
+            }
+            RealDay = realCalendar?.Days.FirstOrDefault(x => x.SerieADay == serieADay);
+            var yearDayKey = State.YearDayKey(serieADay);
+            Chance = await Api.Chances.GetAsync(yearDayKey);
+            if (!isInEdit)
+            {
+                Live = await Api.LiveVote.GetAsync(yearDayKey);
+                Official = await Api.OfficialVote.GetAsync(yearDayKey);
+            }
+            Team? myTeam = null;
+            if (Game == null && calendar != null)
+            {
+                myTeam = await GetTeamAsync(Api, State, serieADay, null);
+                if (myTeam != null)
+                    Game = calendar.Rounds.SelectMany(x => x.Value).Where(x => x.SerieADay == serieADay).SelectMany(x => x.Games).FirstOrDefault(x => x.Home == myTeam.Name || x.Away == myTeam.Name);
+            }
+            if (Game != null)
+            {
+                var teams = new List<TeamsWrapper>();
+                var counter = 0;
+                foreach (var owner in GetOwners())
+                {
+                    var isMyTeam = myTeam != null && myTeam.Owner == owner;
+                    var team = isMyTeam ? myTeam
+                        : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
+                    teams.Add(new TeamsWrapper
+                        {
+                            Team = team,
+                            CanModify = isMyTeam && isInEdit,
+                            Inverted = counter == 1,
+                        });
+                    counter++;
+                }
+                Teams = teams;
+                IEnumerable<string> GetOwners()
+                {
+                    yield return Game.HomeOwner;
+                    yield return Game.AwayOwner;
+                }
+            }
+            static async Task<Team?> GetTeamAsync(ApiService api, FantasoccerState state, int serieADay, string? email)
+            {
+                var actualTeam = await api.DailyTeam.GetAsync(state.TeamDayKey(serieADay, email));
+                var dayForSearch = serieADay;
+                while (actualTeam == null)
+                {
+                    dayForSearch--;
+                    if (dayForSearch == -1)
+                        break;
+                    actualTeam = dayForSearch > 0 ?
+                        await api.DailyTeam.GetAsync(state.TeamDayKey(dayForSearch, email)) :
+                        await api.Team.GetAsync(email == null ? state.TeamKey : state.OtherTeamKey(email));
+                }
+                return actualTeam;
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
+    private ChancedRealPlayer? GetChance(Player player)
+    {
+        var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return chancedPlayer;
+    }
+    private VotedRealPlayer? GetVote(Player player)
+    {
+        var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
+        if (votePlayer == null)
+            votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
+        return votePlayer;
+    }
+    private RealGame? GetRealGame(Player player)
+    {
+        var game = RealDay?.Games.FirstOrDefault(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
+        return game;
+    }
+}

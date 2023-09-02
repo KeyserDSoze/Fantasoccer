@@ -64,10 +64,8 @@ namespace Fantasoccer.Business
 
                         var realGame = new RealGame()
                         {
-                            Home = firstTeam,
-                            Away = secondTeam,
-                            AbbreviatedHome = firstTeam[..3].ToLower(),
-                            AbbreviatedAway = secondTeam[..3].ToLower(),
+                            Home = new RealTeam { Name = firstTeam },
+                            Away = new RealTeam { Name = secondTeam },
                             Date = date,
                             Delayed = delayed,
                             HomeGoal = aResult,

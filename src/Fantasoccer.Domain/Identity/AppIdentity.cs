@@ -25,5 +25,6 @@
         public string Id { get; set; }
         public string Name { get; set; }
         public IdentityRole Role { get; set; }
+        public LeagueType Type { get; set; }
     }
 }

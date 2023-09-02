@@ -16,7 +16,7 @@ namespace Fantasoccer.Tests.Tests.Services
             var players = await _allPlayers.GetAsync();
             Assert.NotNull(players);
             Assert.True(players.Count > 100);
-            Assert.Equal(20, players.GroupBy(x => x.RealTeam).Count());
+            Assert.Equal(20, players.GroupBy(x => x.RealTeam.Name).Count());
         }
     }
 }

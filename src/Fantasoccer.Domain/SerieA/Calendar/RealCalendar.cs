@@ -23,7 +23,14 @@ namespace Fantasoccer
         });
         [JsonIgnore]
         public RealDay? NextDay
-            => Days.FirstOrDefault(x => x.SerieADay == (LastDay.SerieADay >= 38 ? LastDay.SerieADay : (LastDay.SerieADay <= 0 ? 1 : LastDay.SerieADay + 1)));
+        {
+            get
+            {
+                var day = (LiveDay?.SerieADay ?? LastDay?.SerieADay ?? 0) + 1;
+                return Days.FirstOrDefault(x => x.SerieADay == day);
+            }
+        }
+
         [JsonIgnore]
         public IEnumerable<RealGame>? LiveGames
             => LiveDay?.Games.Where(x => !x.Delayed && FantacalcioTime.ItalyNow >= x.Date && FantacalcioTime.ItalyNow <= x.Date + s_twoHours);

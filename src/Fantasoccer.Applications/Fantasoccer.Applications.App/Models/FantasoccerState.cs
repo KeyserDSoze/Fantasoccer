@@ -1,4 +1,6 @@
-﻿namespace Fantasoccer.Applications.App
+﻿using System.Text.Json.Serialization;
+
+namespace Fantasoccer.Applications.App
 {
     public class FantasoccerState
     {
@@ -6,8 +8,11 @@
         public string? GroupId { get; set; }
         public string? LeagueId { get; set; }
         public int Year { get; set; } = FantacalcioTime.ActualYear;
+        [JsonIgnore]
         public Func<ValueTask>? Update { get; set; }
+        [JsonIgnore]
         public LeagueKey LeagueKey => new() { Group = GroupId!, League = LeagueId!, Year = Year };
+        [JsonIgnore]
         public TeamKey TeamKey => new() { Group = GroupId!, Year = Year, Email = Email! };
         public TeamKey OtherTeamKey(string email) => new() { Group = GroupId!, Year = Year, Email = email };
         public TeamDayKey TeamDayKey(int day, string? email = null) => new()

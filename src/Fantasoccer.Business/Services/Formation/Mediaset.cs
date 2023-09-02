@@ -16,7 +16,7 @@ namespace Fantasoccer.Business.IngestionData
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
             List<ChancedRealPlayer> players = new();
-            var teams = (await _repository.GetAsync(FantacalcioTime.ActualYear).NoContext()).Days.First().Games.SelectMany(x => new string[2] { x.Home, x.Away }).ToList();
+            var teams = (await _repository.GetAsync(FantacalcioTime.ActualYear).NoContext()).Days.First().Games.SelectMany(x => new string[2] { x.Home.Name, x.Away.Name }).ToList();
             foreach (var team in teams)
             {
                 var realTeam = team == "Juve" ? "Juventus" : team;
@@ -30,8 +30,7 @@ namespace Fantasoccer.Business.IngestionData
                         var chancedPlayer = new ChancedRealPlayer
                         {
                             Name = KeyUtils.GetPlayerKey(player.giocatore.ToLower()),
-                            Year = FantacalcioTime.ActualYear,
-                            RealTeam = realTeam,
+                            RealTeam = new() { Name = realTeam },
                             Chance = new Chance()
                             {
                                 Gazzetta = true

@@ -3,13 +3,20 @@
     See https://heptapod.host/thirteen/switchstartupproject/blob/branch/current/Configuration.md
 */
 {
-    /*  Configuration File Version  */
-    "Version": 3,
-    
-    /*  Create an item in the dropdown list for each project in the solution?  */
-    "ListAllProjects": true,
+  /*  Configuration File Version  */
+  "Version": 3,
 
-    /*
+  /*  Create an item in the dropdown list for each project in the solution?  */
+  "ListAllProjects": true,
+  "MultiProjectConfigurations": {
+    "Api+App": {
+      "Projects": {
+        "Fantasoccer.Applications.Api": {},
+        "Fantasoccer.Applications.App": {}
+      }
+    }
+  }
+  /*
         Dictionary of named configurations with one or multiple startup projects
         and optional parameters like command line arguments and working directory.
         Example:
@@ -51,5 +58,4 @@
           }
         }
     */
-    "MultiProjectConfigurations": {}
 }

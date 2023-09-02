@@ -37,7 +37,7 @@
                                              <TableBody>
                                                  @foreach (var game in day.Games)
                                                     {
-                                                        <TableRow>
+                                                        <TableRow Clicked="() => NavigateTo(game.Id)">
                                                             <TableRowCell>@game.Home</TableRowCell>
                                                             @if (game.Result != null)
                                                             {
@@ -75,6 +75,8 @@ else
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [Inject]
+    public NavigationManager NavigationManager { get; set; }
     private Calendar? calendar;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
@@ -96,5 +98,9 @@ else
                 nullRank = "Year not presented.";
         }
         await base.OnParametersSetAsync();
+    }
+    private void NavigateTo(string gameId)
+    {
+        NavigationManager.NavigateTo($"game/{gameId}", false);
     }
 }

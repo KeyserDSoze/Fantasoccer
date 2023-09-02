@@ -24,8 +24,7 @@ namespace Fantasoccer.Business.IngestionData
                     var chancedPlayer = new ChancedRealPlayer
                     {
                         Name = player.fullname,
-                        RealTeam = match.home.name,
-                        Year = FantacalcioTime.ActualYear,
+                        RealTeam = new RealTeam { Name = match.home.name },
                         Chance = new Chance()
                         {
                             Sky = true
@@ -38,8 +37,7 @@ namespace Fantasoccer.Business.IngestionData
                     var chancedPlayer = new ChancedRealPlayer
                     {
                         Name = player.fullname,
-                        RealTeam = match.away.name,
-                        Year = FantacalcioTime.ActualYear,
+                        RealTeam = new RealTeam { Name = match.away.name },
                         Chance = new Chance()
                         {
                             Sky = true

@@ -1,14 +1,17 @@
-﻿using System;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace Fantasoccer
 {
+    public sealed class RealTeam
+    {
+        public string Name { get; set; }
+        [JsonIgnore]
+        public string Abbreviation => Name.ToLower()[..3];
+    }
     public sealed class RealGame
     {
-        public string Home { get; set; }
-        public string Away { get; set; }
-        public string AbbreviatedHome { get; set; }
-        public string AbbreviatedAway { get; set; }
+        public RealTeam Home { get; set; }
+        public RealTeam Away { get; set; }
         public DateTime? Date { get; set; }
         public int? HomeGoal { get; set; }
         public int? AwayGoal { get; set; }

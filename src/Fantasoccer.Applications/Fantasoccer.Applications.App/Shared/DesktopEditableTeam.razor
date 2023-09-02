@@ -1,21 +1,17 @@
 ﻿<DropContainer TItem="Player" Items="@Team.ActivePlayers.OrderBy(x => x.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
     <ChildContent>
-        @{
-            var counter = 0;
-        }
-        @foreach (var position in FantaSoccerPosition.Default)
+        @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
         {
             <div class="@position.Css">
-                <DropZone Class="columnContainer" TItem="Player" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
+                <DropZone Class="@position.ColumnContainer" TItem="Player" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
             </div>
-            counter++;
         }
     </ChildContent>
     <ItemTemplate>
         <PlayerCard Player="context" Chancer="GetChance(context)" Voter="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
     </ItemTemplate>
 </DropContainer>
-<Snackbar @ref="snackbar">
+<Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
     <SnackbarBody>
         @message
     </SnackbarBody>
@@ -38,6 +34,14 @@
     public required VotedRealPlayerWrapper? Live { get; set; }
     [Parameter]
     public required VotedRealPlayerWrapper? Official { get; set; }
+    [Parameter]
+    public required Func<Player, ChancedRealPlayer?> GetChance { get; set; }
+    [Parameter]
+    public required Func<Player, VotedRealPlayer?> GetVote { get; set; }
+    [Parameter]
+    public required Func<Player, RealGame?> GetRealGame { get; set; }
+    [Parameter]
+    public required bool Inverted { get; set; }
     private Snackbar? snackbar;
     private string? message;
     private bool Filter(Player player, string zoneName)
@@ -47,7 +51,15 @@
     }
     private async Task ItemDropped(DraggableDroppedEventArgs<Player> dropItem)
     {
-        dropItem.Item.Position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
+        var movedPlayer = dropItem.Item;
+        var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
+        if (position >= FantaSoccerRole.BackupGoalKeeper && position <= FantaSoccerRole.SecondBackupForward)
+        {
+            var playerInBench = Team.ActivePlayers.FirstOrDefault(x => x.Position == position);
+            if (playerInBench != null)
+                playerInBench.Position = movedPlayer.Position;
+        }
+        movedPlayer.Position = position;
         if (State != null && RealCalendar != null && RealCalendar.NextDay?.SerieADay == SerieADay)
         {
             var key = State.TeamDayKey(SerieADay);
@@ -61,22 +73,5 @@
                 snackbar.Show();
             }
         }
-    }
-    private ChancedRealPlayer? GetChance(Player player)
-    {
-        var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
-        return chancedPlayer;
-    }
-    private VotedRealPlayer? GetVote(Player player)
-    {
-        var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
-        if (votePlayer == null)
-            votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
-        return votePlayer;
-    }
-    private RealGame? GetRealGame(Player player)
-    {
-        var game = RealDay?.Games.FirstOrDefault(x => x.Home == player.RealTeam || x.Away == player.RealTeam);
-        return game;
     }
 }

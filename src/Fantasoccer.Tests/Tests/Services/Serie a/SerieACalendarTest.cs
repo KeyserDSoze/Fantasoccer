@@ -19,7 +19,7 @@ namespace Fantasoccer.Tests.Tests.Services
             foreach (var day in calendar.Days)
             {
                 Assert.Equal(10, day.Games.Count);
-                Assert.Equal(20, day.Games.SelectMany(x => new string[2] { x.Home, x.Away }).Distinct().Count());
+                Assert.Equal(20, day.Games.SelectMany(x => new string[2] { x.Home.Name, x.Away.Name }).Distinct().Count());
             }
         }
     }

@@ -24,7 +24,7 @@ namespace Fantasoccer.Tests.Tests.Services
             var players = await _official.GetAsync(FantacalcioTime.ActualYear, 1).NoContext();
             Assert.NotEmpty(players);
             Assert.True(players.Count > 60);
-            Assert.Equal(20, players.GroupBy(x => x.RealTeam).Count());
+            Assert.Equal(20, players.GroupBy(x => x.RealTeam.Name).Count());
         }
         [Fact]
         public async Task FetchLiveAsync()
@@ -40,7 +40,7 @@ namespace Fantasoccer.Tests.Tests.Services
             if (isLive)
             {
                 Assert.True(players.Count > 60);
-                Assert.Equal(20, players.GroupBy(x => x.RealTeam).Count());
+                Assert.Equal(20, players.GroupBy(x => x.RealTeam.Name).Count());
             }
         }
     }

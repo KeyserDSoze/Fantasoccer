@@ -29,7 +29,7 @@ namespace Fantasoccer.Tests.Tests.Services
             var players = await parser.GetPlayersAsync();
             Assert.NotEmpty(players);
             Assert.True(players.Count > 100);
-            Assert.Equal(20, players.GroupBy(x => x.RealTeam).Count());
+            Assert.Equal(20, players.GroupBy(x => x.RealTeam.Name).Count());
         }
         [Theory]
         [InlineData("Injury")]
@@ -41,7 +41,7 @@ namespace Fantasoccer.Tests.Tests.Services
             var players = await parser.GetPlayersAsync();
             Assert.NotEmpty(players);
             Assert.True(players.Count > 10);
-            Assert.True(players.GroupBy(x => x.RealTeam).Count() > 2);
+            Assert.True(players.GroupBy(x => x.RealTeam.Name).Count() > 2);
         }
     }
 }

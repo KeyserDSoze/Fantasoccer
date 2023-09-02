@@ -2,7 +2,7 @@
     <img class="playerimage" onerror="this.src ='./static/nogioc.jpg'" src="" />
     @if (Game?.IsPlayed == true)
     {
-        <div class="playerrealteam">@Player.RealTeam</div>
+        <div class="playerrealteam">@Player.RealTeam.Name</div>
         <div class="playerenemy">
             <div class="enemyname">@EnemyName</div>
             <div class="enemyhour">@Game?.HomeGoal - @Game?.AwayGoal</div>
@@ -10,7 +10,7 @@
     }
     else
     {
-        <div class="playerrealteam @Chancer?.Chance?.Status">@Player.RealTeam</div>
+        <div class="playerrealteam @Chancer?.Chance?.Status">@Player.RealTeam.Name</div>
         <div class="playerenemy">
             <div class="enemyname">@EnemyName</div>
             @if (Game != default && Game.Date.HasValue)
@@ -86,5 +86,5 @@
     public ChancedRealPlayer? Chancer { get; set; }
     [Parameter]
     public VotedRealPlayer? Voter { get; set; }
-    private string EnemyName => Player == null || Game == null ? string.Empty : (Player.RealTeam != Game.Home ? Game.Away : Game.Home);
+    private string EnemyName => Player == null || Game == null ? string.Empty : (Player.RealTeam.Abbreviation != Game.Home.Abbreviation ? Game.Away.Abbreviation : Game.Home.Abbreviation);
 }

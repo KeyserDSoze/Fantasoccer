@@ -96,17 +96,28 @@ a, .btn-link {
     }
 
     .field .firstBackupContainer {
-        height: 150px;
+        height: 126px;
+        max-height: 138px;
     }
 
     .field .secondBackupContainer {
-        height: 150px;
+        height: 126px;
+        max-height: 138px;
+        margin-top: 12px;
     }
 
     .field .tribuneContainer {
         position: absolute;
         display: block;
         left: 1154px;
+        top: 0px;
+        height: auto;
+    }
+
+    .field .tribuneContainerInverted {
+        position: absolute;
+        display: block;
+        left: 580px;
         top: 0px;
         height: auto;
     }
@@ -121,8 +132,38 @@ a, .btn-link {
         position: relative;
         float: left;
         min-width: 125px;
-        background: rgba(255,255,255,0.3);
         padding-top: 30px;
         padding-left: 15px;
         min-height: 160px;
+    }
+
+    .field .columnContainerBench {
+        width: 125px;
+        margin-left: 2%;
+        position: relative;
+        float: left;
+        min-width: 125px;
+        padding-top: 30px;
+        padding-left: 15px;
+        min-height: 138px;
+        max-height: 138px;
+    }
+    .field .columnContainerWithWhiteBackground {
+        background: rgba(255,255,255,0.3);
+    }
+    .field .columnContainerWithRedBackground {
+        background: rgba(86,114,184,0.4);
+        min-height: 138px;
+        max-height: 138px;
+    }
+    .field .columnContainerWithVioletBackground {
+        background: rgba(154,28,147,0.4);
+        min-height: 138px;
+        max-height: 138px;
+    }
+    .field .columnContainerWithBlackBackground {
+        background: rgba(0,0,0,0.4);
+    }
+    .field .columnContainerInvisibleBackground {
+        background: rgba(0,0,0,0);
     }

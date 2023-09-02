@@ -40,8 +40,7 @@ namespace Fantasoccer.Business.IngestionData
                         var player = new ChancedRealPlayer
                         {
                             Name = name,
-                            RealTeam = realTeam,
-                            Year = FantacalcioTime.ActualYear,
+                            RealTeam = new RealTeam { Name = realTeam },
                             Chance = new Chance()
                             {
                                 Gazzetta = true

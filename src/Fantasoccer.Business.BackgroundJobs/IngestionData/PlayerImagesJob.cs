@@ -46,7 +46,8 @@ namespace Fantasoccer.Engine.IngestionData
                     foreach (var match in s_link.Split(playerLandingPage).Skip(1))
                     {
                         var teamName = s_linkTeam.Split(match)[1].Split('"')[0].Split('>')[1].Split('<')[0];
-                        if (teamName.ToLower().Contains(player.RealTeam.ToLower()))
+                        var team = new RealTeam { Name = teamName };
+                        if (team.Abbreviation == player.RealTeam.Abbreviation)
                         {
                             linkPlayer = match.Split('"')[1];
                             break;

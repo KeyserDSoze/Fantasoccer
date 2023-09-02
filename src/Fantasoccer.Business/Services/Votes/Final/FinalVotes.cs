@@ -47,7 +47,7 @@ namespace Fantasoccer.Business.IngestionData
                         VotedRealPlayer player = new()
                         {
                             Name = GetName(element),
-                            RealTeam = realTeam,
+                            RealTeam = new RealTeam { Name = realTeam },
                             IsActive = true
                         };
                         var vote = GetVote(elementSplitted[1]);
@@ -95,12 +95,12 @@ namespace Fantasoccer.Business.IngestionData
                     {
                         foreach (var game in day.Games.Where(x => x.Delayed))
                         {
-                            Delayed(game.AbbreviatedHome);
-                            Delayed(game.AbbreviatedAway);
+                            Delayed(game.Home);
+                            Delayed(game.Away);
                         }
-                        void Delayed(string realTeamName)
+                        void Delayed(RealTeam team)
                         {
-                            foreach (var player in allPlayers.Players.Where(x => x.RealTeam == realTeamName))
+                            foreach (var player in allPlayers.Players.Where(x => x.RealTeam.Abbreviation == team.Abbreviation))
                             {
                                 players.Add(new()
                                 {
