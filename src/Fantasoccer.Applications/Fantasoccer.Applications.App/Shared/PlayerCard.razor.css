@@ -262,3 +262,17 @@
         .player .playerenemy .enemyhour {
             /*font-size: 8px;*/
         }
+
+.fieldMobile .player {
+    width: 44px;
+    height: 54px;
+    float: initial;
+    display: inline-block;
+}
+
+.fieldMobile .playerrealteam {
+    top: -40px;
+    left: -80px;
+    width: 79px;
+    font-size: 10px;
+}

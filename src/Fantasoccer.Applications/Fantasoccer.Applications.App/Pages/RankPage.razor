@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
 
 <PageTitle>Rank</PageTitle>
 
@@ -46,6 +47,8 @@ else
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
     private Rank? rank;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
@@ -60,11 +63,13 @@ else
     {
         if (State != null)
         {
+            LoadingIndicator?.Show();
             rank = await Api.Ranks.GetAsync(State.LeagueKey);
             if (rank != null)
                 selectedTab = rank.RankedTeams.First().Key;
             else
                 nullRank = "Year not presented.";
+            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

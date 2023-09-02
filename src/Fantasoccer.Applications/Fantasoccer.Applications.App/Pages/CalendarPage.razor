@@ -1,5 +1,6 @@
 ﻿@page "/calendar"
 @using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
 
 <PageTitle>Calendar</PageTitle>
 
@@ -62,7 +63,7 @@
                             </Column>
                         }
                     </Row>
-               </TabPanel>
+                </TabPanel>
             }
         </Content>
     </Tabs>
@@ -75,6 +76,8 @@ else
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
     private Calendar? calendar;
@@ -91,11 +94,13 @@ else
     {
         if (State != null)
         {
+            LoadingIndicator?.Show();
             calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             if (calendar != null)
                 selectedTab = calendar.Rounds.First().Key;
             else
                 nullRank = "Year not presented.";
+            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

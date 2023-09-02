@@ -1,6 +1,6 @@
 ﻿@if (Game != null)
 {
-    <div class="gameResult animOpacity">
+    <div class="@Css">
         <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
         <span class="team">@Game.Home</span>
         @if (Game.Result != default)
@@ -38,4 +38,6 @@
 @code {
     [Parameter]
     public CalendarGame? Game { get; set; }
+    [Parameter]
+    public string Css { get; set; }
 }

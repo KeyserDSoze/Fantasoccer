@@ -1,14 +1,17 @@
 ﻿@page "/game/{gameId?}"
 @using System.Text.RegularExpressions;
-<div class="field">
-    @if (Game != null)
-    {
-        <ResultCard Game="Game"></ResultCard>
-    }
-    @if (Teams != null)
-    {
-        @if (!isMobile)
+@using Blazorise.LoadingIndicator;
+
+@if (!isMobile)
+{
+    <div class="field">
+        @if (Game != null)
         {
+            <ResultCard Css="gameResult animOpacity" Game="Game"></ResultCard>
+        }
+        @if (Teams != null)
+        {
+
             <Image class="backgroundField" Source="./static/field.jpg"></Image>
             foreach (var team in Teams)
             {
@@ -22,13 +25,38 @@
                 }
             }
         }
-    }
-</div>
-
+    </div>
+}
+else
+{
+    <div class="fieldMobile">
+        @if (Game != null)
+        {
+            <ResultCard Css="gameResultMobile animOpacity" Game="Game"></ResultCard>
+        }
+        @if (Teams != null)
+        {
+            <Image class="backgroundField" Source="./static/verticalfield.jpg"></Image>
+            @foreach (var team in Teams)
+            {
+                if (team.CanModify)
+                {
+                    <MobileEditableTeam Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileEditableTeam>
+                }
+                else
+                {
+                    <MobileGame Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileGame>
+                }
+            }
+        }
+    </div>
+}
 
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
     private RealDay? RealDay { get; set; }
     private ChancedRealPlayerWrapper? Chance { get; set; }
     private VotedRealPlayerWrapper? Live { get; set; }
@@ -55,8 +83,9 @@
     {
         if (State != null)
         {
+            LoadingIndicator?.Show();
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
-            isMobile = TestMobile.IsMatch(userAgent);
+            isMobile = TestMobile.IsMatch(userAgent?.ToLower() ?? string.Empty);
             var realCalendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
             if (realCalendar != null)
                 RealCalendar = realCalendar;
@@ -143,6 +172,7 @@
                 }
                 return actualTeam;
             }
+            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using Blazorise.LoadingIndicator;
+@inherits LayoutComponentBase
 @attribute [Authorize]
 
 <PageTitle>Fantasoccer</PageTitle>
@@ -12,8 +13,21 @@
         </LayoutSider>
         <Layout>
             <LayoutContent Padding="Padding.Is1">
-                @Body
+                <LoadingIndicator @ref="loadingIndicator" FullScreen>
+                    <ChildContent>
+                        @Body
+                    </ChildContent>
+                    <IndicatorTemplate>
+                        <img src="/static/soccerball.gif" class="loader" />
+                    </IndicatorTemplate>
+                </LoadingIndicator>
             </LayoutContent>
         </Layout>
     </Layout>
 </Layout>
+
+@code {
+    [CascadingParameter]
+    public FantasoccerState? State { get; set; }
+    LoadingIndicator loadingIndicator;
+}

@@ -222,12 +222,18 @@ namespace Fantasoccer.InMemory
                 var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
                 foreach (var rankForCreation in ranksForCreation)
                 {
-                    await calendar.InsertAsync(rankForCreation.LeagueKey, GetRandomCalendar(rankForCreation.Type, rankForCreation.Teams));
+                    var randomCalendarX = GetRandomCalendar(rankForCreation.Type, rankForCreation.Teams);
+                    await calendar.InsertAsync(rankForCreation.LeagueKey, randomCalendarX);
                     Console.WriteLine($"Calendar created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
                     start = DateTime.UtcNow;
 
+                    var annualTeamsAfterCalendar = new List<AnnualTeam>();
+                    foreach (var teamOwner in randomCalendarX.Rounds.SelectMany(x => x.Value).GroupBy(x => x.SerieADay).First().SelectMany(x => x.Games).SelectMany(x => new string[2] { x.HomeOwner, x.AwayOwner }))
+                    {
+                        annualTeamsAfterCalendar.Add(rankForCreation.Teams.First(x => x.Owner == teamOwner));
+                    }
                     await rank.InsertAsync(
-                        rankForCreation.LeagueKey, GetRandomRank(rankForCreation.Teams, rankForCreation.Type));
+                        rankForCreation.LeagueKey, GetRandomRank(annualTeamsAfterCalendar, rankForCreation.Type));
                     Console.WriteLine($"Rank created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
                     start = DateTime.UtcNow;
                 }
@@ -251,21 +257,24 @@ namespace Fantasoccer.InMemory
                     {
                         RankedTeams = new Dictionary<string, List<RankedTeam>>()
                     };
-                    for (var i = 0; i < 4; i++)
+                    var max = type == LeagueType.Cup ? 4 : 1;
+                    var getTeams = type == LeagueType.Cup ? 4 : 10;
+                    for (var i = 0; i < max; i++)
                     {
+                        var actualTeams = teams.Skip(i * getTeams).Take(getTeams).ToList();
                         var key = ((char)(65 + i)).ToString();
                         newRank.RankedTeams.Add(key, new());
-                        for (var j = 0; j < 10; j++)
+                        for (var j = 0; j < getTeams; j++)
                         {
                             newRank.RankedTeams[key].Add(new RankedTeam
                             {
-                                Name = $"Team{j}",
+                                Name = actualTeams[j].Name,
                                 Defeats = 3,
                                 Draws = 3,
                                 Money = 3,
                                 Goal = 3,
                                 PlusMoney = 20,
-                                Owner = "email",
+                                Owner = actualTeams[j].Owner,
                                 Point = RandomNumberGenerator.GetInt32(20, 100),
                                 SufferedGoal = 20,
                                 SufferedValuePoint = 23,

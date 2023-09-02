@@ -67,6 +67,12 @@ a, .btn-link {
         content: "An error has occurred."
     }
 
+.loader {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+}
+
 .field {
     position: relative;
 }
@@ -148,22 +154,53 @@ a, .btn-link {
         min-height: 138px;
         max-height: 138px;
     }
+
     .field .columnContainerWithWhiteBackground {
         background: rgba(255,255,255,0.3);
     }
+
     .field .columnContainerWithRedBackground {
         background: rgba(86,114,184,0.4);
         min-height: 138px;
         max-height: 138px;
     }
+
     .field .columnContainerWithVioletBackground {
         background: rgba(154,28,147,0.4);
         min-height: 138px;
         max-height: 138px;
     }
+
     .field .columnContainerWithBlackBackground {
         background: rgba(0,0,0,0.4);
     }
+
     .field .columnContainerInvisibleBackground {
         background: rgba(0,0,0,0);
+    }
+
+.fieldMobile {
+    position: relative;
+    float: left;
+    width: 100%;
+}
+
+    .fieldMobile .backgroundField {
+        position: absolute;
+        top: 90px;
+        left: 0px;
+        width: 100%;
+    }
+
+    .fieldMobile .playerContainerMobile {
+        position: relative;
+        float: left;
+        width: 100%;
+    }
+
+    .fieldMobile .playerMobile {
+        position: relative;
+        float: left;
+        width: 100%;
+        text-align:center;
     }
