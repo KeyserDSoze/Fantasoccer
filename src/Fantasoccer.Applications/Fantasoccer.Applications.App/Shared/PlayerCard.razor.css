@@ -259,6 +259,7 @@
             line-height: 12px;
         }
 
+
         .player .playerenemy .enemyhour {
             /*font-size: 8px;*/
         }
@@ -268,11 +269,28 @@
     height: 54px;
     float: initial;
     display: inline-block;
+    margin-left: 20px;
+}
+
+.fieldMobile .playerenemy .enemyname,
+.fieldMobile .playerenemy .enemyhour {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    font-size: 9px;
+    height: 12px;
+    line-height: 12px;
 }
 
 .fieldMobile .playerrealteam {
-    top: -40px;
-    left: -80px;
-    width: 79px;
+    top: -16px;
+    left: -61px;
+    width: 60px;
+    height: 18px;
+    font-size: 10px;
+    padding-left: 0px;
+}
+
+.fieldMobile .playername {
     font-size: 10px;
 }

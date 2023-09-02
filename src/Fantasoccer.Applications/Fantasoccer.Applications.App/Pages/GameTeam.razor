@@ -36,16 +36,37 @@ else
         }
         @if (Teams != null)
         {
-            <Image class="backgroundField" Source="./static/verticalfield.jpg"></Image>
+            <div class="gameContainerMobile">
+                @foreach (var team in Teams)
+                {
+                    if (team.CanModify)
+                    {
+                        <MobileEditableTeam OnSave="() => StateHasChanged()" Css="playerContainerMobile" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileEditableTeam>
+                    }
+                    else
+                    {
+                        <MobileGame Css="playerContainerMobile" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileGame>
+                    }
+                }
+            </div>
+            var counter = 0;
             @foreach (var team in Teams)
             {
                 if (team.CanModify)
                 {
-                    <MobileEditableTeam Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileEditableTeam>
+                    <MobileEditableTeam OnSave="() => StateHasChanged()" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileEditableTeam>
                 }
                 else
                 {
-                    <MobileGame Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileGame>
+                    <MobileGame Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileGame>
+                }
+                counter++;
+            }
+            @foreach (var team in Teams)
+            {
+                if (team.CanModify)
+                {
+                    <MobileEditableTeam OnSave="() => StateHasChanged()" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="team.Inverted" State="State" Team="team.Team" SerieADay="serieADay" Chance="Chance" Live="Live" Official="Official" RealCalendar="RealCalendar" RealDay="RealDay" GetChance="GetChance" GetVote="GetVote" GetRealGame="GetRealGame"></MobileEditableTeam>
                 }
             }
         }
@@ -141,7 +162,8 @@ else
                 {
                     var isMyTeam = myTeam != null && myTeam.Owner == owner;
                     var team = isMyTeam ? myTeam
-                        : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
+                        // : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
+                        : await GetTeamAsync(Api, State, serieADay, owner);
                     teams.Add(new TeamsWrapper
                         {
                             Team = team,

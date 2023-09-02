@@ -185,22 +185,48 @@ a, .btn-link {
     width: 100%;
 }
 
-    .fieldMobile .backgroundField {
-        position: absolute;
-        top: 90px;
-        left: 0px;
-        width: 100%;
-    }
-
     .fieldMobile .playerContainerMobile {
         position: relative;
         float: left;
         width: 100%;
+        margin-top: 52px;
     }
+
+    .fieldMobile .playerContainerMobile50-1, .fieldMobile .playerContainerMobile50-0 {
+        position: relative;
+        float: left;
+        width: 50%;
+        padding-top: 52px;
+        background: yellow;
+    }
+
+    .fieldMobile .playerContainerMobile50-0 {
+        background: green;
+    }
+
+    .fieldMobile .playerContainerMobileTribune {
+        position: relative;
+        float: left;
+        width: 100%;
+        padding-top: 52px;
+        background: rgba(0,0,0,0.8);
+    }
+
+    .fieldMobile .gameContainerMobile {
+        position: relative;
+        float: left;
+        width: 100%;
+        background-image: url(../static/verticalfield.jpg);
+        background-size: 100% 100%;
+    }
+
+        .fieldMobile .gameContainerMobile:last-child {
+            background: red;
+        }
 
     .fieldMobile .playerMobile {
         position: relative;
         float: left;
         width: 100%;
-        text-align:center;
+        text-align: center;
     }

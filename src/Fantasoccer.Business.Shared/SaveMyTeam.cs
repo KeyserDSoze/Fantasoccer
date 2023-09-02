@@ -51,7 +51,7 @@ namespace Fantasoccer.Business.Shared
                     case FantaSoccerRole.SecondBackupDefensor:
                         if (value.PlayersByRole.FirstOrDefault().Role != Role.Defensor)
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: "Giocatore schierato erroneamente come difensore."));
-                        if (value.Status == FantaSoccerRole.Defensor && (value.PlayersByRole.FirstOrDefault().Count < 2 || value.PlayersByRole.FirstOrDefault().Count > 5))
+                        if (value.Status == FantaSoccerRole.Defensor && (value.PlayersByRole.FirstOrDefault().Count <= 2 || value.PlayersByRole.FirstOrDefault().Count > 5))
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: $"Difensori titolari in numero sbagliato {value.PlayersByRole.FirstOrDefault().Count}. Puoi mettere da un minimo di 3 ad un massimo di 5 difensori."));
                         if (value.Status != FantaSoccerRole.Defensor && value.PlayersByRole.FirstOrDefault().Count != 1)
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: $"{(value.Status == FantaSoccerRole.FirstBackupDefensor ? "Primo difensore di riserva" : "Secondo difensore di riserva")} manacante o troppi."));
@@ -61,7 +61,7 @@ namespace Fantasoccer.Business.Shared
                     case FantaSoccerRole.SecondBackupMidfielder:
                         if (value.PlayersByRole.FirstOrDefault().Role != Role.Midfielder)
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: "Giocatore schierato erroneamente come centrocampista."));
-                        if (value.Status == FantaSoccerRole.Midfielder && (value.PlayersByRole.FirstOrDefault().Count < 2 || value.PlayersByRole.FirstOrDefault().Count > 5))
+                        if (value.Status == FantaSoccerRole.Midfielder && (value.PlayersByRole.FirstOrDefault().Count <= 2 || value.PlayersByRole.FirstOrDefault().Count > 5))
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: $"Centrocampisti titolari in numero sbagliato {value.PlayersByRole.FirstOrDefault().Count}. Puoi mettere da un minimo di 3 ad un massimo di 5 centrocampisti."));
                         if (value.Status != FantaSoccerRole.Midfielder && value.PlayersByRole.FirstOrDefault().Count != 1)
                             return Task.FromResult(new State<Team, TeamDayKey>(false, message: $"{(value.Status == FantaSoccerRole.FirstBackupMidfielder ? "Primo centrocampista di riserva" : "Secondo centrocampista di riserva")} manacante o troppi."));
