@@ -8,15 +8,15 @@ namespace Fantasoccer.Applications.App
         public Role Role { get; }
         public string Css { get; }
         public string ColumnContainer { get; }
-        public Func<Player, bool> Filter { get; }
+        public Func<EnrichedPlayer, bool> Filter { get; }
 
-        public FantaSoccerPosition(Role role, FantaSoccerRole fantaSoccerRole, string css, string columnContainer, Func<Player, bool>? filter = null)
+        public FantaSoccerPosition(Role role, FantaSoccerRole fantaSoccerRole, string css, string columnContainer, Func<EnrichedPlayer, bool>? filter = null)
         {
             Role = role;
             Position = fantaSoccerRole;
             Css = css;
             ColumnContainer = columnContainer;
-            Filter = filter ?? (item => item.Role == role);
+            Filter = filter ?? (item => item.Current.Role == role);
         }
         public static List<FantaSoccerPosition> Default { get; } = new()
         {

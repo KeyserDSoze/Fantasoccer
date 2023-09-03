@@ -1,16 +1,19 @@
-﻿<DropContainer TItem="EnrichedPlayer" Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
-    <ChildContent>
-        @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
-        {
-            <div class="@position.Css">
-                <DropZone Class="@position.ColumnContainer" TItem="Player" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
-            </div>
-        }
-    </ChildContent>
-    <ItemTemplate>
-        <PlayerCard Player="context" Chancer="GetChance(context)" Vote="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
-    </ItemTemplate>
-</DropContainer>
+﻿@if (Players != null)
+{
+    <DropContainer TItem="EnrichedPlayer" Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
+        <ChildContent>
+            @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
+            {
+                <div class="@position.Css">
+                    <DropZone Class="@position.ColumnContainer" TItem="EnrichedPlayer" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
+                </div>
+            }
+        </ChildContent>
+        <ItemTemplate>
+            <PlayerCard Player="context"></PlayerCard>
+        </ItemTemplate>
+    </DropContainer>
+}
 
 
 @code {
