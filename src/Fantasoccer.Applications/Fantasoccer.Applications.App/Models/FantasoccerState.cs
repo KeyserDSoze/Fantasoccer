@@ -8,6 +8,10 @@ namespace Fantasoccer.Applications.App
         public string? Username { get; set; }
         public string? GroupId { get; set; }
         public string? LeagueId { get; set; }
+        public LeagueSetting LeagueSettings { get; set; }
+        public DateTime ExpirationDate { get; set; } = DateTime.UtcNow.AddDays(2);
+        [JsonIgnore]
+        public bool IsExpired => DateTime.UtcNow > ExpirationDate;
         public int Year { get; set; } = FantacalcioTime.ActualYear;
         [JsonIgnore]
         public Func<ValueTask>? Update { get; set; }

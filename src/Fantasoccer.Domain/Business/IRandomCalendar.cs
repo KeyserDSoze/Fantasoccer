@@ -2,6 +2,6 @@
 {
     public interface IRandomCalendar
     {
-        Calendar GetRandomCalendar(int year, AnnualLeague league);
+        Calendar GetRandomCalendar(int year, LeagueType type, AnnualLeague league);
     }
 }

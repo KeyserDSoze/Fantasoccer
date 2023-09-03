@@ -30,6 +30,7 @@ builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddInMemoryInfrastructures();
+builder.Services.AddPreDefaultValues();
 builder.Services.AddFantasoccerBusiness();
 builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();

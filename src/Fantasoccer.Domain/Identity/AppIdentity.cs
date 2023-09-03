@@ -19,6 +19,7 @@
         Reader = 1,
         Participant = 2,
         Admin = 4,
+        Old = 8,
     }
     public sealed class LeagueForIdentity
     {

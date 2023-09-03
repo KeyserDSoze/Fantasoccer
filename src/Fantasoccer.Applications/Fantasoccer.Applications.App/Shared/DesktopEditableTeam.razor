@@ -8,7 +8,7 @@
         }
     </ChildContent>
     <ItemTemplate>
-        <PlayerCard Player="context" Chancer="GetChance(context)" Voter="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
+        <PlayerCard Player="context" Chancer="GetChance(context)" Vote="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
     </ItemTemplate>
 </DropContainer>
 <Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
@@ -37,7 +37,7 @@
     [Parameter]
     public required Func<Player, ChancedRealPlayer?> GetChance { get; set; }
     [Parameter]
-    public required Func<Player, VotedRealPlayer?> GetVote { get; set; }
+    public required Func<Player, Vote?> GetVote { get; set; }
     [Parameter]
     public required Func<Player, RealGame?> GetRealGame { get; set; }
     [Parameter]

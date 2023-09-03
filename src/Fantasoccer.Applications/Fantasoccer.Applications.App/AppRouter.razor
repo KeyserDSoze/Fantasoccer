@@ -46,8 +46,8 @@
         if (firstRender)
         {
             var fantasoccerState = (localStorage != null && await localStorage.ContainKeyAsync(nameof(FantasoccerState))) ?
-            await localStorage.GetItemAsync<FantasoccerState>(nameof(FantasoccerState))
-            : new FantasoccerState();
+                await localStorage.GetItemAsync<FantasoccerState>(nameof(FantasoccerState))
+                : new FantasoccerState();
             if (identity != null && identity.Email != fantasoccerState.Email)
             {
                 fantasoccerState = new() { Email = identity.Email, Username = identity.Username, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
@@ -57,10 +57,25 @@
                 fantasoccerState = new();
             }
             state = fantasoccerState;
-            state.Update = () =>
+            state.Update = async () =>
             {
+                if (fantasoccerState.GroupId != null)
+                {
+                    var group = await Api.Groups.GetAsync(fantasoccerState.GroupId);
+                    if (group != null && fantasoccerState.LeagueId != null)
+                    {
+                        var league = group.Leagues.FirstOrDefault(x => x.Id == fantasoccerState.LeagueId);
+                        if (league != null && fantasoccerState.Year > 0)
+                        {
+                            var leagueForYear = league.Years.FirstOrDefault(x => x.Year == fantasoccerState.Year);
+                            if (leagueForYear != null)
+                                fantasoccerState.LeagueSettings = leagueForYear.Settings;
+                        }
+                    }
+                }
                 StateHasChanged();
-                return localStorage?.SetItemAsync(nameof(FantasoccerState), state) ?? ValueTask.CompletedTask;
+                if (localStorage != null)
+                    await localStorage.SetItemAsync(nameof(FantasoccerState), state);
             };
             _ = state.Update();
         }
@@ -77,7 +92,6 @@
             {
                 var email = user.Claims.First(x => x.Type == "emails").Value;
                 identity = await Api.AppIdentity.GetAsync(email);
-
             }
         }
         await base.OnInitializedAsync();

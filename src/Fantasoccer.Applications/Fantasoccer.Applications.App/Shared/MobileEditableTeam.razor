@@ -8,7 +8,7 @@
                 <div class="playerMobile">
                     @foreach (var player in Team.ActivePlayers.Where(x => x.Position == position.Position).OrderBy(x => x.Role))
                     {
-                        <PlayerCard Click="() => _ = Save(player)" Player="player" Chancer="GetChance(player)" Voter="GetVote(player)" Game="GetRealGame(player)"></PlayerCard>
+                        <PlayerCard Click="() => _ = Save(player)" Player="player" Chancer="GetChance(player)" Vote="GetVote(player)" Game="GetRealGame(player)"></PlayerCard>
                     }
                 </div>
             }
@@ -36,7 +36,7 @@
     [Parameter]
     public required Func<Player, ChancedRealPlayer?> GetChance { get; set; }
     [Parameter]
-    public required Func<Player, VotedRealPlayer?> GetVote { get; set; }
+    public required Func<Player, Vote?> GetVote { get; set; }
     [Parameter]
     public required Func<Player, RealGame?> GetRealGame { get; set; }
     [Parameter]

@@ -30,48 +30,48 @@
     }
 
     <div title="@Player.Name" class="playername @Player.Position">@Player.Name</div>
-    @if (Voter?.Vote != null)
+    @if (Vote != null)
     {
-        if (Voter.Vote.FinalValue != default && !Voter.Vote.FinalValue.IsEmpty)
+        if (Vote.FinalValue != default && !Vote.FinalValue.IsEmpty)
         {
-            <div class="playervote @(Voter.Vote.HasVote ? "": "transparent")">
-                <div class="finalvote finalvote@(Voter.Vote.IsFinal)">@Voter.Vote.FinalValue.Value</div>
+            <div class="playervote @(Vote.HasVote ? "": "transparent")">
+                <div class="finalvote finalvote@(Vote.IsFinal)">@Vote.FinalValue.Value</div>
             </div>
 
             <div class="playerchance">
-                @if (Voter.Vote.FinalValue.Special)
+                @if (Vote.FinalValue.Special)
                 {
                     <img class="playervoteevent" src="./static/special.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.Goal; i++)
+                @for (int i = 0; i < Vote.Goal; i++)
                 {
                     <img class="playervoteevent" src="./static/goal.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.Penalty; i++)
+                @for (int i = 0; i < Vote.Penalty; i++)
                 {
                     <img class="playervoteevent" src="./static/goal_blue_v2.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.Assist; i++)
+                @for (int i = 0; i < Vote.Assist; i++)
                 {
                     <img class="playervoteevent" src="./static/assist_total.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.StoppedPenalty; i++)
+                @for (int i = 0; i < Vote.StoppedPenalty; i++)
                 {
                     <img class="playervoteevent" src="./static/goal_green_all.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.WrongedPenalty; i++)
+                @for (int i = 0; i < Vote.WrongedPenalty; i++)
                 {
                     <img class="playervoteevent" src="./static/goal_silver_all.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.SufferedGoal; i++)
+                @for (int i = 0; i < Vote.SufferedGoal; i++)
                 {
                     <img class="playervoteevent" src="./static/goal_red_all.png" />
                 }
-                @for (int i = 0; i < Voter.Vote.OwnGoal; i++)
+                @for (int i = 0; i < Vote.OwnGoal; i++)
                 {
                     <img class="playervoteevent" src="./static/goal_red_v2.png" />
                 }
-                <div class="playervoteevent behavior@(Voter.Vote.Status)"></div>
+                <div class="playervoteevent behavior@(Vote.Status)"></div>
             </div>
         }
     }
@@ -85,7 +85,7 @@
     [Parameter]
     public ChancedRealPlayer? Chancer { get; set; }
     [Parameter]
-    public VotedRealPlayer? Voter { get; set; }
+    public Vote? Vote { get; set; }
     [Parameter]
     public Action? Click { get; set; }
     private string EnemyName => Player == null || Game == null ? string.Empty : (Player.RealTeam.Abbreviation != Game.Home.Abbreviation ? Game.Away.Abbreviation : Game.Home.Abbreviation);

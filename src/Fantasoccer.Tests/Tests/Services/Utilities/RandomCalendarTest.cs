@@ -1,5 +1,4 @@
 ﻿using System.Population.Random;
-using Fantasoccer.Business;
 
 namespace Fantasoccer.Tests
 {
@@ -18,14 +17,10 @@ namespace Fantasoccer.Tests
         [InlineData(16, LeagueType.Cup, 12, 4)]
         public void Create(int numberOfTeams, LeagueType leagueType, int numberOfDays, int rounds)
         {
-            var calendar = _randomCalendar.GetRandomCalendar(2, new AnnualLeague
+            var calendar = _randomCalendar.GetRandomCalendar(2, leagueType, new AnnualLeague
             {
                 Id = Guid.NewGuid().ToString(),
-                Settings = new LeagueSetting
-                {
-
-                },
-                Type = leagueType,
+                Settings = LeagueSetting.Default,
                 Teams = _populationService.Populate(numberOfTeams)
             });
 

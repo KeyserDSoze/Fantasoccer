@@ -1,8 +1,11 @@
-﻿using System.Linq;
+﻿using System.Globalization;
+using System.Linq;
 using System.Population.Random;
 using System.Reflection.Emit;
+using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 using System.Security.Principal;
+using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Domain.SerieA;
 using Microsoft.Extensions.DependencyInjection;
@@ -71,6 +74,29 @@ namespace Fantasoccer.InMemory
             public List<AnnualTeam> Teams { get; set; }
             public LeagueType Type { get; set; }
         }
+        public static IServiceCollection AddPreDefaultValues(this IServiceCollection services)
+        {
+            services.AddWarmUp(async serviceProvider =>
+            {
+                try
+                {
+                    var calendarRepository = serviceProvider.GetRequiredService<IRepository<RealCalendar, int>>();
+                    var calendarService = serviceProvider.GetRequiredService<ISerieACalendar>();
+                    var calendar = await calendarService.GetAsync().NoContext();
+                    var result = false;
+                    if (await calendarRepository.ExistAsync(FantacalcioTime.ActualYear).NoContext())
+                    {
+                        result = await calendarRepository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+                    }
+                    else
+                    {
+                        result = await calendarRepository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+                    }
+                }
+                catch { }
+            });
+            return services;
+        }
         public static IServiceCollection AddDefaultValues(this IServiceCollection services)
         {
             services.AddWarmUp(async serviceProvider =>
@@ -89,6 +115,42 @@ namespace Fantasoccer.InMemory
                 "daniele.marcioniare@vetrya.com","daniele.castoniare@vetrya.com","daniele.tufroniare@vetrya.com",
                 "daniele.marloniare@vetrya.com","daniele.astontiare@vetrya.com","daniele.tottoniare@vetrya.com" };
                     var realTeams = new List<string> { "Atalanta", "Bologna", "Cagliari", "Empoli", "Fiorentina", "Frosinone", "Genoa", "Inter", "Juventus", "Lazio", "Lecce", "Milan", "Monza", "Napoli", "Roma", "Salernitana", "Sassuolo", "Torino", "Udinese", "Verona" };
+                    var realGroups = new List<Group>();
+                    var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+                    for (var i = 1; i <= 2; i++)
+                    {
+                        var groupX = new Group
+                        {
+                            Id = $"Fantasoccer{i}",
+                            Name = $"Fantasoccer{i}",
+                            Leagues = new(),
+                            Users = new()
+                        };
+                        realGroups.Add(groupX);
+                        for (var j = 1; j <= 4; j++)
+                        {
+                            groupX.Leagues.Add(new League
+                            {
+                                Id = $"Liga{j}Fantasoccer{i}",
+                                Name = $"Liga {j}",
+                                Users = new(),
+                                IsMain = j == 1 || j == 2,
+                                Years = new(),
+                                Type = j == 3 ? LeagueType.Cup : LeagueType.League,
+                            });
+                            for (var k = 1; k <= FantacalcioTime.ActualYear; k++)
+                            {
+                                LeagueSetting.Default.DelayedDay = 1;
+                                groupX.Leagues.Last().Years.Add(new AnnualLeague
+                                {
+                                    Id = $"Liga{j}Fantasoccer{i}Year{k}",
+                                    Year = k,
+                                    Teams = new(),
+                                    Settings = LeagueSetting.Default
+                                });
+                            }
+                        }
+                    }
                     var repository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
                     var parameterBuilderForUsers = new ParameterBuilder<int, int, int, int>();
                     for (var i = 0; i < 20; i++)
@@ -102,33 +164,47 @@ namespace Fantasoccer.InMemory
                         }
                         await CreateUserAsync(email, parameterBuilderForUsers.SetFirst(1, 2).SetSecond(leagues.ToArray()), 0, 123);
                     }
+                    foreach (var group in realGroups)
+                    {
+                        await groupRepository.InsertAsync(group.Id, group);
+                    }
                     async Task CreateUserAsync(string email, ParameterBuilder<int, int, int, int> builder, int admin, int reader)
                     {
+                        var username = email == "alessandro.rapiti44@gmail.com" ? "Keyser D. Soze" : email.Split('@')[0];
                         var groups = new List<GroupForIdentity>();
                         foreach (var group in builder.First)
                         {
+                            var actualGroup = realGroups[group - 1];
                             var groupX = new GroupForIdentity
                             {
-                                Id = $"Fantasoccer{group}",
-                                Name = $"Fantasoccer{group}",
+                                Id = actualGroup.Id,
+                                Name = actualGroup.Name,
                                 Role = IdentityRole.Admin | IdentityRole.Participant,
                                 Leagues = new List<LeagueForIdentity>()
                             };
+                            actualGroup.Users.Add(new UserOfAGroup { Email = email, Role = IdentityRole.Admin | IdentityRole.Participant, Username = username });
                             groups.Add(groupX);
                             foreach (var league in builder.Second)
                             {
+                                var actualLeague = actualGroup.Leagues[league - 1];
                                 groupX.Leagues.Add(new LeagueForIdentity
                                 {
-                                    Id = $"Liga{league}",
-                                    Name = $"Liga {league}",
-                                    Type = league == 3 ? LeagueType.Cup : LeagueType.League,
-                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant)
+                                    Id = actualLeague.Id,
+                                    Name = actualLeague.Name,
+                                    Type = actualLeague.Type,
+                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant),
+                                });
+                                actualLeague.Users.Add(new UserOfAGroup
+                                {
+                                    Email = email,
+                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant),
+                                    Username = username
                                 });
                             }
                         }
                         await repository!.InsertAsync(email, new AppIdentity
                         {
-                            Username = email == "alessandro.rapiti44@gmail.com" ? "Keyser D. Soze" : email.Split('@')[0],
+                            Username = username,
                             Email = email,
                             Groups = groups
                         });
@@ -176,9 +252,27 @@ namespace Fantasoccer.InMemory
                     }
                     async Task CreateTeamAsync(AppIdentity identity)
                     {
+                        var theTeam = await CreateWithoutGroup();
                         foreach (var group in identity.Groups)
                         {
                             var teamKey = new TeamKey { Email = identity.Email, Year = FantacalcioTime.ActualYear, Group = group.Id };
+                            await teamRepository.InsertAsync(teamKey, theTeam);
+                            for (var ix = 1; ix <= 10; ix++)
+                            {
+                                var teamKeyX = new TeamDayKey
+                                {
+                                    Day = ix,
+                                    Email = teamKey.Email,
+                                    Group = teamKey.Group,
+                                    Year = teamKey.Year
+                                };
+                                await teamDayRepository.InsertAsync(teamKeyX, theTeam);
+                            }
+                            Console.WriteLine($"Team in group {teamKey.Group} for {teamKey.Email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
+                            start = DateTime.UtcNow;
+                        }
+                        async Task<Team> CreateWithoutGroup()
+                        {
                             var team = new Team
                             {
                                 Name = identity.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{identity.Username} Team",
@@ -240,20 +334,7 @@ namespace Fantasoccer.InMemory
                                 }
                                 return players;
                             }
-                            await teamRepository.InsertAsync(teamKey, team);
-                            for (var ix = 1; ix <= 10; ix++)
-                            {
-                                var teamKeyX = new TeamDayKey
-                                {
-                                    Day = ix,
-                                    Email = teamKey.Email,
-                                    Group = teamKey.Group,
-                                    Year = teamKey.Year
-                                };
-                                await teamDayRepository.InsertAsync(teamKeyX, team);
-                            }
-                            Console.WriteLine($"Team in group {teamKey.Group} for {teamKey.Email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
-                            start = DateTime.UtcNow;
+                            return team;
                         }
                     }
                     var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
@@ -305,14 +386,14 @@ namespace Fantasoccer.InMemory
                     }
                     Calendar GetRandomCalendar(LeagueType league, List<AnnualTeam> annualTeams)
                     {
-                        var finalCalendar = randomCalendar.GetRandomCalendar(2, new AnnualLeague
+                        var finalCalendar = randomCalendar.GetRandomCalendar(2, league, new AnnualLeague
                         {
                             Id = Guid.NewGuid().ToString(),
+                            Year = FantacalcioTime.ActualYear,
                             Settings = new LeagueSetting
                             {
                                 DelayedDay = 2
                             },
-                            Type = league,
                             Teams = annualTeams
                         });
                         return finalCalendar;

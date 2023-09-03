@@ -67,7 +67,14 @@ namespace Fantasoccer.Engine.IngestionData
                             }
                         }
                     }
-                    await _repository.UpdateAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                    if (await _repository.ExistAsync(key))
+                    {
+                        await _repository.UpdateAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                    }
+                    else
+                    {
+                        await _repository.InsertAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                    }
                     await _logger.LogAsync<PlayerOddsJob>($"Players {players.Count} parsate.").NoContext();
                 }
                 else

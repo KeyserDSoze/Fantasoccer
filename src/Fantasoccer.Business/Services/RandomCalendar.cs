@@ -4,10 +4,10 @@ namespace Fantasoccer.Business
 {
     internal sealed class RandomCalendar : IRandomCalendar
     {
-        public Calendar GetRandomCalendar(int year, AnnualLeague league)
+        public Calendar GetRandomCalendar(int year, LeagueType type, AnnualLeague league)
         {
             var randomizedTeams = Randomize(league.Teams);
-            var startRound = league.Type == LeagueType.League ? 0 : 1;
+            var startRound = type == LeagueType.League ? 0 : 1;
             var calendar = new Calendar()
             {
                 Year = year,

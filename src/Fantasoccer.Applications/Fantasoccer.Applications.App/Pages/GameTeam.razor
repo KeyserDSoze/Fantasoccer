@@ -1,6 +1,7 @@
 ﻿@page "/game/{gameId?}"
 @using System.Text.RegularExpressions;
 @using Blazorise.LoadingIndicator;
+@using Fantasoccer.Business;
 
 @if (!isMobile)
 {
@@ -88,7 +89,9 @@ else
     [Parameter]
     public string? GameId { get; set; }
     [Inject]
-    public IJSRuntime JsRuntime { get; set; }
+    public required IJSRuntime JsRuntime { get; set; }
+    [Inject]
+    public required IVoteCalculation VoteCalculation { get; set; }
     private int serieADay;
     private bool isInEdit => GameId == null;
 
@@ -162,8 +165,7 @@ else
                 {
                     var isMyTeam = myTeam != null && myTeam.Owner == owner;
                     var team = isMyTeam ? myTeam
-                        // : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
-                        : await GetTeamAsync(Api, State, serieADay, owner);
+                         : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
                     teams.Add(new TeamsWrapper
                         {
                             Team = team,
@@ -203,12 +205,14 @@ else
         var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
         return chancedPlayer;
     }
-    private VotedRealPlayer? GetVote(Player player)
+    private Vote? GetVote(Player player)
     {
         var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
         if (votePlayer == null)
             votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
-        return votePlayer;
+        if (votePlayer != null && State != null)
+            votePlayer.Vote.FinalValue = VoteCalculation.FinalValue(votePlayer, State.LeagueSettings);
+        return votePlayer?.Vote;
     }
     private RealGame? GetRealGame(Player player)
     {
