@@ -75,8 +75,10 @@ namespace Fantasoccer.InMemory
         {
             services.AddWarmUp(async serviceProvider =>
             {
-                var start = DateTime.UtcNow;
-                var users = new List<string> { "alessandro.rapiti44@gmail.com", "daniele.fetoni@vetrya.com",
+                try
+                {
+                    var start = DateTime.UtcNow;
+                    var users = new List<string> { "alessandro.rapiti44@gmail.com", "daniele.fetoni@vetrya.com",
                 "daniele.marpioni@vetrya.com","daniele.catoni@vetrya.com","daniele.tufoni@vetrya.com",
                 "daniele.maloni@vetrya.com","daniele.astoni@vetrya.com","daniele.totoni@vetrya.com",
                 "daniele.marcioni@vetrya.com","daniele.castoni@vetrya.com","daniele.tufroni@vetrya.com",
@@ -86,268 +88,275 @@ namespace Fantasoccer.InMemory
                 "daniele.marlonire@vetrya.com","daniele.astontire@vetrya.com","daniele.tottonire@vetrya.com",
                 "daniele.marcioniare@vetrya.com","daniele.castoniare@vetrya.com","daniele.tufroniare@vetrya.com",
                 "daniele.marloniare@vetrya.com","daniele.astontiare@vetrya.com","daniele.tottoniare@vetrya.com" };
-                var realTeams = new List<string> { "Atalanta", "Bologna", "Cagliari", "Empoli", "Fiorentina", "Frosinone", "Genoa", "Inter", "Juventus", "Lazio", "Lecce", "Milan", "Monza", "Napoli", "Roma", "Salernitana", "Sassuolo", "Torino", "Udinese", "Verona" };
-                var repository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
-                var parameterBuilderForUsers = new ParameterBuilder<int, int, int, int>();
-                for (var i = 0; i < 20; i++)
-                {
-                    var email = users[i];
-                    var leagues = new List<int>();
-                    leagues.Add(i % 2 + 1);
-                    if (i < 16)
+                    var realTeams = new List<string> { "Atalanta", "Bologna", "Cagliari", "Empoli", "Fiorentina", "Frosinone", "Genoa", "Inter", "Juventus", "Lazio", "Lecce", "Milan", "Monza", "Napoli", "Roma", "Salernitana", "Sassuolo", "Torino", "Udinese", "Verona" };
+                    var repository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
+                    var parameterBuilderForUsers = new ParameterBuilder<int, int, int, int>();
+                    for (var i = 0; i < 20; i++)
                     {
-                        leagues.Add(3);
-                    }
-                    await CreateUserAsync(email, parameterBuilderForUsers.SetFirst(1, 2).SetSecond(leagues.ToArray()), 0, 123);
-                }
-                async Task CreateUserAsync(string email, ParameterBuilder<int, int, int, int> builder, int admin, int reader)
-                {
-                    var groups = new List<GroupForIdentity>();
-                    foreach (var group in builder.First)
-                    {
-                        var groupX = new GroupForIdentity
+                        var email = users[i];
+                        var leagues = new List<int>();
+                        leagues.Add(i % 2 + 1);
+                        if (i < 16)
                         {
-                            Id = $"Fantasoccer{group}",
-                            Name = $"Fantasoccer{group}",
-                            Role = IdentityRole.Admin | IdentityRole.Participant,
-                            Leagues = new List<LeagueForIdentity>()
-                        };
-                        groups.Add(groupX);
-                        foreach (var league in builder.Second)
-                        {
-                            groupX.Leagues.Add(new LeagueForIdentity
-                            {
-                                Id = $"Liga{league}",
-                                Name = $"Liga {league}",
-                                Type = league == 3 ? LeagueType.Cup : LeagueType.League,
-                                Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant)
-                            });
+                            leagues.Add(3);
                         }
+                        await CreateUserAsync(email, parameterBuilderForUsers.SetFirst(1, 2).SetSecond(leagues.ToArray()), 0, 123);
                     }
-                    await repository!.InsertAsync(email, new AppIdentity
+                    async Task CreateUserAsync(string email, ParameterBuilder<int, int, int, int> builder, int admin, int reader)
                     {
-                        Username = email == "alessandro.rapiti44@gmail.com" ? "Keyser D. Soze" : email.Split('@')[0],
-                        Email = email,
-                        Groups = groups
-                    });
-                    Console.WriteLine($"User with {email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
-                    start = DateTime.UtcNow;
-                }
-                var createdUsers = await repository.ToListAsEntityAsync();
-                var population = serviceProvider.GetRequiredService<IPopulation<Player>>();
-                population
-                    .Setup()
-                    .WithPattern(x => x.Name, "[A-Za-z]{5,10}")
-                    .WithPattern(x => x.RealTeam.Name, string.Join('|', realTeams));
-                var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
-                var teamDayRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
-                var votesService = serviceProvider.GetRequiredService<IOfficialVote>();
-                var allPlayersService = serviceProvider.GetRequiredService<IAllPlayers>();
-                var factoryVotes = serviceProvider.GetRequiredService<IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>>>();
-                var officialVotes = factoryVotes.Create("official");
-                for (var i = 1; i <= 3; i++)
-                {
-                    var allVotesOfficial = await votesService.GetAsync(FantacalcioTime.ActualYear, i);
-                    await officialVotes.InsertAsync(new YearDayKey
-                    {
-                        Day = i,
-                        Year = FantacalcioTime.ActualYear
-                    }, new VotedRealPlayerWrapper
-                    {
-                        Players = allVotesOfficial
-                    });
-                }
-                var firstVotes = await votesService.GetAsync(FantacalcioTime.ActualYear, 1);
-                var allPlayers = await allPlayersService.GetAsync();
-                foreach (var player in firstVotes)
-                {
-                    var x1 = allPlayers.FirstOrDefault(x => x.Key == player.Key);
-                    if (x1 != null)
-                    {
-                        player.Role = x1.Role;
-                        allPlayers.Remove(x1);
-                    }
-                }
-                foreach (var createdUser in createdUsers)
-                {
-                    await CreateTeamAsync(createdUser!);
-                }
-                async Task CreateTeamAsync(AppIdentity identity)
-                {
-                    foreach (var group in identity.Groups)
-                    {
-                        var teamKey = new TeamKey { Email = identity.Email, Year = FantacalcioTime.ActualYear, Group = group.Id };
-                        var team = new Team
+                        var groups = new List<GroupForIdentity>();
+                        foreach (var group in builder.First)
                         {
-                            Name = identity.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{identity.Username} Team",
-                            Owner = identity.Email,
-                            RevenueMoney = 230,
-                            MoneyFromRank = 345,
-                            Players = new List<Player>()
-                        };
-                        team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.GoalKeeper));
-                        team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Defensor));
-                        team.Players.AddRange(Create(4, Role.Midfielder, FantaSoccerRole.Midfielder));
-                        team.Players.AddRange(Create(3, Role.Forward, FantaSoccerRole.Forward));
-                        team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.BackupGoalKeeper));
-                        team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.FirstBackupDefensor));
-                        team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.SecondBackupDefensor));
-                        team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder));
-                        team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder));
-                        team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.FirstBackupForward));
-                        team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.SecondBackupForward));
-                        team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.Tribune));
-                        team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Tribune));
-                        team.Players.AddRange(Create(2, Role.Midfielder, FantaSoccerRole.Tribune));
-                        team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.Tribune));
-                        List<Player> Create(int number, Role role, FantaSoccerRole fantaSoccerRole)
-                        {
-                            var players = new List<Player>();
-                            for (var i = 0; i < number; i++)
+                            var groupX = new GroupForIdentity
                             {
-                                var firstPlayer = firstVotes.FirstOrDefault(x => x.Role == role);
-                                if (firstPlayer != null)
-                                {
-                                    firstVotes.Remove(firstPlayer);
-                                    players.Add(new Player
-                                    {
-                                        IsActive = true,
-                                        Position = fantaSoccerRole,
-                                        Name = firstPlayer.Name,
-                                        Role = firstPlayer.Role,
-                                        Price = RandomNumberGenerator.GetInt32(1, 20),
-                                        RealTeam = firstPlayer.RealTeam,
-                                        Status = PlayerInTeamStatus.Active
-                                    });
-                                }
-                                else
-                                {
-                                    var otherPlayer = allPlayers.First(x => x.Role == role);
-                                    allPlayers.Remove(otherPlayer);
-                                    players.Add(new Player
-                                    {
-                                        IsActive = true,
-                                        Position = fantaSoccerRole,
-                                        Name = otherPlayer.Name,
-                                        Role = otherPlayer.Role,
-                                        Price = RandomNumberGenerator.GetInt32(1, 20),
-                                        RealTeam = otherPlayer.RealTeam,
-                                        Status = PlayerInTeamStatus.Active
-                                    });
-                                }
-                            }
-                            return players;
-                        }
-                        await teamRepository.InsertAsync(teamKey, team);
-                        for (var ix = 1; ix <= 10; ix++)
-                        {
-                            var teamKeyX = new TeamDayKey
-                            {
-                                Day = ix,
-                                Email = teamKey.Email,
-                                Group = teamKey.Group,
-                                Year = teamKey.Year
+                                Id = $"Fantasoccer{group}",
+                                Name = $"Fantasoccer{group}",
+                                Role = IdentityRole.Admin | IdentityRole.Participant,
+                                Leagues = new List<LeagueForIdentity>()
                             };
-                            await teamDayRepository.InsertAsync(teamKeyX, team);
+                            groups.Add(groupX);
+                            foreach (var league in builder.Second)
+                            {
+                                groupX.Leagues.Add(new LeagueForIdentity
+                                {
+                                    Id = $"Liga{league}",
+                                    Name = $"Liga {league}",
+                                    Type = league == 3 ? LeagueType.Cup : LeagueType.League,
+                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant)
+                                });
+                            }
                         }
-                        Console.WriteLine($"Team in group {teamKey.Group} for {teamKey.Email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
+                        await repository!.InsertAsync(email, new AppIdentity
+                        {
+                            Username = email == "alessandro.rapiti44@gmail.com" ? "Keyser D. Soze" : email.Split('@')[0],
+                            Email = email,
+                            Groups = groups
+                        });
+                        Console.WriteLine($"User with {email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
                         start = DateTime.UtcNow;
                     }
-                }
-                var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
-                var ranksForCreation = new List<LeagueForCreateRank>();
-                foreach (var createdUser in createdUsers)
-                {
-                    foreach (var groupForCreatedUser in createdUser.Groups)
+                    var createdUsers = await repository.ToListAsEntityAsync();
+                    var population = serviceProvider.GetRequiredService<IPopulation<Player>>();
+                    population
+                        .Setup()
+                        .WithPattern(x => x.Name, "[A-Za-z]{5,10}")
+                        .WithPattern(x => x.RealTeam.Name, string.Join('|', realTeams));
+                    var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
+                    var teamDayRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
+                    var votesService = serviceProvider.GetRequiredService<IOfficialVote>();
+                    var allPlayersService = serviceProvider.GetRequiredService<IAllPlayers>();
+                    var factoryVotes = serviceProvider.GetRequiredService<IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>>>();
+                    var officialVotes = factoryVotes.Create("official");
+                    for (var i = 1; i <= 3; i++)
                     {
-                        foreach (var leagueForCreatedUser in groupForCreatedUser.Leagues)
+                        var allVotesOfficial = await votesService.GetAsync(FantacalcioTime.ActualYear, i);
+                        await officialVotes.InsertAsync(new YearDayKey
                         {
-                            var leagueKey = new LeagueKey { Group = groupForCreatedUser.Id, League = leagueForCreatedUser.Id, Year = FantacalcioTime.ActualYear };
-                            var league = ranksForCreation.FirstOrDefault(x => x.LeagueKey.Group == leagueKey.Group && x.LeagueKey.League == leagueKey.League);
-                            if (league == null)
+                            Day = i,
+                            Year = FantacalcioTime.ActualYear
+                        }, new VotedRealPlayerWrapper
+                        {
+                            Players = allVotesOfficial
+                        });
+                    }
+                    var firstVotes = await votesService.GetAsync(FantacalcioTime.ActualYear, 1);
+                    var allPlayers = await allPlayersService.GetAsync();
+                    foreach (var player in firstVotes)
+                    {
+                        var x1 = allPlayers.FirstOrDefault(x => x.Key == player.Key);
+                        if (x1 != null)
+                        {
+                            player.Role = x1.Role;
+                            allPlayers.Remove(x1);
+                        }
+                    }
+                    foreach (var createdUser in createdUsers)
+                    {
+                        await CreateTeamAsync(createdUser!);
+                    }
+                    async Task CreateTeamAsync(AppIdentity identity)
+                    {
+                        foreach (var group in identity.Groups)
+                        {
+                            var teamKey = new TeamKey { Email = identity.Email, Year = FantacalcioTime.ActualYear, Group = group.Id };
+                            var team = new Team
                             {
-                                league = new LeagueForCreateRank
+                                Name = identity.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{identity.Username} Team",
+                                Owner = identity.Email,
+                                RevenueMoney = 230,
+                                MoneyFromRank = 345,
+                                Players = new List<Player>()
+                            };
+                            team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.GoalKeeper));
+                            team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Defensor));
+                            team.Players.AddRange(Create(4, Role.Midfielder, FantaSoccerRole.Midfielder));
+                            team.Players.AddRange(Create(3, Role.Forward, FantaSoccerRole.Forward));
+                            team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.BackupGoalKeeper));
+                            team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.FirstBackupDefensor));
+                            team.Players.AddRange(Create(1, Role.Defensor, FantaSoccerRole.SecondBackupDefensor));
+                            team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder));
+                            team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder));
+                            team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.FirstBackupForward));
+                            team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.SecondBackupForward));
+                            team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.Tribune));
+                            team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Tribune));
+                            team.Players.AddRange(Create(2, Role.Midfielder, FantaSoccerRole.Tribune));
+                            team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.Tribune));
+                            List<Player> Create(int number, Role role, FantaSoccerRole fantaSoccerRole)
+                            {
+                                var players = new List<Player>();
+                                for (var i = 0; i < number; i++)
                                 {
-                                    LeagueKey = leagueKey,
-                                    Teams = new(),
-                                    Type = leagueForCreatedUser.Type
-                                };
-                                ranksForCreation.Add(league);
+                                    var firstPlayer = firstVotes.FirstOrDefault(x => x.Role == role);
+                                    if (firstPlayer != null)
+                                    {
+                                        firstVotes.Remove(firstPlayer);
+                                        players.Add(new Player
+                                        {
+                                            IsActive = true,
+                                            Position = fantaSoccerRole,
+                                            Name = firstPlayer.Name,
+                                            Role = firstPlayer.Role,
+                                            Price = RandomNumberGenerator.GetInt32(1, 20),
+                                            RealTeam = firstPlayer.RealTeam,
+                                            Status = PlayerInTeamStatus.Active
+                                        });
+                                    }
+                                    else
+                                    {
+                                        var otherPlayer = allPlayers.First(x => x.Role == role);
+                                        allPlayers.Remove(otherPlayer);
+                                        players.Add(new Player
+                                        {
+                                            IsActive = true,
+                                            Position = fantaSoccerRole,
+                                            Name = otherPlayer.Name,
+                                            Role = otherPlayer.Role,
+                                            Price = RandomNumberGenerator.GetInt32(1, 20),
+                                            RealTeam = otherPlayer.RealTeam,
+                                            Status = PlayerInTeamStatus.Active
+                                        });
+                                    }
+                                }
+                                return players;
                             }
-                            league.Teams.Add(new AnnualTeam
+                            await teamRepository.InsertAsync(teamKey, team);
+                            for (var ix = 1; ix <= 10; ix++)
                             {
-                                Name = createdUser.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{createdUser.Username} Team",
-                                Owner = createdUser.Email
-                            });
+                                var teamKeyX = new TeamDayKey
+                                {
+                                    Day = ix,
+                                    Email = teamKey.Email,
+                                    Group = teamKey.Group,
+                                    Year = teamKey.Year
+                                };
+                                await teamDayRepository.InsertAsync(teamKeyX, team);
+                            }
+                            Console.WriteLine($"Team in group {teamKey.Group} for {teamKey.Email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
+                            start = DateTime.UtcNow;
                         }
                     }
-                }
-                var randomCalendar = serviceProvider.GetRequiredService<IRandomCalendar>();
-                var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
-                foreach (var rankForCreation in ranksForCreation)
-                {
-                    var randomCalendarX = GetRandomCalendar(rankForCreation.Type, rankForCreation.Teams);
-                    await calendar.InsertAsync(rankForCreation.LeagueKey, randomCalendarX);
-                    Console.WriteLine($"Calendar created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
-                    start = DateTime.UtcNow;
+                    var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
+                    var ranksForCreation = new List<LeagueForCreateRank>();
+                    foreach (var createdUser in createdUsers)
+                    {
+                        foreach (var groupForCreatedUser in createdUser.Groups)
+                        {
+                            foreach (var leagueForCreatedUser in groupForCreatedUser.Leagues)
+                            {
+                                var leagueKey = new LeagueKey { Group = groupForCreatedUser.Id, League = leagueForCreatedUser.Id, Year = FantacalcioTime.ActualYear };
+                                var league = ranksForCreation.FirstOrDefault(x => x.LeagueKey.Group == leagueKey.Group && x.LeagueKey.League == leagueKey.League);
+                                if (league == null)
+                                {
+                                    league = new LeagueForCreateRank
+                                    {
+                                        LeagueKey = leagueKey,
+                                        Teams = new(),
+                                        Type = leagueForCreatedUser.Type
+                                    };
+                                    ranksForCreation.Add(league);
+                                }
+                                league.Teams.Add(new AnnualTeam
+                                {
+                                    Name = createdUser.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{createdUser.Username} Team",
+                                    Owner = createdUser.Email
+                                });
+                            }
+                        }
+                    }
+                    var randomCalendar = serviceProvider.GetRequiredService<IRandomCalendar>();
+                    var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
+                    foreach (var rankForCreation in ranksForCreation)
+                    {
+                        var randomCalendarX = GetRandomCalendar(rankForCreation.Type, rankForCreation.Teams);
+                        await calendar.InsertAsync(rankForCreation.LeagueKey, randomCalendarX);
+                        Console.WriteLine($"Calendar created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
+                        start = DateTime.UtcNow;
 
-                    var annualTeamsAfterCalendar = new List<AnnualTeam>();
-                    foreach (var teamOwner in randomCalendarX.Rounds.SelectMany(x => x.Value).GroupBy(x => x.SerieADay).First().SelectMany(x => x.Games).SelectMany(x => new string[2] { x.HomeOwner, x.AwayOwner }))
-                    {
-                        annualTeamsAfterCalendar.Add(rankForCreation.Teams.First(x => x.Owner == teamOwner));
-                    }
-                    await rank.InsertAsync(
-                        rankForCreation.LeagueKey, GetRandomRank(annualTeamsAfterCalendar, rankForCreation.Type));
-                    Console.WriteLine($"Rank created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
-                    start = DateTime.UtcNow;
-                }
-                Calendar GetRandomCalendar(LeagueType league, List<AnnualTeam> annualTeams)
-                {
-                    var finalCalendar = randomCalendar.GetRandomCalendar(2, new AnnualLeague
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Settings = new LeagueSetting
+                        var annualTeamsAfterCalendar = new List<AnnualTeam>();
+                        foreach (var teamOwner in randomCalendarX.Rounds.SelectMany(x => x.Value).GroupBy(x => x.SerieADay).First().SelectMany(x => x.Games).SelectMany(x => new string[2] { x.HomeOwner, x.AwayOwner }))
                         {
-                            DelayedDay = 2
-                        },
-                        Type = league,
-                        Teams = annualTeams
-                    });
-                    return finalCalendar;
-                }
-                Rank GetRandomRank(List<AnnualTeam> teams, LeagueType type)
-                {
-                    var newRank = new Rank
-                    {
-                        RankedTeams = new Dictionary<string, List<RankedTeam>>()
-                    };
-                    var max = type == LeagueType.Cup ? 4 : 1;
-                    var getTeams = type == LeagueType.Cup ? 4 : 10;
-                    for (var i = 0; i < max; i++)
-                    {
-                        var actualTeams = teams.Skip(i * getTeams).Take(getTeams).ToList();
-                        var key = ((char)(65 + i)).ToString();
-                        newRank.RankedTeams.Add(key, new());
-                        for (var j = 0; j < getTeams; j++)
-                        {
-                            newRank.RankedTeams[key].Add(new RankedTeam
-                            {
-                                Name = actualTeams[j].Name,
-                                Defeats = 3,
-                                Draws = 3,
-                                Money = 3,
-                                Goal = 3,
-                                PlusMoney = 20,
-                                Owner = actualTeams[j].Owner,
-                                Point = RandomNumberGenerator.GetInt32(20, 100),
-                                SufferedGoal = 20,
-                                SufferedValuePoint = 23,
-                                ValuePoint = 34,
-                                Victories = 45
-                            });
+                            annualTeamsAfterCalendar.Add(rankForCreation.Teams.First(x => x.Owner == teamOwner));
                         }
+                        await rank.InsertAsync(
+                            rankForCreation.LeagueKey, GetRandomRank(annualTeamsAfterCalendar, rankForCreation.Type));
+                        Console.WriteLine($"Rank created for group {rankForCreation.LeagueKey.Group} and league {rankForCreation.LeagueKey.League} for year {rankForCreation.LeagueKey.Year} in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
+                        start = DateTime.UtcNow;
                     }
-                    return newRank;
+                    Calendar GetRandomCalendar(LeagueType league, List<AnnualTeam> annualTeams)
+                    {
+                        var finalCalendar = randomCalendar.GetRandomCalendar(2, new AnnualLeague
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            Settings = new LeagueSetting
+                            {
+                                DelayedDay = 2
+                            },
+                            Type = league,
+                            Teams = annualTeams
+                        });
+                        return finalCalendar;
+                    }
+                    Rank GetRandomRank(List<AnnualTeam> teams, LeagueType type)
+                    {
+                        var newRank = new Rank
+                        {
+                            RankedTeams = new Dictionary<string, List<RankedTeam>>()
+                        };
+                        var max = type == LeagueType.Cup ? 4 : 1;
+                        var getTeams = type == LeagueType.Cup ? 4 : 10;
+                        for (var i = 0; i < max; i++)
+                        {
+                            var actualTeams = teams.Skip(i * getTeams).Take(getTeams).ToList();
+                            var key = ((char)(65 + i)).ToString();
+                            newRank.RankedTeams.Add(key, new());
+                            for (var j = 0; j < getTeams; j++)
+                            {
+                                newRank.RankedTeams[key].Add(new RankedTeam
+                                {
+                                    Name = actualTeams[j].Name,
+                                    Defeats = 3,
+                                    Draws = 3,
+                                    Money = 3,
+                                    Goal = 3,
+                                    PlusMoney = 20,
+                                    Owner = actualTeams[j].Owner,
+                                    Point = RandomNumberGenerator.GetInt32(20, 100),
+                                    SufferedGoal = 20,
+                                    SufferedValuePoint = 23,
+                                    ValuePoint = 34,
+                                    Victories = 45
+                                });
+                            }
+                        }
+                        return newRank;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine(ex.Message);
+                    Console.ResetColor();
                 }
             });
             return services;
