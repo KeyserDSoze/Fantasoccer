@@ -3,5 +3,6 @@
     public interface IVoteCalculation
     {
         VoteValue FinalValue(VotedRealPlayer player, LeagueSetting leagueSetting);
+
     }
 }
