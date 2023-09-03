@@ -31,12 +31,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddInMemoryInfrastructures();
 builder.Services.AddFantasoccerBusiness();
-builder.Services.AddDefaultValues();
 builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()
     .WithDefaultCorsWithAllOrigins();
+builder.Services.AddDefaultValues();
 
 var app = builder.Build();
 await app.Services.WarmUpAsync();

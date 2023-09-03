@@ -2,12 +2,6 @@
 
 namespace Fantasoccer
 {
-    public sealed class RealTeam
-    {
-        public string Name { get; set; }
-        [JsonIgnore]
-        public string Abbreviation => Name.ToLower()[..3];
-    }
     public sealed class RealGame
     {
         public RealTeam Home { get; set; }

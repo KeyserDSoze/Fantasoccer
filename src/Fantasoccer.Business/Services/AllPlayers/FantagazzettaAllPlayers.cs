@@ -1,28 +1,33 @@
 ﻿using System.Text.RegularExpressions;
 using System.Web;
+using RepositoryFramework;
 
 namespace Fantasoccer.Business.IngestionData
 {
     internal sealed class FantagazzettaAllPlayers : IAllPlayers
     {
         private static readonly Regex s_playerRowRegex = new("<tr class=\"player-row");
-        private static readonly Regex s_playerNameRegex = new("<a class=\"player-name");
+        private static readonly Regex s_playerNameRegex = new("<span>");
         private static readonly Regex s_playerTeamRegex = new("<td class=\"player-team");
         private const string Forward = "<span class=\"role\" data-value=\"a\"></span>";
         private const string Midfielder = "<span class=\"role\" data-value=\"c\"></span>";
         private const string Defensor = "<span class=\"role\" data-value=\"d\"></span>";
         private const string Goalkeeper = "<span class=\"role\" data-value=\"p\"></span>";
         private readonly HttpClient HttpClient;
-        public FantagazzettaAllPlayers(IHttpClientFactory httpClientFactory)
+        private readonly IRepository<RealTeamWrapper, int> _repository;
+
+        public FantagazzettaAllPlayers(IHttpClientFactory httpClientFactory, IRepository<RealTeamWrapper, int> repository)
         {
             HttpClient = httpClientFactory.CreateClient("base");
+            _repository = repository;
         }
 
         public async Task<List<RealPlayer>> GetAsync()
         {
+            var year = FantacalcioTime.ActualYear;
+            var teams = (await _repository.GetAsync(year))!.Teams;
             List<RealPlayer> players = new();
             var fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
-            var year = FantacalcioTime.ActualYear;
             foreach (var playerFromFanta in s_playerRowRegex.Split(fantapage).Skip(1))
             {
                 var name = HttpUtility.HtmlDecode(s_playerNameRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim()).Replace("\'", string.Empty);
@@ -39,7 +44,7 @@ namespace Fantasoccer.Business.IngestionData
                 var player = new RealPlayer
                 {
                     Name = name,
-                    RealTeam = new RealTeam { Name = team },
+                    RealTeam = teams.First(x => x.Abbreviation.ToLower() == team.ToLower()),
                     Role = role,
                     IsActive = true,
                 };

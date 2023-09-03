@@ -1,0 +1,12 @@
+﻿@page "/settings"
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Settings</PageTitle>
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+}

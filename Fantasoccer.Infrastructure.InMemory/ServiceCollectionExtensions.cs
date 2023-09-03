@@ -3,6 +3,7 @@ using System.Population.Random;
 using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Security.Principal;
+using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Domain.SerieA;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -28,6 +29,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
+            services.AddInMemoryInfrastructure<RealTeamWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>();
             services.AddInMemoryInfrastructure<Team, TeamDayKey>(onlyQuery: false, factoryName: "day");
             services.AddInMemoryInfrastructure<AppIdentity, string>();
@@ -73,7 +75,7 @@ namespace Fantasoccer.InMemory
         {
             services.AddWarmUp(async serviceProvider =>
             {
-                DateTime start = DateTime.UtcNow;
+                var start = DateTime.UtcNow;
                 var users = new List<string> { "alessandro.rapiti44@gmail.com", "daniele.fetoni@vetrya.com",
                 "daniele.marpioni@vetrya.com","daniele.catoni@vetrya.com","daniele.tufoni@vetrya.com",
                 "daniele.maloni@vetrya.com","daniele.astoni@vetrya.com","daniele.totoni@vetrya.com",
@@ -138,6 +140,34 @@ namespace Fantasoccer.InMemory
                     .WithPattern(x => x.Name, "[A-Za-z]{5,10}")
                     .WithPattern(x => x.RealTeam.Name, string.Join('|', realTeams));
                 var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
+                var teamDayRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
+                var votesService = serviceProvider.GetRequiredService<IOfficialVote>();
+                var allPlayersService = serviceProvider.GetRequiredService<IAllPlayers>();
+                var factoryVotes = serviceProvider.GetRequiredService<IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>>>();
+                var officialVotes = factoryVotes.Create("official");
+                for (var i = 1; i <= 3; i++)
+                {
+                    var allVotesOfficial = await votesService.GetAsync(FantacalcioTime.ActualYear, i);
+                    await officialVotes.InsertAsync(new YearDayKey
+                    {
+                        Day = i,
+                        Year = FantacalcioTime.ActualYear
+                    }, new VotedRealPlayerWrapper
+                    {
+                        Players = allVotesOfficial
+                    });
+                }
+                var firstVotes = await votesService.GetAsync(FantacalcioTime.ActualYear, 1);
+                var allPlayers = await allPlayersService.GetAsync();
+                foreach (var player in firstVotes)
+                {
+                    var x1 = allPlayers.FirstOrDefault(x => x.Key == player.Key);
+                    if (x1 != null)
+                    {
+                        player.Role = x1.Role;
+                        allPlayers.Remove(x1);
+                    }
+                }
                 foreach (var createdUser in createdUsers)
                 {
                     await CreateTeamAsync(createdUser!);
@@ -166,26 +196,60 @@ namespace Fantasoccer.InMemory
                         team.Players.AddRange(Create(1, Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder));
                         team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.FirstBackupForward));
                         team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.SecondBackupForward));
-                        team.Players.AddRange(Create(7, Role.Undefined, FantaSoccerRole.Tribune));
+                        team.Players.AddRange(Create(1, Role.GoalKeeper, FantaSoccerRole.Tribune));
+                        team.Players.AddRange(Create(3, Role.Defensor, FantaSoccerRole.Tribune));
+                        team.Players.AddRange(Create(2, Role.Midfielder, FantaSoccerRole.Tribune));
+                        team.Players.AddRange(Create(1, Role.Forward, FantaSoccerRole.Tribune));
                         List<Player> Create(int number, Role role, FantaSoccerRole fantaSoccerRole)
                         {
                             var players = new List<Player>();
-                            var createds = population.Populate(number);
-                            foreach (var created in createds)
+                            for (var i = 0; i < number; i++)
                             {
-                                if (role != Role.Undefined)
+                                var firstPlayer = firstVotes.FirstOrDefault(x => x.Role == role);
+                                if (firstPlayer != null)
                                 {
-                                    created.Role = role;
+                                    firstVotes.Remove(firstPlayer);
+                                    players.Add(new Player
+                                    {
+                                        IsActive = true,
+                                        Position = fantaSoccerRole,
+                                        Name = firstPlayer.Name,
+                                        Role = firstPlayer.Role,
+                                        Price = RandomNumberGenerator.GetInt32(1, 20),
+                                        RealTeam = firstPlayer.RealTeam,
+                                        Status = PlayerInTeamStatus.Active
+                                    });
                                 }
-                                created.Position = fantaSoccerRole;
-                                created.IsActive = true;
-                                created.Status = PlayerInTeamStatus.Active;
-                                created.Price = RandomNumberGenerator.GetInt32(1, 20);
-                                players.Add(created);
+                                else
+                                {
+                                    var otherPlayer = allPlayers.First(x => x.Role == role);
+                                    allPlayers.Remove(otherPlayer);
+                                    players.Add(new Player
+                                    {
+                                        IsActive = true,
+                                        Position = fantaSoccerRole,
+                                        Name = otherPlayer.Name,
+                                        Role = otherPlayer.Role,
+                                        Price = RandomNumberGenerator.GetInt32(1, 20),
+                                        RealTeam = otherPlayer.RealTeam,
+                                        Status = PlayerInTeamStatus.Active
+                                    });
+                                }
                             }
                             return players;
                         }
                         await teamRepository.InsertAsync(teamKey, team);
+                        for (var ix = 1; ix <= 10; ix++)
+                        {
+                            var teamKeyX = new TeamDayKey
+                            {
+                                Day = ix,
+                                Email = teamKey.Email,
+                                Group = teamKey.Group,
+                                Year = teamKey.Year
+                            };
+                            await teamDayRepository.InsertAsync(teamKeyX, team);
+                        }
                         Console.WriteLine($"Team in group {teamKey.Group} for {teamKey.Email} created in {DateTime.UtcNow.Subtract(start).TotalMilliseconds}.");
                         start = DateTime.UtcNow;
                     }

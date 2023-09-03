@@ -104,28 +104,37 @@
                  <BarMenu>
                      <BarStart>
                          <BarToggler Style="position: fixed; right: 0px; z-index: 9999" Bar="Sidebar" />
-                         <BarItem>
-                             <BarDropdown>
-                                 <BarDropdownToggle>
-                                     &nbsp;&nbsp;Ciao @State?.Username
-                                 </BarDropdownToggle>
-                                 <BarDropdownMenu>
-                                     <BarDropdownItem>
-                                         Settings
-                                     </BarDropdownItem>
-                                     <BarDropdownItem>
-                                         Logout
-                                     </BarDropdownItem>
-                                 </BarDropdownMenu>
-                             </BarDropdown>
-                         </BarItem>
-                     </BarStart>
-                 </BarMenu>
-             </Bar>
-         </LayoutHeader>
-         <LayoutContent>
-             <LayoutContent Padding="Padding.Is1.OnDesktop.Is0.OnMobile.Is0.OnTablet">
-                 <LoadingIndicator @ref="loadingIndicator" FullScreen>
+                        @if (State != null)
+                        {
+                            <BarItem>
+                                <BarDropdown>
+                                    <BarDropdownToggle>
+                                        &nbsp;&nbsp;Ciao @State.Username
+                                    </BarDropdownToggle>
+                                    <BarDropdownMenu Style="background: #001529;">
+                                        <BarDropdownItem>
+                                            <BarLink To="../../settings">
+                                                <BarIcon IconName="IconName.Info" />
+                                                Settings
+                                            </BarLink>
+                                        </BarDropdownItem>
+                                        <BarDropdownItem>
+                                            <BarLink To="../../MicrosoftIdentity/Account/SignOut">
+                                                <BarIcon IconName="IconName.UserCheck" />
+                                                Log out
+                                            </BarLink>
+                                        </BarDropdownItem>
+                                    </BarDropdownMenu>
+                                </BarDropdown>
+                            </BarItem>
+                        }
+                    </BarStart>
+                </BarMenu>
+            </Bar>
+        </LayoutHeader>
+        <LayoutContent>
+            <LayoutContent Padding="Padding.Is1.OnDesktop.Is0.OnMobile.Is0.OnTablet">
+                <LoadingIndicator @ref="loadingIndicator" FullScreen>
                     <ChildContent>
                         @Body
                     </ChildContent>
@@ -162,7 +171,7 @@
         }
     }
     LoadingIndicator loadingIndicator;
-    private Bar? Sidebar = new();
+    private Bar? Sidebar;
     public void Toggle()
     {
         Sidebar.Visible = !Sidebar.Visible;

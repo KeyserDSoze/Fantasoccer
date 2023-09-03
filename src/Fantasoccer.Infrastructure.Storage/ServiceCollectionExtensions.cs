@@ -29,6 +29,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<Group, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);
+            await services.AddBlobStorage<RealTeamWrapper, int>(storageConnectionString);
             await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day");

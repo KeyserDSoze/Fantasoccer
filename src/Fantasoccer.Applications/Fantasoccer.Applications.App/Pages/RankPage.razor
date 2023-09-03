@@ -39,7 +39,7 @@
         </Content>
     </Tabs>
 }
-else
+else if (nullRank != null)
 {
     <DisplayHeading Size="DisplayHeadingSize.Is4">@nullRank</DisplayHeading>
 }
@@ -52,7 +52,7 @@ else
     private Rank? rank;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
-    private string nullRank = "Loading...";
+    private string? nullRank;
 
     private Task OnSelectedTabChanged(string name)
     {
@@ -68,7 +68,7 @@ else
             if (rank != null)
                 selectedTab = rank.RankedTeams.First().Key;
             else
-                nullRank = "Year not presented.";
+                nullRank = $"Classifica non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
