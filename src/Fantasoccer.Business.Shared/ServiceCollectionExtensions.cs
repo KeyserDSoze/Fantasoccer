@@ -6,7 +6,7 @@ namespace Microsoft.Extensions.DependencyInjection
     {
         public static IServiceCollection AddSharedBusiness(this IServiceCollection services)
         {
-            services.AddSingleton<IVoteCalculation, VoteCalculation>();
+            services.AddTransient<ITeamCalculator, TeamCalculator>();
             services.ScanBusinessForRepositoryFramework();
             return services;
         }

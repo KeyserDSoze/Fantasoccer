@@ -17,8 +17,7 @@ namespace Fantasoccer.Applications.App
             IRepository<Team, TeamKey> team,
             IRepository<Team, TeamDayKey> dailyTeam,
             IRepository<AppIdentity, string> appIdentity,
-            IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory
-            )
+            IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory)
         {
             RealCalendar = realCalendar;
             RealPlayers = realPlayers;

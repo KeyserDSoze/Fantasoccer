@@ -1,4 +1,4 @@
-﻿@if (Team != null)
+﻿@if (Players != null)
 {
     <div class="@Css">
         @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
@@ -6,9 +6,9 @@
             if (position.Position >= From && position.Position <= To)
             {
                 <div class="playerMobile">
-                    @foreach (var player in Team.ActivePlayers.Where(x => x.Position == position.Position).OrderBy(x => x.Role))
+                    @foreach (var player in Players.Where(x => x.CurrentPosition == position.Position).OrderBy(x => x.Current.Role))
                     {
-                        <PlayerCard Click="() => _ = Save(player)" Player="player" Chancer="GetChance(player)" Vote="GetVote(player)" Game="GetRealGame(player)"></PlayerCard>
+                        <PlayerCard Click="() => _ = Save(player)" Player="player"></PlayerCard>
                     }
                 </div>
             }
@@ -18,27 +18,7 @@
 
 @code {
     [Parameter]
-    public required Team Team { get; set; }
-    [Parameter]
-    public required FantasoccerState State { get; set; }
-    [Parameter]
-    public required RealCalendar RealCalendar { get; set; }
-    [Parameter]
-    public required int SerieADay { get; set; }
-    [Parameter]
-    public required RealDay? RealDay { get; set; }
-    [Parameter]
-    public required ChancedRealPlayerWrapper? Chance { get; set; }
-    [Parameter]
-    public required VotedRealPlayerWrapper? Live { get; set; }
-    [Parameter]
-    public required VotedRealPlayerWrapper? Official { get; set; }
-    [Parameter]
-    public required Func<Player, ChancedRealPlayer?> GetChance { get; set; }
-    [Parameter]
-    public required Func<Player, Vote?> GetVote { get; set; }
-    [Parameter]
-    public required Func<Player, RealGame?> GetRealGame { get; set; }
+    public IEnumerable<EnrichedPlayer>? Players { get; set; }
     [Parameter]
     public required bool Inverted { get; set; }
     [Parameter]
@@ -48,10 +28,11 @@
     [Parameter]
     public required string Css { get; set; }
     [Parameter]
-    public Action? OnSave { get; set; }
+    public required Func<ValueTask> SaveTeam { get; set; }
 
-    private async Task Save(Player movedPlayer)
+    private async Task Save(EnrichedPlayer player)
     {
+        var movedPlayer = player.Current;
         switch (movedPlayer.Position)
         {
             case FantaSoccerRole.GoalKeeper:
@@ -105,16 +86,6 @@
                 }
                 break;
         }
-        if (State != null && RealCalendar != null && RealCalendar.NextDay?.SerieADay == SerieADay)
-        {
-            var key = State.TeamDayKey(SerieADay);
-            var state = await Api.DailyTeam.ExistAsync(key) ?
-                await Api.DailyTeam.UpdateAsync(key, Team) :
-                await Api.DailyTeam.InsertAsync(key, Team);
-            if (state.IsOk)
-            {
-                OnSave?.Invoke();
-            }
-        }
+        await SaveTeam.Invoke();
     }
 }

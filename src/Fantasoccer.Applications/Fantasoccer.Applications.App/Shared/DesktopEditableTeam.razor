@@ -1,4 +1,4 @@
-﻿<DropContainer TItem="Player" Items="@Team.ActivePlayers.OrderBy(x => x.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
+﻿<DropContainer TItem="EnrichedPlayer" Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
     <ChildContent>
         @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
         {
@@ -11,67 +11,35 @@
         <PlayerCard Player="context" Chancer="GetChance(context)" Vote="GetVote(context)" Game="GetRealGame(context)"></PlayerCard>
     </ItemTemplate>
 </DropContainer>
-<Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
-    <SnackbarBody>
-        @message
-    </SnackbarBody>
-</Snackbar>
+
 
 @code {
     [Parameter]
-    public required Team Team { get; set; }
-    [Parameter]
-    public required FantasoccerState State { get; set; }
-    [Parameter]
-    public required RealCalendar RealCalendar { get; set; }
-    [Parameter]
-    public required int SerieADay { get; set; }
-    [Parameter]
-    public required RealDay? RealDay { get; set; }
-    [Parameter]
-    public required ChancedRealPlayerWrapper? Chance { get; set; }
-    [Parameter]
-    public required VotedRealPlayerWrapper? Live { get; set; }
-    [Parameter]
-    public required VotedRealPlayerWrapper? Official { get; set; }
-    [Parameter]
-    public required Func<Player, ChancedRealPlayer?> GetChance { get; set; }
-    [Parameter]
-    public required Func<Player, Vote?> GetVote { get; set; }
-    [Parameter]
-    public required Func<Player, RealGame?> GetRealGame { get; set; }
+    public required IEnumerable<EnrichedPlayer> Players { get; set; }
     [Parameter]
     public required bool Inverted { get; set; }
-    private Snackbar? snackbar;
-    private string? message;
-    private bool Filter(Player player, string zoneName)
+    [Parameter]
+    public required Func<ValueTask> SaveTeam { get; set; }
+    private bool Filter(EnrichedPlayer player, string zoneName)
     {
-        var result = player.Position.ToString() == zoneName;
+        var result = player.CurrentPosition.ToString() == zoneName;
         return result;
     }
-    private async Task ItemDropped(DraggableDroppedEventArgs<Player> dropItem)
+    private async Task ItemDropped(DraggableDroppedEventArgs<EnrichedPlayer> dropItem)
     {
         var movedPlayer = dropItem.Item;
         var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
         if (position >= FantaSoccerRole.BackupGoalKeeper && position <= FantaSoccerRole.SecondBackupForward)
         {
-            var playerInBench = Team.ActivePlayers.FirstOrDefault(x => x.Position == position);
+            var playerInBench = Players.FirstOrDefault(x => x.Current.Position == position);
             if (playerInBench != null)
-                playerInBench.Position = movedPlayer.Position;
-        }
-        movedPlayer.Position = position;
-        if (State != null && RealCalendar != null && RealCalendar.NextDay?.SerieADay == SerieADay)
-        {
-            var key = State.TeamDayKey(SerieADay);
-            var state = await Api.DailyTeam.ExistAsync(key) ?
-                await Api.DailyTeam.UpdateAsync(key, Team) :
-                await Api.DailyTeam.InsertAsync(key, Team);
-            if (snackbar != null)
             {
-                snackbar.Color = state.IsOk ? SnackbarColor.Success : SnackbarColor.Danger;
-                message = state.Message ?? (state.IsOk ? "Formazione salvata correttamente." : "Errore durante il savaltaggio della formazione.");
-                snackbar.Show();
+                playerInBench.Current.Position = movedPlayer.Current.Position;
+                playerInBench.CurrentPosition = movedPlayer.CurrentPosition;
             }
         }
+        movedPlayer.Current.Position = position;
+        movedPlayer.CurrentPosition = position;
+        await SaveTeam.Invoke();
     }
 }

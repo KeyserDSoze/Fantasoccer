@@ -31,7 +31,5 @@ namespace Fantasoccer
         [JsonIgnore]
         public bool HasNegativeBonus
             => OwnGoal > 0 || Status > 0 || WrongedPenalty > 0 || SufferedGoal > 0;
-        [JsonIgnore]
-        public VoteValue FinalValue { get; set; }
     }
 }
