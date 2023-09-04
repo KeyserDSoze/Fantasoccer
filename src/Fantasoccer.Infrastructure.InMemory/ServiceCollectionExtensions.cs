@@ -27,7 +27,7 @@ namespace Fantasoccer.InMemory
                 builder.WithInMemory(name: "official");
                 builder.SetOnlyQueryExposable();
             });
-            services.AddInMemoryInfrastructure<Group, string>();
+            services.AddInMemoryInfrastructure<Group, string>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Rank, LeagueKey>();
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
@@ -35,7 +35,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<RealTeamWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>();
             services.AddInMemoryInfrastructure<Team, TeamDayKey>(onlyQuery: false, factoryName: "day");
-            services.AddInMemoryInfrastructure<AppIdentity, string>();
+            services.AddInMemoryInfrastructure<AppIdentity, string>(onlyQuery: false);
             services.AddInMemoryInfrastructure<FantasoccerLog, string>(true);
             services
                 .AddContentRepository()
@@ -133,7 +133,6 @@ namespace Fantasoccer.InMemory
                             {
                                 Id = $"Liga{j}Fantasoccer{i}",
                                 Name = $"Liga {j}",
-                                Users = new(),
                                 IsMain = j == 1 || j == 2,
                                 Years = new(),
                                 Type = j == 3 ? LeagueType.Cup : LeagueType.League,
@@ -192,13 +191,6 @@ namespace Fantasoccer.InMemory
                                     Id = actualLeague.Id,
                                     Name = actualLeague.Name,
                                     Type = actualLeague.Type,
-                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant),
-                                });
-                                actualLeague.Users.Add(new UserOfAGroup
-                                {
-                                    Email = email,
-                                    Role = league == admin ? IdentityRole.Admin : (league == reader ? IdentityRole.Reader : IdentityRole.Participant),
-                                    Username = username
                                 });
                             }
                         }

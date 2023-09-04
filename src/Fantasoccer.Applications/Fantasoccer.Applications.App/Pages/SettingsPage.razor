@@ -3,10 +3,90 @@
 
 <PageTitle>Settings</PageTitle>
 
+@if (Identity != null)
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="Identity" ValidateOnLoad="false">
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Username</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@Identity.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+             </Validations>
+             @if (actualGroup != null)
+                {
+                    <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="actualGroup" ValidateOnLoad="false">
+                        <Validation>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Team Name</FieldLabel>
+                                <FieldBody>
+                                    <TextEdit @bind-Text="@actualGroup.TeamName">
+                                        <Feedback>
+                                            <ValidationError />
+                                        </Feedback>
+                                    </TextEdit>
+                                </FieldBody>
+                            </Field>
+                        </Validation>
+                    </Validations>
+                }
+            </Fields>
+            <Button Color="Color.Primary" Clicked="@OnSaveClicked">
+                Salva impostazioni
+            </Button>
+        </Column>
+    </Row>
+}
 
 @code {
+    [Inject]
+    private IMessageService? MessageService { get; set; }
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
+    private AppIdentity? Identity { get; set; }
+    [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
+    private GroupForIdentity? actualGroup;
+    private Validations? ValidationsRef { get; set; }
+  
+    protected override Task OnParametersSetAsync()
+    {
+        if (State != null && Identity != null)
+        {
+            actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == State.GroupId);
+        }
+        return base.OnParametersSetAsync();
+    }
+    async Task OnSaveClicked()
+    {
+        if (ValidationsRef != null)
+            if (await ValidationsRef.ValidateAll())
+            {
+                if (MessageService != null)
+                    await MessageService.Info("Salvato tutto correttamente.");
+                if (Identity != null)
+                {
+                    if (await Api.AppIdentity.UpdateAsync(Identity.Email, Identity))
+                    {
+                        if (State != null)
+                        {
+                            State.Username = Identity.Username;
+                            if (State.Update != null)
+                                await State.Update();
+                        }
+                    }
+                }
+                await ValidationsRef.ClearAll();
+            }
+    }
 }

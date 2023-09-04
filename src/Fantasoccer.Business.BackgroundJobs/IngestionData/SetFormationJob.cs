@@ -30,13 +30,16 @@ namespace Fantasoccer.Engine.IngestionData
                 var groups = await _groups.ToListAsEntityAsync().NoContext();
                 foreach (var group in groups)
                 {
-                    foreach (var userOfTheGroup in group.Leagues.SelectMany(x => x.ActiveUsers))
+                    foreach (var teamOfTheYear in group.Leagues
+                        .SelectMany(x => x.Years)
+                        .Where(x => x.Year == FantacalcioTime.ActualYear)
+                        .SelectMany(x => x.Teams))
                     {
                         var nextKey = new TeamDayKey
                         {
                             Year = FantacalcioTime.ActualYear,
                             Day = calendar.LastDay.SerieADay + 1,
-                            Email = userOfTheGroup.Email,
+                            Email = teamOfTheYear.Owner,
                             Group = group.Name
                         };
                         if (!await _repository.ExistAsync(nextKey))
@@ -45,17 +48,17 @@ namespace Fantasoccer.Engine.IngestionData
                             {
                                 Year = FantacalcioTime.ActualYear,
                                 Day = calendar.LastDay.SerieADay,
-                                Email = userOfTheGroup.Email,
+                                Email = teamOfTheYear.Owner,
                                 Group = group.Name
                             };
                             var oldTeam = await _repository.GetAsync(key).NoContext();
                             if (oldTeam != null)
                             {
                                 await _repository.UpdateAsync(nextKey, oldTeam).NoContext();
-                                listUpdated.Add(userOfTheGroup.Email);
+                                listUpdated.Add(teamOfTheYear.Owner);
                             }
                             else
-                                await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {userOfTheGroup.Email}").NoContext();
+                                await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {teamOfTheYear.Owner}").NoContext();
                         }
                     }
                 }

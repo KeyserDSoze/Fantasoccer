@@ -24,6 +24,8 @@
     private Task<AuthenticationState>? authenticationState { get; set; }
     [Inject]
     private ILocalStorageService? localStorage { get; set; }
+    [Inject]
+    private NavigationManager NavigationManager{ get; set; }
     private AppIdentity? identity;
     private FantasoccerState? state;
     private Theme theme = new Theme
@@ -92,6 +94,17 @@
             {
                 var email = user.Claims.First(x => x.Type == "emails").Value;
                 identity = await Api.AppIdentity.GetAsync(email);
+                if (identity == null)
+                {
+                    identity = new AppIdentity
+                        {
+                            Email = email,
+                            Groups = new(),
+                            Username = email
+                        };
+                    await Api.AppIdentity.InsertAsync(email, identity);
+                    NavigationManager.NavigateTo("../../settings", false);
+                }
             }
         }
         await base.OnInitializedAsync();
