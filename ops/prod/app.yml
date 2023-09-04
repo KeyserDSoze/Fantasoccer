@@ -32,7 +32,7 @@ jobs:
   steps:
   - task: CopyFiles@2
     inputs:
-      SourceFolder: 'ops/prod/'
+      SourceFolder: 'ops/prod/app/'
       Contents: 'appsettings.json'
       TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.App/"
       OverWrite: true
