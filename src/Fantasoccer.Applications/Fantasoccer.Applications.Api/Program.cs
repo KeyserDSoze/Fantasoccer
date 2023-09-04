@@ -47,6 +47,7 @@ if (isInMemory)
     builder.Services.AddDefaultValues();
 }
 
+
 var app = builder.Build();
 await app.Services.WarmUpAsync();
 app.UseHttpsRedirection();
