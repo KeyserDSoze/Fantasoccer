@@ -58,7 +58,7 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     private GroupForIdentity? actualGroup;
     private Validations? ValidationsRef { get; set; }
-  
+
     protected override Task OnParametersSetAsync()
     {
         if (State != null && Identity != null)
@@ -78,6 +78,19 @@
                 {
                     if (await Api.AppIdentity.UpdateAsync(Identity.Email, Identity))
                     {
+                        if (actualGroup != null && !string.IsNullOrWhiteSpace(actualGroup.TeamName))
+                        {
+                            var theGroup = await Api.Groups.GetAsync(actualGroup.Id);
+                            if (theGroup != null)
+                                foreach (var team in theGroup.Leagues
+                                    .SelectMany(x => x.Years)
+                                    .Where(x => x.Year == FantacalcioTime.ActualYear)
+                                    .SelectMany(x => x.Teams)
+                                    .Where(x => x.Owner == Identity.Email))
+                                {
+                                    team.Name = actualGroup.TeamName;
+                                }
+                        }
                         if (State != null)
                         {
                             State.Username = Identity.Username;
