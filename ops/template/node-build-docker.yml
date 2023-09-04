@@ -1,0 +1,52 @@
+parameters:
+  - name: buildMode
+    type: string
+    default: "Release"
+
+  - name: workingDirectory
+    type: string
+    default: ""
+
+  - name: dockerComposeDirectory
+    type: string
+    default: ""
+
+  - name: artifactName
+    type: string
+    default: "drop"
+
+  - name: containerRegistry
+    type: string
+    default: "AgicCloud"
+
+  - name: releaseTag
+    type: string
+    default: "latest"
+
+  - name: environment
+    type: string
+    default: "preprod"
+
+steps:
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: "${{parameters.containerRegistry}}"
+      repository: "${{ parameters.artifactName }}"
+      command: 'build'
+      Dockerfile: "${{ parameters.dockerComposeDirectory }}/${{ parameters.environment }}/Dockerfile"
+      buildContext: "./"
+      tags: |
+        $(Build.BuildId)
+        ${{ parameters.releaseTag }}
+    displayName: 'Docker image build'
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: "${{parameters.containerRegistry}}"
+      repository: "${{ parameters.artifactName }}"
+      command: 'push'
+      tags: |
+        $(Build.BuildId)
+        ${{ parameters.releaseTag }}
+    displayName: 'Docker image push'

@@ -1,0 +1,86 @@
+parameters:
+  - name: buildMode
+    type: string
+    default: "Release"
+
+  - name: workingDirectory
+    type: string
+    default: ""
+
+  - name: dockerComposeDirectory
+    type: string
+    default: ""
+
+  - name: projects
+    type: string
+    default: ""
+  
+  - name: executeTests
+    type: boolean
+    default: false
+
+  - name: publishArtifact
+    type: boolean
+    default: false 
+
+  - name: sdkVersion
+    type: string
+    default: "7.x"
+
+  - name: artifactName
+    type: string
+    default: "drop"
+
+  - name: containerRegistry
+    type: string
+    default: "AgicCloud"
+
+  - name: releaseTag
+    type: string
+    default: "latest"
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: "sdk"
+      version: "${{parameters.sdkVersion}}"
+
+  - task: NuGetAuthenticate@0
+
+  - script: dotnet restore ${{ parameters.projects }}
+    workingDirectory: "${{ parameters.workingDirectory }}"
+    displayName: "dotnet restore "
+
+  - script: dotnet build ${{ parameters.projects }} --configuration ${{ parameters.buildMode }}
+    workingDirectory: "${{ parameters.workingDirectory }}"
+    displayName: "dotnet build ${{ parameters.projects }}"
+
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet test ${{ parameters.projects }}"
+    inputs:
+      command: test
+      projects: "${{ parameters.workingDirectory }}/*Tests/*.csproj"
+      arguments: '--configuration ${{ parameters.buildMode }} --collect "Code coverage"'
+    condition: and(succeeded(), eq('${{ parameters.executeTests }}', 'true'))
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: "${{parameters.containerRegistry}}"
+      repository: "${{ parameters.artifactName }}"
+      command: 'build'
+      Dockerfile: "${{ parameters.dockerComposeDirectory }}/Dockerfile"
+      buildContext: "./"
+      tags: |
+        $(Build.BuildId)
+        ${{ parameters.releaseTag }}
+    displayName: 'Docker image build'
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: "${{parameters.containerRegistry}}"
+      repository: "${{ parameters.artifactName }}"
+      command: 'push'
+      tags: |
+        $(Build.BuildId)
+        ${{ parameters.releaseTag }}
+    displayName: 'Docker image push'

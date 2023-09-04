@@ -18,9 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
     <ProjectReference Include="..\..\Fantasoccer.Business.BackgroundJobs\Fantasoccer.Business.BackgroundJobs.csproj" />
     <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
+    <ProjectReference Include="..\..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
+    <ProjectReference Include="..\..\Fantasoccer.Infrastructure.Storage\Fantasoccer.Infrastructure.Storage.csproj" />
   </ItemGroup>
 
 </Project>

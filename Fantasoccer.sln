@@ -21,9 +21,45 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.Ap
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.App", "src\Fantasoccer.Applications\Fantasoccer.Applications.App\Fantasoccer.Applications.App.csproj", "{F264A069-C165-4F79-9EE8-ED7AF0D2057B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{0A3C6292-2436-44AA-9A74-78E14A57482C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Business.Shared", "src\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj", "{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Business.Shared", "src\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj", "{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6422E4BC-A343-4EB2-B156-85D7686D6BB6}"
+	ProjectSection(SolutionItems) = preProject
+		ops\template\angular-build.yml = ops\template\angular-build.yml
+		ops\prod\api.yml = ops\prod\api.yml
+		ops\prod\app.yml = ops\prod\app.yml
+		ops\template\dotnet-build-docker.yml = ops\template\dotnet-build-docker.yml
+		ops\template\dotnet-build.yml = ops\template\dotnet-build.yml
+		ops\template\node-build-docker.yml = ops\template\node-build-docker.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ops", "Ops", "{7733D513-280E-4364-BC1B-E2751594E315}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prod", "Prod", "{813E55E5-9349-4602-870F-C1954A89E06F}"
+	ProjectSection(SolutionItems) = preProject
+		ops\prod\api.yml = ops\prod\api.yml
+		ops\prod\app.yml = ops\prod\app.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{FDDE1887-6152-4DFC-9819-8A1338011A4D}"
+	ProjectSection(SolutionItems) = preProject
+		ops\template\angular-build.yml = ops\template\angular-build.yml
+		ops\template\dotnet-build-docker.yml = ops\template\dotnet-build-docker.yml
+		ops\template\dotnet-build.yml = ops\template\dotnet-build.yml
+		ops\template\node-build-docker.yml = ops\template\node-build-docker.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Api", "Api", "{34FF582F-3885-44DA-B940-3F8D1E52FFBB}"
+	ProjectSection(SolutionItems) = preProject
+		ops\prod\api\appsettings.json = ops\prod\api\appsettings.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "App", "App", "{D5A54E23-3A99-4C7A-A254-FC5DB5C50506}"
+	ProjectSection(SolutionItems) = preProject
+		ops\prod\app\appsettings.json = ops\prod\app\appsettings.json
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "src\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{B796A215-C3CC-42C0-B778-AAA129D86AB9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -59,14 +95,14 @@ Global
 		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F264A069-C165-4F79-9EE8-ED7AF0D2057B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0A3C6292-2436-44AA-9A74-78E14A57482C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,8 +116,12 @@ Global
 		{7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9} = {91114266-E644-452D-8132-7D762C9B8968}
 		{38AB45B5-D8A7-4D50-8BB3-ACAA3F420698} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 		{F264A069-C165-4F79-9EE8-ED7AF0D2057B} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
-		{0A3C6292-2436-44AA-9A74-78E14A57482C} = {91114266-E644-452D-8132-7D762C9B8968}
 		{9E60DB6F-1FE2-433A-B3F8-02B938E94C55} = {91114266-E644-452D-8132-7D762C9B8968}
+		{813E55E5-9349-4602-870F-C1954A89E06F} = {7733D513-280E-4364-BC1B-E2751594E315}
+		{FDDE1887-6152-4DFC-9819-8A1338011A4D} = {7733D513-280E-4364-BC1B-E2751594E315}
+		{34FF582F-3885-44DA-B940-3F8D1E52FFBB} = {813E55E5-9349-4602-870F-C1954A89E06F}
+		{D5A54E23-3A99-4C7A-A254-FC5DB5C50506} = {813E55E5-9349-4602-870F-C1954A89E06F}
+		{B796A215-C3CC-42C0-B778-AAA129D86AB9} = {91114266-E644-452D-8132-7D762C9B8968}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}

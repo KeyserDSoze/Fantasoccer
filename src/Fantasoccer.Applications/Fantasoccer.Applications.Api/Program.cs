@@ -1,14 +1,12 @@
-﻿using System.Security.Claims;
-using Fantasoccer;
-using Fantasoccer.Business;
+﻿using Fantasoccer.Business;
 using Fantasoccer.Engine;
+using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
-using RepositoryFramework;
 
 var builder = WebApplication.CreateBuilder(args);
-
+var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
      .AddMicrosoftIdentityWebApi(options =>
      {
@@ -29,15 +27,25 @@ builder.Services.AddAuthorization(configure =>
 builder.Services.AddApplicationInsightsTelemetry();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddInMemoryInfrastructures();
-builder.Services.AddPreDefaultValues();
+if (isInMemory)
+{
+    builder.Services.AddInMemoryInfrastructures();
+    builder.Services.AddPreDefaultValues();
+}
+else
+{
+    await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration);
+}
 builder.Services.AddFantasoccerBusiness();
 builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()
     .WithDefaultCorsWithAllOrigins();
-builder.Services.AddDefaultValues();
+if (isInMemory)
+{
+    builder.Services.AddDefaultValues();
+}
 
 var app = builder.Build();
 await app.Services.WarmUpAsync();

@@ -1,0 +1,83 @@
+parameters:
+  - name: buildMode
+    type: string
+    default: "Release"
+
+  - name: workingDirectory
+    type: string
+    default: ""
+
+  - name: projects
+    type: string
+    default: ""
+  
+  - name: executeAllTests
+    type: boolean
+    default: false
+
+  - name: publishArtifact
+    type: boolean
+    default: false 
+
+  - name: projectTestName
+    type: string
+    default: ""
+
+  - name: sdkVersion
+    type: string
+    default: "7.x"
+
+  - name: artifactName
+    type: string
+    default: "drop"
+
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      packageType: "sdk"
+      version: "${{parameters.sdkVersion}}"
+
+  - task: NuGetAuthenticate@0
+
+  - script: dotnet restore ${{ parameters.projects }}
+    workingDirectory: "${{ parameters.workingDirectory }}"
+    displayName: "dotnet restore "
+
+  - script: dotnet build ${{ parameters.projects }} --configuration ${{ parameters.buildMode }}
+    workingDirectory: "${{ parameters.workingDirectory }}"
+    displayName: "dotnet build ${{ parameters.projects }}"
+
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet test ${{ parameters.projects }}"
+    inputs:
+      command: test
+      projects: "${{ parameters.workingDirectory }}/*Tests/*.csproj"
+      arguments: '--configuration ${{ parameters.buildMode }} --collect "Code coverage"'
+    condition: and(succeeded(), eq('${{ parameters.executeAllTests }}', 'true'))
+
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet test ${{ parameters.projects }}"
+    inputs:
+      command: test
+      projects: "${{ parameters.projectTestName }}"
+      arguments: '--configuration ${{ parameters.buildMode }} --collect "Code coverage"'
+    condition: and(succeeded(), ne('${{ parameters.projectTestName }}', ''))
+
+  - task: DotNetCoreCLI@2
+    displayName: "dotnet publish ${{ parameters.projects }}"
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: '${{ parameters.workingDirectory }}/${{ parameters.projects }}'
+      arguments: '--configuration ${{ parameters.buildMode }} --output "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}"'
+      workingDirectory: '${{ parameters.workingDirectory }}'
+    condition: and(succeeded(), eq('${{ parameters.publishArtifact }}', 'true'))
+
+  - task: PublishBuildArtifacts@1
+    displayName: "publish artifacts"
+    inputs:
+      ArtifactName: "${{ parameters.artifactName }}"
+      publishLocation: Container
+      pathToPublish: "$(Build.ArtifactStagingDirectory)/${{ parameters.artifactName }}"
+    condition: and(succeeded(), eq('${{ parameters.publishArtifact }}', 'true'))
