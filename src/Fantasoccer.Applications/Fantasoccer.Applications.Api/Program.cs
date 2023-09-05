@@ -24,7 +24,10 @@ builder.Services.AddAuthorization(configure =>
         policy.RequireClaim("name");
     });
 });
-builder.Services.AddApplicationInsightsTelemetry();
+builder.Services.AddApplicationInsightsTelemetry(x =>
+{
+    x.ConnectionString = builder.Configuration["ConnectionStrings:AppInsights"];
+});
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 if (isInMemory)

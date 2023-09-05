@@ -39,7 +39,7 @@
          </Column>
      </Row>
     }
-    @if (group != null)
+    @if (group != null && group.AdminUsers.Any(x => x.Email == Identity.Email))
     {
         <Row>
             <Column>
