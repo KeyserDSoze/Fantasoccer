@@ -1,0 +1,112 @@
+﻿@page "/manageteams"
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Manage teams</PageTitle>
+
+@if (Identity != null && State != null && State.IsAdmin(Identity) && players != null && teams != null)
+{
+    <DropContainer TItem="PrePlayer" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped">
+        <ChildContent>
+            <Accordion>
+                <Collapse Visible="true">
+                    @foreach (var team in teams)
+                    {
+                        <CollapseHeader>
+                            <Heading Size="HeadingSize.Is5">
+                                <AccordionToggle>@team.Name (@team.Owner)</AccordionToggle>
+                            </Heading>
+                        </CollapseHeader>
+                        <CollapseBody>
+                            <DropZone TItem="PrePlayer" Name="@team.Owner" DropAllowed="x => true"></DropZone>
+                        </CollapseBody>
+                    }
+                </Collapse>
+            </Accordion>
+            <DropZone TItem="PrePlayer" Name="Basket" DropAllowed="x => true"></DropZone>
+        </ChildContent>
+        <ItemTemplate>
+            <Div>
+                @context.Player.Name
+                <Badge Color="Color.Primary">@context.Player.Role</Badge>
+            </Div>
+        </ItemTemplate>
+    </DropContainer>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private AppIdentity? Identity { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private List<PrePlayer>? players;
+    private List<Team>? teams;
+    private sealed class PrePlayer
+    {
+        public required string TeamName { get; set; }
+        public required string TeamOwner { get; set; }
+        public required Player Player { get; set; }
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.AnnualLeague != null && Identity != null && State.IsAdmin(Identity))
+        {
+            LoadingIndicator?.Show();
+            players = new();
+            teams = new();
+            foreach (var team in State.AnnualLeague.Teams)
+            {
+                var teamKey = State.OtherTeamKey(team.Owner);
+                var actualTeam = await Api.Team.GetAsync(teamKey);
+                if (actualTeam == null)
+                {
+                    actualTeam = new() { Name = team.Name, Owner = team.Owner };
+                    await Api.Team.InsertAsync(teamKey, actualTeam);
+                }
+                teams.Add(actualTeam);
+                foreach (var player in actualTeam.ActivePlayers)
+                {
+                    players.Add(new PrePlayer
+                        {
+                            TeamName = team.Name,
+                            TeamOwner = team.Owner,
+                            Player = player
+                        });
+                }
+            }
+            var allPlayers = await Api.RealPlayers.GetAsync(State.Year);
+            foreach (var player in allPlayers!.Players)
+            {
+                players.Add(new PrePlayer
+                    {
+                        TeamName = "Basket",
+                        TeamOwner = string.Empty,
+                        Player = new Player
+                        {
+                            IsActive = true,
+                            Name = player.Name,
+                            Position = FantaSoccerRole.All,
+                            Price = 0,
+                            RealTeam = player.RealTeam,
+                            Role = player.Role,
+                            Status = PlayerInTeamStatus.Active
+                        }
+                    });
+            }
+            LoadingIndicator?.Hide();
+        }
+        await base.OnParametersSetAsync();
+    }
+    private bool Filter(PrePlayer player, string zoneName)
+    {
+        var result = player.TeamOwner == zoneName;
+        return result;
+    }
+    private async Task ItemDropped(DraggableDroppedEventArgs<PrePlayer> dropItem)
+    {
+        var x = dropItem.SourceDropZoneName;
+        var t = dropItem.DropZoneName;
+        var q = dropItem.Item;
+    }
+}

@@ -2,6 +2,7 @@
 {
     public class LeagueSetting
     {
+        public int StartingMoney { get; set; }
         public Dictionary<Role, VoteLeagueSetting> Votes { get; set; }
         public int DelayedDay { get; set; }
         public int PointForFirstGoal { get; set; }
@@ -20,6 +21,7 @@
         public int MoneyForSufferedGoal { get; set; }
         public static LeagueSetting Default => new()
         {
+            StartingMoney = 1000,
             Votes = new Dictionary<Role, VoteLeagueSetting>() { { Role.Undefined, new VoteLeagueSetting()
             {
                  Assist = 1,

@@ -1,5 +1,7 @@
 ﻿@using Blazored.LocalStorage;
 @using Blazorise;
+@using Microsoft.Identity.Abstractions;
+@using Microsoft.Identity.Web;
 <Blazorise.ThemeProvider Theme="@theme">
     <CascadingValue Value="@identity">
         <CascadingValue Value="@state">
@@ -25,7 +27,13 @@
     [Inject]
     private ILocalStorageService? localStorage { get; set; }
     [Inject]
-    private NavigationManager NavigationManager{ get; set; }
+    private NavigationManager NavigationManager { get; set; }
+    [Inject]
+    private MicrosoftIdentityConsentAndConditionalAccessHandler ConsentHandler { get; set; }
+    [Inject]
+    private IAuthorizationHeaderProvider AuthorizationHeaderProvider { get; set; }
+    [Inject]
+    private IConfiguration Configuration { get; set; }
     private AppIdentity? identity;
     private FantasoccerState? state;
     private Theme theme = new Theme
@@ -63,15 +71,13 @@
             {
                 if (fantasoccerState.GroupId != null)
                 {
-                    var group = await Api.Groups.GetAsync(fantasoccerState.GroupId);
-                    if (group != null && fantasoccerState.LeagueId != null)
+                    state.Group = await Api.Groups.GetAsync(fantasoccerState.GroupId);
+                    if (state.Group != null && fantasoccerState.LeagueId != null)
                     {
-                        var league = group.Leagues.FirstOrDefault(x => x.Id == fantasoccerState.LeagueId);
-                        if (league != null && fantasoccerState.Year > 0)
+                        state.League = state.Group.Leagues.FirstOrDefault(x => x.Id == fantasoccerState.LeagueId);
+                        if (state.League != null && fantasoccerState.Year > 0)
                         {
-                            var leagueForYear = league.Years.FirstOrDefault(x => x.Year == fantasoccerState.Year);
-                            if (leagueForYear != null)
-                                fantasoccerState.LeagueSettings = leagueForYear.Settings;
+                            state.AnnualLeague = state.League.Years.FirstOrDefault(x => x.Year == fantasoccerState.Year);
                         }
                     }
                 }
@@ -93,7 +99,21 @@
             if (user?.Identity is not null && user.Identity.IsAuthenticated)
             {
                 var email = user.Claims.First(x => x.Type == "emails").Value;
-                identity = await Api.AppIdentity.GetAsync(email);
+                try
+                {
+                    identity = await Api.AppIdentity.GetAsync(email);
+                }
+                catch (Exception ex2)
+                {
+                    try
+                    {
+                        var token = await AuthorizationHeaderProvider.CreateAuthorizationHeaderForUserAsync(new string[] { Configuration["AzureAdB2c:Scopes"]! });
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsentHandler.HandleException(ex);
+                    }
+                }
                 if (identity == null)
                 {
                     identity = new AppIdentity
