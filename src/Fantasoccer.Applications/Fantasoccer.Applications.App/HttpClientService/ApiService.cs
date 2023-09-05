@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Domain.SerieA;
+﻿using Fantasoccer.Domain;
+using Fantasoccer.Domain.SerieA;
 using RepositoryFramework;
 
 namespace Fantasoccer.Applications.App
@@ -8,6 +9,7 @@ namespace Fantasoccer.Applications.App
         public ApiService(
             IRepository<RealCalendar, int> realCalendar,
             IRepository<RealPlayersWrapper, int> realPlayers,
+            IRepository<StatPlayersWrapper, int> statsPlayers,
             IRepository<ChancedRealPlayerWrapper, YearDayKey> chances,
             IRepository<Group, string> groups,
             IRepository<Rank, LeagueKey> ranks,
@@ -21,6 +23,7 @@ namespace Fantasoccer.Applications.App
         {
             RealCalendar = realCalendar;
             RealPlayers = realPlayers;
+            StatsPlayers = statsPlayers;
             Chances = chances;
             Groups = groups;
             Ranks = ranks;
@@ -36,6 +39,7 @@ namespace Fantasoccer.Applications.App
 
         public IRepository<RealCalendar, int> RealCalendar { get; }
         public IRepository<RealPlayersWrapper, int> RealPlayers { get; }
+        public IRepository<StatPlayersWrapper, int> StatsPlayers { get; }
         public IRepository<ChancedRealPlayerWrapper, YearDayKey> Chances { get; }
         public IRepository<Group, string> Groups { get; }
         public IRepository<Rank, LeagueKey> Ranks { get; }

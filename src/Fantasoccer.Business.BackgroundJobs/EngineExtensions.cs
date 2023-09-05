@@ -8,6 +8,14 @@ namespace Fantasoccer.Engine
         public static IServiceCollection AddFantasoccerBackgroundWork(this IServiceCollection services)
         {
             services
+                .AddWarmUp(async serviceProvider =>
+                {
+                    var serieACalendarioJob = serviceProvider.GetRequiredService<SerieACalendarJob>();
+                    await serieACalendarioJob.ActionToDoAsync();
+                    var allPlayersAndAllTeamsJob = serviceProvider.GetRequiredService<AllPlayersAndAllTeamsJob>();
+                    await allPlayersAndAllTeamsJob.ActionToDoAsync();
+                });
+            services
                 .AddBackgroundJob<SerieACalendarJob>(options =>
                 {
                     options.Cron = "0 0 2,6,12,18 * * *";
@@ -31,6 +39,7 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
                     options.Cron = "0 45 2,7 * * *";
+                    options.RunImmediately = true;
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
                 {

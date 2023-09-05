@@ -11,7 +11,9 @@
         RealDay? RealDay { get; }
         LeagueSetting? LeagueSetting { get; }
         ValueTask BuildRequestAsync(int year, int day, LeagueSetting leagueSettings, bool withRealGame, bool withVote, bool withChance);
+        void SetLeagueSettings(LeagueSetting leagueSettings);
         Point CalculatePoint(IEnumerable<EnrichedPlayer> players);
+        EnrichedPlayer Enrich(Player player, Chance? chance, RealGame? realGame, Vote? vote);
         IEnumerable<EnrichedPlayer> Enrich(IEnumerable<Player> players);
         IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players);
         VoteValue FinalValue(EnrichedPlayer player);

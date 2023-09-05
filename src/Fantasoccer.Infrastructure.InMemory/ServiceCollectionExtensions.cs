@@ -8,6 +8,7 @@ using System.Security.Principal;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Domain.SerieA;
+using Fantasoccer.Domain;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 using RepositoryFramework.InMemory;
@@ -32,6 +33,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
+            services.AddInMemoryInfrastructure<StatPlayersWrapper, int>();
             services.AddInMemoryInfrastructure<RealTeamWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>();
             services.AddInMemoryInfrastructure<Team, TeamDayKey>(onlyQuery: false, factoryName: "day");

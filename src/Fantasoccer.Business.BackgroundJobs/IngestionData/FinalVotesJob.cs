@@ -1,6 +1,4 @@
 ﻿using System.Timers;
-using Fantasoccer.Business.IngestionData;
-using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
 namespace Fantasoccer.Engine.IngestionData
@@ -8,36 +6,33 @@ namespace Fantasoccer.Engine.IngestionData
     public class FinalVotesJob : IBackgroundJob
     {
         private readonly IFantasoccerLogger _logger;
-        private readonly IOfficialVote _finalVote;
         private readonly IRepository<RealCalendar, int> _realCalendar;
-        private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _repository;
+        private readonly IVotePlayerGenerator _votePlayerGenerator;
+        private readonly IStatsPlayerGenerator _statsPlayerGenerator;
 
-        public FinalVotesJob(IFantasoccerLogger logger, IOfficialVote finalVote,
+        public FinalVotesJob(IFantasoccerLogger logger,
             IRepository<RealCalendar, int> realCalendar,
-            IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> factory)
+            IVotePlayerGenerator votePlayerGenerator,
+            IStatsPlayerGenerator statsPlayerGenerator)
         {
             _logger = logger;
-            _finalVote = finalVote;
             _realCalendar = realCalendar;
-            _repository = factory.Create("official");
+            _votePlayerGenerator = votePlayerGenerator;
+            _statsPlayerGenerator = statsPlayerGenerator;
         }
 
         public async Task ActionToDoAsync()
         {
             var calendar = await _realCalendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
-            var liveDay = calendar?.LiveDay;
-            if (liveDay != default)
+            var lastDay = calendar?.LiveDay ?? calendar?.LastDay;
+            if (lastDay != default)
             {
-                var players = await _finalVote.GetAsync(FantacalcioTime.ActualYear, liveDay.SerieADay).NoContext();
-                await _repository.UpdateAsync(new YearDayKey
+                var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, lastDay.SerieADay, lastDay.SerieADay);
+                if (checkIfAVoteIsUpdated > 0)
                 {
-                    Day = liveDay.SerieADay,
-                    Year = liveDay.Year,
-                }, new VotedRealPlayerWrapper
-                {
-                    Players = players,
-                });
-                await _logger.LogAsync<FinalVotesJob>($"Players count: {players.Count} for day {liveDay.SerieADay} year {liveDay.Year}").NoContext();
+                    await _statsPlayerGenerator.GenerateAndSaveAsync(lastDay.Year, lastDay.SerieADay);
+                }
+                await _logger.LogAsync<FinalVotesJob>($"Vote parsed {checkIfAVoteIsUpdated} for year {lastDay.Year}").NoContext();
             }
         }
 

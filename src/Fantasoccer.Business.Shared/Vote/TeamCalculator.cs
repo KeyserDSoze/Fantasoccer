@@ -73,6 +73,10 @@ namespace Fantasoccer.Business
                 SerieADay = day;
             }
         }
+        public void SetLeagueSettings(LeagueSetting leagueSettings)
+        {
+            LeagueSetting = leagueSettings;
+        }
         public Point CalculatePoint(IEnumerable<EnrichedPlayer> players)
         {
             if (!players.Any() || LeagueSetting == null)
@@ -103,21 +107,25 @@ namespace Fantasoccer.Business
             return new Point(point, defensiveBonus,
                 LeagueSetting.PointForOwnGoal > 0 && point < LeagueSetting.PointForFirstGoal - LeagueSetting.PointForOwnGoal);
         }
+        public EnrichedPlayer Enrich(Player player, Chance? chance, RealGame? realGame, Vote? vote)
+        {
+            var enrichedPlayer = new EnrichedPlayer
+            {
+                Current = player,
+                Chance = chance,
+                RealGame = realGame,
+                Vote = vote,
+                CurrentPosition = player.Position
+            };
+            if (enrichedPlayer.Vote != null)
+                enrichedPlayer.FinalValue = FinalValue(enrichedPlayer);
+            return enrichedPlayer;
+        }
         public IEnumerable<EnrichedPlayer> Enrich(IEnumerable<Player> players)
         {
             foreach (var player in players)
             {
-                var enrichedPlayer = new EnrichedPlayer
-                {
-                    Current = player,
-                    Chance = GetChance(player),
-                    RealGame = GetRealGame(player),
-                    Vote = GetVote(player),
-                    CurrentPosition = player.Position
-                };
-                if (enrichedPlayer.Vote != null)
-                    enrichedPlayer.FinalValue = FinalValue(enrichedPlayer);
-                yield return enrichedPlayer;
+                yield return Enrich(player, GetChance(player), GetRealGame(player), GetVote(player));
             }
             Chance? GetChance(Player player)
             {

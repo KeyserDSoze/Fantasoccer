@@ -50,19 +50,22 @@ namespace Fantasoccer.Engine.IngestionData
             {
                 var players = await _allPlayers.GetAsync().NoContext();
 
-                var oldPlayers = await _realPlayersRepository.GetAsync(year).NoContext() ?? new RealPlayersWrapper { Players = new List<RealPlayer>() };
-                foreach (var oldPlayer in oldPlayers.Players)
+                var actualPlayers = await _realPlayersRepository.GetAsync(year).NoContext();
+                var playersExist = actualPlayers != null;
+                if (!playersExist)
+                    actualPlayers = new RealPlayersWrapper { Players = new List<RealPlayer>() };
+                foreach (var actualPlayer in actualPlayers.Players)
                 {
-                    if (!players.Any(x => x.Key == oldPlayer.Key))
+                    if (!players.Any(x => x.Key == actualPlayer.Key))
                     {
-                        players.Add(oldPlayer);
-                    }
-                    else
-                    {
-                        oldPlayer.IsActive = false;
+                        actualPlayer.IsActive = false;
+                        players.Add(actualPlayer);
                     }
                 }
-                await _realPlayersRepository.UpdateAsync(year, oldPlayers).NoContext();
+                if (!playersExist)
+                    await _realPlayersRepository.InsertAsync(year, new RealPlayersWrapper { Players = players }).NoContext();
+                else
+                    await _realPlayersRepository.UpdateAsync(year, new RealPlayersWrapper { Players = players }).NoContext();
                 await _logger.LogAsync<AllPlayersAndAllTeamsJob>($"Players count: {players.Count} for year {FantacalcioTime.ActualYear}").NoContext();
             }
             else
