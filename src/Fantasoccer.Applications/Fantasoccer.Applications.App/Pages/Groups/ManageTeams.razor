@@ -5,9 +5,27 @@
 
 @if (Identity != null && State != null && State.IsAdmin(Identity) && players != null && teams != null)
 {
-    <DropContainer TItem="PrePlayer" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped">
+    <DropContainer TItem="PrePlayer" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped" DropAllowed="(x, y) => true">
         <ChildContent>
             <Row>
+                <Column Width="Width.Is50">
+                    <Tabs SelectedTab="@Roles.First()">
+                        <Items>
+                            @foreach (var role in Roles)
+                            {
+                                <Tab Name="@role">@role</Tab>
+                            }
+                        </Items>
+                        <Content>
+                            @foreach (var role in Roles)
+                            {
+                                <TabPanel Name="@role">
+                                    <DropZone TItem="PrePlayer" Name="@role" DropAllowed="x => true"></DropZone>
+                                </TabPanel>
+                            }
+                        </Content>
+                    </Tabs>
+                </Column>
                 <Column Width="Width.Is50">
                     <Accordion>
                         <Collapse Visible="true">
@@ -25,16 +43,13 @@
                         </Collapse>
                     </Accordion>
                 </Column>
-                <Column>
-                    <DropZone TItem="PrePlayer" Name="Basket" DropAllowed="x => true"></DropZone>
-                </Column>
             </Row>
         </ChildContent>
         <ItemTemplate>
-            <Div>
+            <div>
                 @context.Player.Name
                 <Badge Color="Color.Primary">@context.Player.Role</Badge>
-            </Div>
+            </div>
         </ItemTemplate>
     </DropContainer>
 }
@@ -54,6 +69,13 @@
         public required string TeamOwner { get; set; }
         public required Player Player { get; set; }
     }
+    private static readonly List<string> Roles = new()
+    {
+        Role.GoalKeeper.ToString(),
+        Role.Defensor.ToString(),
+        Role.Midfielder.ToString(),
+        Role.Forward.ToString()
+    };
     protected override async Task OnParametersSetAsync()
     {
         if (State?.AnnualLeague != null && Identity != null && State.IsAdmin(Identity))
@@ -86,8 +108,8 @@
             {
                 players.Add(new PrePlayer
                     {
-                        TeamName = "Basket",
-                        TeamOwner = string.Empty,
+                        TeamName = string.Empty,
+                        TeamOwner = player.Role.ToString(),
                         Player = new Player
                         {
                             IsActive = true,
@@ -100,6 +122,7 @@
                         }
                     });
             }
+            players = players.Take(1).ToList();
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
