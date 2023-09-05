@@ -103,16 +103,9 @@
                 {
                     identity = await Api.AppIdentity.GetAsync(email);
                 }
-                catch (Exception ex2)
+                catch
                 {
-                    try
-                    {
-                        var token = await AuthorizationHeaderProvider.CreateAuthorizationHeaderForUserAsync(new string[] { Configuration["AzureAdB2c:Scopes"]! });
-                    }
-                    catch (Exception ex)
-                    {
-                        ConsentHandler.HandleException(ex);
-                    }
+                    NavigationManager.NavigateTo("../../MicrosoftIdentity/Account/SignOut");
                 }
                 if (identity == null)
                 {

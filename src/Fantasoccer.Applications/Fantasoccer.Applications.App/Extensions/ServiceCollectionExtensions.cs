@@ -1,5 +1,9 @@
 ﻿using Fantasoccer.Domain;
 using Fantasoccer.Domain.SerieA;
+using Microsoft.Identity.Abstractions;
+using Microsoft.Identity.Web;
+using RepositoryFramework.Api.Client.Authorization;
+using RepositoryFramework.Api.Client.DefaultInterceptor;
 
 namespace Fantasoccer.Applications.App.Extensions
 {
@@ -52,7 +56,7 @@ namespace Fantasoccer.Applications.App.Extensions
                         .WithDefaultRetryPolicy();
                     if (factoryName != null)
                         apiBuilder.WithServerFactoryName(factoryName);
-                }, factoryName);
+                }, factoryName, ServiceLifetime.Transient);
             });
         }
     }

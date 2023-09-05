@@ -7,22 +7,28 @@
 {
     <DropContainer TItem="PrePlayer" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped">
         <ChildContent>
-            <Accordion>
-                <Collapse Visible="true">
-                    @foreach (var team in teams)
-                    {
-                        <CollapseHeader>
-                            <Heading Size="HeadingSize.Is5">
-                                <AccordionToggle>@team.Name (@team.Owner)</AccordionToggle>
-                            </Heading>
-                        </CollapseHeader>
-                        <CollapseBody>
-                            <DropZone TItem="PrePlayer" Name="@team.Owner" DropAllowed="x => true"></DropZone>
-                        </CollapseBody>
-                    }
-                </Collapse>
-            </Accordion>
-            <DropZone TItem="PrePlayer" Name="Basket" DropAllowed="x => true"></DropZone>
+            <Row>
+                <Column Width="Width.Is50">
+                    <Accordion>
+                        <Collapse Visible="true">
+                            @foreach (var team in teams)
+                            {
+                                <CollapseHeader>
+                                    <Heading Size="HeadingSize.Is5">
+                                        <AccordionToggle>@team.Name (@team.Owner)</AccordionToggle>
+                                    </Heading>
+                                </CollapseHeader>
+                                <CollapseBody>
+                                    <DropZone TItem="PrePlayer" Name="@team.Owner" DropAllowed="x => true"></DropZone>
+                                </CollapseBody>
+                            }
+                        </Collapse>
+                    </Accordion>
+                </Column>
+                <Column>
+                    <DropZone TItem="PrePlayer" Name="Basket" DropAllowed="x => true"></DropZone>
+                </Column>
+            </Row>
         </ChildContent>
         <ItemTemplate>
             <Div>
@@ -61,7 +67,7 @@
                 var actualTeam = await Api.Team.GetAsync(teamKey);
                 if (actualTeam == null)
                 {
-                    actualTeam = new() { Name = team.Name, Owner = team.Owner };
+                    actualTeam = new() { Name = team.Name, Owner = team.Owner, Players = new() };
                     await Api.Team.InsertAsync(teamKey, actualTeam);
                 }
                 teams.Add(actualTeam);

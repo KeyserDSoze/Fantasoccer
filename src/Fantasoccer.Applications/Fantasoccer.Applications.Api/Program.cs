@@ -33,7 +33,7 @@ builder.Services.AddEndpointsApiExplorer();
 if (isInMemory)
 {
     builder.Services.AddInMemoryInfrastructures();
-    //builder.Services.AddPreDefaultValues();
+    builder.Services.AddPreDefaultValues();
 }
 else
 {
@@ -47,7 +47,7 @@ builder.Services.AddApiFromRepositoryFramework()
     .WithDefaultCorsWithAllOrigins();
 if (isInMemory)
 {
-    //builder.Services.AddDefaultValues();
+    builder.Services.AddDefaultValues(false);
 }
 
 

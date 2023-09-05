@@ -245,6 +245,7 @@
     }
     private async Task SaveAsync()
     {
+        LoadingIndicator?.Show();
         if (group != null)
         {
             await Api.Groups.UpdateAsync(group.Id, group);
@@ -263,9 +264,11 @@
             if (State?.Update != null)
                 await State.Update();
         }
+        LoadingIndicator?.Hide();
     }
     async Task OnSelectedGroupChanged(string groupId)
     {
+        LoadingIndicator?.Show();
         if (Identity != null)
         {
             actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == groupId);
@@ -277,18 +280,22 @@
                     await State.Update();
             }
         }
+         LoadingIndicator?.Hide();
     }
     Task OnSelectedLeagueChanged(string leagueId)
     {
+        LoadingIndicator?.Show();
         if (Identity != null && group != null && State != null)
         {
             State.LeagueId = leagueId;
             league = group.Leagues.FirstOrDefault(x => x.Id == leagueId);
         }
+        LoadingIndicator?.Hide();
         return Task.CompletedTask;
     }
     private async ValueTask ChangeRole(UserOfAGroup user, bool check, IdentityRole role)
     {
+        LoadingIndicator?.Show();
         if (check)
             user.Role |= role;
         else
@@ -303,15 +310,19 @@
             toUpdateUser.Groups.Add(group.ToGroupIdentity(toUpdateUser.Email));
             await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
         }
+         LoadingIndicator?.Hide();
     }
     private async ValueTask DeleteAsync(UserOfAGroup user)
     {
+        LoadingIndicator?.Show();
         if (group != null)
             group.Users.Remove(user);
         await SaveAsync();
+        LoadingIndicator?.Hide();
     }
     private async ValueTask SetParticipantAsync(UserOfAGroup user, League league, bool x)
     {
+        LoadingIndicator?.Show();
         var teams = league.Years.OrderByDescending(x => x.Year).First().Teams;
         var team = teams.FirstOrDefault(x => x.Owner == user.Email);
         if (x)
@@ -329,9 +340,11 @@
             }
         }
         await SaveAsync();
+        LoadingIndicator?.Hide();
     }
     async Task CreateNewGroup()
     {
+        LoadingIndicator?.Show();
         if (ValidationsRef != null)
             if (await ValidationsRef.ValidateAll())
             {
@@ -360,9 +373,11 @@
                 }
                 await ValidationsRef.ClearAll();
             }
+        LoadingIndicator?.Hide();
     }
     async Task CreateNewLeague()
     {
+        LoadingIndicator?.Show();
         if (ValidationsRefForLeague != null)
             if (await ValidationsRefForLeague.ValidateAll())
             {
@@ -384,10 +399,12 @@
                 }
                 await ValidationsRefForLeague.ClearAll();
             }
+        LoadingIndicator?.Hide();
     }
 
     async Task AddNewUser()
     {
+        LoadingIndicator?.Show();
         if (ValidationsRefForIdentity != null)
             if (await ValidationsRefForIdentity.ValidateAll())
             {
@@ -419,5 +436,6 @@
                 }
                 await ValidationsRefForIdentity.ClearAll();
             }
+        LoadingIndicator?.Hide();
     }
 }
