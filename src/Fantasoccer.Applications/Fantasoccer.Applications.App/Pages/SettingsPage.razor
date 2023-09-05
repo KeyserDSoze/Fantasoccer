@@ -63,7 +63,9 @@
     {
         if (State != null && Identity != null)
         {
+            LoadingIndicator?.Show();
             actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == State.GroupId);
+            LoadingIndicator?.Hide();
         }
         return base.OnParametersSetAsync();
     }

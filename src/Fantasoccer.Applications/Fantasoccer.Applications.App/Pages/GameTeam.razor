@@ -107,7 +107,7 @@ else
     private bool isMobile;
     protected override async Task OnParametersSetAsync()
     {
-        if (State != null)                 
+        if (State != null)
         {
             LoadingIndicator?.Show();
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
@@ -144,7 +144,7 @@ else
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {
-                myTeam = await GetTeamAsync(Api, State, serieADay, null);
+                myTeam = await Api.Team.GetAsync(State.TeamKey);
                 if (myTeam != null)
                     game = calendar.Rounds.SelectMany(x => x.Value).Where(x => x.SerieADay == serieADay).SelectMany(x => x.Games).FirstOrDefault(x => x.Home == myTeam.Name || x.Away == myTeam.Name);
             }
@@ -186,21 +186,6 @@ else
         }
         await base.OnParametersSetAsync();
     }
-    private static async Task<Team?> GetTeamAsync(ApiService api, FantasoccerState state, int serieADay, string? email)
-    {
-        var actualTeam = await api.DailyTeam.GetAsync(state.TeamDayKey(serieADay, email));
-        var dayForSearch = serieADay;
-        while (actualTeam == null)
-        {
-            dayForSearch--;
-            if (dayForSearch == -1)
-                break;
-            actualTeam = dayForSearch > 0 ?
-                await api.DailyTeam.GetAsync(state.TeamDayKey(dayForSearch, email)) :
-                await api.Team.GetAsync(email == null ? state.TeamKey : state.OtherTeamKey(email));
-        }
-        return actualTeam;
-    }
     private Snackbar? snackbar;
     private string? message;
     public async ValueTask SaveAsync()
@@ -211,6 +196,13 @@ else
             var state = await Api.DailyTeam.ExistAsync(key) ?
                 await Api.DailyTeam.UpdateAsync(key, myTeam) :
                 await Api.DailyTeam.InsertAsync(key, myTeam);
+            if (state.IsOk)
+            {
+                var isOk = await Api.Team.UpdateAsync(State.TeamKey, myTeam);
+                state.IsOk = isOk;
+                if (!isOk)
+                    state.Message = "Errore salvataggio team";
+            }
             if (snackbar != null)
             {
                 snackbar.Color = state.IsOk ? SnackbarColor.Success : SnackbarColor.Danger;

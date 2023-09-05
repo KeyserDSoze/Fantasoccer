@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Fantasoccer
 {
@@ -28,13 +29,13 @@ namespace Fantasoccer
                 Role = Users.FirstOrDefault(x => x.Email == email)?.Role ?? IdentityRole.None,
                 TeamName = Leagues
                     .SelectMany(x => x.Years)
-                    .OrderByDescending(x => x.Year)
+                    .Where(x => x.Year == FantacalcioTime.ActualYear)
                     .SelectMany(x => x.Teams)
                     .Where(x => x.Owner == email)
                     .FirstOrDefault()?
                     .Name ?? string.Empty,
             };
-            foreach (var league in Leagues.Where(x => x.Years.OrderByDescending(x => x.Year).First().Teams.Any(x => x.Owner == email)))
+            foreach (var league in Leagues)
             {
                 group.Leagues.Add(new LeagueForIdentity
                 {

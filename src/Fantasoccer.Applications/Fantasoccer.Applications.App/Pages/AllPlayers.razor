@@ -1,0 +1,23 @@
+﻿@page "/allplayers"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>All players</PageTitle>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+   
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            
+            LoadingIndicator?.Hide();
+        }
+        await base.OnParametersSetAsync();
+    }
+}

@@ -5,14 +5,17 @@
 <PageTitle>Groups</PageTitle>
 
 
-@if (Identity != null)
+@if (Identity != null && State != null)
 {
-    <Select TValue="string" SelectedValue="@groupId" SelectedValueChanged="@OnSelectedGroupChanged" Width="Width.Is50">
-        @foreach (var group in Identity.Groups)
-        {
-            <SelectItem Value="@group.Id">@group.Name</SelectItem>
-        }
-    </Select>
+    @if (Identity.Groups?.Any() == true)
+    {
+        <Select TValue="string" SelectedValue="@State.GroupId" SelectedValueChanged="@OnSelectedGroupChanged" Width="Width.Is50">
+            @foreach (var group in Identity.Groups)
+            {
+                <SelectItem Value="@group.Id">@group.Name</SelectItem>
+            }
+        </Select>
+    }
     @if (canCreateNewGroup)
     {
         <Row>
@@ -64,12 +67,15 @@
              </Button>
          </Column>
      </Row>
-        <Select TValue="string" SelectedValue="@leagueId" SelectedValueChanged="@OnSelectedLeagueChanged" Width="Width.Is50">
-            @foreach (var league in group.Leagues)
-            {
-                <SelectItem Value="@league.Id">@league.Name</SelectItem>
-            }
-        </Select>
+        @if (group.Leagues?.Any() == true)
+        {
+            <Select TValue="string" SelectedValue="@State.LeagueId" SelectedValueChanged="@OnSelectedLeagueChanged" Width="Width.Is50">
+                @foreach (var league in group.Leagues)
+                {
+                    <SelectItem Value="@league.Id">@league.Name</SelectItem>
+                }
+            </Select>
+        }
 
         @if (canCreateNewGroup)
         {
@@ -201,31 +207,35 @@
     private Validations? ValidationsRefForIdentity { get; set; }
     private string? newEmail { get; set; }
     private bool canCreateNewGroup;
-    private string? groupId;
     private Group? group;
-    private string? leagueId;
     private League? league;
     private const string EmailPattern = @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$";
     protected override async Task OnParametersSetAsync()
     {
         if (State != null && Identity != null)
         {
+            LoadingIndicator?.Show();
             canCreateNewGroup = Identity.Email == "alessandro.rapiti44@gmail.com";
             actualGroup = State.GroupId != null ?
                 Identity.Groups.FirstOrDefault(x => x.Id == State.GroupId)
                 : Identity.Groups.FirstOrDefault();
             if (actualGroup != null)
             {
-                groupId = actualGroup.Id;
-                group = await Api.Groups.GetAsync(groupId);
+                var updateIsNotNeeded = State.GroupId == actualGroup.Id;
+                State.GroupId = actualGroup.Id;
+                group = await Api.Groups.GetAsync(State.GroupId);
                 if (group != null)
                 {
                     league = State.LeagueId != null ?
                         group.Leagues.FirstOrDefault(x => x.Id == State.LeagueId)
                         : group.Leagues.FirstOrDefault();
-                    leagueId = league?.Id;
+                    updateIsNotNeeded &= State.LeagueId == league?.Id;
+                    State.LeagueId = league?.Id;
+                    if (State?.Update != null && !updateIsNotNeeded)
+                        await State.Update();
                 }
             }
+            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }
@@ -250,24 +260,26 @@
                 await State.Update();
         }
     }
-    async Task OnSelectedGroupChanged(string groupIdX)
+    async Task OnSelectedGroupChanged(string groupId)
     {
         if (Identity != null)
         {
-            actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == groupIdX);
-            if (actualGroup != null)
+            actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == groupId);
+            if (actualGroup != null && State != null)
             {
-                groupId = actualGroup.Id;
-                group = await Api.Groups.GetAsync(groupId);
+                State.GroupId = actualGroup.Id;
+                group = await Api.Groups.GetAsync(State.GroupId);
+                if (State?.Update != null)
+                    await State.Update();
             }
         }
     }
-    Task OnSelectedLeagueChanged(string leagueIdX)
+    Task OnSelectedLeagueChanged(string leagueId)
     {
-        if (Identity != null && group != null)
+        if (Identity != null && group != null && State != null)
         {
-            leagueId = leagueIdX;
-            league = group.Leagues.FirstOrDefault(x => x.Id == leagueIdX);
+            State.LeagueId = leagueId;
+            league = group.Leagues.FirstOrDefault(x => x.Id == leagueId);
         }
         return Task.CompletedTask;
     }
@@ -321,18 +333,18 @@
             {
                 if (Identity != null && newGroupName != null && State != null)
                 {
-                    groupId = Guid.NewGuid().ToString();
+                    State.GroupId = Guid.NewGuid().ToString();
                     group = new Group
                         {
-                            Id = groupId,
+                            Id = State.GroupId,
                             Leagues = new(),
                             Name = newGroupName,
                             Users = new List<UserOfAGroup> { new UserOfAGroup { Email = State.Email, Username = State.Username, Role = IdentityRole.Admin } }
                         };
-                    await Api.Groups.InsertAsync(groupId, group);
+                    await Api.Groups.InsertAsync(State.GroupId, group);
                     Identity.Groups.Add(new GroupForIdentity
                         {
-                            Id = groupId,
+                            Id = State.GroupId,
                             Name = group.Name,
                             Leagues = new(),
                             Role = IdentityRole.Admin,
@@ -352,10 +364,10 @@
             {
                 if (Identity != null && newLeagueName != null && State != null && group != null)
                 {
-                    leagueId = Guid.NewGuid().ToString();
+                    State.LeagueId = Guid.NewGuid().ToString();
                     league = new League
                         {
-                            Id = leagueId,
+                            Id = State.LeagueId,
                             IsMain = true,
                             Type = LeagueType.League,
                             Years = new List<AnnualLeague> { new AnnualLeague { Id = Guid.NewGuid().ToString(), Settings = LeagueSetting.Default, Teams = new(), Year = FantacalcioTime.ActualYear } },
