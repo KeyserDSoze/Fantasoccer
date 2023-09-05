@@ -7,7 +7,7 @@ namespace Fantasoccer.Infrastructure.Storage.Logger
         public (string PartitionKey, string RowKey) Read(string key)
         {
             var splitted = key.Split("_-_");
-            return (splitted[0], splitted[1]);
+            return (splitted[0], splitted.Length > 1 ? splitted[1] : string.Empty);
         }
 
         public string Read(FantasoccerLog entity)

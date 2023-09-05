@@ -33,12 +33,12 @@ namespace Fantasoccer.Business
                     if (exist)
                         await _repository.UpdateAsync(key, new VotedRealPlayerWrapper
                         {
-                            Players = players,
+                            Players = players.Where(x => !string.IsNullOrWhiteSpace(x.Key)).ToList(),
                         });
                     else
                         await _repository.InsertAsync(key, new VotedRealPlayerWrapper
                         {
-                            Players = players,
+                            Players = players.Where(x => !string.IsNullOrWhiteSpace(x.Key)).ToList(),
                         });
                     counter++;
                 }

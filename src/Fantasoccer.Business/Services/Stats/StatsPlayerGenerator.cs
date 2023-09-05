@@ -26,6 +26,17 @@ namespace Fantasoccer.Business
         {
             var wrapper = new StatPlayersWrapper() { Players = new() };
             var realPlayersWrapper = await _realPlayersRepository.GetAsync(year);
+            foreach (var realPlayer in realPlayersWrapper.Players)
+            {
+                var statsPlayer = new StatPlayer()
+                {
+                    Name = realPlayer?.Name,
+                    RealTeam = realPlayer?.RealTeam,
+                    IsActive = realPlayer?.IsActive ?? false,
+                    Role = realPlayer?.Role ?? Role.Undefined
+                };
+                wrapper.Players.Add(statsPlayer);
+            }
             for (var serieADay = untilThisDay; serieADay > 0; serieADay--)
             {
                 var key = new YearDayKey
@@ -38,45 +49,37 @@ namespace Fantasoccer.Business
                 {
                     foreach (var player in votes.Players)
                     {
-                        var statsPlayer = wrapper.Players.FirstOrDefault(x => x.Key == player.Key);
-                        if (statsPlayer == null)
+                        var playerKey = player.Key;
+                        var statsPlayer = wrapper.Players.FirstOrDefault(x => x.Key == playerKey);
+                        if (statsPlayer != null)
                         {
-                            var realPlayer = realPlayersWrapper.Players.FirstOrDefault(x => x.Key == player.Key);
-                            statsPlayer = new()
+                            if (player.Vote != null)
                             {
-                                Name = realPlayer?.Name ?? player.Name,
-                                RealTeam = realPlayer?.RealTeam ?? player.RealTeam,
-                                IsActive = realPlayer?.IsActive ?? true,
-                                Role = realPlayer?.Role ?? player.Role,
-                            };
-                            wrapper.Players.Add(statsPlayer);
-                        }
-                        if (player.Vote != null)
-                        {
-                            if (player.Vote.HasVote)
-                            {
-                                statsPlayer.WithVote++;
-                                statsPlayer.Penalty += player.Vote.Penalty;
-                                statsPlayer.SufferedGoal += player.Vote.SufferedGoal;
-                                statsPlayer.StoppedPenalty += player.Vote.StoppedPenalty;
-                                statsPlayer.Assist += player.Vote.Assist;
-                                statsPlayer.OwnGoal += player.Vote.OwnGoal;
-                                statsPlayer.Goal += player.Vote.Goal;
-                                if (player.Vote.Status == Behaviour.RedCard)
-                                    statsPlayer.RedCard++;
-                                if (player.Vote.Status == Behaviour.YellowCard)
-                                    statsPlayer.YellowCard += player.Vote.Penalty;
-                                if (player.Vote.Value >= 6)
-                                    statsPlayer.IsEnough++;
-                                statsPlayer.Summatory += player.Vote.Value;
-                                var value = _teamCalculator.FinalValue(_teamCalculator.Enrich(new Player() { Role = player.Role }, null, null, player.Vote));
-                                statsPlayer.FantaSummatory += value.Value;
-                                if (value.Special)
-                                    statsPlayer.WithSpecial++;
-                            }
-                            else
-                            {
-                                statsPlayer.WithoutVote++;
+                                if (player.Vote.HasVote)
+                                {
+                                    statsPlayer.WithVote++;
+                                    statsPlayer.Penalty += player.Vote.Penalty;
+                                    statsPlayer.SufferedGoal += player.Vote.SufferedGoal;
+                                    statsPlayer.StoppedPenalty += player.Vote.StoppedPenalty;
+                                    statsPlayer.Assist += player.Vote.Assist;
+                                    statsPlayer.OwnGoal += player.Vote.OwnGoal;
+                                    statsPlayer.Goal += player.Vote.Goal;
+                                    if (player.Vote.Status == Behaviour.RedCard)
+                                        statsPlayer.RedCard++;
+                                    if (player.Vote.Status == Behaviour.YellowCard)
+                                        statsPlayer.YellowCard += player.Vote.Penalty;
+                                    if (player.Vote.Value >= 6)
+                                        statsPlayer.IsEnough++;
+                                    statsPlayer.Summatory += player.Vote.Value;
+                                    var value = _teamCalculator.FinalValue(_teamCalculator.Enrich(new Player() { Role = player.Role }, null, null, player.Vote));
+                                    statsPlayer.FantaSummatory += value.Value;
+                                    if (value.Special)
+                                        statsPlayer.WithSpecial++;
+                                }
+                                else
+                                {
+                                    statsPlayer.WithoutVote++;
+                                }
                             }
                         }
                     }

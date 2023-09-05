@@ -6,6 +6,6 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="5.0.14" />
+        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="5.0.15" />
     </ItemGroup>
 </Project>
