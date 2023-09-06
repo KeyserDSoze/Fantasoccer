@@ -35,6 +35,12 @@
                             </BarLink>
                         </BarItem>
                         <BarItem>
+                            <BarLink To="../../allteams">
+                                <BarIcon IconName="IconName.Hotel" />
+                                All teams
+                            </BarLink>
+                        </BarItem>
+                        <BarItem>
                             <BarLink To="../../edit">
                                 <BarIcon IconName="IconName.Users" />
                                 My team
@@ -110,7 +116,7 @@
                  <BarMenu>
                      <BarStart>
                          <BarToggler Style="position: fixed; right: 10px; z-index: 9999" Bar="Sidebar" />
-                        @if (State != null)
+                         @if (State != null)
                         {
                             <BarItem>
                                 <BarDropdown>
@@ -124,18 +130,27 @@
                                                 Settings
                                             </BarLink>
                                         </BarDropdownItem>
-                                        <BarDropdownItem>
-                                            <BarLink To="../../groups">
-                                                <BarIcon IconName="IconName.Info" />
-                                                Groups
-                                            </BarLink>
-                                        </BarDropdownItem>
-                                        <BarDropdownItem>
-                                            <BarLink To="../../users">
-                                                <BarIcon IconName="IconName.Info" />
-                                                Users
-                                            </BarLink>
-                                        </BarDropdownItem>
+                                        @if (Identity != null && State.IsAdmin(Identity))
+                                        {
+                                            <BarDropdownItem>
+                                                <BarLink To="../../groups">
+                                                    <BarIcon IconName="IconName.Info" />
+                                                    Groups
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                            <BarDropdownItem>
+                                                <BarLink To="../../manageteams">
+                                                    <BarIcon IconName="IconName.Users" />
+                                                    Manage teams
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                            <BarDropdownItem>
+                                                <BarLink To="../../users">
+                                                    <BarIcon IconName="IconName.Info" />
+                                                    Users
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                        }
                                         <BarDropdownItem>
                                             <BarLink To="../../MicrosoftIdentity/Account/SignOut">
                                                 <BarIcon IconName="IconName.UserCheck" />

@@ -7,7 +7,7 @@
 {
     <Row>
         <Column Width="Width.Is50">
-            <Tabs SelectedTab="@Roles.First().ToString()">
+            <Tabs SelectedTab="@selectedTab">
                 <Items>
                     @foreach (var role in Roles)
                     {
@@ -17,23 +17,25 @@
                 <Content>
                     @foreach (var role in Roles)
                     {
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHeaderCell>Name</TableHeaderCell>
-                                    <TableHeaderCell>Team</TableHeaderCell>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                @foreach (var player in players.Where(x => x.Role == role).OrderBy(x => x.Name))
-                                {
-                                    <TableRow Clicked="(x) => Buy(player)">
-                                        <TableRowHeader>@player.Name</TableRowHeader>
-                                        <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                        <TabPanel Name="@role.ToString()">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHeaderCell>Name</TableHeaderCell>
+                                        <TableHeaderCell>Team</TableHeaderCell>
                                     </TableRow>
-                                }
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    @foreach (var player in players.Where(x => x.Role == role).OrderBy(x => x.Name))
+                                    {
+                                        <TableRow Clicked="(x) => Buy(player)">
+                                            <TableRowHeader>@player.Name</TableRowHeader>
+                                            <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                                        </TableRow>
+                                    }
+                                </TableBody>
+                            </Table>
+                        </TabPanel>
                     }
                 </Content>
             </Tabs>
@@ -153,6 +155,7 @@
     private List<RealPlayer>? players;
     private List<Team>? teams;
     private Dictionary<string, bool>? visibilities;
+    private string selectedTab = Roles.First().ToString();
     private static readonly List<Role> Roles = new()
     {
         Role.GoalKeeper,
@@ -291,12 +294,12 @@
         StateHasChanged();
         await modalForRemove.Hide();
     }
-    private PlayerInTeamStatus status;
+    private PlayerInTeamStatus status = PlayerInTeamStatus.Removed;
     private static readonly List<PlayerInTeamStatus> Statuses = new List<PlayerInTeamStatus>()
     {
+        PlayerInTeamStatus.Removed,
         PlayerInTeamStatus.SoldWithNoReturnedPrice,
         PlayerInTeamStatus.Sold,
         PlayerInTeamStatus.SoldForOneHalf,
-        PlayerInTeamStatus.Removed
     };
 }

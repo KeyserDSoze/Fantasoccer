@@ -2,7 +2,7 @@
 
 namespace Fantasoccer.Domain
 {
-    public sealed class StatPlayer : RealPlayer
+    public class StatPlayer : RealPlayer
     {
         [JsonIgnore]
         public float Average => WithVote > 0 ? Summatory / WithVote : 0;

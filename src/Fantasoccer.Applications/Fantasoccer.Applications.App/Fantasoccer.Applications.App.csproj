@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-Fantasoccer.Applications.App-ab104fe3-7070-4785-beca-ce6a2399ab59</UserSecretsId>
     <WebProject_DirectoryAccessLevelKey>0</WebProject_DirectoryAccessLevelKey>
+    <ApplicationInsightsResourceId>/subscriptions/6a37c895-4239-4b1e-bc34-a48c4994cc8a/resourceGroups/fc/providers/microsoft.insights/components/fcappinsinghts</ApplicationInsightsResourceId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,8 +22,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="7.0.10" NoWarn="NU1605" />
     <PackageReference Include="Microsoft.Identity.Web" Version="2.13.3" />
     <PackageReference Include="Microsoft.Identity.Web.UI" Version="2.13.3" />
-    <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="5.0.16" />
-    <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="5.0.15" />
+    <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="5.0.17" />
+    <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="5.0.17" />
   </ItemGroup>
 
   <ItemGroup>
