@@ -185,6 +185,9 @@
                     <Button Color="Color.Primary" Clicked="@SaveAsync">
                         Salva
                     </Button>
+                    <Button Color="Color.Primary" Clicked="@CreateCalendarAsync">
+                        Create new calendar
+                    </Button>
                 </Column>
             </Row>
         }
@@ -276,7 +279,7 @@
                     await State.Update();
             }
         }
-         LoadingIndicator?.Hide();
+        LoadingIndicator?.Hide();
     }
     Task OnSelectedLeagueChanged(string leagueId)
     {
@@ -306,7 +309,7 @@
             toUpdateUser.Groups.Add(group.ToGroupIdentity(toUpdateUser.Email));
             await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
         }
-         LoadingIndicator?.Hide();
+        LoadingIndicator?.Hide();
     }
     private async ValueTask DeleteAsync(UserOfAGroup user)
     {

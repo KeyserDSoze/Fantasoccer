@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Business;
+﻿using Fantasoccer;
+using Fantasoccer.Business;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -7,6 +8,8 @@ namespace Microsoft.Extensions.DependencyInjection
         public static IServiceCollection AddSharedBusiness(this IServiceCollection services)
         {
             services.AddTransient<ITeamCalculator, TeamCalculator>();
+            services.AddSingleton<IRandomCalendar, RandomCalendar>();
+            services.AddSingleton<IRankCalculator, RankCalculator>();
             services.ScanBusinessForRepositoryFramework();
             return services;
         }
