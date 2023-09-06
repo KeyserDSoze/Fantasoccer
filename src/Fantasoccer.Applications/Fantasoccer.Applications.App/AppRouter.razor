@@ -58,7 +58,7 @@
             var fantasoccerState = (localStorage != null && await localStorage.ContainKeyAsync(nameof(FantasoccerState))) ?
                 await localStorage.GetItemAsync<FantasoccerState>(nameof(FantasoccerState))
                 : new FantasoccerState();
-            if (identity != null && identity.Email != fantasoccerState.Email)
+            if (identity != null)
             {
                 fantasoccerState = new() { Email = identity.Email, Username = identity.Username, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
             }
