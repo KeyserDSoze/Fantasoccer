@@ -60,7 +60,7 @@
                     <Collapse Visible="@visibilities[team.Owner]">
                         <CollapseHeader>
                             <Heading Size="HeadingSize.Is5">
-                                <AccordionToggle>@team.Name (@team.Owner) @(State.LeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</AccordionToggle>
+                                <AccordionToggle>@team.Name (@team.Owner) @(State.LeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)] [@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Forward) = @team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count()]</AccordionToggle>
                             </Heading>
                         </CollapseHeader>
                         <CollapseBody>
