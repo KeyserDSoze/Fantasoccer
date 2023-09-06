@@ -3,56 +3,144 @@
 
 <PageTitle>Manage teams</PageTitle>
 
-@if (Identity != null && State != null && State.IsAdmin(Identity) && players != null && teams != null)
+@if (Identity != null && State != null && State.IsAdmin(Identity) && players != null && teams != null && visibilities != null)
 {
-    <DropContainer TItem="PrePlayer" Items="@players" ItemsFilter="@Filter" ItemDropped="@ItemDropped" DropAllowed="(x, y) => true">
-        <ChildContent>
-            <Row>
-                <Column Width="Width.Is50">
-                    <Tabs SelectedTab="@Roles.First()">
-                        <Items>
-                            @foreach (var role in Roles)
-                            {
-                                <Tab Name="@role">@role</Tab>
-                            }
-                        </Items>
-                        <Content>
-                            @foreach (var role in Roles)
-                            {
-                                <TabPanel Name="@role">
-                                    <DropZone TItem="PrePlayer" Name="@role" DropAllowed="x => true"></DropZone>
-                                </TabPanel>
-                            }
-                        </Content>
-                    </Tabs>
-                </Column>
-                <Column Width="Width.Is50">
-                    <Accordion>
-                        <Collapse Visible="true">
-                            @foreach (var team in teams)
-                            {
-                                <CollapseHeader>
-                                    <Heading Size="HeadingSize.Is5">
-                                        <AccordionToggle>@team.Name (@team.Owner)</AccordionToggle>
-                                    </Heading>
-                                </CollapseHeader>
-                                <CollapseBody>
-                                    <DropZone TItem="PrePlayer" Name="@team.Owner" DropAllowed="x => true"></DropZone>
-                                </CollapseBody>
-                            }
-                        </Collapse>
-                    </Accordion>
-                </Column>
-            </Row>
-        </ChildContent>
-        <ItemTemplate>
-            <div>
-                @context.Player.Name
-                <Badge Color="Color.Primary">@context.Player.Role</Badge>
-            </div>
-        </ItemTemplate>
-    </DropContainer>
+    <Row>
+        <Column Width="Width.Is50">
+            <Tabs SelectedTab="@Roles.First().ToString()">
+                <Items>
+                    @foreach (var role in Roles)
+                    {
+                        <Tab Name="@role.ToString()">@role</Tab>
+                    }
+                </Items>
+                <Content>
+                    @foreach (var role in Roles)
+                    {
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHeaderCell>Name</TableHeaderCell>
+                                    <TableHeaderCell>Team</TableHeaderCell>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                @foreach (var player in players.Where(x => x.Role == role).OrderBy(x => x.Name))
+                                {
+                                    <TableRow Clicked="(x) => Buy(player)">
+                                        <TableRowHeader>@player.Name</TableRowHeader>
+                                        <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                                    </TableRow>
+                                }
+                            </TableBody>
+                        </Table>
+                    }
+                </Content>
+            </Tabs>
+        </Column>
+        <Column Width="Width.Is50">
+            <Accordion>
+                @foreach (var team in teams)
+                {
+                    <Collapse Visible="@visibilities[team.Owner]">
+                        <CollapseHeader>
+                            <Heading Size="HeadingSize.Is5">
+                                <AccordionToggle>@team.Name (@team.Owner) @(State.LeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</AccordionToggle>
+                            </Heading>
+                        </CollapseHeader>
+                        <CollapseBody>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHeaderCell>Name</TableHeaderCell>
+                                        <TableHeaderCell>Team</TableHeaderCell>
+                                        <TableHeaderCell>Price</TableHeaderCell>
+                                        <TableHeaderCell>Role</TableHeaderCell>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    @foreach (var player in team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name))
+                                    {
+                                        <TableRow Clicked="(x) => Remove(player, team.Owner)">
+                                            <TableRowHeader>@player.Name</TableRowHeader>
+                                            <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                                            <TableRowCell>@player.Price</TableRowCell>
+                                            <TableRowCell>@player.Role</TableRowCell>
+                                        </TableRow>
+                                    }
+                                </TableBody>
+                            </Table>
+                        </CollapseBody>
+                    </Collapse>
+                }
+            </Accordion>
+        </Column>
+    </Row>
 }
+<Modal @ref="modalForBuy">
+    <ModalContent Centered>
+        <ModalHeader>
+            <ModalTitle>Buy</ModalTitle>
+            <CloseButton />
+        </ModalHeader>
+        <ModalBody>
+            <Field>
+                <FieldLabel>@realPlayer?.Name</FieldLabel>
+                <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
+            </Field>
+            <Field>
+                <NumericEdit @bind-Value="@price" />
+            </Field>
+            <Field>
+                @if (teams != null)
+                {
+                    <Select TValue="string" @bind-SelectedValue="@teamOwner">
+                        @foreach (var team in teams)
+                        {
+                            <SelectItem Value="@team.Owner">@team.Name</SelectItem>
+                        }
+                    </Select>
+                }
+            </Field>
+            @if (error != null)
+            {
+                <Field>
+                    <FieldLabel>@error</FieldLabel>
+                </Field>
+            }
+        </ModalBody>
+        <ModalFooter>
+            <Button Color="Color.Secondary" Clicked="@HideModal">Close</Button>
+            <Button Color="Color.Primary" Clicked="@Save">Add player</Button>
+        </ModalFooter>
+    </ModalContent>
+</Modal>
+<Modal @ref="modalForRemove">
+    <ModalContent Centered>
+        <ModalHeader>
+            <ModalTitle>Remove</ModalTitle>
+            <CloseButton />
+        </ModalHeader>
+        <ModalBody>
+            <Field>
+                <FieldLabel>@realPlayer?.Name</FieldLabel>
+                <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
+            </Field>
+            <Field>
+                <Select TValue="PlayerInTeamStatus" @bind-SelectedValue="@status">
+                    @foreach (var status in Statuses)
+                    {
+                        <SelectItem Value="@status">@status</SelectItem>
+                    }
+                </Select>
+            </Field>
+        </ModalBody>
+        <ModalFooter>
+            <Button Color="Color.Secondary" Clicked="@HideModal">Close</Button>
+            <Button Color="Color.Primary" Clicked="@ConfirmRemove">Remove player</Button>
+        </ModalFooter>
+    </ModalContent>
+</Modal>
 
 @code {
     [CascadingParameter]
@@ -61,28 +149,30 @@
     private AppIdentity? Identity { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private List<PrePlayer>? players;
+    private List<RealPlayer>? allPlayers;
+    private List<RealPlayer>? players;
     private List<Team>? teams;
-    private sealed class PrePlayer
+    private Dictionary<string, bool>? visibilities;
+    private static readonly List<Role> Roles = new()
     {
-        public required string TeamName { get; set; }
-        public required string TeamOwner { get; set; }
-        public required Player Player { get; set; }
-    }
-    private static readonly List<string> Roles = new()
-    {
-        Role.GoalKeeper.ToString(),
-        Role.Defensor.ToString(),
-        Role.Midfielder.ToString(),
-        Role.Forward.ToString()
+        Role.GoalKeeper,
+        Role.Defensor,
+        Role.Midfielder,
+        Role.Forward
     };
+    private RealPlayer? realPlayer;
+    private int price;
+    private string? teamOwner;
+    private string? error;
     protected override async Task OnParametersSetAsync()
     {
         if (State?.AnnualLeague != null && Identity != null && State.IsAdmin(Identity))
         {
             LoadingIndicator?.Show();
-            players = new();
             teams = new();
+            visibilities = new();
+            var allPlayersWrapper = await Api.RealPlayers.GetAsync(State.Year);
+            allPlayers = allPlayersWrapper.Players.OrderBy(x => x.Role).ToList();
             foreach (var team in State.AnnualLeague.Teams)
             {
                 var teamKey = State.OtherTeamKey(team.Owner);
@@ -93,49 +183,120 @@
                     await Api.Team.InsertAsync(teamKey, actualTeam);
                 }
                 teams.Add(actualTeam);
+                visibilities.Add(team.Owner, false);
                 foreach (var player in actualTeam.ActivePlayers)
                 {
-                    players.Add(new PrePlayer
-                        {
-                            TeamName = team.Name,
-                            TeamOwner = team.Owner,
-                            Player = player
-                        });
+                    var playerKey = player.Key;
+                    var toRemovePlayer = allPlayersWrapper.Players.FirstOrDefault(x => x.Key == playerKey);
+                    if (toRemovePlayer != null)
+                    {
+                        allPlayersWrapper.Players.Remove(toRemovePlayer);
+                    }
                 }
             }
-            var allPlayers = await Api.RealPlayers.GetAsync(State.Year);
-            foreach (var player in allPlayers!.Players)
-            {
-                players.Add(new PrePlayer
-                    {
-                        TeamName = string.Empty,
-                        TeamOwner = player.Role.ToString(),
-                        Player = new Player
-                        {
-                            IsActive = true,
-                            Name = player.Name,
-                            Position = FantaSoccerRole.All,
-                            Price = 0,
-                            RealTeam = player.RealTeam,
-                            Role = player.Role,
-                            Status = PlayerInTeamStatus.Active
-                        }
-                    });
-            }
-            players = players.Take(1).ToList();
+            players = allPlayersWrapper.Players;
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }
-    private bool Filter(PrePlayer player, string zoneName)
+    private Modal modalForBuy;
+
+    private Task Buy(RealPlayer player)
     {
-        var result = player.TeamOwner == zoneName;
-        return result;
+        realPlayer = player;
+        teamOwner = teams.First().Owner;
+        price = 1;
+        return modalForBuy.Show();
     }
-    private async Task ItemDropped(DraggableDroppedEventArgs<PrePlayer> dropItem)
+
+    private Task HideModal()
     {
-        var x = dropItem.SourceDropZoneName;
-        var t = dropItem.DropZoneName;
-        var q = dropItem.Item;
+        return modalForBuy.Hide();
     }
+    private async Task Save()
+    {
+        var team = teams.FirstOrDefault(x => x.Owner == teamOwner);
+        error = Check(team);
+        if (error == null)
+        {
+            team.Players.Add(new Player
+                {
+                    IsActive = true,
+                    Name = realPlayer.Name,
+                    RealTeam = realPlayer.RealTeam,
+                    Price = price,
+                    Role = realPlayer.Role,
+                    Status = PlayerInTeamStatus.Active,
+                    Position = FantaSoccerRole.All
+                });
+            await Api.Team.UpdateAsync(State.OtherTeamKey(teamOwner), team);
+            players.Remove(realPlayer);
+            visibilities[teamOwner] = true;
+            error = null;
+            StateHasChanged();
+            await modalForBuy.Hide();
+        }
+    }
+    private string? Check(Team team)
+    {
+        switch (realPlayer.Role)
+        {
+            case Role.GoalKeeper:
+                if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 3)
+                    return "Troppi portieri";
+                break;
+            case Role.Defensor:
+                if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8)
+                    return "Troppi difensori";
+                break;
+            case Role.Midfielder:
+                if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8)
+                    return "Troppi centrocampisti";
+                break;
+            case Role.Forward:
+                if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 6)
+                    return "Troppi attaccanti";
+                break;
+        }
+        if (State.LeagueSettings.StartingMoney - (team.Cost + price + (25 - 1 - team.ActivePlayers.Count())) < 0)
+            return "Stai spendendo troppi soldi";
+        return null;
+    }
+    private Modal modalForRemove;
+
+    private Task Remove(Player player, string owner)
+    {
+        var playerKey = player.Key;
+        realPlayer = allPlayers.FirstOrDefault(x => x.Key == playerKey);
+        teamOwner = owner;
+        return modalForRemove.Show();
+    }
+
+    private Task HideRemoveModal()
+    {
+        return modalForRemove.Hide();
+    }
+    private async Task ConfirmRemove()
+    {
+        var team = teams.FirstOrDefault(x => x.Owner == teamOwner);
+        var playerKey = realPlayer.Key;
+        var player = team.Players.First(x => x.Key == playerKey);
+        player.Status = status;
+        if (player.Status == PlayerInTeamStatus.Removed)
+            team.Players.Remove(player);
+        await Api.Team.UpdateAsync(State.OtherTeamKey(teamOwner), team);
+        visibilities[teamOwner] = true;
+        if (player.IsActive)
+            players.Add(player);
+        StateHasChanged();
+        await modalForRemove.Hide();
+    }
+    private PlayerInTeamStatus status;
+    private static readonly List<PlayerInTeamStatus> Statuses = new List<PlayerInTeamStatus>()
+    {
+        PlayerInTeamStatus.SoldWithNoReturnedPrice,
+        PlayerInTeamStatus.Sold,
+        PlayerInTeamStatus.SoldForOneHalf,
+        PlayerInTeamStatus.Removed
+    };
 }
