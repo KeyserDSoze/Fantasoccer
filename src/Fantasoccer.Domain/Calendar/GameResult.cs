@@ -5,6 +5,7 @@
         public Point Home { get; set; }
         public Point Away { get; set; }
         public bool HasValue => Home?.Value > 0 || Away?.Value > 0;
+        public bool IsCancelled { get; set; }
         public GameResultType Value =>
             this switch
             {

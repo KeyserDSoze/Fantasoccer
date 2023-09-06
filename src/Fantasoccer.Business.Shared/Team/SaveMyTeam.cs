@@ -27,10 +27,11 @@ namespace Fantasoccer.Business.Shared
                         into roles
                         select (roles.Key, roles.Count())
                 );
-            var startingTeamCounter = values.FirstOrDefault(x => x.Status == FantaSoccerRole.GoalKeeper).PlayersByRole.Sum(x => x.Count) +
-                                      values.FirstOrDefault(x => x.Status == FantaSoccerRole.Defensor).PlayersByRole.Sum(x => x.Count) +
-                                      values.FirstOrDefault(x => x.Status == FantaSoccerRole.Midfielder).PlayersByRole.Sum(x => x.Count) +
-                                      values.FirstOrDefault(x => x.Status == FantaSoccerRole.Forward).PlayersByRole.Sum(x => x.Count);
+            var goalkeepers = (values.Any(x => x.Status == FantaSoccerRole.GoalKeeper) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.GoalKeeper).PlayersByRole.Sum(x => x.Count) : 0);
+            var defensors = (values.Any(x => x.Status == FantaSoccerRole.Defensor) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.Defensor).PlayersByRole.Sum(x => x.Count) : 0);
+            var midfielders = (values.Any(x => x.Status == FantaSoccerRole.Midfielder) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.Midfielder).PlayersByRole.Sum(x => x.Count) : 0);
+            var forwards = (values.Any(x => x.Status == FantaSoccerRole.Forward) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.Forward).PlayersByRole.Sum(x => x.Count) : 0);
+            var startingTeamCounter = goalkeepers + defensors + midfielders + forwards;
             if (startingTeamCounter != 11)
                 return Task.FromResult(new State<Team, TeamDayKey>(false, message: "Meno di 11 giocatori titolari schierati."));
             foreach (var value in values)

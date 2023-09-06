@@ -1,5 +1,6 @@
 ﻿@page "/manageteams"
 @using Blazorise.LoadingIndicator;
+@using Fantasoccer.Domain;
 
 <PageTitle>Manage teams</PageTitle>
 
@@ -7,7 +8,7 @@
 {
     <Row>
         <Column Width="Width.Is50">
-            <Tabs SelectedTab="@selectedTab">
+            <Tabs>
                 <Items>
                     @foreach (var role in Roles)
                     {
@@ -23,14 +24,26 @@
                                     <TableRow>
                                         <TableHeaderCell>Name</TableHeaderCell>
                                         <TableHeaderCell>Team</TableHeaderCell>
+                                        <TableHeaderCell>Avg</TableHeaderCell>
+                                        <TableHeaderCell>F Avg</TableHeaderCell>
+                                        <TableHeaderCell>Playerd</TableHeaderCell>
+                                        <TableHeaderCell>Next</TableHeaderCell>
+                                        <TableHeaderCell>Status</TableHeaderCell>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     @foreach (var player in players.Where(x => x.Role == role).OrderBy(x => x.Name))
                                     {
+                                        var statPlayer = GetStatPlayer(player);
+                                        var chancePlayer = GetChancePlayer(player);
                                         <TableRow Clicked="(x) => Buy(player)">
                                             <TableRowHeader>@player.Name</TableRowHeader>
                                             <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                                            <TableRowCell>@statPlayer?.Average.ToString("N2")</TableRowCell>
+                                            <TableRowCell>@statPlayer?.FantaAverage.ToString("N2")</TableRowCell>
+                                            <TableRowCell>@statPlayer?.WithVote</TableRowCell>
+                                            <TableRowCell>@chancePlayer?.Chance.Fantagazzetta</TableRowCell>
+                                            <TableRowCell>@chancePlayer?.Chance.Status</TableRowCell>
                                         </TableRow>
                                     }
                                 </TableBody>
@@ -167,6 +180,8 @@
     private int price;
     private string? teamOwner;
     private string? error;
+    private List<StatPlayer>? statsPlayers;
+    private List<ChancedRealPlayer>? chances;
     protected override async Task OnParametersSetAsync()
     {
         if (State?.AnnualLeague != null && Identity != null && State.IsAdmin(Identity))
@@ -198,18 +213,43 @@
                 }
             }
             players = allPlayersWrapper.Players;
+            var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
+            statsPlayers = playersWrapper?.Players;
+            var calendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
+            chances = (await Api.Chances.GetAsync(State.YearDayKey(calendar?.NextDay?.SerieADay ?? calendar?.LiveDay?.SerieADay ?? 3)))?.Players;
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }
+    private StatPlayer? GetStatPlayer(RealPlayer player)
+    {
+        if (statsPlayers != null)
+        {
+            var playerKey = player.Key;
+            var statPlayer = statsPlayers.FirstOrDefault(x => x.Key == playerKey);
+            return statPlayer;
+        }
+        return null;
+    }
+    private ChancedRealPlayer? GetChancePlayer(RealPlayer player)
+    {
+        if (chances != null)
+        {
+            var playerKey = player.Key;
+            var chancePlayer = chances.FirstOrDefault(x => x.Key == playerKey);
+            return chancePlayer;
+        }
+        return null;
+    }
     private Modal modalForBuy;
 
-    private Task Buy(RealPlayer player)
+    private async Task Buy(RealPlayer player)
     {
         realPlayer = player;
         teamOwner = teams.First().Owner;
         price = 1;
-        return modalForBuy.Show();
+        var x = selectedTab;
+        await modalForBuy.Show();
     }
 
     private Task HideModal()
@@ -230,7 +270,7 @@
                     Price = price,
                     Role = realPlayer.Role,
                     Status = PlayerInTeamStatus.Active,
-                    Position = FantaSoccerRole.All
+                    Position = FantaSoccerRole.Tribune
                 });
             await Api.Team.UpdateAsync(State.OtherTeamKey(teamOwner), team);
             players.Remove(realPlayer);

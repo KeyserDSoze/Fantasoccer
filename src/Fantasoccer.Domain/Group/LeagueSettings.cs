@@ -5,6 +5,7 @@
         public int StartingMoney { get; set; }
         public Dictionary<Role, VoteLeagueSetting> Votes { get; set; }
         public int DelayedDay { get; set; }
+        public int CancelledDay { get; set; }
         public int PointForFirstGoal { get; set; }
         public int PointForNextGoal { get; set; }
         public int PointForOwnGoal { get; set; }
@@ -35,6 +36,7 @@
                  WrongedPenalty = -3
             } } },
             DelayedDay = 2,
+            CancelledDay = 1,
             PointForFirstGoal = 66,
             PointForNextGoal = 6,
             PointForOwnGoal = 6,

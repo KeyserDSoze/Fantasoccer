@@ -36,6 +36,7 @@ namespace Fantasoccer.Business
                         foreach (var games in gameByDay.GroupBy(x => x.Day))
                         {
                             var serieADay = actualDay + league.Settings.DelayedDay;
+                            var isCancelled = actualDay <= league.Settings.CancelledDay;
                             var day = new Day { Games = new(), SerieADay = serieADay, Number = actualDay };
                             singleRound.Add(day);
                             var gameCount = 1;
@@ -51,6 +52,7 @@ namespace Fantasoccer.Business
                                     HomeOwner = home.Owner,
                                     Away = away.Name,
                                     AwayOwner = away.Owner,
+                                    Result = isCancelled ? new GameResult { IsCancelled = true } : null
                                 });
                                 gameCount++;
                             }

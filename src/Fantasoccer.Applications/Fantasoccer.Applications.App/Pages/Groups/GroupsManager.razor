@@ -329,13 +329,27 @@
             if (team == null)
             {
                 teams.Add(new AnnualTeam { Owner = user.Email, Name = $"{user.Username} Team" });
+                if (!await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
+                {
+                    await Api.Team.InsertAsync(State.OtherTeamKey(user.Email), new()
+                        {
+                            Owner = user.Email,
+                            Name = $"{user.Username} Team",
+                            Players = new()
+                        });
+                }
             }
         }
         else
         {
-            if (team != null)
+            if (team != null && group != null)
             {
                 teams.Remove(team);
+                if (State != null && !group.Leagues.SelectMany(x => x.Years).Any(x => x.Year == FantacalcioTime.ActualYear && x.Teams.Any(t => t.Owner == user.Email)))
+                {
+                    if (await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
+                        await Api.Team.DeleteAsync(State.OtherTeamKey(user.Email));
+                }
             }
         }
         await SaveAsync();
@@ -438,12 +452,33 @@
         LoadingIndicator?.Hide();
     }
     [Inject]
-    private IRandomCalendar RandomCalendar{ get; set; }
+    private IRandomCalendar RandomCalendar { get; set; }
     [Inject]
     private IRankCalculator RankCalculator { get; set; }
     private async ValueTask CreateCalendarAndRankAsync()
     {
         LoadingIndicator?.Show();
+        if (State?.AnnualLeague != null && State?.League != null)
+        {
+            if (!await Api.Calendar.ExistAsync(State.LeagueKey))
+            {
+                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.League.Type, State.AnnualLeague);
+                await Api.Calendar.InsertAsync(State.LeagueKey, calendar);
+            }
+            if (await Api.Calendar.ExistAsync(State.LeagueKey))
+            {
+                var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+                var rank = RankCalculator.GetRank(State?.LeagueSettings ?? LeagueSetting.Default, calendar, State.League.Type);
+                if (await Api.Ranks.ExistAsync(State.LeagueKey))
+                {
+                    await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
+                }
+                else
+                {
+                    await Api.Ranks.InsertAsync(State.LeagueKey, rank);
+                }
+            }
+        }
         LoadingIndicator?.Hide();
     }
 }

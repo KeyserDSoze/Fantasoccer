@@ -11,6 +11,10 @@
         {
             <ResultCard Css="gameResult animOpacity" Game="game"></ResultCard>
         }
+        else
+        {
+            <div class="gameResult animOpacity">No calendar available</div>
+        }
         @if (teams != null)
         {
 
@@ -181,6 +185,19 @@ else
                     yield return game.HomeOwner;
                     yield return game.AwayOwner;
                 }
+            }
+            else if (isInEdit)
+            {
+                var teams = new List<TeamsWrapper>();
+                myTeam = await Api.Team.GetAsync(State.TeamKey);
+                if (myTeam != null)
+                    teams.Add(new TeamsWrapper
+                        {
+                            CanModify = true,
+                            Inverted = false,
+                            Players = TeamCalculator.Enrich(myTeam.ActivePlayers)
+                        });
+                this.teams = teams;
             }
             LoadingIndicator?.Hide();
         }

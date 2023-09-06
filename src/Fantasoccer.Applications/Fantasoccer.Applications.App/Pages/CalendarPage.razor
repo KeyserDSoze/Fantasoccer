@@ -40,10 +40,16 @@
                                                     {
                                                         <TableRow Clicked="() => NavigateTo(game.Id)">
                                                             <TableRowCell>@game.Home</TableRowCell>
-                                                            @if (game.Result != null)
+                                                            @if (game.Result != null && !game.Result.IsCancelled)
                                                             {
                                                                 <TableRowCell>
                                                                     @game.Result.HomeGoal (@game.Result.Home.Value) - (@game.Result.Away.Value) @game.Result.AwayGoal
+                                                                </TableRowCell>
+                                                            }
+                                                            else if (game.Result != null && game.Result.IsCancelled)
+                                                            {
+                                                                <TableRowCell>
+                                                                    cancelled
                                                                 </TableRowCell>
                                                             }
                                                             else

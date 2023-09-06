@@ -9,10 +9,10 @@
 {
     <Tabs SelectedTab="GoalKeeper">
         <Items>
-            <Tab Name="GoalKeeper">GoalKeeper</Tab>
-            <Tab Name="Defensor">Defensor</Tab>
-            <Tab Name="Midfielder">Midfielder</Tab>
-            <Tab Name="Forward">Forward</Tab>
+            @foreach (var role in FantasoccerConstant.Roles)
+            {
+                <Tab Name="@role.Name">@role.Abbreviation</Tab>
+            }
         </Items>
         <Content>
             @foreach (var playersByRole in players.GroupBy(x => x.Role))

@@ -23,9 +23,7 @@ namespace Fantasoccer.Business.Authorization
         {
             if (key == null)
                 return s_notAuthorized;
-            if (method == RepositoryMethods.Delete)
-                return s_notAuthorized;
-            if (method == RepositoryMethods.Insert || method == RepositoryMethods.Update)
+            if (method == RepositoryMethods.Insert || method == RepositoryMethods.Update || method == RepositoryMethods.Delete)
             {
                 var email = httpContextAccessor.GetEmail();
                 if (email != null && value?.Owner == email)

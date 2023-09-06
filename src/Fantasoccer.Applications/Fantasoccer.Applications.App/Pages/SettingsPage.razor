@@ -84,14 +84,30 @@
                         {
                             var theGroup = await Api.Groups.GetAsync(actualGroup.Id);
                             if (theGroup != null)
+                            {
                                 foreach (var team in theGroup.Leagues
-                                    .SelectMany(x => x.Years)
-                                    .Where(x => x.Year == FantacalcioTime.ActualYear)
-                                    .SelectMany(x => x.Teams)
-                                    .Where(x => x.Owner == Identity.Email))
+                                        .SelectMany(x => x.Years)
+                                        .Where(x => x.Year == FantacalcioTime.ActualYear)
+                                        .SelectMany(x => x.Teams)
+                                        .Where(x => x.Owner == Identity.Email))
                                 {
                                     team.Name = actualGroup.TeamName;
                                 }
+                            }
+                            if (State != null)
+                            {
+                                var teamForGroup = await Api.Team.GetAsync(State.TeamKey);
+                                if (teamForGroup == null)
+                                {
+                                    teamForGroup = new Team { Name = actualGroup.TeamName, Owner = Identity.Email, Players = new() };
+                                    await Api.Team.InsertAsync(State.TeamKey, teamForGroup);
+                                }
+                                else
+                                {
+                                    teamForGroup.Name = actualGroup.TeamName;
+                                    await Api.Team.UpdateAsync(State.TeamKey, teamForGroup);
+                                }
+                            }
                         }
                         if (State != null)
                         {

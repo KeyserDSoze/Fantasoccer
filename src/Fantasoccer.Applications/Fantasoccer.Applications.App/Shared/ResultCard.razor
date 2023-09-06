@@ -3,7 +3,7 @@
     <div class="@Css">
         <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
         <span class="team">@Game.Home</span>
-        @if (Game.Result != default)
+        @if (Game.Result != default && !Game.Result.IsCancelled)
         {
             @if (Game.Result.Home.DefensiveBonus)
             {

@@ -9,7 +9,8 @@
             {
                 if (!rank.RankedTeams.ContainsKey(round.Key))
                 {
-                    rank.RankedTeams.Add(round.Key, new());
+                    rank.RankedTeams.Add(round.Key,
+                        round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
                 }
                 var teams = rank.RankedTeams[round.Key];
                 foreach (var day in round.Value)
@@ -27,7 +28,7 @@
         }
         private void AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting)
         {
-            if (result == default || !result.HasValue)
+            if (result == default || !result.HasValue || result.IsCancelled)
                 return;
 
             if (isInHome)

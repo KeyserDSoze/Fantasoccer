@@ -29,8 +29,8 @@ namespace Fantasoccer.InMemory
                 builder.SetOnlyQueryExposable();
             });
             services.AddInMemoryInfrastructure<Group, string>(onlyQuery: false);
-            services.AddInMemoryInfrastructure<Rank, LeagueKey>();
-            services.AddInMemoryInfrastructure<Calendar, LeagueKey>();
+            services.AddInMemoryInfrastructure<Rank, LeagueKey>(onlyQuery: false);
+            services.AddInMemoryInfrastructure<Calendar, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
             services.AddInMemoryInfrastructure<StatPlayersWrapper, int>();
