@@ -185,7 +185,7 @@
                     <Button Color="Color.Primary" Clicked="@SaveAsync">
                         Salva
                     </Button>
-                    <Button Color="Color.Primary" Clicked="@CreateCalendarAsync">
+                    <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
                         Create new calendar
                     </Button>
                 </Column>
@@ -435,6 +435,15 @@
                 }
                 await ValidationsRefForIdentity.ClearAll();
             }
+        LoadingIndicator?.Hide();
+    }
+    [Inject]
+    private IRandomCalendar RandomCalendar{ get; set; }
+    [Inject]
+    private IRankCalculator RankCalculator { get; set; }
+    private async ValueTask CreateCalendarAndRankAsync()
+    {
+        LoadingIndicator?.Show();
         LoadingIndicator?.Hide();
     }
 }
