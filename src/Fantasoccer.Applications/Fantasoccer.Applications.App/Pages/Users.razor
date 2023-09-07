@@ -33,14 +33,14 @@
 
 @code {
     [CascadingParameter]
-    private AppIdentity? Identity { get; set; }
+    private FantasoccerState? State { get; set; }
     private IEnumerable<AppIdentity>? users;
     private bool canSee;
     protected override async Task OnParametersSetAsync()
     {
-        if (Identity != null)
+        if (State?.IsAuthenticated == true)
         {
-            canSee = Identity.Email == "alessandro.rapiti44@gmail.com";
+            canSee = State.Identity.Email == "alessandro.rapiti44@gmail.com";
             users = await Api.AppIdentity.ToListAsEntityAsync();
             await base.OnParametersSetAsync();
         }

@@ -3,17 +3,17 @@
 
 <PageTitle>Settings</PageTitle>
 
-@if (Identity != null)
+@if (State?.IsAuthenticated == true)
 {
     <Row>
         <Column>
             <Fields>
-                <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="Identity" ValidateOnLoad="false">
+                <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="State.Identity" ValidateOnLoad="false">
                     <Validation UsePattern>
                      <Field ColumnSize="ColumnSize.IsHalf">
                          <FieldLabel>Username</FieldLabel>
                          <FieldBody>
-                             <TextEdit @bind-Text="@Identity.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
+                             <TextEdit @bind-Text="@State.Identity.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
                                  <Feedback>
                                      <ValidationError />
                                  </Feedback>
@@ -53,18 +53,16 @@
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
-    private AppIdentity? Identity { get; set; }
-    [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     private GroupForIdentity? actualGroup;
     private Validations? ValidationsRef { get; set; }
 
     protected override Task OnParametersSetAsync()
     {
-        if (State != null && Identity != null)
+        if (State?.IsAuthenticated == true)
         {
             LoadingIndicator?.Show();
-            actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == State.GroupId);
+            actualGroup = State.Identity!.Groups.FirstOrDefault(x => x.Id == State.GroupId);
             LoadingIndicator?.Hide();
         }
         return base.OnParametersSetAsync();
@@ -76,9 +74,9 @@
             {
                 if (MessageService != null)
                     await MessageService.Info("Salvato tutto correttamente.");
-                if (Identity != null)
+                if (State?.IsAuthenticated == true)
                 {
-                    if (await Api.AppIdentity.UpdateAsync(Identity.Email, Identity))
+                    if (await Api.AppIdentity.UpdateAsync(State.Identity!.Email, State.Identity))
                     {
                         if (actualGroup != null && !string.IsNullOrWhiteSpace(actualGroup.TeamName))
                         {
@@ -89,32 +87,24 @@
                                         .SelectMany(x => x.Years)
                                         .Where(x => x.Year == FantacalcioTime.ActualYear)
                                         .SelectMany(x => x.Teams)
-                                        .Where(x => x.Owner == Identity.Email))
+                                        .Where(x => x.Owner == State.Identity.Email))
                                 {
                                     team.Name = actualGroup.TeamName;
                                 }
                             }
-                            if (State != null)
+                            var teamForGroup = await Api.Team.GetAsync(State.TeamKey);
+                            if (teamForGroup == null)
                             {
-                                var teamForGroup = await Api.Team.GetAsync(State.TeamKey);
-                                if (teamForGroup == null)
-                                {
-                                    teamForGroup = new Team { Name = actualGroup.TeamName, Owner = Identity.Email, Players = new() };
-                                    await Api.Team.InsertAsync(State.TeamKey, teamForGroup);
-                                }
-                                else
-                                {
-                                    teamForGroup.Name = actualGroup.TeamName;
-                                    await Api.Team.UpdateAsync(State.TeamKey, teamForGroup);
-                                }
+                                teamForGroup = new Team { Name = actualGroup.TeamName, Owner = State.Identity.Email, Players = new() };
+                                await Api.Team.InsertAsync(State.TeamKey, teamForGroup);
+                            }
+                            else
+                            {
+                                teamForGroup.Name = actualGroup.TeamName;
+                                await Api.Team.UpdateAsync(State.TeamKey, teamForGroup);
                             }
                         }
-                        if (State != null)
-                        {
-                            State.Username = Identity.Username;
-                            if (State.Update != null)
-                                await State.Update();
-                        }
+                        State.UpdateUi();
                     }
                 }
                 await ValidationsRef.ClearAll();

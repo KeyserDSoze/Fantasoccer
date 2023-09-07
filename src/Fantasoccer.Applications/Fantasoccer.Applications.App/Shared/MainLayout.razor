@@ -52,7 +52,7 @@
                                 All players
                             </BarLink>
                         </BarItem>
-                        @if (Identity != null)
+                        @if (State?.IsAuthenticated == true)
                         {
                             <BarItem>
                                 <BarDropdown>
@@ -61,7 +61,7 @@
                                         Group
                                     </BarDropdownToggle>
                                     <BarDropdownMenu>
-                                        @foreach (var group in Identity.Groups)
+                                        @foreach (var group in State.Identity.Groups)
                                         {
                                             <BarDropdown>
                                                 <BarDropdownToggle>
@@ -71,7 +71,7 @@
                                                 <BarDropdownMenu>
                                                     @foreach (var league in group.Leagues)
                                                     {
-                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => ChangeLeague(group.Id, league.Id)">
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => State?.ChangeLeagueAsync(league.Id)">
                                                             <BarIcon IconName="IconName.DotCircle" />
                                                             @league.Name
                                                         </BarDropdownItem>
@@ -94,7 +94,7 @@
                                     {
                                         var actualYear = year;
                                         <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
-                                                         Clicked="x => ChangeYear(actualYear)">
+                                                         Clicked="x => State?.ChangeYearAsync(actualYear)">
                                             <BarIcon IconName="IconName.Times" />
                                             @FantacalcioTime.LabelYear(actualYear)
                                         </BarDropdownItem>
@@ -121,7 +121,7 @@
                             <BarItem>
                                 <BarDropdown>
                                     <BarDropdownToggle>
-                                        &nbsp;&nbsp;Ciao @State.Username
+                                        &nbsp;&nbsp;Ciao @State?.Identity?.Username
                                     </BarDropdownToggle>
                                     <BarDropdownMenu Style="background: #001529;">
                                         <BarDropdownItem>
@@ -130,7 +130,7 @@
                                                 Settings
                                             </BarLink>
                                         </BarDropdownItem>
-                                        @if (Identity != null && State.IsAdmin(Identity))
+                                        @if (State.IsAdmin())
                                         {
                                             <BarDropdownItem>
                                                 <BarLink To="../../groups">
@@ -183,26 +183,7 @@
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
-    [CascadingParameter]
-    private AppIdentity? Identity { get; set; }
 
-    private void ChangeLeague(string groupId, string leagueId)
-    {
-        if (State != null)
-        {
-            State.GroupId = groupId;
-            State.LeagueId = leagueId;
-            State.Update();
-        }
-    }
-    private void ChangeYear(int year)
-    {
-        if (State != null)
-        {
-            State.Year = year;
-            State.Update();
-        }
-    }
     LoadingIndicator loadingIndicator;
     private Bar? Sidebar;
     public void Toggle()

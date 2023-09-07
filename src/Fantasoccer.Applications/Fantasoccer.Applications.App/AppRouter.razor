@@ -4,21 +4,19 @@
 @using Microsoft.Identity.Abstractions;
 @using Microsoft.Identity.Web;
 <Blazorise.ThemeProvider Theme="@theme">
-    <CascadingValue Value="@identity">
-        <CascadingValue Value="@state">
-            <Router AppAssembly="@typeof(App).Assembly">
-                <Found Context="routeData">
-                    <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-                    <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-                </Found>
-                <NotFound>
-                    <PageTitle>Not found</PageTitle>
-                    <LayoutView Layout="@typeof(MainLayout)">
-                        <p role="alert">Sorry, there's nothing at this address.</p>
-                    </LayoutView>
-                </NotFound>
-            </Router>
-        </CascadingValue>
+    <CascadingValue Value="@state">
+        <Router AppAssembly="@typeof(App).Assembly">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            </Found>
+            <NotFound>
+                <PageTitle>Not found</PageTitle>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <p role="alert">Sorry, there's nothing at this address.</p>
+                </LayoutView>
+            </NotFound>
+        </Router>
     </CascadingValue>
 </Blazorise.ThemeProvider>
 
@@ -26,16 +24,7 @@
     [CascadingParameter]
     private Task<AuthenticationState>? authenticationState { get; set; }
     [Inject]
-    private ILocalStorageService? localStorage { get; set; }
-    [Inject]
-    private NavigationManager NavigationManager { get; set; }
-    [Inject]
-    private MicrosoftIdentityConsentAndConditionalAccessHandler ConsentHandler { get; set; }
-    [Inject]
-    private IAuthorizationHeaderProvider AuthorizationHeaderProvider { get; set; }
-    [Inject]
-    private IConfiguration Configuration { get; set; }
-    private AppIdentity? identity;
+    private NavigationManager? NavigationManager { get; set; }
     private FantasoccerState? state;
     private Theme theme = new Theme
         {
@@ -52,44 +41,7 @@
                 Link = "#ffffff"
             }
         };
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var fantasoccerState = (localStorage != null && await localStorage.ContainKeyAsync(nameof(FantasoccerState))) ?
-                await localStorage.GetItemAsync<FantasoccerState>(nameof(FantasoccerState))
-                : new FantasoccerState();
-            if (identity != null)
-            {
-                fantasoccerState = new() { Email = identity.Email, Username = identity.Username, GroupId = identity.Groups.FirstOrDefault()?.Id, LeagueId = identity.Groups.FirstOrDefault()?.Leagues.FirstOrDefault()?.Id };
-            }
-            else if (identity == null)
-            {
-                fantasoccerState = new();
-            }
-            state = fantasoccerState;
-            state.Update = async () =>
-            {
-                if (fantasoccerState.GroupId != null)
-                {
-                    state.Group = await Api.Groups.GetAsync(fantasoccerState.GroupId);
-                    if (state.Group != null && fantasoccerState.LeagueId != null)
-                    {
-                        state.League = state.Group.Leagues.FirstOrDefault(x => x.Id == fantasoccerState.LeagueId);
-                        if (state.League != null && fantasoccerState.Year > 0)
-                        {
-                            state.AnnualLeague = state.League.Years.FirstOrDefault(x => x.Year == fantasoccerState.Year);
-                        }
-                    }
-                }
-                StateHasChanged();
-                if (localStorage != null)
-                    await localStorage.SetItemAsync(nameof(FantasoccerState), state);
-            };
-            _ = state.Update();
-        }
-        await base.OnAfterRenderAsync(firstRender);
-    }
+
     protected override async Task OnInitializedAsync()
     {
         if (authenticationState is not null)
@@ -104,7 +56,7 @@
                 var email = user.Claims.First(x => x.Type == "emails").Value;
                 try
                 {
-                    identity = await Api.AppIdentity.GetAsync(email);
+                    var identity = await Api.AppIdentity.GetAsync(email);
                     if (identity != null)
                         SuperFastLog.Add(id, $"Identity from server: {identity.Username}.");
                     else
@@ -120,13 +72,48 @@
                             };
                         await Api.AppIdentity.InsertAsync(email, identity);
                         SuperFastLog.Add(id, $"Identity created.");
-                        NavigationManager.NavigateTo("../../settings", false);
+                        NavigationManager?.NavigateTo("../../settings", false);
                     }
+                    state = new FantasoccerState()
+                        {
+                            AppUiUpdate = () =>
+                            {
+                                StateHasChanged();
+                                SuperFastLog.Add(id, $"State update.");
+                            },
+                            GetGroup = (groupId) =>
+                            {
+                                SuperFastLog.Add(id, $"Get group {groupId}");
+                                try
+                                {
+                                    return Api.Groups.GetAsync(groupId);
+                                }
+                                catch (Exception ex)
+                                {
+                                    SuperFastLog.Add(id, $"Getting group {ex.Message}");
+                                    return Task.FromResult(default(Group));
+                                }
+                            },
+                            UpdateState = (identity) =>
+                            {
+                                SuperFastLog.Add(id, $"Update user {identity?.Username}");
+                                try
+                                {
+                                    return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
+                                }
+                                catch (Exception ex)
+                                {
+                                    SuperFastLog.Add(id, $"Getting group {ex.Message}");
+                                    return Task.CompletedTask;
+                                }
+                            }
+                        };
+                    await state.SetIdentityAsync(identity);
                 }
                 catch (Exception ex)
                 {
                     SuperFastLog.Add(id, $"Exception: {ex.Message}");
-                    NavigationManager.NavigateTo("../../MicrosoftIdentity/Account/SignIn");
+                    NavigationManager?.NavigateTo("../../MicrosoftIdentity/Account/SignIn");
                 }
             }
         }

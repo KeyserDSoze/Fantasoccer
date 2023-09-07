@@ -5,12 +5,12 @@
 <PageTitle>Groups</PageTitle>
 
 
-@if (Identity != null && State != null)
+@if (State?.IsAuthenticated == true)
 {
-    @if (Identity.Groups?.Any() == true)
+    @if (State.Identity!.Groups?.Any() == true)
     {
         <Select TValue="string" SelectedValue="@State.GroupId" SelectedValueChanged="@OnSelectedGroupChanged" Width="Width.Is50">
-            @foreach (var group in Identity.Groups)
+            @foreach (var group in State.Identity.Groups)
             {
                 <SelectItem Value="@group.Id">@group.Name</SelectItem>
             }
@@ -42,7 +42,7 @@
          </Column>
      </Row>
     }
-    @if (group != null && group.AdminUsers.Any(x => x.Email == Identity.Email))
+    @if (State.HasAGroup && State.IsAdmin())
     {
         <Row>
             <Column>
@@ -67,10 +67,10 @@
              </Button>
          </Column>
      </Row>
-        @if (group.Leagues?.Any() == true)
+        @if (State.Group!.Leagues?.Any() == true)
         {
             <Select TValue="string" SelectedValue="@State.LeagueId" SelectedValueChanged="@OnSelectedLeagueChanged" Width="Width.Is50">
-                @foreach (var league in group.Leagues)
+                @foreach (var league in State.Group.Leagues)
                 {
                     <SelectItem Value="@league.Id">@league.Name</SelectItem>
                 }
@@ -112,7 +112,7 @@
                  <TableHeaderCell>Admin</TableHeaderCell>
                  <TableHeaderCell>Participant</TableHeaderCell>
                  <TableHeaderCell>Reader</TableHeaderCell>
-                 @foreach (var league in group.Leagues)
+                 @foreach (var league in State.Group.Leagues)
                     {
                         <TableHeaderCell>@league.Name</TableHeaderCell>
                     }
@@ -120,7 +120,7 @@
                 </TableRow>
             </TableHeader>
             <TableBody>
-                @foreach (var user in group.Users)
+                @foreach (var user in State.Group.Users)
                 {
                     <TableRow>
                         <TableRowHeader>@user.Email</TableRowHeader>
@@ -137,12 +137,15 @@
                             <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Reader))"
                                    CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Reader))"></Check>
                         </TableRowCell>
-                        @foreach (var league in group.Leagues)
+                        @if (State.Group.Leagues?.Any() == true)
                         {
-                            <TableRowCell>
-                                <Check TValue="bool" Checked="@(league.Years.OrderByDescending(x => x.Year).First().Teams.Any(x => x.Owner == user.Email))"
-                                       CheckedChanged="@((x) => _ = SetParticipantAsync(user, league, x))"></Check>
-                            </TableRowCell>
+                            @foreach (var league in State.Group.Leagues)
+                            {
+                                <TableRowCell>
+                                    <Check TValue="bool" Checked="@(league.Years.OrderByDescending(x => x.Year).First().Teams.Any(x => x.Owner == user.Email))"
+                                           CheckedChanged="@((x) => _ = SetParticipantAsync(user, league, x))"></Check>
+                                </TableRowCell>
+                            }
                         }
                         <TableRowCell>
                             <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(user))">
@@ -153,17 +156,17 @@
                 }
             </TableBody>
         </Table>
-        @if (league != null)
+        @if (State.HasALeague)
         {
-            <Check TValue="bool" Checked="@(league.IsMain)"
-                   CheckedChanged="@((x) => league.IsMain = x)">Is Main</Check>
+            <Check TValue="bool" Checked="@(State.League!.IsMain)"
+                   CheckedChanged="@((x) => State.League.IsMain = x)">Is Main</Check>
             <Row>
                 <Column>
                     <Fields>
                         <Field ColumnSize="ColumnSize.IsHalf">
                             <FieldLabel>Nome lega</FieldLabel>
                             <FieldBody>
-                                <TextEdit @bind-Text="league.Name">
+                                <TextEdit @bind-Text="State.League.Name">
                                     <Feedback>
                                         <ValidationError />
                                     </Feedback>
@@ -175,7 +178,7 @@
                         <Field ColumnSize="ColumnSize.IsHalf">
                             <FieldLabel>Tipo di lega</FieldLabel>
                             <FieldBody>
-                                <Select TValue="LeagueType" @bind-SelectedValue="league.Type">
+                                <Select TValue="LeagueType" @bind-SelectedValue="State.League.Type">
                                     <SelectItem Value="LeagueType.League">Lega</SelectItem>
                                     <SelectItem Value="LeagueType.Cup">Coppa</SelectItem>
                                 </Select>
@@ -198,11 +201,7 @@
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
-    private AppIdentity? Identity { get; set; }
-    [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private GroupForIdentity? actualGroup;
-    private LeagueForIdentity? actualLeague;
     private Validations? ValidationsRef { get; set; }
     private string? newGroupName { get; set; }
     private Validations? ValidationsRefForLeague { get; set; }
@@ -210,34 +209,13 @@
     private Validations? ValidationsRefForIdentity { get; set; }
     private string? newEmail { get; set; }
     private bool canCreateNewGroup;
-    private Group? group;
-    private League? league;
     private const string EmailPattern = @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$";
     protected override async Task OnParametersSetAsync()
     {
-        if (State != null && Identity != null)
+        if (State != null && State.Identity != null)
         {
             LoadingIndicator?.Show();
-            canCreateNewGroup = Identity.Email == "alessandro.rapiti44@gmail.com";
-            actualGroup = State.GroupId != null ?
-                Identity.Groups.FirstOrDefault(x => x.Id == State.GroupId)
-                : Identity.Groups.FirstOrDefault();
-            if (actualGroup != null)
-            {
-                var updateIsNotNeeded = State.GroupId == actualGroup.Id;
-                State.GroupId = actualGroup.Id;
-                group = await Api.Groups.GetAsync(State.GroupId);
-                if (group != null)
-                {
-                    league = State.LeagueId != null ?
-                        group.Leagues.FirstOrDefault(x => x.Id == State.LeagueId)
-                        : group.Leagues.FirstOrDefault();
-                    updateIsNotNeeded &= State.LeagueId == league?.Id;
-                    State.LeagueId = league?.Id;
-                    if (State?.Update != null && !updateIsNotNeeded)
-                        await State.Update();
-                }
-            }
+            canCreateNewGroup = State.Identity.Email == "alessandro.rapiti44@gmail.com";
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
@@ -245,77 +223,70 @@
     private async Task SaveAsync()
     {
         LoadingIndicator?.Show();
-        if (group != null)
+        if (State?.HasAGroup == true)
         {
-            await Api.Groups.UpdateAsync(group.Id, group);
-            foreach (var user in group.Users)
+            await Api.Groups.UpdateAsync(State.Group!.Id, State.Group);
+            foreach (var user in State.Group.Users)
             {
                 var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
                 if (toUpdateUser != null)
                 {
-                    var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == group.Id);
+                    var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == State.Group.Id);
                     if (groupToRemove != null)
                         toUpdateUser.Groups.Remove(groupToRemove);
-                    toUpdateUser.Groups.Add(group.ToGroupIdentity(toUpdateUser.Email));
+                    toUpdateUser.Groups.Add(State.Group.ToGroupIdentity(toUpdateUser.Email));
                     await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
                 }
             }
-            if (State?.Update != null)
-                await State.Update();
+            State?.UpdateUi();
         }
         LoadingIndicator?.Hide();
     }
     async Task OnSelectedGroupChanged(string groupId)
     {
         LoadingIndicator?.Show();
-        if (Identity != null)
+        if (State != null)
         {
-            actualGroup = Identity.Groups.FirstOrDefault(x => x.Id == groupId);
-            if (actualGroup != null && State != null)
-            {
-                State.GroupId = actualGroup.Id;
-                group = await Api.Groups.GetAsync(State.GroupId);
-                if (State?.Update != null)
-                    await State.Update();
-            }
+
         }
         LoadingIndicator?.Hide();
     }
-    Task OnSelectedLeagueChanged(string leagueId)
+    private void OnSelectedLeagueChanged(string leagueId)
     {
         LoadingIndicator?.Show();
-        if (Identity != null && group != null && State != null)
+        if (State?.IsAuthenticated == true && State.Group != null)
         {
-            State.LeagueId = leagueId;
-            league = group.Leagues.FirstOrDefault(x => x.Id == leagueId);
+            State.ChangeLeagueAsync(leagueId);
         }
         LoadingIndicator?.Hide();
-        return Task.CompletedTask;
     }
     private async ValueTask ChangeRole(UserOfAGroup user, bool check, IdentityRole role)
     {
-        LoadingIndicator?.Show();
-        if (check)
-            user.Role |= role;
-        else
-            user.Role &= ~role;
-        await Api.Groups.UpdateAsync(group.Id, group);
-        var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
-        if (toUpdateUser != null)
+        if (State?.HasAGroup == true)
         {
-            var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == group.Id);
-            if (groupToRemove != null)
-                toUpdateUser.Groups.Remove(groupToRemove);
-            toUpdateUser.Groups.Add(group.ToGroupIdentity(toUpdateUser.Email));
-            await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
+            LoadingIndicator?.Show();
+            if (check)
+                user.Role |= role;
+            else
+                user.Role &= ~role;
+            await Api.Groups.UpdateAsync(State.Group!.Id, State.Group);
+            var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
+            if (toUpdateUser != null)
+            {
+                var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == State.Group.Id);
+                if (groupToRemove != null)
+                    toUpdateUser.Groups.Remove(groupToRemove);
+                toUpdateUser.Groups.Add(State.Group.ToGroupIdentity(toUpdateUser.Email));
+                await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
+            }
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private async ValueTask DeleteAsync(UserOfAGroup user)
     {
         LoadingIndicator?.Show();
-        if (group != null)
-            group.Users.Remove(user);
+        if (State?.HasAGroup == true)
+            State.Group!.Users.Remove(user);
         await SaveAsync();
         LoadingIndicator?.Hide();
     }
@@ -342,10 +313,10 @@
         }
         else
         {
-            if (team != null && group != null)
+            if (team != null && State?.HasAGroup == true)
             {
                 teams.Remove(team);
-                if (State != null && !group.Leagues.SelectMany(x => x.Years).Any(x => x.Year == FantacalcioTime.ActualYear && x.Teams.Any(t => t.Owner == user.Email)))
+                if (State != null && !State.Group!.Leagues.SelectMany(x => x.Years).Any(x => x.Year == FantacalcioTime.ActualYear && x.Teams.Any(t => t.Owner == user.Email)))
                 {
                     if (await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
                         await Api.Team.DeleteAsync(State.OtherTeamKey(user.Email));
@@ -361,28 +332,27 @@
         if (ValidationsRef != null)
             if (await ValidationsRef.ValidateAll())
             {
-                if (Identity != null && newGroupName != null && State != null)
+                if (State?.IsAuthenticated == true && newGroupName != null)
                 {
-                    State.GroupId = Guid.NewGuid().ToString();
-                    group = new Group
+                    var groupId = Guid.NewGuid().ToString();
+                    var group = new Group
                         {
-                            Id = State.GroupId,
+                            Id = groupId,
                             Leagues = new(),
                             Name = newGroupName,
-                            Users = new List<UserOfAGroup> { new UserOfAGroup { Email = State.Email, Username = State.Username, Role = IdentityRole.Admin } }
+                            Users = new List<UserOfAGroup> { new UserOfAGroup { Email = State.Identity!.Email, Username = State.Identity.Username, Role = IdentityRole.Admin } }
                         };
-                    await Api.Groups.InsertAsync(State.GroupId, group);
-                    Identity.Groups.Add(new GroupForIdentity
+                    await Api.Groups.InsertAsync(groupId, group);
+                    State.Identity.Groups.Add(new GroupForIdentity
                         {
-                            Id = State.GroupId,
+                            Id = groupId,
                             Name = group.Name,
                             Leagues = new(),
                             Role = IdentityRole.Admin,
                             TeamName = string.Empty
                         });
-                    await Api.AppIdentity.UpdateAsync(Identity.Email, Identity);
-                    if (State.Update != null)
-                        await State.Update();
+                    await Api.AppIdentity.UpdateAsync(State.Identity.Email, State.Identity);
+                    await State.ChangeGroupAsync(groupId);
                 }
                 await ValidationsRef.ClearAll();
             }
@@ -394,21 +364,20 @@
         if (ValidationsRefForLeague != null)
             if (await ValidationsRefForLeague.ValidateAll())
             {
-                if (Identity != null && newLeagueName != null && State != null && group != null)
+                if (State?.IsAuthenticated == true && newLeagueName != null && State.HasAGroup)
                 {
-                    State.LeagueId = Guid.NewGuid().ToString();
-                    league = new League
+                    var leagueId = Guid.NewGuid().ToString();
+                    var league = new League
                         {
-                            Id = State.LeagueId,
+                            Id = leagueId,
                             IsMain = true,
                             Type = LeagueType.League,
                             Years = new List<AnnualLeague> { new AnnualLeague { Id = Guid.NewGuid().ToString(), Settings = LeagueSetting.Default, Teams = new(), Year = FantacalcioTime.ActualYear } },
                             Name = newLeagueName,
                         };
-                    group.Leagues.Add(league);
-                    await Api.Groups.UpdateAsync(group.Id, group);
-                    if (State.Update != null)
-                        await State.Update();
+                    State.Group!.Leagues.Add(league);
+                    await Api.Groups.UpdateAsync(State.Group.Id, State.Group);
+                    State.ChangeLeagueAsync(leagueId);
                 }
                 await ValidationsRefForLeague.ClearAll();
             }
@@ -421,7 +390,7 @@
         if (ValidationsRefForIdentity != null)
             if (await ValidationsRefForIdentity.ValidateAll())
             {
-                if (Identity != null && newEmail != null && State != null && group != null)
+                if (State?.IsAuthenticated == true && newEmail != null && State.HasAGroup)
                 {
                     var user = await Api.AppIdentity.GetAsync(newEmail);
                     if (user == null)
@@ -431,21 +400,20 @@
                                 Email = newEmail,
                                 Groups = new()
                                 {
-                                    group.ToGroupIdentity(newEmail)
+                                    State.Group!.ToGroupIdentity(newEmail)
                                 },
                                 Username = newEmail
                             };
                         await Api.AppIdentity.InsertAsync(newEmail, user);
                     }
-                    group.Users.Add(new UserOfAGroup
+                    State.Group.Users.Add(new UserOfAGroup
                         {
                             Email = user.Email,
                             Role = IdentityRole.Reader,
                             Username = user.Username
                         });
-                    await Api.Groups.UpdateAsync(group.Id, group);
-                    if (State.Update != null)
-                        await State.Update();
+                    await Api.Groups.UpdateAsync(State.Group.Id, State.Group);
+                    State.UpdateUi();
                 }
                 await ValidationsRefForIdentity.ClearAll();
             }

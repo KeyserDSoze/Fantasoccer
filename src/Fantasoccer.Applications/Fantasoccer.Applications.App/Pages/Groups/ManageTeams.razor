@@ -4,7 +4,7 @@
 
 <PageTitle>Manage teams</PageTitle>
 
-@if (Identity != null && State != null && State.IsAdmin(Identity) && players != null && teams != null && visibilities != null)
+@if (State?.IsAdmin() == true && players != null && teams != null && visibilities != null)
 {
     <Row>
         <Column Width="Width.Is50">
@@ -161,8 +161,6 @@
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
-    private AppIdentity? Identity { get; set; }
-    [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     private List<RealPlayer>? allPlayers;
     private List<RealPlayer>? players;
@@ -184,7 +182,7 @@
     private List<ChancedRealPlayer>? chances;
     protected override async Task OnParametersSetAsync()
     {
-        if (State?.AnnualLeague != null && Identity != null && State.IsAdmin(Identity))
+        if (State?.AnnualLeague != null && State?.IsAdmin() == true)
         {
             LoadingIndicator?.Show();
             teams = new();
