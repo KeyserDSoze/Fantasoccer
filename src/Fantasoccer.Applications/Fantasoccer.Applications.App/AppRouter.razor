@@ -86,7 +86,14 @@
                                 SuperFastLog.Add(id, $"Get group {groupId}");
                                 try
                                 {
-                                    return Api.Groups.GetAsync(groupId);
+                                    // return Api.Groups.GetAsync(groupId);
+                                    return Task.FromResult(new Group
+                                    {
+Id = Guid.NewGuid().ToString(),
+Name = "dasdasda",
+Users = new(),
+Leagues = new(){ new() {Id = id, Name = "aa", IsMain = true, Type = LeagueType.League, Years = new(){new(){Id = id, Settings = LeagueSetting.Default, Teams = new(), Year = FantacalcioTime.ActualYear}}}}
+                                    });
                                 }
                                 catch (Exception ex)
                                 {
@@ -99,7 +106,8 @@
                                 SuperFastLog.Add(id, $"Update user {identity?.Username}");
                                 try
                                 {
-                                    return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
+                                    // return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
+                                    return Task.CompletedTask;
                                 }
                                 catch (Exception ex)
                                 {
