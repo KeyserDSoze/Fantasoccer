@@ -1,5 +1,6 @@
 ﻿@using Blazored.LocalStorage;
 @using Blazorise;
+@using Fantasoccer.Applications.App.Extensions;
 @using Microsoft.Identity.Abstractions;
 @using Microsoft.Identity.Web;
 <Blazorise.ThemeProvider Theme="@theme">
@@ -95,28 +96,37 @@
         {
             var authState = await authenticationState;
             var user = authState?.User;
-
+            var id = Guid.NewGuid().ToString();
+            SuperFastLog.Add(id, $"Check Identity");
             if (user?.Identity is not null && user.Identity.IsAuthenticated)
             {
+                SuperFastLog.Add(id, $"Identity is authenticated: {user.Identity.Name}");
                 var email = user.Claims.First(x => x.Type == "emails").Value;
                 try
                 {
                     identity = await Api.AppIdentity.GetAsync(email);
+                    if (identity != null)
+                        SuperFastLog.Add(id, $"Identity from server: {identity.Username}.");
+                    else
+                        SuperFastLog.Add(id, $"Identity from server is null.");
+                    if (identity == null)
+                    {
+                        SuperFastLog.Add(id, $"Identity was null.");
+                        identity = new AppIdentity
+                            {
+                                Email = email,
+                                Groups = new(),
+                                Username = email
+                            };
+                        await Api.AppIdentity.InsertAsync(email, identity);
+                        SuperFastLog.Add(id, $"Identity created.");
+                        NavigationManager.NavigateTo("../../settings", false);
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    SuperFastLog.Add(id, $"Exception: {ex.Message}");
                     NavigationManager.NavigateTo("../../MicrosoftIdentity/Account/SignIn");
-                }
-                if (identity == null)
-                {
-                    identity = new AppIdentity
-                        {
-                            Email = email,
-                            Groups = new(),
-                            Username = email
-                        };
-                    await Api.AppIdentity.InsertAsync(email, identity);
-                    NavigationManager.NavigateTo("../../settings", false);
                 }
             }
         }

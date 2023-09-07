@@ -57,15 +57,11 @@ namespace Fantasoccer.Applications.App.Extensions
         {
             var tokenResponse = await Try.WithDefaultOnCatchAsync(() => GetTokenAsync()).NoContext();
             var id = Guid.NewGuid().ToString();
-            SuperFastLog.Add(id, $"Request for {client.BaseAddress}");
-            SuperFastLog.Add(id, $"In error: {tokenResponse.Exception != null}");
-            SuperFastLog.Add(id, $"Gathered token: {tokenResponse?.Entity}");
             if (tokenResponse?.Exception == null && tokenResponse?.Entity != null)
             {
                 var splitted = tokenResponse.Entity.Split(' ');
                 var token = new JwtSecurityTokenHandler().ReadJwtToken(splitted[1]);
                 var emails = token.Claims.First(x => x.Type == "emails");
-                SuperFastLog.Add(id, $"Gathered token: {token}");
                 SuperFastLog.Add(id, $"Gathered email: {emails}");
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(splitted[0], splitted[1]);
             }
