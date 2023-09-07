@@ -5,7 +5,7 @@
 {
     foreach (var logg in log)
     {
-        <Div Style="position:relative;float:left;width:100%">@logg.Message (@logg.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"))</Div>
+        <Div Style="position:relative;float:left;width:100%;font-size:8px;">@logg.Message (@logg.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"))</Div>
     }
     <Divider DividerType="DividerType.Dashed" />
 }
