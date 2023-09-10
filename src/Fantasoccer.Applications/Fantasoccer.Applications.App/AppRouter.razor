@@ -44,87 +44,80 @@
 
     protected override async Task OnInitializedAsync()
     {
-//         if (authenticationState is not null)
-//         {
-//             var authState = await authenticationState;
-//             var user = authState?.User;
-//             var id = Guid.NewGuid().ToString();
-//             SuperFastLog.Add(id, $"Check Identity");
-//             if (user?.Identity is not null && user.Identity.IsAuthenticated)
-//             {
-//                 SuperFastLog.Add(id, $"Identity is authenticated: {user.Identity.Name}");
-//                 var email = user.Claims.First(x => x.Type == "emails").Value;
-//                 try
-//                 {
-//                     var identity = await Api.AppIdentity.GetAsync(email);
-//                     if (identity != null)
-//                         SuperFastLog.Add(id, $"Identity from server: {identity.Username}.");
-//                     else
-//                         SuperFastLog.Add(id, $"Identity from server is null.");
-//                     if (identity == null)
-//                     {
-//                         SuperFastLog.Add(id, $"Identity was null.");
-//                         identity = new AppIdentity
-//                             {
-//                                 Email = email,
-//                                 Groups = new(),
-//                                 Username = email
-//                             };
-//                         await Api.AppIdentity.InsertAsync(email, identity);
-//                         SuperFastLog.Add(id, $"Identity created.");
-//                         NavigationManager?.NavigateTo("../../settings", false);
-//                     }
-//                     state = new FantasoccerState()
-//                         {
-//                             AppUiUpdate = () =>
-//                             {
-//                                 StateHasChanged();
-//                                 SuperFastLog.Add(id, $"State update.");
-//                             },
-//                             GetGroup = (groupId) =>
-//                             {
-//                                 SuperFastLog.Add(id, $"Get group {groupId}");
-//                                 try
-//                                 {
-//                                     // return Api.Groups.GetAsync(groupId);
-//                                     return Task.FromResult(new Group
-//                                     {
-// Id = Guid.NewGuid().ToString(),
-// Name = "dasdasda",
-// Users = new(),
-// Leagues = new(){ new() {Id = id, Name = "aa", IsMain = true, Type = LeagueType.League, Years = new(){new(){Id = id, Settings = LeagueSetting.Default, Teams = new(), Year = FantacalcioTime.ActualYear}}}}
-//                                     });
-//                                 }
-//                                 catch (Exception ex)
-//                                 {
-//                                     SuperFastLog.Add(id, $"Getting group {ex.Message}");
-//                                     return Task.FromResult(default(Group));
-//                                 }
-//                             },
-//                             UpdateState = (identity) =>
-//                             {
-//                                 SuperFastLog.Add(id, $"Update user {identity?.Username}");
-//                                 try
-//                                 {
-//                                     // return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
-//                                     return Task.CompletedTask;
-//                                 }
-//                                 catch (Exception ex)
-//                                 {
-//                                     SuperFastLog.Add(id, $"Getting group {ex.Message}");
-//                                     return Task.CompletedTask;
-//                                 }
-//                             }
-//                         };
-//                     await state.SetIdentityAsync(identity);
-//                 }
-//                 catch (Exception ex)
-//                 {
-//                     SuperFastLog.Add(id, $"Exception: {ex.Message}");
-//                     NavigationManager?.NavigateTo("../../MicrosoftIdentity/Account/SignIn");
-//                 }
-//             }
-        // }
+        if (authenticationState is not null)
+        {
+            var authState = await authenticationState;
+            var user = authState?.User;
+            var id = Guid.NewGuid().ToString();
+            SuperFastLog.Add(id, $"Check Identity");
+            if (user?.Identity is not null && user.Identity.IsAuthenticated)
+            {
+                SuperFastLog.Add(id, $"Identity is authenticated: {user.Identity.Name}");
+                var email = user.Claims.First(x => x.Type == "emails").Value;
+                try
+                {
+                    var identity = await Api.AppIdentity.GetAsync(email);
+                    if (identity != null)
+                        SuperFastLog.Add(id, $"Identity from server: {identity.Username}.");
+                    else
+                        SuperFastLog.Add(id, $"Identity from server is null.");
+                    if (identity == null)
+                    {
+                        SuperFastLog.Add(id, $"Identity was null.");
+                        identity = new AppIdentity
+                            {
+                                Email = email,
+                                Groups = new(),
+                                Username = email
+                            };
+                        await Api.AppIdentity.InsertAsync(email, identity);
+                        SuperFastLog.Add(id, $"Identity created.");
+                        NavigationManager?.NavigateTo("../../settings", false);
+                    }
+                    state = new FantasoccerState()
+                        {
+                            AppUiUpdate = () =>
+                            {
+                                StateHasChanged();
+                                SuperFastLog.Add(id, $"State update.");
+                            },
+                            GetGroup = (groupId) =>
+                            {
+                                SuperFastLog.Add(id, $"Get group {groupId}");
+                                try
+                                {
+                                    return Api.Groups.GetAsync(groupId);
+                                }
+                                catch (Exception ex)
+                                {
+                                    SuperFastLog.Add(id, $"Getting group {ex.Message}");
+                                    return Task.FromResult(default(Group));
+                                }
+                            },
+                            UpdateState = (identity) =>
+                            {
+                                SuperFastLog.Add(id, $"Update user {identity?.Username}");
+                                try
+                                {
+                                    // return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
+                                    return Task.CompletedTask;
+                                }
+                                catch (Exception ex)
+                                {
+                                    SuperFastLog.Add(id, $"Getting group {ex.Message}");
+                                    return Task.CompletedTask;
+                                }
+                            }
+                        };
+                    await state.SetIdentityAsync(identity);
+                }
+                catch (Exception ex)
+                {
+                    SuperFastLog.Add(id, $"Exception: {ex.Message}");
+                    NavigationManager?.NavigateTo("../../MicrosoftIdentity/Account/SignIn");
+                }
+            }
+        }
         await base.OnInitializedAsync();
     }
 }

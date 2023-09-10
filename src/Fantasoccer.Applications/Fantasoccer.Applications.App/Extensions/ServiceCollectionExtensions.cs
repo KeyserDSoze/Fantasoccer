@@ -16,27 +16,6 @@ namespace Fantasoccer.Applications.App.Extensions
             => Logs.Add(new(correlationId, message));
     }
 
-    public class Rootobject
-    {
-        public string idp { get; set; }
-        public string name { get; set; }
-        public string oid { get; set; }
-        public string sub { get; set; }
-        public string given_name { get; set; }
-        public string family_name { get; set; }
-        public string[] emails { get; set; }
-        public string tfp { get; set; }
-        public string nonce { get; set; }
-        public string scp { get; set; }
-        public string azp { get; set; }
-        public string ver { get; set; }
-        public int iat { get; set; }
-        public string aud { get; set; }
-        public int exp { get; set; }
-        public string iss { get; set; }
-        public int nbf { get; set; }
-    }
-
     internal sealed class TokenManager : ITokenManager
     {
 

@@ -34,14 +34,14 @@ jobs:
     inputs:
       SourceFolder: 'ops/prod/app/'
       Contents: 'appsettings.json'
-      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Test/"
+      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.App/"
       OverWrite: true
 
   - template: ../template/dotnet-build.yml
     parameters:
       buildMode: "release"
-      workingDirectory: "$(srcPath)/Fantasoccer.Applications/Test/"
-      projects: "Test.csproj"
+      workingDirectory: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.App/"
+      projects: "Fantasoccer.Applications.App.csproj"
       executeAllTests: false
       sdkVersion: "7.x"
       artifactName: "fantasoccer_app"
