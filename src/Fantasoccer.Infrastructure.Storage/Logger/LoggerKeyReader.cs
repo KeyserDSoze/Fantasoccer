@@ -4,13 +4,13 @@ namespace Fantasoccer.Infrastructure.Storage.Logger
 {
     internal sealed class LoggerKeyReader : ITableStorageKeyReader<FantasoccerLog, string>
     {
-        public (string PartitionKey, string RowKey) Read(string key)
+        public (string PartitionKey, string RowKey) Read(string key, TableStorageSettings<FantasoccerLog, string> settings)
         {
             var splitted = key.Split("_-_");
             return (splitted[0], splitted.Length > 1 ? splitted[1] : string.Empty);
         }
 
-        public string Read(FantasoccerLog entity)
+        public string Read(FantasoccerLog entity, TableStorageSettings<FantasoccerLog, string> settings)
         {
             return $"{entity.PrimaryKey}_-_{entity.SecondaryKey}";
         }
