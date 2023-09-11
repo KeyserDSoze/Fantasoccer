@@ -1,0 +1,98 @@
+﻿@using Blazorise.Components
+@using Blazorise.LoadingIndicator;
+
+@if (CanCreateNewGroup)
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                    <Field>
+                        @if (State?.SelectedGroup?.Baskets?.Any() == true)
+                        {
+                            <Select TValue="string" SelectedValue="@GroupsManagerState.BasketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
+                                @foreach (var basket in State.SelectedGroup.Baskets)
+                                {
+                                    <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
+                                }
+                            </Select>
+                        }
+                    </Field>
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Nome basket</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+             </Validations>
+         </Fields>
+         <Button Color="Color.Primary" Clicked="@CreateNewBasket">
+             Crea nuovo basket
+         </Button>
+     </Column>
+ </Row>
+}
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public bool CanCreateNewGroup { get; set; }
+    [Parameter]
+    public required Func<Task> SaveAsync { get; set; }
+    [Parameter]
+    public required GroupsManagerState GroupsManagerState { get; set; }
+    private string? newBasketName;
+    private Validations? ValidationsRefForBasket { get; set; }
+
+    protected override Task OnParametersSetAsync()
+    {
+        GroupsManagerState.Teams = State?.GetTeamsFromBasket(State?.GroupId, GroupsManagerState.BasketId, State?.Year ?? FantacalcioTime.ActualYear)?.ToList();
+        return base.OnParametersSetAsync();
+    }
+    private async Task CreateNewBasket()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForBasket != null)
+        {
+            if (await ValidationsRefForBasket.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
+                {
+                    GroupsManagerState.BasketId = Guid.NewGuid().ToString();
+                    var teams = new List<AnnualTeam>();
+                    GroupsManagerState.Teams = teams;
+                    var basket = new Basket
+                        {
+                            Id = GroupsManagerState.BasketId,
+                            Name = newBasketName,
+                            Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = teams } }
+                        };
+                    State.SelectedGroup!.Baskets.Add(basket);
+                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                }
+                await ValidationsRefForBasket.ClearAll();
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private void OnSelectedBasketChanged(string id)
+    {
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && State.SelectedGroup != null)
+        {
+            GroupsManagerState.BasketId = id;
+            GroupsManagerState.Teams = State?.GetTeamsFromBasket(State?.GroupId, GroupsManagerState.BasketId, State?.Year ?? FantacalcioTime.ActualYear)?.ToList(); ;
+        }
+        LoadingIndicator?.Hide();
+    }
+}

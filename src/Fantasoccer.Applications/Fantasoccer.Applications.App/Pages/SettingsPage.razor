@@ -13,7 +13,7 @@
                      <Field ColumnSize="ColumnSize.IsHalf">
                          <FieldLabel>Username</FieldLabel>
                          <FieldBody>
-                             <TextEdit @bind-Text="@State.Identity.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
+                             <TextEdit @bind-Text="@State.Identity!.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
                                  <Feedback>
                                      <ValidationError />
                                  </Feedback>
@@ -22,24 +22,17 @@
                      </Field>
                  </Validation>
              </Validations>
-             @if (actualGroup != null)
+             @if (State?.SelectedGroup != null)
                 {
-                    @foreach (var team in actualGroup.Teams)
+                    @foreach (var team in State.YourTeams)
                     {
-                        <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="actualGroup" ValidateOnLoad="false">
-                            <Validation>
-                                <Field ColumnSize="ColumnSize.IsHalf">
-                                    <FieldLabel>Team Name</FieldLabel>
-                                    <FieldBody>
-                                        <TextEdit @bind-Text="@team.Name">
-                                            <Feedback>
-                                                <ValidationError />
-                                            </Feedback>
-                                        </TextEdit>
-                                    </FieldBody>
-                                </Field>
-                            </Validation>
-                        </Validations>
+                        <Field ColumnSize="ColumnSize.IsHalf">
+                            <FieldLabel>Team Name</FieldLabel>
+                            <FieldBody>
+                                <TextEdit @bind-Text="@team.Name">
+                                </TextEdit>
+                            </FieldBody>
+                        </Field>
                     }
                 }
             </Fields>
@@ -57,64 +50,36 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private GroupForIdentity? actualGroup;
     private Validations? ValidationsRef { get; set; }
 
-    protected override Task OnParametersSetAsync()
-    {
-        if (State?.IsAuthenticated == true)
-        {
-            LoadingIndicator?.Show();
-            actualGroup = State.Identity!.Groups.FirstOrDefault(x => x.Id == State.GroupId);
-            LoadingIndicator?.Hide();
-        }
-        return base.OnParametersSetAsync();
-    }
     async Task OnSaveClicked()
     {
         if (ValidationsRef != null)
         {
             if (await ValidationsRef.ValidateAll())
             {
-                if (MessageService != null)
-                    await MessageService.Info("Salvato tutto correttamente.");
                 if (State?.IsAuthenticated == true)
                 {
-                    if (await Api.AppIdentity.UpdateAsync(State.Identity!.Email, State.Identity))
+                    if (await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup))
                     {
-                        if (actualGroup != null)
+                        foreach (var team in State!.MyTeams)
                         {
-                            var theGroup = await Api.Groups.GetAsync(actualGroup.Id);
-                            if (theGroup != null)
+                            var key = State.OtherTeamKey(team.Owner);
+                            var actualTeam = await Api.Team.GetAsync(key);
+                            if (actualTeam == null)
                             {
-                                foreach (var teamInBasket in actualGroup.Teams)
-                                {
-                                    foreach (var team in theGroup.Baskets
-                                            .Where(x => x.Id == teamInBasket.BasketId)
-                                            .SelectMany(x => x.Years)
-                                            .Where(x => x.Year == FantacalcioTime.ActualYear)
-                                            .SelectMany(x => x.Teams)
-                                            .Where(x => x.IsOwner(State.Identity.Email)))
+                                actualTeam = new Team
                                     {
-                                        team.Name = teamInBasket.Name;
-                                        var teamForGroup = await Api.Team.GetAsync(State.TeamKey);
-                                        if (teamForGroup == null)
-                                        {
-                                            teamForGroup = new Team
-                                                {
-                                                    Name = teamInBasket.Name,
-                                                    Owner = State.Identity.Email,
-                                                    Players = new()
-                                                };
-                                            await Api.Team.InsertAsync(State.TeamKey, teamForGroup);
-                                        }
-                                        else
-                                        {
-                                            teamForGroup.Name = teamInBasket.Name;
-                                            await Api.Team.UpdateAsync(State.TeamKey, teamForGroup);
-                                        }
-                                    }
-                                }
+                                        Name = team.Name,
+                                        Owner = team.Owner,
+                                        Players = new()
+                                    };
+                                await Api.Team.InsertAsync(State.TeamKey, actualTeam);
+                            }
+                            else
+                            {
+                                actualTeam.Name = team.Name;
+                                await Api.Team.UpdateAsync(State.TeamKey, actualTeam);
                             }
                         }
                         State.UpdateUi();

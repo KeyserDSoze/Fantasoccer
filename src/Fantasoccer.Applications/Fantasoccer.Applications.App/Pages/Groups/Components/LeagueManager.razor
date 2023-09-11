@@ -1,0 +1,162 @@
+﻿@using Blazorise.LoadingIndicator;
+
+@if (CanCreateNewGroup)
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRefForLeague" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        @if (State?.SelectedGroup?.Leagues?.Any() == true)
+                        {
+                            <Select TValue="string" SelectedValue="@State.LeagueId" SelectedValueChanged="@OnSelectedLeagueChanged" Width="Width.Is50">
+                                @foreach (var league in State.SelectedGroup.Leagues)
+                                {
+                                    <SelectItem Value="@league.Id">@league.Name</SelectItem>
+                                }
+                            </Select>
+                        }
+                    </Field>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <Validation UsePattern>
+                         <FieldLabel>Nome lega</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@newLeagueName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Validation>
+                 </Field>
+             </Validations>
+         </Fields>
+         <Button Color="Color.Primary" Clicked="@CreateNewLeague">
+             Crea nuova lega
+         </Button>
+     </Column>
+ </Row>
+
+    @if (State.HasALeague)
+    {
+        <Check TValue="bool" Checked="@(State.League!.IsMain)"
+               CheckedChanged="@((x) => State.League.IsMain = x)">Is Main</Check>
+        <Row>
+            <Column>
+                <Fields>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Nome lega</FieldLabel>
+                        <FieldBody>
+                            <TextEdit @bind-Text="State.League.Name">
+                                <Feedback>
+                                    <ValidationError />
+                                </Feedback>
+                            </TextEdit>
+                        </FieldBody>
+                    </Field>
+                </Fields>
+                <Fields>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Tipo di lega</FieldLabel>
+                        <FieldBody>
+                            <Select TValue="LeagueType" @bind-SelectedValue="State.League.Type">
+                                <SelectItem Value="LeagueType.League">Lega</SelectItem>
+                                <SelectItem Value="LeagueType.Cup">Coppa</SelectItem>
+                            </Select>
+                        </FieldBody>
+                    </Field>
+                </Fields>
+                <Button Color="Color.Primary" Clicked="@SaveAsync">
+                    Salva
+                </Button>
+                <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
+                    Create new calendar
+                </Button>
+            </Column>
+        </Row>
+    }
+}
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public bool CanCreateNewGroup { get; set; }
+    [Parameter]
+    public required Func<Task> SaveAsync { get; set; }
+    private Validations? ValidationsRefForLeague { get; set; }
+    private string? newLeagueName { get; set; }
+    private async Task CreateNewLeague()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForLeague != null)
+            if (await ValidationsRefForLeague.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newLeagueName != null && State.HasAGroup)
+                {
+                    var leagueId = Guid.NewGuid().ToString();
+                    var league = new League
+                        {
+                            Id = leagueId,
+                            IsMain = true,
+                            Type = LeagueType.League,
+                            Years = new List<AnnualLeague>
+                            {
+                                new AnnualLeague
+                                {
+                                    BasketsId = new(),
+                                    Settings = LeagueSetting.Default,
+                                    Year = FantacalcioTime.ActualYear
+                                }
+                            },
+                            Name = newLeagueName,
+                        };
+                    State.SelectedGroup!.Leagues.Add(league);
+                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                    await State.ChangeLeagueAsync(leagueId);
+                }
+                await ValidationsRefForLeague.ClearAll();
+            }
+        LoadingIndicator?.Hide();
+    }
+    private void OnSelectedLeagueChanged(string leagueId)
+    {
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && State.SelectedGroup != null)
+        {
+            State.ChangeLeagueAsync(leagueId);
+        }
+        LoadingIndicator?.Hide();
+    }
+    [Inject]
+    public required IRandomCalendar RandomCalendar { get; set; }
+    [Inject]
+    public required IRankCalculator RankCalculator { get; set; }
+    private async ValueTask CreateCalendarAndRankAsync()
+    {
+        LoadingIndicator?.Show();
+        if (State?.AnnualLeague != null && State?.League != null && State.Teams != null)
+        {
+            if (!await Api.Calendar.ExistAsync(State.LeagueKey))
+            {
+                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.League.Type, State.AnnualLeague, State.Teams);
+                await Api.Calendar.InsertAsync(State.LeagueKey, calendar);
+            }
+            if (await Api.Calendar.ExistAsync(State.LeagueKey))
+            {
+                var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+                var rank = RankCalculator.GetRank(State?.LeagueSettings ?? LeagueSetting.Default, calendar, State.League.Type);
+                if (await Api.Ranks.ExistAsync(State.LeagueKey))
+                {
+                    await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
+                }
+                else
+                {
+                    await Api.Ranks.InsertAsync(State.LeagueKey, rank);
+                }
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+}

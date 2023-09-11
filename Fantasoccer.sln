@@ -61,7 +61,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "App", "App", "{D5A54E23-3A9
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "src\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{B796A215-C3CC-42C0-B778-AAA129D86AB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "src\Fantasoccer.Applications\Test\Test.csproj", "{A670A1D5-0776-4591-9BB0-5E34F1EE07DE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "src\Fantasoccer.Applications\Test\Test.csproj", "{A670A1D5-0776-4591-9BB0-5E34F1EE07DE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

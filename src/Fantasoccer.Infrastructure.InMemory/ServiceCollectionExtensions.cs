@@ -165,8 +165,10 @@ namespace Fantasoccer.InMemory
                     for (var i = 0; i < 20; i++)
                     {
                         var email = users[i];
-                        var leagues = new List<int>();
-                        leagues.Add(i % 2 + 1);
+                        var leagues = new List<int>
+                        {
+                            i % 2 + 1
+                        };
                         if (i < 16)
                         {
                             leagues.Add(3);
@@ -189,21 +191,9 @@ namespace Fantasoccer.InMemory
                                 Id = actualGroup.Id,
                                 Name = actualGroup.Name,
                                 Role = IdentityRole.Admin | IdentityRole.Participant,
-                                Leagues = new List<LeagueForIdentity>()
                             };
                             actualGroup.Users.Add(new UserOfAGroup { Email = email, Role = IdentityRole.Admin | IdentityRole.Participant, Username = username });
                             groups.Add(groupX);
-                            foreach (var league in builder.Second)
-                            {
-                                var actualLeague = actualGroup.Leagues[league - 1];
-                                groupX.Leagues.Add(new LeagueForIdentity
-                                {
-                                    Id = actualLeague.Id,
-                                    Name = actualLeague.Name,
-                                    Type = actualLeague.Type,
-                                    BasketsId = actualLeague.Years.Last().BasketsId
-                                });
-                            }
                         }
                         await repository!.InsertAsync(email, new AppIdentity
                         {
@@ -353,32 +343,6 @@ namespace Fantasoccer.InMemory
                         }
                         var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
                         var ranksForCreation = new List<LeagueForCreateRank>();
-                        foreach (var createdUser in createdUsers)
-                        {
-                            foreach (var groupForCreatedUser in createdUser.Groups)
-                            {
-                                foreach (var leagueForCreatedUser in groupForCreatedUser.Leagues)
-                                {
-                                    var leagueKey = new LeagueKey { Group = groupForCreatedUser.Id, League = leagueForCreatedUser.Id, Year = FantacalcioTime.ActualYear };
-                                    var league = ranksForCreation.FirstOrDefault(x => x.LeagueKey.Group == leagueKey.Group && x.LeagueKey.League == leagueKey.League);
-                                    if (league == null)
-                                    {
-                                        league = new LeagueForCreateRank
-                                        {
-                                            LeagueKey = leagueKey,
-                                            Teams = new(),
-                                            Type = leagueForCreatedUser.Type
-                                        };
-                                        ranksForCreation.Add(league);
-                                    }
-                                    league.Teams.Add(new AnnualTeam
-                                    {
-                                        Name = createdUser.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{createdUser.Username} Team",
-                                        Owner = createdUser.Email
-                                    });
-                                }
-                            }
-                        }
                         var randomCalendar = serviceProvider.GetRequiredService<IRandomCalendar>();
                         var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
                         foreach (var rankForCreation in ranksForCreation)

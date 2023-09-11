@@ -52,7 +52,7 @@
                                 All players
                             </BarLink>
                         </BarItem>
-                        @if (State?.IsAuthenticated == true)
+                        @if (State?.Groups != null && State.Identity != null)
                         {
                             <BarItem>
                                 <BarDropdown>
@@ -61,7 +61,7 @@
                                         Group
                                     </BarDropdownToggle>
                                     <BarDropdownMenu>
-                                        @foreach (var group in State.Identity.Groups)
+                                        @foreach (var group in State.Groups)
                                         {
                                             <BarDropdown>
                                                 <BarDropdownToggle>
@@ -77,12 +77,23 @@
                                                                 @league.Name
                                                             </BarDropdownToggle>
                                                             <BarDropdownMenu>
-                                                                @foreach (var team in group.Teams.Where(x => league.BasketsId.Contains(x.BasketId)))
-                                                                {
-                                                                    <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
-                                                                        <BarIcon IconName="IconName.DotCircle" />
-                                                                        @team.Name (@(team.Owner != State?.Identity?.Email ? team.Owner : string.Empty))
-                                                                    </BarDropdownItem>
+                                                                @{
+                                                                    var noTeams = true;
+                                                                    foreach (var team in State.GetTeams(group.Id, league.Id, State.Year, State.Identity.Email))
+                                                                    {
+                                                                        noTeams = false;
+                                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
+                                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                                            @team.Name (@(team.Owner != State?.Identity?.Email ? team.Owner : string.Empty))
+                                                                        </BarDropdownItem>
+                                                                    }
+                                                                    if (noTeams)
+                                                                    {
+                                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, State.Identity.Email)">
+                                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                                            Sbircia
+                                                                        </BarDropdownItem>
+                                                                    }
                                                                 }
                                                             </BarDropdownMenu>
                                                         </BarDropdown>
@@ -194,7 +205,21 @@
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
-
+    private List<Group> groups;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.Identity?.Groups != null)
+        {
+            groups = new();
+            foreach (var group in State.Identity.Groups)
+            {
+                var theGroup = await Api.Groups.GetAsync(group.Id);
+                if (theGroup != null)
+                    groups.Add(theGroup);
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
     LoadingIndicator loadingIndicator;
     private Bar? Sidebar;
     public void Toggle()

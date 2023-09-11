@@ -79,20 +79,20 @@ namespace Fantasoccer.Business
         {
             var dayToCreate = teamInGame - 1;
             var numberOfGameInSingleDay = teamInGame / 2;
-restart: Dictionary<int, List<int>> baseCalendar = GetCalendarBase(teamInGame);
+restart: var baseCalendar = GetCalendarBase(teamInGame);
             List<(int Day, int Round, (int TeamA, int TeamB, int Row) Game)> games = new();
             for (var i = 1; i <= dayToCreate; i++)
             {
                 List<int> exited = new();
                 for (var j = 0; j < numberOfGameInSingleDay; j++)
                 {
-                    var value = -1;
+                    int value;
                     do
                     {
                         value = GetRandom(teamInGame);
                     } while (exited.Contains(value));
                     exited.Add(value);
-                    var value2 = -1;
+                    int value2;
                     var counter = 0;
                     do
                     {

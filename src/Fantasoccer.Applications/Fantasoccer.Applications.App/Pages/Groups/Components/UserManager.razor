@@ -1,0 +1,142 @@
+﻿@using Blazorise.LoadingIndicator;
+@if (State?.HasAGroup == true && State.IsAdmin())
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRefForIdentity" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Email da aggiungere</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@newEmail" Pattern="@EmailPattern">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+             </Validations>
+         </Fields>
+         <Button Color="Color.Primary" Clicked="@AddNewUser">
+             Aggiungi user
+         </Button>
+     </Column>
+ </Row>
+    <Table Striped>
+     <TableHeader>
+         <TableRow>
+             <TableHeaderCell>Email</TableHeaderCell>
+             <TableHeaderCell>Username</TableHeaderCell>
+             <TableHeaderCell>Admin</TableHeaderCell>
+             <TableHeaderCell>Participant</TableHeaderCell>
+             <TableHeaderCell>Reader</TableHeaderCell>
+             <TableHeaderCell>X</TableHeaderCell>
+         </TableRow>
+     </TableHeader>
+     <TableBody>
+         @foreach (var user in State.SelectedGroup.Users)
+            {
+                <TableRow>
+                    <TableRowHeader>@user.Email</TableRowHeader>
+                    <TableRowHeader>@user.Username</TableRowHeader>
+                    <TableRowCell>
+                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Admin))"
+                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Admin))"></Check>
+                    </TableRowCell>
+                    <TableRowCell>
+                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Participant))"
+                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Participant))"></Check>
+                    </TableRowCell>
+                    <TableRowCell>
+                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Reader))"
+                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Reader))"></Check>
+                    </TableRowCell>
+                    <TableRowCell>
+                        <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(user))">
+                            Cancella
+                        </Button>
+                    </TableRowCell>
+                </TableRow>
+            }
+        </TableBody>
+    </Table>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public required Func<Task> SaveAsync { get; set; }
+    private Validations? ValidationsRefForIdentity { get; set; }
+    private string? newEmail { get; set; }
+    private const string EmailPattern = @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$";
+    async Task AddNewUser()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForIdentity != null)
+            if (await ValidationsRefForIdentity.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newEmail != null && State.HasAGroup)
+                {
+                    var user = await Api.AppIdentity.GetAsync(newEmail);
+                    if (user == null)
+                    {
+                        user = new AppIdentity
+                            {
+                                Email = newEmail,
+                                Groups = new()
+                                {
+                                    State.SelectedGroup!.ToGroupIdentity(newEmail)
+                                },
+                                Username = newEmail
+                            };
+                        await Api.AppIdentity.InsertAsync(newEmail, user);
+                    }
+                    State.SelectedGroup.Users.Add(new UserOfAGroup
+                        {
+                            Email = user.Email,
+                            Role = IdentityRole.Reader,
+                            Username = user.Username
+                        });
+                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                    State.UpdateUi();
+                }
+                await ValidationsRefForIdentity.ClearAll();
+            }
+        LoadingIndicator?.Hide();
+    }
+    private async ValueTask DeleteAsync(UserOfAGroup user)
+    {
+        LoadingIndicator?.Show();
+        if (State?.HasAGroup == true)
+            State.SelectedGroup!.Users.Remove(user);
+        await SaveAsync();
+        LoadingIndicator?.Hide();
+    }
+    private async ValueTask ChangeRole(UserOfAGroup user, bool check, IdentityRole role)
+    {
+        if (State?.HasAGroup == true)
+        {
+            LoadingIndicator?.Show();
+            if (check)
+                user.Role |= role;
+            else
+                user.Role &= ~role;
+            await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
+            var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
+            if (toUpdateUser != null)
+            {
+                var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == State.SelectedGroup.Id);
+                if (groupToRemove != null)
+                    toUpdateUser.Groups.Remove(groupToRemove);
+                toUpdateUser.Groups.Add(State.SelectedGroup.ToGroupIdentity(toUpdateUser.Email));
+                await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
+            }
+            LoadingIndicator?.Hide();
+        }
+    }
+}

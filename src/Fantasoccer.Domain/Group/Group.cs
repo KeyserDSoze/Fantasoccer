@@ -25,50 +25,8 @@ namespace Fantasoccer
             {
                 Id = Id,
                 Name = Name,
-                Leagues = new(),
                 Role = Users.FirstOrDefault(x => x.Email == email)?.Role ?? IdentityRole.None,
-                Teams = new()
             };
-            var year = FantacalcioTime.ActualYear;
-            foreach (var basketId in Leagues
-                    .SelectMany(x => x.Years)
-                    .Where(x => x.Year == year)
-                    .SelectMany(x => x.BasketsId))
-            {
-                if (Baskets != null)
-                {
-                    foreach (var basketsForYear in Baskets)
-                    {
-                        if (basketsForYear.Years != null)
-                        {
-                            var basket = basketsForYear.Years.Find(x => x.Year == year);
-                            if (basket?.Teams != null)
-                            {
-                                foreach (var team in basket.Teams.Where(x => x.IsOwner(email)))
-                                {
-                                    group.Teams.Add(new BasketTeamForIdentity
-                                    {
-                                        BasketId = basketsForYear.Id,
-                                        BasketName = basketsForYear.Name,
-                                        Name = team.Name,
-                                        Owner = team.Owner
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            foreach (var league in Leagues)
-            {
-                group.Leagues.Add(new LeagueForIdentity
-                {
-                    Id = league.Id,
-                    Name = league.Name,
-                    Type = league.Type,
-                    BasketsId = league.Years.Find(x => x.Year == year)?.BasketsId ?? new()
-                });
-            }
             return group;
         }
     }

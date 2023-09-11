@@ -1,0 +1,201 @@
+﻿@using Blazorise.Components
+@using Blazorise.LoadingIndicator;
+
+@if (State != null && State?.IsAdmin() == true && State.SelectedGroup != null)
+{
+    if (GroupsManagerState.Teams != null)
+    {
+        <Table Striped>
+         <TableHeader>
+             <TableRow>
+                 <TableHeaderCell>Name</TableHeaderCell>
+                 <TableHeaderCell>Owner</TableHeaderCell>
+                 <TableHeaderCell>Co-owners</TableHeaderCell>
+                 <TableHeaderCell>X</TableHeaderCell>
+             </TableRow>
+         </TableHeader>
+         <TableBody>
+             @foreach (var team in GroupsManagerState.Teams)
+                {
+                    <TableRow>
+                        <TableRowHeader>@team.Name</TableRowHeader>
+                        <TableRowCell>
+                            <Select TValue="string"
+                                    SelectedValueChanged="(newOwner) => ChangeOwnerAsync(team.Owner, newOwner)"
+                                    Width="Width.Is50">
+                                @foreach (var user in State.SelectedGroup.Users)
+                                {
+                                    <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
+                                }
+                            </Select>
+                        </TableRowCell>
+                        <TableRowCell>
+                            <DropdownList TItem="UserOfAGroup" TValue="string"
+                                          Data="@State.SelectedGroup.Users"
+                                          TextField="@((item)=>item.Username)"
+                                          ValueField="@((item)=>item.Email)"
+                                          SelectionMode="DropdownListSelectionMode.Checkbox"
+                                          SelectedValuesChanged="(x) => ChangeCoOwnersAsync(team.Owner, x)"
+                                          Color="Color.Primary">
+                                Select co-owners
+                            </DropdownList>
+                        </TableRowCell>
+                        <TableRowCell>
+                            <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(team))">
+                                Cancella
+                            </Button>
+                        </TableRowCell>
+                    </TableRow>
+                }
+            </TableBody>
+        </Table>
+    }
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRefForNewTeam" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Nuovo team</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@newTeamName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+                 <Field ColumnSize="ColumnSize.IsHalf">
+                     <FieldLabel>Proprietario</FieldLabel>
+                     <FieldBody>
+                         <Select TValue="string"
+                                 SelectedValue="@owner"
+                                 Width="Width.Is50">
+                             @foreach (var user in State.SelectedGroup.Users)
+                                {
+                                    <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
+                                }
+                            </Select>
+                        </FieldBody>
+                    </Field>
+                </Validations>
+            </Fields>
+            <Button Color="Color.Primary" Clicked="@AddNewTeam">
+                Aggiungi un team al basket
+            </Button>
+        </Column>
+    </Row>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public required Func<Task> SaveAsync { get; set; }
+    [Parameter]
+    public required GroupsManagerState GroupsManagerState { get; set; }
+    private string? newBasketName;
+    private Validations? ValidationsRefForBasket { get; set; }
+    private string? newTeamName;
+    private Validations? ValidationsRefForNewTeam { get; set; }
+    private string? owner;
+    protected override Task OnParametersSetAsync()
+    {
+        owner = State?.SelectedGroup?.Users?.FirstOrDefault()?.Email;
+        return base.OnParametersSetAsync();
+    }
+    private async Task AddNewTeam()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForNewTeam != null)
+        {
+            if (await ValidationsRefForNewTeam.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup && owner != null)
+                {
+                    var team = new AnnualTeam
+                        {
+                            Name = newTeamName ?? $"{owner} team",
+                            Owner = owner
+                        };
+                    GroupsManagerState.Teams!.Add(team);
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                    {
+                        await Api.Team.InsertAsync(State.OtherTeamKey(owner), new()
+                            {
+                                Owner = owner,
+                                Name = newTeamName ?? $"{owner} Team",
+                                Players = new()
+                            });
+                    }
+
+                    await SaveAsync();
+                    newTeamName = null;
+                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                }
+                await ValidationsRefForNewTeam.ClearAll();
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private async ValueTask DeleteAsync(AnnualTeam team)
+    {
+        LoadingIndicator?.Show();
+        if (State != null)
+        {
+            if (State.HasAGroup && GroupsManagerState.Teams != null)
+                GroupsManagerState.Teams.Remove(team);
+            await SaveAsync();
+            if (await Api.Team.ExistAsync(State.OtherTeamKey(team.Owner)))
+                await Api.Team.DeleteAsync(State.OtherTeamKey(team.Owner));
+        }
+        LoadingIndicator?.Hide();
+    }
+
+    private async Task ChangeOwnerAsync(string email, string newOwnerEmail)
+    {
+        LoadingIndicator?.Show();
+        if (GroupsManagerState.Teams != null)
+        {
+            foreach (var team in GroupsManagerState.Teams.Where(x => x.Owner == email))
+            {
+                team.Owner = newOwnerEmail;
+                if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+                {
+                    var newTeam = await Api.Team.GetAsync(State.OtherTeamKey(email));
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(newOwnerEmail)))
+                    {
+                        newTeam.Owner = newOwnerEmail;
+                        if (await Api.Team.InsertAsync(State.OtherTeamKey(newOwnerEmail), newTeam))
+                        {
+                            await Api.Team.DeleteAsync(State.OtherTeamKey(email));
+                        }
+                    }
+                }
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private async Task ChangeCoOwnersAsync(string email, IReadOnlyList<string> emails)
+    {
+        LoadingIndicator?.Show();
+        if (GroupsManagerState.Teams != null)
+        {
+            foreach (var team in GroupsManagerState.Teams.Where(x => x.Owner == email))
+            {
+                team.AdditionalOwners = emails.ToList();
+                if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+                {
+                    var teamToUpdate = await Api.Team.GetAsync(State.OtherTeamKey(email));
+                    teamToUpdate.AdditionalOwners = emails.ToList();
+                    await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
+                }
+            }
+            await SaveAsync();
+        }
+        LoadingIndicator?.Hide();
+    }
+}

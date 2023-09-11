@@ -5,22 +5,11 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Applications.App
 {
-    public class FantasoccerStateManager
-    {
-        private readonly AuthenticationStateProvider _authenticationStateProvider;
-        private readonly IRepository<FantasoccerState, string> _repository;
-        public FantasoccerStateManager(AuthenticationStateProvider authenticationStateProvider,
-            IRepository<FantasoccerState, string> repository)
-        {
-            _authenticationStateProvider = authenticationStateProvider;
-            _repository = repository;
-        }
-    }
     public class FantasoccerState
     {
         public AppIdentity? Identity { get; private set; }
         public string? GroupId => Identity?.State?.GroupId ?? Identity?.Groups?.FirstOrDefault()?.Id;
-        public string? LeagueId => Identity?.State?.LeagueId ?? Identity?.Groups?.FirstOrDefault()?.Leagues?.FirstOrDefault()?.Id;
+        public string? LeagueId => Identity?.State?.LeagueId ?? SelectedGroup?.Leagues?.FirstOrDefault()?.Id;
         public int Year => Identity?.State?.Year ?? FantacalcioTime.ActualYear;
         public string? MeOrLeaderEmail => Identity?.State?.MeOrLeaderEmail ?? Identity?.Email;
         public bool IsAuthenticated => Identity != null;
@@ -47,36 +36,31 @@ namespace Fantasoccer.Applications.App
             }
             return Task.CompletedTask;
         }
-        private async ValueTask LoadGroupAsync(string? groupId)
-        {
-            if (groupId != null && GetGroup != null)
-            {
-                Group = await GetGroup(groupId);
-            }
-        }
         public async ValueTask SetIdentityAsync(AppIdentity? identity)
         {
             Identity = identity;
-            var groupId = Identity?.State?.GroupId ?? Identity?.Groups.FirstOrDefault()?.Id;
-            if (groupId != null)
+            if (GetGroup != null && Identity?.Groups != null)
             {
-                await LoadGroupAsync(groupId);
-                UpdateUi();
+                var groups = new List<Group>();
+                foreach (var group in Identity.Groups)
+                {
+                    var theGroup = await GetGroup(group.Id);
+                    if (theGroup != null)
+                        groups.Add(theGroup);
+                }
+                Groups = groups;
             }
+            UpdateUi();
         }
         public async ValueTask ChangeGroupAsync(string? groupId)
         {
-            if (groupId != null && groupId != GroupId && GetGroup != null)
+            if (groupId != null && groupId != GroupId && GetGroup != null && Identity != null)
             {
-                await LoadGroupAsync(groupId);
-                if (Identity?.State?.GroupId != null)
-                {
-                    Identity!.State.GroupId = groupId;
-                    Identity!.State.LeagueId = Identity.Groups?.Find(x => x.Id == groupId)?.Leagues?.FirstOrDefault()?.Id;
-                    Identity!.State.MeOrLeaderEmail = Identity.Email;
-                    Identity!.State.Year = FantacalcioTime.ActualYear;
-                    await UpdateAsync();
-                }
+                Identity.State.GroupId = groupId;
+                Identity.State.LeagueId = SelectedGroup?.Leagues.FirstOrDefault()?.Id;
+                Identity.State.MeOrLeaderEmail = Identity.Email;
+                Identity.State.Year = FantacalcioTime.ActualYear;
+                await UpdateAsync();
                 UpdateUi();
             }
         }
@@ -92,10 +76,50 @@ namespace Fantasoccer.Applications.App
             }
             return Task.CompletedTask;
         }
-        public Group? Group { get; private set; }
-        public bool HasAGroup => Group != null;
+        public Group? SelectedGroup => Groups?.Find(x => x.Id == GroupId) ?? Groups?.FirstOrDefault();
+        public IEnumerable<AnnualTeam> YourTeams => GetTeams(GroupId, LeagueId, Year, Identity?.Email);
+        public IEnumerable<AnnualTeam> GetTeams(string? groupId, string? leagueId, int year, string? owner)
+        {
+            if (groupId != null && leagueId != null)
+            {
+                var group = Groups?.Find(x => x.Id == groupId);
+                var league = group?.Leagues?.Find(x => x.Id == leagueId)?.Years?.Find(x => x.Year == year);
+                if (league != null)
+                {
+                    foreach (var basketId in league.BasketsId)
+                    {
+                        var basket = group!.Baskets.Find(x => x.Id == basketId)?.Years?.Find(x => x.Year == year);
+                        if (basket != null)
+                        {
+                            foreach (var team in basket.Teams)
+                            {
+                                if (owner == null || team.IsOwner(owner))
+                                    yield return team;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        public IEnumerable<AnnualTeam> GetTeamsFromBasket(string? groupId, string? basketId, int year)
+        {
+            if (groupId != null && basketId != null)
+            {
+                var group = Groups?.Find(x => x.Id == groupId);
+                var basket = group?.Baskets?.Find(x => x.Id == basketId)?.Years?.Find(x => x.Year == year);
+                if (basket != null)
+                {
+                    foreach (var team in basket.Teams)
+                    {
+                        yield return team;
+                    }
+                }
+            }
+        }
+        public List<Group>? Groups { get; private set; }
+        public bool HasAGroup => SelectedGroup != null;
         public LeagueSetting? LeagueSettings => AnnualLeague?.Settings;
-        public League? League => LeagueId != null ? Group?.Leagues.Find(x => x.Id == LeagueId) : null;
+        public League? League => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
         public bool HasALeague => League != null;
         public AnnualLeague? AnnualLeague => League?.Years.Find(x => x.Year == Year);
         public Basket? Basket
@@ -103,9 +127,9 @@ namespace Fantasoccer.Applications.App
             get
             {
                 var league = AnnualLeague;
-                if (league != null && Group?.Baskets != null)
+                if (league != null && SelectedGroup?.Baskets != null)
                 {
-                    return Group.Baskets.Find(x => league.BasketsId.Contains(x.Id));
+                    return SelectedGroup.Baskets.Find(x => league.BasketsId.Contains(x.Id));
                 }
                 return null;
             }
@@ -149,7 +173,7 @@ namespace Fantasoccer.Applications.App
         {
             if (Identity == null)
                 return false;
-            return Group?.AdminUsers.Any(x => x.Email == Identity.Email) == true;
+            return SelectedGroup?.AdminUsers.Any(x => x.Email == Identity.Email) == true;
         }
         public AnnualLeague? GetLeague(Group group)
         {
