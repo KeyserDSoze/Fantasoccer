@@ -126,11 +126,20 @@ namespace Fantasoccer.InMemory
                             Id = $"Fantasoccer{i}",
                             Name = $"Fantasoccer{i}",
                             Leagues = new(),
-                            Users = new()
+                            Users = new(),
+                            Baskets = new(),
                         };
                         realGroups.Add(groupX);
                         for (var j = 1; j <= 4; j++)
                         {
+                            if (j == 1 || j == 2)
+                            {
+                                groupX.Baskets.Add(new Basket
+                                {
+                                    Id = $"Basket{j}",
+                                    Name = $"Liga {j}"
+                                });
+                            }
                             groupX.Leagues.Add(new League
                             {
                                 Id = $"Liga{j}Fantasoccer{i}",
@@ -144,10 +153,9 @@ namespace Fantasoccer.InMemory
                                 LeagueSetting.Default.DelayedDay = 1;
                                 groupX.Leagues.Last().Years.Add(new AnnualLeague
                                 {
-                                    Id = $"Liga{j}Fantasoccer{i}Year{k}",
                                     Year = k,
-                                    Teams = new(),
-                                    Settings = LeagueSetting.Default
+                                    Settings = LeagueSetting.Default,
+                                    BasketsId = new()
                                 });
                             }
                         }
@@ -193,6 +201,7 @@ namespace Fantasoccer.InMemory
                                     Id = actualLeague.Id,
                                     Name = actualLeague.Name,
                                     Type = actualLeague.Type,
+                                    BasketsId = actualLeague.Years.Last().BasketsId
                                 });
                             }
                         }
@@ -242,16 +251,24 @@ namespace Fantasoccer.InMemory
                                 allPlayers.Remove(x1);
                             }
                         }
+                        var totalTeams = 0;
                         foreach (var createdUser in createdUsers)
                         {
-                            await CreateTeamAsync(createdUser!);
+                            await CreateTeamAsync(createdUser!, totalTeams < 10 ? $"Basket1" : $"Basket2");
+                            totalTeams++;
                         }
-                        async Task CreateTeamAsync(AppIdentity identity)
+                        async Task CreateTeamAsync(AppIdentity identity, string basketId)
                         {
                             var theTeam = await CreateWithoutGroup();
                             foreach (var group in identity.Groups)
                             {
-                                var teamKey = new TeamKey { Email = identity.Email, Year = FantacalcioTime.ActualYear, Group = group.Id };
+                                var teamKey = new TeamKey
+                                {
+                                    Email = identity.Email,
+                                    Year = FantacalcioTime.ActualYear,
+                                    Group = group.Id,
+                                    BasketId = basketId
+                                };
                                 await teamRepository.InsertAsync(teamKey, theTeam);
                                 for (var ix = 1; ix <= 10; ix++)
                                 {
@@ -260,7 +277,8 @@ namespace Fantasoccer.InMemory
                                         Day = ix,
                                         Email = teamKey.Email,
                                         Group = teamKey.Group,
-                                        Year = teamKey.Year
+                                        Year = teamKey.Year,
+                                        BasketId = basketId
                                     };
                                     await teamDayRepository.InsertAsync(teamKeyX, theTeam);
                                 }
@@ -384,14 +402,13 @@ namespace Fantasoccer.InMemory
                         {
                             var finalCalendar = randomCalendar.GetRandomCalendar(2, league, new AnnualLeague
                             {
-                                Id = Guid.NewGuid().ToString(),
                                 Year = FantacalcioTime.ActualYear,
                                 Settings = new LeagueSetting
                                 {
                                     DelayedDay = 2
                                 },
-                                Teams = annualTeams
-                            });
+                                BasketsId = new()
+                            }, annualTeams);
                             return finalCalendar;
                         }
                         Rank GetRandomRank(List<AnnualTeam> teams, LeagueType type)

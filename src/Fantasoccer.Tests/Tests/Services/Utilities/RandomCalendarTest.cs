@@ -19,10 +19,10 @@ namespace Fantasoccer.Tests
         {
             var calendar = _randomCalendar.GetRandomCalendar(2, leagueType, new AnnualLeague
             {
-                Id = Guid.NewGuid().ToString(),
+                BasketsId = new List<string>(),
+                Year = FantacalcioTime.ActualYear,
                 Settings = LeagueSetting.Default,
-                Teams = _populationService.Populate(numberOfTeams)
-            });
+            }, _populationService.Populate(numberOfTeams));
 
             Assert.NotNull(calendar);
             Assert.Equal(calendar.Rounds.Count, rounds);

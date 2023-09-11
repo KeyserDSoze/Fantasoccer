@@ -6,6 +6,7 @@ namespace Fantasoccer
     {
         public string Name { get; set; }
         public string Owner { get; set; }
+        public List<string> AdditionalOwners { get; set; }
         public List<Player> Players { get; set; }
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);

@@ -36,8 +36,8 @@
                                    PagerOptions="new(){ ButtonSize=Size.Small }"
                                     Responsive>
                          <DataGridColumn Field="@nameof(StatPlayer.Name)" Caption="Name" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayerWithPrice.Price)" Caption="Price" Sortable Filterable />
-                         <DataGridColumn Field="RealTeam.Name" Caption="Team" Sortable Filterable />
+                             <DataGridColumn Field="@nameof(StatPlayerWithPrice.Price)" Caption="Price" Sortable Filterable />
+                             <DataGridColumn Field="RealTeam.Name" Caption="Team" Sortable Filterable />
                              <DataGridColumn Field="@nameof(StatPlayer.Average)" DisplayFormat="{0:N2}" Caption="Average" Sortable Filterable />
                              <DataGridColumn Field="@nameof(StatPlayer.FantaAverage)" DisplayFormat="{0:N2}" Caption="FantaAverage" Sortable Filterable />
                              <DataGridColumn Field="@nameof(StatPlayer.IsEnough)" Caption="Enough Count" Sortable Filterable />
@@ -76,10 +76,11 @@
             LoadingIndicator?.Show();
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
             teams = new();
-            if (playersWrapper != null)
+            var teamsInThisLeagueAndYear = State.Teams;
+            if (playersWrapper != null && teamsInThisLeagueAndYear != null)
             {
                 players = playersWrapper.Players;
-                foreach (var team in State.AnnualLeague.Teams)
+                foreach (var team in teamsInThisLeagueAndYear)
                 {
                     var actualTeam = await Api.Team.GetAsync(State.OtherTeamKey(team.Owner));
                     if (actualTeam != null)

@@ -34,7 +34,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<StatPlayersWrapper, int>(storageConnectionString);
             await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamKey>(storageConnectionString);
-            await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day");
+            await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day", "dailyteams");
             await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
             await services.AddBlobStorage<SerieATeamsWrapper, int>(storageConnectionString);
             await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
@@ -61,7 +61,8 @@ namespace Fantasoccer.Infrastructure
         }
         private static Task<IServiceCollection> AddBlobStorage<T, TKey>(this IServiceCollection services,
             string connectionString,
-            string? factoryName = null)
+            string? factoryName = null,
+            string? tableName = null)
             where TKey : notnull
         {
             return services.AddRepositoryAsync<T, TKey>(async builder =>
@@ -69,6 +70,8 @@ namespace Fantasoccer.Infrastructure
                  await builder.WithBlobStorageAsync(storageBuilder =>
                  {
                      storageBuilder.Settings.ConnectionString = connectionString;
+                     if (tableName != null)
+                         storageBuilder.Settings.ContainerName = tableName;
                  }, factoryName);
              });
         }

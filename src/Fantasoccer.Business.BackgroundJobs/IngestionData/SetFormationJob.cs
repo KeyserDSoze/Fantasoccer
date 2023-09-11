@@ -28,37 +28,41 @@ namespace Fantasoccer.Engine.IngestionData
             {
                 var listUpdated = new List<string>();
                 var groups = await _groups.ToListAsEntityAsync().NoContext();
-                foreach (var group in groups)
+                foreach (var group in groups.Where(x => x.Baskets != null))
                 {
-                    foreach (var teamOfTheYear in group.Leagues
-                        .SelectMany(x => x.Years)
-                        .Where(x => x.Year == FantacalcioTime.ActualYear)
-                        .SelectMany(x => x.Teams))
+                    foreach (var basket in group.Baskets.Where(x => x.Years != null))
                     {
-                        var nextKey = new TeamDayKey
+                        foreach (var teamOfTheYear in basket.Years
+                            .Where(x => x.Year == FantacalcioTime.ActualYear)
+                            .SelectMany(x => x.Teams))
                         {
-                            Year = FantacalcioTime.ActualYear,
-                            Day = calendar.LastDay.SerieADay + 1,
-                            Email = teamOfTheYear.Owner,
-                            Group = group.Name
-                        };
-                        if (!await _repository.ExistAsync(nextKey))
-                        {
-                            var key = new TeamDayKey
+                            var nextKey = new TeamDayKey
                             {
                                 Year = FantacalcioTime.ActualYear,
-                                Day = calendar.LastDay.SerieADay,
+                                Day = calendar.LastDay.SerieADay + 1,
                                 Email = teamOfTheYear.Owner,
-                                Group = group.Name
+                                Group = group.Name,
+                                BasketId = basket.Id
                             };
-                            var oldTeam = await _repository.GetAsync(key).NoContext();
-                            if (oldTeam != null)
+                            if (!await _repository.ExistAsync(nextKey))
                             {
-                                await _repository.UpdateAsync(nextKey, oldTeam).NoContext();
-                                listUpdated.Add(teamOfTheYear.Owner);
+                                var key = new TeamDayKey
+                                {
+                                    Year = FantacalcioTime.ActualYear,
+                                    Day = calendar.LastDay.SerieADay,
+                                    Email = teamOfTheYear.Owner,
+                                    Group = group.Name,
+                                    BasketId = basket.Id
+                                };
+                                var oldTeam = await _repository.GetAsync(key).NoContext();
+                                if (oldTeam != null)
+                                {
+                                    await _repository.UpdateAsync(nextKey, oldTeam).NoContext();
+                                    listUpdated.Add(teamOfTheYear.Owner);
+                                }
+                                else
+                                    await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {teamOfTheYear.Owner}").NoContext();
                             }
-                            else
-                                await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {teamOfTheYear.Owner}").NoContext();
                         }
                     }
                 }

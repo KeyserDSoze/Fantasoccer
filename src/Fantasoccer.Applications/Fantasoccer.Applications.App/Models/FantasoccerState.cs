@@ -22,12 +22,15 @@ namespace Fantasoccer.Applications.App
         public string? GroupId => Identity?.State?.GroupId ?? Identity?.Groups?.FirstOrDefault()?.Id;
         public string? LeagueId => Identity?.State?.LeagueId ?? Identity?.Groups?.FirstOrDefault()?.Leagues?.FirstOrDefault()?.Id;
         public int Year => Identity?.State?.Year ?? FantacalcioTime.ActualYear;
+        public string? MeOrLeaderEmail => Identity?.State?.MeOrLeaderEmail ?? Identity?.Email;
         public bool IsAuthenticated => Identity != null;
-        public Task ChangeLeagueAsync(string leagueId)
+        public Task ChangeTeamAsync(string groupId, string leagueId, string email)
         {
             if (IsAuthenticated)
             {
-                Identity!.State.LeagueId = leagueId;
+                Identity!.State.GroupId = groupId;
+                Identity.State.LeagueId = leagueId;
+                Identity.State.MeOrLeaderEmail = email;
                 Identity.State.Year = FantacalcioTime.ActualYear;
                 UpdateUi();
                 return UpdateAsync();
@@ -68,13 +71,26 @@ namespace Fantasoccer.Applications.App
                 await LoadGroupAsync(groupId);
                 if (Identity?.State?.GroupId != null)
                 {
-                    Identity.State.GroupId = groupId;
-                    Identity.State.LeagueId = Identity?.Groups?.Find(x => x.Id == groupId)?.Leagues?.FirstOrDefault()?.Id;
-                    Identity.State.Year = FantacalcioTime.ActualYear;
+                    Identity!.State.GroupId = groupId;
+                    Identity!.State.LeagueId = Identity.Groups?.Find(x => x.Id == groupId)?.Leagues?.FirstOrDefault()?.Id;
+                    Identity!.State.MeOrLeaderEmail = Identity.Email;
+                    Identity!.State.Year = FantacalcioTime.ActualYear;
                     await UpdateAsync();
                 }
                 UpdateUi();
             }
+        }
+        public Task ChangeLeagueAsync(string leagueId)
+        {
+            if (IsAuthenticated)
+            {
+                Identity!.State.LeagueId = leagueId;
+                Identity!.State.MeOrLeaderEmail = Identity.Email;
+                Identity!.State.Year = FantacalcioTime.ActualYear;
+                UpdateUi();
+                return UpdateAsync();
+            }
+            return Task.CompletedTask;
         }
         public Group? Group { get; private set; }
         public bool HasAGroup => Group != null;
@@ -82,7 +98,32 @@ namespace Fantasoccer.Applications.App
         public League? League => LeagueId != null ? Group?.Leagues.Find(x => x.Id == LeagueId) : null;
         public bool HasALeague => League != null;
         public AnnualLeague? AnnualLeague => League?.Years.Find(x => x.Year == Year);
-        public string TeamName => Identity != null ? AnnualLeague?.Teams.Find(x => x.Owner == Identity.Email)?.Name ?? string.Empty : string.Empty;
+        public Basket? Basket
+        {
+            get
+            {
+                var league = AnnualLeague;
+                if (league != null && Group?.Baskets != null)
+                {
+                    return Group.Baskets.Find(x => league.BasketsId.Contains(x.Id));
+                }
+                return null;
+            }
+        }
+        public YearlyBasket? YearlyBasket
+        {
+            get
+            {
+                var years = Basket?.Years;
+                if (years != null)
+                {
+                    return years.Find(x => x.Year == Year);
+                }
+                return null;
+            }
+        }
+        public List<AnnualTeam>? Teams => YearlyBasket?.Teams;
+        public IEnumerable<AnnualTeam>? MyTeams => Identity != null ? Teams?.Where(x => x.IsOwner(Identity.Email)) : null;
         public required Action AppUiUpdate { get; init; }
         public void UpdateUi()
         {
@@ -97,7 +138,13 @@ namespace Fantasoccer.Applications.App
         }
         public Func<string, Task<Group?>>? GetGroup { get; set; }
         public LeagueKey LeagueKey => new() { Group = GroupId!, League = LeagueId!, Year = Year };
-        public TeamKey TeamKey => new() { Group = GroupId!, Year = Year, Email = Identity?.Email! };
+        public TeamKey TeamKey => new()
+        {
+            Group = GroupId!,
+            Year = Year,
+            Email = MeOrLeaderEmail!,
+            BasketId = Basket?.Id!
+        };
         public bool IsAdmin()
         {
             if (Identity == null)
@@ -114,11 +161,18 @@ namespace Fantasoccer.Applications.App
             }
             return default;
         }
-        public TeamKey OtherTeamKey(string email) => new() { Group = GroupId!, Year = Year, Email = email };
+        public TeamKey OtherTeamKey(string email) => new()
+        {
+            Group = GroupId!,
+            Year = Year,
+            Email = email,
+            BasketId = Basket?.Id!,
+        };
         public TeamDayKey TeamDayKey(int day, string? email = null) => new()
         {
             Group = GroupId!,
-            Email = email ?? Identity?.Email!,
+            Email = email ?? MeOrLeaderEmail!,
+            BasketId = Basket?.Id!,
             Year = Year,
             Day = day
         };

@@ -182,14 +182,14 @@
     private List<ChancedRealPlayer>? chances;
     protected override async Task OnParametersSetAsync()
     {
-        if (State?.AnnualLeague != null && State?.IsAdmin() == true)
+        if (State?.Teams != null && State?.IsAdmin() == true)
         {
             LoadingIndicator?.Show();
             teams = new();
             visibilities = new();
             var allPlayersWrapper = await Api.RealPlayers.GetAsync(State.Year);
             allPlayers = allPlayersWrapper.Players.OrderBy(x => x.Role).ToList();
-            foreach (var team in State.AnnualLeague.Teams)
+            foreach (var team in State.Teams)
             {
                 var teamKey = State.OtherTeamKey(team.Owner);
                 var actualTeam = await Api.Team.GetAsync(teamKey);

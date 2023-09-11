@@ -9,6 +9,7 @@
 {
     @if (State.Identity!.Groups?.Any() == true)
     {
+        <Divider DividerType="DividerType.TextContent" Text="Groups" />
         <Select TValue="string" SelectedValue="@State.GroupId" SelectedValueChanged="@OnSelectedGroupChanged" Width="Width.Is50">
             @foreach (var group in State.Identity.Groups)
             {
@@ -18,6 +19,7 @@
     }
     @if (canCreateNewGroup)
     {
+        <Divider DividerType="DividerType.TextContent" Text="New group" />
         <Row>
             <Column>
                 <Fields>
@@ -44,6 +46,7 @@
     }
     @if (State.HasAGroup && State.IsAdmin())
     {
+        <Divider DividerType="DividerType.TextContent" Text="Manage users" />
         <Row>
             <Column>
                 <Fields>
@@ -67,8 +70,172 @@
              </Button>
          </Column>
      </Row>
+        <Divider DividerType="DividerType.TextContent" Text="User roles" />
+        <Table Striped>
+         <TableHeader>
+             <TableRow>
+                 <TableHeaderCell>Email</TableHeaderCell>
+                 <TableHeaderCell>Username</TableHeaderCell>
+                 <TableHeaderCell>Admin</TableHeaderCell>
+                 <TableHeaderCell>Participant</TableHeaderCell>
+                 <TableHeaderCell>Reader</TableHeaderCell>
+                 <TableHeaderCell>X</TableHeaderCell>
+             </TableRow>
+         </TableHeader>
+         <TableBody>
+             @foreach (var user in State.Group.Users)
+                {
+                    <TableRow>
+                        <TableRowHeader>@user.Email</TableRowHeader>
+                        <TableRowHeader>@user.Username</TableRowHeader>
+                        <TableRowCell>
+                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Admin))"
+                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Admin))"></Check>
+                        </TableRowCell>
+                        <TableRowCell>
+                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Participant))"
+                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Participant))"></Check>
+                        </TableRowCell>
+                        <TableRowCell>
+                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Reader))"
+                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Reader))"></Check>
+                        </TableRowCell>
+                        <TableRowCell>
+                            <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(user))">
+                                Cancella
+                            </Button>
+                        </TableRowCell>
+                    </TableRow>
+                }
+            </TableBody>
+        </Table>
+        @if (State.Group!.Baskets?.Any() == true)
+        {
+            <Divider DividerType="DividerType.TextContent" Text="Baskets" />
+            <Select TValue="string" SelectedValue="@basketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
+                @foreach (var basket in State.Group.Baskets)
+                {
+                    <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
+                }
+            </Select>
+        }
+
+        @if (canCreateNewGroup)
+        {
+            <Divider DividerType="DividerType.TextContent" Text="New basket" />
+            <Row>
+                <Column>
+                    <Fields>
+                        <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                            <Validation UsePattern>
+                             <Field ColumnSize="ColumnSize.IsHalf">
+                                 <FieldLabel>Nome basket</FieldLabel>
+                                 <FieldBody>
+                                     <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                         <Feedback>
+                                             <ValidationError />
+                                         </Feedback>
+                                     </TextEdit>
+                                 </FieldBody>
+                             </Field>
+                         </Validation>
+                     </Validations>
+                 </Fields>
+                 <Button Color="Color.Primary" Clicked="@CreateNewBasket">
+                     Crea nuovo basket
+                 </Button>
+             </Column>
+         </Row>
+        }
+
+        @if (annualTeams != null)
+        {
+            <Divider DividerType="DividerType.TextContent" Text="Teams for basket" />
+            <Table Striped>
+             <TableHeader>
+                 <TableRow>
+                     <TableHeaderCell>Name</TableHeaderCell>
+                     <TableHeaderCell>Owner</TableHeaderCell>
+                     <TableHeaderCell>Co-owners</TableHeaderCell>
+                     <TableHeaderCell>X</TableHeaderCell>
+                 </TableRow>
+             </TableHeader>
+             <TableBody>
+                 @foreach (var team in annualTeams)
+                    {
+                        <TableRow>
+                            <TableRowHeader>@team.Name</TableRowHeader>
+                            <TableRowCell>
+                                <Select TValue="string"
+                                        SelectedValueChanged="(newOwner) => ChangeOwnerAsync(team.Owner, newOwner)"
+                                        Width="Width.Is50">
+                                    @foreach (var user in State.Group.Users)
+                                    {
+                                        <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
+                                    }
+                                </Select>
+                            </TableRowCell>
+                            <TableRowCell>
+                                <DropdownList TItem="UserOfAGroup" TValue="string"
+                                              Data="@State.Group.Users"
+                                              TextField="@((item)=>item.Username)"
+                                              ValueField="@((item)=>item.Email)"
+                                              SelectionMode="DropdownListSelectionMode.Checkbox"
+                                              SelectedValuesChanged="(x) => ChangeCoOwnersAsync(team.Owner, x)"
+                                              Color="Color.Primary">
+                                    Select co-owners
+                                </DropdownList>
+                            </TableRowCell>
+                            <TableRowCell>
+                                <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(team))">
+                                    Cancella
+                                </Button>
+                            </TableRowCell>
+                        </TableRow>
+                    }
+                </TableBody>
+            </Table>
+            <Row>
+                <Column>
+                    <Fields>
+                        <Validations @ref="@ValidationsRefForNewTeam" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                            <Validation UsePattern>
+                             <Field ColumnSize="ColumnSize.IsHalf">
+                                 <FieldLabel>Nuovo team</FieldLabel>
+                                 <FieldBody>
+                                     <TextEdit @bind-Text="@newTeamName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                         <Feedback>
+                                             <ValidationError />
+                                         </Feedback>
+                                     </TextEdit>
+                                 </FieldBody>
+                             </Field>
+                             <Field ColumnSize="ColumnSize.IsHalf">
+                                 <FieldLabel>Proprietario</FieldLabel>
+                                 <FieldBody>
+                                     <Select TValue="string"
+                                             SelectedValue="@owner"
+                                             Width="Width.Is50">
+                                         @foreach (var user in State.Group.Users)
+                                            {
+                                                <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
+                                            }
+                                        </Select>
+                                    </FieldBody>
+                                </Field>
+                            </Validation>
+                        </Validations>
+                    </Fields>
+                    <Button Color="Color.Primary" Clicked="@AddNewTeam">
+                        Aggiungi un team al basket
+                    </Button>
+                </Column>
+            </Row>
+        }
+
         @if (State.Group!.Leagues?.Any() == true)
         {
+            <Divider DividerType="DividerType.TextContent" Text="Leagues" />
             <Select TValue="string" SelectedValue="@State.LeagueId" SelectedValueChanged="@OnSelectedLeagueChanged" Width="Width.Is50">
                 @foreach (var league in State.Group.Leagues)
                 {
@@ -79,6 +246,7 @@
 
         @if (canCreateNewGroup)
         {
+            <Divider DividerType="DividerType.TextContent" Text="New league" />
             <Row>
                 <Column>
                     <Fields>
@@ -104,58 +272,6 @@
          </Row>
         }
 
-        <Table Striped>
-         <TableHeader>
-             <TableRow>
-                 <TableHeaderCell>Email</TableHeaderCell>
-                 <TableHeaderCell>Username</TableHeaderCell>
-                 <TableHeaderCell>Admin</TableHeaderCell>
-                 <TableHeaderCell>Participant</TableHeaderCell>
-                 <TableHeaderCell>Reader</TableHeaderCell>
-                 @foreach (var league in State.Group.Leagues)
-                    {
-                        <TableHeaderCell>@league.Name</TableHeaderCell>
-                    }
-                    <TableHeaderCell>X</TableHeaderCell>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                @foreach (var user in State.Group.Users)
-                {
-                    <TableRow>
-                        <TableRowHeader>@user.Email</TableRowHeader>
-                        <TableRowHeader>@user.Username</TableRowHeader>
-                        <TableRowCell>
-                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Admin))"
-                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Admin))"></Check>
-                        </TableRowCell>
-                        <TableRowCell>
-                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Participant))"
-                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Participant))"></Check>
-                        </TableRowCell>
-                        <TableRowCell>
-                            <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Reader))"
-                                   CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Reader))"></Check>
-                        </TableRowCell>
-                        @if (State.Group.Leagues?.Any() == true)
-                        {
-                            @foreach (var league in State.Group.Leagues)
-                            {
-                                <TableRowCell>
-                                    <Check TValue="bool" Checked="@(league.Years.OrderByDescending(x => x.Year).First().Teams.Any(x => x.Owner == user.Email))"
-                                           CheckedChanged="@((x) => _ = SetParticipantAsync(user, league, x))"></Check>
-                                </TableRowCell>
-                            }
-                        }
-                        <TableRowCell>
-                            <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(user))">
-                                Cancella
-                            </Button>
-                        </TableRowCell>
-                    </TableRow>
-                }
-            </TableBody>
-        </Table>
         @if (State.HasALeague)
         {
             <Check TValue="bool" Checked="@(State.League!.IsMain)"
@@ -207,9 +323,16 @@
     private Validations? ValidationsRefForLeague { get; set; }
     private string? newLeagueName { get; set; }
     private Validations? ValidationsRefForIdentity { get; set; }
+    private string? newBasketName;
+    private Validations? ValidationsRefForBasket { get; set; }
+    private string? newTeamName;
+    private Validations? ValidationsRefForNewTeam { get; set; }
+    private string? owner;
     private string? newEmail { get; set; }
     private bool canCreateNewGroup;
     private const string EmailPattern = @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$";
+    private string? basketId;
+    private List<AnnualTeam>? annualTeams;
     protected override async Task OnParametersSetAsync()
     {
         if (State != null && State.Identity != null)
@@ -248,6 +371,16 @@
         if (State != null)
         {
 
+        }
+        LoadingIndicator?.Hide();
+    }
+    private void OnSelectedBasketChanged(string id)
+    {
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && State.Group != null)
+        {
+            basketId = id;
+            annualTeams = State.Group.Baskets.Find(x => x.Id == id)?.Years?.Find(x => x.Year == State.Year)?.Teams;
         }
         LoadingIndicator?.Hide();
     }
@@ -290,39 +423,11 @@
         await SaveAsync();
         LoadingIndicator?.Hide();
     }
-    private async ValueTask SetParticipantAsync(UserOfAGroup user, League league, bool x)
+    private async ValueTask DeleteAsync(AnnualTeam team)
     {
         LoadingIndicator?.Show();
-        var teams = league.Years.OrderByDescending(x => x.Year).First().Teams;
-        var team = teams.FirstOrDefault(x => x.Owner == user.Email);
-        if (x)
-        {
-            if (team == null)
-            {
-                teams.Add(new AnnualTeam { Owner = user.Email, Name = $"{user.Username} Team" });
-                if (!await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
-                {
-                    await Api.Team.InsertAsync(State.OtherTeamKey(user.Email), new()
-                        {
-                            Owner = user.Email,
-                            Name = $"{user.Username} Team",
-                            Players = new()
-                        });
-                }
-            }
-        }
-        else
-        {
-            if (team != null && State?.HasAGroup == true)
-            {
-                teams.Remove(team);
-                if (State != null && !State.Group!.Leagues.SelectMany(x => x.Years).Any(x => x.Year == FantacalcioTime.ActualYear && x.Teams.Any(t => t.Owner == user.Email)))
-                {
-                    if (await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
-                        await Api.Team.DeleteAsync(State.OtherTeamKey(user.Email));
-                }
-            }
-        }
+        if (State?.HasAGroup == true && annualTeams != null)
+            annualTeams.Remove(team);
         await SaveAsync();
         LoadingIndicator?.Hide();
     }
@@ -340,17 +445,11 @@
                             Id = groupId,
                             Leagues = new(),
                             Name = newGroupName,
+                            Baskets = new(),
                             Users = new List<UserOfAGroup> { new UserOfAGroup { Email = State.Identity!.Email, Username = State.Identity.Username, Role = IdentityRole.Admin } }
                         };
                     await Api.Groups.InsertAsync(groupId, group);
-                    State.Identity.Groups.Add(new GroupForIdentity
-                        {
-                            Id = groupId,
-                            Name = group.Name,
-                            Leagues = new(),
-                            Role = IdentityRole.Admin,
-                            TeamName = string.Empty
-                        });
+                    State.Identity.Groups.Add(group.ToGroupIdentity(State.Identity.Email));
                     await Api.AppIdentity.UpdateAsync(State.Identity.Email, State.Identity);
                     await State.ChangeGroupAsync(groupId);
                 }
@@ -372,7 +471,15 @@
                             Id = leagueId,
                             IsMain = true,
                             Type = LeagueType.League,
-                            Years = new List<AnnualLeague> { new AnnualLeague { Id = Guid.NewGuid().ToString(), Settings = LeagueSetting.Default, Teams = new(), Year = FantacalcioTime.ActualYear } },
+                            Years = new List<AnnualLeague>
+                            {
+                                new AnnualLeague
+                                {
+                                    BasketsId = new(),
+                                    Settings = LeagueSetting.Default,
+                                    Year = FantacalcioTime.ActualYear
+                                }
+                            },
                             Name = newLeagueName,
                         };
                     State.Group!.Leagues.Add(league);
@@ -380,6 +487,89 @@
                     State.ChangeLeagueAsync(leagueId);
                 }
                 await ValidationsRefForLeague.ClearAll();
+            }
+        LoadingIndicator?.Hide();
+    }
+    async Task CreateNewBasket()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForBasket != null)
+            if (await ValidationsRefForBasket.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
+                {
+                    basketId = Guid.NewGuid().ToString();
+                    annualTeams = new List<AnnualTeam>();
+                    var basket = new Basket
+                        {
+                            Id = basketId,
+                            Name = newBasketName,
+                            Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = annualTeams } }
+                        };
+                    State.Group!.Baskets.Add(basket);
+                    await Api.Groups.UpdateAsync(State.Group.Id, State.Group);
+                }
+                await ValidationsRefForBasket.ClearAll();
+            }
+        LoadingIndicator?.Hide();
+    }
+    async Task UpdateTeam(string owner)
+    {
+        LoadingIndicator?.Show();
+        // if (owner != null && State?.HasAGroup == true)
+        // {
+        //     annualTeams!.Add(team);
+        //     if (State != null &&
+        //         !State.Group!.Leagues.SelectMany(x => x.Years)
+        //         .Any(x => x.Year == FantacalcioTime.ActualYear && x.Teams.Any(t => t.Owner == user.Email)))
+        //     {
+        //         if (await Api.Team.ExistAsync(State.OtherTeamKey(user.Email)))
+        //             await Api.Team.DeleteAsync(State.OtherTeamKey(user.Email));
+        //     }
+        // }
+        LoadingIndicator?.Hide();
+    }
+    async Task DeleteTeam(string email)
+    {
+        LoadingIndicator?.Show();
+        if (email != null && State?.HasAGroup == true)
+        {
+            var annualTeam = annualTeams!.Find(x => x.Owner == email);
+            if (annualTeam != null)
+                annualTeams.Remove(annualTeam);
+            if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+                await Api.Team.DeleteAsync(State.OtherTeamKey(email));
+        }
+        LoadingIndicator?.Hide();
+    }
+    async Task AddNewTeam()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForNewTeam != null)
+            if (await ValidationsRefForNewTeam.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup && owner != null)
+                {
+                    var team = new AnnualTeam
+                        {
+                            Name = $"{owner} team",
+                            Owner = owner
+                        };
+                    annualTeams!.Add(team);
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                    {
+                        await Api.Team.InsertAsync(State.OtherTeamKey(owner), new()
+                            {
+                                Owner = owner,
+                                Name = $"{owner} Team",
+                                Players = new()
+                            });
+                    }
+
+                    await SaveAsync();
+                    await Api.Groups.UpdateAsync(State.Group.Id, State.Group);
+                }
+                await ValidationsRefForNewTeam.ClearAll();
             }
         LoadingIndicator?.Hide();
     }
@@ -426,11 +616,11 @@
     private async ValueTask CreateCalendarAndRankAsync()
     {
         LoadingIndicator?.Show();
-        if (State?.AnnualLeague != null && State?.League != null)
+        if (State?.AnnualLeague != null && State?.League != null && State.Teams != null)
         {
             if (!await Api.Calendar.ExistAsync(State.LeagueKey))
             {
-                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.League.Type, State.AnnualLeague);
+                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.League.Type, State.AnnualLeague, State.Teams);
                 await Api.Calendar.InsertAsync(State.LeagueKey, calendar);
             }
             if (await Api.Calendar.ExistAsync(State.LeagueKey))
@@ -446,6 +636,47 @@
                     await Api.Ranks.InsertAsync(State.LeagueKey, rank);
                 }
             }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private async Task ChangeOwnerAsync(string email, string newOwnerEmail)
+    {
+        LoadingIndicator?.Show();
+        foreach (var team in annualTeams.Where(x => x.Owner == email))
+        {
+            team.Owner = newOwnerEmail;
+            if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+            {
+                var newTeam = await Api.Team.GetAsync(State.OtherTeamKey(email));
+                if (!await Api.Team.ExistAsync(State.OtherTeamKey(newOwnerEmail)))
+                {
+                    newTeam.Owner = newOwnerEmail;
+                    if (await Api.Team.InsertAsync(State.OtherTeamKey(newOwnerEmail), newTeam))
+                    {
+                        await Api.Team.DeleteAsync(State.OtherTeamKey(email));
+                    }
+                }
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private async Task ChangeCoOwnersAsync(string email, IReadOnlyList<string> emails)
+    {
+        LoadingIndicator?.Show();
+        if (annualTeams != null)
+        {
+            foreach (var team in annualTeams.Where(x => x.Owner == email))
+            {
+                team.AdditionalOwners = emails.ToList();
+                if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+                {
+                    var teamToUpdate = await Api.Team.GetAsync(State.OtherTeamKey(email));
+
+                    teamToUpdate.AdditionalOwners = emails.ToList();
+                    await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
+                }
+            }
+            await SaveAsync();
         }
         LoadingIndicator?.Hide();
     }

@@ -4,9 +4,10 @@ namespace Fantasoccer
 {
     public class TeamDayKey : IDefaultKey
     {
-        public string Group { get; set; }
-        public int Year { get; set; }
-        public int Day { get; set; }
-        public string Email { get; set; }
+        public required string Group { get; set; }
+        public required int Year { get; set; }
+        public required string Email { get; set; }
+        public required string BasketId { get; set; }
+        public required int Day { get; set; }
     }
 }
