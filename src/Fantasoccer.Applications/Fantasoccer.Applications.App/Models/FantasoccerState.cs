@@ -1,9 +1,4 @@
-﻿using System.Linq.Expressions;
-using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Components.Authorization;
-using RepositoryFramework;
-
-namespace Fantasoccer.Applications.App
+﻿namespace Fantasoccer.Applications.App
 {
     public class FantasoccerState
     {
@@ -20,7 +15,8 @@ namespace Fantasoccer.Applications.App
                 Identity!.State.GroupId = groupId;
                 Identity.State.LeagueId = leagueId;
                 Identity.State.MeOrLeaderEmail = email;
-                Identity.State.Year = FantacalcioTime.ActualYear;
+                if (YearlyLeague == null)
+                    Identity.State.Year = FantacalcioTime.ActualYear;
                 UpdateUi();
                 return UpdateAsync();
             }
@@ -59,7 +55,8 @@ namespace Fantasoccer.Applications.App
                 Identity.State.GroupId = groupId;
                 Identity.State.LeagueId = SelectedGroup?.Leagues.FirstOrDefault()?.Id;
                 Identity.State.MeOrLeaderEmail = Identity.Email;
-                Identity.State.Year = FantacalcioTime.ActualYear;
+                if (YearlyLeague == null)
+                    Identity.State.Year = FantacalcioTime.ActualYear;
                 await UpdateAsync();
                 UpdateUi();
             }
@@ -70,7 +67,8 @@ namespace Fantasoccer.Applications.App
             {
                 Identity!.State.LeagueId = leagueId;
                 Identity!.State.MeOrLeaderEmail = Identity.Email;
-                Identity!.State.Year = FantacalcioTime.ActualYear;
+                if (YearlyLeague == null)
+                    Identity.State.Year = FantacalcioTime.ActualYear;
                 UpdateUi();
                 return UpdateAsync();
             }
@@ -101,7 +99,7 @@ namespace Fantasoccer.Applications.App
                 }
             }
         }
-        public IEnumerable<AnnualTeam> GetTeamsFromBasket(string? groupId, string? basketId, int year)
+        public List<AnnualTeam>? GetTeamsFromBasket(string? groupId, string? basketId, int year)
         {
             if (groupId != null && basketId != null)
             {
@@ -109,17 +107,32 @@ namespace Fantasoccer.Applications.App
                 var basket = group?.Baskets?.Find(x => x.Id == basketId)?.Years?.Find(x => x.Year == year);
                 if (basket != null)
                 {
-                    foreach (var team in basket.Teams)
+                    return basket.Teams;
+                }
+                else
+                {
+                    var basketX = group?.Baskets?.Find(x => x.Id == basketId);
+                    if (basketX != null)
                     {
-                        yield return team;
+                        if (basketX.Years == null)
+                            basketX.Years = new();
+                        var actualYear = basketX.Years.Find(x => x.Year == year);
+                        if (actualYear == null)
+                        {
+                            actualYear = new YearlyBasket { Teams = new(), Year = year };
+                            basketX.Years.Add(actualYear);
+                            return actualYear.Teams;
+                        }
                     }
                 }
             }
+            return null;
         }
         public List<Group>? Groups { get; private set; }
         public bool HasAGroup => SelectedGroup != null;
         public LeagueSetting? LeagueSettings => AnnualLeague?.Settings;
         public League? League => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
+        public AnnualLeague? YearlyLeague => League?.Years?.Find(x => x.Year == Year);
         public bool HasALeague => League != null;
         public AnnualLeague? AnnualLeague => League?.Years.Find(x => x.Year == Year);
         public Basket? Basket

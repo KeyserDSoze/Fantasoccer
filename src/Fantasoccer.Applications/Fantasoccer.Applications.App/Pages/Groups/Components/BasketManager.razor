@@ -6,18 +6,18 @@
     <Row>
         <Column>
             <Fields>
+                <Field>
+                    @if (State?.SelectedGroup?.Baskets?.Any() == true)
+                    {
+                        <Select TValue="string" SelectedValue="@basketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
+                            @foreach (var basket in State.SelectedGroup.Baskets)
+                            {
+                                <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
+                            }
+                        </Select>
+                    }
+                </Field>
                 <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
-                    <Field>
-                        @if (State?.SelectedGroup?.Baskets?.Any() == true)
-                        {
-                            <Select TValue="string" SelectedValue="@GroupsManagerState.BasketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
-                                @foreach (var basket in State.SelectedGroup.Baskets)
-                                {
-                                    <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
-                                }
-                            </Select>
-                        }
-                    </Field>
                     <Validation UsePattern>
                      <Field ColumnSize="ColumnSize.IsHalf">
                          <FieldLabel>Nome basket</FieldLabel>
@@ -27,16 +27,17 @@
                                      <ValidationError />
                                  </Feedback>
                              </TextEdit>
+                             <Button Color="Color.Primary" Clicked="@CreateNewBasket">
+                                 Crea nuovo basket
+                             </Button>
                          </FieldBody>
                      </Field>
                  </Validation>
              </Validations>
          </Fields>
-         <Button Color="Color.Primary" Clicked="@CreateNewBasket">
-             Crea nuovo basket
-         </Button>
      </Column>
  </Row>
+    <TeamsManager Teams="teams"></TeamsManager>
 }
 
 
@@ -47,16 +48,15 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Parameter]
     public bool CanCreateNewGroup { get; set; }
-    [Parameter]
-    public required Func<Task> SaveAsync { get; set; }
-    [Parameter]
-    public required GroupsManagerState GroupsManagerState { get; set; }
+    private string? basketId;
+    private List<AnnualTeam>? teams;
     private string? newBasketName;
     private Validations? ValidationsRefForBasket { get; set; }
 
     protected override Task OnParametersSetAsync()
     {
-        GroupsManagerState.Teams = State?.GetTeamsFromBasket(State?.GroupId, GroupsManagerState.BasketId, State?.Year ?? FantacalcioTime.ActualYear)?.ToList();
+        basketId = State?.SelectedGroup?.Baskets?.FirstOrDefault()?.Id;
+        teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
         return base.OnParametersSetAsync();
     }
     private async Task CreateNewBasket()
@@ -68,12 +68,11 @@
             {
                 if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
                 {
-                    GroupsManagerState.BasketId = Guid.NewGuid().ToString();
-                    var teams = new List<AnnualTeam>();
-                    GroupsManagerState.Teams = teams;
+                    basketId = Guid.NewGuid().ToString();
+                    teams = new List<AnnualTeam>();
                     var basket = new Basket
                         {
-                            Id = GroupsManagerState.BasketId,
+                            Id = basketId,
                             Name = newBasketName,
                             Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = teams } }
                         };
@@ -90,8 +89,8 @@
         LoadingIndicator?.Show();
         if (State?.IsAuthenticated == true && State.SelectedGroup != null)
         {
-            GroupsManagerState.BasketId = id;
-            GroupsManagerState.Teams = State?.GetTeamsFromBasket(State?.GroupId, GroupsManagerState.BasketId, State?.Year ?? FantacalcioTime.ActualYear)?.ToList(); ;
+            basketId = id;
+            teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
         }
         LoadingIndicator?.Hide();
     }

@@ -3,7 +3,7 @@
 
 @if (State != null && State?.IsAdmin() == true && State.SelectedGroup != null)
 {
-    if (GroupsManagerState.Teams != null)
+    if (Teams != null)
     {
         <Table Striped>
          <TableHeader>
@@ -15,12 +15,14 @@
              </TableRow>
          </TableHeader>
          <TableBody>
-             @foreach (var team in GroupsManagerState.Teams)
+             @foreach (var teamX in Teams)
                 {
+                    var team = teamX;
                     <TableRow>
                         <TableRowHeader>@team.Name</TableRowHeader>
                         <TableRowCell>
                             <Select TValue="string"
+                                    SelectedValue="team.Owner"
                                     SelectedValueChanged="(newOwner) => ChangeOwnerAsync(team.Owner, newOwner)"
                                     Width="Width.Is50">
                                 @foreach (var user in State.SelectedGroup.Users)
@@ -34,6 +36,7 @@
                                           Data="@State.SelectedGroup.Users"
                                           TextField="@((item)=>item.Username)"
                                           ValueField="@((item)=>item.Email)"
+                                          SelectedValues="team.AdditionalOwners"
                                           SelectionMode="DropdownListSelectionMode.Checkbox"
                                           SelectedValuesChanged="(x) => ChangeCoOwnersAsync(team.Owner, x)"
                                           Color="Color.Primary">
@@ -71,6 +74,7 @@
                      <FieldBody>
                          <Select TValue="string"
                                  SelectedValue="@owner"
+                                 SelectedValueChanged="x => owner = x"
                                  Width="Width.Is50">
                              @foreach (var user in State.SelectedGroup.Users)
                                 {
@@ -94,9 +98,7 @@
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Parameter]
-    public required Func<Task> SaveAsync { get; set; }
-    [Parameter]
-    public required GroupsManagerState GroupsManagerState { get; set; }
+    public required List<AnnualTeam> Teams { get; set; }
     private string? newBasketName;
     private Validations? ValidationsRefForBasket { get; set; }
     private string? newTeamName;
@@ -114,27 +116,37 @@
         {
             if (await ValidationsRefForNewTeam.ValidateAll())
             {
-                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup && owner != null)
+                if (State?.IsAuthenticated == true && State.HasAGroup && owner != null)
                 {
-                    var team = new AnnualTeam
-                        {
-                            Name = newTeamName ?? $"{owner} team",
-                            Owner = owner
-                        };
-                    GroupsManagerState.Teams!.Add(team);
-                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                    if (!Teams.Any(x => x.Owner == owner))
                     {
-                        await Api.Team.InsertAsync(State.OtherTeamKey(owner), new()
+                        newTeamName = string.IsNullOrWhiteSpace(newTeamName) ? $"{owner} team" : newTeamName;
+                        var team = new AnnualTeam
                             {
-                                Owner = owner,
-                                Name = newTeamName ?? $"{owner} Team",
-                                Players = new()
-                            });
+                                Name = newTeamName,
+                                Owner = owner
+                            };
+                        Teams!.Add(team);
+                        if (await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup))
+                        {
+                            var teamX = new Team()
+                                {
+                                    Owner = owner,
+                                    Name = newTeamName,
+                                    Players = new()
+                                };
+                            if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                            {
+                                await Api.Team.InsertAsync(State.OtherTeamKey(owner), teamX);
+                            }
+                            else
+                            {
+                                await Api.Team.UpdateAsync(State.OtherTeamKey(owner), teamX);
+                            }
+                        }
+                        newTeamName = string.Empty;
+                        State.AppUiUpdate();
                     }
-
-                    await SaveAsync();
-                    newTeamName = null;
-                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
                 }
                 await ValidationsRefForNewTeam.ClearAll();
             }
@@ -146,9 +158,8 @@
         LoadingIndicator?.Show();
         if (State != null)
         {
-            if (State.HasAGroup && GroupsManagerState.Teams != null)
-                GroupsManagerState.Teams.Remove(team);
-            await SaveAsync();
+            if (State.HasAGroup && Teams != null)
+                Teams.Remove(team);
             if (await Api.Team.ExistAsync(State.OtherTeamKey(team.Owner)))
                 await Api.Team.DeleteAsync(State.OtherTeamKey(team.Owner));
         }
@@ -158,9 +169,9 @@
     private async Task ChangeOwnerAsync(string email, string newOwnerEmail)
     {
         LoadingIndicator?.Show();
-        if (GroupsManagerState.Teams != null)
+        if (Teams != null && State != null && !Teams.Any(x => x.Owner == newOwnerEmail))
         {
-            foreach (var team in GroupsManagerState.Teams.Where(x => x.Owner == email))
+            foreach (var team in Teams.Where(x => x.Owner == email))
             {
                 team.Owner = newOwnerEmail;
                 if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
@@ -176,15 +187,16 @@
                     }
                 }
             }
+            await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
     }
     private async Task ChangeCoOwnersAsync(string email, IReadOnlyList<string> emails)
     {
         LoadingIndicator?.Show();
-        if (GroupsManagerState.Teams != null)
+        if (Teams != null)
         {
-            foreach (var team in GroupsManagerState.Teams.Where(x => x.Owner == email))
+            foreach (var team in Teams.Where(x => x.Owner == email))
             {
                 team.AdditionalOwners = emails.ToList();
                 if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
@@ -194,7 +206,7 @@
                     await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
                 }
             }
-            await SaveAsync();
+            await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
     }

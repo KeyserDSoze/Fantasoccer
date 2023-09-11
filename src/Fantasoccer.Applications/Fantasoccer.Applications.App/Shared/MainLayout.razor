@@ -64,7 +64,7 @@
                                         @foreach (var group in State.Groups)
                                         {
                                             <BarDropdown>
-                                                <BarDropdownToggle>
+                                                <BarDropdownToggle Class="@(State?.GroupId == group.Id ? "active" : string.Empty)">
                                                     <BarIcon IconName="IconName.Flag" />
                                                     @group.Name
                                                 </BarDropdownToggle>
@@ -72,7 +72,7 @@
                                                     @foreach (var league in group.Leagues)
                                                     {
                                                         <BarDropdown>
-                                                            <BarDropdownToggle>
+                                                            <BarDropdownToggle Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)">
                                                                 <BarIcon IconName="IconName.Flag" />
                                                                 @league.Name
                                                             </BarDropdownToggle>

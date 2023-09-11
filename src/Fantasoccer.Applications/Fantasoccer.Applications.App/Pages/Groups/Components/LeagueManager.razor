@@ -1,4 +1,5 @@
-﻿@using Blazorise.LoadingIndicator;
+﻿@using Blazorise.Components
+@using Blazorise.LoadingIndicator;
 
 @if (CanCreateNewGroup)
 {
@@ -54,8 +55,6 @@
                             </TextEdit>
                         </FieldBody>
                     </Field>
-                </Fields>
-                <Fields>
                     <Field ColumnSize="ColumnSize.IsHalf">
                         <FieldLabel>Tipo di lega</FieldLabel>
                         <FieldBody>
@@ -66,6 +65,210 @@
                         </FieldBody>
                     </Field>
                 </Fields>
+                <Fields>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <DropdownList TItem="Basket" TValue="string"
+                                      Data="State.SelectedGroup!.Baskets"
+                                      TextField="@((item)=>item.Name)"
+                                      ValueField="@((item)=>item.Id)"
+                                      SelectedValues="State.YearlyLeague!.BasketsId"
+                                      SelectionMode="DropdownListSelectionMode.Checkbox"
+                                      SelectedValuesChanged="(x) => ChangeBasketsAsync(x)"
+                                      Color="Color.Primary">
+                            Select baskets
+                        </DropdownList>
+                    </Field>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                    </Field>
+                </Fields>
+                @{
+                    var settings = State?.YearlyLeague?.Settings;
+                    if (settings != null)
+                    {
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Starting money</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.StartingMoney" Min="500" Max="10000" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Delayed day</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.DelayedDay" Min="0" Max="38" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Cancelled Day</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.CancelledDay" Min="0" Max="38" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points For First Goal</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForFirstGoal" Min="56" Max="72" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Point For Next Goal</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForNextGoal" Min="1" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points For Own Goal</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForOwnGoal" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Difference Points For Own Goal</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.DifferencePointForOwnGoal" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points in Home</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointInHome" Min="0" Max="10" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Victory</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForVictory" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Defeat</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForDefeat" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Draw</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForDraw" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Strong Defense When they are 3</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForStrongDefense" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Strong Defense When they are 4</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForStrongDefense4" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Strong Defense When they are 5</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForStrongDefense5" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Points for Goalkeeper cleansheet</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.PointForCleanSheet" Min="0" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Money for goal</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.MoneyForGoal" Min="-12" Max="12" />
+                                </FieldBody>
+                            </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Money for suffered goals</FieldLabel>
+                                <FieldBody>
+                                    <NumericPicker @bind-Value="settings.MoneyForSufferedGoal" Min="-12" Max="12" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
+                        foreach (var votesForRole in settings.Votes)
+                        {
+                            var votesSettings = votesForRole.Value;
+                            var key = votesForRole.Key == Role.Undefined ? "All" : votesForRole.Key.ToString();
+                            <Fields>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Goal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Penalty goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Penalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
+                            <Fields>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Suffered Goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.SufferedGoal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Stopped Penalty for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.StoppedPenalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
+                            <Fields>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Wrong Penalty for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.WrongedPenalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Own Goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.OwnGoal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
+                            <Fields>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Assist for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Assist" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Yellow and Red Card for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.YellowCard" Min="-12" Max="12" />
+                                        <NumericPicker @bind-Value="votesSettings.RedCard" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
+                        }
+                    }
+                }
                 <Button Color="Color.Primary" Clicked="@SaveAsync">
                     Salva
                 </Button>
@@ -87,6 +290,22 @@
     public required Func<Task> SaveAsync { get; set; }
     private Validations? ValidationsRefForLeague { get; set; }
     private string? newLeagueName { get; set; }
+    protected override Task OnParametersSetAsync()
+    {
+        if (State?.HasALeague == true && State.YearlyLeague == null)
+        {
+            if (State.League!.Years == null)
+                State.League.Years = new();
+            State.League!.Years.Add(
+                new AnnualLeague
+                    {
+                        Year = State.Year,
+                        BasketsId = new(),
+                        Settings = LeagueSetting.Default.ToDeepCopy()!
+                    });
+        }
+        return base.OnParametersSetAsync();
+    }
     private async Task CreateNewLeague()
     {
         LoadingIndicator?.Show();
@@ -126,6 +345,18 @@
         if (State?.IsAuthenticated == true && State.SelectedGroup != null)
         {
             State.ChangeLeagueAsync(leagueId);
+            if (State?.YearlyLeague == null)
+            {
+                if (State.League?.Years == null)
+                    State.League.Years = new();
+                State.League!.Years.Add(
+                    new AnnualLeague
+                        {
+                            Year = State.Year,
+                            BasketsId = new(),
+                            Settings = LeagueSetting.Default.ToDeepCopy()!
+                        });
+            }
         }
         LoadingIndicator?.Hide();
     }
@@ -156,6 +387,16 @@
                     await Api.Ranks.InsertAsync(State.LeagueKey, rank);
                 }
             }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private async Task ChangeBasketsAsync(IReadOnlyList<string> basketsId)
+    {
+        LoadingIndicator?.Show();
+        if (State?.YearlyLeague != null)
+        {
+            State.YearlyLeague.BasketsId = basketsId.ToList();
+            await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
     }

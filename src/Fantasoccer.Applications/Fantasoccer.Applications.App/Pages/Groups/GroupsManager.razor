@@ -12,23 +12,19 @@
             <Tab Name="groups">Groups</Tab>
             <Tab Name="users">Users</Tab>
             <Tab Name="baskets">Baskets</Tab>
-            <Tab Name="teams">Teams</Tab>
             <Tab Name="leagues">Leagues</Tab>
         </Items>
         <Content>
-            <TabPanel Name="groups">
+            <TabPanel Name="groups" Padding="Padding.Is1.FromTop">
                 <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
             </TabPanel>
-            <TabPanel Name="users">
+            <TabPanel Name="users" Padding="Padding.Is1.FromTop">
                 <UserManager SaveAsync="SaveAsync"></UserManager>
             </TabPanel>
-            <TabPanel Name="baskets">
-                <BasketManager SaveAsync="SaveAsync" CanCreateNewGroup=canCreateNewGroup GroupsManagerState="groupsManagerState"></BasketManager>
+            <TabPanel Name="baskets" Padding="Padding.Is1.FromTop">
+                <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
             </TabPanel>
-            <TabPanel Name="teams">
-                <TeamsManager SaveAsync="SaveAsync" GroupsManagerState="groupsManagerState"></TeamsManager>
-            </TabPanel>
-            <TabPanel Name="leagues">
+            <TabPanel Name="leagues" Padding="Padding.Is1.FromTop">
                 <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
             </TabPanel>
         </Content>
@@ -39,7 +35,6 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private GroupsManagerState groupsManagerState = new();
 
     private bool canCreateNewGroup;
     private List<AnnualTeam>? annualTeams;
@@ -49,7 +44,6 @@
         {
             LoadingIndicator?.Show();
             canCreateNewGroup = State.Identity.Email == "alessandro.rapiti44@gmail.com";
-            groupsManagerState.BasketId = State?.SelectedGroup?.Id;
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
