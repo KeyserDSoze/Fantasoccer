@@ -15,7 +15,7 @@
                 Identity!.State.GroupId = groupId;
                 Identity.State.LeagueId = leagueId;
                 Identity.State.MeOrLeaderEmail = email;
-                if (YearlyLeague == null)
+                if (SelectedYearlyLeague == null)
                     Identity.State.Year = FantacalcioTime.ActualYear;
                 UpdateUi();
                 return UpdateAsync();
@@ -26,6 +26,9 @@
         {
             if (IsAuthenticated)
             {
+                Identity!.State.GroupId = GroupId;
+                Identity!.State.LeagueId = LeagueId;
+                Identity!.State.MeOrLeaderEmail = Identity.Email;
                 Identity!.State.Year = year;
                 UpdateUi();
                 return UpdateAsync();
@@ -55,7 +58,7 @@
                 Identity.State.GroupId = groupId;
                 Identity.State.LeagueId = SelectedGroup?.Leagues.FirstOrDefault()?.Id;
                 Identity.State.MeOrLeaderEmail = Identity.Email;
-                if (YearlyLeague == null)
+                if (SelectedYearlyLeague == null)
                     Identity.State.Year = FantacalcioTime.ActualYear;
                 await UpdateAsync();
                 UpdateUi();
@@ -65,9 +68,10 @@
         {
             if (IsAuthenticated)
             {
+                Identity!.State.GroupId = GroupId;
                 Identity!.State.LeagueId = leagueId;
                 Identity!.State.MeOrLeaderEmail = Identity.Email;
-                if (YearlyLeague == null)
+                if (SelectedYearlyLeague == null)
                     Identity.State.Year = FantacalcioTime.ActualYear;
                 UpdateUi();
                 return UpdateAsync();
@@ -81,7 +85,7 @@
             if (groupId != null && leagueId != null)
             {
                 var group = Groups?.Find(x => x.Id == groupId);
-                var league = group?.Leagues?.Find(x => x.Id == leagueId)?.Years?.Find(x => x.Year == year);
+                var league = group?.Leagues?.Find(x => x.Id == leagueId);
                 if (league != null)
                 {
                     foreach (var basketId in league.BasketsId)
@@ -114,8 +118,7 @@
                     var basketX = group?.Baskets?.Find(x => x.Id == basketId);
                     if (basketX != null)
                     {
-                        if (basketX.Years == null)
-                            basketX.Years = new();
+                        basketX.Years ??= new();
                         var actualYear = basketX.Years.Find(x => x.Year == year);
                         if (actualYear == null)
                         {
@@ -130,16 +133,15 @@
         }
         public List<Group>? Groups { get; private set; }
         public bool HasAGroup => SelectedGroup != null;
-        public LeagueSetting? LeagueSettings => AnnualLeague?.Settings;
-        public League? League => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
-        public AnnualLeague? YearlyLeague => League?.Years?.Find(x => x.Year == Year);
-        public bool HasALeague => League != null;
-        public AnnualLeague? AnnualLeague => League?.Years.Find(x => x.Year == Year);
-        public Basket? Basket
+        public LeagueSetting? SelectedLeagueSettings => SelectedYearlyLeague?.Settings;
+        public League? SelectedLeague => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
+        public AnnualLeague? SelectedYearlyLeague => SelectedLeague?.Years?.Find(x => x.Year == Year);
+        public bool HasALeague => SelectedLeague != null;
+        public Basket? SelectedBasket
         {
             get
             {
-                var league = AnnualLeague;
+                var league = SelectedLeague;
                 if (league != null && SelectedGroup?.Baskets != null)
                 {
                     return SelectedGroup.Baskets.Find(x => league.BasketsId.Contains(x.Id));
@@ -147,11 +149,11 @@
                 return null;
             }
         }
-        public YearlyBasket? YearlyBasket
+        public YearlyBasket? SelectedYearlyBasket
         {
             get
             {
-                var years = Basket?.Years;
+                var years = SelectedBasket?.Years;
                 if (years != null)
                 {
                     return years.Find(x => x.Year == Year);
@@ -159,8 +161,9 @@
                 return null;
             }
         }
-        public List<AnnualTeam>? Teams => YearlyBasket?.Teams;
+        public List<AnnualTeam>? Teams => SelectedYearlyBasket?.Teams;
         public IEnumerable<AnnualTeam>? MyTeams => Identity != null ? Teams?.Where(x => x.IsOwner(Identity.Email)) : null;
+        public AnnualTeam? SelectedTeam => Identity != null ? MyTeams?.FirstOrDefault(x => x.Owner == MeOrLeaderEmail) : null;
         public required Action AppUiUpdate { get; init; }
         public void UpdateUi()
         {
@@ -180,7 +183,7 @@
             Group = GroupId!,
             Year = Year,
             Email = MeOrLeaderEmail!,
-            BasketId = Basket?.Id!
+            BasketId = SelectedBasket?.Id!
         };
         public bool IsAdmin()
         {
@@ -203,13 +206,13 @@
             Group = GroupId!,
             Year = Year,
             Email = email,
-            BasketId = Basket?.Id!,
+            BasketId = SelectedBasket?.Id!,
         };
         public TeamDayKey TeamDayKey(int day, string? email = null) => new()
         {
             Group = GroupId!,
             Email = email ?? MeOrLeaderEmail!,
-            BasketId = Basket?.Id!,
+            BasketId = SelectedBasket?.Id!,
             Year = Year,
             Day = day
         };

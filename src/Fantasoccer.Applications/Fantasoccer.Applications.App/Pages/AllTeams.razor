@@ -10,19 +10,11 @@
 {
     foreach (var team in teams)
     {
-        <h4>@team.Name (@team.Owner) @(State.LeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</h4>
+        <h4>@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</h4>
         <DataGrid TItem="StatPlayerWithPrice"
                   Data="@team.Players.Select(x => ToStatPlayer(x))"
-                Filterable
-                   FilterMode="DataGridFilterMode.Menu"
-                Striped
-                Resizable
-                   ResizeMode="TableResizeMode.Header"
-                ShowPager
-                ShowPageSizes
-                   PagerPosition="DataGridPagerPosition.TopAndBottom"
-                   PageSize="10"
-                   PagerOptions="new(){ ButtonSize=Size.Small }"
+                    Striped
+                   PageSize="30"
                 Responsive>
          <DataGridColumn Field="@nameof(StatPlayer.Name)" Caption="Name" Sortable Filterable />
              <DataGridColumn Field="@nameof(StatPlayerWithPrice.Price)" Caption="Price" Sortable Filterable />
@@ -56,7 +48,7 @@
     private List<StatPlayer>? players;
     protected override async Task OnParametersSetAsync()
     {
-        if (State?.AnnualLeague != null)
+        if (State?.SelectedYearlyLeague != null)
         {
             LoadingIndicator?.Show();
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);

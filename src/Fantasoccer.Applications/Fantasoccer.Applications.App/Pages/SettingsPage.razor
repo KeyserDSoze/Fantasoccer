@@ -22,18 +22,15 @@
                      </Field>
                  </Validation>
              </Validations>
-             @if (State?.SelectedGroup != null)
+             @if (team != null)
                 {
-                    @foreach (var team in State.YourTeams)
-                    {
-                        <Field ColumnSize="ColumnSize.IsHalf">
-                            <FieldLabel>Team Name</FieldLabel>
-                            <FieldBody>
-                                <TextEdit @bind-Text="@team.Name">
-                                </TextEdit>
-                            </FieldBody>
-                        </Field>
-                    }
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Team Name</FieldLabel>
+                        <FieldBody>
+                            <TextEdit @bind-Text="@team.Name">
+                            </TextEdit>
+                        </FieldBody>
+                    </Field>
                 }
             </Fields>
             <Button Color="Color.Primary" Clicked="@OnSaveClicked">
@@ -51,39 +48,89 @@
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     private Validations? ValidationsRef { get; set; }
-
+    private Team? team;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.SelectedTeam != null)
+        {
+            team = await Api.Team.GetAsync(State.OtherTeamKey(State.SelectedTeam.Owner)) ?? new Team
+                {
+                    Name = State.SelectedTeam.Name,
+                    Owner = State.SelectedTeam.Owner,
+                    Players = new()
+                };
+        }
+        await base.OnParametersSetAsync();
+    }
     async Task OnSaveClicked()
     {
         if (ValidationsRef != null)
         {
             if (await ValidationsRef.ValidateAll())
             {
-                if (State?.IsAuthenticated == true)
+                if (State?.IsAuthenticated == true && team != null)
                 {
-                    if (await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup))
+                    var key = State.OtherTeamKey(team.Owner);
+                    if (!await Api.Team.ExistAsync(key))
                     {
-                        foreach (var team in State!.MyTeams)
+                        await Api.Team.InsertAsync(State.TeamKey, team);
+                    }
+                    else
+                    {
+                        await Api.Team.UpdateAsync(State.TeamKey, team);
+                    }
+                    var basket = State.SelectedYearlyBasket;
+                    if (basket != null)
+                    {
+                        foreach (var teamX in basket.Teams.Where(x => x.Owner == team.Owner))
                         {
-                            var key = State.OtherTeamKey(team.Owner);
-                            var actualTeam = await Api.Team.GetAsync(key);
-                            if (actualTeam == null)
+                            teamX.Name = team.Name;
+                        }
+                        await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
+                        var basketId = State.SelectedBasket.Id;
+                        foreach (var league in State.SelectedGroup.Leagues.Where(x => x.BasketsId.Contains(basketId)))
+                        {
+                            var leagueKey = State.LeagueKey;
+                            var calendar = await Api.Calendar.GetAsync(leagueKey);
+                            if (calendar != null)
                             {
-                                actualTeam = new Team
+                                foreach (var round in calendar.Rounds)
+                                {
+                                    foreach (var day in round.Value)
                                     {
-                                        Name = team.Name,
-                                        Owner = team.Owner,
-                                        Players = new()
-                                    };
-                                await Api.Team.InsertAsync(State.TeamKey, actualTeam);
+                                        foreach (var game in day.Games)
+                                        {
+                                            if (game.HomeOwner == team.Owner)
+                                            {
+                                                game.Home = team.Name;
+                                            }
+                                            else if (game.AwayOwner == team.Owner)
+                                            {
+                                                game.Away = team.Name;
+                                            }
+                                        }
+                                    }
+                                }
+                                await Api.Calendar.UpdateAsync(leagueKey, calendar);
                             }
-                            else
+                            var rank = await Api.Ranks.GetAsync(leagueKey);
+                            if (rank != null)
                             {
-                                actualTeam.Name = team.Name;
-                                await Api.Team.UpdateAsync(State.TeamKey, actualTeam);
+                                foreach (var round in rank.RankedTeams)
+                                {
+                                    foreach (var teamX in round.Value)
+                                    {
+                                        if (teamX.Owner == team.Owner)
+                                        {
+                                            teamX.Name = team.Name;
+                                        }
+                                    }
+                                }
+                                await Api.Ranks.UpdateAsync(leagueKey, rank);
                             }
                         }
-                        State.UpdateUi();
                     }
+                    State.UpdateUi();
                 }
             }
             await ValidationsRef.ClearAll();

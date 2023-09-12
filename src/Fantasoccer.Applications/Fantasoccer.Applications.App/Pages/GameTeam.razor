@@ -144,7 +144,7 @@ else
                     }
                 }
             }
-            await TeamCalculator.BuildRequestAsync(State.Year, serieADay, State.LeagueSettings, true, !isInEdit, true);
+            await TeamCalculator.BuildRequestAsync(State.Year, serieADay, State.SelectedLeagueSettings, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {

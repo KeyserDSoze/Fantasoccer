@@ -40,15 +40,14 @@
 
     @if (State.HasALeague)
     {
-        <Check TValue="bool" Checked="@(State.League!.IsMain)"
-               CheckedChanged="@((x) => State.League.IsMain = x)">Is Main</Check>
+        <Check TValue="bool" @bind-Checked="State.SelectedLeague!.IsMain">Is Main</Check>
         <Row>
             <Column>
                 <Fields>
                     <Field ColumnSize="ColumnSize.IsHalf">
                         <FieldLabel>Nome lega</FieldLabel>
                         <FieldBody>
-                            <TextEdit @bind-Text="State.League.Name">
+                            <TextEdit @bind-Text="State.SelectedLeague.Name">
                                 <Feedback>
                                     <ValidationError />
                                 </Feedback>
@@ -58,7 +57,7 @@
                     <Field ColumnSize="ColumnSize.IsHalf">
                         <FieldLabel>Tipo di lega</FieldLabel>
                         <FieldBody>
-                            <Select TValue="LeagueType" @bind-SelectedValue="State.League.Type">
+                            <Select TValue="LeagueType" @bind-SelectedValue="State.SelectedLeague.Type">
                                 <SelectItem Value="LeagueType.League">Lega</SelectItem>
                                 <SelectItem Value="LeagueType.Cup">Coppa</SelectItem>
                             </Select>
@@ -71,7 +70,7 @@
                                       Data="State.SelectedGroup!.Baskets"
                                       TextField="@((item)=>item.Name)"
                                       ValueField="@((item)=>item.Id)"
-                                      SelectedValues="State.YearlyLeague!.BasketsId"
+                                      SelectedValues="State.SelectedLeague!.BasketsId"
                                       SelectionMode="DropdownListSelectionMode.Checkbox"
                                       SelectedValuesChanged="(x) => ChangeBasketsAsync(x)"
                                       Color="Color.Primary">
@@ -82,7 +81,7 @@
                     </Field>
                 </Fields>
                 @{
-                    var settings = State?.YearlyLeague?.Settings;
+                    var settings = State?.SelectedYearlyLeague?.Settings;
                     if (settings != null)
                     {
                         <Fields>
@@ -292,17 +291,10 @@
     private string? newLeagueName { get; set; }
     protected override Task OnParametersSetAsync()
     {
-        if (State?.HasALeague == true && State.YearlyLeague == null)
+        if (State?.HasALeague == true && State.SelectedYearlyLeague == null)
         {
-            if (State.League!.Years == null)
-                State.League.Years = new();
-            State.League!.Years.Add(
-                new AnnualLeague
-                    {
-                        Year = State.Year,
-                        BasketsId = new(),
-                        Settings = LeagueSetting.Default.ToDeepCopy()!
-                    });
+            if (State.SelectedLeague!.Years == null)
+                State.SelectedLeague.BasketsId = new();
         }
         return base.OnParametersSetAsync();
     }
@@ -320,15 +312,7 @@
                             Id = leagueId,
                             IsMain = true,
                             Type = LeagueType.League,
-                            Years = new List<AnnualLeague>
-                            {
-                                new AnnualLeague
-                                {
-                                    BasketsId = new(),
-                                    Settings = LeagueSetting.Default,
-                                    Year = FantacalcioTime.ActualYear
-                                }
-                            },
+                            BasketsId = new(),
                             Name = newLeagueName,
                         };
                     State.SelectedGroup!.Leagues.Add(league);
@@ -345,17 +329,10 @@
         if (State?.IsAuthenticated == true && State.SelectedGroup != null)
         {
             State.ChangeLeagueAsync(leagueId);
-            if (State?.YearlyLeague == null)
+            if (State?.SelectedYearlyLeague == null)
             {
-                if (State.League?.Years == null)
-                    State.League.Years = new();
-                State.League!.Years.Add(
-                    new AnnualLeague
-                        {
-                            Year = State.Year,
-                            BasketsId = new(),
-                            Settings = LeagueSetting.Default.ToDeepCopy()!
-                        });
+                if (State.SelectedLeague?.BasketsId == null)
+                    State.SelectedLeague.BasketsId = new();
             }
         }
         LoadingIndicator?.Hide();
@@ -367,17 +344,17 @@
     private async ValueTask CreateCalendarAndRankAsync()
     {
         LoadingIndicator?.Show();
-        if (State?.AnnualLeague != null && State?.League != null && State.Teams != null)
+        if (State?.SelectedYearlyLeague != null && State?.SelectedLeague != null && State.Teams != null)
         {
             if (!await Api.Calendar.ExistAsync(State.LeagueKey))
             {
-                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.League.Type, State.AnnualLeague, State.Teams);
+                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, State.Teams);
                 await Api.Calendar.InsertAsync(State.LeagueKey, calendar);
             }
             if (await Api.Calendar.ExistAsync(State.LeagueKey))
             {
                 var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
-                var rank = RankCalculator.GetRank(State?.LeagueSettings ?? LeagueSetting.Default, calendar, State.League.Type);
+                var rank = RankCalculator.GetRank(State?.SelectedLeagueSettings ?? LeagueSetting.Default, calendar, State.SelectedLeague.Type);
                 if (await Api.Ranks.ExistAsync(State.LeagueKey))
                 {
                     await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
@@ -393,9 +370,9 @@
     private async Task ChangeBasketsAsync(IReadOnlyList<string> basketsId)
     {
         LoadingIndicator?.Show();
-        if (State?.YearlyLeague != null)
+        if (State?.HasALeague == true)
         {
-            State.YearlyLeague.BasketsId = basketsId.ToList();
+            State.SelectedLeague.BasketsId = basketsId.ToList();
             await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();

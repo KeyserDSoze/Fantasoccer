@@ -19,7 +19,6 @@ namespace Fantasoccer.Tests
         {
             var calendar = _randomCalendar.GetRandomCalendar(2, leagueType, new AnnualLeague
             {
-                BasketsId = new List<string>(),
                 Year = FantacalcioTime.ActualYear,
                 Settings = LeagueSetting.Default,
             }, _populationService.Populate(numberOfTeams));

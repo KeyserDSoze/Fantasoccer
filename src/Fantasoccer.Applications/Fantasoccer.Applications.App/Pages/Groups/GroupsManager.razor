@@ -37,7 +37,6 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
 
     private bool canCreateNewGroup;
-    private List<AnnualTeam>? annualTeams;
     protected override async Task OnParametersSetAsync()
     {
         if (State != null && State.Identity != null)

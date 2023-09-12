@@ -146,6 +146,7 @@ namespace Fantasoccer.InMemory
                                 Name = $"Liga {j}",
                                 IsMain = j == 1 || j == 2,
                                 Years = new(),
+                                BasketsId = new(),
                                 Type = j == 3 ? LeagueType.Cup : LeagueType.League,
                             });
                             for (var k = 1; k <= FantacalcioTime.ActualYear; k++)
@@ -155,7 +156,6 @@ namespace Fantasoccer.InMemory
                                 {
                                     Year = k,
                                     Settings = LeagueSetting.Default,
-                                    BasketsId = new()
                                 });
                             }
                         }
@@ -370,8 +370,7 @@ namespace Fantasoccer.InMemory
                                 Settings = new LeagueSetting
                                 {
                                     DelayedDay = 2
-                                },
-                                BasketsId = new()
+                                }
                             }, annualTeams);
                             return finalCalendar;
                         }
