@@ -1,13 +1,7 @@
-﻿using System.Globalization;
-using System.Linq;
-using System.Population.Random;
-using System.Reflection.Emit;
-using System.Reflection.PortableExecutable;
+﻿using System.Population.Random;
 using System.Security.Cryptography;
-using System.Security.Principal;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
-using Fantasoccer.Domain.SerieA;
 using Fantasoccer.Domain;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -32,7 +26,6 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<Rank, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
-            services.AddInMemoryInfrastructure<SerieATeamsWrapper, int>();
             services.AddInMemoryInfrastructure<StatPlayersWrapper, int>();
             services.AddInMemoryInfrastructure<RealTeamWrapper, int>();
             services.AddInMemoryInfrastructure<Team, TeamKey>(onlyQuery: false);

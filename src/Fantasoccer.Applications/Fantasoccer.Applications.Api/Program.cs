@@ -37,7 +37,7 @@ if (isInMemory)
 }
 else
 {
-    await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration);
+    await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 }
 builder.Services.AddFantasoccerBusiness();
 builder.Services.AddFantasoccerBackgroundWork();

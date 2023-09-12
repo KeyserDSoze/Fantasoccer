@@ -4,9 +4,13 @@ namespace Fantasoccer
 {
     public class Team
     {
+        [JsonPropertyName("n")]
         public string Name { get; set; }
+        [JsonPropertyName("o")]
         public string Owner { get; set; }
+        [JsonPropertyName("a")]
         public List<string> AdditionalOwners { get; set; }
+        [JsonPropertyName("p")]
         public List<Player> Players { get; set; }
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);

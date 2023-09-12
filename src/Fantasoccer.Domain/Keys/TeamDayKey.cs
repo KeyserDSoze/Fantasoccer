@@ -1,13 +1,19 @@
-﻿using RepositoryFramework;
+﻿using System.Text.Json.Serialization;
+using RepositoryFramework;
 
 namespace Fantasoccer
 {
     public class TeamDayKey : IDefaultKey
     {
+        [JsonPropertyName("g")]
         public required string Group { get; set; }
+        [JsonPropertyName("y")]
         public required int Year { get; set; }
+        [JsonPropertyName("e")]
         public required string Email { get; set; }
+        [JsonPropertyName("b")]
         public required string BasketId { get; set; }
+        [JsonPropertyName("d")]
         public required int Day { get; set; }
     }
 }

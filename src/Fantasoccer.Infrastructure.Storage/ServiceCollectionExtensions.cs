@@ -1,16 +1,13 @@
-﻿using Fantasoccer.Domain.SerieA;
-using Fantasoccer.Domain;
+﻿using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.Storage.Logger;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
-        public static async Task<IServiceCollection> AddStorageInfrastructuresAsync(this IServiceCollection services, IConfiguration configuration)
+        public static async Task<IServiceCollection> AddStorageInfrastructuresAsync(this IServiceCollection services, string storageConnectionString)
         {
-            var storageConnectionString = configuration["ConnectionStrings:Storage"];
             await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
             await services.AddBlobStorage<RealPlayersWrapper, int>(storageConnectionString);
             await services.AddBlobStorage<ChancedRealPlayerWrapper, YearDayKey>(storageConnectionString);
@@ -36,7 +33,6 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<Team, TeamKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day", "dailyteams");
             await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
-            await services.AddBlobStorage<SerieATeamsWrapper, int>(storageConnectionString);
             await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>

@@ -1,11 +1,18 @@
-﻿namespace Fantasoccer
+﻿using System.Text.Json.Serialization;
+
+namespace Fantasoccer
 {
     public class GameResult
     {
+        [JsonPropertyName("h")]
         public Point Home { get; set; }
+        [JsonPropertyName("a")]
         public Point Away { get; set; }
+        [JsonIgnore]
         public bool HasValue => Home?.Value > 0 || Away?.Value > 0;
+        [JsonPropertyName("i")]
         public bool IsCancelled { get; set; }
+        [JsonIgnore]
         public GameResultType Value =>
             this switch
             {
@@ -14,11 +21,15 @@
                 { HomeGoal: var h, AwayGoal: var a } when a == h => GameResultType.Tie,
                 _ => GameResultType.Tie
             };
+        [JsonPropertyName("g")]
         public int HomeGoal { get; set; }
+        [JsonPropertyName("l")]
         public int AwayGoal { get; set; }
         public (int Home, int Away) CalculateGoals(LeagueSetting settings)
         {
-            return (HomeGoal = GetGoals(Home.Value, Away.Value), AwayGoal = GetGoals(Away.Value, Home.Value));
+            HomeGoal = GetGoals(Home.Value, Away.Value);
+            AwayGoal = GetGoals(Away.Value, Home.Value);
+            return (HomeGoal, AwayGoal);
 
             int GetGoals(float value, float opponentValue)
             {

@@ -1,7 +1,21 @@
-﻿namespace Fantasoccer
+﻿using System.Text.Json.Serialization;
+
+namespace Fantasoccer
 {
-    public record Point(float Value, bool DefensiveBonus, bool OwnGoal)
+    public class Point
     {
-        public static Point Zero { get; } = new Point(0, false, false);
+        [JsonPropertyName("v")]
+        public float Value { get; }
+        [JsonPropertyName("d")]
+        public bool DefensiveBonus { get; }
+        [JsonPropertyName("o")]
+        public bool OwnGoal { get; }
+        public Point(float value, bool defensiveBonus, bool ownGoal)
+        {
+            Value = value;
+            DefensiveBonus = defensiveBonus;
+            OwnGoal = ownGoal;
+        }
+        public static Point Zero => new(0, false, false);
     }
 }

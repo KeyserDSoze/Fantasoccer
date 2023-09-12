@@ -11,7 +11,7 @@ namespace FantacalcioV4.ApiManager
         public async Task<List<RealPlayer>> GetAllPlayersAsync(int year)
         {
             var players = await new AllPlayerKey { Year = year }.InstanceAsync();
-            return players.Where(x => x.IsActive).ToList();
+            return players.ToList();
         }
 
         public Task<List<Player>> GetVotesAsync(int year, int serieADay)

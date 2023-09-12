@@ -39,6 +39,7 @@
       <Folder Include="Migration\" />
     </ItemGroup>
     <ItemGroup>
+      <ProjectReference Include="..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
       <ProjectReference Include="..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
       <ProjectReference Include="..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
       <ProjectReference Include="..\Fantasoccer.Infrastructure.Storage\Fantasoccer.Infrastructure.Storage.csproj" />

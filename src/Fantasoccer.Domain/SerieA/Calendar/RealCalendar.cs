@@ -4,7 +4,9 @@ namespace Fantasoccer
 {
     public class RealCalendar
     {
+        [JsonPropertyName("y")]
         public int Year { get; set; }
+        [JsonPropertyName("d")]
         public List<RealDay> Days { get; set; }
         private static readonly TimeSpan s_twoHours = TimeSpan.FromHours(2) + TimeSpan.FromMinutes(15);
         private static readonly TimeSpan s_fifteenHours = TimeSpan.FromHours(8) + s_twoHours;
