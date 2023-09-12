@@ -1,5 +1,4 @@
 ﻿using Fantasoccer.Domain;
-using Fantasoccer.Domain.SerieA;
 
 namespace Fantasoccer.Applications.App.Extensions
 {
@@ -31,7 +30,7 @@ namespace Fantasoccer.Applications.App.Extensions
             services.AddHttpClientIntegration<Rank, LeagueKey>(configuration);
             services.AddHttpClientIntegration<Calendar, LeagueKey>(configuration);
             services.AddHttpClientIntegration<PlayedGame, GameKey>(configuration);
-            services.AddHttpClientIntegration<SerieATeamsWrapper, int>(configuration);
+            services.AddHttpClientIntegration<RealTeamWrapper, int>(configuration);
             services.AddHttpClientIntegration<StatPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<Team, TeamKey>(configuration);
             services.AddHttpClientIntegration<Team, TeamDayKey>(configuration, "day");

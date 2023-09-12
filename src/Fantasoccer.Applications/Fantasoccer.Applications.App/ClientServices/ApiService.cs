@@ -1,5 +1,4 @@
 ﻿using Fantasoccer.Domain;
-using Fantasoccer.Domain.SerieA;
 using RepositoryFramework;
 
 namespace Fantasoccer.Applications.App
@@ -15,7 +14,7 @@ namespace Fantasoccer.Applications.App
             IRepository<Rank, LeagueKey> ranks,
             IRepository<Calendar, LeagueKey> calendar,
             IRepository<PlayedGame, GameKey> games,
-            IRepository<SerieATeamsWrapper, int> serieA,
+            IRepository<RealTeamWrapper, int> serieA,
             IRepository<Team, TeamKey> team,
             IRepository<Team, TeamDayKey> dailyTeam,
             IRepository<AppIdentity, string> appIdentity,
@@ -45,7 +44,7 @@ namespace Fantasoccer.Applications.App
         public IRepository<Rank, LeagueKey> Ranks { get; }
         public IRepository<Calendar, LeagueKey> Calendar { get; }
         public IRepository<PlayedGame, GameKey> Games { get; }
-        public IRepository<SerieATeamsWrapper, int> SerieA { get; }
+        public IRepository<RealTeamWrapper, int> SerieA { get; }
         public IRepository<Team, TeamKey> Team { get; }
         public IRepository<Team, TeamDayKey> DailyTeam { get; }
         public IRepository<AppIdentity, string> AppIdentity { get; }

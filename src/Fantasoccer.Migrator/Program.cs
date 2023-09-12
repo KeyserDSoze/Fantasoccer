@@ -31,29 +31,12 @@ namespace Migrator
             var serviceProvider = services.BuildServiceProvider().CreateScope().ServiceProvider;
             serviceProvider.UseRystem();
             await serviceProvider.WarmUpAsync();
-            var mappedUsers = new Dictionary<string, string>();
-            mappedUsers.Add("alessandrof", "al.forbicioni@gmail.com|||Serie A");
-            mappedUsers.Add("Keysersoze", "alessandro.rapiti44@gmail.com|||Serie A");
-            mappedUsers.Add("Oliver", "alessiooliverio@gmail.com|||Serie A");
-            mappedUsers.Add("luca", "baghiniluca@gmail.com|||Serie A");
-            mappedUsers.Add("DarkLord", "christian.lucaccioni@outlook.it|||Serie A");
-            mappedUsers.Add("Henrich", "crostafabio87@gmail.com|||Premier League");
-            mappedUsers.Add("Squall", "daniele.fetoni@hotmail.it|||Serie A");
-            mappedUsers.Add("jeffturner", "federicomartelloni@gmail.com|||Premier League");
-            mappedUsers.Add("ElettroAle", "fiani.alessandro@gmail.com|||Premier League");
-            mappedUsers.Add("Champion", "filippo.bossi.01@gmail.com|||Premier League");
-            mappedUsers.Add("Goldenhot", "goldenhot@hotmail.it|||Serie A");
-            mappedUsers.Add("saretta110", "joria87@hotmail.it|||Premier League");
-            mappedUsers.Add("SirJem", "luca.morleschi@outlook.it|||Premier League");
-            mappedUsers.Add("Maurizio", "m.forbicioni@hotmail.it|||Serie A");
-            mappedUsers.Add("perugini", "peruginialessandro@hotmail.it|||Premier League");
-            mappedUsers.Add("scarsenal", "theos.lumia@hotmail.it|||Serie A");
-            mappedUsers.Add("lorenzo", "lorenzo.catarcia@gmail.com|||Premier League");
             var manager = serviceProvider.GetRequiredService<Manager>();
-            //await CreateGroupAndMapUsersAsync(serviceProvider, mappedUsers, manager);
-            await ParseSerieAVotesAndCalendar(serviceProvider, manager);
+            //await CreateGroupAndMapUsersAsync(serviceProvider, manager);
+            //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
+            await ParseOldFormationsAndCalendarAsync(serviceProvider, manager);
         }
-        private static async Task CreateGroupAndMapUsersAsync(IServiceProvider serviceProvider, Dictionary<string, string> mappedUsers, Manager manager)
+        private static async Task CreateGroupAndMapUsersAsync(IServiceProvider serviceProvider, Manager manager)
         {
             var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
             var userRepository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
@@ -121,16 +104,10 @@ namespace Migrator
                                 });
                                 foreach (var team in rank.RankedTeams)
                                 {
-                                    string? owner = null;
-                                    if (mappedUsers.ContainsKey(team.Username))
-                                    {
-                                        var informationForUser = mappedUsers[team.Username].Split("|||");
-                                        owner = informationForUser[0];
-                                    }
                                     actualBasket.Years.Last().Teams.Add(new AnnualTeam
                                     {
                                         Name = team.Name,
-                                        Owner = owner,
+                                        Owner = CalculateOwner(team.Username),
                                     });
                                 }
                             }
@@ -269,6 +246,147 @@ namespace Migrator
                     await calendarRepository.UpdateAsync(year, realCalendar);
                 }
             }
+        }
+        private static async Task ParseOldFormationsAndCalendarAsync(IServiceProvider serviceProvider, Manager manager)
+        {
+            var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var currentGroup = await groupRepository.FirstOrDefaultAsync();
+            var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
+            var teamDayRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
+            var calendarRepository = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
+            var rankRepository = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
+            var groups = await manager.Group.ListAsync();
+            var leagues = new List<string> { "Serie A", "Premier League", "Champions League", "Super League" };
+            foreach (var groupId in groups)
+            {
+                for (var year = 1; year < 12; year++)
+                {
+                    foreach (var leagueId in leagues)
+                    {
+                        var leagueIdN = currentGroup.Value.Leagues.First(x => x.Name == leagueId).Id;
+                        var newLeague = currentGroup.Value.Leagues.First(x => x.Name == leagueId);
+                        var settings = currentGroup.Value.Leagues.First(x => x.Name == leagueId).Years.Find(x => x.Year == year).Settings;
+                        var leagueKey = new LeagueKey
+                        {
+                            Group = currentGroup.Key,
+                            League = leagueIdN
+                        };
+                        var calendar = await manager.League.GetCalendarAsync(groupId, leagueId, year);
+                        if (calendar != null)
+                        {
+                            var newCalendar = new Calendar
+                            {
+                                Rounds = new(),
+                                Year = year
+                            };
+                            foreach (var day in calendar.Days)
+                            {
+                                foreach (var gameKeyValue in day.Games)
+                                {
+                                    var games = gameKeyValue.Value;
+                                    var leu = gameKeyValue.Key.ToString();
+                                    if (!newCalendar.Rounds.ContainsKey(leu))
+                                    {
+                                        newCalendar.Rounds.Add(leu, new());
+                                    }
+                                    var round = newCalendar.Rounds[leu];
+                                    var currentDay = round.FirstOrDefault(x => x.SerieADay == day.SerieADay);
+                                    if (currentDay == null)
+                                    {
+                                        currentDay = new Day
+                                        {
+                                            SerieADay = day.SerieADay,
+                                            Games = new(),
+                                            Number = day.SerieADay - settings.DelayedDay,
+                                        };
+                                        round.Add(currentDay);
+                                    }
+                                    var counter = 1;
+                                    foreach (var game in games)
+                                    {
+                                        var homeOwner = CalculateOwner(game.HomeUsername);
+                                        var awayOwner = CalculateOwner(game.AwayUsername);
+                                        currentDay.Games.Add(new CalendarGame
+                                        {
+                                            Away = game.Away.Name,
+                                            Home = game.Home.Name,
+                                            AwayOwner = awayOwner,
+                                            HomeOwner = homeOwner,
+                                            Id = Guid.NewGuid().ToString(),
+                                            Number = counter,
+                                            Result = new GameResult
+                                            {
+                                                Away = new(game.Result.Away.Value, game.Result.Away.DefensiveBonus, game.Result.Away.OwnGoal),
+                                                Home = new(game.Result.Home.Value, game.Result.Home.DefensiveBonus, game.Result.Home.OwnGoal),
+                                                AwayGoal = game.Result.AwayGoal,
+                                                HomeGoal = game.Result.HomeGoal,
+                                                IsCancelled = false,
+                                            }
+                                        });
+                                        counter++;
+
+                                        //get the team for each day
+                                    }
+                                }
+                            }
+                            await calendarRepository.UpdateAsync(leagueKey, newCalendar);
+                        }
+                        var oldLeague = await manager.League.GetAsync(groupId, leagueId, year);
+
+                        foreach (var team in oldLeague.Teams)
+                        {
+                            var owner = CalculateOwner(team.Username);
+                            var newTeam = new Team()
+                            {
+                                Name = team.Name,
+                                Owner = owner ?? team.Username,
+                                Players = new(),
+                                MoneyFromRank = team.MoneyFromRank,
+                                RevenueMoney = team.RevenueMoney,
+                            };
+                            await teamRepository.UpdateAsync(new TeamKey
+                            {
+                                Email = owner ?? team.Username,
+                                Group = currentGroup.Value.Id,
+                                Year = year,
+                                BasketId = owner != null ?
+                                    currentGroup.Value.Baskets.FirstOrDefault(x => x.Years.Any(t => t.Teams.Any(q => q.Owner == owner)))?.Id
+                                    ?? newLeague.BasketsId.FirstOrDefault() : newLeague.BasketsId.FirstOrDefault()
+                            }, newTeam);
+                        }
+                    }
+                }
+            }
+        }
+        private static readonly Dictionary<string, string> s_mappedUsers = new()
+        {
+                { "alessandrof", "al.forbicioni@gmail.com|||Serie A" },
+                { "Keysersoze", "alessandro.rapiti44@gmail.com|||Serie A" },
+                { "Oliver", "alessiooliverio@gmail.com|||Serie A" },
+                { "luca", "baghiniluca@gmail.com|||Serie A" },
+                { "DarkLord", "christian.lucaccioni@outlook.it|||Serie A" },
+                { "Henrich", "crostafabio87@gmail.com|||Premier League" },
+                { "Squall", "daniele.fetoni@hotmail.it|||Serie A" },
+                { "jeffturner", "federicomartelloni@gmail.com|||Premier League" },
+                { "ElettroAle", "fiani.alessandro@gmail.com|||Premier League" },
+                { "Champion", "filippo.bossi.01@gmail.com|||Premier League" },
+                { "Goldenhot", "goldenhot@hotmail.it|||Serie A" },
+                { "saretta110", "joria87@hotmail.it|||Premier League" },
+                { "SirJem", "luca.morleschi@outlook.it|||Premier League" },
+                { "Maurizio", "m.forbicioni@hotmail.it|||Serie A" },
+                { "perugini", "peruginialessandro@hotmail.it|||Premier League" },
+                { "scarsenal", "theos.lumia@hotmail.it|||Serie A" },
+                { "lorenzo", "lorenzo.catarcia@gmail.com|||Premier League" }
+            };
+        private static string? CalculateOwner(string username)
+        {
+            string? owner = null;
+            if (s_mappedUsers.TryGetValue(username, out var value))
+            {
+                var informationForUser = value.Split("|||");
+                owner = informationForUser[0];
+            }
+            return owner ?? username;
         }
     }
 }
