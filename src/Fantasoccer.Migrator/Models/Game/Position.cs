@@ -11,10 +11,11 @@ namespace FantacalcioV4
             X = x;
             Y = y;
         }
-        private FantaSoccerRole status = FantaSoccerRole.All;
+        public FantaSoccerRole status = FantaSoccerRole.All;
         public Role Role { get; set; }
         public int Year { get; set; }
-        public bool IsInHome {  get; set; }
+        public int SerieADay { get; set; }
+        public bool IsInHome { get; set; }
         [JsonIgnore]
         public FantaSoccerRole Status
         {
@@ -26,9 +27,13 @@ namespace FantacalcioV4
                     {
                         status = OldField.GetStatus(this, Role);
                     }
-                    else if (Year == 2)
+                    else if (Year == 2 || Year == 3 || Year == 4 || (Year == 5 && SerieADay < 19))
                     {
                         status = OldField2.GetStatus(this, Role);
+                    }
+                    else if (Year == 5 && SerieADay >= 19)
+                    {
+                        status = MinorOldField.GetStatus(IsInHome, this);
                     }
                     else
                     {
