@@ -1,10 +1,20 @@
 ﻿using System.Text.Json.Serialization;
+using static FantacalcioV4.OldField;
 
 namespace FantacalcioV4
 {
-    public record Position(int X, int Y)
+    public record Position
     {
+        public Position() { }
+        public Position(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
         private FantaSoccerRole status = FantaSoccerRole.All;
+        public Role Role { get; set; }
+        public int Year { get; set; }
+        public bool IsInHome {  get; set; }
         [JsonIgnore]
         public FantaSoccerRole Status
         {
@@ -12,46 +22,60 @@ namespace FantacalcioV4
             {
                 if (status == FantaSoccerRole.All)
                 {
-                    if (Field.InField.IsValid(this.X))
+                    if (Year <= 1)
                     {
-                        if (Field.GoalKeeperLine.IsValid(this.Y))
-                            status = FantaSoccerRole.GoalKeeper;
-                        else if (Field.DefensorLine.IsValid(this.Y))
-                            status = FantaSoccerRole.Defensor;
-                        else if (Field.MidfielderLine.IsValid(this.Y))
-                            status = FantaSoccerRole.Midfielder;
-                        else if (Field.ForwardLine.IsValid(this.Y))
-                            status = FantaSoccerRole.Forward;
+                        status = OldField.GetStatus(this, Role);
                     }
-                    else if (Field.FirstBackup.IsValid(this.X))
+                    else if (Year == 2)
                     {
-                        if (Field.GoalKeeperLine.IsValid(this.Y))
-                            status = FantaSoccerRole.BackupGoalKeeper;
-                        else if (Field.DefensorBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.FirstBackupDefensor;
-                        else if (Field.MidfielderBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.FirstBackupMidfielder;
-                        else if (Field.ForwardBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.FirstBackupForward;
+                        status = OldField2.GetStatus(this, Role);
                     }
-                    else if (Field.SecondBackup.IsValid(this.X))
-                    {
-                        if (Field.DefensorBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.SecondBackupDefensor;
-                        else if (Field.MidfielderBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.SecondBackupMidfielder;
-                        else if (Field.ForwardBackup.IsValid(this.Y))
-                            status = FantaSoccerRole.SecondBackupForward;
-                    }
-                    else if (Field.TribuneX.IsValid(this.X) && Field.TribuneY.IsValid(this.Y))
-                        status = FantaSoccerRole.Tribune;
                     else
-                        status = FantaSoccerRole.Invasion;
-                    if (status == FantaSoccerRole.All)
-                        status = FantaSoccerRole.Tribune;
+                    {
+                        if (Field.InField.IsValid(this.X))
+                        {
+                            if (Field.GoalKeeperLine.IsValid(this.Y))
+                                status = FantaSoccerRole.GoalKeeper;
+                            else if (Field.DefensorLine.IsValid(this.Y))
+                                status = FantaSoccerRole.Defensor;
+                            else if (Field.MidfielderLine.IsValid(this.Y))
+                                status = FantaSoccerRole.Midfielder;
+                            else if (Field.ForwardLine.IsValid(this.Y))
+                                status = FantaSoccerRole.Forward;
+                        }
+                        else if (Field.FirstBackup.IsValid(this.X))
+                        {
+                            if (Field.GoalKeeperLine.IsValid(this.Y))
+                                status = FantaSoccerRole.BackupGoalKeeper;
+                            else if (Field.DefensorBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.FirstBackupDefensor;
+                            else if (Field.MidfielderBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.FirstBackupMidfielder;
+                            else if (Field.ForwardBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.FirstBackupForward;
+                        }
+                        else if (Field.SecondBackup.IsValid(this.X))
+                        {
+                            if (Field.DefensorBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.SecondBackupDefensor;
+                            else if (Field.MidfielderBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.SecondBackupMidfielder;
+                            else if (Field.ForwardBackup.IsValid(this.Y))
+                                status = FantaSoccerRole.SecondBackupForward;
+                        }
+                        else if (Field.TribuneX.IsValid(this.X) && Field.TribuneY.IsValid(this.Y))
+                            status = FantaSoccerRole.Tribune;
+                        else
+                            status = FantaSoccerRole.Invasion;
+                        if (status == FantaSoccerRole.All)
+                            status = FantaSoccerRole.Tribune;
+                    }
                 }
                 return status;
             }
         }
+
+        public int X { get; set; }
+        public int Y { get; set; }
     }
 }

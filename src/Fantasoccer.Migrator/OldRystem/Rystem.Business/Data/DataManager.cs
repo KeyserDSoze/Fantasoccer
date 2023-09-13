@@ -48,6 +48,9 @@ namespace Rystem.Business.Data
         public async Task<T> ReadAsync<T>(string name, Installation installation = Installation.Default)
         {
             var value = await ReadStreamAsync(name, installation);
+            var reader = new StreamReader(value);
+            var x = await reader.ReadToEndAsync();
+            value.Position = 0;
             return await value.FromJsonAsync<T>();
         }
         public async Task<List<TEntity>> ReadMultipleAsync(string name, Installation installation = Installation.Default)

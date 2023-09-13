@@ -10,6 +10,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddTransient<ITeamCalculator, TeamCalculator>();
             services.AddSingleton<IRandomCalendar, RandomCalendar>();
             services.AddSingleton<IRankCalculator, RankCalculator>();
+            services.AddSingleton<ITeamChecker, TeamChecker>();
             services.ScanBusinessForRepositoryFramework();
             return services;
         }

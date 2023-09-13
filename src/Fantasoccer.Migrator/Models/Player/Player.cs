@@ -11,7 +11,8 @@ namespace FantacalcioV4
         public string Name => Value?.Name ?? string.Empty;
         [JsonIgnore]
         public string RealTeam => Value?.RealTeam ?? string.Empty;
-        public Role Role => Value?.Role ?? Role.Undefined;
+        public Role? roleX;
+        public Role Role => roleX ??= Value?.Role ?? Role.Undefined;
         public Position Position { get; set; }
         [JsonIgnore]
         public Position PositionBeforeChange { get; set; }
