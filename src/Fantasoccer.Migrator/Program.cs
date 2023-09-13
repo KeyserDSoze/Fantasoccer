@@ -372,18 +372,25 @@ namespace Migrator
                                                         }
                                                     }
                                                 }
-                                                if(year >= 10)
+                                                if (year >= 10)
                                                 {
                                                     foreach (var player in dayTeam.Players)
                                                     {
                                                         player.Position.Year = year;
                                                         player.Position.SerieADay = day.SerieADay;
                                                         player.Position.IsInHome = isInHome;
+                                                        if (player.Position.X == -1)
+                                                        {
+                                                            player.Position.X = 1550;
+                                                            player.Position.Y = 1550;
+                                                        }
                                                         if (string.IsNullOrWhiteSpace(player.Name))
                                                         {
                                                             var name = player.Key.Split('/').Last();
-                                                            player.miniPlayer = player.miniPlayer with { Name = name };
-                                                            player.roleX = (FantacalcioV4.Role)(int)s_allowedRoles[(FantaSoccerRole)(int)player.Position.Status];
+                                                            name = name[..1].ToUpper() + name[1..].ToLower();
+                                                            var roleKey = (FantaSoccerRole)(int)player.Position.Status;
+                                                            var role = s_allowedRoles.ContainsKey(roleKey) ? (FantacalcioV4.Role)(int)s_allowedRoles[roleKey] : FantacalcioV4.Role.Defensor;
+                                                            player.miniPlayer = new FantacalcioV4.RealPlayer(name, string.Empty, role, year);
                                                         }
                                                     }
                                                 }
