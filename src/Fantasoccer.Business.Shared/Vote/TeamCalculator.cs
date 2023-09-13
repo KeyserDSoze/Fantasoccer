@@ -141,8 +141,12 @@ namespace Fantasoccer.Business
             }
             RealGame? GetRealGame(Player player)
             {
-                var game = RealDay?.Games.FirstOrDefault(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
-                return game;
+                if (player.RealTeam != null)
+                {
+                    var game = RealDay?.Games.FirstOrDefault(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
+                    return game;
+                }
+                return null;
             }
         }
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players)

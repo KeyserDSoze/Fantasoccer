@@ -5,8 +5,8 @@ namespace Fantasoccer
     public sealed class RealTeam
     {
         [JsonPropertyName("n")]
-        public string Name { get; set; }
+        public required string Name { get; set; }
         [JsonIgnore]
-        public string Abbreviation => Name.ToLower()[..3];
+        public string Abbreviation => Name == null || Name.Length < 3 ? Name ?? string.Empty : Name.ToLower()[..3];
     }
 }
