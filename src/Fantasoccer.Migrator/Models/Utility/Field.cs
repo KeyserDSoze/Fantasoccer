@@ -7,7 +7,7 @@
         public static readonly FieldRange GoalKeeperLine = new(0, 90);
         public static readonly FieldRange DefensorLine = new(91, 210);
         public static readonly FieldRange MidfielderLine = new(211, 320);
-        public static readonly FieldRange ForwardLine = new(321, 410);
+        public static readonly FieldRange ForwardLine = new(321, 415);
         public static readonly FieldRange InField = new(0, 500);
         public static readonly FieldRange FirstBackup = new(620, 700);
         public static readonly FieldRange SecondBackup = new(701, 800);
@@ -37,7 +37,7 @@
                 {
                     return FantaSoccerRole.Midfielder;
                 }
-                else if ((isTeamA && position.Y > 320 && position.Y <= 410) || (!isTeamA && position.Y >= 500 && position.Y <= 600))
+                else if ((isTeamA && position.Y > 320 && position.Y <= 415) || (!isTeamA && position.Y >= 500 && position.Y <= 600))
                 {
                     return FantaSoccerRole.Forward;
                 }

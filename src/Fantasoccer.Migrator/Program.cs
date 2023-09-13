@@ -151,7 +151,7 @@ namespace Migrator
             var voteRepository = voteRepositoryFactory.Create("official");
             var realTeamRepository = serviceProvider.GetRequiredService<IRepository<RealTeamWrapper, int>>();
             var allPlayersRepository = serviceProvider.GetRequiredService<IRepository<RealPlayersWrapper, int>>();
-            for (var year = 1; year < 11; year++)
+            for (var year = 1; year < 12; year++)
             {
                 var calendar = await manager.Core.GetSerieACalendarAsync(year);
                 if (calendar != null)
@@ -248,6 +248,20 @@ namespace Migrator
                 }
             }
         }
+        private static Dictionary<FantaSoccerRole, Role> s_allowedRoles = new Dictionary<FantaSoccerRole, Role>()
+                                                    {
+                                                        { FantaSoccerRole.BackupGoalKeeper,  Role.GoalKeeper },
+                                                        { FantaSoccerRole.FirstBackupDefensor, Role.Defensor },
+                                                        { FantaSoccerRole.SecondBackupDefensor, Role.Defensor },
+                                                        { FantaSoccerRole.FirstBackupMidfielder, Role.Midfielder },
+                                                        { FantaSoccerRole.SecondBackupMidfielder, Role.Midfielder },
+                                                        { FantaSoccerRole.FirstBackupForward, Role.Forward },
+                                                        { FantaSoccerRole.SecondBackupForward, Role.Forward },
+                                                        { FantaSoccerRole.Forward, Role.Forward },
+                                                        { FantaSoccerRole.Midfielder, Role.Midfielder },
+                                                        { FantaSoccerRole.Defensor, Role.Defensor },
+                                                        { FantaSoccerRole.GoalKeeper, Role.GoalKeeper },
+                                                    };
         private static async Task ParseOldFormationsAndCalendarAsync(IServiceProvider serviceProvider, Manager manager)
         {
             var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
@@ -261,7 +275,7 @@ namespace Migrator
             var leagues = new List<string> { "Serie A", "Premier League", "Champions League", "Super League" };
             foreach (var groupId in groups)
             {
-                for (var year = 5; year < 12; year++)
+                for (var year = 10; year < 12; year++)
                 {
                     foreach (var leagueId in leagues)
                     {
@@ -285,8 +299,6 @@ namespace Migrator
                             };
                             foreach (var day in calendar.Days)
                             {
-                                //if (day.SerieADay < 32)
-                                //    continue;
                                 foreach (var gameKeyValue in day.Games)
                                 {
                                     var games = gameKeyValue.Value;
@@ -320,7 +332,7 @@ namespace Migrator
                                             HomeOwner = homeOwner,
                                             Id = Guid.NewGuid().ToString(),
                                             Number = counter,
-                                            Result = new GameResult
+                                            Result = game.Result == null ? null : new GameResult
                                             {
                                                 Away = new(game.Result.Away.Value, game.Result.Away.DefensiveBonus, game.Result.Away.OwnGoal),
                                                 Home = new(game.Result.Home.Value, game.Result.Home.DefensiveBonus, game.Result.Home.OwnGoal),
@@ -337,6 +349,15 @@ namespace Migrator
                                             async Task SaveAsync(string username, bool isInHome)
                                             {
                                                 var dayTeam = await FantacalcioV4.Database.FantacalcioContext.GetAsync<FantacalcioV4.Team>($"Group/{groupId}/Year/{year}/User/{username}/{day.SerieADay}");
+                                                var serieADay = day.SerieADay - 1;
+                                                while ((dayTeam == null || dayTeam.Players.Count == 0) && serieADay >= 0)
+                                                {
+                                                    if (serieADay > 0)
+                                                        dayTeam = await FantacalcioV4.Database.FantacalcioContext.GetAsync<FantacalcioV4.Team>($"Group/{groupId}/Year/{year}/User/{username}/{serieADay}");
+                                                    else
+                                                        dayTeam = await FantacalcioV4.Database.FantacalcioContext.GetAsync<FantacalcioV4.Team>($"Group/{groupId}/Year/{year}/User/{username}");
+                                                    serieADay--;
+                                                }
                                                 var adder = 0;
                                                 if (year == 3)
                                                 {
@@ -351,7 +372,22 @@ namespace Migrator
                                                         }
                                                     }
                                                 }
-                                                if (year == 5 && day.SerieADay >= 19)
+                                                if(year >= 10)
+                                                {
+                                                    foreach (var player in dayTeam.Players)
+                                                    {
+                                                        player.Position.Year = year;
+                                                        player.Position.SerieADay = day.SerieADay;
+                                                        player.Position.IsInHome = isInHome;
+                                                        if (string.IsNullOrWhiteSpace(player.Name))
+                                                        {
+                                                            var name = player.Key.Split('/').Last();
+                                                            player.miniPlayer = player.miniPlayer with { Name = name };
+                                                            player.roleX = (FantacalcioV4.Role)(int)s_allowedRoles[(FantaSoccerRole)(int)player.Position.Status];
+                                                        }
+                                                    }
+                                                }
+                                                if ((year == 5 && day.SerieADay >= 19) || year == 7)
                                                 {
                                                     foreach (var player in dayTeam.Players)
                                                     {
@@ -448,6 +484,18 @@ namespace Migrator
                                                     {
                                                         player.roleX = FantacalcioV4.Role.Forward;
                                                     }
+                                                    if (year == 5 && day.SerieADay >= 22 && player.Name.ToLower() == "edenilson")
+                                                    {
+                                                        player.roleX = FantacalcioV4.Role.Midfielder;
+                                                    }
+                                                    if (year == 5 && day.SerieADay == 25 && player.Name.ToLower() == "asamoah")
+                                                    {
+                                                        player.roleX = FantacalcioV4.Role.Defensor;
+                                                    }
+                                                    if (year == 5 && day.SerieADay >= 27 && player.Name.ToLower() == "hiljemark")
+                                                    {
+                                                        player.roleX = FantacalcioV4.Role.Defensor;
+                                                    }
                                                     if (year == 2 || year == 3 || year == 4 || (year == 5 && day.SerieADay < 19))
                                                     {
                                                         if (player.Position.X == 0 && player.Position.Y == 1800)
@@ -541,7 +589,11 @@ namespace Migrator
                                                     {
                                                         for (var j = player.Position.Y; j < player.Position.Y + 60; j++)
                                                         {
-                                                            bitmap.SetPixel(j, i, GetColor());
+                                                            try
+                                                            {
+                                                                bitmap.SetPixel(j, i, GetColor());
+                                                            }
+                                                            catch { }
                                                             Color GetColor()
                                                             {
                                                                 switch (player.Role)
@@ -626,7 +678,7 @@ namespace Migrator
                                                     Console.WriteLine($"{player.Name} with role: {player.Role}, has pos: {player.Position}");
                                                 }
                                                 var validation = teamChecker.Validate(newTeam);
-                                                if (!validation.IsOk && year == 5 && day.SerieADay >= 32)
+                                                if (!validation.IsOk && year == 5 && day.SerieADay >= 29)
                                                 {
                                                     DoIt(Role.Forward, FantaSoccerRole.FirstBackupForward, FantaSoccerRole.SecondBackupForward);
                                                     DoIt(Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder, FantaSoccerRole.SecondBackupMidfielder);
@@ -637,6 +689,51 @@ namespace Migrator
                                                         {
                                                             newTeam.Players.Where(x => x.Role == role && x.Position == fRole).Skip(1).First().Position = fRoleN;
                                                         }
+                                                    }
+                                                    validation = teamChecker.Validate(newTeam);
+                                                }
+                                                if (!validation.IsOk && year >= 6)
+                                                {
+                                                    DoIt(Role.Forward, FantaSoccerRole.FirstBackupForward, FantaSoccerRole.SecondBackupForward);
+                                                    DoIt(Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder, FantaSoccerRole.SecondBackupMidfielder);
+                                                    DoIt(Role.Defensor, FantaSoccerRole.FirstBackupDefensor, FantaSoccerRole.SecondBackupDefensor);
+                                                    DoIt(Role.Forward, FantaSoccerRole.SecondBackupForward, FantaSoccerRole.FirstBackupForward);
+                                                    DoIt(Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder, FantaSoccerRole.FirstBackupMidfielder);
+                                                    DoIt(Role.Defensor, FantaSoccerRole.SecondBackupDefensor, FantaSoccerRole.FirstBackupDefensor);
+                                                    DoIt2(Role.Forward, FantaSoccerRole.FirstBackupForward, FantaSoccerRole.SecondBackupForward);
+                                                    DoIt2(Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder, FantaSoccerRole.SecondBackupMidfielder);
+                                                    DoIt2(Role.Defensor, FantaSoccerRole.FirstBackupDefensor, FantaSoccerRole.SecondBackupDefensor);
+                                                    DoIt2(Role.Forward, FantaSoccerRole.SecondBackupForward, FantaSoccerRole.FirstBackupForward);
+                                                    DoIt2(Role.Midfielder, FantaSoccerRole.SecondBackupMidfielder, FantaSoccerRole.FirstBackupMidfielder);
+                                                    DoIt2(Role.Defensor, FantaSoccerRole.SecondBackupDefensor, FantaSoccerRole.FirstBackupDefensor);
+                                                    DoIt2(Role.GoalKeeper, FantaSoccerRole.BackupGoalKeeper, FantaSoccerRole.BackupGoalKeeper);
+                                                    void DoIt(Role role, FantaSoccerRole fRole, FantaSoccerRole fRoleN)
+                                                    {
+                                                        if (newTeam.Players.Count(x => x.Role == role && x.Position == fRole) > 1)
+                                                        {
+                                                            newTeam.Players.Where(x => x.Role == role && x.Position == fRole).Skip(1).First().Position = fRoleN;
+                                                        }
+                                                        if (newTeam.Players.Count(x => x.Role == role && x.Position == fRole) == 0)
+                                                        {
+                                                            newTeam.Players.Where(x => x.Role == role && x.Position == FantaSoccerRole.Tribune).First().Position = fRoleN;
+                                                        }
+                                                    }
+                                                    void DoIt2(Role role, FantaSoccerRole fRole, FantaSoccerRole fRoleN)
+                                                    {
+                                                        if (newTeam.Players.Count(x => x.Role == role && x.Position == fRole) > 1)
+                                                        {
+                                                            foreach (var pl in newTeam.Players.Where(x => x.Role == role && x.Position == fRole).Skip(1))
+                                                                pl.Position = FantaSoccerRole.Tribune;
+                                                        }
+                                                    }
+                                                    validation = teamChecker.Validate(newTeam);
+                                                }
+                                                if (!validation.IsOk && year == 7)
+                                                {
+                                                    foreach (var player in newTeam.Players.Where(x => x.Position <= FantaSoccerRole.Forward))
+                                                    {
+                                                        var role = s_allowedRoles[player.Position];
+                                                        player.Role = role;
                                                     }
                                                     validation = teamChecker.Validate(newTeam);
                                                 }
@@ -651,7 +748,16 @@ namespace Migrator
                                                         { FantaSoccerRole.SecondBackupMidfielder, Role.Midfielder },
                                                         { FantaSoccerRole.FirstBackupForward, Role.Forward },
                                                         { FantaSoccerRole.SecondBackupForward, Role.Forward },
+                                                        { FantaSoccerRole.Forward, Role.Forward },
+                                                        { FantaSoccerRole.Midfielder, Role.Midfielder },
+                                                        { FantaSoccerRole.Defensor, Role.Defensor },
+                                                        { FantaSoccerRole.GoalKeeper, Role.GoalKeeper },
                                                     };
+                                                    foreach (var player in newTeam.Players.Where(x => x.Position <= FantaSoccerRole.Forward))
+                                                    {
+                                                        var role = allowedRoles[player.Position];
+                                                        player.Role = role;
+                                                    }
                                                     List<Player> wrongPositions = new();
                                                     foreach (var player in newTeam.Players.Where(x => x.Position >= FantaSoccerRole.BackupGoalKeeper && x.Position <= FantaSoccerRole.SecondBackupForward))
                                                     {
@@ -660,26 +766,51 @@ namespace Migrator
                                                             wrongPositions.Add(player);
                                                         }
                                                     }
-                                                    for (var i = 0; i < wrongPositions.Count; i++)
+                                                    if (wrongPositions.Count == 1)
                                                     {
-                                                        var player = wrongPositions[i];
-                                                        if (allowedRoles[player.Position] != player.Role)
+                                                        var role = allowedRoles[wrongPositions[0].Position];
+                                                        var tribunePlayer = newTeam.Players.FirstOrDefault(x => x.Role == role && x.Position == FantaSoccerRole.Tribune);
+                                                        if (tribunePlayer != null)
                                                         {
-                                                            for (var j = i + 1; j < wrongPositions.Count; j++)
+                                                            tribunePlayer.Position = wrongPositions[0].Position;
+                                                            wrongPositions[0].Position = FantaSoccerRole.Tribune;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        for (var i = 0; i < wrongPositions.Count; i++)
+                                                        {
+                                                            var player = wrongPositions[i];
+                                                            if (allowedRoles[player.Position] != player.Role)
                                                             {
-                                                                var playerC = wrongPositions[j];
-                                                                if (allowedRoles[playerC.Position] == player.Role
-                                                                    && allowedRoles[player.Position] == playerC.Role)
+                                                                for (var j = i + 1; j < wrongPositions.Count; j++)
                                                                 {
-                                                                    playerC.Position = player.Position;
-                                                                    break;
+                                                                    var playerC = wrongPositions[j];
+                                                                    if (allowedRoles[playerC.Position] == player.Role
+                                                                        && allowedRoles[player.Position] == playerC.Role)
+                                                                    {
+                                                                        var q = playerC.Position;
+                                                                        playerC.Position = player.Position;
+                                                                        player.Position = q;
+                                                                        break;
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
+                                                    validation = teamChecker.Validate(newTeam);
                                                 }
-                                                if (validation.IsOk)
+                                                if (validation.IsOk || (validation.Message == "Devono esserci sette giocatori in tribuna." && year >= 8) || (year >= 9 && dayTeam.Players.Count == 0))
                                                 {
+                                                    if ((year >= 9 && dayTeam.Players.Count == 0))
+                                                    {
+                                                        var cancelledDay = day.SerieADay - settings.DelayedDay;
+                                                        if (settings.CancelledDay != cancelledDay)
+                                                        {
+                                                            settings.CancelledDay = cancelledDay;
+                                                            await groupRepository.UpdateAsync(currentGroup.Key, currentGroup.Value);
+                                                        }
+                                                    }
                                                     var dayTeamKey = new TeamDayKey
                                                     {
                                                         Email = owner,

@@ -4,7 +4,7 @@ namespace FantacalcioV4
 {
     public record Player(string Key, int Price, PlayerInTeamStatus TeamStatus)
     {
-        private RealPlayer miniPlayer;
+        public RealPlayer miniPlayer;
         [JsonIgnore]
         public RealPlayer Value => miniPlayer ??= PlayerValue.Instance(Key);
         [JsonIgnore]

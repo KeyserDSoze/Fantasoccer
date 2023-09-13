@@ -35,6 +35,10 @@ namespace FantacalcioV4
                     {
                         status = MinorOldField.GetStatus(IsInHome, this);
                     }
+                    else if (Year == 7)
+                    {
+                        status = MinorOldField.GetStatus(IsInHome, this);
+                    }
                     else
                     {
                         if (Field.InField.IsValid(this.X))
@@ -71,7 +75,7 @@ namespace FantacalcioV4
                         else if (Field.TribuneX.IsValid(this.X) && Field.TribuneY.IsValid(this.Y))
                             status = FantaSoccerRole.Tribune;
                         else
-                            status = FantaSoccerRole.Invasion;
+                            status = FantaSoccerRole.Tribune;
                         if (status == FantaSoccerRole.All)
                             status = FantaSoccerRole.Tribune;
                     }

@@ -54,7 +54,13 @@ namespace FantacalcioV4.ApiManager
                     .FirstOrDefault(x => x.Year == miniTeam.Year);
                 return team?.Name ?? string.Empty;
             });
-            TeamValue.SetTeam((id, serieADay) => new TeamContext(id, serieADay).GetAsync().GetAwaiter().GetResult());
+            TeamValue.SetTeam((id, serieADay) =>
+            {
+                var context = new TeamContext(id, serieADay).GetAsync().GetAwaiter().GetResult();
+                if (context == null)
+                    context = new TeamContext(id).GetAsync().GetAwaiter().GetResult();
+                return context;
+            });
             return services;
         }
         public static IApplicationBuilder UseFantacalcioAuthentication(this IApplicationBuilder app)
