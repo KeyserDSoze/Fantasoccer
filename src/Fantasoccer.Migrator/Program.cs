@@ -9,6 +9,8 @@ using Rystem;
 using Fantasoccer.Infrastructure;
 using RepositoryFramework;
 using System.Drawing;
+using System.Text.Json;
+using Fantasoccer.Migrator.FalTeam;
 
 namespace Migrator
 {
@@ -19,7 +21,7 @@ namespace Migrator
             var services = new ServiceCollection();
             var storageAccountName = "superfc";
             var storageAccountKey = "CS124aZwZywrMrxFiCdGFipSN+UbExX1BPEb/9aY1dWGLdSboO2drxh3yFSFOVM6uGc7Grahs/sZcpDRtP77yg==";
-            var newStorage = "DefaultEndpointsProtocol=https;AccountName=calcutta2309;AccountKey=sA2ZYWk/SJJlBEac/5EhBgD2/A1sSqyyc5lmf0Xj587XJMgunWe4oXfzLq19TspgjUqfiuNT76SB+ASt7FG4TQ==;EndpointSuffix=core.windows.net";
+            var newStorage = "DefaultEndpointsProtocol=https;AccountName=fasostorage;AccountKey=R52c5CERE/WGuEiE+8U7sBg8zoy2/zB0hmtPPmHKgvABfCvoQn/d3YHo4EG42Wx3iKkcY6EYxpEX+AStxkydZw==;EndpointSuffix=core.windows.net";
             services
                 .AddRystem()
                 .AddAzureService()
@@ -35,13 +37,16 @@ namespace Migrator
             var manager = serviceProvider.GetRequiredService<Manager>();
             //await CreateGroupAndMapUsersAsync(serviceProvider, manager);
             //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
-            //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager);
+            //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager, true);
+            //await AdjustLeagueAsync(serviceProvider);
             await CreateCalendarAndRankAsync(serviceProvider);
+            //await CreateNewYear(serviceProvider);
         }
         private static async Task CreateGroupAndMapUsersAsync(IServiceProvider serviceProvider, Manager manager)
         {
             var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
             var userRepository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
+            var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
             var groups = await manager.Group.ListAsync();
             var leagues = new List<string> { "Serie A", "Premier League", "Champions League", "Super League" };
             foreach (var groupId in groups)
@@ -118,32 +123,154 @@ namespace Migrator
                                 actualLeague.BasketsId = group.Baskets.Select(x => x.Id).ToList();
                             }
                         }
+                        Console.WriteLine($"Inserted {groupId} - {leagueId} - {year}");
                     }
                 }
-                foreach (var userX in await userRepository.ToListAsync())
+                foreach (var leagueId in leagues)
                 {
-                    var user = userX.Value;
-                    if (user.Email == null)
+                    var actualLeague = group.Leagues.Find(x => x.Name == leagueId);
+                    var newSettings = LeagueSetting.Default;
+                    actualLeague.Years.Add(new AnnualLeague
                     {
-                        user.Email = userX.Key;
-                        user.Username = userX.Key;
-                        user.Groups = new();
-                    }
-                    group.Users.Add(new UserOfAGroup
-                    {
-                        Username = user.Username,
-                        Email = user.Email,
-                        Role = user.Email == "alessandro.rapiti44@gmail.com" ? IdentityRole.Admin | IdentityRole.Participant : IdentityRole.Participant
+                        Year = 12,
+                        Settings = newSettings,
                     });
-                    user.Groups.Clear();
-                    user.Groups.Add(group.ToGroupIdentity(user.Email));
-                    await userRepository.UpdateAsync(user.Email, user);
+                    //Basket creation
+                    if (actualLeague.IsMain)
+                    {
+                        var actualBasket = group.Baskets.FirstOrDefault(x => x.Name == actualLeague.Name);
+                        actualLeague.BasketsId.Clear();
+                        actualLeague.BasketsId.Add(actualBasket.Id);
+                        actualBasket.Years.Add(new YearlyBasket
+                        {
+                            Year = 12,
+                            Teams = new()
+                        });
+                        foreach (var mapperUser in s_mappedUsers)
+                        {
+                            var email = mapperUser.Value.Split("|||").First();
+                            actualBasket.Years.Last().Teams.Add(new AnnualTeam
+                            {
+                                Name = $"{email} team",
+                                Owner = CalculateOwner(email),
+                            });
+                        }
+                    }
+                    else
+                    {
+                        actualLeague.BasketsId = group.Baskets.Select(x => x.Id).ToList();
+                    }
+                    Console.WriteLine("Year 12");
                 }
                 if (!await groupRepository.ExistAsync(group.Id))
                     await groupRepository.InsertAsync(group.Id, group);
                 else
                     await groupRepository.UpdateAsync(group.Id, group);
+                Console.WriteLine($"Group finalized {group.Name}");
             }
+        }
+        private static async Task CreateNewYear(IServiceProvider serviceProvider)
+        {
+            var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var userRepository = serviceProvider.GetRequiredService<IRepository<AppIdentity, string>>();
+            var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamKey>>();
+            var group = (await groupRepository.FirstOrDefaultAsync()).Value;
+            group.Users.Clear();
+            var path = @"E:\fantasoccer";
+            foreach (var basket in group.Baskets)
+            {
+                basket.Years.First(x => x.Year == 12).Teams.Clear();
+            }
+            foreach (var mapperUser in s_mappedUsers)
+            {
+                var email = mapperUser.Value.Split("|||").First();
+                var leagueName = mapperUser.Value.Split("|||").Last();
+                group.Users.Add(new UserOfAGroup
+                {
+                    Email = email,
+                    Username = mapperUser.Key,
+                    Role = email == "alessandro.rapiti44@gmail.com" ? IdentityRole.Participant | IdentityRole.Admin : IdentityRole.Participant
+                });
+                var league = group.Leagues.First(x => x.Name == leagueName);
+                var basket = group.Baskets.First(x => x.Name == leagueName).Years.First(x => x.Year == 12).Teams;
+                basket.Add(new AnnualTeam
+                {
+                    Name = $"{email} team",
+                    Owner = email
+                });
+                var identity = new AppIdentity
+                {
+                    Email = email,
+                    State = new()
+                    {
+                        GroupId = group.Id,
+                        MeOrLeaderEmail = email,
+                        Year = FantacalcioTime.ActualYear,
+                        LeagueId = league.Id
+                    },
+                    Username = mapperUser.Key,
+                    Groups = new List<GroupForIdentity> { group.ToGroupIdentity(email) }
+                };
+                await userRepository.UpdateAsync(email, identity);
+                Console.WriteLine($"Added {email} from {mapperUser.Key} to {group.Name}");
+                var file = new DirectoryInfo(path).GetFiles().FirstOrDefault(x => x.FullName.Split("%7C").Last() == email);
+                if (file != null)
+                {
+                    using var reader = new StreamReader(file.OpenRead());
+                    var teamAsJson = await reader.ReadToEndAsync();
+                    var teamX = teamAsJson.FromJson<RootTeam>().Value;
+                    var newTeam = new Team
+                    {
+                        AdditionalOwners = teamX.AdditionalOwners,
+                        Owner = teamX.Owner,
+                        Name = teamX.Name,
+                        MoneyFromRank = teamX.MoneyFromRank,
+                        RevenueMoney = teamX.RevenueMoney,
+                        Players = teamX.Players.Select(x => new Player
+                        {
+                            IsActive = x.IsActive,
+                            Name = x.Name,
+                            Position = x.Position,
+                            Price = x.Price,
+                            Role = x.Role,
+                            Status = x.Status,
+                            RealTeam = new RealTeam() { Name = x.RealTeam.Name }
+                        }).ToList()
+                    };
+                    await teamRepository.UpdateAsync(new TeamKey
+                    {
+                        Year = 12,
+                        Email = teamX.Owner,
+                        BasketId = group.GetBasketId(email, 12)!,
+                        Group = group.Id
+                    }, newTeam);
+                    Console.WriteLine($"Added new team for {teamX.Owner}");
+                }
+                else
+                {
+                    var newTeam = new Team
+                    {
+                        AdditionalOwners = null,
+                        Owner = email,
+                        Name = $"{email} team",
+                        MoneyFromRank = 0,
+                        RevenueMoney = 0,
+                        Players = new()
+                    };
+                    await teamRepository.UpdateAsync(new TeamKey
+                    {
+                        Year = 12,
+                        Email = email,
+                        BasketId = group.GetBasketId(email, 12)!,
+                        Group = group.Id
+                    }, newTeam);
+                    Console.WriteLine($"Added new empty team for {email}");
+                }
+            }
+            if (!await groupRepository.ExistAsync(group.Id))
+                await groupRepository.InsertAsync(group.Id, group);
+            else
+                await groupRepository.UpdateAsync(group.Id, group);
         }
         private static async Task ParseSerieAVotesAndCalendar(IServiceProvider serviceProvider, Manager manager)
         {
@@ -247,6 +374,7 @@ namespace Migrator
                     }
                     await calendarRepository.UpdateAsync(year, realCalendar);
                 }
+                Console.WriteLine($"Parsed serie a year: {year}");
             }
         }
         private static Dictionary<FantaSoccerRole, Role> s_allowedRoles = new Dictionary<FantaSoccerRole, Role>()
@@ -263,7 +391,7 @@ namespace Migrator
                                                         { FantaSoccerRole.Defensor, Role.Defensor },
                                                         { FantaSoccerRole.GoalKeeper, Role.GoalKeeper },
                                                     };
-        private static async Task ParseOldFormationsAndCalendarAsync(IServiceProvider serviceProvider, Manager manager)
+        private static async Task ParseOldFormationsAndCalendarAsync(IServiceProvider serviceProvider, Manager manager, bool saveDailyTeam)
         {
             var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
             var currentGroup = await groupRepository.FirstOrDefaultAsync();
@@ -343,7 +471,7 @@ namespace Migrator
                                                 IsCancelled = false,
                                             }
                                         });
-                                        if (newLeague.IsMain)
+                                        if (newLeague.IsMain && saveDailyTeam)
                                         {
                                             await SaveAsync(game.HomeUsername, true);
                                             await SaveAsync(game.AwayUsername, false);
@@ -848,6 +976,7 @@ namespace Migrator
                                         counter++;
                                     }
                                 }
+                                Console.WriteLine($"parsed {groupId} - {leagueId} - {day.SerieADay}");
                             }
                             await calendarRepository.UpdateAsync(leagueKey, newCalendar);
                         }
@@ -886,6 +1015,7 @@ namespace Migrator
                                 Year = year,
                                 BasketId = newLeague.BasketsId.First()
                             }, newTeam);
+                            Console.WriteLine($"save team {groupId} - {team.Username} - {owner}");
                         }
                     }
                 }
@@ -909,7 +1039,10 @@ namespace Migrator
                 { "Maurizio", "m.forbicioni@hotmail.it|||Serie A" },
                 { "perugini", "peruginialessandro@hotmail.it|||Premier League" },
                 { "scarsenal", "theos.lumia@hotmail.it|||Serie A" },
-                { "lorenzo", "lorenzo.catarcia@gmail.com|||Premier League" }
+                { "lorenzo", "lorenzo.catarcia@gmail.com|||Premier League" },
+                { "marcog", "graziottimarco@gmail.com|||Premier League" },
+                { "AndreaRules", "nicosia.andrea99@gmail.com|||Premier League" },
+                { "Snailman", "Snail84muz@hotmail.com|||Serie A" },
             };
         private static string CalculateOwner(string username)
         {
@@ -920,6 +1053,80 @@ namespace Migrator
                 owner = informationForUser[0];
             }
             return owner ?? username;
+        }
+        private static async Task AdjustLeagueAsync(IServiceProvider serviceProvider)
+        {
+            var teamCalculator = serviceProvider.GetRequiredService<ITeamCalculator>();
+            var rankCalculator = serviceProvider.GetRequiredService<IRankCalculator>();
+            var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var teamDayRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
+            var calendarRepository = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
+            var rankRepository = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
+            var groups = await groupRepository.ToListAsync();
+            var group = groups.First();
+            foreach (var league in group.Value.Leagues.Where(x => x.Type == LeagueType.Cup))
+            {
+                foreach (var yearlyLeague in league.Years)
+                {
+                    Console.WriteLine($"Year {yearlyLeague.Year}");
+                    var leagueKey = new LeagueKey
+                    {
+                        Group = group.Key,
+                        League = league.Id,
+                        Year = yearlyLeague.Year,
+                    };
+                    var calendar = await calendarRepository.GetAsync(leagueKey);
+                    if (calendar != null)
+                    {
+                        if (calendar.Rounds.ContainsKey("0"))
+                            calendar.Rounds.Remove("0");
+                        List<Day> finals = new();
+                        foreach (var round in calendar.Rounds)
+                        {
+                            var dayForFinals = round.Value.Where(x => x.Number > 12).ToList();
+                            foreach (var day in dayForFinals)
+                                round.Value.Remove(day);
+                            finals.AddRange(dayForFinals);
+                            Console.WriteLine(round.Key);
+                            foreach (var day in round.Value)
+                            {
+                                Console.WriteLine($"{day.Number} ({day.SerieADay})");
+                                foreach (var game in day.Games)
+                                {
+                                    Console.WriteLine($"{game.Home}-{game.Away} {game.Result.HomeGoal}-{game.Result.AwayGoal}");
+                                }
+                            }
+                            Console.WriteLine();
+                            Console.WriteLine();
+                            Console.WriteLine();
+                        }
+                        List<Day> realFinals = new();
+                        var numberDay = 13;
+                        foreach (var dayInFinals in finals.OrderBy(x => x.Number).GroupBy(x => x.Number))
+                        {
+                            var day = new Day() { Number = numberDay, Games = dayInFinals.SelectMany(x => x.Games).GroupBy(x => $"{x.HomeOwner}-{x.AwayOwner}").Select(x => x.First()).ToList(), SerieADay = dayInFinals.First().SerieADay };
+                            realFinals.Add(day);
+                            numberDay++;
+                        }
+                        calendar.Rounds.Add("Finals", realFinals);
+                        foreach (var day in calendar.Rounds["Finals"])
+                        {
+                            Console.WriteLine($"{day.Number} ({day.SerieADay})");
+                            foreach (var game in day.Games)
+                            {
+                                Console.WriteLine($"{game.Home}-{game.Away} {game.Result.HomeGoal}-{game.Result.AwayGoal} ({game.Result.Home.Value}-{game.Result.Away.Value})");
+                            }
+                        }
+                        await calendarRepository.UpdateAsync(leagueKey, calendar);
+                    }
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                }
+            }
         }
         private static async Task CreateCalendarAndRankAsync(IServiceProvider serviceProvider)
         {
@@ -944,56 +1151,61 @@ namespace Migrator
                             Year = yearlyLeague.Year,
                         };
                         var calendar = await calendarRepository.GetAsync(leagueKey);
-                        //foreach (var round in calendar.Rounds)
-                        //{
-                        //    foreach (var day in round.Value)
-                        //    {
-                        //        await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
-                        //        foreach (var game in day.Games)
-                        //        {
-                        //            var homeTeamKey = new TeamDayKey
-                        //            {
-                        //                Year = yearlyLeague.Year,
-                        //                Group = group.Key,
-                        //                Day = day.SerieADay,
-                        //                BasketId = GetBasketId(game.HomeOwner),
-                        //                Email = game.HomeOwner
-                        //            };
-                        //            var homeTeam = await teamDayRepository.GetAsync(homeTeamKey);
-                        //            var awayTeamKey = new TeamDayKey
-                        //            {
-                        //                Year = yearlyLeague.Year,
-                        //                Group = group.Key,
-                        //                Day = day.SerieADay,
-                        //                BasketId = GetBasketId(game.HomeOwner),
-                        //                Email = game.HomeOwner
-                        //            };
-                        //            var awayTeam = await teamDayRepository.GetAsync(homeTeamKey);
-                        //            var homePoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(homeTeam.ActivePlayers));
-                        //            var awayPoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(awayTeam.ActivePlayers));
+                        var needsRecalculation = calendar != null && calendar.Rounds.SelectMany(x => x.Value.SelectMany(x => x.Games)).Count(x => x.Result.HomeGoal == 0 && x.Result.AwayGoal == 0) > 50;
+                        if (needsRecalculation)
+                        {
+                            foreach (var round in calendar.Rounds)
+                            {
+                                foreach (var day in round.Value)
+                                {
+                                    await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
+                                    foreach (var game in day.Games)
+                                    {
+                                        var homeTeamKey = new TeamDayKey
+                                        {
+                                            Year = yearlyLeague.Year,
+                                            Group = group.Key,
+                                            Day = day.SerieADay,
+                                            BasketId = GetBasketId(game.HomeOwner),
+                                            Email = game.HomeOwner
+                                        };
+                                        var homeTeam = await teamDayRepository.GetAsync(homeTeamKey);
+                                        var awayTeamKey = new TeamDayKey
+                                        {
+                                            Year = yearlyLeague.Year,
+                                            Group = group.Key,
+                                            Day = day.SerieADay,
+                                            BasketId = GetBasketId(game.HomeOwner),
+                                            Email = game.HomeOwner
+                                        };
+                                        var awayTeam = await teamDayRepository.GetAsync(homeTeamKey);
+                                        var homePoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(homeTeam.ActivePlayers));
+                                        var awayPoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(awayTeam.ActivePlayers));
 
-                        //            game.Result = new GameResult
-                        //            {
-                        //                Home = homePoint,
-                        //                Away = awayPoint,
-                        //            };
-                        //            game.Result.CalculateGoals(yearlyLeague.Settings);
+                                        game.Result = new GameResult
+                                        {
+                                            Home = homePoint,
+                                            Away = awayPoint,
+                                        };
+                                        game.Result.CalculateGoals(yearlyLeague.Settings);
 
-                        //            string GetBasketId(string owner)
-                        //            {
-                        //                foreach (var basketId in league.BasketsId)
-                        //                {
-                        //                    var basket = baskets.FirstOrDefault(x => x.Id == basketId && x.Years.Any(t => t.Teams.Any(q => q.Owner == owner)));
-                        //                    if (basket != null)
-                        //                        return basket.Id;
-                        //                }
-                        //                return league.BasketsId.First();
-                        //            }
-                        //        }
-                        //    }
-                        //}
+                                        string GetBasketId(string owner)
+                                        {
+                                            foreach (var basketId in league.BasketsId)
+                                            {
+                                                var basket = baskets.FirstOrDefault(x => x.Id == basketId && x.Years.Any(t => t.Teams.Any(q => q.Owner == owner)));
+                                                if (basket != null)
+                                                    return basket.Id;
+                                            }
+                                            return league.BasketsId.First();
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
                         await rankRepository.UpdateAsync(leagueKey, rank);
+                        Console.WriteLine($"Rank saved {group.Value.Name} - {league.Name} - {leagueKey.Year}");
                         //foreach (var t in rank.RankedTeams)
                         //{
                         //    Console.WriteLine($"Liga {league.Name} ({yearlyLeague.Year}) [{t.Key}]");

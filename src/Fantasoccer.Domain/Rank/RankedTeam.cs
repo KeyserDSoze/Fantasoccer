@@ -20,7 +20,7 @@ namespace Fantasoccer
         public int Goal { get; set; }
         [JsonPropertyName("s")]
         public int SufferedGoal { get; set; }
-        [JsonPropertyName("v")]
+        [JsonPropertyName("x")]
         public float ValuePoint { get; set; }
         [JsonPropertyName("w")]
         public float SufferedValuePoint { get; set; }

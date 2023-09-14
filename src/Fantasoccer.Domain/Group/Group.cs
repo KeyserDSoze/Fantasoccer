@@ -34,5 +34,25 @@ namespace Fantasoccer
             };
             return group;
         }
+        public string? GetBasketId(string owner, int? year = null)
+        {
+            foreach (var basket in Baskets)
+            {
+                if (basket.Years != null)
+                {
+                    foreach (var yearly in basket.Years)
+                    {
+                        if (year == null || yearly.Year == year)
+                        {
+                            if (yearly.Teams.Exists(x => x.Owner == owner))
+                            {
+                                return basket.Id;
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
     }
 }

@@ -21,110 +21,113 @@
                     </BarItem>
                 </BarBrand>
                 <BarMenu>
-                    <BarStart>
-                        <BarItem>
-                            <BarLink To="../../">
-                                <BarIcon IconName="IconName.Star" />
-                                Rank
-                            </BarLink>
-                        </BarItem>
-                        <BarItem>
-                            <BarLink To="../../calendar">
-                                <BarIcon IconName="IconName.CalendarDay" />
-                                Calendar
-                            </BarLink>
-                        </BarItem>
-                        <BarItem>
-                            <BarLink To="../../allteams">
-                                <BarIcon IconName="IconName.Hotel" />
-                                All teams
-                            </BarLink>
-                        </BarItem>
-                        <BarItem>
-                            <BarLink To="../../edit">
-                                <BarIcon IconName="IconName.Users" />
-                                My team
-                            </BarLink>
-                        </BarItem>
-                        <BarItem>
-                            <BarLink To="../../allplayers">
-                                <BarIcon IconName="IconName.PlaneArrival" />
-                                All players
-                            </BarLink>
-                        </BarItem>
-                        @if (State?.Groups != null && State.Identity != null)
-                        {
+                    @if (State?.HasAGroup == true)
+                    {
+                        <BarStart>
+                            <BarItem>
+                                <BarLink To="../../">
+                                    <BarIcon IconName="IconName.Star" />
+                                    Rank
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../calendar">
+                                    <BarIcon IconName="IconName.CalendarDay" />
+                                    Calendar
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../allteams">
+                                    <BarIcon IconName="IconName.Hotel" />
+                                    All teams
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../edit">
+                                    <BarIcon IconName="IconName.Users" />
+                                    My team
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../allplayers">
+                                    <BarIcon IconName="IconName.PlaneArrival" />
+                                    All players
+                                </BarLink>
+                            </BarItem>
+                            @if (State?.Groups != null && State.Identity != null)
+                            {
+                                <BarItem>
+                                    <BarDropdown>
+                                        <BarDropdownToggle>
+                                            <BarIcon IconName="IconName.LayerGroup" />
+                                            Group
+                                        </BarDropdownToggle>
+                                        <BarDropdownMenu>
+                                            @foreach (var group in State.Groups)
+                                            {
+                                                <BarDropdown>
+                                                    <BarDropdownToggle Class="@(State?.GroupId == group.Id ? "active" : string.Empty)">
+                                                        <BarIcon IconName="IconName.Flag" />
+                                                        @group.Name
+                                                    </BarDropdownToggle>
+                                                    <BarDropdownMenu>
+                                                        @foreach (var league in group.Leagues)
+                                                        {
+                                                            <BarDropdown>
+                                                                <BarDropdownToggle Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)">
+                                                                    <BarIcon IconName="IconName.Flag" />
+                                                                    @league.Name
+                                                                </BarDropdownToggle>
+                                                                <BarDropdownMenu>
+                                                                    @{
+                                                                        var noTeams = true;
+                                                                        foreach (var team in State.GetTeams(group.Id, league.Id, State.Year, State.Identity.Email))
+                                                                        {
+                                                                            noTeams = false;
+                                                                            <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
+                                                                                <BarIcon IconName="IconName.DotCircle" />
+                                                                                @team.Name (@(team.Owner != State?.Identity?.Email ? team.Owner : string.Empty))
+                                                                            </BarDropdownItem>
+                                                                        }
+                                                                        if (noTeams)
+                                                                        {
+                                                                            <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, State.Identity.Email)">
+                                                                                <BarIcon IconName="IconName.DotCircle" />
+                                                                                Sbircia
+                                                                            </BarDropdownItem>
+                                                                        }
+                                                                    }
+                                                                </BarDropdownMenu>
+                                                            </BarDropdown>
+                                                        }
+                                                    </BarDropdownMenu>
+                                                </BarDropdown>
+                                            }
+                                        </BarDropdownMenu>
+                                    </BarDropdown>
+                                </BarItem>
+                            }
                             <BarItem>
                                 <BarDropdown>
                                     <BarDropdownToggle>
-                                        <BarIcon IconName="IconName.LayerGroup" />
-                                        Group
+                                        <BarIcon IconName="IconName.CalendarTimes" />
+                                        Years
                                     </BarDropdownToggle>
                                     <BarDropdownMenu>
-                                        @foreach (var group in State.Groups)
+                                        @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
                                         {
-                                            <BarDropdown>
-                                                <BarDropdownToggle Class="@(State?.GroupId == group.Id ? "active" : string.Empty)">
-                                                    <BarIcon IconName="IconName.Flag" />
-                                                    @group.Name
-                                                </BarDropdownToggle>
-                                                <BarDropdownMenu>
-                                                    @foreach (var league in group.Leagues)
-                                                    {
-                                                        <BarDropdown>
-                                                            <BarDropdownToggle Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)">
-                                                                <BarIcon IconName="IconName.Flag" />
-                                                                @league.Name
-                                                            </BarDropdownToggle>
-                                                            <BarDropdownMenu>
-                                                                @{
-                                                                    var noTeams = true;
-                                                                    foreach (var team in State.GetTeams(group.Id, league.Id, State.Year, State.Identity.Email))
-                                                                    {
-                                                                        noTeams = false;
-                                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
-                                                                            <BarIcon IconName="IconName.DotCircle" />
-                                                                            @team.Name (@(team.Owner != State?.Identity?.Email ? team.Owner : string.Empty))
-                                                                        </BarDropdownItem>
-                                                                    }
-                                                                    if (noTeams)
-                                                                    {
-                                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, State.Identity.Email)">
-                                                                            <BarIcon IconName="IconName.DotCircle" />
-                                                                            Sbircia
-                                                                        </BarDropdownItem>
-                                                                    }
-                                                                }
-                                                            </BarDropdownMenu>
-                                                        </BarDropdown>
-                                                    }
-                                                </BarDropdownMenu>
-                                            </BarDropdown>
+                                            var actualYear = year;
+                                            <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
+                                                             Clicked="x => State?.ChangeYearAsync(actualYear)">
+                                                <BarIcon IconName="IconName.Times" />
+                                                @FantacalcioTime.LabelYear(actualYear)
+                                            </BarDropdownItem>
                                         }
                                     </BarDropdownMenu>
                                 </BarDropdown>
                             </BarItem>
-                        }
-                        <BarItem>
-                            <BarDropdown>
-                                <BarDropdownToggle>
-                                    <BarIcon IconName="IconName.CalendarTimes" />
-                                    Years
-                                </BarDropdownToggle>
-                                <BarDropdownMenu>
-                                    @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
-                                    {
-                                        var actualYear = year;
-                                        <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
-                                                         Clicked="x => State?.ChangeYearAsync(actualYear)">
-                                            <BarIcon IconName="IconName.Times" />
-                                            @FantacalcioTime.LabelYear(actualYear)
-                                        </BarDropdownItem>
-                                    }
-                                </BarDropdownMenu>
-                            </BarDropdown>
-                        </BarItem>
-                    </BarStart>
+                        </BarStart>
+                    }
                 </BarMenu>
             </Bar>
         </LayoutSiderContent>

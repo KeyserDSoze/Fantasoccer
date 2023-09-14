@@ -9,9 +9,9 @@ namespace Fantasoccer
         public required string Group { get; set; }
         [JsonPropertyName("y")]
         public required int Year { get; set; }
-        [JsonPropertyName("e")]
-        public required string Email { get; set; }
         [JsonPropertyName("b")]
         public required string BasketId { get; set; }
+        [JsonPropertyName("e")]
+        public required string Email { get; set; }
     }
 }

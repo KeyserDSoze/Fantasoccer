@@ -60,7 +60,7 @@ else if (nullRank != null)
     }
     protected override async Task OnParametersSetAsync()
     {
-        if (State != null)
+        if (State?.HasAGroup == true)
         {
             LoadingIndicator?.Show();
             rank = await Api.Ranks.GetAsync(State.LeagueKey);

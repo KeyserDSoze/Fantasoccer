@@ -14,9 +14,9 @@ namespace Fantasoccer
         public List<Player> Players { get; set; }
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
-        [JsonIgnore]
+        [JsonPropertyName("r")]
         public int RevenueMoney { get; set; }
-        [JsonIgnore]
+        [JsonPropertyName("m")]
         public int MoneyFromRank { get; set; }
         [JsonIgnore]
         public int MoneyFromSoldWithNoReturnedPrice => Players.Where(x => x.Status == PlayerInTeamStatus.SoldWithNoReturnedPrice).Sum(x => x.Price);

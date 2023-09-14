@@ -5,22 +5,28 @@
         public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, LeagueType type)
         {
             var rank = new Rank() { RankedTeams = new() };
-            foreach (var round in calendar.Rounds)
+            if (calendar != null)
             {
-                if (!rank.RankedTeams.ContainsKey(round.Key))
+                foreach (var round in calendar.Rounds)
                 {
-                    rank.RankedTeams.Add(round.Key,
-                        round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
-                }
-                var teams = rank.RankedTeams[round.Key];
-                foreach (var day in round.Value)
-                {
-                    foreach (var game in day.Games)
+                    if (type == LeagueType.Cup && round.Key == "Finals")
+                        continue;
+                    if (!rank.RankedTeams.ContainsKey(round.Key))
                     {
-                        var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
-                        var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
-                        AddDay(homeTeam, true, game.Result, leagueSetting);
-                        AddDay(awayTeam, false, game.Result, leagueSetting);
+                        rank.RankedTeams.Add(round.Key,
+                            round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
+                    }
+                    var teams = rank.RankedTeams[round.Key];
+                    foreach (var day in round.Value)
+                    {
+
+                        foreach (var game in day.Games)
+                        {
+                            var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
+                            var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
+                            AddDay(homeTeam, true, game.Result, leagueSetting);
+                            AddDay(awayTeam, false, game.Result, leagueSetting);
+                        }
                     }
                 }
             }
