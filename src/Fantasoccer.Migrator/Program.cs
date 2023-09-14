@@ -1151,60 +1151,73 @@ namespace Migrator
                             Year = yearlyLeague.Year,
                         };
                         var calendar = await calendarRepository.GetAsync(leagueKey);
-                        var needsRecalculation = calendar != null && calendar.Rounds.SelectMany(x => x.Value.SelectMany(x => x.Games)).Count(x => x.Result.HomeGoal == 0 && x.Result.AwayGoal == 0) > 50;
+                        //var needsRecalculation = calendar != null && calendar.Rounds.SelectMany(x => x.Value.SelectMany(x => x.Games)).Count(x => x.Result == null || (x.Result.HomeGoal == 0 && x.Result.AwayGoal == 0)) > 40;
+                        var needsRecalculation = calendar != null && yearlyLeague.Year > 3;
                         if (needsRecalculation)
                         {
                             foreach (var round in calendar.Rounds)
                             {
                                 foreach (var day in round.Value)
                                 {
-                                    await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
-                                    foreach (var game in day.Games)
+                                    if (day.Number <= yearlyLeague.Settings.CancelledDay)
                                     {
-                                        var homeTeamKey = new TeamDayKey
+                                        Console.WriteLine($"{day.Number} [{day.SerieADay}]");
+                                        foreach (var game in day.Games)
                                         {
-                                            Year = yearlyLeague.Year,
-                                            Group = group.Key,
-                                            Day = day.SerieADay,
-                                            BasketId = GetBasketId(game.HomeOwner),
-                                            Email = game.HomeOwner
-                                        };
-                                        var homeTeam = await teamDayRepository.GetAsync(homeTeamKey);
-                                        var awayTeamKey = new TeamDayKey
+                                            game.Result.IsCancelled = true;
+                                            Console.WriteLine($"{day.Number} [{day.SerieADay}]");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
+                                        foreach (var game in day.Games)
                                         {
-                                            Year = yearlyLeague.Year,
-                                            Group = group.Key,
-                                            Day = day.SerieADay,
-                                            BasketId = GetBasketId(game.HomeOwner),
-                                            Email = game.HomeOwner
-                                        };
-                                        var awayTeam = await teamDayRepository.GetAsync(homeTeamKey);
-                                        var homePoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(homeTeam.ActivePlayers));
-                                        var awayPoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(awayTeam.ActivePlayers));
-
-                                        game.Result = new GameResult
-                                        {
-                                            Home = homePoint,
-                                            Away = awayPoint,
-                                        };
-                                        game.Result.CalculateGoals(yearlyLeague.Settings);
-
-                                        string GetBasketId(string owner)
-                                        {
-                                            foreach (var basketId in league.BasketsId)
+                                            var homeTeamKey = new TeamDayKey
                                             {
-                                                var basket = baskets.FirstOrDefault(x => x.Id == basketId && x.Years.Any(t => t.Teams.Any(q => q.Owner == owner)));
-                                                if (basket != null)
-                                                    return basket.Id;
+                                                Year = yearlyLeague.Year,
+                                                Group = group.Key,
+                                                Day = day.SerieADay,
+                                                BasketId = GetBasketId(game.HomeOwner),
+                                                Email = game.HomeOwner
+                                            };
+                                            var homeTeam = await teamDayRepository.GetAsync(homeTeamKey);
+                                            var awayTeamKey = new TeamDayKey
+                                            {
+                                                Year = yearlyLeague.Year,
+                                                Group = group.Key,
+                                                Day = day.SerieADay,
+                                                BasketId = GetBasketId(game.HomeOwner),
+                                                Email = game.HomeOwner
+                                            };
+                                            var awayTeam = await teamDayRepository.GetAsync(homeTeamKey);
+                                            var homePoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(homeTeam.ActivePlayers));
+                                            var awayPoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(awayTeam.ActivePlayers));
+
+                                            game.Result = new GameResult
+                                            {
+                                                Home = homePoint,
+                                                Away = awayPoint,
+                                            };
+                                            game.Result.CalculateGoals(yearlyLeague.Settings);
+
+                                            string GetBasketId(string owner)
+                                            {
+                                                foreach (var basketId in league.BasketsId)
+                                                {
+                                                    var basket = baskets.FirstOrDefault(x => x.Id == basketId && x.Years.Any(t => t.Teams.Any(q => q.Owner == owner)));
+                                                    if (basket != null)
+                                                        return basket.Id;
+                                                }
+                                                return league.BasketsId.First();
                                             }
-                                            return league.BasketsId.First();
                                         }
                                     }
                                 }
                             }
                         }
                         var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
-                        await rankRepository.UpdateAsync(leagueKey, rank);
+                        //await rankRepository.UpdateAsync(leagueKey, rank);
                         Console.WriteLine($"Rank saved {group.Value.Name} - {league.Name} - {leagueKey.Year}");
                         //foreach (var t in rank.RankedTeams)
                         //{

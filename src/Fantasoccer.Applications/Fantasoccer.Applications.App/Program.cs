@@ -44,6 +44,7 @@ builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient(settings =>
 });
 builder.Services.AddSharedBusiness();
 
+
 var app = builder.Build();
 await app.Services.WarmUpAsync();
 if (!app.Environment.IsDevelopment())
