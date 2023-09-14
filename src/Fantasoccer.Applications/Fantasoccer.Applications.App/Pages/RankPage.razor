@@ -38,9 +38,18 @@
         </Content>
     </Tabs>
 }
-else if (nullRank != null)
+
+@if (nullRank != null)
 {
-    <DisplayHeading Size="DisplayHeadingSize.Is4">@nullRank</DisplayHeading>
+    <Alert Color="Color.Info" Visible=true>
+        <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+            Not found
+            <CloseButton />
+        </Heading>
+        <Paragraph>
+            @nullRank
+        </Paragraph>
+    </Alert>
 }
 
 @code {
@@ -64,7 +73,7 @@ else if (nullRank != null)
         {
             LoadingIndicator?.Show();
             rank = await Api.Ranks.GetAsync(State.LeagueKey);
-            if (rank != null)
+            if (rank != null && rank.RankedTeams.Count > 0)
                 selectedTab = rank.RankedTeams.First().Key;
             else
                 nullRank = $"Classifica non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";

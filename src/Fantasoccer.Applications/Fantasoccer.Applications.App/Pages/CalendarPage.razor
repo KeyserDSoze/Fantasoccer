@@ -74,9 +74,17 @@
         </Content>
     </Tabs>
 }
-else if (nullRank != null)
+else if (nullCalendar != null)
 {
-    <DisplayHeading Size="DisplayHeadingSize.Is4">@nullRank</DisplayHeading>
+    <Alert Color="Color.Info" Visible=true>
+        <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+            Not found
+            <CloseButton />
+        </Heading>
+        <Paragraph>
+            @nullCalendar
+        </Paragraph>
+    </Alert>
 }
 
 @code {
@@ -89,7 +97,7 @@ else if (nullRank != null)
     private Calendar? calendar;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
-    private string? nullRank;
+    private string? nullCalendar;
 
     private Task OnSelectedTabChanged(string name)
     {
@@ -102,10 +110,10 @@ else if (nullRank != null)
         {
             LoadingIndicator?.Show();
             calendar = await Api.Calendar.GetAsync(State.LeagueKey);
-            if (calendar != null)
+            if (calendar != null && calendar.Rounds.Count > 0)
                 selectedTab = calendar.Rounds.First().Key;
             else
-                nullRank = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
+                nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
