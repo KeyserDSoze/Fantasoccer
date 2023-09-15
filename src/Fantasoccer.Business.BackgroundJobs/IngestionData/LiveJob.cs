@@ -43,10 +43,10 @@ namespace Fantasoccer.Engine.IngestionData
             var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();
             if (realCalendar != null)
             {
-                var liveDay = realCalendar.LiveDay;
+                var liveDay = realCalendar.LiveDay ?? realCalendar.NextDay;
                 if (liveDay != default)
                 {
-                    await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, realCalendar.LiveDay.SerieADay, LeagueSetting.Default, false, true, false);
+                    await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, liveDay.SerieADay, LeagueSetting.Default, false, true, false);
                     foreach (var group in await _groupRepository.ToListAsEntityAsync())
                     {
                         var liveGroup = new LiveGroup
@@ -70,7 +70,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 };
                                 foreach (var round in calendar.Rounds)
                                 {
-                                    var day = round.Value.First(x => x.SerieADay == realCalendar.LiveDay.SerieADay);
+                                    var day = round.Value.First(x => x.SerieADay == liveDay.SerieADay);
                                     liveLeague.Rounds.Add(round.Key, day);
                                     foreach (var game in day.Games)
                                     {
