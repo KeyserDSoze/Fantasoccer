@@ -13,7 +13,7 @@
         <h4>@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</h4>
         <DataGrid TItem="StatPlayerWithPrice"
                   Data="@team.Players.Select(x => ToStatPlayer(x))"
-                    Striped
+                Striped
                    PageSize="30"
                 Responsive>
          <DataGridColumn Field="@nameof(StatPlayer.Name)" Caption="Name" Sortable Filterable />
@@ -46,6 +46,12 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     private List<Team>? teams;
     private List<StatPlayer>? players;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.SelectedYearlyLeague != null)
@@ -64,7 +70,6 @@
                         teams.Add(actualTeam);
                 }
             }
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

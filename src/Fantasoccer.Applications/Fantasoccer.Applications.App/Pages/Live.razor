@@ -139,6 +139,12 @@
         innerSelectedTab[selectedTab] = name;
         return Task.CompletedTask;
     }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.HasAGroup == true)
@@ -161,7 +167,6 @@
                     innerSelectedTab.Add(league.Id, league.Rounds.First().Key);
                 }
             }
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

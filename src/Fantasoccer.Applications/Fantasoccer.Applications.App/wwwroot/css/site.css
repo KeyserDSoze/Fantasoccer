@@ -70,7 +70,17 @@ a, .btn-link {
 .loader {
     position: fixed;
     top: 40%;
-    left: 50%;
+    left: 47%;
+    width: 6%;
+}
+
+@media only screen and (max-width: 768px) {
+    .loader {
+        position: fixed;
+        top: 40%;
+        left: 42%;
+        width: 16%;
+    }
 }
 
 .field {

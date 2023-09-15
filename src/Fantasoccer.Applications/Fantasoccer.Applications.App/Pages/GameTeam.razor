@@ -4,85 +4,88 @@
 @using Blazorise.LoadingIndicator;
 @using Fantasoccer.Business;
 
-@if (!isMobile)
+@if (State != null)
 {
-    <div class="field">
-        @if (game != null)
-        {
-            <ResultCard Css="gameResult animOpacity" Game="game"></ResultCard>
-        }
-        else
-        {
-            <div class="gameResult animOpacity">No calendar available</div>
-        }
-        @if (teams != null)
-        {
-
-            <Image class="backgroundField" Source="./static/field.jpg"></Image>
-            foreach (var team in teams)
+    @if (!isMobile)
+    {
+        <div class="field">
+            @if (game != null)
             {
-                if (team.CanModify)
+                <ResultCard Css="gameResult animOpacity" Game="game"></ResultCard>
+            }
+            else
+            {
+                <div class="gameResult animOpacity">No calendar available</div>
+            }
+            @if (teams != null)
+            {
+
+                <Image class="backgroundField" Source="./static/field.jpg"></Image>
+                foreach (var team in teams)
                 {
-                    <DesktopEditableTeam Inverted="team.Inverted" Players="team.Players" SaveTeam="SaveAsync"></DesktopEditableTeam>
-                }
-                else
-                {
-                    <DesktopGame Inverted="team.Inverted" Players="TeamCalculator.GetRightFormation(team.Players)"></DesktopGame>
+                    if (team.CanModify)
+                    {
+                        <DesktopEditableTeam Inverted="team.Inverted" Players="team.Players" SaveTeam="SaveAsync"></DesktopEditableTeam>
+                    }
+                    else
+                    {
+                        <DesktopGame Inverted="team.Inverted" Players="TeamCalculator.GetRightFormation(team.Players)"></DesktopGame>
+                    }
                 }
             }
-        }
-    </div>
-}
-else
-{
-    <div class="fieldMobile">
-        @if (game != null)
-        {
-            <ResultCard Css="gameResultMobile animOpacity" Game="game"></ResultCard>
-        }
-        @if (teams != null)
-        {
-            <div class="gameContainerMobile">
+        </div>
+    }
+    else
+    {
+        <div class="fieldMobile">
+            @if (game != null)
+            {
+                <ResultCard Css="gameResultMobile animOpacity" Game="game"></ResultCard>
+            }
+            @if (teams != null)
+            {
+                <div class="gameContainerMobile">
+                    @foreach (var team in teams)
+                    {
+                        if (team.CanModify)
+                        {
+                            <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobile" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileEditableTeam>
+                        }
+                        else
+                        {
+                            <MobileGame Css="playerContainerMobile" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileGame>
+                        }
+                    }
+                </div>
+                var counter = 0;
                 @foreach (var team in teams)
                 {
                     if (team.CanModify)
                     {
-                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobile" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileEditableTeam>
+                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileEditableTeam>
                     }
                     else
                     {
-                        <MobileGame Css="playerContainerMobile" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileGame>
+                        <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileGame>
+                    }
+                    counter++;
+                }
+                @foreach (var team in teams)
+                {
+                    if (team.CanModify)
+                    {
+                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="team.Inverted"></MobileEditableTeam>
                     }
                 }
-            </div>
-            var counter = 0;
-            @foreach (var team in teams)
-            {
-                if (team.CanModify)
-                {
-                    <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileEditableTeam>
-                }
-                else
-                {
-                    <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileGame>
-                }
-                counter++;
             }
-            @foreach (var team in teams)
-            {
-                if (team.CanModify)
-                {
-                    <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="team.Inverted"></MobileEditableTeam>
-                }
-            }
-        }
-    </div>
+        </div>
+    }
+    <Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
+        <SnackbarBody>
+            @message
+        </SnackbarBody>
+    </Snackbar>
 }
-<Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
-    <SnackbarBody>
-        @message
-    </SnackbarBody>
-</Snackbar>
 
 @code {
     [CascadingParameter]
@@ -109,6 +112,12 @@ else
     }
     private static readonly Regex TestMobile = new Regex("android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile");
     private bool isMobile;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State != null)
@@ -199,7 +208,6 @@ else
                         });
                 this.teams = teams;
             }
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

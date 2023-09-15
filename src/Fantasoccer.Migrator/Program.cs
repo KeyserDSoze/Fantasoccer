@@ -39,8 +39,18 @@ namespace Migrator
             //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
             //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager, true);
             //await AdjustLeagueAsync(serviceProvider);
-            await CreateCalendarAndRankAsync(serviceProvider);
+            //await CreateCalendarAndRankAsync(serviceProvider);
+            await CreateStatsPlayerAsync(serviceProvider);
             //await CreateNewYear(serviceProvider);
+        }
+        private static async Task CreateStatsPlayerAsync(IServiceProvider serviceProvider)
+        {
+            var stat = serviceProvider.GetRequiredService<IStatsPlayerGenerator>();
+            for (var i = 1; i < 12; i++)
+            {
+                await stat.GenerateAndSaveAsync(i, 38);
+                Console.WriteLine($"Created year {i}");
+            }
         }
         private static async Task CreateGroupAndMapUsersAsync(IServiceProvider serviceProvider, Manager manager)
         {

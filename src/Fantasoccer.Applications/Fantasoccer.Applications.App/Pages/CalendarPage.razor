@@ -98,7 +98,12 @@ else if (nullCalendar != null)
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullCalendar;
-
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     private Task OnSelectedTabChanged(string name)
     {
         selectedTab = name;
@@ -114,7 +119,6 @@ else if (nullCalendar != null)
                 selectedTab = calendar.Rounds.First().Key;
             else
                 nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

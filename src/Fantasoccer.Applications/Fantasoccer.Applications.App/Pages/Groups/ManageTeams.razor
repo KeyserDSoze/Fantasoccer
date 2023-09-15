@@ -180,6 +180,12 @@
     private string? error;
     private List<StatPlayer>? statsPlayers;
     private List<ChancedRealPlayer>? chances;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.Teams != null && State?.IsAdmin() == true)
@@ -215,7 +221,6 @@
             statsPlayers = playersWrapper?.Players;
             var calendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
             chances = (await Api.Chances.GetAsync(State.YearDayKey(calendar?.NextDay?.SerieADay ?? calendar?.LiveDay?.SerieADay ?? 3)))?.Players;
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

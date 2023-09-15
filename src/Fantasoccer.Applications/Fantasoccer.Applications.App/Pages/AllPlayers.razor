@@ -62,6 +62,12 @@
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     private IEnumerable<StatPlayer>? players;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State != null)
@@ -73,10 +79,9 @@
                 players = playersWrapper.Players;
                 if (players != null)
                 {
-                    
+
                 }
             }
-            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

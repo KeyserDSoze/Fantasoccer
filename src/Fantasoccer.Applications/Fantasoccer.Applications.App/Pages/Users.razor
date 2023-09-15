@@ -34,12 +34,21 @@
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
     private IEnumerable<AppIdentity>? users;
     private bool canSee;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.IsAuthenticated == true)
         {
+            LoadingIndicator?.Show();
             canSee = State.Identity.Email == "alessandro.rapiti44@gmail.com";
             users = await Api.AppIdentity.ToListAsEntityAsync();
             await base.OnParametersSetAsync();
