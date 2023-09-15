@@ -82,5 +82,5 @@
     public required EnrichedPlayer Player { get; set; }
     [Parameter]
     public Action? Click { get; set; }
-    private string EnemyName => Player == null || Player.RealGame == null ? string.Empty : (Player.Current.RealTeam.Abbreviation != Player.RealGame.Home.Abbreviation ? Player.RealGame.Away.Abbreviation : Player.RealGame.Home.Abbreviation);
+    private string EnemyName => Player == null || Player.RealGame == null ? string.Empty : (Player.Current.RealTeam.Abbreviation != Player.RealGame.Home.Abbreviation ? Player.RealGame.Home.Abbreviation.ToUpper() : Player.RealGame.Away.Abbreviation);
 }
