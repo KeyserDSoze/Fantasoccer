@@ -78,20 +78,20 @@
                                         </Column>
                                         <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
                                             <DataGrid TItem="RankedTeam" Margin="Margin.Is1"
-                                                      Style="height:auto !important;max-height:1000px !important;"
+                                                      Style="margin:0 !important; height:auto !important;max-height:1000px !important;"
                                                       Data="@league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point)"
                                                             FixedHeader
                                                             Striped
                                                             Responsive>
                                              <DataGridCommandColumn />
                                              <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable=false />
-                                             <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="Points" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.ValuePoint)" Caption="Value Points" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Victories)" Caption="Victories" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Draws)" Caption="Draws" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Defeats)" Caption="Defeats" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Goal)" Caption="Goal" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.SufferedGoal)" Caption="Suffered Goal" Sortable />
+                                             <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="P" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.ValuePoint)" Caption="VP" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.Victories)" Caption="V" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.Draws)" Caption="D" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.Defeats)" Caption="D" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.Goal)" Caption="G" Sortable />
+                                                 <DataGridColumn Field="@nameof(RankedTeam.SufferedGoal)" Caption="SG" Sortable />
                                              </DataGrid>
                                          </Column>
                                      </Row>
