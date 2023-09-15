@@ -38,19 +38,15 @@
         </Content>
     </Tabs>
 }
-
-@if (nullRank != null)
-{
-    <Alert Color="Color.Info" Visible=true>
-        <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-            Not found
-            <CloseButton />
-        </Heading>
-        <Paragraph>
-            @nullRank
-        </Paragraph>
-    </Alert>
-}
+<Alert Color="Color.Info" Visible=isVisible>
+    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+        Not found
+        <CloseButton />
+    </Heading>
+    <Paragraph>
+        @nullRank
+    </Paragraph>
+</Alert>
 
 @code {
     [CascadingParameter]
@@ -61,6 +57,7 @@
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullRank;
+    private bool isVisible => nullRank != null;
 
     private Task OnSelectedTabChanged(string name)
     {
@@ -75,6 +72,7 @@
     }
     protected override async Task OnParametersSetAsync()
     {
+        nullRank = null;
         if (State?.HasAGroup == true)
         {
             LoadingIndicator?.Show();

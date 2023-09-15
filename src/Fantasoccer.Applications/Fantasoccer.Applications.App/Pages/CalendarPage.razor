@@ -74,18 +74,15 @@
         </Content>
     </Tabs>
 }
-else if (nullCalendar != null)
-{
-    <Alert Color="Color.Info" Visible=true>
-        <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-            Not found
-            <CloseButton />
-        </Heading>
-        <Paragraph>
-            @nullCalendar
-        </Paragraph>
-    </Alert>
-}
+<Alert Color="Color.Info" Visible=isVisible>
+    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+        Not found
+        <CloseButton />
+    </Heading>
+    <Paragraph>
+        @nullCalendar
+    </Paragraph>
+</Alert>
 
 @code {
     [CascadingParameter]
@@ -98,6 +95,7 @@ else if (nullCalendar != null)
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullCalendar;
+    private bool isVisible => nullCalendar != null;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -111,6 +109,7 @@ else if (nullCalendar != null)
     }
     protected override async Task OnParametersSetAsync()
     {
+        nullCalendar = null;
         if (State != null)
         {
             LoadingIndicator?.Show();

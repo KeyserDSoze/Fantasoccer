@@ -7,7 +7,7 @@
 
 @if (State?.IsAuthenticated == true)
 {
-    <Tabs>
+    <Tabs SelectedTab="groups">
         <Items>
             <Tab Name="groups">Groups</Tab>
             <Tab Name="users">Users</Tab>
@@ -49,6 +49,7 @@
         {
             LoadingIndicator?.Show();
             canCreateNewGroup = State.Identity.Email == "alessandro.rapiti44@gmail.com";
+            LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }

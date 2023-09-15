@@ -71,51 +71,51 @@
                                         <BarDropdownMenu>
                                             @foreach (var group in State.Groups)
                                             {
-                                                <BarDropdown>
-                                                    <BarDropdownToggle Class="@(State?.GroupId == group.Id ? "active" : string.Empty)">
-                                                        <BarIcon IconName="IconName.Flag" />
-                                                        @group.Name
-                                                    </BarDropdownToggle>
-                                                    <BarDropdownMenu>
-                                                        @foreach (var league in group.Leagues)
-                                                        {
-                                                            <BarDropdown>
-                                                                <BarDropdownToggle Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)">
-                                                                    <BarIcon IconName="IconName.Flag" />
-                                                                    @league.Name
-                                                                </BarDropdownToggle>
-                                                                <BarDropdownMenu>
-                                                                    @{
-                                                                        var noTeams = true;
-                                                                        foreach (var team in State.GetTeams(group.Id, league.Id, State.Year, State.Identity.Email))
-                                                                        {
-                                                                            noTeams = false;
-                                                                            <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
-                                                                                <BarIcon IconName="IconName.DotCircle" />
-                                                                                @team.Name
-                                                                                @if (team.Owner != State?.Identity?.Email)
-                                                                                {
-                                                                                    @:(@team.Owner)
-                                                                                }
-                                                                            </BarDropdownItem>
-                                                                        }
-                                                                        if (noTeams)
-                                                                        {
-                                                                            <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, State.Identity.Email)">
-                                                                                <BarIcon IconName="IconName.DotCircle" />
-                                                                                Sbircia
-                                                                            </BarDropdownItem>
-                                                                        }
-                                                                    }
-                                                                </BarDropdownMenu>
-                                                            </BarDropdown>
-                                                        }
-                                                    </BarDropdownMenu>
-                                                </BarDropdown>
+                                                <BarDropdownItem Class="@(State?.GroupId == group.Id ? "active" : string.Empty)"
+                                                                 Clicked="x => ChangeGroupAsync(group.Id)">
+                                                    <BarIcon IconName="IconName.Flag" />
+                                                    @group.Name
+                                                </BarDropdownItem>
                                             }
                                         </BarDropdownMenu>
                                     </BarDropdown>
                                 </BarItem>
+                                @if (State?.SelectedGroup != null)
+                                {
+                                    <BarItem>
+                                        <BarDropdown>
+                                            <BarDropdownToggle>
+                                                <BarIcon IconName="IconName.LayerGroup" />
+                                                @State.SelectedGroup.Name
+                                            </BarDropdownToggle>
+                                            <BarDropdownMenu>
+                                                @foreach (var league in State.SelectedGroup.Leagues)
+                                                {
+                                                    var noTeams = true;
+                                                    foreach (var team in State.GetTeams(State.SelectedGroup.Id, league.Id, State.Year, State.Identity.Email))
+                                                    {
+                                                        noTeams = false;
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => ChangeTeamAsync(State.SelectedGroup.Id, league.Id, team.Owner)">
+                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                            @team.Name [@league.Name]
+                                                            @if (team.Owner != State?.Identity?.Email)
+                                                            {
+                                                                @:(@team.Owner)
+                                                            }
+                                                        </BarDropdownItem>
+                                                    }
+                                                    if (noTeams)
+                                                    {
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => ChangeTeamAsync(State.SelectedGroup.Id, league.Id, State.Identity.Email)">
+                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                            Sbircia [@league.Name]
+                                                        </BarDropdownItem>
+                                                    }
+                                                }
+                                            </BarDropdownMenu>
+                                        </BarDropdown>
+                                    </BarItem>
+                                }
                             }
                             <BarItem>
                                 <BarDropdown>
@@ -247,7 +247,25 @@
         if (State != null && State.Year != year)
         {
             loadingIndicator?.Show();
-            return State?.ChangeYearAsync(year);
+            return State.ChangeYearAsync(year);
+        }
+        return Task.CompletedTask;
+    }
+    public ValueTask ChangeGroupAsync(string groupId)
+    {
+        if (State != null && State.GroupId != groupId)
+        {
+            loadingIndicator?.Show();
+            return State.ChangeGroupAsync(groupId);
+        }
+        return ValueTask.CompletedTask;
+    }
+    public Task ChangeTeamAsync(string groupId, string leagueId, string owner)
+    {
+        if (State != null && (State.GroupId != groupId || State.LeagueId != leagueId || State.MeOrLeaderEmail != owner))
+        {
+            loadingIndicator?.Show();
+            return State.ChangeTeamAsync(groupId, leagueId, owner);
         }
         return Task.CompletedTask;
     }
