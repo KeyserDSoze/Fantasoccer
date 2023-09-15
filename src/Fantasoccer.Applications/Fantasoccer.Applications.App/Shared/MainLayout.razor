@@ -128,7 +128,7 @@
                                         {
                                             var actualYear = year;
                                             <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
-                                                             Clicked="x => State?.ChangeYearAsync(actualYear)">
+                                                             Clicked="x => ChangeYearAsync(actualYear)">
                                                 <BarIcon IconName="IconName.CalendarDay" />
                                                 @FantacalcioTime.LabelYear(actualYear)
                                             </BarDropdownItem>
@@ -241,5 +241,14 @@
     public void Toggle()
     {
         Sidebar.Visible = !Sidebar.Visible;
+    }
+    public Task ChangeYearAsync(int year)
+    {
+        if (State != null && State.Year != year)
+        {
+            loadingIndicator?.Show();
+            return State?.ChangeYearAsync(year);
+        }
+        return Task.CompletedTask;
     }
 }
