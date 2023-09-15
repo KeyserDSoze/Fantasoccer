@@ -54,5 +54,9 @@ namespace Fantasoccer
             }
             return null;
         }
+        public AnnualLeague? GetAnnualLeague(string id, int year)
+            => Leagues?.Find(x => x.Id == id)?.Years?.Find(x => x.Year == year);
+        public IEnumerable<AnnualLeague>? GetAnnualLeagues(int year)
+            => Leagues?.SelectMany(x => x.Years)?.Where(x => x.Year == year);
     }
 }

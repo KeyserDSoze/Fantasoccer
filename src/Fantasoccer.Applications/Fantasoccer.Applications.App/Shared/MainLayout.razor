@@ -37,6 +37,12 @@
                                 </BarLink>
                             </BarItem>
                             <BarItem>
+                                <BarLink To="../../live">
+                                    <BarIcon IconName="IconName.PizzaSlice" />
+                                    Live
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
                                 <BarLink To="../../allteams">
                                     <BarIcon IconName="IconName.Hotel" />
                                     All teams
@@ -86,7 +92,11 @@
                                                                             noTeams = false;
                                                                             <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => State?.ChangeTeamAsync(group.Id, league.Id, team.Owner)">
                                                                                 <BarIcon IconName="IconName.DotCircle" />
-                                                                                @team.Name (@(team.Owner != State?.Identity?.Email ? team.Owner : string.Empty))
+                                                                                @team.Name
+                                                                                @if (team.Owner != State?.Identity?.Email)
+                                                                                {
+                                                                                    @:(@team.Owner)
+                                                                                }
                                                                             </BarDropdownItem>
                                                                         }
                                                                         if (noTeams)
@@ -119,7 +129,7 @@
                                             var actualYear = year;
                                             <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
                                                              Clicked="x => State?.ChangeYearAsync(actualYear)">
-                                                <BarIcon IconName="IconName.Times" />
+                                                <BarIcon IconName="IconName.CalendarDay" />
                                                 @FantacalcioTime.LabelYear(actualYear)
                                             </BarDropdownItem>
                                         }

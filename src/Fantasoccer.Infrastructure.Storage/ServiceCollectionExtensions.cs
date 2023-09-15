@@ -25,6 +25,7 @@ namespace Fantasoccer.Infrastructure
                 }, "official");
             });
             await services.AddBlobStorage<Group, string>(storageConnectionString);
+            await services.AddBlobStorage<LiveGroup, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<RealTeamWrapper, int>(storageConnectionString);

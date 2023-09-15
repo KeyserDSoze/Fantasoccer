@@ -2,7 +2,7 @@
 
 namespace Fantasoccer
 {
-    public record RankedTeam
+    public sealed class RankedTeam
     {
         [JsonPropertyName("n")]
         public string Name { get; set; }

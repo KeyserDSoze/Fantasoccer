@@ -77,6 +77,8 @@ namespace Fantasoccer.Business
         {
             LeagueSetting = leagueSettings;
         }
+        public Point CalculatePoint(IEnumerable<Player> players)
+            => CalculatePoint(Enrich(players));
         public Point CalculatePoint(IEnumerable<EnrichedPlayer> players)
         {
             if (!players.Any() || LeagueSetting == null)
@@ -107,7 +109,21 @@ namespace Fantasoccer.Business
             return new Point(point, defensiveBonus,
                 LeagueSetting.PointForOwnGoal > 0 && point < LeagueSetting.PointForFirstGoal - LeagueSetting.PointForOwnGoal);
         }
-        public EnrichedPlayer Enrich(Player player, Chance? chance, RealGame? realGame, Vote? vote)
+        public EnrichedPlayer Enrich(Player player)
+        {
+            var enrichedPlayer = new EnrichedPlayer
+            {
+                Current = player,
+                Chance = GetChance(player),
+                RealGame = GetRealGame(player),
+                Vote = GetVote(player),
+                CurrentPosition = player.Position
+            };
+            if (enrichedPlayer.Vote != null)
+                enrichedPlayer.FinalValue = FinalValue(enrichedPlayer);
+            return enrichedPlayer;
+        }
+        public EnrichedPlayer ForceEnrich(Player player, Vote? vote, Chance? chance, RealGame? realGame)
         {
             var enrichedPlayer = new EnrichedPlayer
             {
@@ -125,30 +141,32 @@ namespace Fantasoccer.Business
         {
             foreach (var player in players)
             {
-                yield return Enrich(player, GetChance(player), GetRealGame(player), GetVote(player));
-            }
-            Chance? GetChance(Player player)
-            {
-                var chancedPlayer = Chance?.Players.FirstOrDefault(x => x.Key == player.Key);
-                return chancedPlayer?.Chance;
-            }
-            Vote? GetVote(Player player)
-            {
-                var votePlayer = Official?.Players.FirstOrDefault(x => x.Key == player.Key);
-                if (votePlayer == null)
-                    votePlayer = Live?.Players.FirstOrDefault(x => x.Key == player.Key);
-                return votePlayer?.Vote;
-            }
-            RealGame? GetRealGame(Player player)
-            {
-                if (player.RealTeam != null)
-                {
-                    var game = RealDay?.Games.FirstOrDefault(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
-                    return game;
-                }
-                return null;
+                yield return Enrich(player);
             }
         }
+        private Chance? GetChance(Player player)
+        {
+            var chancedPlayer = Chance?.Players.Find(x => x.Key == player.Key);
+            return chancedPlayer?.Chance;
+        }
+        private Vote? GetVote(Player player)
+        {
+            var votePlayer = Official?.Players.Find(x => x.Key == player.Key);
+            if (votePlayer == null)
+                votePlayer = Live?.Players.Find(x => x.Key == player.Key);
+            return votePlayer?.Vote;
+        }
+        private RealGame? GetRealGame(Player player)
+        {
+            if (player.RealTeam != null)
+            {
+                var game = RealDay?.Games.Find(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
+                return game;
+            }
+            return null;
+        }
+        public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players)
+            => GetRightFormation(Enrich(players));
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players)
         {
             if (!players.Any())
@@ -181,6 +199,7 @@ namespace Fantasoccer.Business
             playersInField.AddRange(playersAsSubstitute);
             return playersInField;
         }
+        public VoteValue FinalValue(Player player) => FinalValue(Enrich(player));
         public VoteValue FinalValue(EnrichedPlayer player)
         {
             var vote = player.Vote;

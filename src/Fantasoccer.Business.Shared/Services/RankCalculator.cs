@@ -1,7 +1,25 @@
-﻿namespace Fantasoccer.Business
+﻿using System.Text;
+
+namespace Fantasoccer.Business
 {
     internal sealed class RankCalculator : IRankCalculator
     {
+        public Rank AddDay(LeagueSetting leagueSetting, Rank rank, Dictionary<string, Day> rounds, LeagueType type)
+        {
+            foreach (var day in rounds)
+            {
+                var teams = rank.RankedTeams[day.Key];
+                foreach (var game in day.Value.Games)
+                {
+                    var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
+                    var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
+                    AddDay(homeTeam, true, game.Result, leagueSetting);
+                    AddDay(awayTeam, false, game.Result, leagueSetting);
+                }
+            }
+            return rank;
+        }
+
         public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, LeagueType type)
         {
             var rank = new Rank() { RankedTeams = new() };
@@ -19,7 +37,6 @@
                     var teams = rank.RankedTeams[round.Key];
                     foreach (var day in round.Value)
                     {
-
                         foreach (var game in day.Games)
                         {
                             var homeTeam = teams.First(x => x.Owner == game.HomeOwner);

@@ -27,6 +27,7 @@ namespace Fantasoccer.Applications.App.Extensions
                 }, "official");
             });
             services.AddHttpClientIntegration<Group, string>(configuration);
+            services.AddHttpClientIntegration<LiveGroup, string>(configuration);
             services.AddHttpClientIntegration<Rank, LeagueKey>(configuration);
             services.AddHttpClientIntegration<Calendar, LeagueKey>(configuration);
             services.AddHttpClientIntegration<PlayedGame, GameKey>(configuration);

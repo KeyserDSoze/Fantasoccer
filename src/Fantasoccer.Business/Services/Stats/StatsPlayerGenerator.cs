@@ -71,7 +71,7 @@ namespace Fantasoccer.Business
                                     if (player.Vote.Value >= 6)
                                         statsPlayer.IsEnough++;
                                     statsPlayer.Summatory += player.Vote.Value;
-                                    var value = _teamCalculator.FinalValue(_teamCalculator.Enrich(new Player() { Role = player.Role }, null, null, player.Vote));
+                                    var value = _teamCalculator.FinalValue(_teamCalculator.ForceEnrich(new Player() { Role = player.Role }, player.Vote, null, null));
                                     statsPlayer.FantaSummatory += value.Value;
                                     if (value.Special)
                                         statsPlayer.WithSpecial++;

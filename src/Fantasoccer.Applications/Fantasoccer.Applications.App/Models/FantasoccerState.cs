@@ -178,6 +178,7 @@
         }
         public Func<string, Task<Group?>>? GetGroup { get; set; }
         public LeagueKey LeagueKey => new() { Group = GroupId!, League = LeagueId!, Year = Year };
+        public LeagueKey GetLeagueKey(string leagueId) => new() { Group = GroupId!, League = leagueId, Year = Year };
         public TeamKey TeamKey => new()
         {
             Group = GroupId!,

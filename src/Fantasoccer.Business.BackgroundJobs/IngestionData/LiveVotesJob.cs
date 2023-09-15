@@ -10,12 +10,12 @@ namespace Fantasoccer.Engine.IngestionData
     {
         private readonly IFantasoccerLogger _logger;
         private readonly ILiveVote _liveVote;
-        private readonly ISerieACalendar _serieACalendar;
+        private readonly IRepository<RealCalendar, int> _serieACalendar;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _repository;
         public LiveVotesJob(IFantasoccerLogger logger,
             ILiveVote liveVote,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> factory,
-            ISerieACalendar serieACalendar)
+            IRepository<RealCalendar, int> serieACalendar)
         {
             _logger = logger;
             _liveVote = liveVote;
@@ -25,7 +25,7 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync()
         {
             var actualYear = FantacalcioTime.ActualYear;
-            var realCalendar = await _serieACalendar.GetAsync().NoContext();
+            var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();
             if (realCalendar != null)
             {
                 var liveDay = realCalendar.LiveDay;

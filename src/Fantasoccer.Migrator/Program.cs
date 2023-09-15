@@ -1144,32 +1144,53 @@ namespace Migrator
                 {
                     foreach (var yearlyLeague in league.Years)
                     {
+                        if (yearlyLeague.Year >= 12)
+                            continue;
                         var leagueKey = new LeagueKey
                         {
                             Group = group.Key,
                             League = league.Id,
                             Year = yearlyLeague.Year,
                         };
+                        Console.WriteLine();
+                        Console.WriteLine();
+                        Console.WriteLine();
+                        Console.WriteLine();
+                        Console.WriteLine($"Calendar saved {group.Value.Name} - {league.Name} - {leagueKey.Year}");
                         var calendar = await calendarRepository.GetAsync(leagueKey);
                         //var needsRecalculation = calendar != null && calendar.Rounds.SelectMany(x => x.Value.SelectMany(x => x.Games)).Count(x => x.Result == null || (x.Result.HomeGoal == 0 && x.Result.AwayGoal == 0)) > 40;
-                        var needsRecalculation = calendar != null && yearlyLeague.Year > 3;
+                        var needsRecalculation = calendar != null && yearlyLeague.Year > 5;
+                        var differences = 0;
                         if (needsRecalculation)
                         {
+                            var breakThePoint = false;
+                            var onlyCounter = true;
                             foreach (var round in calendar.Rounds)
                             {
+                                var isImpossibleThatIsDeleted = false;
+                                var cancelled = 0;
                                 foreach (var day in round.Value)
                                 {
-                                    if (day.Number <= yearlyLeague.Settings.CancelledDay)
+                                    Console.WriteLine();
+                                    Console.WriteLine($"{day.Number} [{day.SerieADay}]");
+                                    var isCancelled = !isImpossibleThatIsDeleted && day.Games.All(x => (x.Result?.Home?.Value ?? 0) == 0);
+                                    if (day.Number <= yearlyLeague.Settings.CancelledDay || isCancelled)
                                     {
-                                        Console.WriteLine($"{day.Number} [{day.SerieADay}]");
+                                        cancelled++;
                                         foreach (var game in day.Games)
                                         {
-                                            game.Result.IsCancelled = true;
-                                            Console.WriteLine($"{day.Number} [{day.SerieADay}]");
+                                            if (game.Result != null)
+                                                game.Result.IsCancelled = true;
+                                            else
+                                                game.Result = new GameResult { IsCancelled = true };
+                                            Console.WriteLine($"{game.Home}-{game.Away} isCancelled:{game.Result.IsCancelled}");
                                         }
+                                        yearlyLeague.Settings.CancelledDay = cancelled;
+                                        await groupRepository.UpdateAsync(group.Key, group.Value);
                                     }
                                     else
                                     {
+                                        isImpossibleThatIsDeleted = true;
                                         await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
                                         foreach (var game in day.Games)
                                         {
@@ -1182,25 +1203,97 @@ namespace Migrator
                                                 Email = game.HomeOwner
                                             };
                                             var homeTeam = await teamDayRepository.GetAsync(homeTeamKey);
+                                            if (homeTeam == null)
+                                            {
+                                                var previousKeyTeam = new TeamDayKey
+                                                {
+                                                    Year = yearlyLeague.Year,
+                                                    Group = group.Key,
+                                                    Day = day.SerieADay - 1,
+                                                    BasketId = GetBasketId(game.HomeOwner),
+                                                    Email = game.HomeOwner
+                                                };
+                                                homeTeam = await teamDayRepository.GetAsync(previousKeyTeam);
+                                                await teamDayRepository.UpdateAsync(homeTeamKey, homeTeam);
+                                            }
                                             var awayTeamKey = new TeamDayKey
                                             {
                                                 Year = yearlyLeague.Year,
                                                 Group = group.Key,
                                                 Day = day.SerieADay,
-                                                BasketId = GetBasketId(game.HomeOwner),
-                                                Email = game.HomeOwner
+                                                BasketId = GetBasketId(game.AwayOwner),
+                                                Email = game.AwayOwner
                                             };
-                                            var awayTeam = await teamDayRepository.GetAsync(homeTeamKey);
-                                            var homePoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(homeTeam.ActivePlayers));
-                                            var awayPoint = teamCalculator.CalculatePoint(teamCalculator.Enrich(awayTeam.ActivePlayers));
-
-                                            game.Result = new GameResult
+                                            var awayTeam = await teamDayRepository.GetAsync(awayTeamKey);
+                                            if (awayTeam == null)
+                                            {
+                                                var previousKeyTeam = new TeamDayKey
+                                                {
+                                                    Year = yearlyLeague.Year,
+                                                    Group = group.Key,
+                                                    Day = day.SerieADay - 1,
+                                                    BasketId = GetBasketId(game.AwayOwner),
+                                                    Email = game.AwayOwner
+                                                };
+                                                awayTeam = await teamDayRepository.GetAsync(previousKeyTeam);
+                                                await teamDayRepository.UpdateAsync(awayTeamKey, awayTeam);
+                                            }
+                                            var homePoint = teamCalculator.CalculatePoint(homeTeam.ActivePlayers);
+                                            var awayPoint = teamCalculator.CalculatePoint(awayTeam.ActivePlayers);
+                                            var result = new GameResult
                                             {
                                                 Home = homePoint,
                                                 Away = awayPoint,
                                             };
-                                            game.Result.CalculateGoals(yearlyLeague.Settings);
-
+                                            result.CalculateGoals(yearlyLeague.Settings);
+                                            if (game.Result?.Home?.Value != homePoint.Value || game.Result?.Away?.Value != awayPoint.Value)
+                                                differences++;
+                                            if (!onlyCounter)
+                                            {
+                                                Console.WriteLine($"{game.Home}-{game.Away} {game.Result?.HomeGoal}-{game.Result?.AwayGoal} [{game.Result?.Home?.Value}-{game.Result?.Away?.Value}]");
+                                                Console.WriteLine($"{game.Home}-{game.Away} {result.HomeGoal}-{result.AwayGoal} [{result.Home.Value}-{result.Away.Value}]");
+                                                if (game.Result?.Home?.Value != homePoint.Value || game.Result?.Away?.Value != awayPoint.Value)
+                                                {
+                                                    var sum = 0f;
+                                                    foreach (var player in teamCalculator.GetRightFormation(homeTeam.ActivePlayers).OrderBy(x => x.CurrentPosition))
+                                                    {
+                                                        Console.WriteLine($"{player.Current.Name} - {player.FinalValue?.Value} ({player.Current.Position})[{player.CurrentPosition}]");
+                                                        if (player.CurrentPosition <= FantaSoccerRole.Forward && player.FinalValue != null)
+                                                            sum += player.FinalValue.Value;
+                                                    }
+                                                    Console.WriteLine(sum);
+                                                    var sum1 = 0f;
+                                                    foreach (var player in teamCalculator.GetRightFormation(awayTeam.ActivePlayers).OrderBy(x => x.CurrentPosition))
+                                                    {
+                                                        Console.WriteLine($"{player.Current.Name} - {player.FinalValue?.Value} ({player.Current.Position})[{player.CurrentPosition}]");
+                                                        if (player.CurrentPosition <= FantaSoccerRole.Forward && player.FinalValue != null)
+                                                            sum1 += player.FinalValue.Value;
+                                                    }
+                                                    Console.WriteLine(sum1);
+                                                    Console.WriteLine($"[{(game.Result.Home.Value == homePoint.Value)}]({sum})[{game.Result.Home.Value}] {homePoint.Value} - {awayPoint.Value} [{game.Result.Away.Value}]({sum1})[{(game.Result.Away.Value == awayPoint.Value)}]");
+                                                    if (breakThePoint)
+                                                    {
+                                                        var q = Console.ReadLine();
+                                                        if (!string.IsNullOrWhiteSpace(q))
+                                                            breakThePoint = false;
+                                                    }
+                                                    if (game.Result.Home.Value != homePoint.Value)
+                                                    {
+                                                        homePoint = teamCalculator.CalculatePoint(homeTeam.ActivePlayers);
+                                                    }
+                                                    if (game.Result.Away.Value != awayPoint.Value)
+                                                    {
+                                                        awayPoint = teamCalculator.CalculatePoint(awayTeam.ActivePlayers);
+                                                    }
+                                                }
+                                            }
+                                            game.Result = result;
+                                            if (!onlyCounter)
+                                            {
+                                                Console.WriteLine();
+                                                Console.WriteLine();
+                                                Console.WriteLine();
+                                            }
                                             string GetBasketId(string owner)
                                             {
                                                 foreach (var basketId in league.BasketsId)
@@ -1218,7 +1311,20 @@ namespace Migrator
                         }
                         var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
                         //await rankRepository.UpdateAsync(leagueKey, rank);
+                        Console.WriteLine();
+                        Console.WriteLine();
+                        Console.WriteLine($"the differences are: {differences}.");
+                        Console.WriteLine();
+                        Console.WriteLine();
                         Console.WriteLine($"Rank saved {group.Value.Name} - {league.Name} - {leagueKey.Year}");
+                        foreach (var d in rank.RankedTeams)
+                        {
+                            Console.WriteLine($"{d.Key}");
+                            foreach (var t in d.Value.OrderByDescending(x => x.Point))
+                            {
+                                Console.WriteLine($"{t.Name} - {t.Point} - {t.Goal}");
+                            }
+                        }
                         //foreach (var t in rank.RankedTeams)
                         //{
                         //    Console.WriteLine($"Liga {league.Name} ({yearlyLeague.Year}) [{t.Key}]");
