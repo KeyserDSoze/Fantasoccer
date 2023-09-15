@@ -62,24 +62,27 @@
                             </BarItem>
                             @if (State?.Groups != null && State.Identity != null)
                             {
-                                <BarItem>
-                                    <BarDropdown>
-                                        <BarDropdownToggle>
-                                            <BarIcon IconName="IconName.LayerGroup" />
-                                            Group
-                                        </BarDropdownToggle>
-                                        <BarDropdownMenu>
-                                            @foreach (var group in State.Groups)
-                                            {
-                                                <BarDropdownItem Class="@(State?.GroupId == group.Id ? "active" : string.Empty)"
-                                                                 Clicked="x => ChangeGroupAsync(group.Id)">
-                                                    <BarIcon IconName="IconName.Flag" />
-                                                    @group.Name
-                                                </BarDropdownItem>
-                                            }
-                                        </BarDropdownMenu>
-                                    </BarDropdown>
-                                </BarItem>
+                                if (State?.Groups.Count > 1)
+                                {
+                                    <BarItem>
+                                        <BarDropdown>
+                                            <BarDropdownToggle>
+                                                <BarIcon IconName="IconName.LayerGroup" />
+                                                Group
+                                            </BarDropdownToggle>
+                                            <BarDropdownMenu>
+                                                @foreach (var group in State.Groups)
+                                                {
+                                                    <BarDropdownItem Class="@(State?.GroupId == group.Id ? "active" : string.Empty)"
+                                                    Clicked="x => ChangeGroupAsync(group.Id)">
+                                                        <BarIcon IconName="IconName.Flag" />
+                                                        @group.Name
+                                                    </BarDropdownItem>
+                                                }
+                                            </BarDropdownMenu>
+                                        </BarDropdown>
+                                    </BarItem>
+                                }
                                 @if (State?.SelectedGroup != null)
                                 {
                                     <BarItem>
@@ -193,7 +196,7 @@
                                             </BarLink>
                                         </BarDropdownItem>
                                         <BarItem>
-                                            v.0.1.3-beta
+                                            v.0.2.0-beta
                                         </BarItem>
                                     </BarDropdownMenu>
                                 </BarDropdown>

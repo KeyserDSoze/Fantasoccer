@@ -86,15 +86,15 @@
                     {
                         await Api.Team.UpdateAsync(State.TeamKey, team);
                     }
-                    var basket = State.SelectedYearlyBasket;
+                    var basket = State.SelectedYearlyBaskets;
                     if (basket != null)
                     {
-                        foreach (var teamX in basket.Teams.Where(x => x.Owner == team.Owner))
+                        foreach (var teamX in basket.SelectMany(x => x.Teams).Where(x => x.Owner == team.Owner))
                         {
                             teamX.Name = team.Name;
                         }
                         await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
-                        var basketId = State.SelectedBasket.Id;
+                        var basketId = State.SelectedBasketId;
                         foreach (var league in State.SelectedGroup.Leagues.Where(x => x.BasketsId.Contains(basketId)))
                         {
                             var leagueKey = State.LeagueKey;

@@ -8,7 +8,7 @@
 {
     <Row>
         <Column Width="Width.Is50">
-            <Tabs SelectedTab="GoalKeeper">
+            <Tabs SelectedTab="@selectedTab" SelectedTabChanged="x => selectedTab = x">
                 <Items>
                     @foreach (var role in Roles)
                     {

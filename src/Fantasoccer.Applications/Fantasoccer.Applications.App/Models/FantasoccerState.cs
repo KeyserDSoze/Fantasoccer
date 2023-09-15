@@ -137,31 +137,47 @@
         public League? SelectedLeague => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
         public AnnualLeague? SelectedYearlyLeague => SelectedLeague?.Years?.Find(x => x.Year == Year);
         public bool HasALeague => SelectedLeague != null;
-        public Basket? SelectedBasket
+        public IEnumerable<Basket> SelectedBaskets
         {
             get
             {
                 var league = SelectedLeague;
                 if (league != null && SelectedGroup?.Baskets != null)
                 {
-                    return SelectedGroup.Baskets.Find(x => league.BasketsId.Contains(x.Id));
+                    foreach (var x in SelectedGroup.Baskets.Where(x => league.BasketsId.Contains(x.Id)))
+                    {
+                        yield return x;
+                    }
                 }
-                return null;
             }
         }
-        public YearlyBasket? SelectedYearlyBasket
+        public IEnumerable<YearlyBasket> SelectedYearlyBaskets
         {
             get
             {
-                var years = SelectedBasket?.Years;
-                if (years != null)
+                foreach (var basket in SelectedBaskets)
                 {
-                    return years.Find(x => x.Year == Year);
+                    var years = basket?.Years;
+                    if (years != null)
+                    {
+                        var year = years.Find(x => x.Year == Year);
+                        if (year != null)
+                            yield return year;
+                    }
                 }
-                return null;
             }
         }
-        public List<AnnualTeam>? Teams => SelectedYearlyBasket?.Teams;
+        public IEnumerable<AnnualTeam>? Teams
+        {
+            get
+            {
+                foreach (var basket in SelectedYearlyBaskets)
+                {
+                    foreach (var team in basket.Teams)
+                        yield return team;
+                }
+            }
+        }
         public IEnumerable<AnnualTeam>? MyTeams => Identity != null ? Teams?.Where(x => x.IsOwner(Identity.Email)) : null;
         public AnnualTeam? SelectedTeam => Identity != null ? MyTeams?.FirstOrDefault(x => x.Owner == MeOrLeaderEmail) : null;
         public required Action AppUiUpdate { get; init; }
@@ -184,8 +200,10 @@
             Group = GroupId!,
             Year = Year,
             Email = MeOrLeaderEmail!,
-            BasketId = SelectedBasket?.Id!
+            BasketId = SelectedBasketId
         };
+        public string SelectedBasketId 
+            => SelectedGroup!.GetBasketId(MeOrLeaderEmail!, Year!)!;
         public bool IsAdmin()
         {
             if (Identity == null)
@@ -207,13 +225,13 @@
             Group = GroupId!,
             Year = Year,
             Email = email,
-            BasketId = SelectedBasket?.Id!,
+            BasketId = SelectedGroup!.GetBasketId(email!, Year!)!,
         };
         public TeamDayKey TeamDayKey(int day, string? email = null) => new()
         {
             Group = GroupId!,
             Email = email ?? MeOrLeaderEmail!,
-            BasketId = SelectedBasket?.Id!,
+            BasketId = SelectedGroup!.GetBasketId(email ?? MeOrLeaderEmail!, Year!)!,
             Year = Year,
             Day = day
         };

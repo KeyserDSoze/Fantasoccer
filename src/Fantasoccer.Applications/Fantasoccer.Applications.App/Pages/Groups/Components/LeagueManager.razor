@@ -346,14 +346,14 @@
         LoadingIndicator?.Show();
         if (State?.SelectedYearlyLeague != null && State?.SelectedLeague != null && State.Teams != null)
         {
-            if (!await Api.Calendar.ExistAsync(State.LeagueKey))
+            var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            if (calendar == null || calendar != null)
             {
-                var calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, State.Teams);
+                calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, State.Teams);
                 await Api.Calendar.InsertAsync(State.LeagueKey, calendar);
             }
             if (await Api.Calendar.ExistAsync(State.LeagueKey))
             {
-                var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
                 var rank = RankCalculator.GetRank(State?.SelectedLeagueSettings ?? LeagueSetting.Default, calendar, State.SelectedLeague.Type);
                 if (await Api.Ranks.ExistAsync(State.LeagueKey))
                 {

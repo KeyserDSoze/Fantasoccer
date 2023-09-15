@@ -7,7 +7,7 @@
 
 @if (State?.IsAuthenticated == true)
 {
-    <Tabs SelectedTab="groups">
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="x => selectedTab = x">
         <Items>
             <Tab Name="groups">Groups</Tab>
             <Tab Name="users">Users</Tab>
@@ -35,6 +35,7 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
+    private string selectedTab = "groups";
 
     private bool canCreateNewGroup;
     protected override async Task OnAfterRenderAsync(bool firstRender)

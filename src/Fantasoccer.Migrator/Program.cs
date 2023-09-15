@@ -39,7 +39,7 @@ namespace Migrator
             //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
             //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager, true);
             //await AdjustLeagueAsync(serviceProvider);
-            await CreateCalendarAndRankAsync(serviceProvider);
+            //await CreateCalendarAndRankAsync(serviceProvider);
             //await CreateStatsPlayerAsync(serviceProvider);
             //await CreateNewYear(serviceProvider);
         }
