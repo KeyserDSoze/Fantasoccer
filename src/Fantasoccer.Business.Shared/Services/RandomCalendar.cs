@@ -133,5 +133,96 @@ restart: var baseCalendar = GetCalendarBase(teamInGame);
                 return max - 1;
             return value;
         }
+        public Calendar AddDaysInLeague(int year, LeagueType type, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
+        {
+            List<Team> nextTeams = new();
+            var toPlayGames = calendar.Rounds.SelectMany(x => x.Value).SelectMany(x => x.Games).Count(x => x.Result == null || !x.Result.HasValue);
+            var serieADay = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.SerieADay);
+            var counter = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.Number);
+            if (toPlayGames == 0)
+            {
+                if (!calendar.Rounds.ContainsKey("finals"))
+                {
+                    foreach (var teamInGroup in rank.RankedTeams)
+                        nextTeams.AddRange(teamInGroup.Value.Take(2).Select(x => new Team { Owner = x.Owner, Name = x.Name }));
+                    calendar.Rounds.Add("finals", new());
+                }
+                else if (calendar.Rounds["finals"].Count > 1)
+                {
+                    var round = calendar.Rounds["finals"];
+                    var first = round.First(x => x.SerieADay == serieADay - 3);
+                    var second = round.First(x => x.SerieADay == serieADay);
+                    foreach (var game in first.Games)
+                    {
+                        var secondGame = second.Games.First(x => x.HomeOwner == game.AwayOwner);
+                        var goalA = game.Result!.HomeGoal + secondGame.Result!.AwayGoal;
+                        var goalB = game.Result.AwayGoal + secondGame.Result.HomeGoal;
+                        if (goalA == goalB)
+                        {
+                            goalA = game.Result.HomeGoal + 2 * secondGame.Result.AwayGoal;
+                            goalB = 2 * game.Result.AwayGoal + secondGame.Result.HomeGoal;
+                        }
+                        if (goalA > goalB)
+                            nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
+                        else if (goalB > goalA)
+                            nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
+                        else
+                        {
+                            double pointA = game.Result.Home.Value + secondGame.Result.Away.Value;
+                            double pointB = game.Result.Away.Value + secondGame.Result.Home.Value;
+                            if (pointA > pointB)
+                                nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
+                            else if (pointB > pointA)
+                                nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
+                            else
+                            {
+                                var valueA = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == game.HomeOwner).ValuePoint;
+                                var valueB = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == game.AwayOwner).ValuePoint;
+                                if (valueA > valueB)
+                                    nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
+                                else if (pointB > pointA)
+                                    nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
+                                else if (RandomNumberGenerator.GetInt32(100) < 50)
+                                    nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
+                                else
+                                    nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
+                            }
+                        }
+                    }
+                }
+                if (nextTeams.Count > 0)
+                {
+                    var finals = calendar.Rounds["Finals"];
+                    for (var adder = 1; nextTeams.Count == 2 ? adder <= 1 : adder <= 2; adder++)
+                    {
+                        var nextSerieADay = serieADay + adder * 3;
+                        var day = new Day
+                        {
+                            Number = counter + adder,
+                            Games = new(),
+                            SerieADay = nextSerieADay
+                        };
+                        finals.Add(day);
+                        var gameCounter = 1;
+                        for (var i = 0; i < nextTeams.Count / 2; i++)
+                        {
+                            var home = adder == 1 ? nextTeams[i] : nextTeams[nextTeams.Count - 1 - i];
+                            var away = adder == 2 ? nextTeams[nextTeams.Count - 1 - i] : nextTeams[i];
+                            day.Games.Add(new CalendarGame
+                            {
+                                Id = Guid.NewGuid().ToString(),
+                                Number = gameCounter,
+                                Home = home.Name,
+                                HomeOwner = home.Owner,
+                                Away = away.Name,
+                                AwayOwner = away.Owner,
+                            });
+                            gameCounter++;
+                        }
+                    }
+                }
+            }
+            return calendar;
+        }
     }
 }

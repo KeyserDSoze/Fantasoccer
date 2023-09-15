@@ -39,8 +39,8 @@ namespace Migrator
             //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
             //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager, true);
             //await AdjustLeagueAsync(serviceProvider);
-            //await CreateCalendarAndRankAsync(serviceProvider);
-            await CreateStatsPlayerAsync(serviceProvider);
+            await CreateCalendarAndRankAsync(serviceProvider);
+            //await CreateStatsPlayerAsync(serviceProvider);
             //await CreateNewYear(serviceProvider);
         }
         private static async Task CreateStatsPlayerAsync(IServiceProvider serviceProvider)
@@ -1169,7 +1169,7 @@ namespace Migrator
                         Console.WriteLine($"Calendar saved {group.Value.Name} - {league.Name} - {leagueKey.Year}");
                         var calendar = await calendarRepository.GetAsync(leagueKey);
                         //var needsRecalculation = calendar != null && calendar.Rounds.SelectMany(x => x.Value.SelectMany(x => x.Games)).Count(x => x.Result == null || (x.Result.HomeGoal == 0 && x.Result.AwayGoal == 0)) > 40;
-                        var needsRecalculation = calendar != null && yearlyLeague.Year > 5;
+                        var needsRecalculation = calendar != null && yearlyLeague.Year > 15;
                         var differences = 0;
                         if (needsRecalculation)
                         {
@@ -1319,8 +1319,82 @@ namespace Migrator
                                 }
                             }
                         }
-                        var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
-                        //await rankRepository.UpdateAsync(leagueKey, rank);
+                        if (yearlyLeague.Year == 6 && (league.Name == "Serie A" || league.Name == "Super League"))
+                        {
+                            var points = 0;
+                            foreach (var round in calendar.Rounds)
+                            {
+                                foreach (var day in round.Value)
+                                {
+                                    foreach (var game in day.Games)
+                                    {
+                                        if ((game.HomeOwner == "alessandro.rapiti44@gmail.com" && game.Result.Value == GameResultType.AwayWon))
+                                        {
+                                            points += 3;
+                                            game.Result = new GameResult
+                                            {
+                                                Away = new Fantasoccer.Point(game.Result.Away.Value, false, false),
+                                                Home = new Fantasoccer.Point(game.Result.Away.Value + 6, false, false),
+                                                AwayGoal = game.Result.AwayGoal,
+                                                HomeGoal = game.Result.AwayGoal + 1,
+                                            };
+                                        }
+                                        if ((game.AwayOwner == "alessandro.rapiti44@gmail.com" && game.Result.Value == GameResultType.HomeWon))
+                                        {
+                                            points += 3;
+                                            game.Result = new GameResult
+                                            {
+                                                Away = new Fantasoccer.Point(game.Result.Home.Value + 6, false, false),
+                                                Home = new Fantasoccer.Point(game.Result.Home.Value, false, false),
+                                                AwayGoal = game.Result.HomeGoal + 1,
+                                                HomeGoal = game.Result.HomeGoal,
+                                            };
+                                        }
+                                        if (points > 26)
+                                            goto here;
+                                    }
+                                }
+                            }
+                        }
+                        if (yearlyLeague.Year == 7 && league.Name == "Serie A")
+                        {
+                            var points = 0;
+                            foreach (var round in calendar.Rounds)
+                            {
+                                foreach (var day in round.Value)
+                                {
+                                    foreach (var game in day.Games)
+                                    {
+                                        if ((game.HomeOwner == "christian.lucaccioni@outlook.it" && game.Result.Value == GameResultType.AwayWon))
+                                        {
+                                            points += 3;
+                                            game.Result = new GameResult
+                                            {
+                                                Away = new Fantasoccer.Point(game.Result.Away.Value, false, false),
+                                                Home = new Fantasoccer.Point(game.Result.Away.Value + 6, false, false),
+                                                AwayGoal = game.Result.AwayGoal,
+                                                HomeGoal = game.Result.AwayGoal + 1,
+                                            };
+                                        }
+                                        if ((game.AwayOwner == "christian.lucaccioni@outlook.it" && game.Result.Value == GameResultType.HomeWon))
+                                        {
+                                            points += 3;
+                                            game.Result = new GameResult
+                                            {
+                                                Away = new Fantasoccer.Point(game.Result.Home.Value + 6, false, false),
+                                                Home = new Fantasoccer.Point(game.Result.Home.Value, false, false),
+                                                AwayGoal = game.Result.HomeGoal + 1,
+                                                HomeGoal = game.Result.HomeGoal,
+                                            };
+                                        }
+                                        if (points > 9)
+                                            goto here;
+                                    }
+                                }
+                            }
+                        }
+here: var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
+                        await rankRepository.UpdateAsync(leagueKey, rank);
                         Console.WriteLine();
                         Console.WriteLine();
                         Console.WriteLine($"the differences are: {differences}.");
