@@ -1,16 +1,15 @@
 ﻿// See https://aka.ms/new-console-template for more information
+using System.Drawing;
+using System.Text.Json;
 using FantacalcioV4.ApiManager;
 using Fantasoccer;
 using Fantasoccer.Business;
-using Fantasoccer.InMemory;
+using Fantasoccer.Infrastructure;
+using Fantasoccer.Migrator.FalTeam;
 using Mapster;
 using Microsoft.Extensions.DependencyInjection;
-using Rystem;
-using Fantasoccer.Infrastructure;
 using RepositoryFramework;
-using System.Drawing;
-using System.Text.Json;
-using Fantasoccer.Migrator.FalTeam;
+using Rystem;
 
 namespace Migrator
 {
@@ -42,6 +41,55 @@ namespace Migrator
             //await CreateCalendarAndRankAsync(serviceProvider);
             //await CreateStatsPlayerAsync(serviceProvider);
             //await CreateNewYear(serviceProvider);
+            //await AdjustFormation(serviceProvider);
+            await AdjustCalendar(serviceProvider);
+        }
+        private static async Task AdjustCalendar(IServiceProvider serviceProvider)
+        {
+            var calendarR = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
+            var group = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var firstGroup = await group.FirstOrDefaultAsync();
+            var leagueKey = new LeagueKey
+            {
+                Year = FantacalcioTime.ActualYear,
+                Group = firstGroup.Key,
+                League = firstGroup.Value.Leagues.First(x => !x.IsMain && x.Type == LeagueType.League).Id
+            };
+            var calendar = await calendarR.GetAsync(leagueKey);
+            foreach (var round in calendar.Rounds)
+            {
+                foreach (var day in round.Value)
+                {
+                    if (day.SerieADay <= 4)
+                    {
+                        foreach (var game in day.Games)
+                        {
+                            game.Result = new GameResult { IsCancelled = true };
+                        }
+                    }
+                }
+            }
+            await calendarR.UpdateAsync(leagueKey, calendar);
+        }
+        private static async Task AdjustFormation(IServiceProvider serviceProvider)
+        {
+            var teamRepository = serviceProvider.GetRequiredService<IRepository<Team, TeamDayKey>>();
+            var groupRepository = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var group = await groupRepository.FirstOrDefaultAsync();
+            var key = new TeamDayKey
+            {
+                Year = FantacalcioTime.ActualYear,
+                Group = group.Key,
+                BasketId = group.Value.Baskets.First().Id,
+                Day = 5,
+                Email = "baghiniluca@gmail.com"
+            };
+            var lTeam = await teamRepository.GetAsync(key);
+            if (lTeam != null && lTeam.Players != null && lTeam.Players.Count > 0)
+            {
+                key.Day = 4;
+                await teamRepository.UpdateAsync(key, lTeam);
+            }
         }
         private static async Task CreateStatsPlayerAsync(IServiceProvider serviceProvider)
         {

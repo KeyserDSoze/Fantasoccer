@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Engine.IngestionData;
+﻿using Fantasoccer.Business.BackgroundJobs.GroupsManager;
+using Fantasoccer.Engine.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Engine
@@ -43,7 +44,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
-                    options.Cron = "0 45 2,7 * * *";
+                    options.Cron = "0 45 2,5 * * *";
                     options.RunImmediately = true;
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
@@ -53,7 +54,12 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<SetFormationJob>(options =>
                 {
                     options.Cron = "0 * * * *";
-                });
+                })
+                .AddBackgroundJob<GroupsManagerJob>(options =>
+                 {
+                     options.Cron = "6 * * * *";
+                     options.RunImmediately = true;
+                 });
             return services;
         }
     }

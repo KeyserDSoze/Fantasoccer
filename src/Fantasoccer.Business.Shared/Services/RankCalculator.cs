@@ -22,7 +22,7 @@ namespace Fantasoccer.Business
 
         public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, LeagueType type)
         {
-            var rank = new Rank() { RankedTeams = new() };
+            var rank = new Rank() { RankedTeams = new(), SerieADay = 0 };
             if (calendar != null)
             {
                 foreach (var round in calendar.Rounds)
@@ -41,18 +41,26 @@ namespace Fantasoccer.Business
                         {
                             var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
                             var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
-                            AddDay(homeTeam, true, game.Result, leagueSetting);
-                            AddDay(awayTeam, false, game.Result, leagueSetting);
+                            if (AddDay(homeTeam, true, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
+                                rank.SerieADay = day.SerieADay;
+                            if (AddDay(awayTeam, false, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
+                                rank.SerieADay = day.SerieADay;
                         }
                     }
+                }
+                foreach (var roundKey in calendar.Rounds.Select(x => x.Key))
+                {
+                    rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ToList();
                 }
             }
             return rank;
         }
-        private void AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting)
+        private bool AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting)
         {
-            if (result == default || !result.HasValue || result.IsCancelled)
-                return;
+            if (result?.IsCancelled == true)
+                return true;
+            if (result == default || !result.HasValue)
+                return false;
 
             if (isInHome)
                 SetPointAndGoal(result.Home.Value, result.HomeGoal, result.Away.Value, result.AwayGoal);
@@ -92,6 +100,7 @@ namespace Fantasoccer.Business
             }
             team.PlusMoney += leagueSetting.MoneyForGoal * goalTeam;
             team.PlusMoney += leagueSetting.MoneyForSufferedGoal * goalOpponent;
+            return true;
         }
     }
 }
