@@ -65,6 +65,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "src\Fantasoccer.App
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Migrator", "src\Fantasoccer.Migrator\Fantasoccer.Migrator.csproj", "{C633B7F9-6D8B-4635-AB9B-E315039D7E16}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FantaSoccer.Applications.Wasm", "src\Fantasoccer.Applications\FantaSoccer.Applications.Wasm\FantaSoccer.Applications.Wasm.csproj", "{EDE17C6E-70CB-44D4-9261-8989BCB76A36}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -115,6 +117,10 @@ Global
 		{C633B7F9-6D8B-4635-AB9B-E315039D7E16}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C633B7F9-6D8B-4635-AB9B-E315039D7E16}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C633B7F9-6D8B-4635-AB9B-E315039D7E16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDE17C6E-70CB-44D4-9261-8989BCB76A36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDE17C6E-70CB-44D4-9261-8989BCB76A36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDE17C6E-70CB-44D4-9261-8989BCB76A36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDE17C6E-70CB-44D4-9261-8989BCB76A36}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -136,6 +142,7 @@ Global
 		{B796A215-C3CC-42C0-B778-AAA129D86AB9} = {91114266-E644-452D-8132-7D762C9B8968}
 		{A670A1D5-0776-4591-9BB0-5E34F1EE07DE} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 		{C633B7F9-6D8B-4635-AB9B-E315039D7E16} = {91114266-E644-452D-8132-7D762C9B8968}
+		{EDE17C6E-70CB-44D4-9261-8989BCB76A36} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}
