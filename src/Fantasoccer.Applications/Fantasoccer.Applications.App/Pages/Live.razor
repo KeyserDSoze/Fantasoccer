@@ -21,7 +21,7 @@
                         <Items>
                             @foreach (var calendarByRound in league.Rounds)
                             {
-                                <Tab Name="@calendarByRound.Key">Round @calendarByRound.Key</Tab>
+                                <Tab Name="@calendarByRound.Key" Display="league.Rounds.Count > 1 ? Display.Block: Display.None">Round @calendarByRound.Key</Tab>
                             }
                         </Items>
                         <Content>
@@ -30,72 +30,13 @@
                                 <TabPanel Name="@dayByRound.Key">
                                     <Row>
                                         <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                            <Card Margin="Margin.Is1">
-                                                <CardBody>
-                                                    <CardTitle Size="3">
-                                                        Day @dayByRound.Value.Number (@dayByRound.Value.SerieADay)
-                                                    </CardTitle>
-                                                    <CardText>
-                                                        <Table Striped>
-                                                         <TableHeader>
-                                                             <TableRow>
-                                                                 <TableHeaderCell>Home Team</TableHeaderCell>
-                                                                 <TableHeaderCell>Points</TableHeaderCell>
-                                                                 <TableHeaderCell>Away Team</TableHeaderCell>
-                                                             </TableRow>
-                                                         </TableHeader>
-                                                         <TableBody>
-                                                             @foreach (var game in dayByRound.Value.Games)
-                                                                {
-                                                                    <TableRow Clicked="() => NavigateTo(game.Id)">
-                                                                        <TableRowCell>@game.Home</TableRowCell>
-                                                                        @if (game.Result != null && !game.Result.IsCancelled)
-                                                                        {
-                                                                            <TableRowCell>
-                                                                                @game.Result.HomeGoal (@game.Result.Home.Value) - (@game.Result.Away.Value) @game.Result.AwayGoal
-                                                                            </TableRowCell>
-                                                                        }
-                                                                        else if (game.Result != null && game.Result.IsCancelled)
-                                                                        {
-                                                                            <TableRowCell>
-                                                                                cancelled
-                                                                            </TableRowCell>
-                                                                        }
-                                                                        else
-                                                                        {
-                                                                            <TableRowCell>
-                                                                                to play
-                                                                            </TableRowCell>
-                                                                        }
-                                                                        <TableRowCell>@game.Away</TableRowCell>
-                                                                    </TableRow>
-                                                                }
-                                                            </TableBody>
-                                                        </Table>
-                                                    </CardText>
-                                                </CardBody>
-                                            </Card>
+                                            <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key]"></Ranking>
                                         </Column>
                                         <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                            <DataGrid TItem="RankedTeam" Margin="Margin.Is1"
-                                                      Style="margin:0 !important; height:auto !important;max-height:1000px !important;"
-                                                      Data="@league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point)"
-                                                            FixedHeader
-                                                            Striped
-                                                            Responsive>
-                                             <DataGridCommandColumn />
-                                             <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable=false />
-                                             <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="P" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.ValuePoint)" Caption="VP" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Victories)" Caption="V" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Draws)" Caption="D" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Defeats)" Caption="D" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.Goal)" Caption="G" Sortable />
-                                                 <DataGridColumn Field="@nameof(RankedTeam.SufferedGoal)" Caption="SG" Sortable />
-                                             </DataGrid>
-                                         </Column>
-                                     </Row>
-                                 </TabPanel>
+                                            <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false></Calendaring>
+                                        </Column>
+                                    </Row>
+                                </TabPanel>
                             }
                         </Content>
                     </Tabs>

@@ -10,7 +10,7 @@
         <Items>
             @foreach (var calendarByRound in calendar.Rounds)
             {
-                <Tab Name="@calendarByRound.Key">Round @calendarByRound.Key</Tab>
+                <Tab Name="@calendarByRound.Key" Display="calendar.Rounds.Count > 1 ? Display.Block: Display.None">Round @calendarByRound.Key</Tab>
             }
         </Items>
         <Content>
@@ -18,56 +18,7 @@
             {
                 <TabPanel Name="@calendarByRound.Key">
                     <Row>
-                        @foreach (var day in calendarByRound.Value)
-                        {
-                            <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                <Card Margin="Margin.Is1">
-                                    <CardBody>
-                                        <CardTitle Size="3">
-                                            Day @day.Number (@day.SerieADay)
-                                        </CardTitle>
-                                        <CardText>
-                                            <Table Striped>
-                                             <TableHeader>
-                                                 <TableRow>
-                                                     <TableHeaderCell>Home Team</TableHeaderCell>
-                                                     <TableHeaderCell>Points</TableHeaderCell>
-                                                     <TableHeaderCell>Away Team</TableHeaderCell>
-                                                 </TableRow>
-                                             </TableHeader>
-                                             <TableBody>
-                                                 @foreach (var game in day.Games)
-                                                    {
-                                                        <TableRow Clicked="() => NavigateTo(game.Id)">
-                                                            <TableRowCell>@game.Home</TableRowCell>
-                                                            @if (game.Result != null && !game.Result.IsCancelled)
-                                                            {
-                                                                <TableRowCell>
-                                                                    @game.Result.HomeGoal (@game.Result.Home.Value) - (@game.Result.Away.Value) @game.Result.AwayGoal
-                                                                </TableRowCell>
-                                                            }
-                                                            else if (game.Result != null && game.Result.IsCancelled)
-                                                            {
-                                                                <TableRowCell>
-                                                                    cancelled
-                                                                </TableRowCell>
-                                                            }
-                                                            else
-                                                            {
-                                                                <TableRowCell>
-                                                                    to play
-                                                                </TableRowCell>
-                                                            }
-                                                            <TableRowCell>@game.Away</TableRowCell>
-                                                        </TableRow>
-                                                    }
-                                                </TableBody>
-                                            </Table>
-                                        </CardText>
-                                    </CardBody>
-                                </Card>
-                            </Column>
-                        }
+                        <Calendaring Days="calendarByRound.Value" WithFluentSize=true></Calendaring>
                     </Row>
                 </TabPanel>
             }
@@ -89,8 +40,7 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    [Inject]
-    public NavigationManager NavigationManager { get; set; }
+   
     private Calendar? calendar;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
@@ -120,9 +70,5 @@
                 nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
         }
         await base.OnParametersSetAsync();
-    }
-    private void NavigateTo(string gameId)
-    {
-        NavigationManager.NavigateTo($"game/{gameId}", false);
     }
 }

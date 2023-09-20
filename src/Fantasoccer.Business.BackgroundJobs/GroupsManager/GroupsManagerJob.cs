@@ -8,8 +8,10 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         private readonly IFantasoccerLogger _logger;
         private readonly ITeamCalculator _teamCalculator;
         private readonly IRankCalculator _rankCalculator;
+        private readonly IRandomCalendar _randomCalendar;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<Calendar, LeagueKey> _calendarRepository;
+        private readonly IRepository<Rank, YearDayLeague> _rankDayRepository;
         private readonly IRepository<Rank, LeagueKey> _rankRepository;
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly IRepository<RealCalendar, int> _serieACalendar;
@@ -17,8 +19,10 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         public GroupsManagerJob(IFantasoccerLogger logger,
             ITeamCalculator teamCalculator,
             IRankCalculator rankCalculator,
+            IRandomCalendar randomCalendar,
             IRepository<Group, string> groups,
             IRepository<Calendar, LeagueKey> calendarRepository,
+            IRepository<Rank, YearDayLeague> rankDayRepository,
             IRepository<Rank, LeagueKey> rankRepository,
             IRepository<Team, TeamDayKey> teamDayRepository,
             IRepository<RealCalendar, int> serieACalendar)
@@ -26,8 +30,10 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             _logger = logger;
             _teamCalculator = teamCalculator;
             _rankCalculator = rankCalculator;
+            _randomCalendar = randomCalendar;
             _groups = groups;
             _calendarRepository = calendarRepository;
+            _rankDayRepository = rankDayRepository;
             _rankRepository = rankRepository;
             _teamDayRepository = teamDayRepository;
             _serieACalendar = serieACalendar;
@@ -91,8 +97,17 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                     }
                                 }
                                 rank = _rankCalculator.GetRank(leagueSettings, calendar, league.Type);
+                                var annualLeague = league.Years.First(x => x.Year == actualYear);
+                                //_randomCalendar.AddDaysInLeague(actualYear, league.Type, annualLeague, annualLeague.)
                                 await _calendarRepository.UpdateAsync(leagueKey, calendar);
                                 await _rankRepository.UpdateAsync(leagueKey, rank);
+                                await _rankDayRepository.UpdateAsync(new YearDayLeague
+                                {
+                                    Group = group.Id,
+                                    League = league.Id,
+                                    Year = actualYear,
+                                    Day = rank.SerieADay,
+                                }, rank);
                             }
                         }
                     }

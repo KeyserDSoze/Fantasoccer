@@ -10,30 +10,13 @@
         <Items>
             @foreach (var rankByRound in rank.RankedTeams)
             {
-                <Tab Name="@rankByRound.Key">Round @rankByRound.Key</Tab>
+                <Tab Name="@rankByRound.Key" Display="rank.RankedTeams.Count > 1 ? Display.Block: Display.None">Round @rankByRound.Key</Tab>
             }
         </Items>
         <Content>
             @foreach (var rankByRound in rank.RankedTeams)
             {
-                <TabPanel Name="@rankByRound.Key">
-                    <DataGrid TItem="RankedTeam"
-                              Data="@rankByRound.Value.OrderByDescending(x => x.Point)"
-                    @bind-SelectedRow="@selectedTeam"
-                                FixedHeader
-                                Striped
-                                Responsive>
-                     <DataGridCommandColumn />
-                     <DataGridColumn Field="@nameof(RankedTeam.Name)" Caption="#" Sortable=false />
-                     <DataGridColumn Field="@nameof(RankedTeam.Point)" Caption="Points" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.ValuePoint)" Caption="Value Points" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.Victories)" Caption="Victories" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.Draws)" Caption="Draws" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.Defeats)" Caption="Defeats" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.Goal)" Caption="Goal" Sortable />
-                         <DataGridColumn Field="@nameof(RankedTeam.SufferedGoal)" Caption="Suffered Goal" Sortable />
-                     </DataGrid>
-                 </TabPanel>
+                <Ranking Teams="rankByRound.Value"></Ranking>
             }
         </Content>
     </Tabs>

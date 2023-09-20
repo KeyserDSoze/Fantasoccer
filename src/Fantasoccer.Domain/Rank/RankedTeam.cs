@@ -28,6 +28,8 @@ namespace Fantasoccer
         public int PlusMoney { get; set; }
         [JsonPropertyName("m")]
         public int Money { get; set; }
+        [JsonIgnore]
+        public int ValueAssets => Money + PlusMoney;
         public static RankedTeam operator +(RankedTeam a, RankedTeam b)
             => new()
             {
