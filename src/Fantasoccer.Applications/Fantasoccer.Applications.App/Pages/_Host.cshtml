@@ -48,6 +48,9 @@
                 update: (d) => { },
                 rejected: (d) => document.location.reload()
             };
+            Blazor.defaultReconnectionHandler._reconnectCallback = function (d) {
+                document.location.reload();
+            };
         });
         function getUseragent() {
             return navigator.userAgent;
