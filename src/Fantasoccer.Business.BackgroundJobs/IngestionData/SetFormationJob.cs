@@ -32,15 +32,16 @@ namespace Fantasoccer.Engine.IngestionData
                 {
                     foreach (var basket in group.Baskets.Where(x => x.Years != null))
                     {
-                        foreach (var teamOfTheYear in basket.Years
+                        foreach (var owner in basket.Years
                             .Where(x => x.Year == FantacalcioTime.ActualYear)
-                            .SelectMany(x => x.Teams))
+                            .SelectMany(x => x.Teams)
+                            .Select(x => x.Owner))
                         {
                             var nextKey = new TeamDayKey
                             {
                                 Year = FantacalcioTime.ActualYear,
                                 Day = calendar.LastDay.SerieADay + 1,
-                                Email = teamOfTheYear.Owner,
+                                Email = owner,
                                 Group = group.Id,
                                 BasketId = basket.Id
                             };
@@ -50,7 +51,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 {
                                     Year = FantacalcioTime.ActualYear,
                                     Day = calendar.LastDay.SerieADay,
-                                    Email = teamOfTheYear.Owner,
+                                    Email = owner,
                                     Group = group.Id,
                                     BasketId = basket.Id
                                 };
@@ -58,10 +59,10 @@ namespace Fantasoccer.Engine.IngestionData
                                 if (oldTeam != null)
                                 {
                                     await _repository.UpdateAsync(nextKey, oldTeam).NoContext();
-                                    listUpdated.Add(teamOfTheYear.Owner);
+                                    listUpdated.Add(owner);
                                 }
                                 else
-                                    await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {teamOfTheYear.Owner}").NoContext();
+                                    await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {owner}").NoContext();
                             }
                         }
                     }
