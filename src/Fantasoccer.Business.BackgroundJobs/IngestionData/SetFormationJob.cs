@@ -41,7 +41,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 Year = FantacalcioTime.ActualYear,
                                 Day = calendar.LastDay.SerieADay + 1,
                                 Email = teamOfTheYear.Owner,
-                                Group = group.Name,
+                                Group = group.Id,
                                 BasketId = basket.Id
                             };
                             if (!await _repository.ExistAsync(nextKey))
@@ -51,7 +51,7 @@ namespace Fantasoccer.Engine.IngestionData
                                     Year = FantacalcioTime.ActualYear,
                                     Day = calendar.LastDay.SerieADay,
                                     Email = teamOfTheYear.Owner,
-                                    Group = group.Name,
+                                    Group = group.Id,
                                     BasketId = basket.Id
                                 };
                                 var oldTeam = await _repository.GetAsync(key).NoContext();
