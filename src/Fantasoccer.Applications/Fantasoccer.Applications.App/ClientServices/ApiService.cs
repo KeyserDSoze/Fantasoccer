@@ -18,6 +18,7 @@ namespace Fantasoccer.Applications.App
             IRepository<Team, TeamKey> team,
             IRepository<Team, TeamDayKey> dailyTeam,
             IRepository<AppIdentity, string> appIdentity,
+            IRepository<Rank, YearDayLeague> dailyRank,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
             IRepository<LiveGroup, string> live)
         {
@@ -33,6 +34,7 @@ namespace Fantasoccer.Applications.App
             Team = team;
             DailyTeam = dailyTeam;
             AppIdentity = appIdentity;
+            DailyRank = dailyRank;
             Live = live;
             LiveVote = voteFactory.Create("live");
             OfficialVote = voteFactory.Create("official");
@@ -50,6 +52,7 @@ namespace Fantasoccer.Applications.App
         public IRepository<Team, TeamKey> Team { get; }
         public IRepository<Team, TeamDayKey> DailyTeam { get; }
         public IRepository<AppIdentity, string> AppIdentity { get; }
+        public IRepository<Rank, YearDayLeague> DailyRank { get; }
         public IRepository<LiveGroup, string> Live { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> LiveVote { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> OfficialVote { get; }

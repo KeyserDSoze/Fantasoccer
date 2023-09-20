@@ -29,6 +29,7 @@ namespace Fantasoccer.Applications.App.Extensions
             services.AddHttpClientIntegration<Group, string>(configuration);
             services.AddHttpClientIntegration<LiveGroup, string>(configuration);
             services.AddHttpClientIntegration<Rank, LeagueKey>(configuration);
+            services.AddHttpClientIntegration<Rank, YearDayLeague>(configuration, "day");
             services.AddHttpClientIntegration<Calendar, LeagueKey>(configuration);
             services.AddHttpClientIntegration<PlayedGame, GameKey>(configuration);
             services.AddHttpClientIntegration<RealTeamWrapper, int>(configuration);
