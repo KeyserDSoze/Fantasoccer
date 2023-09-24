@@ -60,6 +60,7 @@ namespace Fantasoccer.Business
                             var splittedResult = result.Split('-');
                             aResult = int.Parse(splittedResult.First());
                             bResult = int.Parse(splittedResult.Last());
+                            date = date.AddHours(21);
                         }
 
                         var realGame = new RealGame()

@@ -19,7 +19,7 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync()
         {
             var calendar = await _calendar.GetAsync().NoContext();
-            var result = false;
+            bool result;
             if (await _repository.ExistAsync(FantacalcioTime.ActualYear).NoContext())
             {
                 result = await _repository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
