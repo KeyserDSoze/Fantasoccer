@@ -44,7 +44,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
-                    options.Cron = "0 45 2,5 * * *";
+                    options.Cron = "0 45 0,2 * * *";
                     options.RunImmediately = true;
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
