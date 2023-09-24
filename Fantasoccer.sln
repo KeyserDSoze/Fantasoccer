@@ -65,7 +65,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "src\Fantasoccer.App
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Migrator", "src\Fantasoccer.Migrator\Fantasoccer.Migrator.csproj", "{C633B7F9-6D8B-4635-AB9B-E315039D7E16}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FantaSoccer.Applications.Wasm", "src\Fantasoccer.Applications\FantaSoccer.Applications.Wasm\FantaSoccer.Applications.Wasm.csproj", "{EDE17C6E-70CB-44D4-9261-8989BCB76A36}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.Wasm", "src\Fantasoccer.Applications\FantaSoccer.Applications.Wasm\Fantasoccer.Applications.Wasm.csproj", "{EDE17C6E-70CB-44D4-9261-8989BCB76A36}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

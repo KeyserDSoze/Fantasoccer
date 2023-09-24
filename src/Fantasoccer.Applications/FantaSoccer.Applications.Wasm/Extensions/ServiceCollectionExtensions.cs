@@ -1,6 +1,6 @@
 ﻿using Fantasoccer.Domain;
 
-namespace Fantasoccer.Applications.App.Extensions
+namespace Fantasoccer.Applications.Wasm.Extensions
 {
     public static class ServiceCollectionExtensions
     {

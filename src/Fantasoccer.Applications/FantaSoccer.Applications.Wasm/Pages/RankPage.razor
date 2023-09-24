@@ -1,0 +1,70 @@
+﻿@page "/"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Rank</PageTitle>
+
+@if (rank != null)
+{
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
+        <Items>
+            @foreach (var rankByRound in rank.RankedTeams)
+            {
+                <Tab Name="@rankByRound.Key" Display="rank.RankedTeams.Count > 1 ? Display.Block: Display.None">Round @rankByRound.Key</Tab>
+            }
+        </Items>
+        <Content>
+            @foreach (var rankByRound in rank.RankedTeams)
+            {
+                <Ranking Teams="rankByRound.Value"></Ranking>
+            }
+        </Content>
+    </Tabs>
+}
+<Alert Color="Color.Info" Visible=isVisible>
+    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+        Not found
+        <CloseButton />
+    </Heading>
+    <Paragraph>
+        @nullRank
+    </Paragraph>
+</Alert>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private Rank? rank;
+    private RankedTeam? selectedTeam;
+    private string? selectedTab;
+    private string? nullRank;
+    private bool isVisible => nullRank != null;
+
+    private Task OnSelectedTabChanged(string name)
+    {
+        selectedTab = name;
+        return Task.CompletedTask;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        nullRank = null;
+        if (State?.HasAGroup == true)
+        {
+            LoadingIndicator?.Show();
+            rank = await Api.Ranks.GetAsync(State.LeagueKey);
+            if (rank != null && rank.RankedTeams.Count > 0)
+                selectedTab = rank.RankedTeams.First().Key;
+            else
+                nullRank = $"Classifica non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
+        }
+        await base.OnParametersSetAsync();
+    }
+}

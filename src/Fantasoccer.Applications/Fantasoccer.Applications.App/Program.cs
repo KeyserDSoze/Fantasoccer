@@ -1,12 +1,11 @@
-﻿using Fantasoccer.Applications.App;
+﻿using Blazored.LocalStorage;
+using Blazorise;
+using Blazorise.Bootstrap5;
+using Blazorise.Icons.FontAwesome;
 using Fantasoccer.Applications.App.Extensions;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
-using Blazorise.Bootstrap5;
-using Blazorise.Icons.FontAwesome;
-using Blazorise;
-using Blazored.LocalStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
