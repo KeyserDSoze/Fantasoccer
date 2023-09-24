@@ -6,6 +6,7 @@ namespace Fantasoccer.Applications.App.Extensions
     {
         public static IServiceCollection AddHttpClientIntegrationForApi(this IServiceCollection services, IConfiguration configuration)
         {
+            services.AddTransient<ApiService>();
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<ChancedRealPlayerWrapper, YearDayKey>(configuration);

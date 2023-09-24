@@ -28,7 +28,6 @@ builder.Services
     .AddBootstrap5Providers()
     .AddFontAwesomeIcons();
 builder.Services.AddBlazoredLocalStorage();
-builder.Services.AddTransient<ApiService>();
 builder.Services.AddHttpClientIntegrationForApi(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
