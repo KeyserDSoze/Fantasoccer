@@ -42,7 +42,23 @@ namespace Migrator
             //await CreateStatsPlayerAsync(serviceProvider);
             //await CreateNewYear(serviceProvider);
             //await AdjustFormation(serviceProvider);
-            await AdjustCalendar(serviceProvider);
+            //await AdjustCalendar(serviceProvider);
+            //await AdjustSettings(serviceProvider);
+        }
+        private static async Task AdjustSettings(IServiceProvider serviceProvider)
+        {
+            var group = serviceProvider.GetRequiredService<IRepository<Group, string>>();
+            var firstGroup = await group.FirstOrDefaultAsync();
+            foreach (var league in firstGroup.Value.Leagues)
+            {
+                foreach (var year in league.Years)
+                {
+                    var votes = year.Settings.Votes.First().Value;
+                    votes.YellowCard = -0.5f;
+                    votes.RedCard = -1f;
+                }
+            }
+            await group.UpdateAsync(firstGroup.Key, firstGroup.Value);
         }
         private static async Task AdjustCalendar(IServiceProvider serviceProvider)
         {

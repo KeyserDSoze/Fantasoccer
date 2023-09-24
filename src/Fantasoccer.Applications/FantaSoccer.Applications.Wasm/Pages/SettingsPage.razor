@@ -1,0 +1,146 @@
+﻿@page "/settings"
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Settings</PageTitle>
+
+@if (State?.IsAuthenticated == true)
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="State.Identity" ValidateOnLoad="false">
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Username</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@State.Identity!.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+             </Validations>
+             @if (team != null)
+                {
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Team Name</FieldLabel>
+                        <FieldBody>
+                            <TextEdit @bind-Text="@team.Name">
+                            </TextEdit>
+                        </FieldBody>
+                    </Field>
+                }
+            </Fields>
+            <Button Color="Color.Primary" Clicked="@OnSaveClicked">
+                Salva impostazioni
+            </Button>
+        </Column>
+    </Row>
+}
+
+@code {
+    [Inject]
+    private IMessageService? MessageService { get; set; }
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private Validations? ValidationsRef { get; set; }
+    private Team? team;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        LoadingIndicator?.Show();
+        if (State?.SelectedTeam != null)
+        {
+            team = await Api.Team.GetAsync(State.OtherTeamKey(State.SelectedTeam.Owner)) ?? new Team
+                {
+                    Name = State.SelectedTeam.Name,
+                    Owner = State.SelectedTeam.Owner,
+                    Players = new()
+                };
+        }
+        await base.OnParametersSetAsync();
+    }
+    async Task OnSaveClicked()
+    {
+        if (ValidationsRef != null)
+        {
+            if (await ValidationsRef.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && team != null)
+                {
+                    var key = State.OtherTeamKey(team.Owner);
+                    if (!await Api.Team.ExistAsync(key))
+                    {
+                        await Api.Team.InsertAsync(State.TeamKey, team);
+                    }
+                    else
+                    {
+                        await Api.Team.UpdateAsync(State.TeamKey, team);
+                    }
+                    var basket = State.SelectedYearlyBaskets;
+                    if (basket != null)
+                    {
+                        foreach (var teamX in basket.SelectMany(x => x.Teams).Where(x => x.Owner == team.Owner))
+                        {
+                            teamX.Name = team.Name;
+                        }
+                        await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
+                        var basketId = State.SelectedBasketId;
+                        foreach (var league in State.SelectedGroup.Leagues.Where(x => x.BasketsId.Contains(basketId)))
+                        {
+                            var leagueKey = State.LeagueKey;
+                            var calendar = await Api.Calendar.GetAsync(leagueKey);
+                            if (calendar != null)
+                            {
+                                foreach (var round in calendar.Rounds)
+                                {
+                                    foreach (var day in round.Value)
+                                    {
+                                        foreach (var game in day.Games)
+                                        {
+                                            if (game.HomeOwner == team.Owner)
+                                            {
+                                                game.Home = team.Name;
+                                            }
+                                            else if (game.AwayOwner == team.Owner)
+                                            {
+                                                game.Away = team.Name;
+                                            }
+                                        }
+                                    }
+                                }
+                                await Api.Calendar.UpdateAsync(leagueKey, calendar);
+                            }
+                            var rank = await Api.Ranks.GetAsync(leagueKey);
+                            if (rank != null)
+                            {
+                                foreach (var round in rank.RankedTeams)
+                                {
+                                    foreach (var teamX in round.Value)
+                                    {
+                                        if (teamX.Owner == team.Owner)
+                                        {
+                                            teamX.Name = team.Name;
+                                        }
+                                    }
+                                }
+                                await Api.Ranks.UpdateAsync(leagueKey, rank);
+                            }
+                        }
+                    }
+                    State.UpdateUi();
+                }
+            }
+            await ValidationsRef.ClearAll();
+        }
+    }
+}

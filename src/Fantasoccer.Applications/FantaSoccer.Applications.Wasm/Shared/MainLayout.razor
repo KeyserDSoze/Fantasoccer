@@ -1,18 +1,276 @@
-﻿@inherits LayoutComponentBase
+﻿@using Blazorise.LoadingIndicator;
+@using Microsoft.AspNetCore.Authorization;
+@inherits LayoutComponentBase
+@attribute [Authorize]
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<PageTitle>Fantasoccer</PageTitle>
 
-    <main>
-        <div class="top-row px-4 auth">
-            <LoginDisplay />
-            <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
-        </div>
+<Layout Sider>
+    <LayoutSider>
+        <LayoutSiderContent>
+            <Bar @ref="@Sidebar" Mode="BarMode.VerticalInline"
+                 CollapseMode="BarCollapseMode.Hide"
+                 Breakpoint="Breakpoint.Desktop"
+                 NavigationBreakpoint="Breakpoint.Tablet"
+                 ThemeContrast="ThemeContrast.Dark">
+                <BarBrand>
+                    <BarItem>
+                        <BarLink To="../../">
+                            <BarIcon IconName="IconName.Walking" />
+                            Fantasoccer
+                        </BarLink>
+                    </BarItem>
+                </BarBrand>
+                <BarMenu>
+                    @if (State?.HasAGroup == true)
+                    {
+                        <BarStart>
+                            <BarItem>
+                                <BarLink To="../../">
+                                    <BarIcon IconName="IconName.Star" />
+                                    Rank
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../calendar">
+                                    <BarIcon IconName="IconName.CalendarDay" />
+                                    Calendar
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../live">
+                                    <BarIcon IconName="IconName.PizzaSlice" />
+                                    Live
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../allteams">
+                                    <BarIcon IconName="IconName.Hotel" />
+                                    All teams
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../edit">
+                                    <BarIcon IconName="IconName.Users" />
+                                    My team
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../allplayers">
+                                    <BarIcon IconName="IconName.PlaneArrival" />
+                                    All players
+                                </BarLink>
+                            </BarItem>
+                            @if (State?.Groups != null && State.Identity != null)
+                            {
+                                if (State?.Groups.Count > 1)
+                                {
+                                    <BarItem>
+                                        <BarDropdown>
+                                            <BarDropdownToggle>
+                                                <BarIcon IconName="IconName.LayerGroup" />
+                                                Group
+                                            </BarDropdownToggle>
+                                            <BarDropdownMenu>
+                                                @foreach (var group in State.Groups)
+                                                {
+                                                    <BarDropdownItem Class="@(State?.GroupId == group.Id ? "active" : string.Empty)"
+                                                    Clicked="x => ChangeGroupAsync(group.Id)">
+                                                        <BarIcon IconName="IconName.Flag" />
+                                                        @group.Name
+                                                    </BarDropdownItem>
+                                                }
+                                            </BarDropdownMenu>
+                                        </BarDropdown>
+                                    </BarItem>
+                                }
+                                @if (State?.SelectedGroup != null)
+                                {
+                                    <BarItem>
+                                        <BarDropdown>
+                                            <BarDropdownToggle>
+                                                <BarIcon IconName="IconName.LayerGroup" />
+                                                @State.SelectedGroup.Name
+                                            </BarDropdownToggle>
+                                            <BarDropdownMenu>
+                                                @foreach (var league in State.SelectedGroup.Leagues)
+                                                {
+                                                    var noTeams = true;
+                                                    foreach (var team in State.GetTeams(State.SelectedGroup.Id, league.Id, State.Year, State.Identity.Email))
+                                                    {
+                                                        noTeams = false;
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id && State?.MeOrLeaderEmail == team.Owner ? "active" : string.Empty)" Clicked="x => ChangeTeamAsync(State.SelectedGroup.Id, league.Id, team.Owner)">
+                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                            @team.Name [@league.Name]
+                                                            @if (team.Owner != State?.Identity?.Email)
+                                                            {
+                                                                @:(@team.Owner)
+                                                            }
+                                                        </BarDropdownItem>
+                                                    }
+                                                    if (noTeams)
+                                                    {
+                                                        <BarDropdownItem Class="@(State?.LeagueId == league.Id ? "active" : string.Empty)" Clicked="x => ChangeTeamAsync(State.SelectedGroup.Id, league.Id, State.Identity.Email)">
+                                                            <BarIcon IconName="IconName.DotCircle" />
+                                                            Sbircia [@league.Name]
+                                                        </BarDropdownItem>
+                                                    }
+                                                }
+                                            </BarDropdownMenu>
+                                        </BarDropdown>
+                                    </BarItem>
+                                }
+                            }
+                            <BarItem>
+                                <BarDropdown>
+                                    <BarDropdownToggle>
+                                        <BarIcon IconName="IconName.CalendarTimes" />
+                                        Years
+                                    </BarDropdownToggle>
+                                    <BarDropdownMenu>
+                                        @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
+                                        {
+                                            var actualYear = year;
+                                            <BarDropdownItem Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
+                                                             Clicked="x => ChangeYearAsync(actualYear)">
+                                                <BarIcon IconName="IconName.CalendarDay" />
+                                                @FantacalcioTime.LabelYear(actualYear)
+                                            </BarDropdownItem>
+                                        }
+                                    </BarDropdownMenu>
+                                </BarDropdown>
+                            </BarItem>
+                        </BarStart>
+                    }
+                </BarMenu>
+            </Bar>
+        </LayoutSiderContent>
+    </LayoutSider>
+    <Layout>
+        <LayoutHeader Fixed Style="background:#001529 !important;">
+             <Bar Breakpoint="Breakpoint.Widescreen"
+                  CollapseMode="BarCollapseMode.Hide"
+                  NavigationBreakpoint="Breakpoint.None"
+                  ThemeContrast="ThemeContrast.Dark">
+                 <BarMenu>
+                     <BarStart>
+                         <BarToggler Style="position: fixed; right: 10px; z-index: 9999" Bar="Sidebar" />
+                         @if (State != null)
+                        {
+                            <BarItem>
+                                <BarDropdown>
+                                    <BarDropdownToggle>
+                                        &nbsp;&nbsp;Ciao @State?.Identity?.Username
+                                    </BarDropdownToggle>
+                                    <BarDropdownMenu Style="background: #001529;">
+                                        <BarDropdownItem>
+                                            <BarLink To="../../settings">
+                                                <BarIcon IconName="IconName.Info" />
+                                                Settings
+                                            </BarLink>
+                                        </BarDropdownItem>
+                                        @if (State.IsAdmin())
+                                        {
+                                            <BarDropdownItem>
+                                                <BarLink To="../../groups">
+                                                    <BarIcon IconName="IconName.Info" />
+                                                    Groups
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                            <BarDropdownItem>
+                                                <BarLink To="../../manageteams">
+                                                    <BarIcon IconName="IconName.Users" />
+                                                    Manage teams
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                            <BarDropdownItem>
+                                                <BarLink To="../../users">
+                                                    <BarIcon IconName="IconName.Info" />
+                                                    Users
+                                                </BarLink>
+                                            </BarDropdownItem>
+                                        }
+                                        <BarDropdownItem>
+                                            <BarLink To="../../MicrosoftIdentity/Account/SignOut">
+                                                <BarIcon IconName="IconName.UserCheck" />
+                                                Log out
+                                            </BarLink>
+                                        </BarDropdownItem>
+                                        <BarItem>
+                                            v.0.2.0-beta
+                                        </BarItem>
+                                    </BarDropdownMenu>
+                                </BarDropdown>
+                            </BarItem>
+                        }
+                    </BarStart>
+                </BarMenu>
+            </Bar>
+        </LayoutHeader>
+        <LayoutContent>
+            <LayoutContent Padding="Padding.Is1.OnDesktop.Is0.OnMobile.Is0.OnTablet">
+                <LoadingIndicator @ref="loadingIndicator" FullScreen>
+                    <ChildContent>
+                        @Body
+                    </ChildContent>
+                    <IndicatorTemplate>
+                        <img src="/static/soccerball.gif" class="loader" />
+                    </IndicatorTemplate>
+                </LoadingIndicator>
+            </LayoutContent>
+        </LayoutContent>
+    </Layout>
+</Layout>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+@code {
+    [CascadingParameter]
+    public FantasoccerState? State { get; set; }
+    private List<Group> groups;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.Identity?.Groups != null)
+        {
+            groups = new();
+            foreach (var group in State.Identity.Groups)
+            {
+                var theGroup = await Api.Groups.GetAsync(group.Id);
+                if (theGroup != null)
+                    groups.Add(theGroup);
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
+    LoadingIndicator loadingIndicator;
+    private Bar? Sidebar;
+    public void Toggle()
+    {
+        Sidebar.Visible = !Sidebar.Visible;
+    }
+    public Task ChangeYearAsync(int year)
+    {
+        if (State != null && State.Year != year)
+        {
+            loadingIndicator?.Show();
+            return State.ChangeYearAsync(year);
+        }
+        return Task.CompletedTask;
+    }
+    public ValueTask ChangeGroupAsync(string groupId)
+    {
+        if (State != null && State.GroupId != groupId)
+        {
+            loadingIndicator?.Show();
+            return State.ChangeGroupAsync(groupId);
+        }
+        return ValueTask.CompletedTask;
+    }
+    public Task ChangeTeamAsync(string groupId, string leagueId, string owner)
+    {
+        if (State != null && (State.GroupId != groupId || State.LeagueId != leagueId || State.MeOrLeaderEmail != owner))
+        {
+            loadingIndicator?.Show();
+            return State.ChangeTeamAsync(groupId, leagueId, owner);
+        }
+        return Task.CompletedTask;
+    }
+}

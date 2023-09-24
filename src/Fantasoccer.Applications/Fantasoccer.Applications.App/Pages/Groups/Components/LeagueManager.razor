@@ -1,5 +1,6 @@
 ﻿@using Blazorise.Components
 @using Blazorise.LoadingIndicator;
+@using Fantasoccer.Business;
 
 @if (CanCreateNewGroup)
 {
@@ -271,6 +272,9 @@
                 <Button Color="Color.Primary" Clicked="@SaveAsync">
                     Salva
                 </Button>
+                <Button Color="Color.Primary" Clicked="@RecalculateAsync">
+                    Ricalcola anno
+                </Button>
                 <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
                     Create new calendar
                 </Button>
@@ -341,6 +345,8 @@
     public required IRandomCalendar RandomCalendar { get; set; }
     [Inject]
     public required IRankCalculator RankCalculator { get; set; }
+    [Inject]
+    public required ITeamCalculator TeamCalculator { get; set; }
     private async ValueTask CreateCalendarAndRankAsync()
     {
         LoadingIndicator?.Show();
@@ -377,5 +383,59 @@
             await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
+    }
+    private async Task RecalculateAsync()
+    {
+        if (State != null)
+        {
+            var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            var yearlyLeague = State?.SelectedYearlyLeague;
+            var settings = yearlyLeague?.Settings;
+            if (settings != null)
+            {
+                foreach (var round in calendar.Rounds)
+                {
+                    foreach (var day in round.Value)
+                    {
+                        if (day.Number <= settings.CancelledDay)
+                        {
+                            foreach (var game in day.Games)
+                            {
+                                if (game.Result != null)
+                                    game.Result.IsCancelled = true;
+                                else
+                                    game.Result = new GameResult { IsCancelled = true };
+                            }
+                        }
+                        else
+                        {
+                            await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
+                            if (TeamCalculator.Official == null || TeamCalculator.IsLive)
+                                break;
+                            foreach (var game in day.Games)
+                            {
+                                var homeTeamKey = State.TeamDayKey(day.SerieADay, game.HomeOwner);
+                                var homeTeam = await Api.DailyTeam.GetAsync(homeTeamKey);
+                                var awayTeamKey = State.TeamDayKey(day.SerieADay, game.AwayOwner);
+                                var awayTeam = await Api.DailyTeam.GetAsync(awayTeamKey);
+
+                                var homePoint = TeamCalculator.CalculatePoint(homeTeam.ActivePlayers);
+                                var awayPoint = TeamCalculator.CalculatePoint(awayTeam.ActivePlayers);
+                                var result = new GameResult
+                                    {
+                                        Home = homePoint,
+                                        Away = awayPoint,
+                                    };
+                                result.CalculateGoals(yearlyLeague.Settings);
+                                game.Result = result;
+                            }
+                        }
+                    }
+                }
+                await Api.Calendar.UpdateAsync(State.LeagueKey, calendar);
+                var rank = RankCalculator.GetRank(yearlyLeague.Settings, calendar, State.SelectedLeague!.Type);
+                await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
+            }
+        }
     }
 }

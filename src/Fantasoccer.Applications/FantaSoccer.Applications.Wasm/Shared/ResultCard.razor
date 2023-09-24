@@ -1,0 +1,43 @@
+﻿@if (Game != null)
+{
+    <div class="@Css">
+        <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
+        <span class="team">@Game.Home</span>
+        @if (Game.Result != default && !Game.Result.IsCancelled)
+        {
+            @if (Game.Result.Home.DefensiveBonus)
+            {
+                <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
+            }
+            @if (Game.Result.Home.OwnGoal)
+            {
+                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
+            }
+            <span class="points">@Game.Result.Home.Value</span>
+
+            <span class="goals">@Game.Result.HomeGoal - @Game.Result.AwayGoal</span>
+
+            <span class="points">@Game.Result.Away.Value</span>
+            @if (Game.Result.Away.DefensiveBonus)
+            {
+                <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
+            }
+            @if (Game.Result.Away.OwnGoal)
+            {
+                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
+            }
+        }
+        else
+        {
+            <span class="goals"> - </span>
+        }
+        <span class="team">@Game.Away</span>
+        <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
+    </div>
+}
+@code {
+    [Parameter]
+    public CalendarGame? Game { get; set; }
+    [Parameter]
+    public string Css { get; set; }
+}

@@ -216,9 +216,9 @@ namespace Fantasoccer.Business
             calculatedVote += vote.OwnGoal * voteLeagueSetting.OwnGoal;
             calculatedVote += vote.Assist * voteLeagueSetting.Assist;
             if (vote.Status == Behaviour.YellowCard)
-                calculatedVote -= voteLeagueSetting.YellowCard;
+                calculatedVote += voteLeagueSetting.YellowCard;
             else if (vote.Status == Behaviour.RedCard)
-                calculatedVote -= voteLeagueSetting.RedCard;
+                calculatedVote += voteLeagueSetting.RedCard;
             var special = vote.HasVote && player.Current.Role == Role.GoalKeeper
                 && vote.SufferedGoal == 0 && LeagueSetting.PointForCleanSheet > 0;
             if (special)
