@@ -27,3 +27,4 @@ jobs:
     inputs:
       azure_static_web_apps_api_token: 535fe095b863ec36477618d29068341e177d8cff6aac251cbfd9349477a04ab23-8773ec0e-e91f-4ca3-86ae-a537dd37dc08003282917
       app_location: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/"
+      output_location: "wwwroot"
