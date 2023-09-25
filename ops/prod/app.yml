@@ -6,7 +6,10 @@ trigger:
     - "master"
  paths:
     include:
-    - "src/"
+    - "src/Fantasoccer.Applications/Fantasoccer.Applications.App/"
+    - "src/Fantasoccer.Business.Shared/"
+    - "src/Fantasoccer.Domain/"
+    - "ops/prod/app"
 
 variables:
 - name: "srcPath"
