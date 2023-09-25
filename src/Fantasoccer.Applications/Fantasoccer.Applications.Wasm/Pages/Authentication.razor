@@ -23,7 +23,8 @@
                 try
                 {
                     var identity = await Api.AppIdentity.GetAsync(email);
-                    if (identity == null)
+                    var isBrandNew = identity == null;
+                    if (isBrandNew)
                     {
                         identity = new AppIdentity
                             {
@@ -32,9 +33,10 @@
                                 Username = email
                             };
                         await Api.AppIdentity.InsertAsync(email, identity);
-                        NavigationManager?.NavigateTo("../../settings", false);
                     }
                     await State.SetIdentityAsync(identity);
+                    if (isBrandNew)
+                        NavigationManager?.NavigateTo("../../settings", false);
                 }
                 catch (UnauthorizedAccessException)
                 {
