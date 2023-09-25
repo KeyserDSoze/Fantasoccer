@@ -1,0 +1,79 @@
+﻿@page "/groups"
+@using Blazorise.LoadingIndicator;
+@using Blazorise.Components;
+@using Fantasoccer.Applications.App.Pages.Groups.Components
+
+<PageTitle>Groups</PageTitle>
+
+@if (State?.IsAuthenticated == true)
+{
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="x => selectedTab = x">
+        <Items>
+            <Tab Name="groups">Groups</Tab>
+            <Tab Name="users">Users</Tab>
+            <Tab Name="baskets">Baskets</Tab>
+            <Tab Name="leagues">Leagues</Tab>
+        </Items>
+        <Content>
+            <TabPanel Name="groups" Padding="Padding.Is1.FromTop">
+                <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
+            </TabPanel>
+            <TabPanel Name="users" Padding="Padding.Is1.FromTop">
+                <UserManager SaveAsync="SaveAsync"></UserManager>
+            </TabPanel>
+            <TabPanel Name="baskets" Padding="Padding.Is1.FromTop">
+                <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
+            </TabPanel>
+            <TabPanel Name="leagues" Padding="Padding.Is1.FromTop">
+                <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
+            </TabPanel>
+        </Content>
+    </Tabs>
+}
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private string selectedTab = "groups";
+
+    private bool canCreateNewGroup;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null && State.Identity != null)
+        {
+            LoadingIndicator?.Show();
+            canCreateNewGroup = State.Identity.Email == "alessandro.rapiti44@gmail.com";
+            LoadingIndicator?.Hide();
+        }
+        await base.OnParametersSetAsync();
+    }
+    private async Task SaveAsync()
+    {
+        LoadingIndicator?.Show();
+        if (State?.HasAGroup == true)
+        {
+            await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
+            foreach (var user in State.SelectedGroup.Users)
+            {
+                var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
+                if (toUpdateUser != null)
+                {
+                    var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == State.SelectedGroup.Id);
+                    if (groupToRemove != null)
+                        toUpdateUser.Groups.Remove(groupToRemove);
+                    toUpdateUser.Groups.Add(State.SelectedGroup.ToGroupIdentity(toUpdateUser.Email));
+                    await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
+                }
+            }
+            State?.UpdateUi();
+        }
+        LoadingIndicator?.Hide();
+    }
+}

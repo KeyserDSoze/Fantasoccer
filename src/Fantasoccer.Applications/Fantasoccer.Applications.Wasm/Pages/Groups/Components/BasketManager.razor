@@ -1,0 +1,97 @@
+﻿@using Blazorise.Components
+@using Blazorise.LoadingIndicator;
+
+@if (CanCreateNewGroup)
+{
+    <Row>
+        <Column>
+            <Fields>
+                <Field>
+                    @if (State?.SelectedGroup?.Baskets?.Any() == true)
+                    {
+                        <Select TValue="string" SelectedValue="@basketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
+                            @foreach (var basket in State.SelectedGroup.Baskets)
+                            {
+                                <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
+                            }
+                        </Select>
+                    }
+                </Field>
+                <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
+                    <Validation UsePattern>
+                     <Field ColumnSize="ColumnSize.IsHalf">
+                         <FieldLabel>Nome basket</FieldLabel>
+                         <FieldBody>
+                             <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                 <Feedback>
+                                     <ValidationError />
+                                 </Feedback>
+                             </TextEdit>
+                             <Button Color="Color.Primary" Clicked="@CreateNewBasket">
+                                 Crea nuovo basket
+                             </Button>
+                         </FieldBody>
+                     </Field>
+                 </Validation>
+             </Validations>
+         </Fields>
+     </Column>
+ </Row>
+    <TeamsManager Teams="teams"></TeamsManager>
+}
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public bool CanCreateNewGroup { get; set; }
+    private string? basketId;
+    private List<AnnualTeam>? teams;
+    private string? newBasketName;
+    private Validations? ValidationsRefForBasket { get; set; }
+
+    protected override Task OnParametersSetAsync()
+    {
+        basketId = State?.SelectedGroup?.Baskets?.FirstOrDefault()?.Id;
+        teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
+        return base.OnParametersSetAsync();
+    }
+    private async Task CreateNewBasket()
+    {
+        LoadingIndicator?.Show();
+        if (ValidationsRefForBasket != null)
+        {
+            if (await ValidationsRefForBasket.ValidateAll())
+            {
+                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
+                {
+                    basketId = Guid.NewGuid().ToString();
+                    teams = new List<AnnualTeam>();
+                    var basket = new Basket
+                        {
+                            Id = basketId,
+                            Name = newBasketName,
+                            Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = teams } }
+                        };
+                    State.SelectedGroup!.Baskets.Add(basket);
+                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                }
+                await ValidationsRefForBasket.ClearAll();
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+    private void OnSelectedBasketChanged(string id)
+    {
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && State.SelectedGroup != null)
+        {
+            basketId = id;
+            teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
+        }
+        LoadingIndicator?.Hide();
+    }
+}

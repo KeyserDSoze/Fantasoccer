@@ -51,7 +51,7 @@
             var id = Guid.NewGuid().ToString();
             if (user?.Identity is not null && user.Identity.IsAuthenticated)
             {
-                var email = user.Claims.First(x => x.Type == "emails").Value;
+                var email = user.Claims.First(x => x.Type == "emails").Value.Trim(']').Trim('[').Trim('"');
                 try
                 {
                     var identity = await Api.AppIdentity.GetAsync(email);
