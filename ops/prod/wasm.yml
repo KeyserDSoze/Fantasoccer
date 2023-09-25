@@ -8,6 +8,7 @@ trigger:
     include:
     - "src/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/"
     - "ops/prod/wasm"
+    - "ops/prod/wasm.yml"
 
 variables:
 - name: "srcPath"
