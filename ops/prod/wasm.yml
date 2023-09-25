@@ -20,7 +20,12 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
-  
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '/ops/prod/wasm/'
+      Contents: 'appsettings.json'
+      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/wwwroot"
+      OverWrite: true
   - checkout: self
     submodules: true
   - task: AzureStaticWebApp@0
