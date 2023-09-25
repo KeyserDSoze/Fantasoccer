@@ -20,6 +20,8 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
+  - checkout: self
+    submodules: true
   - powershell: |
        Write-Host "Show all folder content"
        Get-ChildItem -Path $(Build.SourcesDirectory)\*.* -Recurse -Force
@@ -32,8 +34,6 @@ jobs:
       Contents: 'appsettings.json'
       TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/wwwroot"
       OverWrite: true
-  - checkout: self
-    submodules: true
   - task: AzureStaticWebApp@0
     inputs:
       azure_static_web_apps_api_token: 535fe095b863ec36477618d29068341e177d8cff6aac251cbfd9349477a04ab23-8773ec0e-e91f-4ca3-86ae-a537dd37dc08003282917
