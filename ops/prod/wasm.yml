@@ -20,7 +20,7 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
-  - powershell: Get-ChildItem -Path 'Insert root path' -recurse
+  - powershell: Get-ChildItem -Path '' -recurse
   - task: CopyFiles@2
     inputs:
       SourceFolder: 'ops/prod/wasm/'
