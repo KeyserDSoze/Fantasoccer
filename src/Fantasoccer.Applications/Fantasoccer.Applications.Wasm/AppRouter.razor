@@ -79,4 +79,38 @@
             NavigationManager.NavigateTo($"../../../../authentication/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", false);
         }
     }
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        var user = (await AuthenticationState).User;
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var email = user.Claims.First(x => x.Type == "emails").Value.Trim(']').Trim('[').Trim('"');
+            if (email != null)
+            {
+                try
+                {
+                    var identity = await Api.AppIdentity.GetAsync(email);
+                    var isBrandNew = identity == null;
+                    if (isBrandNew)
+                    {
+                        identity = new AppIdentity
+                            {
+                                Email = email,
+                                Groups = new(),
+                                Username = email
+                            };
+                        await Api.AppIdentity.InsertAsync(email, identity);
+                    }
+                    if (state != null)
+                        await state.SetIdentityAsync(identity);
+                    if (isBrandNew)
+                        NavigationManager?.NavigateTo("../../settings", false);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
 }
