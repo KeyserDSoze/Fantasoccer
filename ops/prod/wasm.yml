@@ -14,8 +14,8 @@ variables:
   value: "$(Build.SourcesDirectory)/src" 
 
 jobs:
-- job: Build_FantasoccerApi_Linux
-  displayName: "Build Fantasoccer Web Api on Ubuntu"
+- job: Build_FantasoccerWasm_Linux
+  displayName: "Build Fantasoccer Wasm on Ubuntu"
   pool:
     vmImage: 'ubuntu-latest'
   steps:
