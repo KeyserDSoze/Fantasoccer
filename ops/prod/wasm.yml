@@ -1,0 +1,34 @@
+name: $(Build.DefinitionName)_$(date:yyyy).$(date:MM).0.$(rev:rr)
+
+trigger:
+ branches:
+  include:
+    - "master"
+ paths:
+    include:
+    - "src/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/"
+    - "ops/prod/wasm"
+
+variables:
+- name: "srcPath"
+  value: "$(Build.SourcesDirectory)/src" 
+
+jobs:
+- job: Build_FantasoccerApi_Linux
+  displayName: "Build Fantasoccer Web Api on Ubuntu"
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: 'ops/prod/wasm/'
+      Contents: 'appsettings.json'
+      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/wwwroot"
+      OverWrite: true
+
+  - checkout: self
+    submodules: true
+  - task: AzureStaticWebApp@0
+    inputs:
+      azure_static_web_apps_api_token: 535fe095b863ec36477618d29068341e177d8cff6aac251cbfd9349477a04ab23-8773ec0e-e91f-4ca3-86ae-a537dd37dc08003282917
+      app_location: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/"

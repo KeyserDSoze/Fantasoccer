@@ -11,18 +11,6 @@ trigger:
 variables:
 - name: "srcPath"
   value: "$(Build.SourcesDirectory)/src" 
-- name: "ConnectionStrings.Storage"
-  value: $(ConnectionStrings--Storage)
-- name: "ConnectionStrings.Sql"
-  value: $(ConnectionStrings--Sql)
-- name: "ConnectionStrings.Cosmos"
-  value: $(ConnectionStrings--Cosmos)
-- name: "Notification.Email.ConnectionString"
-  value: $(Notification--Email--ConnectionString)
-- name: "LicenseApi.Get"
-  value: $(LicenseApi--Get)
-- name: "LicenseApi.New"
-  value: $(LicenseApi--New)
 
 jobs:
 - job: Build_FantasoccerApi_Linux
