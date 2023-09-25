@@ -39,6 +39,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prod", "Prod", "{813E55E5-9
 	ProjectSection(SolutionItems) = preProject
 		ops\prod\api.yml = ops\prod\api.yml
 		ops\prod\app.yml = ops\prod\app.yml
+		ops\prod\wasm.yml = ops\prod\wasm.yml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{FDDE1887-6152-4DFC-9819-8A1338011A4D}"
@@ -65,7 +66,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "src\Fantasoccer.App
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Migrator", "src\Fantasoccer.Migrator\Fantasoccer.Migrator.csproj", "{C633B7F9-6D8B-4635-AB9B-E315039D7E16}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FantaSoccer.Applications.Wasm", "src\Fantasoccer.Applications\FantaSoccer.Applications.Wasm\FantaSoccer.Applications.Wasm.csproj", "{EDE17C6E-70CB-44D4-9261-8989BCB76A36}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Applications.Wasm", "src\Fantasoccer.Applications\FantaSoccer.Applications.Wasm\Fantasoccer.Applications.Wasm.csproj", "{EDE17C6E-70CB-44D4-9261-8989BCB76A36}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Wasm", "Wasm", "{0288F6D0-C2F2-41D5-866F-0766706AF4EB}"
+	ProjectSection(SolutionItems) = preProject
+		ops\prod\wasm\appsettings.json = ops\prod\wasm\appsettings.json
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -143,6 +149,7 @@ Global
 		{A670A1D5-0776-4591-9BB0-5E34F1EE07DE} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 		{C633B7F9-6D8B-4635-AB9B-E315039D7E16} = {91114266-E644-452D-8132-7D762C9B8968}
 		{EDE17C6E-70CB-44D4-9261-8989BCB76A36} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
+		{0288F6D0-C2F2-41D5-866F-0766706AF4EB} = {813E55E5-9349-4602-870F-C1954A89E06F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {779A39F3-7637-45DD-9769-DD88DFF55DB0}

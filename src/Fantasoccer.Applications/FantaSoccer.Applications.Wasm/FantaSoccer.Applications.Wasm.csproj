@@ -23,6 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
       <ProjectReference Include="..\..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>

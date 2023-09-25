@@ -1,7 +1,7 @@
 ﻿using Fantasoccer.Domain;
 using RepositoryFramework;
 
-namespace Fantasoccer.Applications.App
+namespace Fantasoccer.Applications.Wasm
 {
     public class ApiService
     {
