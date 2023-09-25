@@ -20,6 +20,8 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
+  - powershell: |
+        ls
   - task: CopyFiles@2
     inputs:
       SourceFolder: 'ops/prod/wasm/'
