@@ -24,11 +24,11 @@ builder.Services.AddMsalAuthentication(options =>
 });
 builder.Services.AddHttpClientIntegrationForApi(builder.Configuration);
 builder.Services.AddSharedBusiness();
-//builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient(settings =>
-//{
-//    settings.Scopes = new string[] { builder.Configuration["AzureAdB2C:Scopes"]! };
-//});
-builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient<TokenManager>(
-                x => { x.Scopes = new string[] { builder.Configuration["AzureAdB2C:Scopes"]! }; }, ServiceLifetime.Scoped);
+builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient(settings =>
+{
+    settings.Scopes = new string[] { builder.Configuration["AzureAdB2C:Scopes"]! };
+});
+//builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient<TokenManager>(
+//                x => { x.Scopes = new string[] { builder.Configuration["AzureAdB2C:Scopes"]! }; }, ServiceLifetime.Scoped);
 
 await builder.Build().RunAsync();
