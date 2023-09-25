@@ -1,0 +1,239 @@
+﻿@page "/game/{gameId?}"
+@page "/edit"
+@using System.Text.RegularExpressions;
+@using Blazorise.LoadingIndicator;
+@using Fantasoccer.Business;
+
+@if (State != null)
+{
+
+    <div class="field">
+        @if (game != null)
+        {
+            <ResultCard Css="gameResult animOpacity" Game="game"></ResultCard>
+        }
+        else
+        {
+            <div class="gameResult animOpacity">&nbsp;</div>
+        }
+        @if (teams != null)
+        {
+
+            <Image class="backgroundField" Source="./static/field.jpg"></Image>
+            foreach (var team in teams)
+            {
+                if (team.CanModify)
+                {
+                    <DesktopEditableTeam Inverted="team.Inverted" Players="team.Players" SaveTeam="SaveAsync"></DesktopEditableTeam>
+                }
+                else
+                {
+                    <DesktopGame Inverted="team.Inverted" Players="TeamCalculator.GetRightFormation(team.Players)"></DesktopGame>
+                }
+            }
+        }
+    </div>
+    <div class="fieldMobile">
+        @if (game != null)
+        {
+            <ResultCard Css="gameResultMobile animOpacity" Game="game"></ResultCard>
+        }
+        @if (teams != null)
+        {
+            <div class="gameContainerMobile">
+                @foreach (var team in teams)
+                {
+                    if (team.CanModify)
+                    {
+                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobile" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileEditableTeam>
+                    }
+                    else
+                    {
+                        <MobileGame Css="playerContainerMobile" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileGame>
+                    }
+                }
+            </div>
+            var counter = 0;
+            @foreach (var team in teams)
+            {
+                if (team.CanModify)
+                {
+                    <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileEditableTeam>
+                }
+                else
+                {
+                    <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileGame>
+                }
+                counter++;
+            }
+            @foreach (var team in teams)
+            {
+                if (team.CanModify)
+                {
+                    <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="team.Inverted"></MobileEditableTeam>
+                }
+            }
+        }
+    </div>
+    <Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
+        <SnackbarBody>
+            @message
+        </SnackbarBody>
+    </Snackbar>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private CalendarGame? game;
+    private List<TeamsWrapper>? teams;
+    [Parameter]
+    public string? GameId { get; set; }
+    [Inject]
+    public required ITeamCalculator TeamCalculator { get; set; }
+    private int serieADay;
+    private bool isInEdit => GameId == null;
+    private Team? myTeam;
+
+    private sealed class TeamsWrapper
+    {
+        public required IEnumerable<EnrichedPlayer> Players { get; set; }
+        public bool CanModify { get; set; }
+        public required bool Inverted { get; set; }
+    }
+    private static readonly Regex TestMobile = new Regex("android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile");
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            game = null;
+            teams = null;
+            myTeam = null;
+            var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            serieADay = 0;
+            if (GameId != null && calendar != null)
+            {
+                Check();
+
+                void Check()
+                {
+                    foreach (var round in calendar.Rounds)
+                    {
+                        foreach (var day in round.Value)
+                        {
+                            foreach (var game in day.Games)
+                            {
+                                if (game.Id == GameId)
+                                {
+                                    this.game = game;
+                                    serieADay = day.SerieADay;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            await TeamCalculator.BuildRequestAsync(State.Year, serieADay, State.SelectedLeagueSettings, true, !isInEdit, true);
+            serieADay = TeamCalculator.SerieADay;
+            if (game == null && calendar != null)
+            {
+                myTeam = await Api.Team.GetAsync(State.TeamKey);
+                if (myTeam != null)
+                    game = calendar.Rounds.SelectMany(x => x.Value).Where(x => x.SerieADay == serieADay).SelectMany(x => x.Games).FirstOrDefault(x => x.Home == myTeam.Name || x.Away == myTeam.Name);
+            }
+            if (game != null)
+            {
+                var teams = new List<TeamsWrapper>();
+                var counter = 0;
+                foreach (var owner in GetOwners())
+                {
+                    var isMyTeam = myTeam != null && myTeam.Owner == owner;
+                    var team = isMyTeam ? myTeam
+                         : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
+                    teams.Add(new TeamsWrapper
+                        {
+                            CanModify = isMyTeam && isInEdit,
+                            Inverted = counter == 1,
+                            Players = team != null ? TeamCalculator.Enrich(team.ActivePlayers) : Array.Empty<EnrichedPlayer>()
+                        });
+                    counter++;
+                }
+                if (!isInEdit && game.Result == null)
+                {
+                    game.Result = new()
+                        {
+                            Home = TeamCalculator.CalculatePoint(teams[0].Players),
+                            Away = TeamCalculator.CalculatePoint(teams[1].Players)
+                        };
+                    if (TeamCalculator.LeagueSetting != null)
+                        game.Result.CalculateGoals(TeamCalculator.LeagueSetting);
+                }
+                this.teams = teams;
+                IEnumerable<string> GetOwners()
+                {
+                    yield return game.HomeOwner;
+                    yield return game.AwayOwner;
+                }
+            }
+            else if (isInEdit)
+            {
+                var teams = new List<TeamsWrapper>();
+                myTeam = await Api.Team.GetAsync(State.TeamKey);
+                if (myTeam != null)
+                    teams.Add(new TeamsWrapper
+                        {
+                            CanModify = true,
+                            Inverted = false,
+                            Players = TeamCalculator.Enrich(myTeam.ActivePlayers)
+                        });
+                this.teams = teams;
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
+    private Snackbar? snackbar;
+    private string? message;
+    public async ValueTask SaveAsync()
+    {
+        if (State != null && TeamCalculator?.IsEditable == true && myTeam != null)
+        {
+            var key = State.TeamDayKey(TeamCalculator.SerieADay);
+            var state = await Api.DailyTeam.ExistAsync(key) ?
+                await Api.DailyTeam.UpdateAsync(key, myTeam) :
+                await Api.DailyTeam.InsertAsync(key, myTeam);
+            if (state.IsOk)
+            {
+                var isOk = await Api.Team.UpdateAsync(State.TeamKey, myTeam);
+                state.IsOk = isOk;
+                if (!isOk)
+                    state.Message = "Errore salvataggio team";
+            }
+            if (snackbar != null)
+            {
+                snackbar.Color = state.IsOk ? SnackbarColor.Success : SnackbarColor.Danger;
+                message = state.Message ?? (state.IsOk ? "Formazione salvata correttamente." : "Errore durante il savaltaggio della formazione.");
+                snackbar.Show();
+            }
+            if (state.IsOk)
+            {
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            snackbar.Color = SnackbarColor.Danger;
+            message = "Errore nell'insieme dei numeri immaginari.";
+            snackbar.Show();
+        }
+    }
+}

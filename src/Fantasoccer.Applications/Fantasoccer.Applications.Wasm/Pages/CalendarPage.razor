@@ -1,0 +1,74 @@
+﻿@page "/calendar"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Calendar</PageTitle>
+
+@if (calendar != null)
+{
+    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
+        <Items>
+            @foreach (var calendarByRound in calendar.Rounds)
+            {
+                <Tab Name="@calendarByRound.Key" Display="calendar.Rounds.Count > 1 ? Display.Block: Display.None">Round @calendarByRound.Key</Tab>
+            }
+        </Items>
+        <Content>
+            @foreach (var calendarByRound in calendar.Rounds)
+            {
+                <TabPanel Name="@calendarByRound.Key">
+                    <Row>
+                        <Calendaring Days="calendarByRound.Value" WithFluentSize=true></Calendaring>
+                    </Row>
+                </TabPanel>
+            }
+        </Content>
+    </Tabs>
+}
+<Alert Color="Color.Info" Visible=isVisible>
+    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+        Not found
+        <CloseButton />
+    </Heading>
+    <Paragraph>
+        @nullCalendar
+    </Paragraph>
+</Alert>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+   
+    private Calendar? calendar;
+    private RankedTeam? selectedTeam;
+    private string? selectedTab;
+    private string? nullCalendar;
+    private bool isVisible => nullCalendar != null;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    private Task OnSelectedTabChanged(string name)
+    {
+        selectedTab = name;
+        return Task.CompletedTask;
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        nullCalendar = null;
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            if (calendar != null && calendar.Rounds.Count > 0)
+                selectedTab = calendar.Rounds.First().Key;
+            else
+                nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
+        }
+        await base.OnParametersSetAsync();
+    }
+}

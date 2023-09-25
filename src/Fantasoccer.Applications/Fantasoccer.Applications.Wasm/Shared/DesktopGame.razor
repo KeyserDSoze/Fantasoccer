@@ -1,0 +1,26 @@
+﻿@if (Players != null)
+{
+    <div class="playerContainer">
+        @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
+        {
+            if (position.Position != FantaSoccerRole.Tribune)
+            {
+                <div class="@position.Css">
+                    <div Class="@position.ColumnContainer columnContainerInvisibleBackground">
+                        @foreach (var player in Players.Where(x => x.CurrentPosition == position.Position))
+                        {
+                            <PlayerCard Player="player"></PlayerCard>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public required IEnumerable<EnrichedPlayer> Players { get; set; }
+    [Parameter]
+    public required bool Inverted { get; set; }
+}

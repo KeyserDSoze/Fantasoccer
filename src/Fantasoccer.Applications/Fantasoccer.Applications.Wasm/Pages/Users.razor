@@ -1,0 +1,57 @@
+﻿@page "/users"
+@using Blazorise.LoadingIndicator;
+@using System.Text.Json;
+
+<PageTitle>Users</PageTitle>
+
+@if (canSee && users != null)
+{
+    <Table Striped>
+     <TableHeader>
+         <TableRow>
+             <TableHeaderCell>Email</TableHeaderCell>
+             <TableHeaderCell>Username</TableHeaderCell>
+             <TableHeaderCell>Group0</TableHeaderCell>
+             <TableHeaderCell>Group1</TableHeaderCell>
+             <TableHeaderCell>RemainedGroups</TableHeaderCell>
+         </TableRow>
+     </TableHeader>
+     <TableBody>
+         @foreach (var user in users)
+            {
+                <TableRow>
+                    <TableRowHeader>@user.Email</TableRowHeader>
+                    <TableRowCell>@user.Username</TableRowCell>
+                    <TableRowCell>@user.Groups.FirstOrDefault()?.ToJson()</TableRowCell>
+                    <TableRowCell>@user.Groups.Skip(1).FirstOrDefault()?.ToJson()</TableRowCell>
+                    <TableRowCell>@user.Groups.Skip(2).ToJson()</TableRowCell>
+                </TableRow>
+            }
+        </TableBody>
+    </Table>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private IEnumerable<AppIdentity>? users;
+    private bool canSee;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.IsAuthenticated == true)
+        {
+            LoadingIndicator?.Show();
+            canSee = State.Identity.Email == "alessandro.rapiti44@gmail.com";
+            users = await Api.AppIdentity.ToListAsEntityAsync();
+            await base.OnParametersSetAsync();
+        }
+    }
+}
