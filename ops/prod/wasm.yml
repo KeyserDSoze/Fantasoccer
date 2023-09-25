@@ -20,10 +20,12 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
-  - task: CmdLine@2
-    inputs:
-      script: |
-          ls
+  - powershell: |
+       Write-Host "Show all folder content"
+       Get-ChildItem -Path $(Agent.WorkFolder)\*.* -Recurse -Force
+    errorActionPreference: continue
+    displayName: 'PowerShell Script List folder structure'
+    continueOnError: true
   - task: CopyFiles@2
     inputs:
       SourceFolder: '$(Build.SourcesDirectory)/ops/prod/wasm/'
