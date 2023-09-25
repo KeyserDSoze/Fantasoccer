@@ -23,7 +23,7 @@ jobs:
   - task: CmdLine@2
     inputs:
       script: |
-          for %f in ( "$(Build.SourcesDirectory)\*" ) do @echo %f
+          ls
   - task: CopyFiles@2
     inputs:
       SourceFolder: '$(Build.SourcesDirectory)/ops/prod/wasm/'
