@@ -20,7 +20,7 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
-  - powershell: Get-ChildItem -Path "home\vsts\work\1\s\" -Recurse -Force
+  - powershell: Get-ChildItem -Path "ops" -Recurse -Force
   - task: CopyFiles@2
     inputs:
       SourceFolder: 'ops/prod/wasm/'
