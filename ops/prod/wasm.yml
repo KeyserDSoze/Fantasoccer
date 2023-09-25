@@ -20,13 +20,7 @@ jobs:
   pool:
     vmImage: 'ubuntu-latest'
   steps:
-  - powershell: Get-ChildItem -Path "ops" -Recurse -Force
-  - task: CopyFiles@2
-    inputs:
-      SourceFolder: 'ops/prod/wasm/'
-      Contents: 'appsettings.json'
-      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.Wasm/wwwroot"
-      OverWrite: true
+  
 
   - checkout: self
     submodules: true
