@@ -2,6 +2,44 @@
 @using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 <RemoteAuthenticatorView Action="@Action" />
 
-@code{
-    [Parameter] public string? Action { get; set; }
+@code {
+    [Parameter]
+    public string? Action { get; set; }
+    [CascadingParameter]
+    public required Task<AuthenticationState> AuthenticationState { get; set; }
+    [CascadingParameter]
+    public required FantasoccerState State { get; set; }
+    [Inject]
+    public required NavigationManager NavigationManager { get; set; }
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        var user = (await AuthenticationState).User;
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var email = user.Claims.First(x => x.Type == "emails").Value.Trim(']').Trim('[').Trim('"');
+            if (email != null)
+            {
+                try
+                {
+                    var identity = await Api.AppIdentity.GetAsync(email);
+                    if (identity == null)
+                    {
+                        identity = new AppIdentity
+                            {
+                                Email = email,
+                                Groups = new(),
+                                Username = email
+                            };
+                        await Api.AppIdentity.InsertAsync(email, identity);
+                        NavigationManager?.NavigateTo("../../settings", false);
+                    }
+                    await State.SetIdentityAsync(identity);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+    }
 }
