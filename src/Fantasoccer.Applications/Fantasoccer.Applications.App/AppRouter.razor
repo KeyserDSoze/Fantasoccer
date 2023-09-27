@@ -6,7 +6,7 @@
 
 <Blazorise.ThemeProvider Theme="@theme">
     <CascadingValue Value="@state">
-        <Router AppAssembly="@typeof(App).Assembly">
+        <Router AppAssembly="@typeof(AppRouter).Assembly">
             <Found Context="routeData">
                 <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
                 <FocusOnNavigate RouteData="@routeData" Selector="h1" />
