@@ -1,0 +1,50 @@
+﻿@page "/serieacalendar"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Calendar</PageTitle>
+
+@if (calendar != null)
+{
+    <Row>
+        <SerieACalendaring Days="calendar.Days" WithFluentSize=true></SerieACalendaring>
+    </Row>
+}
+<Alert Color="Color.Info" Visible=isVisible>
+    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
+        Not found
+        <CloseButton />
+    </Heading>
+    <Paragraph>
+        @nullCalendar
+    </Paragraph>
+</Alert>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+
+    private RealCalendar? calendar;
+    private string? nullCalendar;
+    private bool isVisible => nullCalendar != null;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        nullCalendar = null;
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            calendar = await Api.RealCalendar.GetAsync(State.Year);
+            if (calendar == null)
+                nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
+        }
+        await base.OnParametersSetAsync();
+    }
+}
