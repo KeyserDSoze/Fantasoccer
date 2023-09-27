@@ -25,21 +25,19 @@
         public static string LabelYearWithSmallerYear(int year)
            => $"{2011 + year}-{(12 + year)}";
 
-        public static DateTime ItalyNow
+        public static DateTime ItalyNow => ToItalyNow(DateTime.UtcNow);
+        public static DateTime ToItalyNow(DateTime date)
         {
-            get
-            {
-                DateTime italyNow = DateTime.UtcNow.AddHours(1);
-                DateTime lastMarchSunday = new DateTime(italyNow.Year, 3, 31, 3, 0, 0, 0);
-                while (lastMarchSunday.DayOfWeek != DayOfWeek.Sunday)
-                    lastMarchSunday = lastMarchSunday.AddDays(-1);
-                DateTime lastOctoberSunday = new DateTime(italyNow.Year, 10, 31, 3, 0, 0, 0);
-                while (lastOctoberSunday.DayOfWeek != DayOfWeek.Sunday)
-                    lastOctoberSunday = lastOctoberSunday.AddDays(-1);
-                if (italyNow > lastMarchSunday && italyNow < lastOctoberSunday)
-                    return italyNow.AddHours(1);
-                return italyNow;
-            }
+            var italyNow = date.AddHours(1);
+            var lastMarchSunday = new DateTime(italyNow.Year, 3, 31, 3, 0, 0, 0);
+            while (lastMarchSunday.DayOfWeek != DayOfWeek.Sunday)
+                lastMarchSunday = lastMarchSunday.AddDays(-1);
+            var lastOctoberSunday = new DateTime(italyNow.Year, 10, 31, 3, 0, 0, 0);
+            while (lastOctoberSunday.DayOfWeek != DayOfWeek.Sunday)
+                lastOctoberSunday = lastOctoberSunday.AddDays(-1);
+            if (italyNow > lastMarchSunday && italyNow < lastOctoberSunday)
+                return italyNow.AddHours(1);
+            return italyNow;
         }
         public static int DayIdByDayYear(int yearId, int serieADay) => (yearId - 1) * 38 + serieADay;
         public static int SerieADayByDayId(int dayId) => dayId - (YearByDayId(dayId) - 1) * 38;
