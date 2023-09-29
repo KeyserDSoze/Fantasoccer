@@ -173,6 +173,7 @@
                 }
                 catch (UnauthorizedAccessException)
                 {
+                    NavigationManager?.NavigateTo($"../../MicrosoftIdentity/Account/SignIn?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", false);
                 }
             }
         }
