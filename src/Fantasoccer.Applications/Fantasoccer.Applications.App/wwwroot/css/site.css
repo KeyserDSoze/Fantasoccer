@@ -74,6 +74,12 @@ a, .btn-link {
     width: 6%;
 }
 
+.recording {
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+}
+
 @media only screen and (max-width: 768px) {
     .loader {
         position: fixed;

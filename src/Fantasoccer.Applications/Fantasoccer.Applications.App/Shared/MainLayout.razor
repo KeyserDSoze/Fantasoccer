@@ -216,7 +216,14 @@
             <LayoutContent Padding="Padding.Is1.OnDesktop.Is0.OnMobile.Is0.OnTablet">
                 <LoadingIndicator @ref="loadingIndicator" FullScreen>
                     <ChildContent>
-                        @Body
+                        <Div>
+                            <Div>
+                                @Body
+                            </Div>
+                            <Div Class="recording">
+                                <Recording></Recording>
+                            </Div>
+                        </Div>
                     </ChildContent>
                     <IndicatorTemplate>
                         <img src="/static/soccerball.gif" class="loader" />

@@ -1,0 +1,34 @@
+﻿@using System.Text;
+@inject IJSRuntime mJS
+
+<Button Clicked="x => RecordAudio()"><Icon Name="IconName.Microphone" /></Button>
+
+@code {
+    private bool isStarted;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        await mJS.InvokeVoidAsync("BlazorAudioRecorder.Initialize", DotNetObjectReference.Create(this));
+    }
+    void RecordAudio()
+    {
+        if (!isStarted)
+        {
+            mJS.InvokeVoidAsync("BlazorAudioRecorder.StartRecord");
+            isStarted = true;
+        }
+        else
+        {
+            mJS.InvokeVoidAsync("BlazorAudioRecorder.StopRecord");
+            isStarted = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnAudioUrl(string blobAsBase64)
+    {
+        var x = blobAsBase64.Split("base64,").Last().FromBase64();
+        await InvokeAsync(() => StateHasChanged());
+    }
+}
