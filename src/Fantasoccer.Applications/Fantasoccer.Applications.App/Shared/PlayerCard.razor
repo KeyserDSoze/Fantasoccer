@@ -10,7 +10,9 @@
     }
     else
     {
-        <div class="playerrealteam @Player?.Chance?.Status">@Player.Current.RealTeam.Name</div>
+        <Tooltip Text="@Player?.Chance?.Description" Placement="TooltipPlacement.Left">
+            <div class="playerrealteam @Player?.Chance?.Status">@Player.Current.RealTeam.Name</div>
+        </Tooltip>
         <div class="playerenemy">
             <div class="enemyname">@EnemyName</div>
             @if (Player.RealGame != default && Player.RealGame.Date.HasValue)

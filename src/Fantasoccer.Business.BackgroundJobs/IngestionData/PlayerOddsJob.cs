@@ -62,7 +62,8 @@ namespace Fantasoccer.Engine.IngestionData
                                         Gazzetta = chancedPlayer.Chance.Gazzetta || parsedPlayer.Chance.Gazzetta,
                                         Mediaset = chancedPlayer.Chance.Mediaset || parsedPlayer.Chance.Mediaset,
                                         Sky = chancedPlayer.Chance.Sky || parsedPlayer.Chance.Sky,
-                                        Status = chancedPlayer.Chance.Status == ChanceType.Normal ? parsedPlayer.Chance.Status : chancedPlayer.Chance.Status
+                                        Status = chancedPlayer.Chance.Status == ChanceType.Normal ? parsedPlayer.Chance.Status : chancedPlayer.Chance.Status,
+                                        Description = parsedPlayer.Chance.Description ?? chancedPlayer.Chance.Description
                                     };
                             }
                         }

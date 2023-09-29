@@ -8,6 +8,8 @@ namespace Fantasoccer.Business.IngestionData
         private static readonly Regex s_teamsRegex = new("<div id=\"team-");
         private static readonly Regex s_headerRegex = new("<header>");
         private static readonly Regex s_playerNameRegex = new("<strong class=\"item-name\">");
+        private static readonly Regex s_playerDescription = new("<p>");
+        private static readonly Regex s_playerDescription2 = new("<p class=\"item-description\">");
         private static readonly List<string> s_urls = new()
         {
             "https://www.fantacalcio.it/indisponibili-serie-a",
@@ -37,13 +39,16 @@ namespace Fantasoccer.Business.IngestionData
                             foreach (var possiblePlayer in s_playerNameRegex.Split(headers[i]).Skip(1))
                             {
                                 var name = HttpUtility.HtmlDecode(possiblePlayer.Split('<').First().Trim().ToLower());
+                                var playerDescription = i == 0 ? s_playerDescription.Split(possiblePlayer) : s_playerDescription2.Split(possiblePlayer);
+                                var description = HttpUtility.HtmlDecode(playerDescription.Skip(1).First().Split('<').First());
                                 var player = new ChancedRealPlayer
                                 {
                                     Name = name,
                                     RealTeam = new RealTeam { Name = realTeam },
                                     Chance = new Chance()
                                     {
-                                        Status = (ChanceType)(i + 1)
+                                        Status = (ChanceType)(i + 1),
+                                        Description = description
                                     }
                                 };
                                 players.Add(player);

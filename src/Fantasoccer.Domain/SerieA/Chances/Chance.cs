@@ -14,6 +14,8 @@ namespace Fantasoccer
         public bool Sky { get; set; }
         [JsonPropertyName("t")]
         public ChanceType Status { get; set; }
+        [JsonPropertyName("d")]
+        public string? Description { get; set; }
         public static Chance Default() => new()
         {
             Status = ChanceType.Normal,
