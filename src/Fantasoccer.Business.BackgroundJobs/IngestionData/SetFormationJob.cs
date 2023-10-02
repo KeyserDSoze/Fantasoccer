@@ -24,7 +24,8 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync()
         {
             var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
-            if (calendar != null && calendar.LastDay != null && calendar.LastDay.SerieADay < 38)
+            var day = calendar?.LiveDay?.SerieADay ?? calendar?.LastDay?.SerieADay ?? 38;
+            if (day < 38)
             {
                 var listUpdated = new List<string>();
                 var groups = await _groups.ToListAsEntityAsync().NoContext();
@@ -40,7 +41,7 @@ namespace Fantasoccer.Engine.IngestionData
                             var nextKey = new TeamDayKey
                             {
                                 Year = FantacalcioTime.ActualYear,
-                                Day = calendar.LastDay.SerieADay + 1,
+                                Day = day + 1,
                                 Email = owner,
                                 Group = group.Id,
                                 BasketId = basket.Id
@@ -50,7 +51,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 var key = new TeamDayKey
                                 {
                                     Year = FantacalcioTime.ActualYear,
-                                    Day = calendar.LastDay.SerieADay,
+                                    Day = day,
                                     Email = owner,
                                     Group = group.Id,
                                     BasketId = basket.Id
