@@ -1,4 +1,4 @@
-﻿@page "/game/{gameId?}"
+﻿@page "/game/{groupId?}/{leagueId?}/{year?}/{gameId?}"
 @page "/edit"
 @using System.Text.RegularExpressions;
 @using Blazorise.LoadingIndicator;
@@ -95,7 +95,13 @@
     private CalendarGame? game;
     private List<TeamsWrapper>? teams;
     [Parameter]
+    public string? GroupId { get; set; }
+    [Parameter]
+    public string? LeagueId { get; set; }
+    [Parameter]
     public string? GameId { get; set; }
+    [Parameter]
+    public int? Year { get; set; }
     [Inject]
     public required IJSRuntime JsRuntime { get; set; }
     [Inject]
