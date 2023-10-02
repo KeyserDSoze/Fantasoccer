@@ -1,4 +1,4 @@
-﻿@page "/game/{groupId?}/{leagueId?}/{year?}/{gameId?}"
+﻿@page "/game/{groupId?}/{leagueId?}/{year:int?}/{gameId?}"
 @page "/edit"
 @using System.Text.RegularExpressions;
 @using Blazorise.LoadingIndicator;
@@ -15,7 +15,7 @@
             }
             else
             {
-                <div class="gameResult animOpacity">No calendar available</div>
+                <div class="gameResult animOpacity">&nbsp;</div>
             }
             @if (teams != null)
             {
@@ -62,11 +62,11 @@
                 {
                     if (team.CanModify)
                     {
-                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileEditableTeam>
+                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="@($"playerContainerMobile50-{counter}")" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="false"></MobileEditableTeam>
                     }
                     else
                     {
-                        <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="team.Inverted"></MobileGame>
+                        <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="false"></MobileGame>
                     }
                     counter++;
                 }
@@ -74,7 +74,7 @@
                 {
                     if (team.CanModify)
                     {
-                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="team.Inverted"></MobileEditableTeam>
+                        <MobileEditableTeam SaveTeam="SaveAsync" Players="team.Players" Css="playerContainerMobileTribune" From="FantaSoccerRole.Tribune" To="FantaSoccerRole.Tribune" Inverted="false"></MobileEditableTeam>
                     }
                 }
             }
@@ -128,13 +128,25 @@
     {
         if (State != null)
         {
+            var leagueKey = State.LeagueKey;
+            var year = Year ?? State.Year;
+            var leagueSettings = State.SelectedLeagueSettings;
+            if (!isInEdit)
+            {
+                if (State.GroupId != GroupId)
+                {
+                    await State.ChangeGroupAsync(GroupId);
+                }
+                leagueKey = new LeagueKey { Group = GroupId, League = LeagueId, Year = year };
+                leagueSettings = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId)?.Years.Find(x => x.Year == year)?.Settings;
+            }
             LoadingIndicator?.Show();
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
             isMobile = TestMobile.IsMatch(userAgent?.ToLower() ?? string.Empty);
             game = null;
             teams = null;
             myTeam = null;
-            var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            var calendar = await Api.Calendar.GetAsync(leagueKey);
             serieADay = 0;
             if (GameId != null && calendar != null)
             {
@@ -159,7 +171,7 @@
                     }
                 }
             }
-            await TeamCalculator.BuildRequestAsync(State.Year, serieADay, State.SelectedLeagueSettings, true, !isInEdit, true);
+            await TeamCalculator.BuildRequestAsync(year, serieADay, leagueSettings, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {

@@ -33,7 +33,8 @@
                                             <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
                                         </Column>
                                         <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                            <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false></Calendaring>
+                                            <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                                                 GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"></Calendaring>
                                         </Column>
                                     </Row>
                                 </TabPanel>

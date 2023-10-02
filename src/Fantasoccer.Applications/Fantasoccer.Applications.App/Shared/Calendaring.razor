@@ -8,7 +8,7 @@
                     <CardTitle Size="3">
                         Day @day.Number (@day.SerieADay)
                     </CardTitle>
-                    <CardText>
+                    <CardText class="fonting">
                         <Table Striped>
                          <TableHeader>
                              <TableRow>
@@ -56,10 +56,16 @@
     public List<Day>? Days { get; set; }
     [Parameter]
     public bool WithFluentSize { get; set; }
+    [Parameter]
+    public string GroupId { get; set; }
+    [Parameter]
+    public string LeagueId { get; set; }
+    [Parameter]
+    public int Year { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
     private void NavigateTo(string gameId)
     {
-        NavigationManager.NavigateTo($"game/{gameId}", false);
+        NavigationManager.NavigateTo($"game/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
     }
 }

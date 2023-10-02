@@ -141,6 +141,7 @@
         width: 16px;
         right: -10px;
         color: #fafafa;
+        z-index: 20;
     }
 
         .player .playerchance .playerstatus {
@@ -293,4 +294,23 @@
 
 .fieldMobile .playername {
     font-size: 10px;
+}
+
+.fieldMobile .player .playervote {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    top: -30px;
+    left: 32px;
+    z-index: 2;
+}
+
+.fieldMobile .player .playerchance .playerstatus {
+    width: 12px;
+    height: 12px;
+    border-radius: 100%;
+    text-align: center;
+    font-size: 8px;
+    line-height: 13px;
+    margin-left: 4px;
 }

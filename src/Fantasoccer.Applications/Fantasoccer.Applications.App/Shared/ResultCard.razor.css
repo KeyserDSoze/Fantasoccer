@@ -21,7 +21,7 @@
     .gameResult .team {
         font-size: 25px;
         text-transform: capitalize;
-        margin: 0 25px;
+        margin: 8px;
     }
 
     .gameResult .points {

@@ -87,6 +87,10 @@ a, .btn-link {
         left: 42%;
         width: 16%;
     }
+
+    .fonting {
+        font-size: 10px !important;
+    }
 }
 
 .field {

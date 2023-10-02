@@ -18,7 +18,7 @@
             {
                 <TabPanel Name="@calendarByRound.Key">
                     <Row>
-                        <Calendaring Days="calendarByRound.Value" WithFluentSize=true></Calendaring>
+                        <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
                     </Row>
                 </TabPanel>
             }
