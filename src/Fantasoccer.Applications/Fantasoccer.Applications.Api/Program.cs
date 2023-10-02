@@ -1,22 +1,41 @@
-﻿using Fantasoccer.Business;
+﻿using System.Security.Cryptography;
+using Fantasoccer.Business;
+using Fantasoccer.Domain;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-     .AddMicrosoftIdentityWebApi(options =>
-     {
-         builder.Configuration.Bind("AzureAdB2c", options);
-         options.TokenValidationParameters.NameClaimType = "name";
-     },
-    options =>
+builder.Services.AddSingleton(new IdentityOptions
+{
+    ClientId = builder.Configuration["AzureAdB2c:ClientId"]!,
+    Domain = builder.Configuration["AzureAdB2c:Domain"]!,
+    Instance = builder.Configuration["AzureAdB2c:Instance"]!,
+    Policy = builder.Configuration["AzureAdB2c:SignUpSignInPolicyId"]!,
+});
+var securityOptions = await builder.Services.AddSecurityOptionsAsync(builder.Configuration["ConnectionStrings:Storage"]!);
+var rsa = new RSACryptoServiceProvider(2048);
+rsa.ImportParameters(securityOptions.Rsa.ToParameters());
+RsaSecurityKey rsaSecurityKey = new(rsa);
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(o =>
+{
+    o.TokenValidationParameters = new TokenValidationParameters
     {
-        builder.Configuration.Bind("AzureAdB2c", options);
-    });
+        IssuerSigningKey = rsaSecurityKey,
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true
+    };
+});
 builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>

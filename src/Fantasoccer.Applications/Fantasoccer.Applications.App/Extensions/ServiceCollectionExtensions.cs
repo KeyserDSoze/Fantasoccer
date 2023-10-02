@@ -7,6 +7,14 @@ namespace Fantasoccer.Applications.App.Extensions
         public static IServiceCollection AddHttpClientIntegrationForApi(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddTransient<ApiService>();
+            services.AddHttpClient("Identity", x =>
+            {
+                var uri = configuration["Api:Uri"];
+                if (uri != null && !uri.StartsWith("http"))
+                    uri = $"https://{uri}";
+                x.BaseAddress = new Uri($"{uri}/Authentication/Token");
+            });
+            services.AddScoped<IdentityService>();
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<ChancedRealPlayerWrapper, YearDayKey>(configuration);

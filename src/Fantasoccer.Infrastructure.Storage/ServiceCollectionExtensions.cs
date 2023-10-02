@@ -1,11 +1,44 @@
-﻿using Fantasoccer.Domain;
+﻿using System.Security.Cryptography;
+using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.Storage.Logger;
 using Microsoft.Extensions.DependencyInjection;
+using RepositoryFramework;
 
 namespace Fantasoccer.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
+        public static async Task<SecurityOptions> AddSecurityOptionsAsync(this IServiceCollection services,
+            string connectionString)
+        {
+            var newServiceCollection = new ServiceCollection();
+            newServiceCollection.AddRepository<SecurityOptions, string>(settings =>
+            {
+                settings.WithTableStorage(
+                    storageBuilder =>
+                    {
+                        storageBuilder.Settings.ConnectionString = connectionString;
+                        storageBuilder
+                            .WithPartitionKey(x => x.Name, x => x);
+                    });
+            });
+
+            var securityOptions = await newServiceCollection.ExecuteUntilNowAsync(
+                async (IRepository<SecurityOptions, string> rsaRepository) =>
+                {
+                    if (!await rsaRepository!.ExistAsync("token"))
+                    {
+                        using var rsaNew = new RSACryptoServiceProvider(2048);
+                        var rsaOptions = rsaNew.ExportParameters(true).ToRsaOptions();
+                        await rsaRepository.InsertAsync("token", new("token", rsaOptions));
+                    }
+                    var options = await rsaRepository.GetAsync("token");
+                    return options;
+                });
+
+            services.AddSingleton(securityOptions!);
+            return securityOptions;
+        }
         public static async Task<IServiceCollection> AddStorageInfrastructuresAsync(this IServiceCollection services, string storageConnectionString)
         {
             await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
