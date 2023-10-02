@@ -14,7 +14,9 @@ builder.Services.AddSingleton(new IdentityOptions
     ClientId = builder.Configuration["AzureAdB2c:ClientId"]!,
     Domain = builder.Configuration["AzureAdB2c:Domain"]!,
     Instance = builder.Configuration["AzureAdB2c:Instance"]!,
+    Audience = builder.Configuration["AzureAdB2c:Audience"]!,
     Policy = builder.Configuration["AzureAdB2c:SignUpSignInPolicyId"]!,
+    ExpiringInMinutes = int.Parse(builder.Configuration["Options:ExpiringInMinutes"]!)
 });
 var securityOptions = await builder.Services.AddSecurityOptionsAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 var rsa = new RSACryptoServiceProvider(2048);
@@ -40,7 +42,7 @@ builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>
     {
-        policy.RequireClaim("name");
+        policy.RequireClaim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name");
     });
 });
 builder.Services.AddApplicationInsightsTelemetry(x =>

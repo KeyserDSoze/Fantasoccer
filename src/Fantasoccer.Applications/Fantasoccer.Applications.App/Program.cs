@@ -2,6 +2,7 @@
 using Blazorise;
 using Blazorise.Bootstrap5;
 using Blazorise.Icons.FontAwesome;
+using Fantasoccer.Applications.App;
 using Fantasoccer.Applications.App.Extensions;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
@@ -36,7 +37,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor()
     .AddMicrosoftIdentityConsentHandler();
-builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient(settings =>
+builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient<TokenManager>(settings =>
 {
     settings.Scopes = scopes;
 });

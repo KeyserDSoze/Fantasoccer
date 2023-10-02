@@ -41,6 +41,17 @@ namespace Fantasoccer.Applications.Api.Controllers
                 var expiration = DateTime.UtcNow.AddMinutes(_expiringInMinutes);
                 var email = await CheckTokenIsValidAndReturnEmailAsync(token);
                 var user = await _identityRepository.GetAsync(email);
+                if (user == null)
+                {
+                    user = new AppIdentity
+                    {
+                        Email = email,
+                        Groups = new(),
+                        State = new(),
+                        Username = email
+                    };
+                    await _identityRepository.InsertAsync(email, user);
+                }
                 List<Claim> claims = new()
                     {
                         new Claim(ClaimTypes.Name, user!.Username)
@@ -51,39 +62,6 @@ namespace Fantasoccer.Applications.Api.Controllers
             }
             return AuthenticationResponse.Empty;
         }
-        public async Task<string> CheckTokenIsValidAndReturnEmailAsync(string access_token)
-        {
-            var stsDiscoveryEndpoint = $"https://{_identityOptions.Instance}/{_identityOptions.Domain}/{_identityOptions.Policy}/v2.0/.well-known/openid-configuration";
-            var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(stsDiscoveryEndpoint, new OpenIdConnectConfigurationRetriever());
-            var config = await configManager.GetConfigurationAsync();
-            var validationParameters = new TokenValidationParameters
-            {
-                ValidateAudience = true,
-                ValidateIssuer = true,
-                ValidateIssuerSigningKey = true,
-                ValidateLifetime = true,
-                RequireSignedTokens = true,
-                ClockSkew = TimeSpan.Zero,
-                ValidAudience = _identityOptions.ClientId,
-                IssuerSigningKeys = config.SigningKeys,
-                ValidIssuer = config.Issuer
-            };
-
-            var tokendHandler = new JwtSecurityTokenHandler();
-            try
-            {
-                var result = tokendHandler.ValidateToken(access_token, validationParameters, out var jwt);
-                if (result?.Identity != null && jwt is JwtSecurityToken dataToValidate)
-                    return dataToValidate.Claims.First(x => x.Type == "emails").Value.Trim(']').Trim('[').Trim('"');
-            }
-            catch (Exception)
-            {
-                return string.Empty;
-            }
-            return string.Empty;
-        }
-        private string CreateHashClaim(string username, DateTime expiration)
-            => $"{HttpContext.Connection.RemoteIpAddress}_{username}_{expiration.AddMinutes(_expiringInMinutes)}".ToHash();
         [HttpPost]
         public AuthenticationResponse? Refresh([FromBody] AuthenticationResponse request)
         {
@@ -135,6 +113,38 @@ namespace Fantasoccer.Applications.Api.Controllers
             }
             return AuthenticationResponse.Empty;
         }
+        private async Task<string> CheckTokenIsValidAndReturnEmailAsync(string access_token)
+        {
+            var stsDiscoveryEndpoint = $"{_identityOptions.Instance}/{_identityOptions.Domain}/{_identityOptions.Policy}/v2.0/.well-known/openid-configuration";
+            var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(stsDiscoveryEndpoint, new OpenIdConnectConfigurationRetriever());
+            try
+            {
+                var config = await configManager.GetConfigurationAsync();
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateAudience = true,
+                    ValidateIssuer = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    RequireSignedTokens = true,
+                    ClockSkew = TimeSpan.Zero,
+                    ValidAudience = _identityOptions.Audience,
+                    IssuerSigningKeys = config.SigningKeys,
+                    ValidIssuer = config.Issuer
+                };
+                var tokendHandler = new JwtSecurityTokenHandler();
+                var result = tokendHandler.ValidateToken(access_token, validationParameters, out var jwt);
+                if (result?.Identity != null && jwt is JwtSecurityToken dataToValidate)
+                    return dataToValidate.Claims.First(x => x.Type == "emails").Value.Trim(']').Trim('[').Trim('"');
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+            return string.Empty;
+        }
+        private string CreateHashClaim(string username, DateTime expiration)
+            => $"{HttpContext.Connection.RemoteIpAddress}_{username}_{expiration.AddMinutes(_expiringInMinutes)}".ToHash();
         private AuthenticationResponse CreateToken(IEnumerable<Claim> claims, DateTime expiration)
         {
             var parameters = _securityOptions.Rsa.ToParameters();
