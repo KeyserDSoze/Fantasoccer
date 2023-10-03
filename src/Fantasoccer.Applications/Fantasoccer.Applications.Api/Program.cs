@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Security.Claims;
+using System.Security.Cryptography;
 using Fantasoccer.Business;
 using Fantasoccer.Domain;
 using Fantasoccer.Engine;
@@ -42,7 +43,7 @@ builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>
     {
-        policy.RequireClaim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name");
+        policy.RequireClaim(ClaimTypes.Email);
     });
 });
 builder.Services.AddApplicationInsightsTelemetry(x =>

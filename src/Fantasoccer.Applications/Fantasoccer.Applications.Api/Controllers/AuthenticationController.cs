@@ -54,9 +54,10 @@ namespace Fantasoccer.Applications.Api.Controllers
                 }
                 List<Claim> claims = new()
                     {
-                        new Claim(ClaimTypes.Name, user!.Username)
+                        new Claim(ClaimTypes.Name, user!.Username),
+                        new Claim(ClaimTypes.Email, user!.Email)
                     };
-                var hash = CreateHashClaim(user.Username, expiration);
+                var hash = CreateHashClaim(user.Email, expiration);
                 claims.Add(new Claim(ClaimTypes.Hash, hash));
                 return CreateToken(claims, expiration);
             }

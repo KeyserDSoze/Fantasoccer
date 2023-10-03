@@ -4,6 +4,7 @@ namespace Fantasoccer.Applications.App
 {
     public class IdentityLocalStorage
     {
+        public const string Key = "idkey";
         [JsonPropertyName("at")]
         public string AccessToken { get; set; }
         [JsonPropertyName("e")]

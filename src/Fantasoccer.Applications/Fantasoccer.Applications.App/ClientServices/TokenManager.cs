@@ -23,7 +23,7 @@ namespace Fantasoccer.Applications.App
 
         public async Task<string?> RefreshTokenAsync()
         {
-            var accessToken = await _localStorageService.GetItemAsync<IdentityLocalStorage>("id");
+            var accessToken = await _localStorageService.GetItemAsync<IdentityLocalStorage>(IdentityLocalStorage.Key);
             return accessToken?.AccessToken;
         }
     }

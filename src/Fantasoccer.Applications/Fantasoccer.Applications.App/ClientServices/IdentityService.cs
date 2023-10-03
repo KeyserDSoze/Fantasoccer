@@ -45,21 +45,21 @@ namespace Fantasoccer.Applications.App
         }
         public async Task<AppIdentity?> GetIdentityAsync()
         {
-            var identity = await _localStorageService.GetItemAsync<IdentityLocalStorage>("id");
+            var identity = await _localStorageService.GetItemAsync<IdentityLocalStorage>(IdentityLocalStorage.Key);
             if (identity != null && DateTime.UtcNow < identity.ExpiringTime)
             {
                 return await _appIdentity.GetAsync(identity.Email);
             }
             else
             {
-                await _localStorageService.RemoveItemAsync("id");
+                await _localStorageService.RemoveItemAsync(IdentityLocalStorage.Key);
                 var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
                 var user = authState.User;
                 if (user?.Identity?.IsAuthenticated == true)
                 {
                     var email = user.Claims.First(x => x.Type == "emails").Value;
                     var token = await GetAccessTokenFromApiAsync();
-                    await _localStorageService.SetItemAsync("id", new IdentityLocalStorage
+                    await _localStorageService.SetItemAsync(IdentityLocalStorage.Key, new IdentityLocalStorage
                     {
                         ExpiringTime = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Options:ExpiringInMinutes"]!)),
                         AccessToken = token!,
