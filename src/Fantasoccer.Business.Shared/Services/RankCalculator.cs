@@ -1,6 +1,4 @@
-﻿using System.Text;
-
-namespace Fantasoccer.Business
+﻿namespace Fantasoccer.Business
 {
     internal sealed class RankCalculator : IRankCalculator
     {

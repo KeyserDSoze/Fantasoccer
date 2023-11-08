@@ -1,5 +1,4 @@
-﻿using System.Net.Http;
-using Fantasoccer.Business.IngestionData;
+﻿using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business

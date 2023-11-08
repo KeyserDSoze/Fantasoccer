@@ -16,7 +16,9 @@
         <Content>
             @foreach (var rankByRound in rank.RankedTeams)
             {
-                <Ranking Teams="rankByRound.Value"></Ranking>
+                <TabPanel Name="@rankByRound.Key">
+                    <Ranking Teams="rankByRound.Value"></Ranking>
+                </TabPanel>
             }
         </Content>
     </Tabs>

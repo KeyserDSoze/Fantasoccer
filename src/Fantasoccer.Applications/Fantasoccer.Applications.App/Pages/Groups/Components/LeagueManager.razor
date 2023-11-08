@@ -1,6 +1,7 @@
 ﻿@using Blazorise.Components
 @using Blazorise.LoadingIndicator;
 @using Fantasoccer.Business;
+@using System.Security.Cryptography
 
 @if (CanCreateNewGroup)
 {
@@ -212,60 +213,60 @@
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Goal for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.Goal" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                                <Field ColumnSize="ColumnSize.IsHalf">
-                                    <FieldLabel>Points for Penalty goal for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.Penalty" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                            </Fields>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.Goal" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                    <Field ColumnSize="ColumnSize.IsHalf">
+                                        <FieldLabel>Points for Penalty goal for @key</FieldLabel>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.Penalty" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Suffered Goal for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.SufferedGoal" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                                <Field ColumnSize="ColumnSize.IsHalf">
-                                    <FieldLabel>Points for Stopped Penalty for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.StoppedPenalty" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                            </Fields>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.SufferedGoal" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                    <Field ColumnSize="ColumnSize.IsHalf">
+                                        <FieldLabel>Points for Stopped Penalty for @key</FieldLabel>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.StoppedPenalty" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Wrong Penalty for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.WrongedPenalty" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                                <Field ColumnSize="ColumnSize.IsHalf">
-                                    <FieldLabel>Points for Own Goal for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.OwnGoal" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                            </Fields>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.WrongedPenalty" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                    <Field ColumnSize="ColumnSize.IsHalf">
+                                        <FieldLabel>Points for Own Goal for @key</FieldLabel>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.OwnGoal" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Assist for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.Assist" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                                <Field ColumnSize="ColumnSize.IsHalf">
-                                    <FieldLabel>Points for Yellow and Red Card for @key</FieldLabel>
-                                    <FieldBody>
-                                        <NumericPicker @bind-Value="votesSettings.YellowCard" Min="-12" Max="12" />
-                                        <NumericPicker @bind-Value="votesSettings.RedCard" Min="-12" Max="12" />
-                                    </FieldBody>
-                                </Field>
-                            </Fields>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.Assist" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                    <Field ColumnSize="ColumnSize.IsHalf">
+                                        <FieldLabel>Points for Yellow and Red Card for @key</FieldLabel>
+                                        <FieldBody>
+                                            <NumericPicker @bind-Value="votesSettings.YellowCard" Min="-12" Max="12" />
+                                            <NumericPicker @bind-Value="votesSettings.RedCard" Min="-12" Max="12" />
+                                        </FieldBody>
+                                    </Field>
+                                </Fields>
                         }
                     }
                 }
@@ -356,7 +357,70 @@
             //todo check if not exists and doesn't start it
             if (calendar == null || calendar != null)
             {
-                calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, State.Teams);
+                var teams = State.Teams.ToList();
+                if (State.SelectedLeague.Type == LeagueType.Cup)
+                {
+                    var worthTeams = new List<AnnualTeam>();
+                    if (State.SelectedGroup != null)
+                    {
+                        foreach (var mainLeague in State.SelectedGroup.Leagues.Where(x => x.IsMain))
+                        {
+                            var lastYear = mainLeague.Years.OrderByDescending(x => x.Year).Skip(1).FirstOrDefault();
+                            if (lastYear != null)
+                            {
+                                var lastRank = await Api.Ranks.GetAsync(new LeagueKey()
+                                    {
+                                        Group = State.GroupId!,
+                                        League = mainLeague.Id,
+                                        Year = lastYear.Year
+                                    });
+                                if (lastRank != null)
+                                {
+                                    var firstEight = lastRank.RankedTeams.SelectMany(x => x.Value).OrderByDescending(x => x.Point).Take(8).ToList();
+                                    foreach (var team in teams)
+                                    {
+                                        if (firstEight.Any(x => x.Owner == team.Owner))
+                                        {
+                                            worthTeams.Add(team);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    foreach (var worthedTeam in worthTeams)
+                    {
+                        teams.Remove(worthedTeam);
+                    }
+                    if (worthTeams.Count < 16)
+                    {
+                        worthTeams.AddRange(Randomize(teams).Take(16 - worthTeams.Count));
+                    }
+                    teams = worthTeams;
+
+                    List<AnnualTeam> Randomize(List<AnnualTeam> teams)
+                    {
+                        var teamsToAdd = new List<AnnualTeam>();
+                        foreach (var team in teams)
+                            teamsToAdd.Add(team);
+                        List<AnnualTeam> randomizedTeams = new();
+                        while (teamsToAdd.Count > 0)
+                        {
+                            var team = teamsToAdd[GetRandom(teamsToAdd.Count)];
+                            randomizedTeams.Add(team);
+                            teamsToAdd.Remove(team);
+                        }
+                        return randomizedTeams;
+                    }
+                    int GetRandom(int max)
+                    {
+                        var value = RandomNumberGenerator.GetInt32(0, max);
+                        if (max == value)
+                            return max - 1;
+                        return value;
+                    }
+                }
+                calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, teams);
                 await Api.Calendar.UpdateAsync(State.LeagueKey, calendar);
             }
             if (calendar != null)
