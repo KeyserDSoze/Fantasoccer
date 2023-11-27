@@ -15,6 +15,7 @@ namespace Fantasoccer.Business.IngestionData
         private static readonly Regex s_nameOfTeamRegex = new("content=");
         private static readonly Regex s_forRole = new("data-value=");
         private static readonly Regex s_tdedRegex = new("</td>");
+        private static readonly Regex s_spanClose = new("</span>");
         private readonly HttpClient _httpClient;
         private readonly IRepository<RealPlayersWrapper, int> _allPlayers;
         private readonly IRepository<RealCalendar, int> _realCalendar;
@@ -75,7 +76,7 @@ namespace Fantasoccer.Business.IngestionData
                             Assist = GetSomethingDone(anotherSplitting[7]),
                             Status = element.Contains("red-card") ? Behaviour.RedCard :
                                 (element.Contains("yellow-card") ? Behaviour.YellowCard : Behaviour.Nothing),
-                            HasVote = vote != -1 && HasVote(elementSplitted[1]),
+                            HasVote = vote != -1 && HasVote(s_spanClose.Split(elementSplitted[1])[0]),
                             IsIn = true,
                             IsOut = false
                         };
