@@ -15,7 +15,7 @@ namespace Fantasoccer.Business
             _finalVote = finalVote;
             _repository = factory.Create("official");
         }
-        public async ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39)
+        public async ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39, bool force = false)
         {
             var counter = 0;
             for (var serieADay = untilThisDay; serieADay > 0; serieADay--)
@@ -27,7 +27,7 @@ namespace Fantasoccer.Business
                     Year = year,
                 };
                 var exist = await _repository.ExistAsync(key);
-                if (!exist || isLive)
+                if (!exist || isLive || force)
                 {
                     var players = await _finalVote.GetAsync(FantacalcioTime.ActualYear, serieADay).NoContext();
                     if (exist)

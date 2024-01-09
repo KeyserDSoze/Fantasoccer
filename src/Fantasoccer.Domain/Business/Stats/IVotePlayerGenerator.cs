@@ -2,7 +2,7 @@
 {
     public interface IVotePlayerGenerator
     {
-        ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39);
+        ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39, bool force = false);
 
     }
 }

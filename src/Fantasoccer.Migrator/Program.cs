@@ -1,4 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
+using System;
 using System.Drawing;
 using System.Text.Json;
 using FantacalcioV4.ApiManager;
@@ -34,6 +35,7 @@ namespace Migrator
             serviceProvider.UseRystem();
             await serviceProvider.WarmUpAsync();
             var manager = serviceProvider.GetRequiredService<Manager>();
+            await AdjustFinalVotes(serviceProvider);
             //await CreateGroupAndMapUsersAsync(serviceProvider, manager);
             //await ParseSerieAVotesAndCalendar(serviceProvider, manager);
             //await ParseOldFormationsAndCalendarAsync(serviceProvider, manager, true);
@@ -44,6 +46,11 @@ namespace Migrator
             //await AdjustFormation(serviceProvider);
             //await AdjustCalendar(serviceProvider);
             //await AdjustSettings(serviceProvider);
+        }
+        private static async Task AdjustFinalVotes(IServiceProvider serviceProvider)
+        {
+            var playerGenerator = serviceProvider.GetRequiredService<IVotePlayerGenerator>();
+            await playerGenerator.GenerateAndSaveAsync(12, 19, 1, true);
         }
         private static async Task AdjustSettings(IServiceProvider serviceProvider)
         {
