@@ -80,6 +80,11 @@ namespace Fantasoccer.Business.IngestionData
                             IsIn = true,
                             IsOut = false
                         };
+                        if (!player.Vote.HasVote && player.Vote.Status > Behaviour.Nothing)
+                        {
+                            player.Vote.HasVote = true;
+                            player.Vote.Value = 6;
+                        }
                         players.Add(player);
                     }
                 }
