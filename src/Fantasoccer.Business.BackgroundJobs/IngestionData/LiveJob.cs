@@ -70,38 +70,41 @@ namespace Fantasoccer.Engine.IngestionData
                                 };
                                 foreach (var round in calendar.Rounds)
                                 {
-                                    var day = round.Value.First(x => x.SerieADay == liveDay.SerieADay);
-                                    liveLeague.Rounds.Add(round.Key, day);
-                                    foreach (var game in day.Games)
+                                    var day = round.Value.FirstOrDefault(x => x.SerieADay == liveDay.SerieADay);
+                                    if (day != null)
                                     {
-                                        if (game.Result?.IsCancelled == true)
-                                            continue;
-                                        var homeTeamKey = new TeamDayKey
+                                        liveLeague.Rounds.Add(round.Key, day);
+                                        foreach (var game in day.Games)
                                         {
-                                            Year = actualYear,
-                                            Group = group.Id,
-                                            Day = day.SerieADay,
-                                            BasketId = group.GetBasketId(game.HomeOwner)!,
-                                            Email = game.HomeOwner
-                                        };
-                                        var homeTeam = await _teamDayRepository.GetAsync(homeTeamKey);
-                                        var awayTeamKey = new TeamDayKey
-                                        {
-                                            Year = actualYear,
-                                            Group = group.Id,
-                                            Day = day.SerieADay,
-                                            BasketId = group.GetBasketId(game.AwayOwner)!,
-                                            Email = game.AwayOwner
-                                        };
-                                        var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey);
-                                        var homePoint = homeTeam != null ? _teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
-                                        var awayPoint = awayTeam != null ? _teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
-                                        game.Result = new GameResult
-                                        {
-                                            Home = homePoint,
-                                            Away = awayPoint,
-                                        };
-                                        game.Result.CalculateGoals(leagueSettings);
+                                            if (game.Result?.IsCancelled == true)
+                                                continue;
+                                            var homeTeamKey = new TeamDayKey
+                                            {
+                                                Year = actualYear,
+                                                Group = group.Id,
+                                                Day = day.SerieADay,
+                                                BasketId = group.GetBasketId(game.HomeOwner)!,
+                                                Email = game.HomeOwner
+                                            };
+                                            var homeTeam = await _teamDayRepository.GetAsync(homeTeamKey);
+                                            var awayTeamKey = new TeamDayKey
+                                            {
+                                                Year = actualYear,
+                                                Group = group.Id,
+                                                Day = day.SerieADay,
+                                                BasketId = group.GetBasketId(game.AwayOwner)!,
+                                                Email = game.AwayOwner
+                                            };
+                                            var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey);
+                                            var homePoint = homeTeam != null ? _teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
+                                            var awayPoint = awayTeam != null ? _teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
+                                            game.Result = new GameResult
+                                            {
+                                                Home = homePoint,
+                                                Away = awayPoint,
+                                            };
+                                            game.Result.CalculateGoals(leagueSettings);
+                                        }
                                     }
                                 }
                                 var rank = await _rankRepository.GetAsync(leagueKey).NoContext();

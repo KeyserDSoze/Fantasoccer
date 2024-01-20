@@ -1,4 +1,6 @@
-﻿namespace Fantasoccer.Business
+﻿using System.Text;
+
+namespace Fantasoccer.Business
 {
     internal sealed class RankCalculator : IRankCalculator
     {
@@ -48,6 +50,8 @@
                 }
                 foreach (var roundKey in calendar.Rounds.Select(x => x.Key))
                 {
+                    if (type == LeagueType.Cup && roundKey == "Finals")
+                        continue;
                     rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ToList();
                 }
             }

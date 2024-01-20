@@ -98,7 +98,8 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                 }
                                 rank = _rankCalculator.GetRank(leagueSettings, calendar, league.Type);
                                 var annualLeague = league.Years.First(x => x.Year == actualYear);
-                                //_randomCalendar.AddDaysInLeague(actualYear, league.Type, annualLeague, annualLeague.)
+                                var teams = group!.Baskets.SelectMany(x => x.Years).Where(x => x.Year == actualYear).SelectMany(x => x.Teams).ToList();
+                                _randomCalendar.AddDaysInLeague(actualYear, league.Type, annualLeague, teams, rank, calendar);
                                 await _calendarRepository.UpdateAsync(leagueKey, calendar);
                                 await _rankRepository.UpdateAsync(leagueKey, rank);
                                 await _rankDayRepository.UpdateAsync(new YearDayLeague

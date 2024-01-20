@@ -134,23 +134,26 @@ restart: var baseCalendar = GetCalendarBase(teamInGame);
                 return max - 1;
             return value;
         }
+        private const string Finals = "Finals";
         public Calendar AddDaysInLeague(int year, LeagueType type, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
         {
+            if (type != LeagueType.Cup)
+                return calendar;
             List<Team> nextTeams = new();
             var toPlayGames = calendar.Rounds.SelectMany(x => x.Value).SelectMany(x => x.Games).Count(x => x.Result == null || !x.Result.HasValue);
             var serieADay = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.SerieADay);
             var counter = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.Number);
             if (toPlayGames == 0)
             {
-                if (!calendar.Rounds.ContainsKey("finals"))
+                if (!calendar.Rounds.ContainsKey(Finals))
                 {
                     foreach (var teamInGroup in rank.RankedTeams)
                         nextTeams.AddRange(teamInGroup.Value.Take(2).Select(x => new Team { Owner = x.Owner, Name = x.Name }));
-                    calendar.Rounds.Add("finals", new());
+                    calendar.Rounds.Add(Finals, new());
                 }
-                else if (calendar.Rounds["finals"].Count > 1)
+                else if (calendar.Rounds[Finals].Count > 1)
                 {
-                    var round = calendar.Rounds["finals"];
+                    var round = calendar.Rounds[Finals];
                     var first = round.First(x => x.SerieADay == serieADay - 3);
                     var second = round.First(x => x.SerieADay == serieADay);
                     foreach (var game in first.Games)
@@ -193,7 +196,7 @@ restart: var baseCalendar = GetCalendarBase(teamInGame);
                 }
                 if (nextTeams.Count > 0)
                 {
-                    var finals = calendar.Rounds["Finals"];
+                    var finals = calendar.Rounds[Finals];
                     for (var adder = 1; nextTeams.Count == 2 ? adder <= 1 : adder <= 2; adder++)
                     {
                         var nextSerieADay = serieADay + adder * 3;
@@ -208,7 +211,7 @@ restart: var baseCalendar = GetCalendarBase(teamInGame);
                         for (var i = 0; i < nextTeams.Count / 2; i++)
                         {
                             var home = adder == 1 ? nextTeams[i] : nextTeams[nextTeams.Count - 1 - i];
-                            var away = adder == 2 ? nextTeams[nextTeams.Count - 1 - i] : nextTeams[i];
+                            var away = adder == 1 ? nextTeams[nextTeams.Count - 1 - i] : nextTeams[i];
                             day.Games.Add(new CalendarGame
                             {
                                 Id = Guid.NewGuid().ToString(),
