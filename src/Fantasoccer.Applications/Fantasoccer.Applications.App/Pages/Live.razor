@@ -35,7 +35,10 @@
                                     <TabPanel Name="@dayByRound.Key">
                                         <Row>
                                             <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                                <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                                @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
+                                                {
+                                                    <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                                }
                                             </Column>
                                             <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
                                                 <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false

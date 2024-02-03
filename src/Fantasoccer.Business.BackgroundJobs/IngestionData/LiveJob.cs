@@ -107,10 +107,13 @@ namespace Fantasoccer.Engine.IngestionData
                                         }
                                     }
                                 }
-                                var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
-                                if (rank != null)
+                                if (!(liveLeague.Rounds.Count == 1 && liveLeague.Rounds.ContainsKey("Finals")))
                                 {
-                                    liveLeague.Rank = _rankCalculator.AddDay(leagueSettings, rank, liveLeague.Rounds, league.Type);
+                                    var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
+                                    if (rank != null)
+                                    {
+                                        liveLeague.Rank = _rankCalculator.AddDay(leagueSettings, rank, liveLeague.Rounds, league.Type);
+                                    }
                                 }
                                 liveGroup.Leagues.Add(liveLeague);
                             }
