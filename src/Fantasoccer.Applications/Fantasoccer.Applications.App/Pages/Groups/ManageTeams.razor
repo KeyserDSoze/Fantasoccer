@@ -216,7 +216,7 @@
                     }
                 }
             }
-            players = allPlayersWrapper.Players;
+            players = allPlayersWrapper.Players.Where(x => x.IsActive).ToList();
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
             statsPlayers = playersWrapper?.Players;
             var calendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);

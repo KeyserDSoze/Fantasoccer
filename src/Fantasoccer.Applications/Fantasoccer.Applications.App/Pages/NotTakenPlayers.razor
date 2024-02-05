@@ -103,7 +103,7 @@
                         }
                     }
                 }
-                players = playersWrapper.Players;
+                players = playersWrapper.Players.Where(x => x.IsActive);
             }
         }
         await base.OnParametersSetAsync();
