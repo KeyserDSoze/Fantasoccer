@@ -25,6 +25,6 @@ namespace Fantasoccer
         [JsonIgnore]
         public int TotalCostForPlayers => Players.Sum(x => x.Price);
         [JsonIgnore]
-        public int Cost => TotalCostForPlayers + RevenueMoney - MoneyFromRank + MoneyFromSoldWithOneHalfReturnedPrice;
+        public int Cost => TotalCostForPlayers - RevenueMoney - MoneyFromRank - MoneyFromSoldWithOneHalfReturnedPrice;
     }
 }
