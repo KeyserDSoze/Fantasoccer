@@ -30,6 +30,10 @@ namespace Fantasoccer.Business.IngestionData
             var fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
             foreach (var playerFromFanta in s_playerRowRegex.Split(fantapage).Skip(1))
             {
+                if (playerFromFanta.Contains("class=\"out-of-game\""))
+                {
+                    continue;
+                }
                 var name = HttpUtility.HtmlDecode(s_playerNameRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim()).Replace("\'", string.Empty);
                 var team = HttpUtility.HtmlDecode(s_playerTeamRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim());
                 var role = Role.Undefined;
