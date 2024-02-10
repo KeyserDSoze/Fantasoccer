@@ -35,10 +35,6 @@ namespace Fantasoccer.Business.IngestionData
                     continue;
                 }
                 var name = HttpUtility.HtmlDecode(s_playerNameRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim()).Replace("\'", string.Empty);
-                if (name.ToLower() == "gosens")
-                {
-                    var x = "";
-                }
                 var team = HttpUtility.HtmlDecode(s_playerTeamRegex.Split(playerFromFanta)[1].Split('<').First().Split('>').Last().Trim());
                 var role = Role.Undefined;
                 if (playerFromFanta.Contains(Forward))
