@@ -61,7 +61,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                             var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
                             if (rank == null || rank.SerieADay < lastDaySerieA)
                             {
-                                foreach (var round in calendar.Rounds)
+                                foreach (var round in calendar.Rounds.Where(x => x.Value.Any(t => t.SerieADay == lastDaySerieA)))
                                 {
                                     var day = round.Value.First(x => x.SerieADay == lastDaySerieA);
                                     foreach (var game in day.Games)
