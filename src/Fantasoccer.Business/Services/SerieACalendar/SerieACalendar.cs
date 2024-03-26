@@ -31,6 +31,10 @@ namespace Fantasoccer.Business
             {
                 if (day >= 39)
                     break;
+                if (day == 29)
+                {
+                    string alo = string.Empty;
+                }
                 List<RealGame> games = new();
                 var count = 0;
                 foreach (var dateAsString in s_resultDateRegex.Split(dayAsString).Skip(1))
@@ -117,6 +121,8 @@ namespace Fantasoccer.Business
             foreach (var game in realDay.Games)
             {
                 if (game.Date.Value.Subtract(averageDate).TotalDays > 3)
+                    game.Delayed = true;
+                if (game.AwayGoal == null && game.HomeGoal == null && game.Date.Value < FantacalcioTime.ItalyNow.AddHours(2))
                     game.Delayed = true;
             }
             await Task.Delay(10);

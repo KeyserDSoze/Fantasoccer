@@ -22,23 +22,23 @@
                     </Field>
                     <Field ColumnSize="ColumnSize.IsHalf">
                         <Validation UsePattern>
-                         <FieldLabel>Nome lega</FieldLabel>
-                         <FieldBody>
-                             <TextEdit @bind-Text="@newLeagueName" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                 <Feedback>
-                                     <ValidationError />
-                                 </Feedback>
-                             </TextEdit>
-                         </FieldBody>
-                     </Validation>
-                 </Field>
-             </Validations>
-         </Fields>
-         <Button Color="Color.Primary" Clicked="@CreateNewLeague">
-             Crea nuova lega
-         </Button>
-     </Column>
- </Row>
+                            <FieldLabel>Nome lega</FieldLabel>
+                            <FieldBody>
+                                <TextEdit @bind-Text="@newLeagueName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                    <Feedback>
+                                        <ValidationError />
+                                    </Feedback>
+                                </TextEdit>
+                            </FieldBody>
+                        </Validation>
+                    </Field>
+                </Validations>
+            </Fields>
+            <Button Color="Color.Primary" Clicked="@CreateNewLeague">
+                Crea nuova lega
+            </Button>
+        </Column>
+    </Row>
 
     @if (State.HasALeague)
     {
@@ -213,68 +213,71 @@
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Goal for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.Goal" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                    <Field ColumnSize="ColumnSize.IsHalf">
-                                        <FieldLabel>Points for Penalty goal for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.Penalty" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                </Fields>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Goal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Penalty goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Penalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Suffered Goal for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.SufferedGoal" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                    <Field ColumnSize="ColumnSize.IsHalf">
-                                        <FieldLabel>Points for Stopped Penalty for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.StoppedPenalty" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                </Fields>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.SufferedGoal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Stopped Penalty for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.StoppedPenalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Wrong Penalty for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.WrongedPenalty" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                    <Field ColumnSize="ColumnSize.IsHalf">
-                                        <FieldLabel>Points for Own Goal for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.OwnGoal" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                </Fields>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.WrongedPenalty" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Own Goal for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.OwnGoal" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
                             <Fields>
                                 <Field ColumnSize="ColumnSize.IsHalf">
                                     <FieldLabel>Points for Assist for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.Assist" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                    <Field ColumnSize="ColumnSize.IsHalf">
-                                        <FieldLabel>Points for Yellow and Red Card for @key</FieldLabel>
-                                        <FieldBody>
-                                            <NumericPicker @bind-Value="votesSettings.YellowCard" Min="-12" Max="12" />
-                                            <NumericPicker @bind-Value="votesSettings.RedCard" Min="-12" Max="12" />
-                                        </FieldBody>
-                                    </Field>
-                                </Fields>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.Assist" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                                <Field ColumnSize="ColumnSize.IsHalf">
+                                    <FieldLabel>Points for Yellow and Red Card for @key</FieldLabel>
+                                    <FieldBody>
+                                        <NumericPicker @bind-Value="votesSettings.YellowCard" Min="-12" Max="12" />
+                                        <NumericPicker @bind-Value="votesSettings.RedCard" Min="-12" Max="12" />
+                                    </FieldBody>
+                                </Field>
+                            </Fields>
                         }
                     }
                 }
                 <Button Color="Color.Primary" Clicked="@SaveAsync">
                     Salva
                 </Button>
-                <Button Color="Color.Primary" Clicked="@RecalculateAsync">
+                <Button Color="Color.Primary" Clicked="@(() => RecalculateAsync())">
                     Ricalcola anno
+                </Button>
+                <Button Color="Color.Primary" Clicked="@(() => RecalculateAsync(true))">
+                    Ricalcola ultima giornata
                 </Button>
                 <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
                     Create new calendar
@@ -448,11 +451,14 @@
         }
         LoadingIndicator?.Hide();
     }
-    private async Task RecalculateAsync()
+    private async Task RecalculateAsync(bool onlyLastDay = false)
     {
         if (State != null)
         {
+            LoadingIndicator?.Show();
             var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
+            var realCalendar = await Api.RealCalendar.GetAsync(State.Year);
+            var lastDay = realCalendar.LastDay;
             var yearlyLeague = State?.SelectedYearlyLeague;
             var settings = yearlyLeague?.Settings;
             if (settings != null)
@@ -471,7 +477,7 @@
                                     game.Result = new GameResult { IsCancelled = true };
                             }
                         }
-                        else
+                        else if (!onlyLastDay || day.SerieADay == lastDay.SerieADay)
                         {
                             await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
                             if (TeamCalculator.Official == null || TeamCalculator.IsLive)
@@ -532,6 +538,7 @@
                 await Api.Calendar.UpdateAsync(State.LeagueKey, calendar);
                 var rank = RankCalculator.GetRank(yearlyLeague.Settings, calendar, State.SelectedLeague!.Type);
                 await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
+                LoadingIndicator?.Hide();
             }
         }
     }

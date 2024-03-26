@@ -19,8 +19,6 @@ namespace Fantasoccer.Engine.IngestionData
 
         public async Task ActionToDoAsync()
         {
-            if (FantacalcioTime.ItalyNow.Hour < 12)
-                return;
             var result = false;
             if (await _repository.ExistAsync(FantacalcioTime.ActualYear).NoContext())
             {
