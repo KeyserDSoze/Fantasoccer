@@ -15,10 +15,10 @@ namespace Fantasoccer.Business
             _finalVote = finalVote;
             _repository = factory.Create("official");
         }
-        public async ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39, bool force = false)
+        public async ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, int liveDay = 39, bool force = false, int withMax = 1)
         {
             var counter = 0;
-            for (var serieADay = untilThisDay; serieADay > 0; serieADay--)
+            for (var serieADay = untilThisDay; serieADay >= withMax; serieADay--)
             {
                 var isLive = liveDay == serieADay;
                 var key = new YearDayKey

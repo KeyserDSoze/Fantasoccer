@@ -1,0 +1,115 @@
+﻿@page "/managecalendar"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+@using Fantasoccer.Domain;
+
+<PageTitle>Real Calendar</PageTitle>
+
+@if (realCalendar != null)
+{
+    foreach (var day in realCalendar.Days)
+    {
+        <Column ColumnSize="WithFluentSize ? ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet : ColumnSize.Is12">
+            <Card Margin="Margin.Is1">
+                <CardBody>
+                    <CardTitle Size="3">
+                        Day @day.SerieADay
+                    </CardTitle>
+                    <CardText class="fonting">
+                        <Table Striped>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHeaderCell>Home Team</TableHeaderCell>
+                                    <TableHeaderCell>Points</TableHeaderCell>
+                                    <TableHeaderCell>Date</TableHeaderCell>
+                                    <TableHeaderCell>Away Team</TableHeaderCell>
+                                    <TableHeaderCell>Delayed</TableHeaderCell>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                @foreach (var game in day.Games)
+                                {
+                                    <TableRow>
+                                        <TableRowCell>@game.Home.Name</TableRowCell>
+                                        @if (game.IsPlayed)
+                                        {
+                                            <TableRowCell>
+                                                @game.HomeGoal - @game.AwayGoal
+                                            </TableRowCell>
+                                        }
+                                        else if (game.Delayed)
+                                        {
+                                            <TableRowCell>
+                                                delayed
+                                            </TableRowCell>
+                                        }
+                                        <TableRowCell>
+                                            @game.Date
+                                        </TableRowCell>
+                                        <TableRowCell>@game.Away.Name</TableRowCell>
+                                        <TableRowCell>
+                                            @game.Date
+                                        </TableRowCell>
+                                        <TableRowCell>
+                                            <Button Color="Color.Primary" Clicked="() => ChangeInDelayed(day.SerieADay, game)">Delayr</Button>
+                                        </TableRowCell>
+                                    </TableRow>
+                                }
+                            </TableBody>
+                        </Table>
+                    </CardText>
+                </CardBody>
+            </Card>
+        </Column>
+    }
+}
+
+<Button Color="Color.Primary" Clicked="@SaveAsync">Save calendar</Button>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public bool WithFluentSize { get; set; }
+    [Inject]
+    public IVotePlayerGenerator VotePlayerGenerator { get; set; }
+    private List<int> recalculateForDelayed = new();
+    private RealCalendar? realCalendar;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            realCalendar = await Api.RealCalendar.GetAsync(State.Year);
+        }
+        await base.OnParametersSetAsync();
+    }
+    private void ChangeInDelayed(int serieADay, RealGame realGame)
+    {
+        realGame.Delayed = true;
+        realGame.HomeGoal = null;
+        realGame.AwayGoal = null;
+        recalculateForDelayed.Add(serieADay);
+    }
+    private async Task SaveAsync()
+    {
+        LoadingIndicator?.Show();
+        if (realCalendar != null)
+        {
+            await Api.RealCalendar.UpdateAsync(State.Year, realCalendar);
+            foreach (var serieADay in recalculateForDelayed.Distinct())
+            {
+                await VotePlayerGenerator.GenerateAndSaveAsync(State.Year, serieADay, serieADay, true, serieADay);
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
+}

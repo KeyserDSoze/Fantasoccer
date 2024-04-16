@@ -7,6 +7,7 @@ using Fantasoccer.Applications.App.Extensions;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using Fantasoccer.Business;
 
 var builder = WebApplication.CreateBuilder(args);
 var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
@@ -42,6 +43,7 @@ builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient<TokenManager
     settings.Scopes = scopes;
 });
 builder.Services.AddSharedBusiness();
+builder.Services.AddFantasoccerBusinessForApp();
 
 var app = builder.Build();
 await app.Services.WarmUpAsync();
