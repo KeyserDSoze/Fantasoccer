@@ -1,0 +1,105 @@
+﻿@page "/"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+@using Fantasoccer.Domain
+
+<PageTitle>News</PageTitle>
+
+@foreach (var newsWrapper in newsWrappers)
+{
+    @foreach (var news in newsWrapper.News)
+    {
+        <Card>
+            <CardHeader>
+                <CardTitle>
+                    <h3>@news.League</h3>
+                    <h1>@news.Title.Trim('"').Replace("Titolo: \"", string.Empty)</h1>
+                </CardTitle>
+            </CardHeader>
+            <CardBody>
+                <CardText>@((MarkupString)news.Content.Replace("```html", string.Empty).Replace("```", string.Empty))</CardText>
+            </CardBody>
+        </Card>
+    }
+}
+@if (youHaveMore)
+{
+    <Button Color="Color.Primary" Clicked="@AddAsync" Margin="Margin.Is1.FromTop">
+        More..
+    </Button>
+}
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private List<NewsWrapper> newsWrappers = new();
+    private string? selectedTab;
+    private string? nullRank;
+    private bool isVisible => nullRank != null;
+    private int? day;
+
+    private Task OnSelectedTabChanged(string name)
+    {
+        selectedTab = name;
+        return Task.CompletedTask;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        nullRank = null;
+        if (State?.HasAGroup == true)
+        {
+            LoadingIndicator?.Show();
+            await AddAsync();
+            LoadingIndicator?.Hide();
+        }
+        await base.OnParametersSetAsync();
+    }
+    private bool youHaveMore = true;
+    private async Task AddAsync()
+    {
+        if (day == null)
+        {
+            var realCalendar = await Api.RealCalendar.GetAsync(State.Year).NoContext();
+            day = realCalendar.LastDay!.SerieADay;
+        }
+        else
+        {
+            day--;
+        }
+        var theDay = day.Value;
+        var x = await Api.News.GetAsync(new YearDayGroup
+            {
+                Year = State.Year,
+                Group = State.GroupId,
+                Day = theDay
+            });
+        if (x != null)
+        {
+            newsWrappers.Add(x);
+            if (theDay > 1)
+            {
+                youHaveMore = await Api.News.ExistAsync(new YearDayGroup
+                    {
+                        Day = theDay - 1,
+                        Group = State.GroupId,
+                        Year = State.Year
+                    });
+            }
+            else
+                youHaveMore = false;
+        }
+        else
+        {
+            youHaveMore = false;
+        }
+    }
+}

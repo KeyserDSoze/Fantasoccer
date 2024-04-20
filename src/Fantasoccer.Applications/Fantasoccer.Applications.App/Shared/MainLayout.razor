@@ -26,6 +26,12 @@
                         <BarStart>
                             <BarItem>
                                 <BarLink To="../../">
+                                    <BarIcon IconName="IconName.HandPaper" />
+                                    News
+                                </BarLink>
+                            </BarItem>
+                            <BarItem>
+                                <BarLink To="../../rank">
                                     <BarIcon IconName="IconName.Star" />
                                     Rank
                                 </BarLink>
@@ -86,7 +92,7 @@
                                                 @foreach (var group in State.Groups)
                                                 {
                                                     <BarDropdownItem Class="@(State?.GroupId == group.Id ? "active" : string.Empty)"
-                                                    Clicked="x => ChangeGroupAsync(group.Id)">
+                                                                     Clicked="x => ChangeGroupAsync(group.Id)">
                                                         <BarIcon IconName="IconName.Flag" />
                                                         @group.Name
                                                     </BarDropdownItem>
@@ -159,14 +165,14 @@
     </LayoutSider>
     <Layout>
         <LayoutHeader Fixed Style="background:#001529 !important;">
-             <Bar Breakpoint="Breakpoint.Widescreen"
-                  CollapseMode="BarCollapseMode.Hide"
-                  NavigationBreakpoint="Breakpoint.None"
-                  ThemeContrast="ThemeContrast.Dark">
-                 <BarMenu>
-                     <BarStart>
-                         <BarToggler Style="position: fixed; right: 10px; z-index: 9999" Bar="Sidebar" />
-                         @if (State != null)
+            <Bar Breakpoint="Breakpoint.Widescreen"
+                 CollapseMode="BarCollapseMode.Hide"
+                 NavigationBreakpoint="Breakpoint.None"
+                 ThemeContrast="ThemeContrast.Dark">
+                <BarMenu>
+                    <BarStart>
+                        <BarToggler Style="position: fixed; right: 10px; z-index: 9999" Bar="Sidebar" />
+                        @if (State != null)
                         {
                             <BarItem>
                                 <BarDropdown>
@@ -199,7 +205,7 @@
                                                     <BarIcon IconName="IconName.Info" />
                                                     Users
                                                 </BarLink>
-                                            </BarDropdownItem> 
+                                            </BarDropdownItem>
                                             <BarDropdownItem>
                                                 <BarLink To="../../managecalendar">
                                                     <BarIcon IconName="IconName.CalendarDay" />
