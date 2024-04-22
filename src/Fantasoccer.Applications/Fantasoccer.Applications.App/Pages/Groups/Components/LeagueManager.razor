@@ -480,8 +480,9 @@
                         else if (!onlyLastDay || day.SerieADay == lastDay.SerieADay)
                         {
                             await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
-                            if (TeamCalculator.Official == null || TeamCalculator.IsLive)
+                            if (TeamCalculator.Official == null)
                                 break;
+                            //|| TeamCalculator.IsLive
                             foreach (var game in day.Games)
                             {
                                 var homeTeamKey = State.TeamDayKey(day.SerieADay, game.HomeOwner);

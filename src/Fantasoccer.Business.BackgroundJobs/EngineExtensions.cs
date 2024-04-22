@@ -61,7 +61,7 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<NewsJob>(options =>
                 {
                     //options.RunImmediately = true;
-                    options.Cron = "0 0 4,6 * * *";
+                    options.Cron = "0 0 12 * * *";
                 });
             return services;
         }

@@ -24,7 +24,7 @@
 }
 @if (youHaveMore)
 {
-    <Button Color="Color.Primary" Clicked="@AddAsync" Margin="Margin.Is1.FromTop">
+    <Button Color="Color.Primary" Clicked="@(()=>AddAsync(false))" Margin="Margin.Is1.FromTop">
         More..
     </Button>
 }
@@ -58,13 +58,13 @@
         if (State?.HasAGroup == true)
         {
             LoadingIndicator?.Show();
-            await AddAsync();
+            await AddAsync(true);
             LoadingIndicator?.Hide();
         }
         await base.OnParametersSetAsync();
     }
     private bool youHaveMore = true;
-    private async Task AddAsync()
+    private async Task AddAsync(bool onStart = false)
     {
         if (day == null)
         {
@@ -96,6 +96,10 @@
             }
             else
                 youHaveMore = false;
+        }
+        else if (onStart && theDay > 1)
+        {
+            await AddAsync(onStart);
         }
         else
         {
