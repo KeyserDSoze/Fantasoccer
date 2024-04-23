@@ -21,5 +21,6 @@
         IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players);
         VoteValue FinalValue(Player player);
         VoteValue FinalValue(EnrichedPlayer player);
+        Task<bool> RecalculateDayAsync(int serieADay);
     }
 }

@@ -279,6 +279,10 @@
                 <Button Color="Color.Primary" Clicked="@(() => RecalculateAsync(true))">
                     Ricalcola ultima giornata
                 </Button>
+                <NumericPicker @bind-Value="dayToRecalculate" Min="1" Max="38" />
+                <Button Color="Color.Primary" Clicked="@(() => RecalculateAsync(true, true))">
+                    Ricalcola giornata precisa
+                </Button>
                 <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
                     Create new calendar
                 </Button>
@@ -297,6 +301,7 @@
     public required Func<Task> SaveAsync { get; set; }
     private Validations? ValidationsRefForLeague { get; set; }
     private string? newLeagueName { get; set; }
+    private int dayToRecalculate = 38;
     protected override Task OnParametersSetAsync()
     {
         if (State?.HasALeague == true && State.SelectedYearlyLeague == null)
@@ -451,7 +456,7 @@
         }
         LoadingIndicator?.Hide();
     }
-    private async Task RecalculateAsync(bool onlyLastDay = false)
+    private async Task RecalculateAsync(bool onlyLastDay = false, bool preciseDay = false)
     {
         if (State != null)
         {
@@ -477,12 +482,11 @@
                                     game.Result = new GameResult { IsCancelled = true };
                             }
                         }
-                        else if (!onlyLastDay || day.SerieADay == lastDay.SerieADay)
+                        else if (!onlyLastDay || day.SerieADay == lastDay.SerieADay || (preciseDay && day.SerieADay == dayToRecalculate))
                         {
                             await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
-                            if (TeamCalculator.Official == null)
+                            if (TeamCalculator.Official == null || TeamCalculator.IsLive)
                                 break;
-                            //|| TeamCalculator.IsLive
                             foreach (var game in day.Games)
                             {
                                 var homeTeamKey = State.TeamDayKey(day.SerieADay, game.HomeOwner);

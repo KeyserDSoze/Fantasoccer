@@ -9,15 +9,19 @@ namespace Fantasoccer.Business
         private IRepository<VotedRealPlayerWrapper, YearDayKey> _officialVote;
         private readonly IRepository<RealCalendar, int> _realCalendar;
         private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _chances;
+        private readonly IVotePlayerGenerator _votePlayerGenerator;
+
         public TeamCalculator(
              IRepository<RealCalendar, int> realCalendar,
              IRepository<ChancedRealPlayerWrapper, YearDayKey> chances,
-             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory)
+             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
+             IVotePlayerGenerator votePlayerGenerator)
         {
             _liveVote = voteFactory.Create("live");
             _officialVote = voteFactory.Create("official");
             _realCalendar = realCalendar;
             _chances = chances;
+            _votePlayerGenerator = votePlayerGenerator;
         }
         public bool IsLive { get; private set; }
         public VotedRealPlayerWrapper? Live { get; private set; }
@@ -228,6 +232,11 @@ namespace Fantasoccer.Business
                 Value = calculatedVote,
                 Special = special
             };
+        }
+        public async Task<bool> RecalculateDayAsync(int serieADay)
+        {
+            var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, serieADay);
+            return checkIfAVoteIsUpdated > 0;
         }
     }
 }
