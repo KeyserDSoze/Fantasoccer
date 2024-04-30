@@ -108,10 +108,10 @@
                 nullCalendar = $"Live non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
             else
             {
-                if (State.LeagueId != null)
+                if (State.LeagueId != null && liveGroup!.Leagues.Any(x => x.Id == State.LeagueId))
                     selectedTab = State.LeagueId;
                 else
-                    selectedTab = liveGroup.Leagues.First().Id;
+                    selectedTab = liveGroup!.Leagues.First().Id;
                 innerSelectedTab = new Dictionary<string, string>();
                 foreach (var league in liveGroup.Leagues)
                 {
