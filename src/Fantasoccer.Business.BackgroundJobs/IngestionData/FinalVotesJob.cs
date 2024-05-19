@@ -21,7 +21,7 @@ namespace Fantasoccer.Engine.IngestionData
             _statsPlayerGenerator = statsPlayerGenerator;
         }
 
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var calendar = await _realCalendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
             var lastDay = calendar?.LiveDay ?? calendar?.LastDay;

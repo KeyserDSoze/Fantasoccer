@@ -17,7 +17,7 @@ namespace Fantasoccer.Engine.IngestionData
             _repository = repository;
         }
 
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var result = false;
             if (await _repository.ExistAsync(FantacalcioTime.ActualYear).NoContext())

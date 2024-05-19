@@ -12,9 +12,9 @@ namespace Fantasoccer.Engine
                 .AddWarmUp(async serviceProvider =>
                 {
                     var serieACalendarioJob = serviceProvider.GetRequiredService<SerieACalendarJob>();
-                    await serieACalendarioJob.ActionToDoAsync();
+                    await serieACalendarioJob.ActionToDoAsync(default);
                     var allPlayersAndAllTeamsJob = serviceProvider.GetRequiredService<AllPlayersAndAllTeamsJob>();
-                    await allPlayersAndAllTeamsJob.ActionToDoAsync();
+                    await allPlayersAndAllTeamsJob.ActionToDoAsync(default);
                 });
             services
                 .AddBackgroundJob<SerieACalendarJob>(options =>

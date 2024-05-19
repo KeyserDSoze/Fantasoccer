@@ -31,7 +31,7 @@ namespace Fantasoccer.Engine.IngestionData
             _teamRepository = teamRepository;
         }
 
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var year = FantacalcioTime.ActualYear;
             var realTeams = await _realTeamsRepository.GetAsync(year);

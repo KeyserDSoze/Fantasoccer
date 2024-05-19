@@ -26,7 +26,7 @@ namespace Fantasoccer.Engine.IngestionData
             _contentRepository = factory.Create("images");
         }
 
-        public Task ActionToDoAsync()
+        public Task ActionToDoAsync(CancellationToken cancellationToken)
             => InvokeAsync();
 
         public Task OnException(Exception exception)

@@ -37,7 +37,7 @@ namespace Fantasoccer.Engine.IngestionData
             _teamDayRepository = teamDayRepository;
             _serieACalendar = serieACalendar;
         }
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var actualYear = FantacalcioTime.ActualYear;
             var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();

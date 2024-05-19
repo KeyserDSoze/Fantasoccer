@@ -50,7 +50,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             _newsRepository = newsRepository;
             _configuration = configuration;
         }
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var actualYear = FantacalcioTime.ActualYear;
             var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();

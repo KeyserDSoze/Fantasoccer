@@ -29,7 +29,7 @@ namespace Fantasoccer.Engine.IngestionData
                 formations.Create("Injury"),
             };
         }
-        public async Task ActionToDoAsync()
+        public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
             if (calendar != null)
