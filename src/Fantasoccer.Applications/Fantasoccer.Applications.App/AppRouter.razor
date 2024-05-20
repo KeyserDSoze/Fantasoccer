@@ -3,27 +3,17 @@
 @using Fantasoccer.Applications.App.Extensions;
 @using Microsoft.Identity.Abstractions;
 @using Microsoft.Identity.Web;
+@using Rystem.Authentication.Social
+@using Rystem.Authentication.Social.Blazor.Components
 
 <Blazorise.ThemeProvider Theme="@theme">
     <CascadingValue Value="@state">
-        <Router AppAssembly="@typeof(AppRouter).Assembly">
-            <Found Context="routeData">
-                <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-            </Found>
-            <NotFound>
-                <PageTitle>Not found</PageTitle>
-                <LayoutView Layout="@typeof(MainLayout)">
-                    <p role="alert">Sorry, there's nothing at this address.</p>
-                </LayoutView>
-            </NotFound>
-        </Router>
+        <SocialAuthenticationRouter AppAssembly="@typeof(AppRouter).Assembly" DefaultLayout="@typeof(MainLayout)" SetUser="OnUserSetAsync">
+        </SocialAuthenticationRouter>
     </CascadingValue>
 </Blazorise.ThemeProvider>
 
 @code {
-    [Inject]
-    public required IdentityService IdentityService { get; set; }
     private FantasoccerState? state;
     private Theme theme = new Theme
         {
@@ -40,45 +30,40 @@
                 Link = "#ffffff"
             }
         };
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async ValueTask OnUserSetAsync(SocialUser socialUser)
     {
-        await base.OnAfterRenderAsync(firstRender);
-        if (firstRender)
+        if (socialUser is AppIdentity identity)
         {
-            var identity = await IdentityService.GetIdentityAsync();
-            if (identity != null)
-            {
-                state = new FantasoccerState()
+            state = new FantasoccerState()
+                {
+                    AppUiUpdate = () =>
                     {
-                        AppUiUpdate = () =>
+                        StateHasChanged();
+                    },
+                    GetGroup = (groupId) =>
+                    {
+                        try
                         {
-                            StateHasChanged();
-                        },
-                        GetGroup = (groupId) =>
-                        {
-                            try
-                            {
-                                return Api.Groups.GetAsync(groupId);
-                            }
-                            catch (Exception ex)
-                            {
-                                return Task.FromResult(default(Group));
-                            }
-                        },
-                        UpdateState = (identity) =>
-                        {
-                            try
-                            {
-                                return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
-                            }
-                            catch (Exception ex)
-                            {
-                                return Task.CompletedTask;
-                            }
+                            return Api.Groups.GetAsync(groupId);
                         }
-                    };
-                await state.SetIdentityAsync(identity);
-            }
+                        catch (Exception ex)
+                        {
+                            return Task.FromResult(default(Group));
+                        }
+                    },
+                    UpdateState = (identity) =>
+                    {
+                        try
+                        {
+                            return Api.AppIdentity.UpdateAsync(identity!.Email, identity);
+                        }
+                        catch (Exception ex)
+                        {
+                            return Task.CompletedTask;
+                        }
+                    }
+                };
+            await state.SetIdentityAsync(identity);
         }
     }
 }

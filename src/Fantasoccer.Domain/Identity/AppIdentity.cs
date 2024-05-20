@@ -1,11 +1,12 @@
 ﻿using System.Text.Json.Serialization;
+using Rystem.Authentication.Social;
 
 namespace Fantasoccer
 {
-    public class AppIdentity
+    public class AppIdentity : SocialUser
     {
         [JsonPropertyName("u")]
-        public string Username { get; set; }
+        public new string Username { get; set; }
         [JsonPropertyName("e")]
         public string Email { get; set; }
         [JsonPropertyName("s")]

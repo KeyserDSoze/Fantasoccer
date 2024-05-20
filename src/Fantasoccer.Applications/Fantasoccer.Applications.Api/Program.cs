@@ -7,37 +7,26 @@ using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Rystem.Authentication.Social;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
-builder.Services.AddSingleton(new IdentityOptions
+builder.Services.AddSocialLogin(x =>
 {
-    ClientId = builder.Configuration["AzureAdB2c:ClientId"]!,
-    Domain = builder.Configuration["AzureAdB2c:Domain"]!,
-    Instance = builder.Configuration["AzureAdB2c:Instance"]!,
-    Audience = builder.Configuration["AzureAdB2c:Audience"]!,
-    Policy = builder.Configuration["AzureAdB2c:SignUpSignInPolicyId"]!,
-    ExpiringInMinutes = int.Parse(builder.Configuration["Options:ExpiringInMinutes"]!)
-});
-var securityOptions = await builder.Services.AddSecurityOptionsAsync(builder.Configuration["ConnectionStrings:Storage"]!);
-var rsa = new RSACryptoServiceProvider(2048);
-rsa.ImportParameters(securityOptions.Rsa.ToParameters());
-RsaSecurityKey rsaSecurityKey = new(rsa);
-builder.Services.AddAuthentication(options =>
+    //x.Google.ClientId = builder.Configuration["SocialLogin:Google:ClientId"];
+    //x.Google.ClientSecret = builder.Configuration["SocialLogin:Google:ClientSecret"];
+    //x.Google.RedirectDomain = builder.Configuration["SocialLogin:Google:RedirectDomain"];
+    x.Microsoft.ClientId = builder.Configuration["SocialLogin:Microsoft:ClientId"];
+    x.Microsoft.ClientSecret = builder.Configuration["SocialLogin:Microsoft:ClientSecret"];
+    x.Microsoft.RedirectDomain = builder.Configuration["SocialLogin:Microsoft:RedirectDomain"];
+    //x.Facebook.ClientId = builder.Configuration["SocialLogin:Facebook:ClientId"];
+    //x.Facebook.ClientSecret = builder.Configuration["SocialLogin:Facebook:ClientSecret"];
+    //x.Facebook.RedirectDomain = builder.Configuration["SocialLogin:Facebook:RedirectDomain"];
+},
+x =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(o =>
-{
-    o.TokenValidationParameters = new TokenValidationParameters
-    {
-        IssuerSigningKey = rsaSecurityKey,
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true
-    };
+    x.BearerTokenExpiration = TimeSpan.FromHours(1);
+    x.RefreshTokenExpiration = TimeSpan.FromDays(100);
 });
 builder.Services.AddAuthorization(configure =>
 {
@@ -78,6 +67,7 @@ await app.Services.WarmUpAsync();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseSocialLoginEndpoints();
 app.MapControllers();
 app.UseApiFromRepositoryFramework()
     .SetPolicyForAll()

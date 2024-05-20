@@ -6,7 +6,6 @@ namespace Fantasoccer.Applications.App
     public class ApiService
     {
         public ApiService(
-            IdentityService identityService,
             IRepository<RealCalendar, int> realCalendar,
             IRepository<RealPlayersWrapper, int> realPlayers,
             IRepository<StatPlayersWrapper, int> statsPlayers,
@@ -24,7 +23,6 @@ namespace Fantasoccer.Applications.App
             IRepository<LiveGroup, string> live,
              IRepository<NewsWrapper, YearDayGroup> news)
         {
-            IdentityService = identityService;
             RealCalendar = realCalendar;
             RealPlayers = realPlayers;
             StatsPlayers = statsPlayers;
@@ -44,7 +42,6 @@ namespace Fantasoccer.Applications.App
             OfficialVote = voteFactory.Create("official");
         }
 
-        public IdentityService IdentityService { get; }
         public IRepository<RealCalendar, int> RealCalendar { get; }
         public IRepository<RealPlayersWrapper, int> RealPlayers { get; }
         public IRepository<StatPlayersWrapper, int> StatsPlayers { get; }

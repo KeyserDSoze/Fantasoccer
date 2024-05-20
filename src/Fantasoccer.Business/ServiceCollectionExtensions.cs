@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Business.IngestionData;
+﻿using Fantasoccer.Business.Authorization;
+using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business
@@ -7,6 +8,7 @@ namespace Fantasoccer.Business
     {
         public static IServiceCollection AddFantasoccerBusiness(this IServiceCollection services)
         {
+            services.AddSocialUserProvider<SocialUserProvider>();
             services.AddFactory<IFormationParser, Fantagazzetta>(nameof(Fantagazzetta));
             services.AddFactory<IFormationParser, Gazzetta>(nameof(Gazzetta));
             services.AddFactory<IFormationParser, Injury>(nameof(Injury));
