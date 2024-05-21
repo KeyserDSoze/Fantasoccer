@@ -23,16 +23,17 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.5" NoWarn="NU1605" />
         <PackageReference Include="Microsoft.Identity.Web" Version="2.18.1" />
         <PackageReference Include="Microsoft.Identity.Web.UI" Version="2.18.1" />
-        <PackageReference Include="Rystem.Api.Client.Authentication.BlazorServer" Version="6.0.9" />
-        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="6.0.9" />
-        <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="6.0.9" />
-        <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="6.0.9" />
+        <PackageReference Include="Rystem.Api.Client.Authentication.BlazorServer" Version="6.0.11" />
+        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="6.0.11" />
+        <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="6.0.11" />
+        <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="6.0.11" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
+        <!--<ProjectReference Include="..\..\..\..\Rystem\src\Authentication\Rystem.Authentication.Social.Blazor\Rystem.Authentication.Social.Blazor.csproj" />-->
     </ItemGroup>
 
 </Project>

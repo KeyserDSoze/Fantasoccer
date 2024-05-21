@@ -8,7 +8,7 @@
 
 <Blazorise.ThemeProvider Theme="@theme">
     <CascadingValue Value="@state">
-        <SocialAuthenticationRouter AppAssembly="@typeof(AppRouter).Assembly" DefaultLayout="@typeof(MainLayout)" SetUser="OnUserSetAsync">
+        <SocialAuthenticationRouter AppAssembly="@typeof(AppRouter).Assembly" DefaultLayout="@typeof(MainLayout)" SetUser="OnUserSetAsync" TUser="AppIdentity">
         </SocialAuthenticationRouter>
     </CascadingValue>
 </Blazorise.ThemeProvider>
@@ -30,7 +30,7 @@
                 Link = "#ffffff"
             }
         };
-    private async ValueTask OnUserSetAsync(SocialUser socialUser)
+    private async ValueTask OnUserSetAsync(AppIdentity socialUser)
     {
         if (socialUser is AppIdentity identity)
         {

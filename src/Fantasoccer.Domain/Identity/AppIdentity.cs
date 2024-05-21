@@ -3,10 +3,10 @@ using Rystem.Authentication.Social;
 
 namespace Fantasoccer
 {
-    public class AppIdentity : SocialUser
+    public class AppIdentity : ISocialUser
     {
         [JsonPropertyName("u")]
-        public new string Username { get; set; }
+        public string? Username { get; set; }
         [JsonPropertyName("e")]
         public string Email { get; set; }
         [JsonPropertyName("s")]

@@ -214,13 +214,13 @@
                                             </BarDropdownItem>
                                         }
                                         <BarDropdownItem>
-                                            <BarLink To="../../MicrosoftIdentity/Account/SignOut">
+                                            <BarLink Clicked="()=> Logout?.Invoke(false)">
                                                 <BarIcon IconName="IconName.UserCheck" />
-                                                Log out
+                                                Logout
                                             </BarLink>
                                         </BarDropdownItem>
                                         <BarItem>
-                                            v.0.2.0-beta
+                                            v.0.3.0-beta
                                         </BarItem>
                                     </BarDropdownMenu>
                                 </BarDropdown>
@@ -255,6 +255,8 @@
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
+    [CascadingParameter(Name = "LogoutCallback")]
+    public Func<bool, ValueTask>? Logout { get; set; }
     private List<Group> groups;
     protected override async Task OnParametersSetAsync()
     {
