@@ -1,13 +1,8 @@
 ﻿using System.Security.Claims;
-using System.Security.Cryptography;
 using Fantasoccer.Business;
-using Fantasoccer.Domain;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Rystem.Authentication.Social;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";

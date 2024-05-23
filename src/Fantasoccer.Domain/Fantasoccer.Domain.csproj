@@ -6,7 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="6.0.11" />
-        <PackageReference Include="Rystem.Authentication.Social" Version="6.0.11" />
+        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="6.0.13" />
+        <PackageReference Include="Rystem.Authentication.Social" Version="6.0.13" />
     </ItemGroup>
+
 </Project>
