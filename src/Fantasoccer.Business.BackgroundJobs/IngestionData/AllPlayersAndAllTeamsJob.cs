@@ -35,7 +35,9 @@ namespace Fantasoccer.Engine.IngestionData
         {
             var year = FantacalcioTime.ActualYear;
             var realTeams = await _realTeamsRepository.GetAsync(year);
-            if (realTeams == null)
+            var notExistsRealTeams = realTeams == null;
+            var notCorrectNumberForRealTeams = realTeams.Teams.Count < 20;
+            if (notExistsRealTeams || notCorrectNumberForRealTeams)
             {
                 var officialVotes = await _vote.GetAsync(year, 1);
                 if (officialVotes != null)
@@ -49,7 +51,10 @@ namespace Fantasoccer.Engine.IngestionData
                             Name = team
                         });
                     }
-                    await _realTeamsRepository.InsertAsync(year, realTeams);
+                    if (notCorrectNumberForRealTeams)
+                        await _realTeamsRepository.UpdateAsync(year, realTeams);
+                    else
+                        await _realTeamsRepository.InsertAsync(year, realTeams);
                 }
             }
             if (realTeams != null)

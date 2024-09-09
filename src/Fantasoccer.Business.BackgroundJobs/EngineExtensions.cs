@@ -13,8 +13,6 @@ namespace Fantasoccer.Engine
                 {
                     var serieACalendarioJob = serviceProvider.GetRequiredService<SerieACalendarJob>();
                     await serieACalendarioJob.ActionToDoAsync(default);
-                    var allPlayersAndAllTeamsJob = serviceProvider.GetRequiredService<AllPlayersAndAllTeamsJob>();
-                    await allPlayersAndAllTeamsJob.ActionToDoAsync(default);
                 });
             services
                 .AddBackgroundJob<SerieACalendarJob>(options =>
@@ -43,7 +41,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
-                    //options.RunImmediately = true;
+                    options.RunImmediately = true;
                     options.Cron = "0 0 3,4,16,17,22,23 * * *";
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
