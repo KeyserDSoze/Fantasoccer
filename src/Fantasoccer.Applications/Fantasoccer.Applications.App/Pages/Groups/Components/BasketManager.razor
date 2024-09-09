@@ -19,25 +19,28 @@
                 </Field>
                 <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
                     <Validation UsePattern>
-                     <Field ColumnSize="ColumnSize.IsHalf">
-                         <FieldLabel>Nome basket</FieldLabel>
-                         <FieldBody>
-                             <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                 <Feedback>
-                                     <ValidationError />
-                                 </Feedback>
-                             </TextEdit>
-                             <Button Color="Color.Primary" Clicked="@CreateNewBasket">
-                                 Crea nuovo basket
-                             </Button>
-                         </FieldBody>
-                     </Field>
-                 </Validation>
-             </Validations>
-         </Fields>
-     </Column>
- </Row>
+                        <Field ColumnSize="ColumnSize.IsHalf">
+                            <FieldLabel>Nome basket</FieldLabel>
+                            <FieldBody>
+                                <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                    <Feedback>
+                                        <ValidationError />
+                                    </Feedback>
+                                </TextEdit>
+                                <Button Color="Color.Primary" Clicked="@CreateNewBasket">
+                                    Crea nuovo basket
+                                </Button>
+                            </FieldBody>
+                        </Field>
+                    </Validation>
+                </Validations>
+            </Fields>
+        </Column>
+    </Row>
     <TeamsManager Teams="teams"></TeamsManager>
+    <Button Color="Color.Primary" Clicked="@CopyLastYearTeams">
+        Copia dall'anno passato
+    </Button>
 }
 
 
@@ -94,4 +97,41 @@
         }
         LoadingIndicator?.Hide();
     }
+    private async Task CopyLastYearTeams()
+    {
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && State.HasAGroup && teams != null)
+        {
+            var lastYearTeams = State?.GetTeamsFromBasket(State?.GroupId, basketId, (State?.Year ?? FantacalcioTime.ActualYear) - 1);
+            if (lastYearTeams != null)
+            {
+                foreach (var lastYearTeam in lastYearTeams)
+                {
+                    var owner = lastYearTeam.Owner;
+                    var teamName = lastYearTeam.Name;
+                    var team = new AnnualTeam
+                        {
+                            Name = teamName,
+                            Owner = owner
+                        };
+                    if (!teams.Any(x => x.Owner == lastYearTeam.Owner))
+                        teams.Add(team);
+                    var teamX = new Team()
+                        {
+                            Owner = owner,
+                            Name = teamName,
+                            Players = new()
+                        };
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                    {
+                        await Api.Team.InsertAsync(State.OtherTeamKey(owner), teamX);
+                    }
+                }
+                await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+                State.AppUiUpdate();
+            }
+        }
+        LoadingIndicator?.Hide();
+    }
 }
+

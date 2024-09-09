@@ -6,16 +6,16 @@
     if (Teams != null)
     {
         <Table Striped>
-         <TableHeader>
-             <TableRow>
-                 <TableHeaderCell>Name</TableHeaderCell>
-                 <TableHeaderCell>Owner</TableHeaderCell>
-                 <TableHeaderCell>Co-owners</TableHeaderCell>
-                 <TableHeaderCell>X</TableHeaderCell>
-             </TableRow>
-         </TableHeader>
-         <TableBody>
-             @foreach (var teamX in Teams)
+            <TableHeader>
+                <TableRow>
+                    <TableHeaderCell>Name</TableHeaderCell>
+                    <TableHeaderCell>Owner</TableHeaderCell>
+                    <TableHeaderCell>Co-owners</TableHeaderCell>
+                    <TableHeaderCell>X</TableHeaderCell>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                @foreach (var teamX in Teams)
                 {
                     var team = teamX;
                     <TableRow>
@@ -58,25 +58,25 @@
             <Fields>
                 <Validations @ref="@ValidationsRefForNewTeam" Mode="ValidationMode.Auto" ValidateOnLoad="false">
                     <Validation UsePattern>
-                     <Field ColumnSize="ColumnSize.IsHalf">
-                         <FieldLabel>Nuovo team</FieldLabel>
-                         <FieldBody>
-                             <TextEdit @bind-Text="@newTeamName" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                 <Feedback>
-                                     <ValidationError />
-                                 </Feedback>
-                             </TextEdit>
-                         </FieldBody>
-                     </Field>
-                 </Validation>
-                 <Field ColumnSize="ColumnSize.IsHalf">
-                     <FieldLabel>Proprietario</FieldLabel>
-                     <FieldBody>
-                         <Select TValue="string"
-                                 SelectedValue="@owner"
-                                 SelectedValueChanged="x => owner = x"
-                                 Width="Width.Is50">
-                             @foreach (var user in State.SelectedGroup.Users)
+                        <Field ColumnSize="ColumnSize.IsHalf">
+                            <FieldLabel>Nuovo team</FieldLabel>
+                            <FieldBody>
+                                <TextEdit @bind-Text="@newTeamName" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                    <Feedback>
+                                        <ValidationError />
+                                    </Feedback>
+                                </TextEdit>
+                            </FieldBody>
+                        </Field>
+                    </Validation>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Proprietario</FieldLabel>
+                        <FieldBody>
+                            <Select TValue="string"
+                                    SelectedValue="@owner"
+                                    SelectedValueChanged="x => owner = x"
+                                    Width="Width.Is50">
+                                @foreach (var user in State.SelectedGroup.Users)
                                 {
                                     <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
                                 }

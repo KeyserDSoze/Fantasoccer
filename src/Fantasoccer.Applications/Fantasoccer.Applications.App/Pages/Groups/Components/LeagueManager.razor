@@ -309,6 +309,10 @@
             if (State.SelectedLeague!.Years == null)
                 State.SelectedLeague.BasketsId = new();
         }
+        if (State.SelectedYearlyLeague != null && State.SelectedYearlyLeague?.Settings == null)
+        {
+            State.SelectedYearlyLeague.Settings = new();
+        }
         return base.OnParametersSetAsync();
     }
     private async Task CreateNewLeague()
