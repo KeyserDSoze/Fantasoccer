@@ -20,37 +20,38 @@
                 <TabPanel Name="@playersByRole.Key.ToString()" Padding="Padding.Is1.FromTop">
                     <DataGrid TItem="StatPlayer"
                               Data="@playersByRole"
-                                Filterable
-                               FilterMode="DataGridFilterMode.Menu"
-                                Striped
-                                Resizable
-                               ResizeMode="TableResizeMode.Header"
-                                ShowPager
-                                ShowPageSizes
-                               PagerPosition="DataGridPagerPosition.TopAndBottom"
-                               PageSize="10"
-                               PagerOptions="new(){ ButtonSize=Size.Small }"
-                                Responsive>
-                     <DataGridColumn Field="@nameof(StatPlayer.Name)" Caption="Name" Sortable Filterable />
-                         <DataGridColumn Field="RealTeam.Name" Caption="Team" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.Average)" DisplayFormat="{0:N2}" Caption="Average" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.FantaAverage)" DisplayFormat="{0:N2}" Caption="FantaAverage" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.IsEnough)" Caption="Enough Count" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.WithVote)" Caption="With Vote" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.WithoutVote)" Caption="Without Vote" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.WithSpecial)" Caption="Special" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.YellowCard)" Caption="YC Count" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.RedCard)" Caption="RC Count" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.Goal)" Caption="Goal" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.Assist)" Caption="Assist" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.Penalty)" Caption="Penalty" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.StoppedPenalty)" Caption="StoppedPenalty" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.SufferedGoal)" Caption="SufferedGoal" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.WrongedPenalty)" Caption="WrongedPenalty" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.OwnGoal)" Caption="OwnGoal" Sortable Filterable />
-                         <DataGridColumn Field="@nameof(StatPlayer.IsActive)" Caption="Is Active" Sortable Filterable />
-                     </DataGrid>
-                 </TabPanel>
+                              Filterable
+                              FilterMode="DataGridFilterMode.Menu"
+                              Striped
+                              Resizable
+                              ResizeMode="TableResizeMode.Header"
+                              ShowPager
+                              ShowPageSizes
+                              PagerPosition="DataGridPagerPosition.TopAndBottom"
+                              PageSize="10"
+                              PagerOptions="new(){ ButtonSize=Size.Small }"
+                              Responsive>
+                        <DataGridColumn Field="@nameof(StatPlayer.Name)" Caption="Name" Sortable Filterable />
+                        <DataGridColumn Field="RealTeam.Name" Caption="Team" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.Average)" DisplayFormat="{0:N2}" Caption="Average" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.FantaAverage)" DisplayFormat="{0:N2}" Caption="FantaAverage" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.IsEnough)" Caption="Enough Count" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.ManOfTheMatch)" Caption="Man of the match" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.WithVote)" Caption="With Vote" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.WithoutVote)" Caption="Without Vote" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.WithSpecial)" Caption="Special" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.YellowCard)" Caption="YC Count" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.RedCard)" Caption="RC Count" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.Goal)" Caption="Goal" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.Assist)" Caption="Assist" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.Penalty)" Caption="Penalty" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.StoppedPenalty)" Caption="StoppedPenalty" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.SufferedGoal)" Caption="SufferedGoal" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.WrongedPenalty)" Caption="WrongedPenalty" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.OwnGoal)" Caption="OwnGoal" Sortable Filterable />
+                        <DataGridColumn Field="@nameof(StatPlayer.IsActive)" Caption="Is Active" Sortable Filterable />
+                    </DataGrid>
+                </TabPanel>
             }
         </Content>
     </Tabs>

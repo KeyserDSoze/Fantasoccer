@@ -46,14 +46,16 @@ namespace Fantasoccer
             Votes = new Dictionary<Role, VoteLeagueSetting>() { { Role.Undefined, new VoteLeagueSetting()
             {
                  Assist = 1,
-                 Goal=3,
+                 Goal = 3,
                  OwnGoal = -3,
                  Penalty = 3,
                  StoppedPenalty = 3,
                  RedCard = -1,
                  YellowCard=-0.5f,
                  SufferedGoal = -1,
-                 WrongedPenalty = -3
+                 WrongedPenalty = -3,
+                 Injury = 0,
+                 ManOfTheMatch = 0
             } } },
             DelayedDay = 2,
             CancelledDay = 1,
@@ -69,7 +71,8 @@ namespace Fantasoccer
             PointForStrongDefense4 = 3,
             PointForStrongDefense5 = 3,
             MoneyForGoal = 5,
-            MoneyForSufferedGoal = 3
+            MoneyForSufferedGoal = 3,
+            PointForCleanSheet = 1,
         };
     }
 }

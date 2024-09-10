@@ -74,6 +74,14 @@
                     <img class="playervoteevent" src="./static/goal_red_v2.png" />
                 }
                 <div class="playervoteevent behavior@(Player.Vote.Status)"></div>
+                @if (Player.Vote.Injured)
+                {
+                    <img class="playervoteevent" src="./static/injury.png" />
+                }
+                @if (Player.Vote.ManOfTheMatch)
+                {
+                    <img class="playervoteevent" src="./static/manofthematch.png" />
+                }
             </div>
         }
     }

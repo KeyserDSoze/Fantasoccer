@@ -71,6 +71,7 @@ namespace Fantasoccer.Business.IngestionData
                     SufferedGoal = getValue(4),
                     WrongedPenalty = getValue(8),
                     OwnGoal = getValue(10),
+                    ManOfTheMatch = getValue(26) == 1,
                     Status = currentEvents.ContainsKey(1) ? Behaviour.YellowCard : (currentEvents.ContainsKey(2) ? Behaviour.RedCard : Behaviour.Nothing),
                     HasVote = vote != 55f,
                     IsIn = currentEvents.ContainsKey(14),

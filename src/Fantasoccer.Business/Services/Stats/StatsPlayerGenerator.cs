@@ -67,9 +67,13 @@ namespace Fantasoccer.Business
                                     if (player.Vote.Status == Behaviour.RedCard)
                                         statsPlayer.RedCard++;
                                     if (player.Vote.Status == Behaviour.YellowCard)
-                                        statsPlayer.YellowCard += player.Vote.Penalty;
+                                        statsPlayer.YellowCard++;
                                     if (player.Vote.Value >= 6)
                                         statsPlayer.IsEnough++;
+                                    if (player.Vote.ManOfTheMatch)
+                                        statsPlayer.ManOfTheMatch++;
+                                    if (player.Vote.Injured)
+                                        statsPlayer.Injured++;
                                     statsPlayer.Summatory += player.Vote.Value;
                                     var value = _teamCalculator.FinalValue(_teamCalculator.ForceEnrich(new Player() { Role = player.Role }, player.Vote, null, null));
                                     statsPlayer.FantaSummatory += value.Value;

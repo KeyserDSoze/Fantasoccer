@@ -9,7 +9,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
         <PackageReference Include="protobuf-net" Version="3.2.30" />
-        <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="6.0.14" />
+        <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="6.0.23" />
     </ItemGroup>
 
     <ItemGroup>

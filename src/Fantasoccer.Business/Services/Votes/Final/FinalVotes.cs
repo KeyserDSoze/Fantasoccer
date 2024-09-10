@@ -74,6 +74,7 @@ namespace Fantasoccer.Business.IngestionData
                             WrongedPenalty = GetSomethingDone(anotherSplitting[5]),
                             StoppedPenalty = GetSomethingDone(anotherSplitting[6]),
                             Assist = GetSomethingDone(anotherSplitting[7]),
+                            ManOfTheMatch = GetSomethingDone(anotherSplitting[8]) == 1,
                             Status = element.Contains("red-card") ? Behaviour.RedCard :
                                 (element.Contains("yellow-card") ? Behaviour.YellowCard : Behaviour.Nothing),
                             HasVote = vote != -1 && HasVote(s_spanClose.Split(elementSplitted[1])[0]),

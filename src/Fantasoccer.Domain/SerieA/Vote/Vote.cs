@@ -26,12 +26,16 @@ namespace Fantasoccer
         public int OwnGoal { get; set; }
         [JsonPropertyName("t")]
         public Behaviour Status { get; set; }
+        [JsonPropertyName("c")]
+        public bool ManOfTheMatch { get; set; }
         [JsonPropertyName("h")]
         public bool HasVote { get; set; }
         [JsonPropertyName("u")]
         public bool IsOut { get; set; }
         [JsonPropertyName("n")]
         public bool IsIn { get; set; }
+        [JsonPropertyName("j")]
+        public bool Injured { get; set; }
         public static Vote Default(Role role)
             => new() { Role = role };
         [JsonIgnore]

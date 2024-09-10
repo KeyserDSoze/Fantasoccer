@@ -31,10 +31,10 @@ namespace Fantasoccer.Engine.IngestionData
                 var liveDay = realCalendar.LiveDay;
                 if (liveDay != default && realCalendar.IsLive)
                 {
-                    var players = await _liveVote.GetAsync(actualYear, realCalendar.LiveDay.SerieADay);
+                    var players = await _liveVote.GetAsync(actualYear, liveDay.SerieADay);
                     if (players.Any())
                     {
-                        var key = new YearDayKey { Year = FantacalcioTime.ActualYear, Day = realCalendar.LiveDay.SerieADay };
+                        var key = new YearDayKey { Year = FantacalcioTime.ActualYear, Day = liveDay.SerieADay };
                         var parsedPlayers = await _repository.GetAsync(key).NoContext() ?? new VotedRealPlayerWrapper() { Players = new() };
                         foreach (var player in players)
                         {

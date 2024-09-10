@@ -22,5 +22,9 @@ namespace Fantasoccer
         public float YellowCard { get; set; }
         [JsonPropertyName("r")]
         public float RedCard { get; set; }
+        [JsonPropertyName("j")]
+        public int Injury { get; set; }
+        [JsonPropertyName("m")]
+        public int ManOfTheMatch { get; set; }
     }
 }

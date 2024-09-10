@@ -38,5 +38,9 @@ namespace Fantasoccer.Domain
         public int RedCard { get; set; }
         [JsonPropertyName("e")]
         public int IsEnough { get; set; }
+        [JsonPropertyName("c")]
+        public int ManOfTheMatch { get; set; }
+        [JsonPropertyName("ij")]
+        public int Injured { get; set; }
     }
 }
