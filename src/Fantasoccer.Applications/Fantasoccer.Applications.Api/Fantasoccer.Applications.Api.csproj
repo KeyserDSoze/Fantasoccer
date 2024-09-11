@@ -10,8 +10,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.8" />
-    <PackageReference Include="Rystem.Authentication.Social" Version="6.0.23" />
-    <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="6.0.23" />
+    <PackageReference Include="Rystem.Authentication.Social" Version="6.0.24" />
+    <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="6.0.24" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" />
   </ItemGroup>
 

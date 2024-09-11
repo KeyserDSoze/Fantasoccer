@@ -13,7 +13,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="8.0.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="6.0.23" />
+        <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="6.0.24" />
         <PackageReference Include="xunit" Version="2.9.0" />
         <PackageReference Include="Xunit.DependencyInjection" Version="9.3.1" />
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">

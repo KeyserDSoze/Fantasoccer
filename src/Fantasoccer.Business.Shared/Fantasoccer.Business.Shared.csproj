@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="6.0.23" />
+        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="6.0.24" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
