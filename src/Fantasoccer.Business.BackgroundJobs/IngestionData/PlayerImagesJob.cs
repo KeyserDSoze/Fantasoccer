@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Timers;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,47 +39,90 @@ namespace Fantasoccer.Engine.IngestionData
             var players = (await _realPlayers.GetAsync(year).NoContext())?.Players;
             if (players != null)
             {
+                var url = "https://www.legaseriea.it/api/widget/player?lang=it&offset=0&limit=1030&type=PRIMAVERA";
+                var playerImages = await _httpClient.GetFromJsonAsync<Rootobject>(url).NoContext();
                 foreach (var player in players)
                 {
-                    var url = string.Format("https://www.transfermarkt.it/schnellsuche/ergebnis/schnellsuche?query={0}&x=0&y=0", player.Name);
-                    var playerLandingPage = await _httpClient.GetStringAsync(url).NoContext();
-                    var linkPlayer = string.Empty;
-                    foreach (var match in s_link.Split(playerLandingPage).Skip(1))
+                    var imageAsUri = string.Empty;
+                    var surname = player.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower();
+                    var teamShortName = player.RealTeam.Abbreviation.ToLower();
+                    var possiblePlayer = playerImages.data.body.FirstOrDefault(x => x.surname.ToLower().Equals(surname) && x.team_short_name.ToLower().Equals(teamShortName));
+                    if (possiblePlayer != null)
                     {
-                        var teamName = s_linkTeam.Split(match)[1].Split('"')[0].Split('>')[1].Split('<')[0];
-                        var team = new RealTeam { Name = teamName };
-                        if (team.Abbreviation == player.RealTeam.Abbreviation)
-                        {
-                            linkPlayer = match.Split('"')[1];
-                            break;
-                        }
+                        imageAsUri = possiblePlayer.medium_shot;
                     }
-
-                    if (!string.IsNullOrWhiteSpace(linkPlayer))
+                    if (!string.IsNullOrWhiteSpace(imageAsUri))
                     {
-                        var laUrlDelGiocatore = $"https://www.transfermarkt.it{linkPlayer}";
-                        playerLandingPage = await _httpClient.GetStringAsync(laUrlDelGiocatore).NoContext();
-                        if (s_image.IsMatch(playerLandingPage))
+                        await Try.WithDefaultOnCatchAsync(async () =>
                         {
-                            var imageAsUri = s_image.Split(playerLandingPage)[1];
-                            var downloadUrl = $"{s_image}{imageAsUri.Split('"')[0]}";
                             using (WebClient client = new())
                             {
-                                var image = client.DownloadData(downloadUrl);
+                                var image = client.DownloadData(imageAsUri);
                                 await _contentRepository.UploadAsync($"players/{player.Key}.jpg",
                                     image, new ContentRepositoryOptions
                                     {
                                         HttpHeaders = new ContentRepositoryHttpHeaders
                                         {
-                                            ContentType = "image/jpg"
+                                            ContentType = "image/png"
                                         }
                                     }, true).NoContext();
                             }
-                        }
+                        });
+
                     }
                     await Task.Delay(30);
                 }
             }
         }
+
+
+        public class Rootobject
+        {
+            public bool success { get; set; }
+            public string message { get; set; }
+            public object[] errors { get; set; }
+            public Data data { get; set; }
+            public int code { get; set; }
+        }
+
+        public class Data
+        {
+            public string name { get; set; }
+            public string type { get; set; }
+            public string uicode { get; set; }
+            public Body[] body { get; set; }
+            public Data1 data { get; set; }
+        }
+
+        public class Data1
+        {
+            public string _limit { get; set; }
+            public int _total { get; set; }
+        }
+
+        public class Body
+        {
+            public string active { get; set; }
+            public string birthday { get; set; }
+            public string cod_role { get; set; }
+            public string formation { get; set; }
+            public string id { get; set; }
+            public string image { get; set; }
+            public string iso3 { get; set; }
+            public string medium_shot { get; set; }
+            public string name { get; set; }
+            public string nationality { get; set; }
+            public string netco_id { get; set; }
+            public string number { get; set; }
+            public string role { get; set; }
+            public string short_name { get; set; }
+            public string surname { get; set; }
+            public string team_id { get; set; }
+            public string team_logo { get; set; }
+            public string team_short_name { get; set; }
+            public string team_slug { get; set; }
+            public string url { get; set; }
+        }
+
     }
 }

@@ -27,6 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Fantasoccer.Business.BackgroundJobs\Fantasoccer.Business.BackgroundJobs.csproj" />
         <ProjectReference Include="..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
         <ProjectReference Include="..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
         <ProjectReference Include="..\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj" />
