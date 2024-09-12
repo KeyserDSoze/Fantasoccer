@@ -135,7 +135,25 @@
         public bool HasAGroup => SelectedGroup != null;
         public LeagueSetting? SelectedLeagueSettings => SelectedYearlyLeague?.Settings;
         public League? SelectedLeague => LeagueId != null ? SelectedGroup?.Leagues.Find(x => x.Id == LeagueId) : null;
-        public AnnualLeague? SelectedYearlyLeague => SelectedLeague?.Years?.Find(x => x.Year == Year);
+        public AnnualLeague? SelectedYearlyLeague
+        {
+            get
+            {
+                var league = SelectedLeague?.Years?.Find(x => x.Year == Year);
+                if (league == null && SelectedLeague != null)
+                {
+                    league = new AnnualLeague
+                    {
+                        Year = Year,
+                        Settings = LeagueSetting.Default,
+                    };
+                    SelectedLeague.Years.Add(league);
+                }
+                if (league != null && league.Settings == null)
+                    league.Settings = LeagueSetting.Default;
+                return league;
+            }
+        }
         public bool HasALeague => SelectedLeague != null;
         public IEnumerable<Basket> SelectedBaskets
         {
@@ -202,7 +220,7 @@
             Email = MeOrLeaderEmail!,
             BasketId = SelectedBasketId
         };
-        public string SelectedBasketId 
+        public string SelectedBasketId
             => SelectedGroup!.GetBasketId(MeOrLeaderEmail!, Year!)!;
         public bool IsAdmin()
         {

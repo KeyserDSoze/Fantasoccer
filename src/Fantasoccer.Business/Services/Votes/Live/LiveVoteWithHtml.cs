@@ -18,8 +18,6 @@ namespace Fantasoccer.Business.IngestionData
             var players = new List<VotedRealPlayer>();
             return await GetLiveAsync(year + 6, day).ToListAsync();
         }
-        private static readonly Regex s_regexForSplitting = new("<a class=\"match-score");
-
         private async IAsyncEnumerable<string> GetGamesAsync(int year, int day)
         {
             var response = await _httpClient.GetAsync($"https://www.fantacalcio.it/serie-a/calendario/{day}");
