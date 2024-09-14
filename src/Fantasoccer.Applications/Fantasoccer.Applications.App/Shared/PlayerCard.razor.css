@@ -1,8 +1,14 @@
 ﻿.playerimage {
     display: block;
     position: absolute;
-    left: 0;
+    left: -86%;
     top: 0;
+    width: 275%;
+}
+
+.playerimage-container {
+    overflow: hidden;
+    position: absolute;
     width: 100%;
     height: 100%;
 }
