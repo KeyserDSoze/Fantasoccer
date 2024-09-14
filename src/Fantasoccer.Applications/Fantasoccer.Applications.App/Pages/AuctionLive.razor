@@ -1,9 +1,17 @@
-﻿@page "/live"
+﻿@page "/auctionlive"
 @using Blazorise.DataGrid
 @using Blazorise.LoadingIndicator;
 
 <PageTitle>Auction Live</PageTitle>
 
+@foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
+{
+    <Heading Size="HeadingSize.Is5">
+        <AccordionToggle>@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)] [@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Forward) = @team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count()]</AccordionToggle>
+    </Heading>
+}
+
+@*to refresh <script src="~/Scripts/scripts.js"></script> *@
 
 @code {
     [CascadingParameter]
@@ -12,7 +20,7 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
-
+    private List<Team>? teams;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -21,9 +29,23 @@
     }
     protected override async Task OnParametersSetAsync()
     {
-        if (State?.HasAGroup == true)
+        if (State?.HasAGroup == true && State.Teams != null)
         {
             LoadingIndicator?.Show();
+            teams = new();
+            foreach (var team in State.Teams)
+            {
+                var teamKey = State.OtherTeamKey(team.Owner);
+                var actualTeam = await Api.Team.GetAsync(teamKey);
+                if (actualTeam == null)
+                {
+                    actualTeam = new() { Name = team.Name, Owner = team.Owner, Players = new() };
+                    await Api.Team.InsertAsync(teamKey, actualTeam);
+                }
+                teams.Add(actualTeam);
+                var rank = await Api.Ranks.GetAsync(State.LeagueKey);
+                actualTeam.MoneyFromRank = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == team.Owner).PlusMoney;
+            }
         }
         await base.OnParametersSetAsync();
     }
