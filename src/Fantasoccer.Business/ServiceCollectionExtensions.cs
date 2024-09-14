@@ -18,8 +18,8 @@ namespace Fantasoccer.Business
             services.AddTransient<IFantasoccerLogger, FantasoccerLogger>();
             services.AddTransient<IOfficialVote, OfficialVote>();
             services.AddTransient<IVotePlayerGenerator, VotePlayerGenerator>();
-            //services.AddTransient<ILiveVote, LiveVote>();
-            services.AddTransient<ILiveVote, LiveVoteWithHtml>();
+            services.AddTransient<ILiveVote, LiveVote>();
+            //services.AddTransient<ILiveVote, LiveVoteWithHtml>();
             services.AddTransient<ISerieACalendar, SerieACalendar>();
             services.AddTransient<IStatsPlayerGenerator, StatsPlayerGenerator>();
             services.AddHttpClient("base", client =>
