@@ -8,6 +8,7 @@ namespace Fantasoccer.Applications.App
         public ApiService(
             IRepository<RealCalendar, int> realCalendar,
             IRepository<RealPlayersWrapper, int> realPlayers,
+            IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers,
             IRepository<StatPlayersWrapper, int> statsPlayers,
             IRepository<ChancedRealPlayerWrapper, YearDayKey> chances,
             IRepository<Group, string> groups,
@@ -21,7 +22,7 @@ namespace Fantasoccer.Applications.App
             IRepository<Rank, YearDayLeague> dailyRank,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
             IRepository<LiveGroup, string> live,
-             IRepository<NewsWrapper, YearDayGroup> news)
+            IRepository<NewsWrapper, YearDayGroup> news)
         {
             RealCalendar = realCalendar;
             RealPlayers = realPlayers;
@@ -36,6 +37,7 @@ namespace Fantasoccer.Applications.App
             DailyTeam = dailyTeam;
             AppIdentity = appIdentity;
             DailyRank = dailyRank;
+            RandomizedRealPlayers = randomizedRealPlayers;
             Live = live;
             News = news;
             LiveVote = voteFactory.Create("live");
@@ -44,6 +46,7 @@ namespace Fantasoccer.Applications.App
 
         public IRepository<RealCalendar, int> RealCalendar { get; }
         public IRepository<RealPlayersWrapper, int> RealPlayers { get; }
+        public IRepository<RealPlayersWrapper, LeagueKey> RandomizedRealPlayers { get; }
         public IRepository<StatPlayersWrapper, int> StatsPlayers { get; }
         public IRepository<ChancedRealPlayerWrapper, YearDayKey> Chances { get; }
         public IRepository<Group, string> Groups { get; }

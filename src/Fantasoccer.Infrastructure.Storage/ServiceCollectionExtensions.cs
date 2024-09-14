@@ -43,6 +43,7 @@ namespace Fantasoccer.Infrastructure
         {
             await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
             await services.AddBlobStorage<RealPlayersWrapper, int>(storageConnectionString);
+            await services.AddBlobStorage<RealPlayersWrapper, LeagueKey>(storageConnectionString, "random", "randomizedplayers");
             await services.AddBlobStorage<ChancedRealPlayerWrapper, YearDayKey>(storageConnectionString);
             await services.AddRepositoryAsync<VotedRealPlayerWrapper, YearDayKey>(async builder =>
             {

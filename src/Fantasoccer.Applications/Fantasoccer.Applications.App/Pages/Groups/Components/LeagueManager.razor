@@ -206,6 +206,14 @@
                                 </FieldBody>
                             </Field>
                         </Fields>
+                        <Fields>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Random Auction</FieldLabel>
+                                <FieldBody>
+                                    <InputCheckbox @bind-Value="settings.RandomAuction" />
+                                </FieldBody>
+                            </Field>
+                        </Fields>
                         foreach (var votesForRole in settings.Votes)
                         {
                             var votesSettings = votesForRole.Value;
@@ -299,6 +307,9 @@
                 </Button>
                 <Button Color="Color.Primary" Clicked="@((x) => _ = CreateCalendarAndRankAsync())">
                     Create new calendar
+                </Button>
+                <Button Color="Color.Primary" Clicked="@((x) => _ = RandomizePlayerForAuctionsAsync())">
+                    Randomize players for Auction
                 </Button>
             </Column>
         </Row>
@@ -469,6 +480,27 @@
             await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
+    }
+    private async Task RandomizePlayerForAuctionsAsync()
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            var allPlayersWrapper = await Api.RealPlayers.GetAsync(State.Year);
+            if (allPlayersWrapper?.Players != null)
+            {
+                var randomizedPlayers = allPlayersWrapper.Players
+                    .OrderBy(x => RandomNumberGenerator.GetInt32(0, int.MaxValue))
+                    .ToList();
+                await Api.RandomizedRealPlayers.UpdateAsync(
+                    State.LeagueKey,
+                    new RealPlayersWrapper
+                        {
+                            Players = randomizedPlayers
+                        });
+            }
+            LoadingIndicator?.Hide();
+        }
     }
     private async Task RecalculateAsync(bool onlyLastDay = false, bool preciseDay = false)
     {

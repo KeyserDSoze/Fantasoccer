@@ -17,6 +17,7 @@ namespace Fantasoccer.Applications.App.Extensions
             services.AddScoped<IdentityService>();
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
+            services.AddHttpClientIntegration<RealPlayersWrapper, LeagueKey>(configuration, "random");
             services.AddHttpClientIntegration<ChancedRealPlayerWrapper, YearDayKey>(configuration);
             services.AddRepository<VotedRealPlayerWrapper, YearDayKey>(builder =>
             {

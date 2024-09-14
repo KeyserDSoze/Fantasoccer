@@ -40,6 +40,8 @@ namespace Fantasoccer
         public int MoneyForGoal { get; set; }
         [JsonPropertyName("n")]
         public int MoneyForSufferedGoal { get; set; }
+        [JsonPropertyName("q")]
+        public bool RandomAuction { get; set; }
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,
@@ -73,6 +75,7 @@ namespace Fantasoccer
             MoneyForGoal = 5,
             MoneyForSufferedGoal = 3,
             PointForCleanSheet = 1,
+            RandomAuction = false
         };
     }
 }

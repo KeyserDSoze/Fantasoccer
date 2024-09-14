@@ -15,6 +15,7 @@ namespace Fantasoccer.InMemory
         {
             services.AddInMemoryInfrastructure<RealCalendar, int>();
             services.AddInMemoryInfrastructure<RealPlayersWrapper, int>();
+            services.AddInMemoryInfrastructure<RealPlayersWrapper, LeagueKey>();
             services.AddInMemoryInfrastructure<ChancedRealPlayerWrapper, YearDayKey>();
             services.AddRepository<VotedRealPlayerWrapper, YearDayKey>(builder =>
             {

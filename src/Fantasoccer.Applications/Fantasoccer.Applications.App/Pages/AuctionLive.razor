@@ -1,0 +1,30 @@
+﻿@page "/live"
+@using Blazorise.DataGrid
+@using Blazorise.LoadingIndicator;
+
+<PageTitle>Auction Live</PageTitle>
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Inject]
+    public NavigationManager NavigationManager { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.HasAGroup == true)
+        {
+            LoadingIndicator?.Show();
+        }
+        await base.OnParametersSetAsync();
+    }
+}
