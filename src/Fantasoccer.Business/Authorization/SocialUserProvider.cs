@@ -21,6 +21,10 @@ namespace Fantasoccer.Business.Authorization
 
         public async IAsyncEnumerable<Claim> GetClaimsAsync(string? username, CancellationToken cancellationToken)
         {
+            if (username == "snail84muz@hotmail.com")
+            {
+                username = "Snail84muz@hotmail.com";
+            }
             var user = await _repository.GetAsync(username, cancellationToken);
             yield return new Claim(ClaimTypes.Name, user.Email);
             yield return new Claim(ClaimTypes.Email, user.Email);

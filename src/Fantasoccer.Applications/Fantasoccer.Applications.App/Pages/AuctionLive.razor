@@ -32,6 +32,20 @@
                 </CardText>
             </CardBody>
         </Card>
+        @* if (anchorTeam != null)
+        {
+            <Card>
+                <CardBody>
+                    <CardTitle Size="5">@team.Name</CardTitle>
+                    <CardText>
+                        @anchorTeam.Owner vs @team.Owner
+                    </CardText>
+                    <CardText>
+                        @((State.SelectedLeagueSettings!.StartingMoney - anchorTeam.Cost) - (State.SelectedLeagueSettings!.StartingMoney - team.Cost))
+                    </CardText>
+                </CardBody>
+            </Card>
+        } *@
     }
 </CardDeck>
 @* <Button Clicked="SendAsync">Send something</Button> *@
