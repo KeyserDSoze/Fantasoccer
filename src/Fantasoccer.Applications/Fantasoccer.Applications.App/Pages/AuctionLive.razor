@@ -8,7 +8,7 @@
 <CardDeck>
     @foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
     {
-        <Card Style="width:20%">
+        <Card>
             <CardBody>
                 <CardTitle Size="5">@team.Name</CardTitle>
                 <CardText>
