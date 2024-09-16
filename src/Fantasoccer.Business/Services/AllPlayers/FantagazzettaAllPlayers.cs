@@ -51,6 +51,7 @@ namespace Fantasoccer.Business.IngestionData
                     RealTeam = teams.First(x => x.Abbreviation.ToLower() == team.ToLower()),
                     Role = role,
                     IsActive = true,
+                    Visible = true
                 };
                 players.Add(player);
             }

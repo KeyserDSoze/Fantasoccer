@@ -12,6 +12,8 @@ namespace Fantasoccer
         public Role Role { get; set; }
         [JsonPropertyName("a")]
         public bool IsActive { get; set; }
+        [JsonPropertyName("vh")]
+        public bool Visible { get; set; } = true;
         [JsonIgnore]
         public string Key => KeyUtils.GetPlayerKey(Name);
     }

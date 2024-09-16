@@ -1,16 +1,40 @@
 ﻿@page "/auctionlive"
 @using Blazorise.DataGrid
 @using Blazorise.LoadingIndicator;
+@using Fantasoccer.Applications.App.ClientServices
 
 <PageTitle>Auction Live</PageTitle>
 
-@foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
-{
-    <Heading Size="HeadingSize.Is5">
-        <AccordionToggle>@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)] [@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Forward) = @team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count()]</AccordionToggle>
-    </Heading>
-}
-
+<CardDeck>
+    @foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
+    {
+        <Card Style="width:20%">
+            <CardBody>
+                <CardTitle Size="5">@team.Name</CardTitle>
+                <CardText>
+                    @team.Owner
+                </CardText>
+                <CardText>
+                    <Label>Rimangono: </Label>
+                    @(State.SelectedLeagueSettings!.StartingMoney - team.Cost)
+                </CardText>
+                <CardText>
+                    Portieri: @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)
+                </CardText>
+                <CardText>
+                    Difensori: @team.ActivePlayers.Count(x => x.Role == Role.Defensor)
+                </CardText>
+                <CardText>
+                    Centrocapisti: @team.ActivePlayers.Count(x => x.Role == Role.Midfielder)
+                </CardText>
+                <CardText>
+                    Attaccanti: @team.ActivePlayers.Count(x => x.Role == Role.Forward)
+                </CardText>
+            </CardBody>
+        </Card>
+    }
+</CardDeck>
+@* <Button Clicked="SendAsync">Send something</Button> *@
 @*to refresh <script src="~/Scripts/scripts.js"></script> *@
 
 @code {
@@ -20,6 +44,8 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
+    // [Inject]
+    // public AuctionHubClient AuctionHubClient { get; set; }
     private List<Team>? teams;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -32,6 +58,7 @@
         if (State?.HasAGroup == true && State.Teams != null)
         {
             LoadingIndicator?.Show();
+            // await AuctionHubClient.StartAsync(OnReceive);
             teams = new();
             foreach (var team in State.Teams)
             {
@@ -49,4 +76,14 @@
         }
         await base.OnParametersSetAsync();
     }
+    // void OnReceive(string user, string message)
+    // {
+    //     var x = user;
+    //     var y = message;
+    // }
+
+    // async Task SendAsync()
+    // {
+    //     await AuctionHubClient.SendAsync(State.Identity.Email, "Hello from Blazor!");
+    // }
 }

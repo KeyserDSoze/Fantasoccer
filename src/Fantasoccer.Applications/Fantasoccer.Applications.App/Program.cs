@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using Fantasoccer.Business;
+using Fantasoccer.Applications.App.ClientServices;
 
 var builder = WebApplication.CreateBuilder(args);
 //var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
@@ -36,7 +37,11 @@ builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient();
 //{
 //    options.FallbackPolicy = options.DefaultPolicy;
 //});
-
+builder.Services.AddSingleton(new AuctionHubClientSettings
+{
+    ApiUri = $"wss://{builder.Configuration["Api:Uri"]}/auctionhub"
+});
+builder.Services.AddTransient<AuctionHubClient>();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddSocialLoginUI(x =>

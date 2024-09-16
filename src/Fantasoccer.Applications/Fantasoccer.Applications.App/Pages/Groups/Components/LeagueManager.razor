@@ -490,8 +490,13 @@
             if (allPlayersWrapper?.Players != null)
             {
                 var randomizedPlayers = allPlayersWrapper.Players
-                    .OrderBy(x => RandomNumberGenerator.GetInt32(0, int.MaxValue))
+                    .OrderBy(x => x.Role)
+                    .ThenBy(x => RandomNumberGenerator.GetInt32(0, int.MaxValue))
                     .ToList();
+                foreach(var player in randomizedPlayers)
+                {
+                    player.Visible = false;
+                }
                 await Api.RandomizedRealPlayers.UpdateAsync(
                     State.LeagueKey,
                     new RealPlayersWrapper

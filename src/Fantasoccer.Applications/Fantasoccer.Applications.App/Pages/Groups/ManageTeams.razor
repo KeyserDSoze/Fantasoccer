@@ -3,7 +3,6 @@
 @using Fantasoccer.Domain;
 
 <PageTitle>Manage teams</PageTitle>
-
 @if (State?.IsAdmin() == true && players != null && teams != null && visibilities != null)
 {
     <Row>
@@ -26,9 +25,9 @@
                                         <TableHeaderCell>Team</TableHeaderCell>
                                         <TableHeaderCell>Avg</TableHeaderCell>
                                         <TableHeaderCell>F Avg</TableHeaderCell>
-                                        <TableHeaderCell>Playerd</TableHeaderCell>
-                                        <TableHeaderCell>Next</TableHeaderCell>
-                                        <TableHeaderCell>Status</TableHeaderCell>
+                                        <TableHeaderCell>Played</TableHeaderCell>
+                                        @* <TableHeaderCell>Next</TableHeaderCell>
+                                        <TableHeaderCell>Status</TableHeaderCell> *@
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -36,15 +35,26 @@
                                     {
                                         var statPlayer = GetStatPlayer(player);
                                         var chancePlayer = GetChancePlayer(player);
-                                        <TableRow Clicked="(x) => Buy(player)">
-                                            <TableRowHeader>@player.Name</TableRowHeader>
+                                        <TableRow Clicked="(x) => !player.Visible ? ShowTheNextPlayerAsync(player) : Buy(player)">
+                                            @if (player.Visible)
+                                            {
+                                                <TableRowHeader>@player.Name</TableRowHeader>
                                                 <TableRowCell>@player.RealTeam.Name</TableRowCell>
                                                 <TableRowCell>@statPlayer?.Average.ToString("N2")</TableRowCell>
                                                 <TableRowCell>@statPlayer?.FantaAverage.ToString("N2")</TableRowCell>
                                                 <TableRowCell>@statPlayer?.WithVote</TableRowCell>
-                                                <TableRowCell>@chancePlayer?.Chance.Fantagazzetta</TableRowCell>
-                                                <TableRowCell>@chancePlayer?.Chance.Status</TableRowCell>
-                                            </TableRow>
+                                                @* <TableRowCell>@chancePlayer?.Chance.Fantagazzetta</TableRowCell>
+                                                <TableRowCell>@chancePlayer?.Chance.Status</TableRowCell> *@
+                                            }
+                                            else
+                                            {
+                                                <TableRowHeader>---</TableRowHeader>
+                                                <TableRowCell>---</TableRowCell>
+                                                <TableRowCell>---</TableRowCell>
+                                                <TableRowCell>---</TableRowCell>
+                                                <TableRowCell>---</TableRowCell>
+                                            }
+                                        </TableRow>
                                     }
                                 </TableBody>
                             </Table>
@@ -61,27 +71,27 @@
                         <CollapseHeader>
                             <Heading Size="HeadingSize.Is5">
                                 <AccordionToggle>@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)] [@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count(x => x.Role == Role.Forward) = @team.ActivePlayers.Distinct(x => x.RealTeam.Name).Count()]</AccordionToggle>
-                                </Heading>
-                            </CollapseHeader>
-                            <CollapseBody>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHeaderCell>Name</TableHeaderCell>
-                                            <TableHeaderCell>Team</TableHeaderCell>
-                                            <TableHeaderCell>Price</TableHeaderCell>
-                                            <TableHeaderCell>Role</TableHeaderCell>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        @foreach (var player in team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name))
+                            </Heading>
+                        </CollapseHeader>
+                        <CollapseBody>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHeaderCell>Name</TableHeaderCell>
+                                        <TableHeaderCell>Team</TableHeaderCell>
+                                        <TableHeaderCell>Price</TableHeaderCell>
+                                        <TableHeaderCell>Role</TableHeaderCell>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    @foreach (var player in team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name))
                                     {
                                         <TableRow Clicked="(x) => Remove(player, team.Owner)">
                                             <TableRowHeader>@player.Name</TableRowHeader>
-                                                <TableRowCell>@player.RealTeam.Name</TableRowCell>
-                                                <TableRowCell>@player.Price</TableRowCell>
-                                                <TableRowCell>@player.Role</TableRowCell>
-                                            </TableRow>
+                                            <TableRowCell>@player.RealTeam.Name</TableRowCell>
+                                            <TableRowCell>@player.Price</TableRowCell>
+                                            <TableRowCell>@player.Role</TableRowCell>
+                                        </TableRow>
                                     }
                                 </TableBody>
                             </Table>
@@ -101,13 +111,13 @@
         <ModalBody>
             <Field>
                 <FieldLabel>@realPlayer?.Name</FieldLabel>
-                    <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
-                </Field>
-                <Field>
-                    <NumericEdit @bind-Value="@price" />
-                </Field>
-                <Field>
-                    @if (teams != null)
+                <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
+            </Field>
+            <Field>
+                <NumericEdit @bind-Value="@price" />
+            </Field>
+            <Field>
+                @if (teams != null)
                 {
                     <Select TValue="string" @bind-SelectedValue="@teamOwner">
                         @foreach (var team in teams)
@@ -121,7 +131,7 @@
             {
                 <Field>
                     <FieldLabel>@error</FieldLabel>
-                    </Field>
+                </Field>
             }
         </ModalBody>
         <ModalFooter>
@@ -139,11 +149,11 @@
         <ModalBody>
             <Field>
                 <FieldLabel>@realPlayer?.Name</FieldLabel>
-                    <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
-                </Field>
-                <Field>
-                    <Select TValue="PlayerInTeamStatus" @bind-SelectedValue="@status">
-                        @foreach (var status in Statuses)
+                <FieldLabel>@realPlayer?.RealTeam.Name</FieldLabel>
+            </Field>
+            <Field>
+                <Select TValue="PlayerInTeamStatus" @bind-SelectedValue="@status">
+                    @foreach (var status in Statuses)
                     {
                         <SelectItem Value="@status">@status</SelectItem>
                     }
@@ -156,6 +166,7 @@
         </ModalFooter>
     </ModalContent>
 </Modal>
+
 
 @code {
     [CascadingParameter]
@@ -185,6 +196,22 @@
         await base.OnAfterRenderAsync(firstRender);
         if (!firstRender)
             LoadingIndicator?.Hide();
+    }
+    private async Task ShowTheNextPlayerAsync(RealPlayer? clickedPlayer = null)
+    {
+        if (players != null && State != null)
+        {
+            foreach (var player in players.OrderBy(x => x.Role))
+            {
+                if (!player.Visible || (clickedPlayer != null && clickedPlayer.Key == player.Key))
+                {
+                    player.Visible = true;
+                    await Api.RandomizedRealPlayers.UpdateAsync(State.LeagueKey, new RealPlayersWrapper { Players = players });
+                    break;
+                }
+            }
+            StateHasChanged();
+        }
     }
     protected override async Task OnParametersSetAsync()
     {

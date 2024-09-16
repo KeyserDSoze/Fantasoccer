@@ -17,12 +17,10 @@ namespace Fantasoccer.Engine
             services
                 .AddBackgroundJob<SerieACalendarJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 */1 * * * *";
                 })
                 .AddBackgroundJob<AllPlayersAndAllTeamsJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 0 5 * * *";
                 })
                 .AddBackgroundJob<PlayerOddsJob>(options =>
@@ -32,21 +30,17 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<LiveVotesJob>(options =>
                 {
                     options.Cron = "0 */1 * * * *";
-                    options.RunImmediately = true;
                 })
                 .AddBackgroundJob<LiveJob>(options =>
                 {
                     options.Cron = "0 */1 * * * *";
-                    options.RunImmediately = true;
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 0 3,4,16,17,22,23 * * *";
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
                 {
-                    //options.RunImmediately = true;
                     options.Cron = "0 0 1 9 *";
                 })
                 .AddBackgroundJob<SetFormationJob>(options =>
@@ -59,7 +53,6 @@ namespace Fantasoccer.Engine
                  })
                 .AddBackgroundJob<NewsJob>(options =>
                 {
-                    //options.RunImmediately = true;
                     options.Cron = "0 0 12 * * *";
                 });
             return services;
