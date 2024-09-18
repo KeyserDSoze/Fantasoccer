@@ -11,11 +11,13 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IFantasoccerLogger _logger;
         private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _repository;
         private readonly IRepository<RealCalendar, int> _calendar;
+        private readonly IRepository<RealPlayersWrapper, int> _realPlayersRepository;
 
         public PlayerOddsJob(IFantasoccerLogger logger,
             IFactory<IFormationParser> formations,
             IRepository<ChancedRealPlayerWrapper, YearDayKey> repository,
-            IRepository<RealCalendar, int> calendar)
+            IRepository<RealCalendar, int> calendar,
+            IRepository<RealPlayersWrapper, int> realPlayersRepository)
         {
             _logger = logger;
             _repository = repository;
@@ -25,9 +27,10 @@ namespace Fantasoccer.Engine.IngestionData
                 formations.Create("Fantagazzetta"),
                 formations.Create("Gazzetta"),
                 formations.Create("Mediaset"),
-                formations.Create("Sky"),
+                //formations.Create("Sky"),
                 formations.Create("Injury"),
             };
+            _realPlayersRepository = realPlayersRepository;
         }
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
@@ -43,6 +46,24 @@ namespace Fantasoccer.Engine.IngestionData
                         Day = day
                     };
                     var players = (await _repository.GetAsync(key).NoContext())?.Players ?? new();
+                    if (players.Count == 0)
+                    {
+                        foreach (var player in (await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext()).Players)
+                        {
+                            players.Add(new ChancedRealPlayer
+                            {
+                                Name = player.Name,
+                                RealTeam = player.RealTeam,
+                                Role = player.Role,
+                                Visible = player.Visible,
+                                IsActive = player.IsActive,
+                                Chance = new Chance
+                                {
+
+                                }
+                            });
+                        }
+                    }
                     foreach (var parser in _parsers)
                     {
                         var playersFromParser = await parser.GetPlayersAsync().NoContext();
