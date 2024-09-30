@@ -10,6 +10,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddTransient<ITeamCalculator, TeamCalculator>();
             services.AddSingleton<IRankCalculator, RankCalculator>();
             services.AddSingleton<ITeamChecker, TeamChecker>();
+            services.AddSingleton<IRandomCalendar, RandomCalendar>();
+            services.AddFactory<ILeagueCalculator, DefaultLeague>(string.Empty);
             services.AddFactory<ILeagueCalculator, ClassicLeague>(LeagueType.League.ToString());
             services.AddFactory<ILeagueCalculator, ClassicCup>(LeagueType.Cup.ToString());
             services.ScanBusinessForRepositoryFramework();

@@ -1,91 +1,41 @@
 ﻿using System.Security.Cryptography;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business
 {
     internal sealed class ClassicCup : ILeagueCalculator
     {
         private readonly IRankCalculator _rankCalculator;
-
-        public ClassicCup(IRankCalculator rankCalculator)
+        private readonly IRandomCalendar _randomCalendar;
+        private readonly ILeagueCalculator? _defaultLeagueCalculator;
+        public ClassicCup(IRankCalculator rankCalculator, IFactory<ILeagueCalculator> factory, IRandomCalendar randomCalendar)
         {
             _rankCalculator = rankCalculator;
+            _randomCalendar = randomCalendar;
+            _defaultLeagueCalculator = factory.Create(string.Empty);
         }
-        public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar)
+        private const string Finals = "Finals";
+        private static readonly List<string> s_avoidCalculationRounds = new() { Finals };
+        public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, List<string>? avoidCalculationRounds = null)
         {
-            var rank = new Rank() { RankedTeams = new(), SerieADay = 0 };
-            if (calendar != null)
+            if (avoidCalculationRounds != null)
             {
-                foreach (var round in calendar.Rounds)
-                {
-                    if (round.Key == "Finals")
-                        continue;
-                    if (!rank.RankedTeams.ContainsKey(round.Key))
-                    {
-                        rank.RankedTeams.Add(round.Key,
-                            round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
-                    }
-                    var teams = rank.RankedTeams[round.Key];
-                    foreach (var day in round.Value)
-                    {
-                        foreach (var game in day.Games)
-                        {
-                            var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
-                            var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
-                            if (_rankCalculator.AddDay(homeTeam, true, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
-                                rank.SerieADay = day.SerieADay;
-                            if (_rankCalculator.AddDay(awayTeam, false, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
-                                rank.SerieADay = day.SerieADay;
-                        }
-                    }
-                }
-                foreach (var roundKey in calendar.Rounds.Select(x => x.Key))
-                {
-                    if (roundKey == "Finals")
-                        continue;
-                    rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ToList();
-                }
+                avoidCalculationRounds.AddRange(s_avoidCalculationRounds);
+                return _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, avoidCalculationRounds);
             }
-            return rank;
+            else
+                return _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, s_avoidCalculationRounds);
         }
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players, ITeamCalculator teamCalculator)
-            => GetRightFormation(teamCalculator.Enrich(players));
+            => _defaultLeagueCalculator!.GetRightFormation(players, teamCalculator);
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players)
         {
-            if (!players.Any())
-                return Array.Empty<EnrichedPlayer>();
-            var allPlayers = players.ToList();
-            var playersInField = allPlayers.Where(x => x.Current.Position >= FantaSoccerRole.GoalKeeper && x.Current.Position <= FantaSoccerRole.Forward).OrderBy(x => x.Current.Position).ToList();
-            var playersAsSubstitute = allPlayers.Where(x => x.Current.Position > FantaSoccerRole.Forward && x.Current.Position <= FantaSoccerRole.SecondBackupForward).OrderBy(x => x.Current.Position).ToList();
-            for (var i = 0; i < playersInField.Count; i++)
-            {
-                if (playersInField[i].Current.Position >= FantaSoccerRole.GoalKeeper
-                    && playersInField[i].Current.Position <= FantaSoccerRole.Forward
-                    && playersInField[i].Vote?.HasVote != true)
-                {
-                    for (var j = 0; j < playersAsSubstitute.Count; j++)
-                    {
-                        if (playersAsSubstitute[j].Current.Position > FantaSoccerRole.Forward
-                            && playersAsSubstitute[j].Current.Position <= FantaSoccerRole.SecondBackupForward
-                            && playersAsSubstitute[j].CurrentPosition > FantaSoccerRole.Forward
-                            && playersAsSubstitute[j].Current.Role == playersInField[i].Current.Role
-                            && playersAsSubstitute[j].Vote?.HasVote == true)
-                        {
-                            var positionSwitcher = playersInField[i].CurrentPosition;
-                            playersInField[i].CurrentPosition = playersAsSubstitute[j].CurrentPosition;
-                            playersAsSubstitute[j].CurrentPosition = positionSwitcher;
-                            break;
-                        }
-                    }
-                }
-            }
-            playersInField.AddRange(playersAsSubstitute);
-            return playersInField;
+            return _defaultLeagueCalculator!.GetRightFormation(players);
         }
-
         public Calendar GetRandomCalendar(int year, AnnualLeague league, IEnumerable<AnnualTeam> teams)
         {
             var allTeams = teams.ToList();
-            var randomizedTeams = Randomize(allTeams);
+            var randomizedTeams = _randomCalendar.Randomize(allTeams);
             var calendar = new Calendar()
             {
                 Year = year,
@@ -94,7 +44,7 @@ namespace Fantasoccer.Business
             for (var round = 1; round < 5; round++)
             {
                 var teamsInRound = randomizedTeams.Skip((round - 1) * 4).Take(4).ToList();
-                List<(int Day, int Round, (int TeamA, int TeamB, int Row) Game)> randomizedCalendar = GetCalendar(teamsInRound.Count, round);
+                var randomizedCalendar = _randomCalendar.GetCalendar(teamsInRound.Count, round);
                 var numberOfDay = 0;
                 var homeAndAwayCount = 0;
                 do
@@ -120,8 +70,8 @@ namespace Fantasoccer.Business
                             var gameCount = 1;
                             foreach (var game in games)
                             {
-                                var home = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.TeamA] : teamsInRound[game.Game.TeamB];
-                                var away = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.TeamB] : teamsInRound[game.Game.TeamA];
+                                var home = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.ATeam] : teamsInRound[game.Game.BTeam];
+                                var away = homeAwayRound % 2 == 0 ? teamsInRound[game.Game.BTeam] : teamsInRound[game.Game.ATeam];
                                 day.Games.Add(new CalendarGame
                                 {
                                     Id = Guid.NewGuid().ToString(),
@@ -141,77 +91,6 @@ namespace Fantasoccer.Business
             }
             return calendar;
         }
-        private static Dictionary<int, List<int>> GetCalendarBase(int max)
-        {
-            Dictionary<int, List<int>> array = new();
-            for (var i = 0; i < max; i++)
-            {
-                array.Add(i, new List<int>());
-                for (var j = 0; j < max; j++)
-                    if (i != j)
-                        array[i].Add(j);
-            }
-            return array;
-        }
-        private static List<(int Day, int Round, (int A, int B, int Row) Team)> GetCalendar(int teamInGame, int round)
-        {
-            var dayToCreate = teamInGame - 1;
-            var numberOfGameInSingleDay = teamInGame / 2;
-restart: var baseCalendar = GetCalendarBase(teamInGame);
-            List<(int Day, int Round, (int TeamA, int TeamB, int Row) Game)> games = new();
-            for (var i = 1; i <= dayToCreate; i++)
-            {
-                List<int> exited = new();
-                for (var j = 0; j < numberOfGameInSingleDay; j++)
-                {
-                    int value;
-                    do
-                    {
-                        value = GetRandom(teamInGame);
-                    } while (exited.Contains(value));
-                    exited.Add(value);
-                    int value2;
-                    var counter = 0;
-                    do
-                    {
-                        value2 = baseCalendar[value][GetRandom(baseCalendar[value].Count)];
-                        counter++;
-                        if (counter > 500)
-                        {
-                            goto restart;
-                        }
-
-                    } while (exited.Contains(value2));
-                    baseCalendar[value].Remove(value2);
-                    baseCalendar[value2].Remove(value);
-                    exited.Add(value2);
-                    games.Add((i, round, (value, value2, j)));
-                }
-            }
-            return games;
-        }
-        private static List<AnnualTeam> Randomize(List<AnnualTeam> teams)
-        {
-            var teamsToAdd = new List<AnnualTeam>();
-            foreach (var team in teams)
-                teamsToAdd.Add(team);
-            List<AnnualTeam> randomizedTeams = new();
-            while (teamsToAdd.Count > 0)
-            {
-                var team = teamsToAdd[GetRandom(teamsToAdd.Count)];
-                randomizedTeams.Add(team);
-                teamsToAdd.Remove(team);
-            }
-            return randomizedTeams;
-        }
-        private static int GetRandom(int max)
-        {
-            var value = RandomNumberGenerator.GetInt32(0, max);
-            if (max == value)
-                return max - 1;
-            return value;
-        }
-        private const string Finals = "Finals";
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
         {
             List<Team> nextTeams = new();
