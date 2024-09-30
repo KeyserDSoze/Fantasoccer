@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.ProgrammingLanguage;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business
 {
@@ -22,7 +23,11 @@ namespace Fantasoccer.Business
             {
                 if (avoidCalculationRounds != null && avoidCalculationRounds.Any(x => x == roundKey))
                     continue;
-                rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.ValuePoint).ThenByDescending(x => x.Goal).ToList();
+                foreach (var team in rank.RankedTeams[roundKey])
+                {
+                    team.Point = team.ValuePoint + team.Victories * 6 + team.Draws * 2;
+                }
+                rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ThenByDescending(x => x.Goal).ToList();
             }
             return rank;
         }
@@ -32,7 +37,7 @@ namespace Fantasoccer.Business
         {
             if (!players.Any())
                 return Array.Empty<EnrichedPlayer>();
-            var allPlayers = players.OrderByDescending(x => x.FinalValue.Value).ToList();
+            var allPlayers = players.OrderByDescending(x => x.Vote?.IsFinal == true ? 1 : 0).ThenByDescending(x => x.FinalValue?.Value ?? -1000).ToList();
             var goalkeepers = allPlayers.Where(x => x.Current.Role == Role.GoalKeeper).ToList();
             goalkeepers[0].CurrentPosition = FantaSoccerRole.GoalKeeper;
             goalkeepers[1].CurrentPosition = FantaSoccerRole.BackupGoalKeeper;
@@ -50,6 +55,7 @@ namespace Fantasoccer.Business
                 if (player.Current.Role == Role.Defensor && maxDefenders > 0)
                 {
                     player.CurrentPosition = FantaSoccerRole.Defensor;
+                    player.Current.Position = FantaSoccerRole.Defensor;
                     refactoredTeam.Add(player);
                     maxDefenders--;
                     maxInField--;
@@ -57,6 +63,7 @@ namespace Fantasoccer.Business
                 else if (player.Current.Role == Role.Midfielder && maxMidfielders > 0)
                 {
                     player.CurrentPosition = FantaSoccerRole.Midfielder;
+                    player.Current.Position = FantaSoccerRole.Midfielder;
                     refactoredTeam.Add(player);
                     maxMidfielders--;
                     maxInField--;
@@ -64,6 +71,7 @@ namespace Fantasoccer.Business
                 else if (player.Current.Role == Role.Forward && maxForwards > 0)
                 {
                     player.CurrentPosition = FantaSoccerRole.Forward;
+                    player.Current.Position = FantaSoccerRole.Forward;
                     refactoredTeam.Add(player);
                     maxForwards--;
                     maxInField--;
@@ -82,24 +90,28 @@ namespace Fantasoccer.Business
                 if (player.Current.Role == Role.Defensor && defenderBackup > 0)
                 {
                     player.CurrentPosition = defenderBackup == 2 ? FantaSoccerRole.FirstBackupDefensor : FantaSoccerRole.SecondBackupDefensor;
+                    player.Current.Position = player.CurrentPosition;
                     refactoredTeam.Add(player);
                     defenderBackup--;
                 }
                 else if (player.Current.Role == Role.Midfielder && midfielderBackup > 0)
                 {
                     player.CurrentPosition = midfielderBackup == 2 ? FantaSoccerRole.FirstBackupMidfielder : FantaSoccerRole.SecondBackupMidfielder;
+                    player.Current.Position = player.CurrentPosition;
                     refactoredTeam.Add(player);
                     midfielderBackup--;
                 }
                 else if (player.Current.Role == Role.Forward && forwardBackup > 0)
                 {
                     player.CurrentPosition = forwardBackup == 2 ? FantaSoccerRole.FirstBackupForward : FantaSoccerRole.SecondBackupForward;
+                    player.Current.Position = player.CurrentPosition;
                     refactoredTeam.Add(player);
                     forwardBackup--;
                 }
                 else
                 {
-                    player.Current.Position = FantaSoccerRole.Tribune;
+                    player.CurrentPosition = FantaSoccerRole.Tribune;
+                    player.Current.Position = player.CurrentPosition;
                     refactoredTeam.Add(player);
                 }
             }

@@ -143,6 +143,7 @@
                 }
                 leagueKey = new LeagueKey { Group = GroupId, League = LeagueId, Year = year };
                 leagueSettings = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId)?.Years.Find(x => x.Year == year)?.Settings;
+                leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId)!.Type.ToString());
             }
             LoadingIndicator?.Show();
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");

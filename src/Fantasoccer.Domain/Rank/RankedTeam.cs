@@ -9,7 +9,7 @@ namespace Fantasoccer
         [JsonPropertyName("o")]
         public string Owner { get; set; }
         [JsonPropertyName("p")]
-        public int Point { get; set; }
+        public float Point { get; set; }
         [JsonPropertyName("v")]
         public int Victories { get; set; }
         [JsonPropertyName("d")]
