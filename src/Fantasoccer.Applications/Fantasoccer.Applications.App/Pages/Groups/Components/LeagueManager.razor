@@ -215,6 +215,12 @@
                                     <InputCheckbox @bind-Value="settings.RandomAuction" />
                                 </FieldBody>
                             </Field>
+                            <Field ColumnSize="ColumnSize.IsHalf">
+                                <FieldLabel>Rank With Value Points</FieldLabel>
+                                <FieldBody>
+                                    <InputCheckbox @bind-Value="settings.RankWithValuePoints" />
+                                </FieldBody>
+                            </Field>
                         </Fields>
                         foreach (var votesForRole in settings.Votes)
                         {

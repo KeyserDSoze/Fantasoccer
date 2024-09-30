@@ -49,17 +49,20 @@
             if (goalTeam > goalOpponent)
             {
                 team.Victories++;
-                team.Point += leagueSetting.PointForVictory;
+                if (!leagueSetting.RankWithValuePoints)
+                    team.Point += leagueSetting.PointForVictory;
+                else
+                    team.Point += pointTeam + leagueSetting.PointForVictory;
             }
             else if (goalOpponent > goalTeam)
             {
                 team.Defeats++;
-                team.Point += leagueSetting.PointForDefeat;
+                team.Point += pointTeam + leagueSetting.PointForDefeat;
             }
             else
             {
                 team.Draws++;
-                team.Point += leagueSetting.PointForDraw;
+                team.Point += pointTeam + leagueSetting.PointForDraw;
             }
             team.PlusMoney += leagueSetting.MoneyForGoal * goalTeam;
             team.PlusMoney += leagueSetting.MoneyForSufferedGoal * goalOpponent;

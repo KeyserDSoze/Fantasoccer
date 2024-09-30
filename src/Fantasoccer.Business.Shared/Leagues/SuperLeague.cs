@@ -19,16 +19,6 @@ namespace Fantasoccer.Business
             var rank = (avoidCalculationRounds != null) ?
                 _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, avoidCalculationRounds) :
                 _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, null);
-            foreach (var roundKey in rank.RankedTeams.Select(x => x.Key))
-            {
-                if (avoidCalculationRounds != null && avoidCalculationRounds.Any(x => x == roundKey))
-                    continue;
-                foreach (var team in rank.RankedTeams[roundKey])
-                {
-                    team.Point = team.ValuePoint + team.Victories * 6 + team.Draws * 2;
-                }
-                rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ThenByDescending(x => x.Goal).ToList();
-            }
             return rank;
         }
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players, ITeamCalculator teamCalculator)

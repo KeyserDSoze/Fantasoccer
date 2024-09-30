@@ -42,6 +42,8 @@ namespace Fantasoccer
         public int MoneyForSufferedGoal { get; set; }
         [JsonPropertyName("q")]
         public bool RandomAuction { get; set; }
+        [JsonPropertyName("vp")]
+        public bool RankWithValuePoints { get; set; }
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,
