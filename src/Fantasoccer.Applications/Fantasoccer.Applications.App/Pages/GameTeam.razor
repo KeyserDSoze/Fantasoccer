@@ -112,6 +112,7 @@
     private int serieADay;
     private bool isInEdit => GameId == null;
     private Team? myTeam;
+    private League? selectedLeague;
 
     private sealed class TeamsWrapper
     {
@@ -133,8 +134,7 @@
         {
             var leagueKey = State.LeagueKey;
             var year = Year ?? State.Year;
-            var leagueSettings = State.SelectedLeagueSettings;
-            leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague?.Type.ToString());
+            selectedLeague = State.SelectedLeague;
             if (!isInEdit)
             {
                 if (State.GroupId != GroupId)
@@ -142,9 +142,10 @@
                     await State.ChangeGroupAsync(GroupId);
                 }
                 leagueKey = new LeagueKey { Group = GroupId, League = LeagueId, Year = year };
-                leagueSettings = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId)?.Years.Find(x => x.Year == year)?.Settings;
-                leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId)!.Type.ToString());
+                selectedLeague = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId);
             }
+            var leagueSettings = selectedLeague?.Years.Find(x => x.Year == year)?.Settings;
+            leagueCalculator = LeagueCalculatorFactory.Create(selectedLeague?.Type.ToString());
             LoadingIndicator?.Show();
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
             isMobile = TestMobile.IsMatch(userAgent?.ToLower() ?? string.Empty);
@@ -176,7 +177,7 @@
                     }
                 }
             }
-            await TeamCalculator.BuildRequestAsync(year, serieADay, State.SelectedLeague!.Type, leagueSettings!, true, !isInEdit, true);
+            await TeamCalculator.BuildRequestAsync(year, serieADay, selectedLeague!.Type, leagueSettings!, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {
