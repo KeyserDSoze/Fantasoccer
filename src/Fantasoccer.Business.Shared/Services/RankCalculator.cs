@@ -1,10 +1,8 @@
-﻿using System.Text;
-
-namespace Fantasoccer.Business
+﻿namespace Fantasoccer.Business
 {
     internal sealed class RankCalculator : IRankCalculator
     {
-        public Rank AddDay(LeagueSetting leagueSetting, Rank rank, Dictionary<string, Day> rounds, LeagueType type)
+        public Rank AddDay(LeagueSetting leagueSetting, Rank rank, Dictionary<string, Day> rounds)
         {
             foreach (var day in rounds)
             {
@@ -20,44 +18,7 @@ namespace Fantasoccer.Business
             return rank;
         }
 
-        public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, LeagueType type)
-        {
-            var rank = new Rank() { RankedTeams = new(), SerieADay = 0 };
-            if (calendar != null)
-            {
-                foreach (var round in calendar.Rounds)
-                {
-                    if (type == LeagueType.Cup && round.Key == "Finals")
-                        continue;
-                    if (!rank.RankedTeams.ContainsKey(round.Key))
-                    {
-                        rank.RankedTeams.Add(round.Key,
-                            round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
-                    }
-                    var teams = rank.RankedTeams[round.Key];
-                    foreach (var day in round.Value)
-                    {
-                        foreach (var game in day.Games)
-                        {
-                            var homeTeam = teams.First(x => x.Owner == game.HomeOwner);
-                            var awayTeam = teams.First(x => x.Owner == game.AwayOwner);
-                            if (AddDay(homeTeam, true, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
-                                rank.SerieADay = day.SerieADay;
-                            if (AddDay(awayTeam, false, game.Result, leagueSetting) && rank.SerieADay < day.SerieADay)
-                                rank.SerieADay = day.SerieADay;
-                        }
-                    }
-                }
-                foreach (var roundKey in calendar.Rounds.Select(x => x.Key))
-                {
-                    if (type == LeagueType.Cup && roundKey == "Finals")
-                        continue;
-                    rank.RankedTeams[roundKey] = rank.RankedTeams[roundKey].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ToList();
-                }
-            }
-            return rank;
-        }
-        private bool AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting)
+        public bool AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting)
         {
             if (result?.IsCancelled == true)
                 return true;

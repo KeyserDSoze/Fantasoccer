@@ -337,7 +337,7 @@ namespace Fantasoccer.InMemory
                         }
                         var rank = serviceProvider.GetRequiredService<IRepository<Rank, LeagueKey>>();
                         var ranksForCreation = new List<LeagueForCreateRank>();
-                        var randomCalendar = serviceProvider.GetRequiredService<IRandomCalendar>();
+                        var leagueCalculatorFactory = serviceProvider.GetRequiredService<IFactory<ILeagueCalculator>>();
                         var calendar = serviceProvider.GetRequiredService<IRepository<Calendar, LeagueKey>>();
                         foreach (var rankForCreation in ranksForCreation)
                         {
@@ -358,7 +358,8 @@ namespace Fantasoccer.InMemory
                         }
                         Calendar GetRandomCalendar(LeagueType league, List<AnnualTeam> annualTeams)
                         {
-                            var finalCalendar = randomCalendar.GetRandomCalendar(2, league, new AnnualLeague
+                            var leagueCalculator = leagueCalculatorFactory.Create(league.ToString())!;
+                            var finalCalendar = leagueCalculator.GetRandomCalendar(2, new AnnualLeague
                             {
                                 Year = FantacalcioTime.ActualYear,
                                 Settings = new LeagueSetting

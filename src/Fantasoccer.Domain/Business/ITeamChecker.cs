@@ -1,4 +1,4 @@
-﻿namespace Fantasoccer
+﻿namespace Fantasoccer.Business
 {
     public interface ITeamChecker
     {

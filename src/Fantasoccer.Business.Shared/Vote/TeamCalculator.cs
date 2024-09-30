@@ -10,18 +10,21 @@ namespace Fantasoccer.Business
         private readonly IRepository<RealCalendar, int> _realCalendar;
         private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _chances;
         private readonly IVotePlayerGenerator _votePlayerGenerator;
+        private readonly IFactory<ILeagueCalculator> _leagueCalculator;
 
         public TeamCalculator(
              IRepository<RealCalendar, int> realCalendar,
              IRepository<ChancedRealPlayerWrapper, YearDayKey> chances,
              IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
-             IVotePlayerGenerator votePlayerGenerator)
+             IVotePlayerGenerator votePlayerGenerator,
+             IFactory<ILeagueCalculator> leagueCalculator)
         {
             _liveVote = voteFactory.Create("live");
             _officialVote = voteFactory.Create("official");
             _realCalendar = realCalendar;
             _chances = chances;
             _votePlayerGenerator = votePlayerGenerator;
+            _leagueCalculator = leagueCalculator;
         }
         public bool IsLive { get; private set; }
         public VotedRealPlayerWrapper? Live { get; private set; }
@@ -31,11 +34,13 @@ namespace Fantasoccer.Business
         public LeagueSetting? LeagueSetting { get; private set; }
         public bool IsEditable { get; private set; }
         public int SerieADay { get; private set; }
-        public async ValueTask BuildRequestAsync(int year, int day, LeagueSetting leagueSettings, bool withRealGame, bool withVote, bool withChance)
+        public LeagueType LeagueType { get; private set; }
+        public async ValueTask BuildRequestAsync(int year, int day, LeagueType leagueType, LeagueSetting leagueSettings, bool withRealGame, bool withVote, bool withChance)
         {
             if (year == 0)
                 year = FantacalcioTime.ActualYear;
             LeagueSetting = leagueSettings;
+            LeagueType = leagueType;
             if (withVote || withChance || withRealGame || day == 0)
             {
                 var calendar = await _realCalendar.GetAsync(year);
@@ -77,8 +82,9 @@ namespace Fantasoccer.Business
                 SerieADay = day;
             }
         }
-        public void SetLeagueSettings(LeagueSetting leagueSettings)
+        public void SetLeagueSettings(LeagueType leagueType, LeagueSetting leagueSettings)
         {
+            LeagueType = leagueType;
             LeagueSetting = leagueSettings;
         }
         public Point CalculatePoint(IEnumerable<Player> players)
@@ -90,7 +96,8 @@ namespace Fantasoccer.Business
             var point = 0F;
             var defensiveBonus = true;
             var defensorCount = 0;
-            foreach (var player in GetRightFormation(players).Where(x => x.CurrentPosition <= FantaSoccerRole.Forward))
+            var leagueCalculator = _leagueCalculator.Create(LeagueType.ToString())!;
+            foreach (var player in leagueCalculator.GetRightFormation(players).Where(x => x.CurrentPosition <= FantaSoccerRole.Forward))
             {
                 if (player.Vote != default && player.Vote.HasVote)
                 {
@@ -168,40 +175,6 @@ namespace Fantasoccer.Business
                 return game;
             }
             return null;
-        }
-        public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players)
-            => GetRightFormation(Enrich(players));
-        public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players)
-        {
-            if (!players.Any())
-                return Array.Empty<EnrichedPlayer>();
-            var allPlayers = players.ToList();
-            var playersInField = allPlayers.Where(x => x.Current.Position >= FantaSoccerRole.GoalKeeper && x.Current.Position <= FantaSoccerRole.Forward).OrderBy(x => x.Current.Position).ToList();
-            var playersAsSubstitute = allPlayers.Where(x => x.Current.Position > FantaSoccerRole.Forward && x.Current.Position <= FantaSoccerRole.SecondBackupForward).OrderBy(x => x.Current.Position).ToList();
-            for (var i = 0; i < playersInField.Count; i++)
-            {
-                if (playersInField[i].Current.Position >= FantaSoccerRole.GoalKeeper
-                    && playersInField[i].Current.Position <= FantaSoccerRole.Forward
-                    && playersInField[i].Vote?.HasVote != true)
-                {
-                    for (var j = 0; j < playersAsSubstitute.Count; j++)
-                    {
-                        if (playersAsSubstitute[j].Current.Position > FantaSoccerRole.Forward
-                            && playersAsSubstitute[j].Current.Position <= FantaSoccerRole.SecondBackupForward
-                            && playersAsSubstitute[j].CurrentPosition > FantaSoccerRole.Forward
-                            && playersAsSubstitute[j].Current.Role == playersInField[i].Current.Role
-                            && playersAsSubstitute[j].Vote?.HasVote == true)
-                        {
-                            var positionSwitcher = playersInField[i].CurrentPosition;
-                            playersInField[i].CurrentPosition = playersAsSubstitute[j].CurrentPosition;
-                            playersAsSubstitute[j].CurrentPosition = positionSwitcher;
-                            break;
-                        }
-                    }
-                }
-            }
-            playersInField.AddRange(playersAsSubstitute);
-            return playersInField;
         }
         public VoteValue FinalValue(Player player) => FinalValue(Enrich(player));
         public VoteValue FinalValue(EnrichedPlayer player)

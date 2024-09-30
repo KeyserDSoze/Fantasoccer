@@ -14,7 +14,6 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         private readonly IFantasoccerLogger _logger;
         private readonly ITeamCalculator _teamCalculator;
         private readonly IRankCalculator _rankCalculator;
-        private readonly IRandomCalendar _randomCalendar;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<Calendar, LeagueKey> _calendarRepository;
         private readonly IRepository<Rank, YearDayLeague> _rankDayRepository;
@@ -27,7 +26,6 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         public NewsJob(IFantasoccerLogger logger,
             ITeamCalculator teamCalculator,
             IRankCalculator rankCalculator,
-            IRandomCalendar randomCalendar,
             IRepository<Group, string> groups,
             IRepository<Calendar, LeagueKey> calendarRepository,
             IRepository<Rank, YearDayLeague> rankDayRepository,
@@ -40,7 +38,6 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             _logger = logger;
             _teamCalculator = teamCalculator;
             _rankCalculator = rankCalculator;
-            _randomCalendar = randomCalendar;
             _groups = groups;
             _calendarRepository = calendarRepository;
             _rankDayRepository = rankDayRepository;

@@ -1,8 +1,8 @@
-﻿namespace Fantasoccer
+﻿namespace Fantasoccer.Business
 {
     public interface IRankCalculator
     {
-        Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, LeagueType type);
-        Rank AddDay(LeagueSetting leagueSetting, Rank rank, Dictionary<string, Day> rounds, LeagueType type);
+        Rank AddDay(LeagueSetting leagueSetting, Rank rank, Dictionary<string, Day> rounds);
+        bool AddDay(RankedTeam team, bool isInHome, GameResult? result, LeagueSetting leagueSetting);
     }
 }

@@ -10,7 +10,7 @@
         <ProjectReference Include="..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="6.0.24" />
-        <PackageReference Include="Rystem.RepositoryFramework.Infrastructure.InMemory" Version="6.0.24" />
+        <PackageReference Include="Rystem.Content.Infrastructure.InMemory" Version="6.1.0" />
+        <PackageReference Include="Rystem.RepositoryFramework.Infrastructure.InMemory" Version="6.1.0" />
     </ItemGroup>
 </Project>

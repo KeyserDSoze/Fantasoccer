@@ -3,6 +3,8 @@
     public enum LeagueType
     {
         League,
-        Cup
+        Cup,
+        NewCup,
+        SuperLeague
     }
 }

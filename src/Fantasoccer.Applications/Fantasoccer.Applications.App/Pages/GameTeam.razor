@@ -29,7 +29,7 @@
                     }
                     else
                     {
-                        <DesktopGame Inverted="team.Inverted" Players="TeamCalculator.GetRightFormation(team.Players)"></DesktopGame>
+                        <DesktopGame Inverted="team.Inverted" Players="leagueCalculator?.GetRightFormation(team.Players)"></DesktopGame>
                     }
                 }
             }
@@ -53,7 +53,7 @@
                         }
                         else
                         {
-                            <MobileGame Css="playerContainerMobile" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileGame>
+                            <MobileGame Css="playerContainerMobile" Players="leagueCalculator?.GetRightFormation(team.Players)" From="FantaSoccerRole.GoalKeeper" To="FantaSoccerRole.Forward" Inverted="team.Inverted"></MobileGame>
                         }
                     }
                 </div>
@@ -66,7 +66,7 @@
                     }
                     else
                     {
-                        <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="TeamCalculator.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="false"></MobileGame>
+                        <MobileGame Css="@($"playerContainerMobile50-{counter}")" Players="leagueCalculator?.GetRightFormation(team.Players)" From="FantaSoccerRole.BackupGoalKeeper" To="FantaSoccerRole.SecondBackupForward" Inverted="false"></MobileGame>
                     }
                     counter++;
                 }
@@ -106,6 +106,9 @@
     public required IJSRuntime JsRuntime { get; set; }
     [Inject]
     public required ITeamCalculator TeamCalculator { get; set; }
+    [Inject]
+    public required IFactory<ILeagueCalculator> LeagueCalculatorFactory { get; set; }
+    private ILeagueCalculator? leagueCalculator;
     private int serieADay;
     private bool isInEdit => GameId == null;
     private Team? myTeam;
@@ -131,6 +134,7 @@
             var leagueKey = State.LeagueKey;
             var year = Year ?? State.Year;
             var leagueSettings = State.SelectedLeagueSettings;
+            leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague?.Type.ToString());
             if (!isInEdit)
             {
                 if (State.GroupId != GroupId)
@@ -171,7 +175,7 @@
                     }
                 }
             }
-            await TeamCalculator.BuildRequestAsync(year, serieADay, leagueSettings, true, !isInEdit, true);
+            await TeamCalculator.BuildRequestAsync(year, serieADay, State.SelectedLeague!.Type, leagueSettings!, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {

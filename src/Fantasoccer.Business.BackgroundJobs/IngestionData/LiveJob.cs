@@ -46,7 +46,7 @@ namespace Fantasoccer.Engine.IngestionData
                 var liveDay = realCalendar.LiveDay ?? realCalendar.NextDay;
                 if (liveDay != default)
                 {
-                    await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, liveDay.SerieADay, LeagueSetting.Default, false, true, false);
+                    await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, liveDay.SerieADay, LeagueType.League, LeagueSetting.Default, false, true, false);
                     foreach (var group in await _groupRepository.ToListAsEntityAsync())
                     {
                         var liveGroup = new LiveGroup
@@ -57,7 +57,7 @@ namespace Fantasoccer.Engine.IngestionData
                         foreach (var league in group.Leagues.Where(x => x.Years.Exists(t => t.Year == actualYear)))
                         {
                             var leagueSettings = group.GetAnnualLeague(league.Id, actualYear)?.Settings ?? LeagueSetting.Default;
-                            _teamCalculator.SetLeagueSettings(leagueSettings);
+                            _teamCalculator.SetLeagueSettings(league.Type, leagueSettings);
                             var leagueKey = new LeagueKey { Group = group.Id, League = league.Id, Year = actualYear };
                             var calendar = await _calendarRepository.GetAsync(leagueKey).NoContext();
                             if (calendar != null)
@@ -112,7 +112,7 @@ namespace Fantasoccer.Engine.IngestionData
                                     var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
                                     if (rank != null)
                                     {
-                                        liveLeague.Rank = _rankCalculator.AddDay(leagueSettings, rank, liveLeague.Rounds, league.Type);
+                                        liveLeague.Rank = _rankCalculator.AddDay(leagueSettings, rank, liveLeague.Rounds);
                                     }
                                 }
                                 liveGroup.Leagues.Add(liveLeague);

@@ -20,7 +20,7 @@ namespace Fantasoccer.Business
             _statsRepository = statsRepository;
             _realPlayersRepository = realPlayersRepository;
             _teamCalculator = teamCalculator;
-            _teamCalculator.SetLeagueSettings(LeagueSetting.Default);
+            _teamCalculator.SetLeagueSettings(LeagueType.League, LeagueSetting.Default);
         }
         public async ValueTask GenerateAndSaveAsync(int year, int untilThisDay)
         {

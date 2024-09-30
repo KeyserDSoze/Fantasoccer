@@ -1272,7 +1272,7 @@ namespace Migrator
                                     else
                                     {
                                         isImpossibleThatIsDeleted = true;
-                                        await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
+                                        await teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, league.Type, yearlyLeague.Settings, false, true, false);
                                         foreach (var game in day.Games)
                                         {
                                             var homeTeamKey = new TeamDayKey
@@ -1331,12 +1331,14 @@ namespace Migrator
                                                 differences++;
                                             if (!onlyCounter)
                                             {
+                                                var leagueCalculatorFactory = serviceProvider.GetRequiredService<IFactory<ILeagueCalculator>>();
+                                                var leagueCalculator = leagueCalculatorFactory.Create(league.Type.ToString())!;
                                                 Console.WriteLine($"{game.Home}-{game.Away} {game.Result?.HomeGoal}-{game.Result?.AwayGoal} [{game.Result?.Home?.Value}-{game.Result?.Away?.Value}]");
                                                 Console.WriteLine($"{game.Home}-{game.Away} {result.HomeGoal}-{result.AwayGoal} [{result.Home.Value}-{result.Away.Value}]");
                                                 if (game.Result?.Home?.Value != homePoint.Value || game.Result?.Away?.Value != awayPoint.Value)
                                                 {
                                                     var sum = 0f;
-                                                    foreach (var player in teamCalculator.GetRightFormation(homeTeam.ActivePlayers).OrderBy(x => x.CurrentPosition))
+                                                    foreach (var player in leagueCalculator.GetRightFormation(homeTeam.ActivePlayers, teamCalculator).OrderBy(x => x.CurrentPosition))
                                                     {
                                                         Console.WriteLine($"{player.Current.Name} - {player.FinalValue?.Value} ({player.Current.Position})[{player.CurrentPosition}]");
                                                         if (player.CurrentPosition <= FantaSoccerRole.Forward && player.FinalValue != null)
@@ -1344,7 +1346,7 @@ namespace Migrator
                                                     }
                                                     Console.WriteLine(sum);
                                                     var sum1 = 0f;
-                                                    foreach (var player in teamCalculator.GetRightFormation(awayTeam.ActivePlayers).OrderBy(x => x.CurrentPosition))
+                                                    foreach (var player in leagueCalculator.GetRightFormation(awayTeam.ActivePlayers, teamCalculator).OrderBy(x => x.CurrentPosition))
                                                     {
                                                         Console.WriteLine($"{player.Current.Name} - {player.FinalValue?.Value} ({player.Current.Position})[{player.CurrentPosition}]");
                                                         if (player.CurrentPosition <= FantaSoccerRole.Forward && player.FinalValue != null)
@@ -1464,7 +1466,7 @@ namespace Migrator
                                 }
                             }
                         }
-here: var rank = rankCalculator.GetRank(yearlyLeague.Settings, calendar, league.Type);
+here: var rank = ((ILeagueCalculator)null).GetRank(yearlyLeague.Settings, calendar);
                         await rankRepository.UpdateAsync(leagueKey, rank);
                         Console.WriteLine();
                         Console.WriteLine();

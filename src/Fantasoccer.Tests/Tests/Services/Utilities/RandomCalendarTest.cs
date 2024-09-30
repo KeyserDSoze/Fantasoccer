@@ -1,15 +1,16 @@
 ﻿using System.Population.Random;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Tests
 {
     public class RandomCalendarTest
     {
-        private readonly IRandomCalendar _randomCalendar;
+        private readonly IFactory<ILeagueCalculator> _leagueCalculatorFactory;
         private readonly IPopulation<AnnualTeam> _populationService;
 
-        public RandomCalendarTest(IRandomCalendar randomCalendar, IPopulation<AnnualTeam> populationService)
+        public RandomCalendarTest(IFactory<ILeagueCalculator> leagueCalculatorFactory, IPopulation<AnnualTeam> populationService)
         {
-            _randomCalendar = randomCalendar;
+            _leagueCalculatorFactory = leagueCalculatorFactory;
             _populationService = populationService;
         }
         [Theory]
@@ -17,7 +18,8 @@ namespace Fantasoccer.Tests
         [InlineData(16, LeagueType.Cup, 12, 4)]
         public void Create(int numberOfTeams, LeagueType leagueType, int numberOfDays, int rounds)
         {
-            var calendar = _randomCalendar.GetRandomCalendar(2, leagueType, new AnnualLeague
+            var leagueCalculator = _leagueCalculatorFactory.Create(leagueType.ToString())!;
+            var calendar = leagueCalculator.GetRandomCalendar(2, new AnnualLeague
             {
                 Year = FantacalcioTime.ActualYear,
                 Settings = LeagueSetting.Default,

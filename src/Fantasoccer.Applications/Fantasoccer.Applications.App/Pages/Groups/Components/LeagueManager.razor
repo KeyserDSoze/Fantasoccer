@@ -376,7 +376,7 @@
         LoadingIndicator?.Hide();
     }
     [Inject]
-    public required IRandomCalendar RandomCalendar { get; set; }
+    public required IFactory<ILeagueCalculator> LeagueCalculatorFactory { get; set; }
     [Inject]
     public required IRankCalculator RankCalculator { get; set; }
     [Inject]
@@ -386,6 +386,7 @@
         LoadingIndicator?.Show();
         if (State?.SelectedYearlyLeague != null && State?.SelectedLeague != null && State.Teams != null)
         {
+            var leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague.Type.ToString())!;
             var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             //todo check if not exists and doesn't start it
             if (calendar == null || calendar != null)
@@ -453,12 +454,12 @@
                         return value;
                     }
                 }
-                calendar = RandomCalendar.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedLeague.Type, State.SelectedYearlyLeague, teams);
+                calendar = leagueCalculator.GetRandomCalendar(FantacalcioTime.ActualYear, State.SelectedYearlyLeague, teams);
                 await Api.Calendar.UpdateAsync(State.LeagueKey, calendar);
             }
             if (calendar != null)
             {
-                var rank = RankCalculator.GetRank(State?.SelectedLeagueSettings ?? LeagueSetting.Default, calendar, State.SelectedLeague.Type);
+                var rank = leagueCalculator.GetRank(State?.SelectedLeagueSettings ?? LeagueSetting.Default, calendar);
                 if (await Api.Ranks.ExistAsync(State.LeagueKey))
                 {
                     await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
@@ -516,6 +517,7 @@
             var realCalendar = await Api.RealCalendar.GetAsync(State.Year);
             var lastDay = realCalendar.LastDay;
             var yearlyLeague = State?.SelectedYearlyLeague;
+            var leagueType = State!.SelectedLeague!.Type;
             var settings = yearlyLeague?.Settings;
             if (settings != null)
             {
@@ -535,7 +537,7 @@
                         }
                         else if (!onlyLastDay || day.SerieADay == lastDay.SerieADay || (preciseDay && day.SerieADay == dayToRecalculate))
                         {
-                            await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, yearlyLeague.Settings, false, true, false);
+                            await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, State!.SelectedLeague!.Type, yearlyLeague.Settings, false, true, false);
                             if (TeamCalculator.Official == null || TeamCalculator.IsLive)
                                 break;
                             foreach (var game in day.Games)
@@ -591,8 +593,9 @@
                         }
                     }
                 }
+                var leagueCalculator = LeagueCalculatorFactory.Create(leagueType.ToString())!;
                 await Api.Calendar.UpdateAsync(State.LeagueKey, calendar);
-                var rank = RankCalculator.GetRank(yearlyLeague.Settings, calendar, State.SelectedLeague!.Type);
+                var rank = leagueCalculator.GetRank(yearlyLeague.Settings, calendar);
                 await Api.Ranks.UpdateAsync(State.LeagueKey, rank);
                 LoadingIndicator?.Hide();
             }

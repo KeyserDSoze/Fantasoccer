@@ -1,0 +1,13 @@
+﻿using Fantasoccer.Business;
+
+namespace Fantasoccer
+{
+    public interface ILeagueCalculator
+    {
+        Rank GetRank(LeagueSetting leagueSetting, Calendar calendar);
+        IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players, ITeamCalculator teamCalculator);
+        IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players);
+        Calendar GetRandomCalendar(int year, AnnualLeague league, IEnumerable<AnnualTeam> teams);
+        Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar);
+    }
+}
