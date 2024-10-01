@@ -44,7 +44,7 @@ namespace Fantasoccer.Engine.IngestionData
             var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();
             if (realCalendar != null)
             {
-                var liveDay = realCalendar.LiveDay ?? realCalendar.NextDay;
+                var liveDay = realCalendar.LiveDay;
                 if (liveDay != default)
                 {
                     var yearDayKey = new YearDayKey

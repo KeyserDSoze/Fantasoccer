@@ -42,19 +42,27 @@
 
     <script src="_framework/blazor.server.js" autostart="false"></script>
     <script>
-        Blazor.start().then(() => {
-            Blazor.defaultReconnectionHandler._reconnectionDisplay = {
-                show: () => { },
-                update: (d) => { },
-                rejected: (d) => document.location.reload()
-            };
-            Blazor.defaultReconnectionHandler._reconnectCallback = function (d) {
-                document.location.reload();
-            };
-        });
-        function getUseragent() {
-            return navigator.userAgent;
-        }
+        Blazor.start({
+                configureSignalR: function (builder) {
+                  let c = builder.build();
+                  c.serverTimeoutInMilliseconds = 60000;
+                  builder.build = () => {
+                    return c;
+                  };
+                },
+                reconnectionOptions: {
+                  maxRetries: 3,
+                  retryIntervalMilliseconds: 2000
+                },
+                reconnectionHandler: {
+                        onConnectionDown: (options, error) => document.location.reload(),
+                            onConnectionUp: () => console.log("Up, up, and away!")
+                        }
+                    });
+
+                function getUseragent() {
+                    return navigator.userAgent;
+                }
     </script>
     <script src="~/scripts/audiorecorder.js"></script>
     <script src="~/scripts/PushNotification.js"></script>
