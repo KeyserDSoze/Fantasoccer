@@ -14,6 +14,7 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IRepository<RealCalendar, int> _serieACalendar;
         private readonly IPushNotificationService _pushNotificationService;
         private readonly IRepository<PushNotificationSettings, string> _pushNotificationRepository;
+        private readonly IRepository<PushNotificationSent, YearDayKey> _pushNotificationSentRepository;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _liveVoteRepository;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _notificationVoteRepository;
         public PushNotificationJob(IFantasoccerLogger logger,
@@ -23,7 +24,8 @@ namespace Fantasoccer.Engine.IngestionData
             IRepository<Team, TeamDayKey> teamDayRepository,
             IRepository<RealCalendar, int> serieACalendar,
             IPushNotificationService pushNotificationService,
-            IRepository<PushNotificationSettings, string> pushNotificationRepository)
+            IRepository<PushNotificationSettings, string> pushNotificationRepository,
+            IRepository<PushNotificationSent, YearDayKey> pushNotificationSentRepository)
         {
             _logger = logger;
             _groupRepository = groupRepository;
@@ -32,6 +34,7 @@ namespace Fantasoccer.Engine.IngestionData
             _serieACalendar = serieACalendar;
             _pushNotificationService = pushNotificationService;
             _pushNotificationRepository = pushNotificationRepository;
+            _pushNotificationSentRepository = pushNotificationSentRepository;
             _liveVoteRepository = factory.Create("live")!;
             _notificationVoteRepository = factory.Create("notification")!;
         }
@@ -124,6 +127,36 @@ namespace Fantasoccer.Engine.IngestionData
                         }
                     }
                 }
+                if (realCalendar.NextDay?.Games.Any(t => t.Date != null && Math.Abs(FantacalcioTime.ItalyNow.Subtract(t.Date.Value).TotalHours) < 1) == true)
+                {
+                    var yearlyDayKey = new YearDayKey
+                    {
+                        Day = realCalendar.NextDay.SerieADay,
+                        Year = actualYear
+                    };
+                    if (!await _pushNotificationSentRepository.ExistAsync(yearlyDayKey))
+                    {
+                        var notificationUsers = await _pushNotificationRepository.Where(x => x.DeploymentReminder).ToListAsync();
+                        foreach (var user in notificationUsers)
+                        {
+                            await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, new Notification
+                            {
+                                Body = "Ricorda di schierare la formazione!",
+                                Title = "fantacalcio.xyz",
+                                Data = new NotificationData
+                                {
+                                    Uri = "https://fantacalcio.xyz/edit"
+                                }
+                            });
+                        }
+                        await _pushNotificationSentRepository.InsertAsync(yearlyDayKey, new PushNotificationSent
+                        {
+                            DeploymentReminder = true,
+                            EndDay = false
+                        });
+                    }
+                }
+                //todo add end day to this notification
             }
         }
         private NotificationToSend? GetNotification(VotedRealPlayer live, VotedRealPlayer current)

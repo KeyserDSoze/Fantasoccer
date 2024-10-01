@@ -63,6 +63,7 @@ namespace Fantasoccer.Infrastructure
                     storageBuilder.Settings.ContainerName = "official";
                 }, "official");
             });
+            await services.AddBlobStorage<PushNotificationSent, YearDayKey>(storageConnectionString, null, "pushnotificationsent");
             await services.AddBlobStorage<Group, string>(storageConnectionString);
             await services.AddBlobStorage<LiveGroup, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
