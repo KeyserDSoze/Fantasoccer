@@ -140,10 +140,12 @@ namespace Fantasoccer.Engine.IngestionData
             Check(current.Vote.ManOfTheMatch ? 1 : 0, live.Vote.ManOfTheMatch ? 1 : 0, "Migliore in campo", true);
             Check(current.Vote.Status == Behaviour.YellowCard ? 1 : 0, live.Vote.Status == Behaviour.YellowCard ? 1 : 0, "Giallo", true);
             Check(current.Vote.Status == Behaviour.RedCard ? 1 : 0, live.Vote.Status == Behaviour.RedCard ? 1 : 0, "Rosso", true);
-            void Check(float now, float previous, string action, bool isMaleAction)
+            void Check(float previous, float now, string action, bool isMaleAction)
             {
-                if (message.Length > 0)
+                if (now != previous && message.Length > 0)
+                {
                     message.Append(", ");
+                }
                 if (now > previous)
                 {
                     message.Append(action);

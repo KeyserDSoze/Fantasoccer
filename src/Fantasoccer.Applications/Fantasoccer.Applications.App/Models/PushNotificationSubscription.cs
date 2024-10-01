@@ -5,5 +5,4 @@
         public string Endpoint { get; set; }
         public PushNotificationSubscriptionKeys Keys { get; set; }
     }
-
 }
