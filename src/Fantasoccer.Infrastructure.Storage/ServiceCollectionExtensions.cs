@@ -55,6 +55,11 @@ namespace Fantasoccer.Infrastructure
                 await builder.WithBlobStorageAsync(storageBuilder =>
                 {
                     storageBuilder.Settings.ConnectionString = storageConnectionString;
+                    storageBuilder.Settings.ContainerName = "notification";
+                }, "notification");
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
                     storageBuilder.Settings.ContainerName = "official";
                 }, "official");
             });
@@ -70,6 +75,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day", "dailyteams");
             await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
             await services.AddBlobStorage<NewsWrapper, YearDayGroup>(storageConnectionString, "news", "news");
+            await services.AddBlobStorage<PushNotificationSettings, string>(storageConnectionString, null, "pushnotification");
             await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>

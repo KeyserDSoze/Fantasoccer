@@ -8,6 +8,7 @@
     <ItemGroup>
         <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="6.1.0" />
         <PackageReference Include="Rystem.Authentication.Social" Version="6.1.0" />
+        <PackageReference Include="WebPush" Version="1.0.12" />
     </ItemGroup>
 
 </Project>

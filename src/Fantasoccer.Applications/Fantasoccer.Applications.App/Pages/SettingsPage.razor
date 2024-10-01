@@ -1,5 +1,8 @@
 ﻿@page "/settings"
 @using Blazorise.LoadingIndicator;
+@using System.Text.Json
+@using WebPush
+@inject IJSRuntime JS
 
 <PageTitle>Settings</PageTitle>
 
@@ -10,19 +13,19 @@
             <Fields>
                 <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="State.Identity" ValidateOnLoad="false">
                     <Validation UsePattern>
-                     <Field ColumnSize="ColumnSize.IsHalf">
-                         <FieldLabel>Username</FieldLabel>
-                         <FieldBody>
-                             <TextEdit @bind-Text="@State.Identity!.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                 <Feedback>
-                                     <ValidationError />
-                                 </Feedback>
-                             </TextEdit>
-                         </FieldBody>
-                     </Field>
-                 </Validation>
-             </Validations>
-             @if (team != null)
+                        <Field ColumnSize="ColumnSize.IsHalf">
+                            <FieldLabel>Username</FieldLabel>
+                            <FieldBody>
+                                <TextEdit @bind-Text="@State.Identity!.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
+                                    <Feedback>
+                                        <ValidationError />
+                                    </Feedback>
+                                </TextEdit>
+                            </FieldBody>
+                        </Field>
+                    </Validation>
+                </Validations>
+                @if (team != null)
                 {
                     <Field ColumnSize="ColumnSize.IsHalf">
                         <FieldLabel>Team Name</FieldLabel>
@@ -38,6 +41,58 @@
             </Button>
         </Column>
     </Row>
+    @if (pushNotificationSettings != null)
+    {
+        <Row>
+            <Column>
+                <Fields>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Eventi della partita</FieldLabel>
+                        <FieldBody>
+                            <InputCheckbox @bind-Value="@pushNotificationSettings.MatchEvents">
+                            </InputCheckbox>
+                        </FieldBody>
+                    </Field>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Reminder formazione</FieldLabel>
+                        <FieldBody>
+                            <InputCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder">
+                            </InputCheckbox>
+                        </FieldBody>
+                    </Field>
+                </Fields>
+                <Fields>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Fine giornata</FieldLabel>
+                        <FieldBody>
+                            <InputCheckbox @bind-Value="@pushNotificationSettings.EndDay">
+                            </InputCheckbox>
+                        </FieldBody>
+                    </Field>
+                    <Field ColumnSize="ColumnSize.IsHalf">
+                        <FieldLabel>Mercato scambi</FieldLabel>
+                        <FieldBody>
+                            <InputCheckbox @bind-Value="@pushNotificationSettings.MarketEvents">
+                            </InputCheckbox>
+                        </FieldBody>
+                    </Field>
+                </Fields>
+                <Button Color="Color.Primary" Clicked="@SavePushSettingsAsync">
+                    Salva le impostazioni per le push notification
+                </Button>
+                <Button Color="Color.Primary" Clicked="@SubscribeOrUnsubscribeAsync">
+                    @if (isSubscribed)
+                    {
+                        @:Disabilita Push Messaging
+                    }
+                    else
+                    {
+                        @:Abilita Push Messaging
+                    }
+                </Button>
+            </Column>
+        </Row>
+    }
 }
 
 @code {
@@ -49,11 +104,16 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     private Validations? ValidationsRef { get; set; }
     private Team? team;
+    private PushNotificationSettings? pushNotificationSettings;
+    private const string applicationServerPublicKey = "BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8";
+    private bool isSubscribed;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
         if (!firstRender)
+        {
             LoadingIndicator?.Hide();
+        }
     }
     protected override async Task OnParametersSetAsync()
     {
@@ -66,6 +126,8 @@
                     Owner = State.SelectedTeam.Owner,
                     Players = new()
                 };
+            pushNotificationSettings = await Api.PushNotification.GetAsync(State.Identity!.Email!) ?? new PushNotificationSettings();
+            isSubscribed = await JS.InvokeAsync<bool>("isSubscribedToNotification", null);
         }
         await base.OnParametersSetAsync();
     }
@@ -75,6 +137,7 @@
         {
             if (await ValidationsRef.ValidateAll())
             {
+                LoadingIndicator?.Show();
                 if (State?.IsAuthenticated == true && team != null)
                 {
                     var key = State.OtherTeamKey(team.Owner);
@@ -139,8 +202,80 @@
                     }
                     State.UpdateUi();
                 }
+                LoadingIndicator?.Hide();
             }
             await ValidationsRef.ClearAll();
+        }
+    }
+    public async Task SavePushSettingsAsync()
+    {
+        LoadingIndicator?.Show();
+        var key = State.Identity!.Email!;
+        if (await Api.PushNotification.ExistAsync(key))
+        {
+            await Api.PushNotification.UpdateAsync(key, pushNotificationSettings);
+        }
+        else
+        {
+            await Api.PushNotification.InsertAsync(key, pushNotificationSettings);
+        }
+        LoadingIndicator?.Hide();
+    }
+    public async Task SubscribeOrUnsubscribeAsync()
+    {
+        LoadingIndicator?.Show();
+        if (!isSubscribed)
+        {
+            var subscriptionValue = await JS.InvokeAsync<string?>("subscribeUser", applicationServerPublicKey);
+            await SubscribeToNotificationAsync(subscriptionValue);
+        }
+        else
+        {
+            var subscriptionValue = await JS.InvokeAsync<string?>("unsubscribeUser", null);
+            await UnsubscribeToNotificationAsync(subscriptionValue);
+        }
+        isSubscribed = await JS.InvokeAsync<bool>("isSubscribedToNotification", null);
+        LoadingIndicator?.Hide();
+    }
+    public async Task SubscribeToNotificationAsync(string? value)
+    {
+        if (State?.IsAuthenticated == true && team != null)
+        {
+            var key = State.Identity!.Email!;
+            PushNotificationSubscription notificationSubscription = value.FromJson<PushNotificationSubscription>(new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            if (!pushNotificationSettings!.Subscriptions.Any(x => x.Auth == notificationSubscription.Keys.Auth))
+            {
+                pushNotificationSettings.Subscriptions.Add(new PushSubscription
+                    {
+                        Auth = notificationSubscription.Keys.Auth,
+                        Endpoint = notificationSubscription.Endpoint,
+                        P256DH = notificationSubscription.Keys.P256DH
+                    });
+            }
+            await SavePushSettingsAsync();
+        }
+    }
+    public async Task UnsubscribeToNotificationAsync(string? value)
+    {
+        if (State?.IsAuthenticated == true && team != null)
+        {
+            var key = State.Identity!.Email!;
+            PushNotificationSubscription notificationSubscription = value.FromJson<PushNotificationSubscription>(new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            if (await Api.PushNotification.ExistAsync(key))
+            {
+                var subscription = pushNotificationSettings!.Subscriptions.FirstOrDefault(x => x.Auth == notificationSubscription.Keys.Auth);
+                if (subscription != null)
+                {
+                    pushNotificationSettings.Subscriptions.Remove(subscription);
+                    await Api.PushNotification.UpdateAsync(key, pushNotificationSettings);
+                }
+            }
         }
     }
 }

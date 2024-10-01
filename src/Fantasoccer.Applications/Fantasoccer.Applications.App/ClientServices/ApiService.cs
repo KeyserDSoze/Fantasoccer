@@ -22,7 +22,8 @@ namespace Fantasoccer.Applications.App
             IRepository<Rank, YearDayLeague> dailyRank,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
             IRepository<LiveGroup, string> live,
-            IRepository<NewsWrapper, YearDayGroup> news)
+            IRepository<NewsWrapper, YearDayGroup> news,
+            IRepository<PushNotificationSettings, string> pushNotification)
         {
             RealCalendar = realCalendar;
             RealPlayers = realPlayers;
@@ -40,6 +41,7 @@ namespace Fantasoccer.Applications.App
             RandomizedRealPlayers = randomizedRealPlayers;
             Live = live;
             News = news;
+            PushNotification = pushNotification;
             LiveVote = voteFactory.Create("live");
             OfficialVote = voteFactory.Create("official");
         }
@@ -60,6 +62,7 @@ namespace Fantasoccer.Applications.App
         public IRepository<Rank, YearDayLeague> DailyRank { get; }
         public IRepository<LiveGroup, string> Live { get; }
         public IRepository<NewsWrapper, YearDayGroup> News { get; }
+        public IRepository<PushNotificationSettings, string> PushNotification { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> LiveVote { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> OfficialVote { get; }
     }
