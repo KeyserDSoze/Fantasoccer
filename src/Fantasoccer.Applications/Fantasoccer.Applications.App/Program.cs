@@ -1,35 +1,23 @@
 ﻿using Blazored.LocalStorage;
-using Blazorise;
-using Blazorise.Bootstrap5;
-using Blazorise.Icons.FontAwesome;
 using Fantasoccer.Applications.App;
-using Fantasoccer.Applications.App.Extensions;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.Identity.Web;
-using Microsoft.Identity.Web.UI;
-using Fantasoccer.Business;
 using Fantasoccer.Applications.App.ClientServices;
+using Fantasoccer.Applications.App.Extensions;
+using Fantasoccer.Business;
+using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebApplication.CreateBuilder(args);
-//var scopes = new string[] { builder.Configuration["AzureAdB2c:Scopes"]! };
-//builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-//    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAdB2c"))
-//    .EnableTokenAcquisitionToCallDownstreamApi(scopes)
-//    .AddInMemoryTokenCaches();
 
 builder.Services.AddApplicationInsightsTelemetry(x =>
 {
     x.ConnectionString = builder.Configuration["ConnectionStrings:AppInsights"];
 });
-builder.Services.AddControllersWithViews();
-    //.AddMicrosoftIdentityUI();
-builder.Services
-    .AddBlazorise(options =>
-    {
-        options.Immediate = true;
-    })
-    .AddBootstrap5Providers()
-    .AddFontAwesomeIcons();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+builder.Services.AddHttpClient();
+builder.Services.AddFluentUIComponents(options =>
+{
+    options.ValidateClassNames = false;
+});
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddHttpClientIntegrationForApi(builder.Configuration);
 builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient();
@@ -42,8 +30,6 @@ builder.Services.AddSingleton(new AuctionHubClientSettings
     ApiUri = $"wss://{builder.Configuration["Api:Uri"]}/auctionhub"
 });
 builder.Services.AddTransient<AuctionHubClient>();
-builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
 builder.Services.AddSocialLoginUI(x =>
 {
     x.ApiUrl = $"https://{builder.Configuration["Api:Uri"]}";
@@ -67,13 +53,12 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
-
 app.UseRouting();
-
-app.MapControllers();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 app.Run();

@@ -1,55 +1,30 @@
 ﻿@page "/auctionlive"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 @using Fantasoccer.Applications.App.ClientServices
 
 <PageTitle>Auction Live</PageTitle>
 
-<CardDeck>
+<div>
     @foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
     {
-        <Card>
-            <CardBody>
-                <CardTitle Size="5">@team.Name</CardTitle>
-                <CardText>
-                    @team.Owner
-                </CardText>
-                <CardText>
-                    <Label>Rimangono: </Label>
-                    @(State.SelectedLeagueSettings!.StartingMoney - team.Cost)
-                </CardText>
-                <CardText>
-                    Portieri: @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)
-                </CardText>
-                <CardText>
-                    Difensori: @team.ActivePlayers.Count(x => x.Role == Role.Defensor)
-                </CardText>
-                <CardText>
-                    Centrocapisti: @team.ActivePlayers.Count(x => x.Role == Role.Midfielder)
-                </CardText>
-                <CardText>
-                    Attaccanti: @team.ActivePlayers.Count(x => x.Role == Role.Forward)
-                </CardText>
-            </CardBody>
-        </Card>
-        @* if (anchorTeam != null)
-        {
-            <Card>
-                <CardBody>
-                    <CardTitle Size="5">@team.Name</CardTitle>
-                    <CardText>
-                        @anchorTeam.Owner vs @team.Owner
-                    </CardText>
-                    <CardText>
-                        @((State.SelectedLeagueSettings!.StartingMoney - anchorTeam.Cost) - (State.SelectedLeagueSettings!.StartingMoney - team.Cost))
-                    </CardText>
-                </CardBody>
-            </Card>
-        } *@
+        <FluentCard>
+            <p>@team.Owner</p>
+            <FluentDivider Style="width: 100%;" Orientation=Orientation.Horizontal Role="DividerRole.Separator"></FluentDivider>
+            <p>Rimangono: @(State.SelectedLeagueSettings!.StartingMoney - team.Cost)</p>
+            <p>
+                Portieri: @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)
+            </p>
+            <p>
+                Difensori: @team.ActivePlayers.Count(x => x.Role == Role.Defensor)
+            </p>
+            <p>
+                Centrocapisti: @team.ActivePlayers.Count(x => x.Role == Role.Midfielder)
+            </p>
+            <p>
+                Attaccanti: @team.ActivePlayers.Count(x => x.Role == Role.Forward)
+            </p>
+        </FluentCard>
     }
-</CardDeck>
-@* <Button Clicked="SendAsync">Send something</Button> *@
-@*to refresh <script src="~/Scripts/scripts.js"></script> *@
+</div>
 
 @code {
     [CascadingParameter]

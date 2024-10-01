@@ -1,35 +1,19 @@
 ﻿@using Blazored.LocalStorage;
-@using Blazorise;
 @using Fantasoccer.Applications.App.Extensions;
 @using Microsoft.Identity.Abstractions;
 @using Microsoft.Identity.Web;
 @using Rystem.Authentication.Social
 @using Rystem.Authentication.Social.Blazor.Components
 
-<Blazorise.ThemeProvider Theme="@theme">
+<LoadingIndicator>
     <CascadingValue Value="@state">
         <SocialAuthenticationRouter AppAssembly="@typeof(AppRouter).Assembly" DefaultLayout="@typeof(MainLayout)" SetUser="OnUserSetAsync" TUser="AppIdentity">
         </SocialAuthenticationRouter>
     </CascadingValue>
-</Blazorise.ThemeProvider>
+</LoadingIndicator>
 
 @code {
     private FantasoccerState? state;
-    private Theme theme = new Theme
-        {
-            ColorOptions = new ThemeColorOptions
-            {
-                Primary = "#8b2c62",
-                Secondary = "#db3258",
-                Light = "#e8fcdc",
-                Dark = "#2d2c39",
-                Info = "#01854d",
-                Success = "#019e6b",
-                Warning = "#d3ce01",
-                Danger = "#df3d00",
-                Link = "#ffffff"
-            }
-        };
     private async ValueTask OnUserSetAsync(AppIdentity socialUser)
     {
         if (socialUser is AppIdentity identity)

@@ -1,48 +1,37 @@
 ﻿@page "/allplayers"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 @using Fantasoccer.Domain;
-@using Microsoft.AspNetCore.Components.QuickGrid
 
 <PageTitle>All players</PageTitle>
 
 @if (players != null)
 {
-    <Tabs SelectedTab="GoalKeeper">
-        <Items>
-            @foreach (var role in FantasoccerConstant.Roles)
-            {
-                <Tab Name="@role.Name">@role.Abbreviation</Tab>
-            }
-        </Items>
-        <Content>
-            @foreach (var playersByRole in players.GroupBy(x => x.Role))
-            {
-                <TabPanel Name="@playersByRole.Key.ToString()">
-                    <QuickGrid Items="@playersByRole.AsQueryable()" Class="styled-table">
-                        <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.Average)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.FantaAverage)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.ManOfTheMatch)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.WithVote)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.WithoutVote)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.YellowCard)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.RedCard)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.Goal)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.Assist)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.Penalty)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.StoppedPenalty)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.SufferedGoal)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.WrongedPenalty)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.OwnGoal)" Sortable="true" />
-                        <PropertyColumn Property="@(p => p.IsActive)" Sortable="true" />
-                    </QuickGrid>
-                </TabPanel>
-            }
-        </Content>
-    </Tabs>
+    <FluentTabs @bind-ActiveTabId="roleToShow">
+    @foreach (var playersByRole in players.GroupBy(x => x.Role))
+    {
+        <FluentTab Name="@playersByRole.Key.ToString()">
+            <FluentDataGrid Items="@playersByRole.AsQueryable()">
+                <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
+                <PropertyColumn Property="@(p => p.Average)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.FantaAverage)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
+                <PropertyColumn Property="@(p => p.ManOfTheMatch)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.WithVote)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.WithoutVote)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.YellowCard)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.RedCard)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.Goal)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.Assist)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.Penalty)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.StoppedPenalty)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.SufferedGoal)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.WrongedPenalty)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.OwnGoal)" Sortable="true" />
+                <PropertyColumn Property="@(p => p.IsActive)" Sortable="true" />
+            </FluentDataGrid>
+        </FluentTab>
+    }
+</FluentTabs>
 }
 
 @code {
@@ -51,6 +40,7 @@
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
     private IEnumerable<StatPlayer>? players;
+    private string roleToShow = "GoalKeeper";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);

@@ -67,6 +67,16 @@ a, .btn-link {
         content: "An error has occurred."
     }
 
+
+.containerForLoader {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    width: 100vh;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
 .loader {
     position: fixed;
     top: 40%;
@@ -262,15 +272,18 @@ a, .btn-link {
     min-width: 400px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
 }
+
     .styled-table thead tr {
         background-color: #468fcd;
         color: #ffffff !important;
         text-align: left;
     }
+
     .styled-table th,
     .styled-table td {
         padding: 12px 15px;
     }
+
     .styled-table tbody tr {
         border-bottom: 1px solid #dddddd;
     }
@@ -282,6 +295,7 @@ a, .btn-link {
         .styled-table tbody tr:last-of-type {
             border-bottom: 2px solid #468fcd;
         }
+
         .styled-table tbody tr.active-row {
             font-weight: bold;
             color: #468fcd;

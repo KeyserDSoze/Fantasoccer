@@ -1,6 +1,4 @@
-﻿using Blazorise;
-
-namespace Fantasoccer.Applications.App
+﻿namespace Fantasoccer.Applications.App
 {
     public sealed class FantaSoccerPosition
     {

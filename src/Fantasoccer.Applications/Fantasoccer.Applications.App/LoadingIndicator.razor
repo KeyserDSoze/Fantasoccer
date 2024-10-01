@@ -1,0 +1,23 @@
+<div class="totalContainer">
+    <CascadingValue Value="@this" IsFixed>
+        @ChildContent
+    </CascadingValue>
+    @if (IsVisible)
+    {
+        <div class="containerForLoader">
+            <img src="/static/soccerball.gif" class="loader" />
+        </div>
+    }
+</div>
+
+@code {
+    public bool IsVisible { get; private set; }
+    public void Show()
+    {
+        IsVisible = true;
+    }
+    public void Hide()
+    {
+        IsVisible = false;
+    }
+}

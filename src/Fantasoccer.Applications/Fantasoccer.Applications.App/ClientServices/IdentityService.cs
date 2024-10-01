@@ -1,5 +1,4 @@
 ﻿using Blazored.LocalStorage;
-using Blazorise;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
