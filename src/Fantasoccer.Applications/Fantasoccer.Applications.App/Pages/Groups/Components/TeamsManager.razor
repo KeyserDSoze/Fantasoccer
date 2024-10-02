@@ -97,9 +97,7 @@
     [Parameter]
     public required List<AnnualTeam> Teams { get; set; }
     private string? newBasketName;
-    private Validations? ValidationsRefForBasket { get; set; }
     private string? newTeamName;
-    private Validations? ValidationsRefForNewTeam { get; set; }
     private string? owner;
     protected override Task OnParametersSetAsync()
     {
@@ -109,43 +107,36 @@
     private async Task AddNewTeam()
     {
         LoadingIndicator?.Show();
-        if (ValidationsRefForNewTeam != null)
+        if (State?.IsAuthenticated == true && State.HasAGroup && owner != null)
         {
-            if (await ValidationsRefForNewTeam.ValidateAll())
+            if (!Teams.Any(x => x.Owner == owner))
             {
-                if (State?.IsAuthenticated == true && State.HasAGroup && owner != null)
-                {
-                    if (!Teams.Any(x => x.Owner == owner))
+                newTeamName = string.IsNullOrWhiteSpace(newTeamName) ? $"{owner} team" : newTeamName;
+                var team = new AnnualTeam
                     {
-                        newTeamName = string.IsNullOrWhiteSpace(newTeamName) ? $"{owner} team" : newTeamName;
-                        var team = new AnnualTeam
-                            {
-                                Name = newTeamName,
-                                Owner = owner
-                            };
-                        Teams!.Add(team);
-                        if (await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup))
+                        Name = newTeamName,
+                        Owner = owner
+                    };
+                Teams!.Add(team);
+                if (await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup))
+                {
+                    var teamX = new Team()
                         {
-                            var teamX = new Team()
-                                {
-                                    Owner = owner,
-                                    Name = newTeamName,
-                                    Players = new()
-                                };
-                            if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
-                            {
-                                await Api.Team.InsertAsync(State.OtherTeamKey(owner), teamX);
-                            }
-                            else
-                            {
-                                await Api.Team.UpdateAsync(State.OtherTeamKey(owner), teamX);
-                            }
-                        }
-                        newTeamName = string.Empty;
-                        State.AppUiUpdate();
+                            Owner = owner,
+                            Name = newTeamName,
+                            Players = new()
+                        };
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(owner)))
+                    {
+                        await Api.Team.InsertAsync(State.OtherTeamKey(owner), teamX);
+                    }
+                    else
+                    {
+                        await Api.Team.UpdateAsync(State.OtherTeamKey(owner), teamX);
                     }
                 }
-                await ValidationsRefForNewTeam.ClearAll();
+                newTeamName = string.Empty;
+                State.AppUiUpdate();
             }
         }
         LoadingIndicator?.Hide();

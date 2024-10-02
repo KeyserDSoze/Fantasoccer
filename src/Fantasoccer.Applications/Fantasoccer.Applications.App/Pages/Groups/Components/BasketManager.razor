@@ -1,46 +1,16 @@
-﻿@using Blazorise.Components
-@using Blazorise.LoadingIndicator;
-
-@if (CanCreateNewGroup)
+﻿@if (CanCreateNewGroup)
 {
-    <Row>
-        <Column>
-            <Fields>
-                <Field>
-                    @if (State?.SelectedGroup?.Baskets?.Any() == true)
-                    {
-                        <Select TValue="string" SelectedValue="@basketId" SelectedValueChanged="@OnSelectedBasketChanged" Width="Width.Is50">
-                            @foreach (var basket in State.SelectedGroup.Baskets)
-                            {
-                                <SelectItem Value="@basket.Id">@basket.Name</SelectItem>
-                            }
-                        </Select>
-                    }
-                </Field>
-                <Validations @ref="@ValidationsRefForBasket" Mode="ValidationMode.Auto" ValidateOnLoad="false">
-                    <Validation UsePattern>
-                        <Field ColumnSize="ColumnSize.IsHalf">
-                            <FieldLabel>Nome basket</FieldLabel>
-                            <FieldBody>
-                                <TextEdit @bind-Text="@newBasketName" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                    <Feedback>
-                                        <ValidationError />
-                                    </Feedback>
-                                </TextEdit>
-                                <Button Color="Color.Primary" Clicked="@CreateNewBasket">
-                                    Crea nuovo basket
-                                </Button>
-                            </FieldBody>
-                        </Field>
-                    </Validation>
-                </Validations>
-            </Fields>
-        </Column>
-    </Row>
+    <FluentStack Orientation="Orientation.Vertical">
+        <FluentSelect TOption="Basket" Items="@State.SelectedGroup!.Baskets" Value="@State.SelectedBasketId" SelectedOptionChanged="@OnSelectedBasketChanged" />
+        <FluentTextField @bind-Value=newBasketName Label="Nome basket"></FluentTextField>
+        <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewBasket">
+            Crea nuovo basket
+        </FluentButton>
+    </FluentStack>
     <TeamsManager Teams="teams"></TeamsManager>
-    <Button Color="Color.Primary" Clicked="@CopyLastYearTeams">
+    <FluentButton Appearance="Appearance.Accent" OnClick="@CopyLastYearTeams">
         Copia dall'anno passato
-    </Button>
+    </FluentButton>
 }
 
 
@@ -54,7 +24,6 @@
     private string? basketId;
     private List<AnnualTeam>? teams;
     private string? newBasketName;
-    private Validations? ValidationsRefForBasket { get; set; }
 
     protected override Task OnParametersSetAsync()
     {
@@ -65,34 +34,28 @@
     private async Task CreateNewBasket()
     {
         LoadingIndicator?.Show();
-        if (ValidationsRefForBasket != null)
+
+        if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
         {
-            if (await ValidationsRefForBasket.ValidateAll())
-            {
-                if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
+            basketId = Guid.NewGuid().ToString();
+            teams = new List<AnnualTeam>();
+            var basket = new Basket
                 {
-                    basketId = Guid.NewGuid().ToString();
-                    teams = new List<AnnualTeam>();
-                    var basket = new Basket
-                        {
-                            Id = basketId,
-                            Name = newBasketName,
-                            Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = teams } }
-                        };
-                    State.SelectedGroup!.Baskets.Add(basket);
-                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
-                }
-                await ValidationsRefForBasket.ClearAll();
-            }
+                    Id = basketId,
+                    Name = newBasketName,
+                    Years = new() { new() { Year = FantacalcioTime.ActualYear, Teams = teams } }
+                };
+            State.SelectedGroup!.Baskets.Add(basket);
+            await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
         }
         LoadingIndicator?.Hide();
     }
-    private void OnSelectedBasketChanged(string id)
+    private void OnSelectedBasketChanged(Basket basket)
     {
         LoadingIndicator?.Show();
         if (State?.IsAuthenticated == true && State.SelectedGroup != null)
         {
-            basketId = id;
+            basketId = basket.Id;
             teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
         }
         LoadingIndicator?.Hide();
