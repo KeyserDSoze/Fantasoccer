@@ -1,7 +1,6 @@
 ﻿@page "/game/{groupId?}/{leagueId?}/{year:int?}/{gameId?}"
 @page "/edit"
 @using System.Text.RegularExpressions;
-@using Blazorise.LoadingIndicator;
 @using Fantasoccer.Business;
 
 @if (State != null)
@@ -80,11 +79,6 @@
             }
         </div>
     }
-    <Snackbar @ref="snackbar" Location="SnackbarLocation.BottomEnd">
-        <SnackbarBody>
-            @message
-        </SnackbarBody>
-    </Snackbar>
 }
 
 @code {
@@ -235,7 +229,6 @@
         }
         await base.OnParametersSetAsync();
     }
-    private Snackbar? snackbar;
     private string? message;
     public async ValueTask SaveAsync()
     {
@@ -252,22 +245,19 @@
                 if (!isOk)
                     state.Message = "Errore salvataggio team";
             }
-            if (snackbar != null)
-            {
-                snackbar.Color = state.IsOk ? SnackbarColor.Success : SnackbarColor.Danger;
-                message = state.Message ?? (state.IsOk ? "Formazione salvata correttamente." : "Errore durante il savaltaggio della formazione.");
-                snackbar.Show();
-            }
             if (state.IsOk)
             {
+                ToastService.ShowSuccess("Formazione salvata correttamente.");
                 StateHasChanged();
+            }
+            else
+            {
+                ToastService.ShowError("Errore durante il savaltaggio della formazione.");
             }
         }
         else
         {
-            snackbar.Color = SnackbarColor.Danger;
-            message = "Errore nell'insieme dei numeri immaginari.";
-            snackbar.Show();
+            ToastService.ShowError("Errore nell'insieme dei numeri immaginari.");
         }
     }
 }

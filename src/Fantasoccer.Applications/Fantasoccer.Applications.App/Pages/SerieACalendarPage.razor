@@ -1,24 +1,16 @@
 ﻿@page "/serieacalendar"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 
 <PageTitle>Calendar</PageTitle>
 
 @if (calendar != null)
 {
-    <Row>
-        <SerieACalendaring Days="calendar.Days" WithFluentSize=true></SerieACalendaring>
-    </Row>
+    <SerieACalendaring Days="calendar.Days" WithFluentSize=true></SerieACalendaring>
 }
-<Alert Color="Color.Info" Visible=isVisible>
-    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-        Not found
-        <CloseButton />
-    </Heading>
-    <Paragraph>
-        @nullCalendar
-    </Paragraph>
-</Alert>
+@if (isVisible)
+{
+    <h4>Not Found</h4>
+    <p>@nullCalendar</p>
+}
 
 @code {
     [CascadingParameter]

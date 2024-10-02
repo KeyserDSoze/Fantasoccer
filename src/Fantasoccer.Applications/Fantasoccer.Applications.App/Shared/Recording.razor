@@ -1,7 +1,9 @@
 ﻿@using System.Text;
 @inject IJSRuntime mJS
 
-<Button Clicked="x => RecordAudio()"><Icon Name="IconName.Microphone" /></Button>
+<FluentButton OnClick="x => RecordAudio()">
+    <FluentIcon Value="@(new Icons.Regular.Size20.SlideMicrophone())" />
+</FluentButton>
 
 @code {
     private bool isStarted;

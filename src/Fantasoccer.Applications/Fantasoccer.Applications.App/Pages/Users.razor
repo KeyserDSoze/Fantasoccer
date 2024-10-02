@@ -1,34 +1,15 @@
 ﻿@page "/users"
-@using Blazorise.LoadingIndicator;
 @using System.Text.Json;
 
 <PageTitle>Users</PageTitle>
 
 @if (canSee && users != null)
 {
-    <Table Striped>
-     <TableHeader>
-         <TableRow>
-             <TableHeaderCell>Email</TableHeaderCell>
-             <TableHeaderCell>Username</TableHeaderCell>
-             <TableHeaderCell>Group0</TableHeaderCell>
-             <TableHeaderCell>Group1</TableHeaderCell>
-             <TableHeaderCell>RemainedGroups</TableHeaderCell>
-         </TableRow>
-     </TableHeader>
-     <TableBody>
-         @foreach (var user in users)
-            {
-                <TableRow>
-                    <TableRowHeader>@user.Email</TableRowHeader>
-                    <TableRowCell>@user.Username</TableRowCell>
-                    <TableRowCell>@user.Groups.FirstOrDefault()?.ToJson()</TableRowCell>
-                    <TableRowCell>@user.Groups.Skip(1).FirstOrDefault()?.ToJson()</TableRowCell>
-                    <TableRowCell>@user.Groups.Skip(2).ToJson()</TableRowCell>
-                </TableRow>
-            }
-        </TableBody>
-    </Table>
+    <FluentDataGrid Items="users.AsQueryable()">
+        <PropertyColumn Property="@(p => p.Email)" Sortable="true" Title="Email" />
+        <PropertyColumn Property="@(p => p.Username)" Sortable="true" Title="Username" />
+        <PropertyColumn Property="@(p => p.Groups.ToJson(default))" Sortable="true" Title="Gruppi" />
+    </FluentDataGrid>
 }
 
 @code {

@@ -1,71 +1,43 @@
 ﻿@page "/live"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 
 <PageTitle>Live</PageTitle>
 
 @if (liveGroup != null && selectedTab != null && innerSelectedTab != null)
 {
-    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
-        <Items>
-            @foreach (var league in liveGroup.Leagues)
+    <FluentTabs @bind-ActiveTabId="@selectedTab">
+        @foreach (var league in liveGroup.Leagues)
+        {
+            if (innerSelectedTab.ContainsKey(league.Id))
             {
-                if (innerSelectedTab.ContainsKey(league.Id))
-                {
-                    <Tab Name="@league.Id">@league.Name</Tab>
-                }
-            }
-        </Items>
-        <Content>
-            @foreach (var league in liveGroup.Leagues)
-            {
-                if (innerSelectedTab.ContainsKey(league.Id))
-                {
-                    <TabPanel Name="@league.Id">
-                        <Tabs SelectedTab="@innerSelectedTab[selectedTab]" SelectedTabChanged="@OnSelectedInnerTabChanged">
-                            <Items>
-                                @foreach (var calendarByRound in league.Rounds)
-                                {
-                                    <Tab Name="@calendarByRound.Key" Display="league.Rounds.Count > 1 ? Display.Block: Display.None">Round @calendarByRound.Key</Tab>
-                                }
-                            </Items>
-                            <Content>
-                                @foreach (var dayByRound in league.Rounds)
-                                {
-                                    <TabPanel Name="@dayByRound.Key">
-                                        <Row>
-                                            <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                                @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
-                                                {
-                                                    <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
-                                                }
-                                            </Column>
-                                            <Column ColumnSize="ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet">
-                                                <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                <FluentTab Name="@league.Id">
+                    <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
+                        @foreach (var dayByRound in league.Rounds)
+                        {
+                            <FluentTab Name="@dayByRound.Key">
+                                <FluentGrid AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+                                    <FluentGridItem xs="6" sm="12">
+                                        @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
+                                        {
+                                            <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                        }
+                                    </FluentGridItem>
+                                    <FluentGridItem xs="6" sm="12">
+                                        <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
                                                      GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"></Calendaring>
-                                            </Column>
-                                        </Row>
-                                    </TabPanel>
-                                }
-                            </Content>
-                        </Tabs>
-                    </TabPanel>
-                }
+                                    </FluentGridItem>
+                                </FluentGrid>
+                            </FluentTab>
+                        }
+                    </FluentTabs>
+                </FluentTab>
             }
-        </Content>
-    </Tabs>
+        }
+    </FluentTabs>
 }
 @if (nullCalendar != null)
 {
-    <Alert Color="Color.Info" Visible=true>
-        <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-            Not found
-            <CloseButton />
-        </Heading>
-        <Paragraph>
-            @nullCalendar
-        </Paragraph>
-    </Alert>
+    <h4>Not Found</h4>
+    <p>@nullCalendar</p>
 }
 
 @code {

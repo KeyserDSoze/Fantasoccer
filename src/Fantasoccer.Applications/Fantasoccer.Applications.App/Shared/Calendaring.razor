@@ -1,55 +1,20 @@
 ﻿@if (Days != null)
 {
-    @foreach (var day in Days)
-    {
-        <Column ColumnSize="WithFluentSize ? ColumnSize.Is6.OnDesktop.Is12.OnMobile.Is12.OnTablet : ColumnSize.Is12">
-            <Card Margin="Margin.Is1">
-                <CardBody>
-                    <CardTitle Size="3">
-                        Day @day.Number (@day.SerieADay)
-                    </CardTitle>
-                    <CardText class="fonting">
-                        <Table Striped>
-                         <TableHeader>
-                             <TableRow>
-                                 <TableHeaderCell>Home Team</TableHeaderCell>
-                                 <TableHeaderCell>Points</TableHeaderCell>
-                                 <TableHeaderCell>Away Team</TableHeaderCell>
-                             </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                             @foreach (var game in day.Games)
-                                {
-                                    <TableRow Clicked="() => NavigateTo(game.Id)">
-                                        <TableRowCell>@game.Home</TableRowCell>
-                                        @if (game.Result != null && !game.Result.IsCancelled)
-                                        {
-                                            <TableRowCell>
-                                                @game.Result.HomeGoal (@game.Result.Home.Value) - (@game.Result.Away.Value) @game.Result.AwayGoal
-                                            </TableRowCell>
-                                        }
-                                        else if (game.Result != null && game.Result.IsCancelled)
-                                        {
-                                            <TableRowCell>
-                                                cancelled
-                                            </TableRowCell>
-                                        }
-                                        else
-                                        {
-                                            <TableRowCell>
-                                                to play
-                                            </TableRowCell>
-                                        }
-                                        <TableRowCell>@game.Away</TableRowCell>
-                                    </TableRow>
-                                }
-                            </TableBody>
-                        </Table>
-                    </CardText>
-                </CardBody>
-            </Card>
-        </Column>
-    }
+    <FluentGrid AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+        @foreach (var day in Days)
+        {
+            <FluentGridItem xs="6" sm="12">
+                <FluentCard>
+                    <h3>Giornata @day.Number (@day.SerieADay)</h3>
+                    <FluentDataGrid TGridItem="CalendarGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
+                        <PropertyColumn Property="@(p => p.Home)" Sortable="true" Title="Casa" />
+                        <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
+                        <PropertyColumn Property="@(p => p.Away)" Sortable="true" Title="Trasferta" />
+                    </FluentDataGrid>
+                </FluentCard>
+            </FluentGridItem>
+        }
+    </FluentGrid>
 }
 @code {
     [Parameter]
@@ -64,8 +29,20 @@
     public int Year { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
-    private void NavigateTo(string gameId)
+    private string CalculateResult(CalendarGame game)
     {
+        if (game.Result == null)
+            return "Da giocare";
+        else if (game.Result.IsCancelled)
+            return "Cancellata";
+        else
+        {
+            return $"{game.Result.HomeGoal} ({game.Result.Home.Value}) - ({game.Result.Away.Value}) {game.Result.AwayGoal}";
+        }
+    }
+    private void NavigateTo(FluentDataGridRow<CalendarGame> calendarGame)
+    {
+        var gameId = calendarGame.Id ??= string.Empty;
         NavigationManager.NavigateTo($"game/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
     }
 }

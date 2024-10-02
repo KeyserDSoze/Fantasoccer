@@ -1,46 +1,30 @@
 ﻿@page "/calendar"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 
 <PageTitle>Calendar</PageTitle>
 
 @if (calendar != null)
 {
-    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
-        <Items>
-            @foreach (var calendarByRound in calendar.Rounds)
-            {
-                <Tab Name="@calendarByRound.Key" Display="calendar.Rounds.Count > 1 ? Display.Block: Display.None">Round @calendarByRound.Key</Tab>
-            }
-        </Items>
-        <Content>
-            @foreach (var calendarByRound in calendar.Rounds)
-            {
-                <TabPanel Name="@calendarByRound.Key">
-                    <Row>
-                        <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
-                    </Row>
-                </TabPanel>
-            }
-        </Content>
-    </Tabs>
+    <FluentTabs @bind-ActiveTabId="selectedTab">
+        @foreach (var calendarByRound in calendar.Rounds)
+        {
+            <FluentTab Name="@calendarByRound.Key">
+                <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
+            </FluentTab>
+        }
+    </FluentTabs>
 }
-<Alert Color="Color.Info" Visible=isVisible>
-    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-        Not found
-        <CloseButton />
-    </Heading>
-    <Paragraph>
-        @nullCalendar
-    </Paragraph>
-</Alert>
+@if (isVisible)
+{
+    <h4>Not Found</h4>
+    <p>@nullCalendar</p>
+}
 
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-   
+
     private Calendar? calendar;
     private RankedTeam? selectedTeam;
     private string? selectedTab;

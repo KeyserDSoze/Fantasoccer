@@ -1,37 +1,29 @@
 ﻿@page "/rank"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 
 <PageTitle>Rank</PageTitle>
 
 @if (rank != null)
 {
-    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="@OnSelectedTabChanged">
-        <Items>
-            @foreach (var rankByRound in rank.RankedTeams)
-            {
-                <Tab Name="@rankByRound.Key" Display="rank.RankedTeams.Count > 1 ? Display.Block: Display.None">Round @rankByRound.Key</Tab>
-            }
-        </Items>
-        <Content>
-            @foreach (var rankByRound in rank.RankedTeams)
-            {
-                <TabPanel Name="@rankByRound.Key">
-                    <Ranking Teams="rankByRound.Value"></Ranking>
-                </TabPanel>
-            }
-        </Content>
-    </Tabs>
+    <FluentTab @bind-ActiveTabId="@selectedTab">
+        @* <Items>
+    @foreach (var rankByRound in rank.RankedTeams)
+    {
+    <Tab Name="@rankByRound.Key" Display="rank.RankedTeams.Count > 1 ? Display.Block: Display.None">Round @rankByRound.Key</Tab>
+    }
+    </Items> *@
+        @foreach (var rankByRound in rank.RankedTeams)
+        {
+            <FluentTab Label="@rankByRound.Key" Id="@rankByRound.Key">
+                <Ranking Teams="rankByRound.Value"></Ranking>
+            </FluentTab>
+        }
+    </FluentTab>
 }
-<Alert Color="Color.Info" Visible=isVisible>
-    <Heading Size="HeadingSize.Is4" TextColor="TextColor.Success">
-        Not found
-        <CloseButton />
-    </Heading>
-    <Paragraph>
-        @nullRank
-    </Paragraph>
-</Alert>
+@if (isVisible)
+{
+    <h4>Not Found</h4>
+    <p>@nullRank</p>
+}
 
 @code {
     [CascadingParameter]
@@ -44,11 +36,6 @@
     private string? nullRank;
     private bool isVisible => nullRank != null;
 
-    private Task OnSelectedTabChanged(string name)
-    {
-        selectedTab = name;
-        return Task.CompletedTask;
-    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);

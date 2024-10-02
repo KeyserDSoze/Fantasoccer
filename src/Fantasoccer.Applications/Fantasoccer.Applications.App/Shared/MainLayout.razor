@@ -2,7 +2,11 @@
 @attribute [Authorize]
 
 <PageTitle>Fantasoccer</PageTitle>
-
+<FluentDesignTheme @bind-Mode="@Mode"
+                   @bind-OfficeColor="@OfficeColor"
+                   OnLoaded="@OnLoaded"
+                   OnLuminanceChanged="@OnLuminanceChanged"
+                   StorageName="theme" />
 <FluentMainLayout>
     <FluentHeader>
         <FluentIcon Value="@(new Icons.Regular.Size20.SportSoccer())" />
@@ -91,7 +95,9 @@
         </FluentBodyContent>
     </FluentStack>
 </FluentMainLayout>
-
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
@@ -101,6 +107,10 @@
     public LoadingIndicator LoadingIndicator { get; set; }
     private List<Group> groups;
     bool Expanded = true;
+    private bool menuIsOpen = false;
+    public DesignThemeModes Mode { get; set; }
+
+    public OfficeColor? OfficeColor { get; set; }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.Identity?.Groups != null)
@@ -141,5 +151,13 @@
             return State.ChangeTeamAsync(groupId, leagueId, owner);
         }
         return Task.CompletedTask;
+    }
+    void OnLoaded(LoadedEventArgs e)
+    {
+        StateHasChanged();
+    }
+    void OnLuminanceChanged(LuminanceChangedEventArgs e)
+    {
+        StateHasChanged();
     }
 }

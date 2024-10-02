@@ -1,5 +1,4 @@
 ﻿@page "/settings"
-@using Blazorise.LoadingIndicator;
 @using System.Text.Json
 @using WebPush
 @inject IJSRuntime JS
@@ -8,91 +7,43 @@
 
 @if (State?.IsAuthenticated == true)
 {
-    <Row>
-        <Column>
-            <Fields>
-                <Validations @ref="@ValidationsRef" Mode="ValidationMode.Auto" Model="State.Identity" ValidateOnLoad="false">
-                    <Validation UsePattern>
-                        <Field ColumnSize="ColumnSize.IsHalf">
-                            <FieldLabel>Username</FieldLabel>
-                            <FieldBody>
-                                <TextEdit @bind-Text="@State.Identity!.Username" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                    <Feedback>
-                                        <ValidationError />
-                                    </Feedback>
-                                </TextEdit>
-                            </FieldBody>
-                        </Field>
-                    </Validation>
-                </Validations>
-                @if (team != null)
-                {
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Team Name</FieldLabel>
-                        <FieldBody>
-                            <TextEdit @bind-Text="@team.Name">
-                            </TextEdit>
-                        </FieldBody>
-                    </Field>
-                }
-            </Fields>
-            <Button Color="Color.Primary" Clicked="@OnSaveClicked">
+    <FluentGrid AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+        <FluentGridItem xs="12" sm="6">
+            <h3>Impostazioni</h3>
+            <FluentTextField @bind-Value=State.Identity!.Username Label="Username"></FluentTextField>
+            @if (team != null)
+            {
+                <FluentTextField @bind-Value=team.Name Label="Nome squadra"></FluentTextField>
+            }
+            <FluentButton Appearance="Appearance.Accent" OnClick="@OnSaveClicked">
                 Salva impostazioni
-            </Button>
-        </Column>
-    </Row>
-    @if (pushNotificationSettings != null)
-    {
-        <Row>
-            <Column>
-                <Fields>
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Eventi della partita</FieldLabel>
-                        <FieldBody>
-                            <InputCheckbox @bind-Value="@pushNotificationSettings.MatchEvents">
-                            </InputCheckbox>
-                        </FieldBody>
-                    </Field>
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Reminder formazione</FieldLabel>
-                        <FieldBody>
-                            <InputCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder">
-                            </InputCheckbox>
-                        </FieldBody>
-                    </Field>
-                </Fields>
-                <Fields>
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Fine giornata</FieldLabel>
-                        <FieldBody>
-                            <InputCheckbox @bind-Value="@pushNotificationSettings.EndDay">
-                            </InputCheckbox>
-                        </FieldBody>
-                    </Field>
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Mercato scambi</FieldLabel>
-                        <FieldBody>
-                            <InputCheckbox @bind-Value="@pushNotificationSettings.MarketEvents">
-                            </InputCheckbox>
-                        </FieldBody>
-                    </Field>
-                </Fields>
-                <Button Color="Color.Primary" Clicked="@SavePushSettingsAsync">
-                    Salva le impostazioni per le push notification
-                </Button>
-                <Button Color="Color.Primary" Clicked="@SubscribeOrUnsubscribeAsync">
-                    @if (isSubscribed)
-                    {
-                        @:Disabilita Push Messaging
-                    }
-                    else
-                    {
-                        @:Abilita Push Messaging
-                    }
-                </Button>
-            </Column>
-        </Row>
-    }
+            </FluentButton>
+        </FluentGridItem>
+        @if (pushNotificationSettings != null)
+        {
+            <FluentGridItem xs="12" sm="6">
+                <h3>Notifiche</h3>
+                <FluentCheckbox @bind-Value="@pushNotificationSettings.MatchEvents" Label="Eventi della partita" />
+                <FluentCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder" Label="Reminder formazione" />
+                <FluentCheckbox @bind-Value="@pushNotificationSettings.EndDay" Label="Fine giornata" />
+                <FluentCheckbox @bind-Value="@pushNotificationSettings.MarketEvents" Label="Scambi (compravendita)" />
+            </FluentGridItem>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@SavePushSettingsAsync">
+                Salva le impostazioni per le push notification
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@SubscribeOrUnsubscribeAsync">
+                @if (isSubscribed)
+                {
+                    @:Disabilita Push Messaging
+                }
+                else
+                {
+                    @:Abilita Push Messaging
+                }
+            </FluentButton>
+        }
+    </FluentGrid>
+}
 }
 
 @code {
@@ -102,7 +53,6 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private Validations? ValidationsRef { get; set; }
     private Team? team;
     private PushNotificationSettings? pushNotificationSettings;
     private const string applicationServerPublicKey = "BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8";
@@ -133,79 +83,73 @@
     }
     async Task OnSaveClicked()
     {
-        if (ValidationsRef != null)
+
+        LoadingIndicator?.Show();
+        if (State?.IsAuthenticated == true && team != null)
         {
-            if (await ValidationsRef.ValidateAll())
+            var key = State.OtherTeamKey(team.Owner);
+            if (!await Api.Team.ExistAsync(key))
             {
-                LoadingIndicator?.Show();
-                if (State?.IsAuthenticated == true && team != null)
-                {
-                    var key = State.OtherTeamKey(team.Owner);
-                    if (!await Api.Team.ExistAsync(key))
-                    {
-                        await Api.Team.InsertAsync(State.TeamKey, team);
-                    }
-                    else
-                    {
-                        await Api.Team.UpdateAsync(State.TeamKey, team);
-                    }
-                    var basket = State.SelectedYearlyBaskets;
-                    if (basket != null)
-                    {
-                        foreach (var teamX in basket.SelectMany(x => x.Teams).Where(x => x.Owner == team.Owner))
-                        {
-                            teamX.Name = team.Name;
-                        }
-                        await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
-                        var basketId = State.SelectedBasketId;
-                        foreach (var league in State.SelectedGroup.Leagues.Where(x => x.BasketsId.Contains(basketId)))
-                        {
-                            var leagueKey = State.LeagueKey;
-                            var calendar = await Api.Calendar.GetAsync(leagueKey);
-                            if (calendar != null)
-                            {
-                                foreach (var round in calendar.Rounds)
-                                {
-                                    foreach (var day in round.Value)
-                                    {
-                                        foreach (var game in day.Games)
-                                        {
-                                            if (game.HomeOwner == team.Owner)
-                                            {
-                                                game.Home = team.Name;
-                                            }
-                                            else if (game.AwayOwner == team.Owner)
-                                            {
-                                                game.Away = team.Name;
-                                            }
-                                        }
-                                    }
-                                }
-                                await Api.Calendar.UpdateAsync(leagueKey, calendar);
-                            }
-                            var rank = await Api.Ranks.GetAsync(leagueKey);
-                            if (rank != null)
-                            {
-                                foreach (var round in rank.RankedTeams)
-                                {
-                                    foreach (var teamX in round.Value)
-                                    {
-                                        if (teamX.Owner == team.Owner)
-                                        {
-                                            teamX.Name = team.Name;
-                                        }
-                                    }
-                                }
-                                await Api.Ranks.UpdateAsync(leagueKey, rank);
-                            }
-                        }
-                    }
-                    State.UpdateUi();
-                }
-                LoadingIndicator?.Hide();
+                await Api.Team.InsertAsync(State.TeamKey, team);
             }
-            await ValidationsRef.ClearAll();
+            else
+            {
+                await Api.Team.UpdateAsync(State.TeamKey, team);
+            }
+            var basket = State.SelectedYearlyBaskets;
+            if (basket != null)
+            {
+                foreach (var teamX in basket.SelectMany(x => x.Teams).Where(x => x.Owner == team.Owner))
+                {
+                    teamX.Name = team.Name;
+                }
+                await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
+                var basketId = State.SelectedBasketId;
+                foreach (var league in State.SelectedGroup.Leagues.Where(x => x.BasketsId.Contains(basketId)))
+                {
+                    var leagueKey = State.LeagueKey;
+                    var calendar = await Api.Calendar.GetAsync(leagueKey);
+                    if (calendar != null)
+                    {
+                        foreach (var round in calendar.Rounds)
+                        {
+                            foreach (var day in round.Value)
+                            {
+                                foreach (var game in day.Games)
+                                {
+                                    if (game.HomeOwner == team.Owner)
+                                    {
+                                        game.Home = team.Name;
+                                    }
+                                    else if (game.AwayOwner == team.Owner)
+                                    {
+                                        game.Away = team.Name;
+                                    }
+                                }
+                            }
+                        }
+                        await Api.Calendar.UpdateAsync(leagueKey, calendar);
+                    }
+                    var rank = await Api.Ranks.GetAsync(leagueKey);
+                    if (rank != null)
+                    {
+                        foreach (var round in rank.RankedTeams)
+                        {
+                            foreach (var teamX in round.Value)
+                            {
+                                if (teamX.Owner == team.Owner)
+                                {
+                                    teamX.Name = team.Name;
+                                }
+                            }
+                        }
+                        await Api.Ranks.UpdateAsync(leagueKey, rank);
+                    }
+                }
+            }
+            State.UpdateUi();
         }
+        LoadingIndicator?.Hide();
     }
     public async Task SavePushSettingsAsync()
     {

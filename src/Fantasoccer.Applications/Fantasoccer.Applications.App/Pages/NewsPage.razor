@@ -1,6 +1,4 @@
 ﻿@page "/"
-@using Blazorise.DataGrid
-@using Blazorise.LoadingIndicator;
 @using Fantasoccer.Domain
 
 <PageTitle>News</PageTitle>
@@ -9,24 +7,17 @@
 {
     @foreach (var news in newsWrapper.News)
     {
-        <Card>
-            <CardHeader>
-                <CardTitle>
-                    <h3>@news.League (@news.Date.ToString("yyyy-MM-dd"))</h3>
-                    <h1>@news.Title.Trim('"').Replace("Titolo: \"", string.Empty)</h1>
-                </CardTitle>
-            </CardHeader>
-            <CardBody>
-                <CardText>@((MarkupString)news.Content.Replace("```html", string.Empty).Replace("```", string.Empty))</CardText>
-            </CardBody>
-        </Card>
+        <h3>@news.League (@news.Date.ToString("yyyy-MM-dd"))</h3>
+        <h1>@news.Title.Trim('"').Replace("Titolo: \"", string.Empty)</h1>
+        <p>@((MarkupString)news.Content.Replace("```html", string.Empty).Replace("```", string.Empty))</p>
+        <FluentDivider Style="width: 100%;" Role="DividerRole.Presentation"></FluentDivider>
     }
 }
 @if (youHaveMore)
 {
-    <Button Color="Color.Primary" Clicked="@(()=>AddAsync(false))" Margin="Margin.Is1.FromTop">
+    <FluentButton Appearance="Appearance.Accent" OnClick="@(()=>AddAsync(false))">
         More..
-    </Button>
+    </FluentButton>
 }
 
 

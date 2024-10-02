@@ -12,9 +12,11 @@
     }
     else
     {
-        <Tooltip Text="@Player?.Chance?.Description" Placement="TooltipPlacement.Left">
-            <div class="playerrealteam @Player?.Chance?.Status">@Player.Current.RealTeam.Name</div>
-        </Tooltip>
+        var id = $"key_{Player.Current.Key}";
+        <FluentTooltip Anchor="@id">
+            @Player?.Chance?.Description
+        </FluentTooltip>
+        <div id="@id" class="playerrealteam @Player?.Chance?.Status">@Player.Current.RealTeam.Name</div>
         <div class="playerenemy">
             <div class="enemyname">@EnemyName</div>
             @if (Player.RealGame != default && Player.RealGame.Date.HasValue)

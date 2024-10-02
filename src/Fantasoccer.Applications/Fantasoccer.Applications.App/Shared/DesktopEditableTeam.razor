@@ -1,18 +1,22 @@
 ﻿@if (Players != null)
 {
-    <DropContainer TItem="EnrichedPlayer" Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" Class="playerContainer">
-        <ChildContent>
+    @* Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" *@
+    <FluentDragContainer TItem="EnrichedPlayer" Class="playerContainer" OnDragOver="(x) => _ = ItemDropped(x)">
+        <FluentStack>
             @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
             {
                 <div class="@position.Css">
-                    <DropZone Class="@position.ColumnContainer" TItem="EnrichedPlayer" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone>
+                    <FluentDropZone Id="@Inverted.ToString()" Draggable="true" DropAllowed="@position.Filter" OnDrop="@ItemDropped">
+                        @foreach (var player in Players)
+                        {
+                            <PlayerCard Player="player"></PlayerCard>
+                        }
+                    </FluentDropZone>
+                    @* <DropZone Class="@position.ColumnContainer" TItem="EnrichedPlayer" Name="@position.Position.ToString()" DropAllowed="@position.Filter"></DropZone> *@
                 </div>
             }
-        </ChildContent>
-        <ItemTemplate>
-            <PlayerCard Player="context"></PlayerCard>
-        </ItemTemplate>
-    </DropContainer>
+        </FluentStack>
+    </FluentDragContainer>
 }
 
 
@@ -28,10 +32,12 @@
         var result = player.CurrentPosition.ToString() == zoneName;
         return result;
     }
-    private async Task ItemDropped(DraggableDroppedEventArgs<EnrichedPlayer> dropItem)
+    private async ValueTask ItemDropped(FluentDragEventArgs<EnrichedPlayer> dropItem)
     {
-        var movedPlayer = dropItem.Item;
-        var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropItem.DropZoneName);
+        // var movedPlayer = dropItem.Source.Element as EnrichedPlayer;
+        var movedPlayer = null as EnrichedPlayer;
+        var dropZoneName = dropItem.Target.AdditionalAttributes.First().Key;
+        var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), dropZoneName);
         if (position >= FantaSoccerRole.BackupGoalKeeper && position <= FantaSoccerRole.SecondBackupForward)
         {
             var playerInBench = Players.FirstOrDefault(x => x.Current.Position == position);
