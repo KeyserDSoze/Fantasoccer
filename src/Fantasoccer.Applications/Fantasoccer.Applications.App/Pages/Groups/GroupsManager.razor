@@ -5,28 +5,20 @@
 
 @if (State?.IsAuthenticated == true)
 {
-    <Tabs SelectedTab="@selectedTab" SelectedTabChanged="x => selectedTab = x">
-        <Items>
-            <Tab Name="groups">Groups</Tab>
-            <Tab Name="users">Users</Tab>
-            <Tab Name="baskets">Baskets</Tab>
-            <Tab Name="leagues">Leagues</Tab>
-        </Items>
-        <Content>
-            <TabPanel Name="groups" Padding="Padding.Is1.FromTop">
-                <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
-            </TabPanel>
-            <TabPanel Name="users" Padding="Padding.Is1.FromTop">
-                <UserManager SaveAsync="SaveAsync"></UserManager>
-            </TabPanel>
-            <TabPanel Name="baskets" Padding="Padding.Is1.FromTop">
-                <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
-            </TabPanel>
-            <TabPanel Name="leagues" Padding="Padding.Is1.FromTop">
-                <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
-            </TabPanel>
-        </Content>
-    </Tabs>
+    <FluentTabs @bind-ActiveTabId="@selectedTab">
+        <FluentTab Id="groups">
+            <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
+        </FluentTab>
+        <FluentTab Id="users">
+            <UserManager SaveAsync="SaveAsync"></UserManager>
+        </FluentTab>
+        <FluentTab Id="baskets">
+            <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
+        </FluentTab>
+        <FluentTab Id="leagues">
+            <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
+        </FluentTab>
+    </FluentTabs>
 }
 @code {
     [CascadingParameter]

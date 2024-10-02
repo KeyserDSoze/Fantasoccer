@@ -1,66 +1,29 @@
 ﻿@if (State?.HasAGroup == true && State.IsAdmin())
 {
-    <Row>
-        <Column>
-            <Fields>
-                <Validations @ref="@ValidationsRefForIdentity" Mode="ValidationMode.Auto" ValidateOnLoad="false">
-                    <Validation UsePattern>
-                     <Field ColumnSize="ColumnSize.IsHalf">
-                         <FieldLabel>Email da aggiungere</FieldLabel>
-                         <FieldBody>
-                             <TextEdit @bind-Text="@newEmail" Pattern="@EmailPattern">
-                                 <Feedback>
-                                     <ValidationError />
-                                 </Feedback>
-                             </TextEdit>
-                         </FieldBody>
-                     </Field>
-                 </Validation>
-             </Validations>
-         </Fields>
-         <Button Color="Color.Primary" Clicked="@AddNewUser">
-             Aggiungi user
-         </Button>
-     </Column>
- </Row>
-    <Table Striped>
-     <TableHeader>
-         <TableRow>
-             <TableHeaderCell>Email</TableHeaderCell>
-             <TableHeaderCell>Username</TableHeaderCell>
-             <TableHeaderCell>Admin</TableHeaderCell>
-             <TableHeaderCell>Participant</TableHeaderCell>
-             <TableHeaderCell>Reader</TableHeaderCell>
-             <TableHeaderCell>X</TableHeaderCell>
-         </TableRow>
-     </TableHeader>
-     <TableBody>
-         @foreach (var user in State.SelectedGroup.Users)
-            {
-                <TableRow>
-                    <TableRowHeader>@user.Email</TableRowHeader>
-                    <TableRowHeader>@user.Username</TableRowHeader>
-                    <TableRowCell>
-                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Admin))"
-                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Admin))"></Check>
-                    </TableRowCell>
-                    <TableRowCell>
-                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Participant))"
-                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Participant))"></Check>
-                    </TableRowCell>
-                    <TableRowCell>
-                        <Check TValue="bool" Checked="@(user.Role.HasFlag(IdentityRole.Reader))"
-                               CheckedChanged="@((x) => _ = ChangeRole(user, x, IdentityRole.Reader))"></Check>
-                    </TableRowCell>
-                    <TableRowCell>
-                        <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(user))">
-                            Cancella
-                        </Button>
-                    </TableRowCell>
-                </TableRow>
-            }
-        </TableBody>
-    </Table>
+    <FluentStack Orientation="Orientation.Vertical">
+        <FluentTextField @bind-Value=newEmail Pattern="@EmailPattern" Label="Email da aggiungere"></FluentTextField>
+        <FluentButton Appearance="Appearance.Accent" OnClick="@AddNewUser">
+            Aggiungi user
+        </FluentButton>
+    </FluentStack>
+    <FluentDataGrid TGridItem="UserOfAGroup" Items="State.SelectedGroup.Users.AsQueryable()">
+        <PropertyColumn Property="p => p.Email" />
+        <PropertyColumn Property="p => p.Username" />
+        <TemplateColumn Title="Admin">
+            <FluentCheckbox Value="@context.Role.HasFlag(IdentityRole.Admin)" ValueChanged="@((x) => _ = ChangeRole(context, x, IdentityRole.Admin))" />
+        </TemplateColumn>
+        <TemplateColumn Title="Partecipante">
+            <FluentCheckbox Value="@context.Role.HasFlag(IdentityRole.Participant)" ValueChanged="@((x) => _ = ChangeRole(context, x, IdentityRole.Participant))" />
+        </TemplateColumn>
+        <TemplateColumn Title="Visitatore">
+            <FluentCheckbox Value="@context.Role.HasFlag(IdentityRole.Reader)" ValueChanged="@((x) => _ = ChangeRole(context, x, IdentityRole.Reader))" />
+        </TemplateColumn>
+        <TemplateColumn Title="Cancella">
+            <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = DeleteAsync(context))">
+                Cancella
+            </FluentButton>
+        </TemplateColumn>
+    </FluentDataGrid>
 }
 
 @code {
@@ -70,42 +33,37 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Parameter]
     public required Func<Task> SaveAsync { get; set; }
-    private Validations? ValidationsRefForIdentity { get; set; }
     private string? newEmail { get; set; }
     private const string EmailPattern = @"^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$";
     async Task AddNewUser()
     {
         LoadingIndicator?.Show();
-        if (ValidationsRefForIdentity != null)
-            if (await ValidationsRefForIdentity.ValidateAll())
+
+        if (State?.IsAuthenticated == true && newEmail != null && State.HasAGroup)
+        {
+            var user = await Api.AppIdentity.GetAsync(newEmail);
+            if (user == null)
             {
-                if (State?.IsAuthenticated == true && newEmail != null && State.HasAGroup)
-                {
-                    var user = await Api.AppIdentity.GetAsync(newEmail);
-                    if (user == null)
+                user = new AppIdentity
                     {
-                        user = new AppIdentity
-                            {
-                                Email = newEmail,
-                                Groups = new()
+                        Email = newEmail,
+                        Groups = new()
                                 {
                                     State.SelectedGroup!.ToGroupIdentity(newEmail)
                                 },
-                                Username = newEmail
-                            };
-                        await Api.AppIdentity.InsertAsync(newEmail, user);
-                    }
-                    State.SelectedGroup.Users.Add(new UserOfAGroup
-                        {
-                            Email = user.Email,
-                            Role = IdentityRole.Reader,
-                            Username = user.Username
-                        });
-                    await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
-                    State.UpdateUi();
-                }
-                await ValidationsRefForIdentity.ClearAll();
+                        Username = newEmail
+                    };
+                await Api.AppIdentity.InsertAsync(newEmail, user);
             }
+            State.SelectedGroup.Users.Add(new UserOfAGroup
+                {
+                    Email = user.Email,
+                    Role = IdentityRole.Reader,
+                    Username = user.Username
+                });
+            await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+            State.UpdateUi();
+        }
         LoadingIndicator?.Hide();
     }
     private async ValueTask DeleteAsync(UserOfAGroup user)

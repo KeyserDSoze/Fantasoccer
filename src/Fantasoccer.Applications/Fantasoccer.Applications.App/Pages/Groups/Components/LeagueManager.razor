@@ -240,7 +240,7 @@
         }
         LoadingIndicator?.Hide();
     }
-    private async Task ChangeBasketsAsync(IReadOnlyList<string> basketsId)
+    private async Task ChangeBasketsAsync(IEnumerable<string> basketsId)
     {
         LoadingIndicator?.Show();
         if (State?.HasALeague == true)

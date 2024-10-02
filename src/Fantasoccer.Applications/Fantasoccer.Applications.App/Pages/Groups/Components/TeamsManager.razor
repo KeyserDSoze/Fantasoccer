@@ -1,92 +1,38 @@
 ﻿@if (State != null && State?.IsAdmin() == true && State.SelectedGroup != null)
 {
-    if (Teams != null)
-    {
-        <Table Striped>
-            <TableHeader>
-                <TableRow>
-                    <TableHeaderCell>Name</TableHeaderCell>
-                    <TableHeaderCell>Owner</TableHeaderCell>
-                    <TableHeaderCell>Co-owners</TableHeaderCell>
-                    <TableHeaderCell>X</TableHeaderCell>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                @foreach (var teamX in Teams)
-                {
-                    var team = teamX;
-                    <TableRow>
-                        <TableRowHeader>@team.Name</TableRowHeader>
-                        <TableRowCell>
-                            <Select TValue="string"
-                                    SelectedValue="team.Owner"
-                                    SelectedValueChanged="(newOwner) => ChangeOwnerAsync(team.Owner, newOwner)"
-                                    Width="Width.Is50">
-                                @foreach (var user in State.SelectedGroup.Users)
-                                {
-                                    <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
-                                }
-                            </Select>
-                        </TableRowCell>
-                        <TableRowCell>
-                            <DropdownList TItem="UserOfAGroup" TValue="string"
-                                          Data="@State.SelectedGroup.Users"
-                                          TextField="@((item)=>item.Username)"
-                                          ValueField="@((item)=>item.Email)"
-                                          SelectedValues="team.AdditionalOwners"
-                                          SelectionMode="DropdownListSelectionMode.Checkbox"
-                                          SelectedValuesChanged="(x) => ChangeCoOwnersAsync(team.Owner, x)"
-                                          Color="Color.Primary">
-                                Select co-owners
-                            </DropdownList>
-                        </TableRowCell>
-                        <TableRowCell>
-                            <Button Color="Color.Primary" Clicked="@((x) => _ = DeleteAsync(team))">
-                                Cancella
-                            </Button>
-                        </TableRowCell>
-                    </TableRow>
-                }
-            </TableBody>
-        </Table>
-    }
-    <Row>
-        <Column>
-            <Fields>
-                <Validations @ref="@ValidationsRefForNewTeam" Mode="ValidationMode.Auto" ValidateOnLoad="false">
-                    <Validation UsePattern>
-                        <Field ColumnSize="ColumnSize.IsHalf">
-                            <FieldLabel>Nuovo team</FieldLabel>
-                            <FieldBody>
-                                <TextEdit @bind-Text="@newTeamName" Pattern="[A-Za-z0-9. _-]{3,20}">
-                                    <Feedback>
-                                        <ValidationError />
-                                    </Feedback>
-                                </TextEdit>
-                            </FieldBody>
-                        </Field>
-                    </Validation>
-                    <Field ColumnSize="ColumnSize.IsHalf">
-                        <FieldLabel>Proprietario</FieldLabel>
-                        <FieldBody>
-                            <Select TValue="string"
-                                    SelectedValue="@owner"
-                                    SelectedValueChanged="x => owner = x"
-                                    Width="Width.Is50">
-                                @foreach (var user in State.SelectedGroup.Users)
-                                {
-                                    <SelectItem Value="@user.Email">@user.Username [@user.Email]</SelectItem>
-                                }
-                            </Select>
-                        </FieldBody>
-                    </Field>
-                </Validations>
-            </Fields>
-            <Button Color="Color.Primary" Clicked="@AddNewTeam">
-                Aggiungi un team al basket
-            </Button>
-        </Column>
-    </Row>
+    <FluentStack Orientation="Orientation.Vertical">
+        if (Teams != null)
+        {
+        <FluentDataGrid Items="@Teams.AsQueryable()">
+            <PropertyColumn Property="@(p => p.Name)" Title="Nome" Sortable="true" />
+            <TemplateColumn Title="Owner">
+                <FluentSelect TOption="UserOfAGroup" Items="@State.SelectedGroup.Users" Value="@context.Owner" SelectedOptionChanged="(newOwner) => ChangeOwnerAsync(context.Owner, newOwner.Email)" />
+            </TemplateColumn>
+            @*  <TemplateColumn Title="Co-Owner">
+        <FluentSelect Multiple="true"
+        TOption="UserOfAGroup"
+        Items="@State.SelectedGroup.Users"
+        OptionText="@(p => $"{p.Username} [{p.Email}]")"
+        OptionValue="@(p => p.Email)"
+        @bind-SelectedOptions="@State.SelectedGroup.Users.Where(x => context.AdditionalOwners.Contains(x.Email))" />
+        </TemplateColumn> *@
+            <TemplateColumn Title="Cancella">
+                <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = DeleteAsync(context))">
+                    Cancella
+                </FluentButton>
+            </TemplateColumn>
+        </FluentDataGrid>
+        }
+        <FluentTextField @bind-Value=newTeamName Label="Nuovo team"></FluentTextField>
+        <FluentSelect TOption="UserOfAGroup"
+                      Items="@State.SelectedGroup.Users"
+                      OptionText="@(p => $"{p.Username} [{p.Email}]")"
+                      OptionValue="@(p => p.Email)"
+                      @bind-Value="owner" />
+        <FluentButton Appearance="Appearance.Accent" OnClick="@AddNewTeam">
+            Aggiungi un team al basket
+        </FluentButton>
+    </FluentStack>
 }
 
 @code {
@@ -179,18 +125,19 @@
         }
         LoadingIndicator?.Hide();
     }
-    private async Task ChangeCoOwnersAsync(string email, IReadOnlyList<string> emails)
+    private async Task ChangeCoOwnersAsync(string email, IEnumerable<UserOfAGroup> users)
     {
         LoadingIndicator?.Show();
         if (Teams != null)
         {
             foreach (var team in Teams.Where(x => x.Owner == email))
             {
-                team.AdditionalOwners = emails.ToList();
+                var emails = users.Select(x => x.Email).ToList();
+                team.AdditionalOwners = emails;
                 if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
                 {
                     var teamToUpdate = await Api.Team.GetAsync(State.OtherTeamKey(email));
-                    teamToUpdate.AdditionalOwners = emails.ToList();
+                    teamToUpdate.AdditionalOwners = emails;
                     await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
                 }
             }
