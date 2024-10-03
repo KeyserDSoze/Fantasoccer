@@ -3,7 +3,7 @@
     public sealed class LoadingIndicator
     {
         public Action? ShowOrHide { get; set; }
-        public bool IsVisible { get; private set; }
+        public bool IsVisible { get; set; }
         public void Show()
         {
             IsVisible = true;

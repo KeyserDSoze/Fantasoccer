@@ -95,6 +95,7 @@
     <FluentTooltipProvider />
 </FluentLayout>
 <LoadingIndicatorHelper />
+
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
@@ -102,6 +103,7 @@
 </div>
 
 @code {
+    private bool visible = true;
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
     [CascadingParameter(Name = "LogoutCallback")]
