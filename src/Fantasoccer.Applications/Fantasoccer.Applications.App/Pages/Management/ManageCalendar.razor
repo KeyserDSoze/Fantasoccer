@@ -9,7 +9,7 @@
     <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
         @foreach (var day in realCalendar.Days)
         {
-            <FluentGridItem xl="6" md="12">
+            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                 <FluentCard>
                     <h3>Giornata @day.SerieADay</h3>
                     <FluentButton Appearance="Appearance.Accent" OnClick="() => RecalculateVote(day.SerieADay)">Ricalcola voti</FluentButton>

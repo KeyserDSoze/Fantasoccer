@@ -5,15 +5,16 @@
 @using Rystem.Authentication.Social
 @using Rystem.Authentication.Social.Blazor.Components
 
-<LoadingIndicator>
-    <CascadingValue Value="@state">
+<CascadingValue Value="@state">
+    <CascadingValue Value="@loadingIndicator">
         <SocialAuthenticationRouter AppAssembly="@typeof(AppRouter).Assembly" DefaultLayout="@typeof(MainLayout)" SetUser="OnUserSetAsync" TUser="AppIdentity">
         </SocialAuthenticationRouter>
     </CascadingValue>
-</LoadingIndicator>
+</CascadingValue>
 
 @code {
     private FantasoccerState? state;
+    private LoadingIndicator loadingIndicator = new();
     protected override void OnInitialized()
     {
         base.OnInitialized();

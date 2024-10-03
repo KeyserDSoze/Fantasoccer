@@ -8,6 +8,7 @@
         <FluentIcon Color="Color.Fill" Value="@(new Icons.Regular.Size20.SportSoccer())" />
         &nbsp;&nbsp;Fantasoccer
         <FluentSpacer />
+        @State?.SelectedLeague?.Name @FantacalcioTime.LabelYear(State?.Year ?? 1)
     </FluentHeader>
     <FluentStack Orientation="Orientation.Horizontal" Width="100%">
         <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="true">
@@ -93,7 +94,7 @@
     <FluentDialogProvider />
     <FluentTooltipProvider />
 </FluentLayout>
-
+<LoadingIndicatorHelper />
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>

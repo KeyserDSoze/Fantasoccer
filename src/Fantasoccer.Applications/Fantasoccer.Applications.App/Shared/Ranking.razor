@@ -10,7 +10,7 @@
             @:Rank
         }
     </h3>
-    <FluentDataGrid Items="Teams.AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="4fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
+    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" AutoFit="true" ResizableColumns="true">
         <PropertyColumn Property="@(x => x.Name)" Title="#"/>
         <PropertyColumn Property="@(x => x.Point)" Title="P"/>
         <PropertyColumn Property="@(x => x.ValuePoint)" Title="VP"/>

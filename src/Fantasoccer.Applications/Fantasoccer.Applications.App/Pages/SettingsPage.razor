@@ -12,7 +12,7 @@
 @if (State?.IsAuthenticated == true)
 {
     <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart" Style="min-height:700px">
-        <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
+        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
             <h3>Impostazioni</h3>
             <div>
                 <FluentTextField @bind-Value=State.Identity!.Username Label="Username"></FluentTextField>
@@ -29,7 +29,7 @@
         </FluentGridItem>
         @if (pushNotificationSettings != null)
         {
-            <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
+            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                 <h3>Notifiche</h3>
                 <div>
                     <FluentCheckbox @bind-Value="@pushNotificationSettings.MatchEvents" Label="Eventi della partita" />
@@ -55,7 +55,7 @@
             </FluentGridItem>
 
         }
-        <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
+        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
             <h3>Temi</h3>
             <FluentSelect Items="@(Enum.GetValues<DesignThemeModes>())"
                           Multiple="false"

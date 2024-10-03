@@ -3,7 +3,7 @@
     <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
         @foreach (var day in Days)
         {
-            <FluentGridItem xl="6" md="12">
+            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                 <FluentCard>
                     <h3>Day @day.SerieADay</h3>
                     <FluentDataGrid TGridItem="RealGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">

@@ -7,7 +7,7 @@
 @if (State?.IsAdmin() == true && players != null && teams != null && visibilities != null)
 {
     <FluentGrid Spacing="0">
-        <FluentGridItem xl="6">
+        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
             <FluentTabs @bind-ActiveTabId=selectedTab>
                 @foreach (var role in Roles)
                 {
@@ -90,7 +90,7 @@
                 }
             </FluentTabs>
         </FluentGridItem>
-        <FluentGridItem xl="6">
+        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
             <FluentAccordion @bind-ActiveId="activeTeamId">
                 @foreach (var team in teams)
                 {

@@ -7,28 +7,51 @@
     <FluentTabs @bind-ActiveTabId="@selectedTab">
         @foreach (var league in liveGroup.Leagues)
         {
-            if (innerSelectedTab.ContainsKey(league.Id))
+            var tabId = $"tab-{league.Id}";
+            if (innerSelectedTab.ContainsKey(tabId))
             {
-                <FluentTab Id="@league.Id" Label="@league.Name">
-                    <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
-                        @foreach (var dayByRound in league.Rounds)
-                        {
-                            <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
-                                <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
-                                    <FluentGridItem xl="6" md="12">
-                                        @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
-                                        {
-                                            <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
-                                        }
-                                    </FluentGridItem>
-                                    <FluentGridItem xl="6" md="12">
-                                        <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
-                                                     GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"></Calendaring>
-                                    </FluentGridItem>
-                                </FluentGrid>
-                            </FluentTab>
-                        }
-                    </FluentTabs>
+                <FluentTab Id="@tabId" Label="@league.Name">
+                    @if (league.Rounds.Count != 1)
+                    {
+                        <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
+                            @foreach (var dayByRound in league.Rounds)
+                            {
+                                <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
+                                    <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+                                        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                            @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
+                                            {
+                                                <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                            }
+                                        </FluentGridItem>
+                                        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                            <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                                                         GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                                         Desktop="12" Mobile="12">
+                                            </Calendaring>
+                                        </FluentGridItem>
+                                    </FluentGrid>
+                                </FluentTab>
+                            }
+                        </FluentTabs>
+                    }
+                    else
+                    {
+                        <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                @if (league.Rank?.RankedTeams.ContainsKey(league.Rounds.First().Key) == true)
+                                {
+                                    <Ranking Teams="league.Rank.RankedTeams[league.Rounds.First().Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                }
+                            </FluentGridItem>
+                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                <Calendaring Days="new List<Day>{ league.Rounds.First().Value }" WithFluentSize=false
+                                             GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                             Desktop="12" Mobile="12">
+                                </Calendaring>
+                            </FluentGridItem>
+                        </FluentGrid>
+                    }
                 </FluentTab>
             }
         }
@@ -51,7 +74,7 @@
     private string? selectedTab;
     private Dictionary<string, string>? innerSelectedTab;
     private string? nullCalendar;
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -71,14 +94,14 @@
             else
             {
                 if (State.LeagueId != null && liveGroup!.Leagues.Any(x => x.Id == State.LeagueId && x.Rounds.Count >= 1))
-                    selectedTab = State.LeagueId;
+                    selectedTab = $"tab-{State.LeagueId}";
                 else
-                    selectedTab = liveGroup!.Leagues.First(x => x.Rounds.Count >= 1).Id;
+                    selectedTab = $"tab-{liveGroup!.Leagues.First(x => x.Rounds.Count >= 1).Id}";
                 innerSelectedTab = new Dictionary<string, string>();
                 foreach (var league in liveGroup.Leagues)
                 {
                     if (league.Rounds.Count >= 1)
-                        innerSelectedTab.Add(league.Id, league.Rounds.First().Key);
+                        innerSelectedTab.Add($"tab-{league.Id}", league.Rounds.First().Key);
                 }
             }
         }

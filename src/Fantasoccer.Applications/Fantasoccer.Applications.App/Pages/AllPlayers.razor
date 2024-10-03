@@ -6,10 +6,10 @@
 @if (players != null)
 {
     <FluentTabs @bind-ActiveTabId="roleToShow">
-        @foreach (var playersByRole in players.GroupBy(x => x.Role))
+        @foreach (var playersByRole in players.GroupBy(x => x.Role).OrderBy(x => x.Key))
         {
             <FluentTab Label="@playersByRole.Key.ToString()" Id="@playersByRole.Key.ToString()">
-                <FluentDataGrid Items="@playersByRole.AsQueryable()">
+                <FluentDataGrid ResizableColumns="true" AutoFit="true" ShowHover="true" Items="@playersByRole.AsQueryable()">
                     <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
                     <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
                     <PropertyColumn Property="@(p => p.Average)" Sortable="true" />

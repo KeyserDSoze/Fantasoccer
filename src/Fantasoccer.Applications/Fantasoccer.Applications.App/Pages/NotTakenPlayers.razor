@@ -5,9 +5,8 @@
 
 @if (players != null)
 {
-    @* FantasoccerConstant.Roles *@
     <FluentTabs @bind-ActiveTabId="currentRole">
-        @foreach (var playersByRole in players.GroupBy(x => x.Role))
+        @foreach (var playersByRole in players.GroupBy(x => x.Role).OrderBy(x => x.Key))
         {
             <FluentTab Label="@playersByRole.Key.ToString()" Id="@playersByRole.Key.ToString()">
                 <FluentDataGrid Items="@playersByRole.AsQueryable()">

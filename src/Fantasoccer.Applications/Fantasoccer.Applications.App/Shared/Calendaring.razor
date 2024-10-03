@@ -3,7 +3,7 @@
     <FluentGrid AdaptiveRendering="true" Spacing="0" Justify="JustifyContent.FlexStart">
         @foreach (var day in Days)
         {
-            <FluentGridItem xl="6" md="12">
+            <FluentGridItem xl="Desktop" md="Mobile" xxl="Desktop" xs="Mobile" sm="Mobile" lg="Desktop">
                 <FluentCard>
                     <h3>Giornata @day.Number (@day.SerieADay)</h3>
                     <FluentDataGrid RowClass="@(x => "calendarrow")" TGridItem="CalendarGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
@@ -27,6 +27,10 @@
     public string LeagueId { get; set; }
     [Parameter]
     public int Year { get; set; }
+    [Parameter]
+    public int Desktop { get; set; } = 6;
+    [Parameter]
+    public int Mobile { get; set; } = 12;
     [Inject]
     public NavigationManager NavigationManager { get; set; }
     private string CalculateResult(CalendarGame game)

@@ -1,0 +1,17 @@
+﻿@if (LoadingIndicator?.IsVisible == true)
+{
+    <div class="containerForLoader">
+        <img src="/static/soccerball.gif" class="loader" />
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public LoadingIndicator LoadingIndicator { get; set; }
+    protected override void OnInitialized()
+    {
+        if (LoadingIndicator != null)
+            LoadingIndicator.ShowOrHide = () => StateHasChanged();
+        base.OnInitialized();
+    }
+}
