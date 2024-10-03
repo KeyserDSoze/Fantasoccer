@@ -2,22 +2,23 @@
 
 <PageTitle>Rank</PageTitle>
 
-@if (rank != null)
+@if (rank != null && selectedTab != null)
 {
-    <FluentTab @bind-ActiveTabId="@selectedTab">
-        @* <Items>
-    @foreach (var rankByRound in rank.RankedTeams)
+    if (!onlyOne)
     {
-    <Tab Name="@rankByRound.Key" Display="rank.RankedTeams.Count > 1 ? Display.Block: Display.None">Round @rankByRound.Key</Tab>
+        <FluentTabs @bind-ActiveTabId="@selectedTab">
+            @foreach (var rankByRound in rank.RankedTeams)
+            {
+                <FluentTab Label="@rankByRound.Key" Id="@($"tab-{rankByRound.Key}")">
+                    <Ranking Teams="rankByRound.Value"></Ranking>
+                </FluentTab>
+            }
+        </FluentTabs>
     }
-    </Items> *@
-        @foreach (var rankByRound in rank.RankedTeams)
-        {
-            <FluentTab Label="@rankByRound.Key" Id="@rankByRound.Key">
-                <Ranking Teams="rankByRound.Value"></Ranking>
-            </FluentTab>
-        }
-    </FluentTab>
+    else
+    {
+        <Ranking Teams="rank.RankedTeams.First().Value"></Ranking>
+    }
 }
 @if (isVisible)
 {
@@ -34,6 +35,7 @@
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullRank;
+    private bool onlyOne;
     private bool isVisible => nullRank != null;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -50,7 +52,10 @@
             LoadingIndicator?.Show();
             rank = await Api.Ranks.GetAsync(State.LeagueKey);
             if (rank != null && rank.RankedTeams.Count > 0)
-                selectedTab = rank.RankedTeams.First().Key;
+            {
+                onlyOne = rank.RankedTeams.Count == 1;
+                selectedTab = $"tab-{rank.RankedTeams.First().Key}";
+            }
             else
                 nullRank = $"Classifica non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
         }

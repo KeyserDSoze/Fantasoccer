@@ -14,6 +14,10 @@
 
 @code {
     private FantasoccerState? state;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+    }
     private async ValueTask OnUserSetAsync(AppIdentity socialUser)
     {
         if (socialUser is AppIdentity identity)

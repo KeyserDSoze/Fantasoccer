@@ -1,15 +1,15 @@
 ﻿@if (Days != null)
 {
-    <FluentGrid AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+    <FluentGrid AdaptiveRendering="true" Spacing="0" Justify="JustifyContent.FlexStart">
         @foreach (var day in Days)
         {
-            <FluentGridItem xs="6" sm="12">
+            <FluentGridItem xl="6" md="12">
                 <FluentCard>
                     <h3>Giornata @day.Number (@day.SerieADay)</h3>
-                    <FluentDataGrid TGridItem="CalendarGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
-                        <PropertyColumn Property="@(p => p.Home)" Sortable="true" Title="Casa" />
-                        <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
-                        <PropertyColumn Property="@(p => p.Away)" Sortable="true" Title="Trasferta" />
+                    <FluentDataGrid RowClass="@(x => "calendarrow")" TGridItem="CalendarGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
+                        <PropertyColumn Property="@(p => p.Home)" Title="Casa" />
+                        <PropertyColumn Property="@(p => CalculateResult(p))" Title="Risultato" />
+                        <PropertyColumn Property="@(p => p.Away)" Title="Trasferta" />
                     </FluentDataGrid>
                 </FluentCard>
             </FluentGridItem>

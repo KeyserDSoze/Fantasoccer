@@ -2,17 +2,12 @@
 @attribute [Authorize]
 
 <PageTitle>Fantasoccer</PageTitle>
-<FluentDesignTheme @bind-Mode="@Mode"
-                   @bind-OfficeColor="@OfficeColor"
-                   OnLoaded="@OnLoaded"
-                   OnLuminanceChanged="@OnLuminanceChanged"
-                   StorageName="theme" />
-<FluentMainLayout>
+
+<FluentLayout>
     <FluentHeader>
-        <FluentIcon Value="@(new Icons.Regular.Size20.SportSoccer())" />
-        Fantasoccer
+        <FluentIcon Color="Color.Fill" Value="@(new Icons.Regular.Size20.SportSoccer())" />
+        &nbsp;&nbsp;Fantasoccer
         <FluentSpacer />
-        Aligned to the end
     </FluentHeader>
     <FluentStack Orientation="Orientation.Horizontal" Width="100%">
         <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="true">
@@ -90,14 +85,21 @@
                 @Body
             </div>
             @* <div Class="recording">
-                <Recording></Recording>
+            <Recording></Recording>
             </div> *@
         </FluentBodyContent>
     </FluentStack>
-</FluentMainLayout>
-<FluentTooltipProvider />
-<FluentMessageBarProvider />
-<FluentMenuProvider />
+    <FluentToastProvider MaxToastCount="10" Position="ToastPosition.BottomRight" />
+    <FluentDialogProvider />
+    <FluentTooltipProvider />
+</FluentLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
 @code {
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
@@ -108,9 +110,8 @@
     private List<Group> groups;
     bool Expanded = true;
     private bool menuIsOpen = false;
-    public DesignThemeModes Mode { get; set; }
+   
 
-    public OfficeColor? OfficeColor { get; set; }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.Identity?.Groups != null)
@@ -151,13 +152,5 @@
             return State.ChangeTeamAsync(groupId, leagueId, owner);
         }
         return Task.CompletedTask;
-    }
-    void OnLoaded(LoadedEventArgs e)
-    {
-        StateHasChanged();
-    }
-    void OnLuminanceChanged(LuminanceChangedEventArgs e)
-    {
-        StateHasChanged();
     }
 }

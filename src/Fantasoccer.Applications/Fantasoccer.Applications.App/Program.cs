@@ -13,6 +13,7 @@ builder.Services.AddApplicationInsightsTelemetry(x =>
 });
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddFluentUIComponents(options =>
 {
@@ -55,9 +56,8 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseAuthentication();
-app.UseAuthorization();
 app.UseAntiforgery();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

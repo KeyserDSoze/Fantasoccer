@@ -300,3 +300,7 @@ a, .btn-link {
             font-weight: bold;
             color: #468fcd;
         }
+
+.calendarrow:hover {
+    cursor: pointer;
+}

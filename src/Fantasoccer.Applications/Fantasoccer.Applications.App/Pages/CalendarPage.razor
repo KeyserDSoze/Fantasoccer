@@ -4,14 +4,21 @@
 
 @if (calendar != null)
 {
-    <FluentTabs @bind-ActiveTabId="selectedTab">
-        @foreach (var calendarByRound in calendar.Rounds)
-        {
-            <FluentTab Name="@calendarByRound.Key">
-                <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
-            </FluentTab>
-        }
-    </FluentTabs>
+    if (!onlyOne)
+    {
+        <FluentTabs @bind-ActiveTabId="selectedTab">
+            @foreach (var calendarByRound in calendar.Rounds)
+            {
+                <FluentTab Name="@($"tab-{calendarByRound.Key}")">
+                    <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
+                </FluentTab>
+            }
+        </FluentTabs>
+    }
+    else
+    {
+        <Calendaring Days="calendar.Rounds.First().Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
+    }
 }
 @if (isVisible)
 {
@@ -29,6 +36,7 @@
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullCalendar;
+    private bool onlyOne;
     private bool isVisible => nullCalendar != null;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -49,7 +57,10 @@
             LoadingIndicator?.Show();
             calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             if (calendar != null && calendar.Rounds.Count > 0)
-                selectedTab = calendar.Rounds.First().Key;
+            {
+                selectedTab = $"tab-{calendar.Rounds.First().Key}";
+                onlyOne = calendar.Rounds.Count == 1;
+            }
             else
                 nullCalendar = $"Calendario non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
         }

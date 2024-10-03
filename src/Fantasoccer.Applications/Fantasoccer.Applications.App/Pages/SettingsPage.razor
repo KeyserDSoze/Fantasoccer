@@ -4,46 +4,67 @@
 @inject IJSRuntime JS
 
 <PageTitle>Settings</PageTitle>
-
+<FluentDesignTheme @bind-Mode="@Mode"
+                   @bind-OfficeColor="@OfficeColor"
+                   OnLoaded="@OnLoaded"
+                   OnLuminanceChanged="@OnLuminanceChanged"
+                   StorageName="theme" />
 @if (State?.IsAuthenticated == true)
 {
-    <FluentGrid AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
-        <FluentGridItem xs="12" sm="6">
+    <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart" Style="min-height:700px">
+        <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
             <h3>Impostazioni</h3>
-            <FluentTextField @bind-Value=State.Identity!.Username Label="Username"></FluentTextField>
-            @if (team != null)
-            {
-                <FluentTextField @bind-Value=team.Name Label="Nome squadra"></FluentTextField>
-            }
-            <FluentButton Appearance="Appearance.Accent" OnClick="@OnSaveClicked">
-                Salva impostazioni
-            </FluentButton>
+            <div>
+                <FluentTextField @bind-Value=State.Identity!.Username Label="Username"></FluentTextField>
+                @if (team != null)
+                {
+                    <FluentTextField @bind-Value=team.Name Label="Nome squadra"></FluentTextField>
+                }
+            </div>
+            <div>
+                <FluentButton Appearance="Appearance.Accent" OnClick="@OnSaveClicked">
+                    Salva impostazioni
+                </FluentButton>
+            </div>
         </FluentGridItem>
         @if (pushNotificationSettings != null)
         {
-            <FluentGridItem xs="12" sm="6">
+            <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
                 <h3>Notifiche</h3>
-                <FluentCheckbox @bind-Value="@pushNotificationSettings.MatchEvents" Label="Eventi della partita" />
-                <FluentCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder" Label="Reminder formazione" />
-                <FluentCheckbox @bind-Value="@pushNotificationSettings.EndDay" Label="Fine giornata" />
-                <FluentCheckbox @bind-Value="@pushNotificationSettings.MarketEvents" Label="Scambi (compravendita)" />
+                <div>
+                    <FluentCheckbox @bind-Value="@pushNotificationSettings.MatchEvents" Label="Eventi della partita" />
+                    <FluentCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder" Label="Reminder formazione" />
+                    <FluentCheckbox @bind-Value="@pushNotificationSettings.EndDay" Label="Fine giornata" />
+                    <FluentCheckbox @bind-Value="@pushNotificationSettings.MarketEvents" Label="Scambi (compravendita)" />
+                </div>
+                <div>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="@SavePushSettingsAsync">
+                        Salva le impostazioni per le push notification
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="@SubscribeOrUnsubscribeAsync">
+                        @if (isSubscribed)
+                        {
+                            @:Disabilita Push Messaging
+                        }
+                        else
+                        {
+                            @:Abilita Push Messaging
+                        }
+                    </FluentButton>
+                </div>
             </FluentGridItem>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@SavePushSettingsAsync">
-                Salva le impostazioni per le push notification
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@SubscribeOrUnsubscribeAsync">
-                @if (isSubscribed)
-                {
-                    @:Disabilita Push Messaging
-                }
-                else
-                {
-                    @:Abilita Push Messaging
-                }
-            </FluentButton>
+
         }
+        <FluentGridItem xl="12" md="6" xxl="12" xs="6" sm="6" lg="12">
+            <h3>Temi</h3>
+            <FluentSelect Items="@(Enum.GetValues<DesignThemeModes>())"
+                          Multiple="false"
+                          @bind-SelectedOption="@Mode" />
+            <FluentSelect Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
+                          Multiple="false"
+                          @bind-SelectedOption="@OfficeColor" />
+        </FluentGridItem>
     </FluentGrid>
-}
 }
 
 @code {
@@ -57,6 +78,17 @@
     private PushNotificationSettings? pushNotificationSettings;
     private const string applicationServerPublicKey = "BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8";
     private bool isSubscribed;
+    public DesignThemeModes Mode { get; set; }
+
+    public OfficeColor? OfficeColor { get; set; }
+    void OnLoaded(LoadedEventArgs e)
+    {
+        StateHasChanged();
+    }
+    void OnLuminanceChanged(LuminanceChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
