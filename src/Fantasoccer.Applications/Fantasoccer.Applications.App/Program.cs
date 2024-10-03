@@ -15,6 +15,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
+builder.Services.AddTransient<UiUtilityService>();
 builder.Services.AddFluentUIComponents(options =>
 {
     options.ValidateClassNames = false;

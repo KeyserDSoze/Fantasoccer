@@ -97,8 +97,6 @@
     [Parameter]
     public int? Year { get; set; }
     [Inject]
-    public required IJSRuntime JsRuntime { get; set; }
-    [Inject]
     public required ITeamCalculator TeamCalculator { get; set; }
     [Inject]
     public required IFactory<ILeagueCalculator> LeagueCalculatorFactory { get; set; }
@@ -107,6 +105,7 @@
     private bool isInEdit => GameId == null;
     private Team? myTeam;
     private League? selectedLeague;
+    private bool isMobile;
 
     private sealed class TeamsWrapper
     {
@@ -114,8 +113,6 @@
         public bool CanModify { get; set; }
         public required bool Inverted { get; set; }
     }
-    private static readonly Regex TestMobile = new Regex("android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile");
-    private bool isMobile;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -141,8 +138,7 @@
             var leagueSettings = selectedLeague?.Years.Find(x => x.Year == year)?.Settings;
             leagueCalculator = LeagueCalculatorFactory.Create(selectedLeague?.Type.ToString());
             LoadingIndicator?.Show();
-            var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
-            isMobile = TestMobile.IsMatch(userAgent?.ToLower() ?? string.Empty);
+            isMobile = await UiUtilityService.IsMobileAsync();
             game = null;
             teams = null;
             myTeam = null;

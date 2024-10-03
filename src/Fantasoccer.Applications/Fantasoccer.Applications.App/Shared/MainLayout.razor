@@ -103,7 +103,8 @@
 </div>
 
 @code {
-    private bool visible = true;
+    [Inject]
+    public required IJSRuntime JsRuntime { get; set; }
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
     [CascadingParameter(Name = "LogoutCallback")]
@@ -111,9 +112,7 @@
     [CascadingParameter]
     public LoadingIndicator LoadingIndicator { get; set; }
     private List<Group> groups;
-    bool Expanded = true;
-    private bool menuIsOpen = false;
-   
+    private bool Expanded = true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -127,6 +126,7 @@
                     groups.Add(theGroup);
             }
         }
+        Expanded = !await UiUtilityService.IsMobileAsync(); ;
         await base.OnParametersSetAsync();
     }
     public Task ChangeYearAsync(int year)
