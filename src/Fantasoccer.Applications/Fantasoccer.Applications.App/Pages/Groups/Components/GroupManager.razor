@@ -22,9 +22,9 @@
     private string? newGroupName { get; set; }
     async Task CreateNewGroup()
     {
-        LoadingIndicator?.Show();
         if (State?.IsAuthenticated == true && newGroupName != null)
         {
+            LoadingIndicator?.Show();
             var groupId = Guid.NewGuid().ToString();
             var group = new Group
                 {
@@ -43,11 +43,11 @@
     }
     private async Task OnSelectedGroupChanged(GroupForIdentity group)
     {
-        LoadingIndicator?.Show();
-        if (State != null)
+        if (State != null && group != null)
         {
+            LoadingIndicator?.Show();
             await State.ChangeGroupAsync(group.Id);
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
 }

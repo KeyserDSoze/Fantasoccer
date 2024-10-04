@@ -18,7 +18,7 @@
                         <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
                         <PropertyColumn Property="@(p => p.Away.Name)" Sortable="true" Title="Trasferta" />
                         <TemplateColumn>
-                            <FluentButton Appearance="Appearance.Accent" OnClick="() => ChangeInDelayed(day.SerieADay, context)">Segna come rinviata</FluentButton>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="() => ChangeInDelayed(day.SerieADay, context)">Rinviata</FluentButton>
                         </TemplateColumn>
                     </FluentDataGrid>
                 </FluentCard>

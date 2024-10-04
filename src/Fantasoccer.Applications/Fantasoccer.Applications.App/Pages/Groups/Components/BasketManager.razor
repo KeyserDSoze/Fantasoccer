@@ -33,10 +33,9 @@
     }
     private async Task CreateNewBasket()
     {
-        LoadingIndicator?.Show();
-
         if (State?.IsAuthenticated == true && newBasketName != null && State.HasAGroup)
         {
+            LoadingIndicator?.Show();
             basketId = Guid.NewGuid().ToString();
             teams = new List<AnnualTeam>();
             var basket = new Basket
@@ -47,24 +46,24 @@
                 };
             State.SelectedGroup!.Baskets.Add(basket);
             await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private void OnSelectedBasketChanged(Basket basket)
     {
-        LoadingIndicator?.Show();
-        if (State?.IsAuthenticated == true && State.SelectedGroup != null)
+        if (State?.IsAuthenticated == true && State.SelectedGroup != null && basket != null)
         {
+            LoadingIndicator?.Show();
             basketId = basket.Id;
             teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private async Task CopyLastYearTeams()
     {
-        LoadingIndicator?.Show();
         if (State?.IsAuthenticated == true && State.HasAGroup && teams != null)
         {
+            LoadingIndicator?.Show();
             var lastYearTeams = State?.GetTeamsFromBasket(State?.GroupId, basketId, (State?.Year ?? FantacalcioTime.ActualYear) - 1);
             if (lastYearTeams != null)
             {
@@ -93,8 +92,8 @@
                 await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
                 State.AppUiUpdate();
             }
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
 }
 

@@ -71,10 +71,14 @@
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Settings())" Href="../../settings" Tooltip="Scegli quando ricevere le tue notifiche e cambia nome alla tua squadra">Settings</FluentNavLink>
                     @if (State!.IsAdmin())
                     {
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.DualScreenGroup())" Href="../../groups" Tooltip="Gestisci i tuoi gruppi">Gestisci gruppi</FluentNavLink>
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShiftsTeam())" Href="../../manageteams" Tooltip="Gestisci le squadre della lega selezionata">Gestisci leghe</FluentNavLink>
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleAudience())" Href="../../users" Tooltip="Gestisci gli utenti">Gestisci utenti</FluentNavLink>
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" Href="../../managecalendar" Tooltip="Gestisci tramite il calendario di Serie A">Gestisci Calendario</FluentNavLink>
+                        <FluentNavGroup Title="Amministrazione" Tooltip="Gestisci i tuoi gruppi, creane di nuovi, aggiungi utenti e crea le squadre, organizza l'asta." Icon="@(new Icons.Regular.Size24.ControlButton())">
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.DualScreenGroup())" Href="../../groups" Tooltip="Gestisci i tuoi gruppi">Gruppi</FluentNavLink>
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.ShiftsTeam())" Href="../../manageteams" Tooltip="Gestisci le squadre della lega selezionata">Leghe</FluentNavLink>
+                        </FluentNavGroup>
+                        <FluentNavGroup Title="Super Amministrazione" Tooltip="Gestisci tutti gli utenti e controlla il calendario di Serie A" Icon="@(new Icons.Regular.Size24.TextSuperscript())">
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleAudience())" Href="../../users" Tooltip="Gestisci gli utenti">Utenti</FluentNavLink>
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" Href="../../managecalendar" Tooltip="Gestisci tramite il calendario di Serie A">Calendario Serie A</FluentNavLink>
+                        </FluentNavGroup>
                     }
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" OnClick="()=> Logout?.Invoke(false)" Tooltip="Esci dalla piattaforma">Logout</FluentNavLink>
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Diversity())" Tooltip="Versione">v. 0.4.0-beta</FluentNavLink>

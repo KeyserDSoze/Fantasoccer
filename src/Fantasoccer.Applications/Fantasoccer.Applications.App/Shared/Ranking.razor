@@ -10,7 +10,7 @@
             @:Rank
         }
     </h3>
-    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="5fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
+    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="5fr 2fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
         <TemplateColumn Title="#">
             <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
             @context.Name

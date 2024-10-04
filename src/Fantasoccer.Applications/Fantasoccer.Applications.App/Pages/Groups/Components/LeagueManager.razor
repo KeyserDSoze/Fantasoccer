@@ -111,9 +111,9 @@
     }
     private async Task CreateNewLeague()
     {
-        LoadingIndicator?.Show();
         if (State?.IsAuthenticated == true && newLeagueName != null && State.HasAGroup)
         {
+            LoadingIndicator?.Show();
             var leagueId = Guid.NewGuid().ToString();
             var league = new League
                 {
@@ -126,22 +126,22 @@
             State.SelectedGroup!.Leagues.Add(league);
             await Api.Groups.UpdateAsync(State.SelectedGroup.Id, State.SelectedGroup);
             await State.ChangeLeagueAsync(leagueId);
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private void OnSelectedLeagueChanged(League league)
     {
-        LoadingIndicator?.Show();
-        if (State?.IsAuthenticated == true && State.SelectedGroup != null)
+        if (State?.IsAuthenticated == true && State.SelectedGroup != null && league != null)
         {
+            LoadingIndicator?.Show();
             State.ChangeLeagueAsync(league.Id);
             if (State?.SelectedYearlyLeague == null)
             {
                 if (State.SelectedLeague?.BasketsId == null)
                     State.SelectedLeague.BasketsId = new();
             }
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     [Inject]
     public required IFactory<ILeagueCalculator> LeagueCalculatorFactory { get; set; }
@@ -151,9 +151,9 @@
     public required ITeamCalculator TeamCalculator { get; set; }
     private async ValueTask CreateCalendarAndRankAsync()
     {
-        LoadingIndicator?.Show();
         if (State?.SelectedYearlyLeague != null && State?.SelectedLeague != null && State.Teams != null)
         {
+            LoadingIndicator?.Show();
             var leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague.Type.ToString())!;
             var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             //todo check if not exists and doesn't start it
@@ -237,18 +237,18 @@
                     await Api.Ranks.InsertAsync(State.LeagueKey, rank);
                 }
             }
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private async Task ChangeBasketsAsync(IEnumerable<string> basketsId)
     {
-        LoadingIndicator?.Show();
         if (State?.HasALeague == true)
         {
+            LoadingIndicator?.Show();
             State.SelectedLeague.BasketsId = basketsId.ToList();
             await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
+            LoadingIndicator?.Hide();
         }
-        LoadingIndicator?.Hide();
     }
     private async Task RandomizePlayerForAuctionsAsync()
     {
@@ -333,26 +333,6 @@
                                     {
                                         player.Position = FantaSoccerRole.Tribune;
                                     }
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.GoalKeeper).First().Position = FantaSoccerRole.GoalKeeper;
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.GoalKeeper).Skip(1).First().Position = FantaSoccerRole.BackupGoalKeeper;
-                                    // foreach (var player in team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Defensor).Take(3))
-                                    // {
-                                    //     player.Position = FantaSoccerRole.Defensor;
-                                    // }
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Defensor).Skip(3).First().Position = FantaSoccerRole.FirstBackupDefensor;
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Defensor).Skip(4).First().Position = FantaSoccerRole.SecondBackupDefensor;
-                                    // foreach (var player in team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Midfielder).Take(4))
-                                    // {
-                                    //     player.Position = FantaSoccerRole.Midfielder;
-                                    // }
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Midfielder).Skip(4).First().Position = FantaSoccerRole.FirstBackupMidfielder;
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Midfielder).Skip(5).First().Position = FantaSoccerRole.SecondBackupMidfielder;
-                                    // foreach (var player in team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Forward).Take(3))
-                                    // {
-                                    //     player.Position = FantaSoccerRole.Forward;
-                                    // }
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Forward).Skip(3).First().Position = FantaSoccerRole.FirstBackupForward;
-                                    // team.ActivePlayers.OrderByDescending(x => x.Price).Where(x => x.Role == Role.Forward).Skip(4).First().Position = FantaSoccerRole.SecondBackupForward;
                                     await Api.DailyTeam.UpdateAsync(teamDayKey, team);
                                     return team;
                                 }
