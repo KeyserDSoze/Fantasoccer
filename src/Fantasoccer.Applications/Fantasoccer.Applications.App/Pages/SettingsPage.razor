@@ -31,7 +31,7 @@
         <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6" Style="margin-top:10px;">
             <h3>Logo</h3>
             <div>
-                <img style="max-width:100px;" src="@ImageUriHelper.GetTeamImageUri(State.GroupId!, State.Year, State.Identity.Email)" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" />
+                <img style="max-width:100px;margin-bottom:10px;" src="@ImageUriHelper.GetTeamImageUri(State.GroupId!, State.Year, State.Identity.Email)" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" />
                 <FluentInputFile Id="logo-uploader"
                                  Mode="InputFileMode.Stream"
                                  Multiple="false"
@@ -69,11 +69,11 @@
                     <FluentButton Appearance="Appearance.Accent" OnClick="@SubscribeOrUnsubscribeAsync">
                         @if (isSubscribed)
                         {
-                            @:Disabilita Push Messaging
+                            @:Disabilita Push notification
                         }
                         else
                         {
-                            @:Abilita Push Messaging
+                            @:Abilita Push notification
                         }
                     </FluentButton>
                 </div>
