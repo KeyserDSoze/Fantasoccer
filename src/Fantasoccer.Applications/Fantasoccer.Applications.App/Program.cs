@@ -3,6 +3,7 @@ using Fantasoccer.Applications.App;
 using Fantasoccer.Applications.App.ClientServices;
 using Fantasoccer.Applications.App.Extensions;
 using Fantasoccer.Business;
+using Fantasoccer.Infrastructure;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,12 +17,14 @@ builder.Services.AddRazorComponents()
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddTransient<UiUtilityService>();
+builder.Services.AddSingleton<ImageUriHelper>();
 builder.Services.AddFluentUIComponents(options =>
 {
     options.ValidateClassNames = false;
 });
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddHttpClientIntegrationForApi(builder.Configuration);
+await builder.Services.AddStorageForClientInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient();
 //builder.Services.AddAuthorization(options =>
 //{

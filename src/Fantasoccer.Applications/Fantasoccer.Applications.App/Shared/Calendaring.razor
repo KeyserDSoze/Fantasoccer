@@ -46,7 +46,7 @@
     }
     private void NavigateTo(FluentDataGridRow<CalendarGame> calendarGame)
     {
-        var gameId = calendarGame.Id ??= string.Empty;
+        var gameId = calendarGame?.Item?.Id ?? string.Empty;
         NavigationManager.NavigateTo($"game/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
     }
 }

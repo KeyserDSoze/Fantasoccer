@@ -1,7 +1,7 @@
 ﻿@if (Game != null)
 {
     <div class="@Css">
-        <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
+        <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.HomeOwner)" />
         <span class="team">@Game.Home</span>
         @if (Game.Result != default && !Game.Result.IsCancelled)
         {
@@ -9,7 +9,7 @@
             {
                 <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
             }
-            @if (Game.Result.Home.OwnGoal)
+            @if (Game.Result.Home.OwnGoal && !Game.Result.Away.OwnGoal)
             {
                 <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
             }
@@ -22,7 +22,7 @@
             {
                 <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
             }
-            @if (Game.Result.Away.OwnGoal)
+            @if (Game.Result.Away.OwnGoal && !Game.Result.Home.OwnGoal)
             {
                 <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
             }
@@ -32,7 +32,7 @@
             <span class="goals"> - </span>
         }
         <span class="team">@Game.Away</span>
-        <img class="teamImage" onerror="this.src ='https://upload.wikimedia.org/wikipedia/commons/9/99/Scudetto.svg'" src="" />
+        <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.AwayOwner)" />
     </div>
 }
 @code {
@@ -40,4 +40,6 @@
     public CalendarGame? Game { get; set; }
     [Parameter]
     public string Css { get; set; }
+    [CascadingParameter]
+    public FantasoccerState? State { get; set; }
 }

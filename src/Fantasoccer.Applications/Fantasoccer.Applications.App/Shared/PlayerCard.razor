@@ -1,6 +1,6 @@
 ﻿<div class="player @Player.Current.Role" onclick="@(() => Click?.Invoke())">
     <div class="playerimage-container">
-        <img class="playerimage" onerror="this.src ='./static/nogioc.jpg'" src="@imageUri" />
+        <img class="playerimage" onerror="@ImageUriHelper.GetPlaceholderPlayerImageUri()" src="@ImageUriHelper.GetPlayerImageUri(Player.Current)" />
     </div>
     @if (Player.RealGame?.IsPlayed == true)
     {
@@ -97,10 +97,4 @@
     [Parameter]
     public Action? Click { get; set; }
     private string EnemyName => Player == null || Player.RealGame == null ? string.Empty : (Player.Current.RealTeam.Abbreviation != Player.RealGame.Home.Abbreviation ? Player.RealGame.Home.Abbreviation.ToUpper() : Player.RealGame.Away.Abbreviation);
-    private string? imageUri;
-    protected override void OnParametersSet()
-    {
-        imageUri = $"https://fasostorage.blob.core.windows.net/images/players/{Player.Current.Key}.jpg";
-        base.OnParametersSet();
-    }
 }

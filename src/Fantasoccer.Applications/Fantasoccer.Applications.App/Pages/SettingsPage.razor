@@ -1,5 +1,6 @@
 ﻿@page "/settings"
 @using System.Text.Json
+@using Rystem.Content
 @using WebPush
 @inject IJSRuntime JS
 
@@ -25,6 +26,27 @@
                 <FluentButton Appearance="Appearance.Accent" OnClick="@OnSaveClicked">
                     Salva impostazioni
                 </FluentButton>
+            </div>
+            <div>
+                <img style="max-width:100px;" src="@ImageUriHelper.GetTeamImageUri(State.GroupId!, State.Year, State.Identity.Email)" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" />
+                <FluentInputFile Id="logo-uploader"
+                                 Mode="InputFileMode.Stream"
+                                 Multiple="false"
+                                 MaximumFileCount="1"
+                                 MaximumFileSize="@(10*1024*1024)"
+                                 Accept="image/*"
+                                 OnCompleted="@OnCompletedAsync"
+                                 Style="height: 300px; border: 1px dashed var(--accent-fill-rest);">
+                    <ChildContent>
+                        <label for="logo-uploader">
+                            <FluentIcon Value="@(new @Icons.Regular.Size24.ArrowUpload())" />
+                        </label>
+
+                        <div>
+                            Carica il tuo logo e rendi la tua squadra unica
+                        </div>
+                    </ChildContent>
+                </FluentInputFile>
             </div>
         </FluentGridItem>
         @if (pushNotificationSettings != null)
@@ -69,6 +91,8 @@
 
 @code {
     [Inject]
+    public IFactory<IContentRepository> ContentFactory { get; set; }
+    [Inject]
     private IMessageService? MessageService { get; set; }
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
@@ -112,6 +136,25 @@
             isSubscribed = await JS.InvokeAsync<bool>("isSubscribedToNotification", null);
         }
         await base.OnParametersSetAsync();
+    }
+    private async Task OnCompletedAsync(IEnumerable<FluentInputFileEventArgs> files)
+    {
+        var contentRepository = ContentFactory.Create("logos")!;
+        foreach (var file in files.Where(x => x?.Stream != null))
+        {
+            var logoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
+            var data = await file.Stream!.ToArrayAsync();
+            var response = await contentRepository.UploadAsync(logoKey, data);
+            if (response)
+            {
+                ToastService.ShowSuccess("Logo caricato con successo.");
+                StateHasChanged();
+            }
+            else
+            {
+                ToastService.ShowError($"Errore durante il caricamento del logo.");
+            }
+        }
     }
     async Task OnSaveClicked()
     {

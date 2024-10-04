@@ -6,7 +6,7 @@
             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                 <FluentCard>
                     <h3>Day @day.SerieADay</h3>
-                    <FluentDataGrid TGridItem="RealGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
+                    <FluentDataGrid TGridItem="RealGame" Items="day.Games.AsQueryable()">
                         <PropertyColumn Property="@(p => p.Home.Name)" Sortable="true" Title="Casa" />
                         <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
                         <PropertyColumn Property="@(p => p.Away.Name)" Sortable="true" Title="Trasferta" />
@@ -23,11 +23,7 @@
     public bool WithFluentSize { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
-    private void NavigateTo(FluentDataGridRow<RealGame> game)
-    {
-        var gameId = game.Id;
-        NavigationManager.NavigateTo($"game/{gameId}", false);
-    }
+    
     private string CalculateResult(RealGame game)
     {
         if (game.IsPlayed)

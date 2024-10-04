@@ -2,6 +2,11 @@
 
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+}
+
+.body-content {
+    min-height: calc(100vh - 50px);
 }
 
 h1:focus {
@@ -303,4 +308,8 @@ a, .btn-link {
 
 .calendarrow:hover {
     cursor: pointer;
+}
+
+.teamImageForRank {
+    width: 30px;
 }

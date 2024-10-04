@@ -31,6 +31,7 @@
         <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
+        <ProjectReference Include="..\..\Fantasoccer.Infrastructure.ClientStorage\Fantasoccer.Infrastructure.ClientStorage.csproj" />
         <!--<ProjectReference Include="..\..\..\..\Rystem\src\Authentication\Rystem.Authentication.Social.Blazor\Rystem.Authentication.Social.Blazor.csproj" />-->
     </ItemGroup>
 
