@@ -20,7 +20,7 @@
                                   Items="@State.SelectedGroup.Users"
                                   OptionText="@(p => $"{p.Username} [{p.Email}]")"
                                   OptionValue="@(p => p.Email)"
-                                  SelectedOptions="@State.SelectedGroup.Users.Where(x => context.AdditionalOwners.Contains(x.Email))"
+                                  SelectedOptions="@State.SelectedGroup.Users.Where(x => context.AdditionalOwners?.Contains(x.Email) == true)"
                                   SelectedOptionsChanged="@(users => ChangeCoOwnersAsync(context, users))" />
                 </TemplateColumn>
                 <TemplateColumn Title="Cancella">

@@ -110,6 +110,7 @@ a, .btn-link {
 
 .field {
     position: relative;
+    min-width: 1500px;
 }
 
     .field .backgroundField {
