@@ -12,16 +12,17 @@
                                   Label="Owner"
                                   Items="@State.SelectedGroup.Users"
                                   Value="@context.Owner"
-                                  SelectedOptionChanged="(newOwner) => ChangeOwnerAsync(context.Owner, newOwner)" />
+                                  SelectedOptionChanged="(newOwner) => ChangeOwnerAsync(context, newOwner)" />
                 </TemplateColumn>
-                @*  <TemplateColumn Title="Co-Owner">
-        <FluentSelect Multiple="true"
-        TOption="UserOfAGroup"
-        Items="@State.SelectedGroup.Users"
-        OptionText="@(p => $"{p.Username} [{p.Email}]")"
-        OptionValue="@(p => p.Email)"
-        @bind-SelectedOptions="@State.SelectedGroup.Users.Where(x => context.AdditionalOwners.Contains(x.Email))" />
-        </TemplateColumn> *@
+                <TemplateColumn Title="Co-Owner">
+                    <FluentSelect Multiple="true"
+                                  TOption="UserOfAGroup"
+                                  Items="@State.SelectedGroup.Users"
+                                  OptionText="@(p => $"{p.Username} [{p.Email}]")"
+                                  OptionValue="@(p => p.Email)"
+                                  SelectedOptions="@State.SelectedGroup.Users.Where(x => context.AdditionalOwners.Contains(x.Email))"
+                                  SelectedOptionsChanged="@(users => ChangeCoOwnersAsync(context, users))" />
+                </TemplateColumn>
                 <TemplateColumn Title="Cancella">
                     <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = DeleteAsync(context))">
                         Cancella
@@ -113,7 +114,7 @@
         }
     }
 
-    private async Task ChangeOwnerAsync(string email, UserOfAGroup newUser)
+    private async Task ChangeOwnerAsync(AnnualTeam team, UserOfAGroup newUser)
     {
         if (newUser != null)
         {
@@ -121,19 +122,17 @@
             if (Teams != null && State != null && !Teams.Any(x => x.Owner == newOwnerEmail))
             {
                 LoadingIndicator?.Show();
-                foreach (var team in Teams.Where(x => x.Owner == email))
+                team.Owner = newOwnerEmail;
+                var email = team.Owner;
+                if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
                 {
-                    team.Owner = newOwnerEmail;
-                    if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
+                    var newTeam = await Api.Team.GetAsync(State.OtherTeamKey(email));
+                    if (!await Api.Team.ExistAsync(State.OtherTeamKey(newOwnerEmail)))
                     {
-                        var newTeam = await Api.Team.GetAsync(State.OtherTeamKey(email));
-                        if (!await Api.Team.ExistAsync(State.OtherTeamKey(newOwnerEmail)))
+                        newTeam.Owner = newOwnerEmail;
+                        if (await Api.Team.InsertAsync(State.OtherTeamKey(newOwnerEmail), newTeam))
                         {
-                            newTeam.Owner = newOwnerEmail;
-                            if (await Api.Team.InsertAsync(State.OtherTeamKey(newOwnerEmail), newTeam))
-                            {
-                                await Api.Team.DeleteAsync(State.OtherTeamKey(email));
-                            }
+                            await Api.Team.DeleteAsync(State.OtherTeamKey(email));
                         }
                     }
                 }
@@ -142,21 +141,19 @@
             }
         }
     }
-    private async Task ChangeCoOwnersAsync(string email, IEnumerable<UserOfAGroup> users)
+    private async Task ChangeCoOwnersAsync(AnnualTeam team, IEnumerable<UserOfAGroup> users)
     {
         if (Teams != null)
         {
             LoadingIndicator?.Show();
-            foreach (var team in Teams.Where(x => x.Owner == email))
+            var email = team.Owner;
+            var emails = users.Select(x => x.Email).ToList();
+            team.AdditionalOwners = emails;
+            if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
             {
-                var emails = users.Select(x => x.Email).ToList();
-                team.AdditionalOwners = emails;
-                if (await Api.Team.ExistAsync(State.OtherTeamKey(email)))
-                {
-                    var teamToUpdate = await Api.Team.GetAsync(State.OtherTeamKey(email));
-                    teamToUpdate.AdditionalOwners = emails;
-                    await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
-                }
+                var teamToUpdate = await Api.Team.GetAsync(State.OtherTeamKey(email));
+                teamToUpdate.AdditionalOwners = emails;
+                await Api.Team.InsertAsync(State.OtherTeamKey(email), teamToUpdate);
             }
             await Api.Groups.UpdateAsync(State.GroupId, State.SelectedGroup);
             LoadingIndicator?.Hide();

@@ -1,7 +1,13 @@
 ﻿@if (CanCreateNewGroup)
 {
     <FluentStack Orientation="Orientation.Vertical">
-        <FluentSelect TOption="Basket" Items="@State.SelectedGroup!.Baskets" Value="@State.SelectedBasketId" SelectedOptionChanged="@OnSelectedBasketChanged" />
+        <FluentSelect
+            TOption="Basket" 
+            Items="@State.SelectedGroup!.Baskets" 
+            OptionText="@(x => x.Name)"
+            OptionValue="@(x => x.Id)"
+            Value="@State.SelectedBasketId" 
+            SelectedOptionChanged="@OnSelectedBasketChanged" />
         <FluentTextField @bind-Value=newBasketName Label="Nome basket"></FluentTextField>
         <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewBasket">
             Crea nuovo basket

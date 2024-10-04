@@ -7,16 +7,16 @@
 {
     <FluentTabs @bind-ActiveTabId="@selectedTab">
         <FluentTab Id="groups" Label="Gruppi">
-            @* <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager> *@
+            <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
         </FluentTab>
         <FluentTab Id="users" Label="Utenti">
-            @* <UserManager SaveAsync="SaveAsync"></UserManager> *@
+            <UserManager SaveAsync="SaveAsync"></UserManager>
         </FluentTab>
         <FluentTab Id="baskets" Label="Contenitori squadre">
-            @* <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager> *@
+            <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
         </FluentTab>
         <FluentTab Id="leagues" Label="Leghe">
-            @* <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager> *@
+            <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
         </FluentTab>
     </FluentTabs>
 }

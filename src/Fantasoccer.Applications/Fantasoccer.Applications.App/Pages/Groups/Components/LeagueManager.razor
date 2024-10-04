@@ -6,7 +6,12 @@
     <FluentStack Orientation="Orientation.Vertical">
         @if (State?.SelectedGroup?.Leagues?.Any() == true)
         {
-            <FluentSelect TOption="League" Items="@State.SelectedGroup.Leagues" Value="@State.LeagueId" SelectedOptionChanged="@OnSelectedLeagueChanged" />
+            <FluentSelect TOption="League"
+                          Items="@State.SelectedGroup.Leagues"
+                          OptionValue="@(x => x.Id)"
+                          OptionText="@(x => x.Name)"
+                          Value="@State.LeagueId"
+                          SelectedOptionChanged="@OnSelectedLeagueChanged" />
         }
         <FluentTextField @bind-Value=newLeagueName Label="Nome basket"></FluentTextField>
         <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewLeague">
@@ -22,12 +27,13 @@
                 <FluentRadio Value="LeagueType.NewCup">Champions</FluentRadio>
                 <FluentRadio Value="LeagueType.SuperLeague">Superlega</FluentRadio>
             </FluentRadioGroup>
-            <FluentSelect TOption="string" Multiple="true" Value="State.SelectedLeague!.BasketsId" SelectedOptionsChanged="ChangeBasketsAsync">
-                @foreach (var basket in State.SelectedGroup!.Baskets)
-                {
-                    <FluentOption Value="@basket.Id">@basket.Name</FluentOption>
-                }
-            </FluentSelect>
+            <FluentSelect TOption="Basket"
+                          Multiple="true"
+                          Items="@State.SelectedGroup!.Baskets.Where(x => State.SelectedLeague!.BasketsId.Contains(x.Id)).AsQueryable()"
+                          OptionText="@(x => x.Name)"
+                          OptionValue="@(x => x.Id)"
+                          SelectedOptions="@State.SelectedBaskets"
+                          SelectedOptionsChanged="ChangeBasketsAsync" />
             var settings = State?.SelectedYearlyLeague?.Settings;
             if (settings != null)
             {
@@ -240,12 +246,12 @@
             LoadingIndicator?.Hide();
         }
     }
-    private async Task ChangeBasketsAsync(IEnumerable<string> basketsId)
+    private async Task ChangeBasketsAsync(IEnumerable<Basket> baskets)
     {
-        if (State?.HasALeague == true)
+        if (State?.HasALeague == true && baskets != null)
         {
             LoadingIndicator?.Show();
-            State.SelectedLeague.BasketsId = basketsId.ToList();
+            State.SelectedLeague.BasketsId = baskets.Select(x => x.Id).ToList();
             await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
             LoadingIndicator?.Hide();
         }

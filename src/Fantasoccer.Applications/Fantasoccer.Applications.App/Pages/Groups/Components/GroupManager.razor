@@ -1,10 +1,16 @@
 ﻿@if (State?.Identity?.Groups?.Any() == true)
 {
     <FluentStack Orientation="Orientation.Vertical">
-        <FluentSelect TOption="GroupForIdentity" Items="@State.Identity.Groups" Value="@State.GroupId" SelectedOptionChanged="@OnSelectedGroupChanged" />
+        <FluentSelect 
+            TOption="GroupForIdentity"
+            Items="@State.Identity.Groups.AsQueryable()"
+            OptionText="@(x => x.Name)"
+            OptionValue="@(x => x.Id)"
+            Value="@State.GroupId"
+            SelectedOptionChanged="@OnSelectedGroupChanged" />
         @if (CanCreateNewGroup)
         {
-            <FluentTextField @bind-Value=newGroupName Label="Nome basket"></FluentTextField>
+            <FluentTextField @bind-Value=newGroupName Label="Nome gruppo"></FluentTextField>
             <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewGroup">
                 Crea nuovo gruppo
             </FluentButton>
