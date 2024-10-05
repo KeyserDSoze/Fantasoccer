@@ -57,7 +57,7 @@ namespace Fantasoccer.Engine.IngestionData
                         foreach (var league in group.Leagues.Where(x => x.Years.Exists(t => t.Year == actualYear)))
                         {
                             var leagueSettings = group.GetAnnualLeague(league.Id, actualYear)?.Settings ?? LeagueSetting.Default;
-                            _teamCalculator.SetLeagueSettings(league.Type, leagueSettings);
+                            _teamCalculator.SetLeagueSettings(league.GetAnnualType(actualYear), leagueSettings);
                             var leagueKey = new LeagueKey { Group = group.Id, League = league.Id, Year = actualYear };
                             var calendar = await _calendarRepository.GetAsync(leagueKey).NoContext();
                             if (calendar != null)

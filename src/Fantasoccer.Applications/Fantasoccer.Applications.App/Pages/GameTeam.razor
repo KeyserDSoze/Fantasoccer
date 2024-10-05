@@ -135,7 +135,7 @@
                 selectedLeague = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId);
             }
             var leagueSettings = selectedLeague?.Years.Find(x => x.Year == year)?.Settings;
-            leagueCalculator = LeagueCalculatorFactory.Create(selectedLeague?.Type.ToString());
+            leagueCalculator = LeagueCalculatorFactory.Create(selectedLeague?.GetAnnualType(year).ToString());
             LoadingIndicator?.Show();
             isMobile = await UiUtilityService.IsMobileAsync();
             game = null;
@@ -166,7 +166,7 @@
                     }
                 }
             }
-            await TeamCalculator.BuildRequestAsync(year, serieADay, selectedLeague!.Type, leagueSettings!, true, !isInEdit, true);
+            await TeamCalculator.BuildRequestAsync(year, serieADay, selectedLeague!.GetAnnualType(year), leagueSettings!, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
             if (game == null && calendar != null)
             {

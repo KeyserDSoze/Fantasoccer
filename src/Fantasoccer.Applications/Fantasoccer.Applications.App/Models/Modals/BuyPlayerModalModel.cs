@@ -5,6 +5,6 @@
         public RealPlayer Player { get; set; }
         public int Price { get; set; }
         public List<Team> Teams { get; set; }
-        public Team Owner { get; set; }
+        public Team Team { get; set; }
     }
 }

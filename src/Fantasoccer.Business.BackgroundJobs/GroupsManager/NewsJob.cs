@@ -74,7 +74,8 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                     if (days.Count > 0)
                                     {
                                         var hasEnded = false;
-                                        if (league.Type == LeagueType.League)
+                                        //todo: migliorare questa parte di AI con non solo la league ma anche il resto
+                                        if (league.GetAnnualType(actualYear) == LeagueType.League)
                                         {
                                             if (lastSerieADay == 38)
                                             {

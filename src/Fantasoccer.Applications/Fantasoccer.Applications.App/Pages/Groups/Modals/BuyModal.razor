@@ -4,14 +4,13 @@
 <h1>@Content.Player.Name</h1>
 <h1>@Content.Player.RealTeam.Name</h1>
 <FluentNumberField @bind-Value=Content.Price />
-<FluentSelect TOption="Team" Items="Content.Teams" OptionText="@(t => t.Name)" @bind-SelectedOption=owner />
+<FluentSelect TOption="Team" Items="Content.Teams" OptionText="@(t => t.Name)" OptionValue="@(t => t.Owner)" @bind-SelectedOption=Content.Team />
 
 @code {
     [Parameter]
     public required BuyPlayerModalModel Content { get; set; }
     [CascadingParameter]
     public FluentDialog? Dialog { get; set; }
-    private Team? owner;
     private void ToggleDialogPrimaryActionButton(bool enable)
     {
         Dialog!.TogglePrimaryActionButton(enable);

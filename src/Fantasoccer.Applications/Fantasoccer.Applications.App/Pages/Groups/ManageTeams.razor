@@ -4,14 +4,14 @@
 @using System.Text
 
 <PageTitle>Manage teams</PageTitle>
-@if (State?.IsAdmin() == true && players != null && teams != null && visibilities != null)
+@if (State?.IsAdmin() == true && players != null && teams != null && State.SelectedLeague.IsMain)
 {
     <FluentGrid Spacing="0">
         <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
             <FluentTabs @bind-ActiveTabId=selectedTab>
                 @foreach (var role in Roles)
                 {
-                    <FluentTab Id="@role.ToString()">
+                    <FluentTab Id="@role.ToString()" Label="@role.ToString()">
                         <FluentDataGrid TGridItem="StatPlayer"
                                         Items="players.Where(x => x.Role == role && x.IsActive).Select(x => GetStatPlayer(x)).AsQueryable()"
                                         OnRowClick="PlayerClicked">
@@ -119,7 +119,6 @@
     private List<RealPlayer>? allPlayers;
     private List<RealPlayer>? players;
     private List<Team>? teams;
-    private Dictionary<string, bool>? visibilities;
     private string? activeTeamId;
     private string selectedTab = Roles.First().ToString();
     private static readonly List<Role> Roles = new()
@@ -188,7 +187,6 @@
         {
             LoadingIndicator?.Show();
             teams = new();
-            visibilities = new();
 
             var allPlayersWrapper = State.SelectedLeagueSettings?.RandomAuction == true ?
                 await Api.RandomizedRealPlayers.GetAsync(State.LeagueKey) :
@@ -210,7 +208,6 @@
                     }
                     teams.Add(actualTeam);
                     actualTeam.MoneyFromRank = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == team.Owner).PlusMoney;
-                    visibilities.Add(team.Owner, false);
                     foreach (var player in actualTeam.ActivePlayers)
                     {
                         var playerKey = player.Key;
@@ -269,30 +266,39 @@
                 Player = player,
                 Price = 1,
                 Teams = teams,
+                Team = teams.First()
             }, parameters);
         DialogResult? result = await dialog.Result;
-        if (result?.Data is BuyPlayerModalModel buying)
+        if (result?.Cancelled == false && result?.Data is BuyPlayerModalModel buying)
         {
-            if (Check(buying.Player, buying.Owner, buying.Price))
+            if (buying.Player != null && buying.Team != null)
             {
-                buying.Owner.Players.Add(new Player
-                    {
-                        IsActive = true,
-                        Name = realPlayer.Name,
-                        RealTeam = realPlayer.RealTeam,
-                        Price = buying.Price,
-                        Role = realPlayer.Role,
-                        Status = PlayerInTeamStatus.Active,
-                        Position = FantaSoccerRole.Tribune
-                    });
-                await Api.Team.UpdateAsync(State.OtherTeamKey(buying.Owner.Owner), buying.Owner);
-                players.Remove(realPlayer);
-                visibilities[buying.Owner.Owner] = true;
-                StateHasChanged();
+                var team = buying.Team;
+                if (Check(buying.Player, team, buying.Price))
+                {
+                    team.Players.Add(new Player
+                        {
+                            IsActive = true,
+                            Name = realPlayer.Name,
+                            RealTeam = realPlayer.RealTeam,
+                            Price = buying.Price,
+                            Role = realPlayer.Role,
+                            Status = PlayerInTeamStatus.Active,
+                            Position = FantaSoccerRole.Tribune
+                        });
+                    await Api.Team.UpdateAsync(State.OtherTeamKey(team.Owner), team);
+                    players.Remove(realPlayer);
+                    StateHasChanged();
+                }
+                else
+                {
+                    ToastService.ShowError("Non acquistabile");
+                }
+                activeTeamId = team.Owner;
             }
         }
     }
-   
+
     private bool Check(RealPlayer realPlayer, Team team, int price)
     {
         switch (realPlayer.Role)
@@ -356,14 +362,14 @@
                 Status = PlayerInTeamStatus.Removed
             }, parameters);
         DialogResult? result = await dialog.Result;
-        if (result?.Data is CancelPlayerModalModel cancellation)
+        if (result?.Cancelled == false && result?.Data is CancelPlayerModalModel cancellation)
         {
             var team = teams.FirstOrDefault(x => x.Owner == cancellation.Owner);
             player.Status = cancellation.Status;
             if (player.Status == PlayerInTeamStatus.Removed)
                 team.Players.Remove(player);
             await Api.Team.UpdateAsync(State.OtherTeamKey(cancellation.Owner), team);
-            visibilities[cancellation.Owner] = true;
+            activeTeamId = cancellation.Owner;
             if (player.IsActive)
                 players.Add(player);
         }

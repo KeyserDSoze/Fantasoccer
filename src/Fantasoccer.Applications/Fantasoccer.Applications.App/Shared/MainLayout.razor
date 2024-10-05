@@ -14,7 +14,7 @@
         </div>
     </FluentHeader>
     <FluentStack Orientation="Orientation.Horizontal" Width="100%" Style="min-height: calc(100vh - 50px);">
-        <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="true">
+        <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="@ShowOnCollpase">
             @if (State?.HasAGroup == true)
             {
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.ReadAloud())" Href="../../" Tooltip="Leggi le notizie prima degli altri">News</FluentNavLink>
@@ -77,7 +77,10 @@
                     {
                         <FluentNavGroup Title="Amministrazione" Tooltip="Gestisci i tuoi gruppi, creane di nuovi, aggiungi utenti e crea le squadre, organizza l'asta." Icon="@(new Icons.Regular.Size24.ControlButton())">
                             <FluentNavLink Icon="@(new Icons.Regular.Size24.DualScreenGroup())" Href="../../groups" Tooltip="Gestisci i tuoi gruppi">Gruppi</FluentNavLink>
-                            <FluentNavLink Icon="@(new Icons.Regular.Size24.ShiftsTeam())" Href="../../manageteams" Tooltip="Gestisci le squadre della lega selezionata">Leghe</FluentNavLink>
+                            @if (State.SelectedLeague.IsMain)
+                            {
+                                <FluentNavLink Icon="@(new Icons.Regular.Size24.ShiftsTeam())" Href="../../manageteams" Tooltip="Gestisci le squadre della lega selezionata">Asta</FluentNavLink>
+                            }
                         </FluentNavGroup>
                         <FluentNavGroup Title="Super Amministrazione" Tooltip="Gestisci tutti gli utenti e controlla il calendario di Serie A" Icon="@(new Icons.Regular.Size24.TextSuperscript())">
                             <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleAudience())" Href="../../users" Tooltip="Gestisci gli utenti">Utenti</FluentNavLink>
@@ -121,6 +124,7 @@
     public LoadingIndicator LoadingIndicator { get; set; }
     private List<Group> groups;
     private bool Expanded = true;
+    private bool ShowOnCollpase = true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -134,7 +138,8 @@
                     groups.Add(theGroup);
             }
         }
-        Expanded = !await UiUtilityService.IsMobileAsync(); ;
+        Expanded = !await UiUtilityService.IsMobileAsync();
+        ShowOnCollpase = Expanded;
         await base.OnParametersSetAsync();
     }
     private void OpenOrCloseMenu()

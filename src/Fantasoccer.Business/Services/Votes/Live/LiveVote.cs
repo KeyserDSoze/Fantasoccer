@@ -74,8 +74,8 @@ namespace Fantasoccer.Business.IngestionData
                     ManOfTheMatch = getValue(26) == 1,
                     Status = currentEvents.ContainsKey(1) ? Behaviour.YellowCard : (currentEvents.ContainsKey(2) ? Behaviour.RedCard : Behaviour.Nothing),
                     HasVote = vote != 55f,
-                    IsIn = currentEvents.ContainsKey(14),
-                    IsOut = currentEvents.ContainsKey(15),
+                    IsIn = currentEvents.ContainsKey(15),
+                    IsOut = currentEvents.ContainsKey(14),
                 };
                 int getValue(int x)
                 {

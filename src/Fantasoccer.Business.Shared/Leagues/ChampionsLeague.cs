@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
+using Org.BouncyCastle.Math.EC.Multiplier;
 
 namespace Fantasoccer.Business
 {
@@ -15,6 +16,7 @@ namespace Fantasoccer.Business
         private const string ChampionsFinals = "Finals";
         private const string EuropaLeagueFinals = "Europa League";
         private static readonly List<string> s_avoidCalculationRounds = new() { ChampionsFinals, EuropaLeagueFinals };
+        private static readonly int s_multiplier = 1;
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
         {
             var toPlayGames = calendar.Rounds.SelectMany(x => x.Value).SelectMany(x => x.Games).Count(x => x.Result == null || !x.Result.HasValue);
@@ -38,7 +40,7 @@ namespace Fantasoccer.Business
                     else if (calendar.Rounds[roundName].Count > 1)
                     {
                         var round = calendar.Rounds[roundName];
-                        var first = round.First(x => x.SerieADay == serieADay - 3);
+                        var first = round.First(x => x.SerieADay == serieADay - s_multiplier);
                         var second = round.First(x => x.SerieADay == serieADay);
                         foreach (var game in first.Games)
                         {
@@ -83,7 +85,7 @@ namespace Fantasoccer.Business
                         var finals = calendar.Rounds[roundName];
                         for (var adder = 1; nextTeams.Count == 2 ? adder <= 1 : adder <= 2; adder++)
                         {
-                            var nextSerieADay = serieADay + adder * 3;
+                            var nextSerieADay = serieADay + adder * s_multiplier;
                             var day = new Day
                             {
                                 Number = numberOfDaysUntilNow + adder,

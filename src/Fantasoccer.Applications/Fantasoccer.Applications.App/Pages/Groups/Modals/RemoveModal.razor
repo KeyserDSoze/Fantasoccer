@@ -3,7 +3,7 @@
 <FluentMessageBarProvider Section="Buy Player" MaxMessageCount="1" />
 <h1>@Content.Player.Name</h1>
 <h1>@Content.Player.RealTeam.Name</h1>
-<FluentSelect TOption="PlayerInTeamStatus" Items="Statuses" OptionText="@(t => t.ToString())" @bind-SelectedOption=Content.Status />
+<FluentSelect TOption="PlayerInTeamStatus" Items="Statuses" OptionText="@(t => t.ToString())" OptionValue="@(t => t.ToString())" @bind-SelectedOption=Content.Status />
     
 @code {
     [Parameter]

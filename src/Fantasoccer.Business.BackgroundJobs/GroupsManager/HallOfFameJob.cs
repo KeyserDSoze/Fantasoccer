@@ -125,7 +125,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                         }
                         if (yearlyLeague.Year < actualYear || calendar.Rounds.SelectMany(x => x.Value).OrderByDescending(x => x.Number).First().Games.All(x => x.Result != null && x.Result.HasValue))
                         {
-                            var leagueCalculator = _leagueCalculatorFactory.Create(league.Type.ToString())!;
+                            var leagueCalculator = _leagueCalculatorFactory.Create(league.GetAnnualType(yearlyLeague.Year).ToString())!;
                             var winners = leagueCalculator.GetTheYearlyWinners(rank!, calendar!);
                             foreach (var officialWinner in winners)
                             {

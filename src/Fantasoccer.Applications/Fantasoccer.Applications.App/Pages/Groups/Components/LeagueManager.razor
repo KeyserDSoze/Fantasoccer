@@ -3,97 +3,125 @@
 
 @if (CanCreateNewGroup)
 {
-    <FluentStack Orientation="Orientation.Vertical">
-        @if (State?.SelectedGroup?.Leagues?.Any() == true)
-        {
-            <FluentSelect TOption="League"
-                          Items="@State.SelectedGroup.Leagues"
-                          OptionValue="@(x => x.Id)"
-                          OptionText="@(x => x.Name)"
-                          Value="@State.LeagueId"
-                          SelectedOptionChanged="@OnSelectedLeagueChanged" />
-        }
-        <FluentTextField @bind-Value=newLeagueName Label="Nome basket"></FluentTextField>
-        <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewLeague">
-            Crea nuova lega
-        </FluentButton>
+    <FluentGrid Spacing="0" Justify="JustifyContent.Center">
+        <FluentGridItem >
+            @if (State?.SelectedGroup?.Leagues?.Any() == true)
+            {
+                <FluentSelect TOption="League"
+                              Items="@State.SelectedGroup.Leagues"
+                              OptionValue="@(x => x.Id)"
+                              OptionText="@(x => x.Name)"
+                              Value="@State.LeagueId"
+                              SelectedOptionChanged="@(league => _ = OnSelectedLeagueChanged(league))" />
+            }
+            <FluentTextField @bind-Value=newLeagueName Label="Nome basket"></FluentTextField>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewLeague">
+                Crea nuova lega
+            </FluentButton>
+        </FluentGridItem>
         @if (State.HasALeague)
         {
-            <FluentCheckbox @bind-Value="State.SelectedLeague!.IsMain" Label="Is Main" />
-            <FluentTextField @bind-Value=State.SelectedLeague.Name Label="Nome lega"></FluentTextField>
-            <FluentRadioGroup Name="leagueType" @bind-Value=State.SelectedLeague.Type Label="Tipo di lega">
-                <FluentRadio Value="LeagueType.League">Lega</FluentRadio>
-                <FluentRadio Value="LeagueType.Cup">Coppa</FluentRadio>
-                <FluentRadio Value="LeagueType.NewCup">Champions</FluentRadio>
-                <FluentRadio Value="LeagueType.SuperLeague">Superlega</FluentRadio>
-            </FluentRadioGroup>
-            <FluentSelect TOption="Basket"
-                          Multiple="true"
-                          Items="@State.SelectedGroup!.Baskets.Where(x => State.SelectedLeague!.BasketsId.Contains(x.Id)).AsQueryable()"
-                          OptionText="@(x => x.Name)"
-                          OptionValue="@(x => x.Id)"
-                          SelectedOptions="@State.SelectedBaskets"
-                          SelectedOptionsChanged="ChangeBasketsAsync" />
+            <FluentGridItem >
+                <FluentCheckbox @bind-Value="State.SelectedLeague!.IsMain" Label="Is Main" />
+                <FluentTextField @bind-Value=State.SelectedLeague.Name Label="Nome lega"></FluentTextField>
+              @*   <FluentDataGrid Items="@State.SelectedGroup!.Baskets.AsQueryable()" ShowHover="true" TGridItem="Basket">
+                    <SelectColumn TGridItem="Basket"
+                                  SelectMode="@DataGridSelectMode.Multiple"
+                                  
+                                  @bind-SelectedItems="@State.SelectedBaskets" />
+                    <PropertyColumn Property="@(p => p.Id)" Title="Id" />
+                    <PropertyColumn Property="@(p => p.Name)" Title="Nome"/>
+                </FluentDataGrid> *@
+                @* <FluentSelect TOption="Basket"
+                              Multiple="true"
+                              Style="min-height:200px"
+                              Label="Basket"
+                              Items="@State.SelectedGroup!.Baskets.AsQueryable()"
+                              OptionText="@(x => x.Name)"
+                              OptionValue="@(x => x.Id)"
+                              SelectedOptions="@State.SelectedBaskets"
+                              SelectedOptionsChanged="ChangeBaskets" /> *@
+                <FluentSelect TOption="LeagueType"
+                              Label="Tipo di lega (default)"
+                              Items="@LeagueTypeExtensions.All"
+                              OptionText="@(x => x.ToString())"
+                              OptionValue="@(x => x.ToString())"
+                              SelectedOption="@State.SelectedLeague.Type"
+                              SelectedOptionChanged="ChangeLeagueType" />
+                <FluentSelect TOption="LeagueType"
+                              Label="Tipo di lega (annuale)"
+                              Items="@LeagueTypeExtensions.All"
+                              OptionText="@(x => x.ToString())"
+                              OptionValue="@(x => x.ToString())"
+                              SelectedOption="@State.SelectedYearlyLeague.Type"
+                              SelectedOptionChanged="ChangeAnnualLeagueType" />
+            </FluentGridItem>
             var settings = State?.SelectedYearlyLeague?.Settings;
             if (settings != null)
             {
-                <FluentNumberField @bind-Value="settings.StartingMoney" Label="Starting money" Min="500" Max="2000" />
-                <FluentNumberField @bind-Value="settings.DelayedDay" Label="Giornate di ritardo dalla serie A" Min="0" Max="38" />
-                <FluentNumberField @bind-Value="settings.CancelledDay" Label="Giornate iniziali cancellate" Min="0" Max="38" />
-                <FluentNumberField @bind-Value="settings.PointForFirstGoal" Label="Punti minimi per primo goal" Min="56" Max="78" />
-                <FluentNumberField @bind-Value="settings.PointForNextGoal" Label="Punti di differenza per ogni goal" Min="1" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForOwnGoal" Label="Punti di differenza dal primo goal per valere la regola Autogoal" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.DifferencePointForOwnGoal" Label="Punti di differenza con l'avversario per valere la regola Autogoal" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointInHome" Label="Punti aggiuntivi quando si gioca in casa" Min="0" Max="10" />
-                <FluentNumberField @bind-Value="settings.PointForVictory" Label="Punteggio per ogni vittoria" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForDefeat" Label="Punteggio per ogni sconfitta" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForDraw" Label="Punteggio per ogni pareggio" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForStrongDefense" Label="Punteggio per regola Difesa forte (3 difensori)" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForStrongDefense4" Label="Punteggio per regola Difesa forte (4 difensori)" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForStrongDefense5" Label="Punteggio per regola Difesa forte (5 difensori)" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.PointForCleanSheet" Label="Punteggio per regola Portiere imbattuto" Min="0" Max="12" />
-                <FluentNumberField @bind-Value="settings.MoneyForGoal" Label="Soldi aggiuntivi (asta di riparazione) per ogni goal fatto" Min="-12" Max="12" />
-                <FluentNumberField @bind-Value="settings.MoneyForSufferedGoal" Label="Soldi aggiuntivi (asta di riparazione) per ogni goal subito" Min="-12" Max="12" />
-                <FluentCheckbox @bind-Value="settings.RandomAuction" Label="Asta con giocatori randomici" />
-                <FluentCheckbox @bind-Value="settings.RankWithValuePoints" Label="Classifica con punteggio totale e non con punteggio classico" />
+                <FluentGridItem >
+                    <FluentNumberField @bind-Value="settings.StartingMoney" Label="Starting money" Min="500" Max="2000" />
+                    <FluentNumberField @bind-Value="settings.DelayedDay" Label="Giornate di ritardo dalla serie A" Min="0" Max="38" />
+                    <FluentNumberField @bind-Value="settings.CancelledDay" Label="Giornate iniziali cancellate" Min="0" Max="38" />
+                    <FluentNumberField @bind-Value="settings.PointForFirstGoal" Label="Punti minimi per primo goal" Min="56" Max="78" />
+                    <FluentNumberField @bind-Value="settings.PointForNextGoal" Label="Punti di differenza per ogni goal" Min="1" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForOwnGoal" Label="Punti di differenza dal primo goal per valere la regola Autogoal" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.DifferencePointForOwnGoal" Label="Punti di differenza con l'avversario per valere la regola Autogoal" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointInHome" Label="Punti aggiuntivi quando si gioca in casa" Min="0" Max="10" />
+                    <FluentNumberField @bind-Value="settings.PointForVictory" Label="Punteggio per ogni vittoria" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForDefeat" Label="Punteggio per ogni sconfitta" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForDraw" Label="Punteggio per ogni pareggio" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForStrongDefense" Label="Punteggio per regola Difesa forte (3 difensori)" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForStrongDefense4" Label="Punteggio per regola Difesa forte (4 difensori)" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForStrongDefense5" Label="Punteggio per regola Difesa forte (5 difensori)" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.PointForCleanSheet" Label="Punteggio per regola Portiere imbattuto" Min="0" Max="12" />
+                    <FluentNumberField @bind-Value="settings.MoneyForGoal" Label="Soldi aggiuntivi (asta di riparazione) per ogni goal fatto" Min="-12" Max="12" />
+                    <FluentNumberField @bind-Value="settings.MoneyForSufferedGoal" Label="Soldi aggiuntivi (asta di riparazione) per ogni goal subito" Min="-12" Max="12" />
+                    <FluentCheckbox @bind-Value="settings.RandomAuction" Label="Asta con giocatori randomici" />
+                    <FluentCheckbox @bind-Value="settings.RankWithValuePoints" Label="Classifica con punteggio totale e non con punteggio classico" />
+                </FluentGridItem>
                 foreach (var votesForRole in settings.Votes)
                 {
                     var votesSettings = votesForRole.Value;
                     var key = votesForRole.Key == Role.Undefined ? "All" : votesForRole.Key.ToString();
-                    <FluentNumberField @bind-Value="votesSettings.Goal" Label="Punti per ogni goal fatto" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.Penalty" Label="Punti per ogni rigore fatto" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.SufferedGoal" Label="Punti per ogni goal subito" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.StoppedPenalty" Label="Punti per ogni rigore parato" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.WrongedPenalty" Label="Punti per ogni rigore sbagliato" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.OwnGoal" Label="Punti per ogni autogoal" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.Assist" Label="Punti per ogni assist" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.YellowCard" Label="Punti per ogni ammonizione" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.RedCard" Label="Punti per ogni espulsione" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.ManOfTheMatch" Label="Punti per essere il miglior giocatore della partita" Min="-12" Max="12" />
-                    <FluentNumberField @bind-Value="votesSettings.Injury" Label="Punti per essersi infortunato" Min="-12" Max="12" />
+                    <FluentGridItem >
+                        <FluentNumberField @bind-Value="votesSettings.Goal" Label="Punti per ogni goal fatto" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.Penalty" Label="Punti per ogni rigore fatto" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.SufferedGoal" Label="Punti per ogni goal subito" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.StoppedPenalty" Label="Punti per ogni rigore parato" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.WrongedPenalty" Label="Punti per ogni rigore sbagliato" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.OwnGoal" Label="Punti per ogni autogoal" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.Assist" Label="Punti per ogni assist" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.YellowCard" Label="Punti per ogni ammonizione" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.RedCard" Label="Punti per ogni espulsione" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.ManOfTheMatch" Label="Punti per essere il miglior giocatore della partita" Min="-12" Max="12" />
+                        <FluentNumberField @bind-Value="votesSettings.Injury" Label="Punti per essersi infortunato" Min="-12" Max="12" />
+                    </FluentGridItem>
                 }
             }
-            <FluentButton Appearance="Appearance.Accent" OnClick="@SaveAsync">
-                Salva
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync())">
-                Ricalcola anno
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true))">
-                Ricalcola ultima giornata
-            </FluentButton>
-            <FluentNumberField @bind-Value="dayToRecalculate" Min="1" Max="38" />
-            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true, true))">
-                Ricalcola giornata precisa
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = CreateCalendarAndRankAsync())">
-                Create new calendar
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = RandomizePlayerForAuctionsAsync())">
-                Randomize players for Auction
-            </FluentButton>
+            <FluentGridItem >
+                <FluentButton Appearance="Appearance.Accent" OnClick="@SaveAsync">
+                    Salva
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync())">
+                    Ricalcola anno
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true))">
+                    Ricalcola ultima giornata
+                </FluentButton>
+                <FluentNumberField @bind-Value="dayToRecalculate" Min="1" Max="38" />
+                <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true, true))">
+                    Ricalcola giornata precisa
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = CreateCalendarAndRankAsync())">
+                    Create new calendar
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = RandomizePlayerForAuctionsAsync())">
+                    Randomize players for Auction
+                </FluentButton>
+            </FluentGridItem>
         }
-    </FluentStack>
+    </FluentGrid>
 }
 @code {
     [CascadingParameter]
@@ -135,12 +163,12 @@
             LoadingIndicator?.Hide();
         }
     }
-    private void OnSelectedLeagueChanged(League league)
+    private async ValueTask OnSelectedLeagueChanged(League league)
     {
         if (State?.IsAuthenticated == true && State.SelectedGroup != null && league != null)
         {
             LoadingIndicator?.Show();
-            State.ChangeLeagueAsync(league.Id);
+            await State.ChangeLeagueAsync(league.Id);
             if (State?.SelectedYearlyLeague == null)
             {
                 if (State.SelectedLeague?.BasketsId == null)
@@ -160,13 +188,13 @@
         if (State?.SelectedYearlyLeague != null && State?.SelectedLeague != null && State.Teams != null)
         {
             LoadingIndicator?.Show();
-            var leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague.Type.ToString())!;
+            var leagueCalculator = LeagueCalculatorFactory.Create(State.SelectedLeague.GetAnnualType(State.Year).ToString())!;
             var calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             //todo check if not exists and doesn't start it
             if (calendar == null || calendar != null)
             {
                 var teams = State.Teams.ToList();
-                if (State.SelectedLeague.Type == LeagueType.Cup)
+                if (State.SelectedLeague.GetAnnualType(State.Year) == LeagueType.Cup)
                 {
                     var worthTeams = new List<AnnualTeam>();
                     if (State.SelectedGroup != null)
@@ -246,14 +274,25 @@
             LoadingIndicator?.Hide();
         }
     }
-    private async Task ChangeBasketsAsync(IEnumerable<Basket> baskets)
+    private void ChangeBaskets(IEnumerable<Basket> baskets)
     {
         if (State?.HasALeague == true && baskets != null)
         {
-            LoadingIndicator?.Show();
             State.SelectedLeague.BasketsId = baskets.Select(x => x.Id).ToList();
-            await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
-            LoadingIndicator?.Hide();
+        }
+    }
+    private void ChangeAnnualLeagueType(LeagueType leagueType)
+    {
+        if (State?.HasALeague == true)
+        {
+            State.SelectedYearlyLeague.Type = leagueType;
+        }
+    }
+    private void ChangeLeagueType(LeagueType leagueType)
+    {
+        if (State?.HasALeague == true)
+        {
+            State.SelectedLeague.Type = leagueType;
         }
     }
     private async Task RandomizePlayerForAuctionsAsync()
@@ -291,7 +330,7 @@
             var realCalendar = await Api.RealCalendar.GetAsync(State.Year);
             var lastDay = realCalendar.LastDay;
             var yearlyLeague = State?.SelectedYearlyLeague;
-            var leagueType = State!.SelectedLeague!.Type;
+            var leagueType = State!.SelectedLeague!.GetAnnualType(State.Year);
             var settings = yearlyLeague?.Settings;
             if (settings != null)
             {
@@ -311,7 +350,7 @@
                         }
                         else if (!onlyLastDay || (!preciseDay && day.SerieADay == lastDay.SerieADay) || (preciseDay && day.SerieADay == dayToRecalculate))
                         {
-                            await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, State!.SelectedLeague!.Type, yearlyLeague.Settings, false, true, false);
+                            await TeamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, State!.SelectedLeague!.GetAnnualType(State.Year), yearlyLeague.Settings, false, true, false);
                             if (TeamCalculator.Official == null || TeamCalculator.IsLive)
                                 break;
                             foreach (var game in day.Games)

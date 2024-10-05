@@ -110,6 +110,12 @@ a, .btn-link {
     fluent-data-grid-cell, fluent-tab {
         font-size: 10px !important;
     }
+    .collapsed {
+        min-width: 0px !important;
+        width: 0px !important;
+        overflow: hidden !important;
+        position: fixed;
+    }
 }
 
 .field {
