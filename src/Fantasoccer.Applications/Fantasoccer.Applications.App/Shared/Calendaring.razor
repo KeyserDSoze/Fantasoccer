@@ -4,14 +4,12 @@
         @foreach (var day in Days)
         {
             <FluentGridItem xl="Desktop" md="Mobile" xxl="Desktop" xs="Mobile" sm="Mobile" lg="Desktop">
-                <FluentCard>
-                    <h3>Giornata @day.Number (@day.SerieADay)</h3>
-                    <FluentDataGrid RowClass="@(x => "calendarrow")" TGridItem="CalendarGame" Items="day.Games.AsQueryable()" OnRowClick="p => NavigateTo(p)">
-                        <PropertyColumn Property="@(p => p.Home)" Title="Casa" />
-                        <PropertyColumn Property="@(p => CalculateResult(p))" Title="Risultato" />
-                        <PropertyColumn Property="@(p => p.Away)" Title="Trasferta" />
-                    </FluentDataGrid>
-                </FluentCard>
+                <h3>Giornata @day.Number (@day.SerieADay)</h3>
+                <FluentDataGrid RowClass="@(x => "calendarrow")" TGridItem="CalendarGame" Items="day.Games.AsQueryable()" GridTemplateColumns="2fr 3fr 2fr" OnRowClick="p => NavigateTo(p)">
+                    <PropertyColumn Property="@(p => p.Home)" Title="Casa" />
+                    <PropertyColumn Property="@(p => CalculateResult(p))" Title="Risultato" />
+                    <PropertyColumn Property="@(p => p.Away)" Title="Trasferta" />
+                </FluentDataGrid>
             </FluentGridItem>
         }
     </FluentGrid>

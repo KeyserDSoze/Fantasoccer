@@ -6,9 +6,12 @@
 <FluentLayout Style="min-height: 100vh;">
     <FluentHeader>
         <FluentIcon Color="Color.Fill" Value="@(new Icons.Regular.Size20.SportSoccer())" />
-        &nbsp;&nbsp;Fantasoccer
-        <FluentSpacer />
+        &nbsp;&nbsp;
         @State?.SelectedLeague?.Name @FantacalcioTime.LabelYear(State?.Year ?? 1)
+        <FluentSpacer />
+        <div style="margin-left:1%;" @onclick=OpenOrCloseMenu>
+            <svg style="width: 30px; cursor:pointer; fill: var(--neutral-fill-rest);" focusable="false" viewBox="0 0 24 24" aria-hidden="true"><!--!--><path d="M2.75 18h18.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5h18.6-18.5Zm0-6.5h18.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.5h18.6-18.5Zm0-6.5h18.5a.75.75 0 0 1 .1 1.5H2.75a.75.75 0 0 1-.1-1.49h18.6-18.5Z"></path></svg>
+        </div>
     </FluentHeader>
     <FluentStack Orientation="Orientation.Horizontal" Width="100%" Style="min-height: calc(100vh - 50px);">
         <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="true">
@@ -133,6 +136,10 @@
         }
         Expanded = !await UiUtilityService.IsMobileAsync(); ;
         await base.OnParametersSetAsync();
+    }
+    private void OpenOrCloseMenu()
+    {
+        Expanded = !Expanded;
     }
     public Task ChangeYearAsync(int year)
     {

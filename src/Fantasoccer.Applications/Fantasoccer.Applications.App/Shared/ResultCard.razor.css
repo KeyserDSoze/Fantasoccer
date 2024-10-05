@@ -25,11 +25,13 @@
 
     .gameResult .points {
         opacity: 0.8;
+        color: #b7ff45;
     }
 
     .gameResult .goals {
         font-size: 30px;
         margin: 0 3px;
+        color: #ff9923;
     }
 
     .gameResult .defensivebonus {
@@ -87,18 +89,20 @@
     }
 
     .gameResultMobile .team {
-        font-size: 13px;
+        font-size: 10px;
         text-transform: capitalize;
-        margin: 0 25px;
     }
 
     .gameResultMobile .points {
         opacity: 0.8;
+        color: #b7ff45;
+        margin: 0px 2px;
     }
 
     .gameResultMobile .goals {
         font-size: 11px;
         margin: 0 3px;
+        color: #ff9923;
     }
 
     .gameResultMobile .defensivebonus {

@@ -9,25 +9,28 @@
         @foreach (var playersByRole in players.GroupBy(x => x.Role).OrderBy(x => x.Key))
         {
             <FluentTab Label="@playersByRole.Key.ToString()" Id="@playersByRole.Key.ToString()">
-                <FluentDataGrid Items="@playersByRole.AsQueryable()">
+                <FluentDataGrid Items="@playersByRole.AsQueryable()" GridTemplateColumns="@gridTemplateColumns">
                     <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
                     <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
                     <PropertyColumn Property="@(p => p.Average)" Sortable="true" />
                     <PropertyColumn Property="@(p => p.FantaAverage)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.ManOfTheMatch)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.WithVote)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.WithoutVote)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.YellowCard)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.RedCard)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.Goal)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.Assist)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.Penalty)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.StoppedPenalty)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.SufferedGoal)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.WrongedPenalty)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.OwnGoal)" Sortable="true" />
-                    <PropertyColumn Property="@(p => p.IsActive)" Sortable="true" />
+                    @if (!isMobile)
+                    {
+                        <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.ManOfTheMatch)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.WithVote)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.WithoutVote)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.YellowCard)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.RedCard)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.Goal)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.Assist)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.Penalty)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.StoppedPenalty)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.SufferedGoal)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.WrongedPenalty)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.OwnGoal)" Sortable="true" />
+                        <PropertyColumn Property="@(p => p.IsActive)" Sortable="true" />
+                    }
                 </FluentDataGrid>
             </FluentTab>
         }
@@ -47,11 +50,16 @@
         if (!firstRender)
             LoadingIndicator?.Hide();
     }
+    private string gridTemplateColumns = "2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr";
+    private bool isMobile;
     protected override async Task OnParametersSetAsync()
     {
         if (State != null)
         {
             LoadingIndicator?.Show();
+            isMobile = await UiUtilityService.IsMobileAsync();
+            if (isMobile)
+                gridTemplateColumns = "2fr 1fr 1fr 1fr";
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
             if (playersWrapper != null && State.Teams != null)
             {

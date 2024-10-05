@@ -16,5 +16,13 @@ namespace Fantasoccer.Applications.App
             var userAgent = await JsRuntime.InvokeAsync<string>("getUseragent");
             return TestMobile.IsMatch(userAgent?.ToLower() ?? string.Empty);
         }
+        public ValueTask<bool> AddClassAsync(string id, string className)
+        {
+            return JsRuntime.InvokeAsync<bool>("setClass", [id, className]);
+        }
+        public ValueTask<bool> RemoveClassAsync(string id, string className)
+        {
+            return JsRuntime.InvokeAsync<bool>("removeClass", [id, className]);
+        }
     }
 }

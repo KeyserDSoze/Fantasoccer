@@ -1,18 +1,16 @@
 ﻿@if (Players != null)
 {
     @* Items="@Players.OrderBy(x => x.Current.Role)" ItemsFilter="@Filter" ItemDropped="@ItemDropped" *@
-    <FluentDragContainer TItem="EnrichedPlayer" Class="playerContainer" OnDropEnd="(x) => _ = ItemDropped(x)">
+    <FluentDragContainer TItem="EnrichedPlayer" Class="playerContainer" OnDropEnd="(x) => _ = ItemDropped(x)" OnDragEnter="(x) => DragOverAsync(x)" OnDragLeave="(x) => DragLeaveAsync(x)">
         @foreach (var position in !Inverted ? FantaSoccerPosition.Default : FantaSoccerPosition.Inverted)
         {
-            <div class="@position.Css
-                                                                            ">
+            <div class="@position.Css">
                 <FluentDropZone TItem="EnrichedPlayer" Id="@position.Position.ToString()" AdditionalAttributes="s_roles" Draggable="false" Droppable="true" Class="@position.ColumnContainer">
                     @foreach (var player in Players.Where(x => x.Current.Position == position.Position))
                     {
                         <FluentDropZone TItem="EnrichedPlayer" Id="@player.Current.Key" AdditionalAttributes="s_player" Draggable="true" Droppable="true">
                             <PlayerCard Player="player"></PlayerCard>
                         </FluentDropZone>
-
                     }
                 </FluentDropZone>
             </div>
@@ -46,6 +44,65 @@
         var result = player.CurrentPosition.ToString() == zoneName;
         return result;
     }
+    private const string RainbowBords = "rainbow";
+    private const string PlayerSubstitution = "substitution";
+    private async ValueTask DragOverAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
+    {
+        var sourceDropZoneId = dropItem.Source.Id!;
+        var targetDropZoneId = dropItem.Target.Id!;
+        if (sourceDropZoneId == targetDropZoneId)
+            return;
+        var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        if (sourceIsAPlayer && targetIsAPlayer)
+        {
+            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+            var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
+            if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
+            {
+                await UiUtilityService.AddClassAsync(targetDropZoneId, PlayerSubstitution);
+            }
+        }
+        else if (sourceIsAPlayer)
+        {
+            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+            var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
+            var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
+            if (role == Role.Undefined || sourcePlayer.Current.Role == role)
+            {
+                await UiUtilityService.AddClassAsync(targetDropZoneId, RainbowBords);
+            }
+        }
+    }
+    private async ValueTask DragLeaveAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
+    {
+        var sourceDropZoneId = dropItem.Source.Id!;
+        var targetDropZoneId = dropItem.Target.Id!;
+        if (sourceDropZoneId == targetDropZoneId)
+            return;
+        var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        if (sourceIsAPlayer && targetIsAPlayer)
+        {
+            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+            var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
+            if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
+            {
+                await UiUtilityService.RemoveClassAsync(targetDropZoneId, PlayerSubstitution);
+
+            }
+        }
+        else if (sourceIsAPlayer)
+        {
+            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+            var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
+            var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
+            if (role == Role.Undefined || sourcePlayer.Current.Role == role)
+            {
+                await UiUtilityService.RemoveClassAsync(targetDropZoneId, RainbowBords);
+            }
+        }
+    }
     private async ValueTask ItemDropped(FluentDragEventArgs<EnrichedPlayer> dropItem)
     {
         var sourceDropZoneId = dropItem.Source.Id!;
@@ -73,7 +130,7 @@
                     ToastService.ShowError($"{sourcePlayer.Current.Name} non ha lo stesso ruolo di {targetPlayer.Current.Name}");
                 }
             }
-            else if(sourceIsAPlayer)
+            else if (sourceIsAPlayer)
             {
                 var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
                 var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);

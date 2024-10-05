@@ -320,3 +320,7 @@
     line-height: 13px;
     margin-left: 4px;
 }
+
+.substitution .player .playername, .substitution .player .playerenemy {
+    color: #e8e414;
+}

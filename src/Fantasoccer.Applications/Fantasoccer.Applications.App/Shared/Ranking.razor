@@ -10,20 +10,23 @@
             @:Rank
         }
     </h3>
-    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="5fr 2fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
+    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="@gridTemplateColumns">
         <TemplateColumn Title="#">
             <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
             @context.Name
         </TemplateColumn>
         <PropertyColumn Property="@(x => x.Point)" Title="P" />
         <PropertyColumn Property="@(x => x.ValuePoint)" Title="VP" />
-        <PropertyColumn Property="@(x => x.Victories)" Title="V" />
-        <PropertyColumn Property="@(x => x.Draws)" Title="D" />
-        <PropertyColumn Property="@(x => x.Defeats)" Title="De" />
-        <PropertyColumn Property="@(x => x.Goal)" Title="G" />
-        <PropertyColumn Property="@(x => x.SufferedGoal)" Title="SG" />
-        <PropertyColumn Property="@(x => x.SufferedValuePoint)" Title="SV" />
-        <PropertyColumn Property="@(x => x.ValueAssets)" Title="M" />
+        @if (!isMobile)
+        {
+            <PropertyColumn Property="@(x => x.Victories)" Title="V" />
+            <PropertyColumn Property="@(x => x.Draws)" Title="D" />
+            <PropertyColumn Property="@(x => x.Defeats)" Title="De" />
+            <PropertyColumn Property="@(x => x.Goal)" Title="G" />
+            <PropertyColumn Property="@(x => x.SufferedGoal)" Title="SG" />
+            <PropertyColumn Property="@(x => x.SufferedValuePoint)" Title="SV" />
+            <PropertyColumn Property="@(x => x.ValueAssets)" Title="M" />
+        }
     </FluentDataGrid>
 }
 
@@ -36,4 +39,13 @@
     public int SerieADay { get; set; }
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
+    private string gridTemplateColumns = "5fr 2fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr";
+    private bool isMobile;
+    protected override async Task OnParametersSetAsync()
+    {
+        isMobile = await UiUtilityService.IsMobileAsync();
+        if (isMobile)
+            gridTemplateColumns = "5fr 2fr 2fr";
+        await base.OnParametersSetAsync();
+    }
 }
