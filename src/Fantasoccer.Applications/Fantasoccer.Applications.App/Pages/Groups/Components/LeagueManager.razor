@@ -4,7 +4,7 @@
 @if (CanCreateNewGroup)
 {
     <FluentGrid Spacing="0" Justify="JustifyContent.Center">
-        <FluentGridItem >
+        <FluentGridItem>
             @if (State?.SelectedGroup?.Leagues?.Any() == true)
             {
                 <FluentSelect TOption="League"
@@ -21,26 +21,17 @@
         </FluentGridItem>
         @if (State.HasALeague)
         {
-            <FluentGridItem >
+            <FluentGridItem>
                 <FluentCheckbox @bind-Value="State.SelectedLeague!.IsMain" Label="Is Main" />
                 <FluentTextField @bind-Value=State.SelectedLeague.Name Label="Nome lega"></FluentTextField>
-              @*   <FluentDataGrid Items="@State.SelectedGroup!.Baskets.AsQueryable()" ShowHover="true" TGridItem="Basket">
+                <FluentDataGrid Items="@State.SelectedGroup!.Baskets.AsQueryable()" ShowHover="true" TGridItem="Basket">
                     <SelectColumn TGridItem="Basket"
                                   SelectMode="@DataGridSelectMode.Multiple"
-                                  
-                                  @bind-SelectedItems="@State.SelectedBaskets" />
+                                  SelectedItemsChanged="ChangeBaskets"
+                                  SelectedItems="@State.SelectedBaskets" />
                     <PropertyColumn Property="@(p => p.Id)" Title="Id" />
-                    <PropertyColumn Property="@(p => p.Name)" Title="Nome"/>
-                </FluentDataGrid> *@
-                @* <FluentSelect TOption="Basket"
-                              Multiple="true"
-                              Style="min-height:200px"
-                              Label="Basket"
-                              Items="@State.SelectedGroup!.Baskets.AsQueryable()"
-                              OptionText="@(x => x.Name)"
-                              OptionValue="@(x => x.Id)"
-                              SelectedOptions="@State.SelectedBaskets"
-                              SelectedOptionsChanged="ChangeBaskets" /> *@
+                    <PropertyColumn Property="@(p => p.Name)" Title="Nome" />
+                </FluentDataGrid>
                 <FluentSelect TOption="LeagueType"
                               Label="Tipo di lega (default)"
                               Items="@LeagueTypeExtensions.All"
@@ -59,7 +50,7 @@
             var settings = State?.SelectedYearlyLeague?.Settings;
             if (settings != null)
             {
-                <FluentGridItem >
+                <FluentGridItem>
                     <FluentNumberField @bind-Value="settings.StartingMoney" Label="Starting money" Min="500" Max="2000" />
                     <FluentNumberField @bind-Value="settings.DelayedDay" Label="Giornate di ritardo dalla serie A" Min="0" Max="38" />
                     <FluentNumberField @bind-Value="settings.CancelledDay" Label="Giornate iniziali cancellate" Min="0" Max="38" />
@@ -84,7 +75,7 @@
                 {
                     var votesSettings = votesForRole.Value;
                     var key = votesForRole.Key == Role.Undefined ? "All" : votesForRole.Key.ToString();
-                    <FluentGridItem >
+                    <FluentGridItem>
                         <FluentNumberField @bind-Value="votesSettings.Goal" Label="Punti per ogni goal fatto" Min="-12" Max="12" />
                         <FluentNumberField @bind-Value="votesSettings.Penalty" Label="Punti per ogni rigore fatto" Min="-12" Max="12" />
                         <FluentNumberField @bind-Value="votesSettings.SufferedGoal" Label="Punti per ogni goal subito" Min="-12" Max="12" />
@@ -99,23 +90,29 @@
                     </FluentGridItem>
                 }
             }
-            <FluentGridItem >
+            <FluentGridItem>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@SaveAsync">
                     Salva
                 </FluentButton>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync())">
                     Ricalcola anno
                 </FluentButton>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true))">
                     Ricalcola ultima giornata
                 </FluentButton>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentNumberField @bind-Value="dayToRecalculate" Min="1" Max="38" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@(() => RecalculateAsync(true, true))">
                     Ricalcola giornata precisa
                 </FluentButton>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = CreateCalendarAndRankAsync())">
                     Create new calendar
                 </FluentButton>
+                <FluentDivider Orientation="Orientation.Horizontal" />
                 <FluentButton Appearance="Appearance.Accent" OnClick="@((x) => _ = RandomizePlayerForAuctionsAsync())">
                     Randomize players for Auction
                 </FluentButton>

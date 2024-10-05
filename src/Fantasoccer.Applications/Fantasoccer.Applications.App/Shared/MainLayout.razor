@@ -65,11 +65,14 @@
                         @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
                         {
                             var actualYear = year;
-                            <FluentNavLink Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
-                                           OnClick="() => ChangeYearAsync(actualYear)"
-                                           Icon="@(new Icons.Regular.Size24.CalendarArrowDown())">
-                                @FantacalcioTime.LabelYear(actualYear)
-                            </FluentNavLink>
+                            if (State?.SelectedLeague?.Years.Any(x => x.Year == year) == true)
+                            {
+                                <FluentNavLink Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
+                                               OnClick="() => ChangeYearAsync(actualYear)"
+                                               Icon="@(new Icons.Regular.Size24.CalendarArrowDown())">
+                                    @FantacalcioTime.LabelYear(actualYear)
+                                </FluentNavLink>
+                            }
                         }
                     </FluentNavGroup>
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Settings())" Href="../../settings" Tooltip="Scegli quando ricevere le tue notifiche e cambia nome alla tua squadra">Settings</FluentNavLink>
