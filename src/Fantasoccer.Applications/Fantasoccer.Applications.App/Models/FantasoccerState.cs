@@ -238,25 +238,25 @@
             }
             return default;
         }
-        public TeamKey OtherTeamKey(string email) => new()
+        public TeamKey OtherTeamKey(string email, int? year = null) => new()
         {
             Group = GroupId!,
-            Year = Year,
+            Year = year ?? Year,
             Email = email,
             BasketId = SelectedGroup!.GetBasketId(email!, Year!)!,
         };
-        public TeamDayKey TeamDayKey(int day, string? email = null) => new()
+        public TeamDayKey TeamDayKey(int day, string? email = null, int? year = null) => new()
         {
             Group = GroupId!,
             Email = email ?? MeOrLeaderEmail!,
             BasketId = SelectedGroup!.GetBasketId(email ?? MeOrLeaderEmail!, Year!)!,
-            Year = Year,
+            Year = year ?? Year,
             Day = day
         };
-        public YearDayKey YearDayKey(int day) => new()
+        public YearDayKey YearDayKey(int day, int? year = null) => new()
         {
             Day = day,
-            Year = Year
+            Year = year ?? Year
         };
     }
 }

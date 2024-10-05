@@ -3,6 +3,7 @@
     public sealed class WinningTeam
     {
         public string Owner { get; set; }
-        public Dictionary<string, Dictionary<string, int>> Wins { get; set; }
+        public string Team { get; set; }
+        public Dictionary<string, List<int>> Wins { get; set; }
     }
 }

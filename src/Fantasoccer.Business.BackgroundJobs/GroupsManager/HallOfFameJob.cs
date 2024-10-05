@@ -10,7 +10,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<Calendar, LeagueKey> _calendarRepository;
         private readonly IRepository<Rank, LeagueKey> _rankRepository;
-        private readonly IRepository<HallOfFame, string> _hallOfFameRepository;
+        private readonly IRepository<HallOfFame, GeneralLeagueKey> _hallOfFameRepository;
         private readonly IRepository<Team, TeamKey> _teamRepository;
         private readonly IFactory<ILeagueCalculator> _leagueCalculatorFactory;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _officialVoteRepository;
@@ -19,7 +19,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             IRepository<Group, string> groups,
             IRepository<Calendar, LeagueKey> calendarRepository,
             IRepository<Rank, LeagueKey> rankRepository,
-            IRepository<HallOfFame, string> hallOfFameRepository,
+            IRepository<HallOfFame, GeneralLeagueKey> hallOfFameRepository,
             IRepository<Team, TeamKey> teamRepository,
             IFactory<ILeagueCalculator> leagueCalculatorFactory,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteRepositoryFactory)
@@ -58,30 +58,26 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             //}
             foreach (var group in await _groups.ToListAsEntityAsync())
             {
-                var hallOfFame = new HallOfFame()
-                {
-                    WinningPlayers = [],
-                    WinningTeams = [],
-                    Ranks = [],
-                    RecordPlayer = recordPlayer,
-                    PlayerWithMostPointsInYear = playerWithMostPointsInYear
-                };
                 foreach (var league in group.Leagues)
                 {
+                    var hallOfFame = new HallOfFame()
+                    {
+                        WinningPlayers = [],
+                        WinningTeams = [],
+                        Ranks = [],
+                        RecordPlayer = recordPlayer,
+                        PlayerWithMostPointsInYear = playerWithMostPointsInYear
+                    };
                     foreach (var yearlyLeague in league.Years.OrderByDescending(x => x.Year))
                     {
                         var leagueYearlyKey = new LeagueKey { Group = group.Id, League = league.Id, Year = yearlyLeague.Year };
                         var rank = await _rankRepository.GetAsync(leagueYearlyKey).NoContext();
                         var calendar = await _calendarRepository.GetAsync(leagueYearlyKey).NoContext();
-                        if (!hallOfFame.Ranks.ContainsKey(league.Name))
-                        {
-                            hallOfFame.Ranks.Add(league.Name, new());
-                        }
                         foreach (var round in rank!.RankedTeams)
                         {
                             foreach (var team in round.Value)
                             {
-                                var rankedTeam = hallOfFame.Ranks[league.Name].FirstOrDefault(x => x.Owner == team.Owner);
+                                var rankedTeam = hallOfFame.Ranks.FirstOrDefault(x => x.Owner == team.Owner);
                                 if (rankedTeam == null)
                                 {
                                     rankedTeam = new RankedTeam
@@ -89,7 +85,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                         Owner = team.Owner,
                                         Name = team.Name,
                                     };
-                                    hallOfFame.Ranks[league.Name].Add(rankedTeam);
+                                    hallOfFame.Ranks.Add(rankedTeam);
                                 }
                                 rankedTeam.Defeats += team.Defeats;
                                 rankedTeam.Draws += team.Draws;
@@ -112,10 +108,18 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                     if (game.Result == null || !game.Result.HasValue)
                                         continue;
                                     if (hallOfFame.RecordGame == null)
-                                        hallOfFame.RecordGame = game;
-                                    else if ((game.Result.Home.Value > hallOfFame.RecordGame.Result.Home.Value && game.Result.Home.Value > hallOfFame.RecordGame.Result.Away.Value) ||
-                                        (game.Result.Away.Value > hallOfFame.RecordGame.Result.Home.Value && game.Result.Away.Value > hallOfFame.RecordGame.Result.Away.Value))
-                                        hallOfFame.RecordGame = game;
+                                        hallOfFame.RecordGame = new RecordGame
+                                        {
+                                            Game = game,
+                                            Year = yearlyLeague.Year
+                                        };
+                                    else if ((game.Result.Home.Value > hallOfFame.RecordGame.Game.Result.Home.Value && game.Result.Home.Value > hallOfFame.RecordGame.Game.Result.Away.Value) ||
+                                        (game.Result.Away.Value > hallOfFame.RecordGame.Game.Result.Home.Value && game.Result.Away.Value > hallOfFame.RecordGame.Game.Result.Away.Value))
+                                        hallOfFame.RecordGame = new RecordGame
+                                        {
+                                            Game = game,
+                                            Year = yearlyLeague.Year
+                                        };
                                 }
                             }
                         }
@@ -125,21 +129,21 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                             var winners = leagueCalculator.GetTheYearlyWinners(rank!, calendar!);
                             foreach (var officialWinner in winners)
                             {
+                                var winningTeam = group.Baskets.SelectMany(x => x.Years).Where(x => x.Year == yearlyLeague.Year).SelectMany(x => x.Teams).First(x => x.Owner == officialWinner.Owner);
                                 var winner = hallOfFame.WinningTeams.FirstOrDefault(x => x.Owner == officialWinner.Owner);
                                 if (winner == null)
                                 {
                                     winner = new WinningTeam
                                     {
                                         Owner = officialWinner.Owner,
+                                        Team = winningTeam.Name,
                                         Wins = new()
                                     };
                                     hallOfFame.WinningTeams.Add(winner);
                                 }
-                                if (!winner.Wins.ContainsKey(league.Name))
-                                    winner.Wins.Add(league.Name, new());
-                                if (!winner.Wins[league.Name].ContainsKey(officialWinner.Round))
-                                    winner.Wins[league.Name].Add(officialWinner.Round, 0);
-                                winner.Wins[league.Name][officialWinner.Round]++;
+                                if (!winner.Wins.ContainsKey(officialWinner.Round))
+                                    winner.Wins.Add(officialWinner.Round, new());
+                                winner.Wins[officialWinner.Round].Add(yearlyLeague.Year);
                                 var basketId = group.Baskets.First(t => t.Years.Any(x => x.Year == yearlyLeague.Year && x.Teams.Any(x => x.Owner == officialWinner.Owner))).Id;
                                 var team = await _teamRepository.GetAsync(new TeamKey { Group = group.Id, Email = officialWinner.Owner, Year = yearlyLeague.Year, BasketId = basketId }).NoContext();
                                 foreach (var player in team!.ActivePlayers)
@@ -154,23 +158,22 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                         };
                                         hallOfFame.WinningPlayers.Add(winningPlayer);
                                     }
-                                    if (!winningPlayer.Wins.ContainsKey(league.Name))
-                                        winningPlayer.Wins.Add(league.Name, new());
-                                    if (!winningPlayer.Wins[league.Name].ContainsKey(officialWinner.Round))
-                                        winningPlayer.Wins[league.Name].Add(officialWinner.Round, 0);
-                                    winningPlayer.Wins[league.Name][officialWinner.Round]++;
+                                    if (!winningPlayer.Wins.ContainsKey(officialWinner.Round))
+                                        winningPlayer.Wins.Add(officialWinner.Round, new());
+                                    winningPlayer.Wins[officialWinner.Round].Add(yearlyLeague.Year);
                                 }
                             }
                         }
                     }
-                }
-                if (await _hallOfFameRepository.ExistAsync(group.Id).NoContext())
-                {
-                    await _hallOfFameRepository.UpdateAsync(group.Id, hallOfFame).NoContext();
-                }
-                else
-                {
-                    await _hallOfFameRepository.InsertAsync(group.Id, hallOfFame).NoContext();
+                    var leagueKey = new GeneralLeagueKey { Group = group.Id, League = league.Id };
+                    if (await _hallOfFameRepository.ExistAsync(leagueKey).NoContext())
+                    {
+                        await _hallOfFameRepository.UpdateAsync(leagueKey, hallOfFame).NoContext();
+                    }
+                    else
+                    {
+                        await _hallOfFameRepository.InsertAsync(leagueKey, hallOfFame).NoContext();
+                    }
                 }
             }
         }

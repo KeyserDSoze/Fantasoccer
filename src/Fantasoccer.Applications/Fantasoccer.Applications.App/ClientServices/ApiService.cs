@@ -23,7 +23,7 @@ namespace Fantasoccer.Applications.App
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
             IRepository<LiveGroup, string> live,
             IRepository<NewsWrapper, YearDayGroup> news,
-            IRepository<HallOfFame, string> hallOfFame,
+            IRepository<HallOfFame, GeneralLeagueKey> hallOfFame,
             IRepository<PushNotificationSettings, string> pushNotification)
         {
             RealCalendar = realCalendar;
@@ -64,7 +64,7 @@ namespace Fantasoccer.Applications.App
         public IRepository<Rank, YearDayLeague> DailyRank { get; }
         public IRepository<LiveGroup, string> Live { get; }
         public IRepository<NewsWrapper, YearDayGroup> News { get; }
-        public IRepository<HallOfFame, string> HallOfFame { get; }
+        public IRepository<HallOfFame, GeneralLeagueKey> HallOfFame { get; }
         public IRepository<PushNotificationSettings, string> PushNotification { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> LiveVote { get; }
         public IRepository<VotedRealPlayerWrapper, YearDayKey> OfficialVote { get; }

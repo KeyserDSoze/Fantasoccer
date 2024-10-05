@@ -182,7 +182,7 @@
                 {
                     var isMyTeam = myTeam != null && myTeam.Owner == owner;
                     var team = isMyTeam ? myTeam
-                         : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner));
+                         : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner, year));
                     teams.Add(new TeamsWrapper
                         {
                             CanModify = isMyTeam && isInEdit,

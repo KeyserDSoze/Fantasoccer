@@ -6,6 +6,8 @@ namespace Fantasoccer
     {
         [JsonPropertyName("y")]
         public required int Year { get; set; }
+        [JsonPropertyName("t")]
+        public LeagueType Type { get; set; }
         [JsonPropertyName("s")]
         public required LeagueSetting Settings { get; set; }
     }

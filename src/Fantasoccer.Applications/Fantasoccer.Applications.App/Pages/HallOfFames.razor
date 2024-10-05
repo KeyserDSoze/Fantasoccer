@@ -2,28 +2,40 @@
 @using Fantasoccer.Domain;
 
 <PageTitle>Hall of Fame</PageTitle>
-@if (selectedTab != null && hallOfFame != null)
+
+@if (hallOfFame != null)
 {
-    <FluentTabs @bind-ActiveTabId="@selectedTab">
-        @foreach (var league in hallOfFame.Ranks)
-        {
-            var tabId = $"tab-{league.Key.Replace(" ", string.Empty)}";
-            <FluentTab Id="@tabId" Label="@league.Key">
-                <Ranking Teams="league.Value.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
-            </FluentTab>
-        }
-    </FluentTabs>
+    <h1>Classifica totale</h1>
+    <Ranking Teams="hallOfFame.Ranks.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+    <h1>Albo d'oro</h1>
+    <FluentDataGrid Items="hallOfFame.WinningTeams.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).AsQueryable()">
+        <PropertyColumn Property="@(p => p.Team)" Title="Squadra" />
+        <PropertyColumn Property="@(p => p.Owner)" Title="Vincitore" />
+        <PropertyColumn Property="@(p => p.Wins.Values.SelectMany(x => x).Count().ToString())" Title="Vittorie" />
+        <PropertyColumn Property="@(p => string.Join(",", p.Wins.Values.SelectMany(x => x).OrderBy(x => x).Select(x => FantacalcioTime.LabelYear(x))))" Title="Anni" />
+    </FluentDataGrid>
+    <h1>Giocatori vincenti</h1>
+    <FluentDataGrid Items="hallOfFame.WinningPlayers.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).Take(6).AsQueryable()">
+        <PropertyColumn Property="@(p => p.Player.Name)" Title="Squadra" />
+        <PropertyColumn Property="@(p => p.Wins.Values.SelectMany(x => x).Count().ToString())" Title="Vittorie" />
+        <PropertyColumn Property="@(p => string.Join(",", p.Wins.Values.SelectMany(x => x).OrderBy(x => x).Select(x => FantacalcioTime.LabelYear(x))))" Title="Anni" />
+    </FluentDataGrid>
+    <FluentCard @onclick=NavigateToGameOfTheGames Style="cursor:pointer;">
+        <h1>Partita della vita</h1>
+        <h3>@hallOfFame.RecordGame.Game.Home vs @hallOfFame.RecordGame.Game.Away</h3>
+        <p>@hallOfFame.RecordGame.Game.Result.HomeGoal vs @hallOfFame.RecordGame.Game.Result.AwayGoal</p>
+        <p>@hallOfFame.RecordGame.Game.Result.Home.Value vs @hallOfFame.RecordGame.Game.Result.Away.Value</p>
+    </FluentCard>
 }
-
-
 
 @code {
     [CascadingParameter]
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
+    [Inject]
+    public NavigationManager NavigationManager { get; set; }
     private HallOfFame? hallOfFame;
-    private string? selectedTab;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -34,9 +46,16 @@
         if (State != null)
         {
             LoadingIndicator?.Show();
-            hallOfFame = await Api.HallOfFame.GetAsync(State.GroupId!);
-            selectedTab = $"tab-{hallOfFame!.Ranks.First().Key.Replace(" ", string.Empty)}";
+            hallOfFame = await Api.HallOfFame.GetAsync(new GeneralLeagueKey
+                {
+                    Group = State.GroupId!,
+                    League = State.LeagueId!
+                });
         }
         await base.OnParametersSetAsync();
+    }
+    private void NavigateToGameOfTheGames()
+    {
+        NavigationManager.NavigateTo($"game/{State.GroupId}/{State.LeagueId}/{hallOfFame.RecordGame.Year}/{hallOfFame.RecordGame.Game.Id}", false);
     }
 }
