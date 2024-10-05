@@ -1,0 +1,42 @@
+﻿@page "/halloffame"
+@using Fantasoccer.Domain;
+
+<PageTitle>Hall of Fame</PageTitle>
+@if (selectedTab != null && hallOfFame != null)
+{
+    <FluentTabs @bind-ActiveTabId="@selectedTab">
+        @foreach (var league in hallOfFame.Ranks)
+        {
+            var tabId = $"tab-{league.Key.Replace(" ", string.Empty)}";
+            <FluentTab Id="@tabId" Label="@league.Key">
+                <Ranking Teams="league.Value.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+            </FluentTab>
+        }
+    </FluentTabs>
+}
+
+
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private HallOfFame? hallOfFame;
+    private string? selectedTab;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            hallOfFame = await Api.HallOfFame.GetAsync(State.GroupId!);
+            selectedTab = $"tab-{hallOfFame!.Ranks.First().Key.Replace(" ", string.Empty)}";
+        }
+        await base.OnParametersSetAsync();
+    }
+}

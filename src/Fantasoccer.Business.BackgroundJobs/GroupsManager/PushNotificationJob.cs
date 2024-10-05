@@ -3,7 +3,7 @@ using System.Timers;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
-namespace Fantasoccer.Engine.IngestionData
+namespace Fantasoccer.Engine.GroupsManager
 {
     public class PushNotificationJob : IBackgroundJob
     {
@@ -206,6 +206,6 @@ namespace Fantasoccer.Engine.IngestionData
             public string Body { get; set; }
         }
         public Task OnException(Exception exception)
-        => _logger.LogErrorAsync<LiveVotesJob>(exception);
+        => _logger.LogErrorAsync<PushNotificationJob>(exception);
     }
 }

@@ -49,7 +49,7 @@ else
     await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 }
 builder.Services.AddFantasoccerBusiness();
-//builder.Services.AddFantasoccerBackgroundWork();
+builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()

@@ -1,17 +1,12 @@
-﻿using System.ProgrammingLanguage;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business
 {
     internal sealed class SuperLeague : ILeagueCalculator
     {
-        private readonly IRankCalculator _rankCalculator;
-        private readonly IRandomCalendar _randomCalendar;
         private readonly ILeagueCalculator? _defaultLeagueCalculator;
-        public SuperLeague(IRankCalculator rankCalculator, IFactory<ILeagueCalculator> factory, IRandomCalendar randomCalendar)
+        public SuperLeague(IFactory<ILeagueCalculator> factory)
         {
-            _rankCalculator = rankCalculator;
-            _randomCalendar = randomCalendar;
             _defaultLeagueCalculator = factory.Create(string.Empty);
         }
         public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, List<string>? avoidCalculationRounds = null)
@@ -32,7 +27,14 @@ namespace Fantasoccer.Business
             goalkeepers[0].CurrentPosition = FantaSoccerRole.GoalKeeper;
             goalkeepers[1].CurrentPosition = FantaSoccerRole.BackupGoalKeeper;
             goalkeepers[2].CurrentPosition = FantaSoccerRole.Tribune;
-            List<EnrichedPlayer> refactoredTeam = [.. goalkeepers];
+            List<EnrichedPlayer> refactoredTeam = [.. goalkeepers,
+            .. allPlayers.Where(x => x.Current.Role == Role.Defensor).Take(3),
+            .. allPlayers.Where(x => x.Current.Role == Role.Midfielder).Take(3),
+            .. allPlayers.Where(x => x.Current.Role == Role.Forward).Take(1)];
+            foreach (var player in refactoredTeam)
+            {
+                allPlayers.Remove(player);
+            }
             var maxInField = 10;
             var maxDefenders = 5;
             var maxMidfielders = 5;
@@ -40,7 +42,7 @@ namespace Fantasoccer.Business
             var defenderBackup = 2;
             var midfielderBackup = 2;
             var forwardBackup = 2;
-            foreach (var player in allPlayers.Where(x => x.Current.Role != Role.GoalKeeper))
+            foreach (var player in allPlayers)
             {
                 if (player.Current.Role == Role.Defensor && maxDefenders > 0)
                 {
@@ -111,5 +113,7 @@ namespace Fantasoccer.Business
             => _defaultLeagueCalculator!.GetRandomCalendar(year, league, teams);
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
             => calendar;
+        public List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar)
+            => _defaultLeagueCalculator!.GetTheYearlyWinners(rank, calendar);
     }
 }

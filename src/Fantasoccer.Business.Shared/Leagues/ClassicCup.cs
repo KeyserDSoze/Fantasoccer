@@ -182,5 +182,42 @@ namespace Fantasoccer.Business
             }
             return calendar;
         }
+        public List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar)
+        {
+            var winners = new List<LeagueWinner>();
+            if (calendar != null)
+            {
+                var champions = calendar.Rounds[Finals].OrderByDescending(x => x.Number).Last().Games.First();
+                var championsWinner = GetWinner(champions);
+                if (championsWinner != null)
+                    winners.Add(new LeagueWinner
+                    {
+                        Owner = championsWinner,
+                        Round = Finals
+                    });
+                return winners;
+            }
+            return winners;
+
+            string? GetWinner(CalendarGame game)
+            {
+                if (game.Result != null)
+                {
+                    if (game.Result.HomeGoal > game.Result.AwayGoal)
+                        return game.HomeOwner;
+                    else if (game.Result.AwayGoal > game.Result.HomeGoal)
+                        return game.AwayOwner;
+                    else if (game.Result.Home.Value > game.Result.Away.Value)
+                        return game.HomeOwner;
+                    else if (game.Result.Away.Value > game.Result.Home.Value)
+                        return game.AwayOwner;
+                    else if (RandomNumberGenerator.GetInt32(100) < 50)
+                        return game.HomeOwner;
+                    else
+                        return game.AwayOwner;
+                }
+                return default;
+            }
+        }
     }
 }

@@ -141,5 +141,15 @@ namespace Fantasoccer.Business
             playersInField.AddRange(playersAsSubstitute);
             return playersInField;
         }
+        public List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar)
+        {
+            var winners = new List<LeagueWinner>();
+            if (rank != null)
+            {
+                var winner = rank.RankedTeams.First().Value.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).ThenByDescending(x => x.Goal).First().Owner;
+                winners.Add(new LeagueWinner { Owner = winner, Round = "@" });
+            }
+            return winners;
+        }
     }
 }

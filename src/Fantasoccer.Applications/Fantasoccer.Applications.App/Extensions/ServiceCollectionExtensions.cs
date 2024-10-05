@@ -49,6 +49,7 @@ namespace Fantasoccer.Applications.App.Extensions
             services.AddHttpClientIntegration<NewsWrapper, YearDayGroup>(configuration, "news");
             services.AddHttpClientIntegration<PushNotificationSettings, string>(configuration);
             services.AddHttpClientIntegration<AppIdentity, string>(configuration);
+            services.AddHttpClientIntegration<HallOfFame, string>(configuration);
             return services;
         }
         private static IServiceCollection AddHttpClientIntegration<T, TKey>(this IServiceCollection services,

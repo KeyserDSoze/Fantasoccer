@@ -1,4 +1,5 @@
 ﻿using Fantasoccer.Business.BackgroundJobs.GroupsManager;
+using Fantasoccer.Engine.GroupsManager;
 using Fantasoccer.Engine.IngestionData;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -59,6 +60,10 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<PushNotificationJob>(options =>
                 {
                     options.Cron = "0 */1 * * * *";
+                })
+                .AddBackgroundJob<HallOfFameJob>(options =>
+                {
+                    options.Cron = "0 0 3 * * 2";
                 });
             return services;
         }

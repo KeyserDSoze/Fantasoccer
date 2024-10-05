@@ -12,7 +12,7 @@ namespace Fantasoccer.Business
             _randomCalendar = randomCalendar;
             _defaultLeagueCalculator = factory.Create(string.Empty);
         }
-        private const string ChampionsFinals = "Champions League";
+        private const string ChampionsFinals = "Finals";
         private const string EuropaLeagueFinals = "Europa League";
         private static readonly List<string> s_avoidCalculationRounds = new() { ChampionsFinals, EuropaLeagueFinals };
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
@@ -184,6 +184,56 @@ namespace Fantasoccer.Business
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players)
         {
             return _defaultLeagueCalculator!.GetRightFormation(players);
+        }
+        public List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar)
+        {
+            var winners = new List<LeagueWinner>();
+            if (calendar != null)
+            {
+                if (calendar.Rounds.ContainsKey(ChampionsFinals) && calendar.Rounds[ChampionsFinals].Any())
+                {
+                    var champions = calendar.Rounds[ChampionsFinals].OrderByDescending(x => x.Number).Last().Games.First();
+                    var championsWinner = GetWinner(champions);
+                    if (championsWinner != null)
+                        winners.Add(new LeagueWinner
+                        {
+                            Owner = championsWinner,
+                            Round = ChampionsFinals
+                        });
+                }
+                if (calendar.Rounds.ContainsKey(EuropaLeagueFinals) && calendar.Rounds[EuropaLeagueFinals].Any())
+                {
+                    var europaLeague = calendar.Rounds[EuropaLeagueFinals].OrderByDescending(x => x.Number).Last().Games.First();
+                    var europaWinner = GetWinner(europaLeague);
+                    if (europaWinner != null)
+                        winners.Add(new LeagueWinner
+                        {
+                            Owner = europaWinner,
+                            Round = EuropaLeagueFinals
+                        });
+                }
+            }
+            return winners;
+
+            string? GetWinner(CalendarGame game)
+            {
+                if (game.Result != null)
+                {
+                    if (game.Result.HomeGoal > game.Result.AwayGoal)
+                        return game.HomeOwner;
+                    else if (game.Result.AwayGoal > game.Result.HomeGoal)
+                        return game.AwayOwner;
+                    else if (game.Result.Home.Value > game.Result.Away.Value)
+                        return game.HomeOwner;
+                    else if (game.Result.Away.Value > game.Result.Home.Value)
+                        return game.AwayOwner;
+                    else if (RandomNumberGenerator.GetInt32(100) < 50)
+                        return game.HomeOwner;
+                    else
+                        return game.AwayOwner;
+                }
+                return default;
+            }
         }
     }
 }

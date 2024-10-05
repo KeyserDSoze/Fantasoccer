@@ -9,5 +9,6 @@ namespace Fantasoccer
         IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<EnrichedPlayer> players);
         Calendar GetRandomCalendar(int year, AnnualLeague league, IEnumerable<AnnualTeam> teams);
         Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar);
+        List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar);
     }
 }
