@@ -77,7 +77,7 @@
                     }
                     @if (State?.SelectedGroup != null)
                     {
-                        <FluentNavGroup Title="@State.SelectedGroup.Name" Tooltip="Seleziona la lega" Icon="@(new Icons.Regular.Size24.EarthLeaf())">
+                        <FluentNavGroup Title="@($"Leghe {State.SelectedGroup.Name}")" Tooltip="Seleziona la lega" Icon="@(new Icons.Regular.Size24.EarthLeaf())">
                             @foreach (var league in State.SelectedGroup.Leagues)
                             {
                                 var noTeams = true;
