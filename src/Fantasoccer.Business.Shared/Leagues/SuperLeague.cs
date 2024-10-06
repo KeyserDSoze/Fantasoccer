@@ -35,7 +35,7 @@ namespace Fantasoccer.Business
             {
                 allPlayers.Remove(player);
             }
-            var maxInField = 10;
+            var maxInField = 3;
             var maxDefenders = 2;
             var maxMidfielders = 2;
             var maxForwards = 2;
