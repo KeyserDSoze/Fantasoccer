@@ -28,10 +28,38 @@
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleQueue())" Href="../../nottaken" Tooltip="Tutti i giocatori che non sono ancora stati presi. Scegli oculatamente per gennaio o per il prossimo anno">Giocatori liberi</FluentNavLink>
                 @if (State.SelectedLeagueSettings.Market != MarketType.Denied)
                 {
-                    <FluentNavGroup Title="Mercato" Tooltip="Crea offerte e controlla il mercato" Icon="@(new Icons.Regular.Size24.ShoppingBagPlay())">
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBag())" Href="../../market" Tooltip="Vota per le offerte o controlla a che punto siano">Attuale</FluentNavLink>
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagDismiss())" Href="../../historymarket" Tooltip="Controlla le vecchie offerte">Storico</FluentNavLink>
-                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagAdd())" Href="../../newmarket" Tooltip="Fai la tua offerta">Crea Offerta</FluentNavLink>
+                    <FluentNavGroup Tooltip="Crea offerte e controlla il mercato" Icon="@(new Icons.Regular.Size24.ShoppingBagPlay())">
+                        <TitleTemplate>
+                            @if (activeMarketCounts > 0)
+                            {
+                                <div class="rainbow-text">
+                                    Mercato
+                                </div>
+                            }
+                            else
+                            {
+                                @:Mercato
+                            }
+                        </TitleTemplate>
+                        <ChildContent>
+                            @if (State.Year == FantacalcioTime.ActualYear)
+                            {
+                                <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagAdd())" Href="../../newmarket" Tooltip="Fai la tua offerta">Crea Offerta</FluentNavLink>
+                                <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBag())" Href="../../market" Tooltip="Vota per le offerte o controlla a che punto siano">
+                                    @if (activeMarketCounts > 0)
+                                    {
+                                        <div class="rainbow-text">
+                                            Attuale
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @:Attuale
+                                    }
+                                </FluentNavLink>
+                            }
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagDismiss())" Href="../../historymarket" Tooltip="Controlla le vecchie offerte">Storico</FluentNavLink>
+                        </ChildContent>
                     </FluentNavGroup>
                 }
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagClock())" Href="../../serieacalendar" Tooltip="Serie A">Calendario Serie A</FluentNavLink>
@@ -103,7 +131,7 @@
                 }
             }
         </FluentNavMenu>
-        <FluentBodyContent>
+        <FluentBodyContent Style="padding:2px;">
             <div>
                 @Body
             </div>
@@ -136,6 +164,7 @@
     private List<Group> groups;
     private bool Expanded = true;
     private bool ShowOnCollpase = true;
+    private int activeMarketCounts;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -147,6 +176,17 @@
                 var theGroup = await Api.Groups.GetAsync(group.Id);
                 if (theGroup != null)
                     groups.Add(theGroup);
+            }
+            if (State.Year == FantacalcioTime.ActualYear)
+            {
+                if (State.SelectedLeague != null)
+                {
+                    var market = await Api.Market.GetAsync(State.LeagueKey);
+                    if (market != null)
+                    {
+                        activeMarketCounts = market.Markets.Count(x => x.Status == MarketStatus.Pending);
+                    }
+                }
             }
         }
         Expanded = !await UiUtilityService.IsMobileAsync();

@@ -95,6 +95,33 @@ a, .btn-link {
     right: 0px;
 }
 
+.rainbow-text {
+    font-family: monospace;
+    animation: colorRotate 1.5s linear 0s infinite;
+}
+
+@keyframes colorRotate {
+    from {
+        color: #6666ff;
+    }
+
+    10% {
+        color: #0099ff;
+    }
+
+    50% {
+        color: #00ff00;
+    }
+
+    75% {
+        color: #ff3399;
+    }
+
+    100% {
+        color: #6666ff;
+    }
+}
+
 @media only screen and (max-width: 768px) {
     .loader {
         position: fixed;
@@ -110,11 +137,13 @@ a, .btn-link {
     fluent-data-grid-cell, fluent-tab {
         font-size: 10px !important;
     }
+
     .collapsed {
         min-width: 0px !important;
         width: 0px !important;
         overflow: hidden !important;
         position: fixed;
+        display: none;
     }
 }
 

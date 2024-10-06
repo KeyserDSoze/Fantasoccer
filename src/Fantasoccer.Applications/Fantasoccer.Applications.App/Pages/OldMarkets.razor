@@ -16,7 +16,7 @@
                 <PlayersView Players="exchange.SellerPlayers"></PlayersView>
             </FluentGridItem>
             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                @foreach (var approver in exchange.Approvers)
+                @foreach (var approver in exchange.Approvers ?? [])
                 {
                     <h3>Approvato da: @GetTeamName(approver)</h3>
                 }
@@ -26,7 +26,7 @@
                 }
             </FluentGridItem>
             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                @foreach (var approver in exchange.Deniers)
+                @foreach (var approver in exchange.Deniers ?? [])
                 {
                     <h3>Negato da: @GetTeamName(approver)</h3>
                 }
