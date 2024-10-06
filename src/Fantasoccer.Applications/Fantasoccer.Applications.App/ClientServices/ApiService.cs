@@ -20,6 +20,7 @@ namespace Fantasoccer.Applications.App
             IRepository<Team, TeamDayKey> dailyTeam,
             IRepository<AppIdentity, string> appIdentity,
             IRepository<Rank, YearDayLeague> dailyRank,
+            IRepository<MarketWrapper, LeagueKey> market,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
             IRepository<LiveGroup, string> live,
             IRepository<NewsWrapper, YearDayGroup> news,
@@ -39,6 +40,7 @@ namespace Fantasoccer.Applications.App
             DailyTeam = dailyTeam;
             AppIdentity = appIdentity;
             DailyRank = dailyRank;
+            Market = market;
             RandomizedRealPlayers = randomizedRealPlayers;
             Live = live;
             News = news;
@@ -62,6 +64,7 @@ namespace Fantasoccer.Applications.App
         public IRepository<Team, TeamDayKey> DailyTeam { get; }
         public IRepository<AppIdentity, string> AppIdentity { get; }
         public IRepository<Rank, YearDayLeague> DailyRank { get; }
+        public IRepository<MarketWrapper, LeagueKey> Market { get; }
         public IRepository<LiveGroup, string> Live { get; }
         public IRepository<NewsWrapper, YearDayGroup> News { get; }
         public IRepository<HallOfFame, GeneralLeagueKey> HallOfFame { get; }

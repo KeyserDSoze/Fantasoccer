@@ -70,6 +70,12 @@
                     <FluentNumberField @bind-Value="settings.MoneyForSufferedGoal" Label="Soldi aggiuntivi (asta di riparazione) per ogni goal subito" Min="-12" Max="12" />
                     <FluentCheckbox @bind-Value="settings.RandomAuction" Label="Asta con giocatori randomici" />
                     <FluentCheckbox @bind-Value="settings.RankWithValuePoints" Label="Classifica con punteggio totale e non con punteggio classico" />
+                    <FluentSelect TOption="MarketType"
+                                  Label="Tipo di mercato"
+                                  Items="@MarketTypeExtensions.All"
+                                  OptionText="@(x => x.ToString())"
+                                  OptionValue="@(x => x.ToString())"
+                                  @bind-SelectedOption="@settings.Market" />
                 </FluentGridItem>
                 foreach (var votesForRole in settings.Votes)
                 {

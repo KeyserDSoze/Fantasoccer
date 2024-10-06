@@ -26,6 +26,14 @@
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleList())" Href="../../allplayers" Tooltip="Tutti i giocatori a disposizione">Tutti i giocatori</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.CloudArrowUp())" Href="../../halloffame" Tooltip="Vedi i record dei record del tuo gruppo">Hall of Fame</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleQueue())" Href="../../nottaken" Tooltip="Tutti i giocatori che non sono ancora stati presi. Scegli oculatamente per gennaio o per il prossimo anno">Giocatori liberi</FluentNavLink>
+                @if (State.SelectedLeagueSettings.Market != MarketType.Denied)
+                {
+                    <FluentNavGroup Title="Mercato" Tooltip="Crea offerte e controlla il mercato" Icon="@(new Icons.Regular.Size24.ShoppingBagPlay())">
+                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBag())" Href="../../market" Tooltip="Vota per le offerte o controlla a che punto siano">Attuale</FluentNavLink>
+                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagDismiss())" Href="../../historymarket" Tooltip="Controlla le vecchie offerte">Storico</FluentNavLink>
+                        <FluentNavLink Icon="@(new Icons.Regular.Size24.ShoppingBagAdd())" Href="../../newmarket" Tooltip="Fai la tua offerta">Crea Offerta</FluentNavLink>
+                    </FluentNavGroup>
+                }
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagClock())" Href="../../serieacalendar" Tooltip="Serie A">Calendario Serie A</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagClock())" Href="../../auctionlive" Tooltip="Controlla l'asta in tempo reale">Asta Live</FluentNavLink>
                 @if (State?.Groups != null && State?.Identity != null)

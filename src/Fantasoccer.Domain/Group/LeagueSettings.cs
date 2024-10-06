@@ -44,6 +44,8 @@ namespace Fantasoccer
         public bool RandomAuction { get; set; }
         [JsonPropertyName("vp")]
         public bool RankWithValuePoints { get; set; }
+        [JsonPropertyName("mk")]
+        public MarketType Market { get; set; }
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,

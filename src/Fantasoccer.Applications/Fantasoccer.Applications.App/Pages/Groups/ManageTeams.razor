@@ -372,7 +372,7 @@
             activeTeamId = cancellation.Owner;
             if (player.IsActive)
                 players.Add(player);
+            StateHasChanged();
         }
-        StateHasChanged();
     }
 }

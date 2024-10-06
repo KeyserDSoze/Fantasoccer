@@ -1,0 +1,119 @@
+﻿@page "/newmarket"
+<h3>Mercato</h3>
+@if (market != null && exchange != null && myTeam != null)
+{
+    <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+        <h3>Compratore: @GetTeamName(exchange.Buyer) [@myTeam.]</h3>
+        <FluentNumberField @bind-Value="exchange.MoneyFromBuyer" Label="Prezzo da pagare" Min="0" Max="@max.ToString()" />
+        <FluentDataGrid Items="@myTeam.ActivePlayers.AsQueryable()" ShowHover="true" TGridItem="Player">
+            <SelectColumn TGridItem="Player"
+                          SelectMode="@DataGridSelectMode.Multiple"
+                          SelectedItemsChanged="@(players => SelectPlayers(true, players))"
+                          SelectedItems="@(exchange.BuyerPlayers ?? [])" />
+            <PropertyColumn Property="@(p => p.Name)" Title="Nome" />
+            <PropertyColumn Property="@(p => p.RealTeam)" Title="Squadra" />
+            <PropertyColumn Property="@(p => p.Price)" Title="Prezzo" />
+        </FluentDataGrid>
+    </FluentGridItem>
+    <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+        <FluentSelect Label="Venditore"
+                      TOption="AnnualTeam"
+                      Items="State.Teams"
+                      OptionText="@(x => x.Name)"
+                      OptionValue="@(x => x.Owner)"
+                      SelectedOptionChanged=@(x => _ = SelectTeamAsync(x)) />
+        <FluentNumberField @bind-Value="exchange.MoneyFromSeller" Label="Soldi in scambio" Min="0" Max="@maxSeller.ToString()" />
+        @if (sellerTeam != null)
+        {
+            <FluentDataGrid Items="@sellerTeam.ActivePlayers.AsQueryable()" ShowHover="true" TGridItem="Player">
+                <SelectColumn TGridItem="Player"
+                              SelectMode="@DataGridSelectMode.Multiple"
+                              SelectedItemsChanged="@(players => SelectPlayers(false, players))"
+                              SelectedItems="@(exchange.SellerPlayers ?? [])" />
+                <PropertyColumn Property="@(p => p.Name)" Title="Nome" />
+                <PropertyColumn Property="@(p => p.RealTeam)" Title="Squadra" />
+                <PropertyColumn Property="@(p => p.Price)" Title="Prezzo" />
+            </FluentDataGrid>
+        }
+    </FluentGridItem>
+    <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+        <FluentButton Appearance="Appearance.Accent" OnClick="() => SendAsync()">Salva</FluentButton>
+    </FluentGridItem>
+    <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+    </FluentGridItem>
+
+}
+else
+{
+    <h4>Mercato non disponibile</h4>
+    <p>Impossibile fare scambi nella lega o nell'anno che hai selezionato</p>
+}
+
+@code {
+    [CascadingParameter]
+    public FantasoccerState? State { get; set; }
+    [Inject]
+    public NavigationManager NavigationManager { get; set; }
+    private MarketWrapper? market;
+    private Market? exchange;
+    private List<AnnualTeam>? teams;
+    private Team? myTeam;
+    private Team? sellerTeam;
+    private int max;
+    private int maxSeller;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null && State.Year == FantacalcioTime.ActualYear && State.SelectedLeague.IsMain && State.SelectedLeagueSettings.Market != MarketType.Denied)
+        {
+            market = await Api.Market.GetAsync(State.LeagueKey);
+            if (market == null)
+            {
+                market = new MarketWrapper { Markets = new() };
+                await Api.Market.InsertAsync(State.LeagueKey, market);
+            }
+            teams = State.SelectedBaskets.SelectMany(x => x.Years).Where(x => x.Year == State.Year).SelectMany(x => x.Teams).ToList();
+            myTeam = await Api.Team.GetAsync(State.TeamKey);
+            max = State.SelectedLeagueSettings.StartingMoney - myTeam.TotalCostForPlayers;
+        }
+        await base.OnParametersSetAsync();
+    }
+    private async ValueTask SelectTeamAsync(AnnualTeam seller)
+    {
+        exchange.Seller = seller.Owner;
+        exchange.SellerPlayers = [];
+        sellerTeam = await Api.Team.GetAsync(State.OtherTeamKey(seller.Owner));
+        maxSeller = State.SelectedLeagueSettings.StartingMoney - sellerTeam.TotalCostForPlayers;
+        StateHasChanged();
+    }
+    private void SelectPlayers(bool isMine, IEnumerable<Player> players)
+    {
+        if (isMine)
+        {
+            exchange.BuyerPlayers = players.ToList();
+        }
+        else
+        {
+            exchange.SellerPlayers = players.ToList();
+        }
+    }
+    private string GetTeamName(string owner)
+    {
+        return teams?.FirstOrDefault(x => x.Owner == owner)?.Name ?? string.Empty;
+    }
+    private async ValueTask SendAsync()
+    {
+        if (exchange.MoneyFromBuyer > 0 && exchange.MoneyFromSeller > 0 &&
+        exchange.MoneyFromBuyer <= max && exchange.MoneyFromSeller <= maxSeller)
+        {
+            market.Markets.Add(exchange);
+            await Api.Market.UpdateAsync(State.LeagueKey, market);
+            NavigationManager.NavigateTo("/market");
+        }
+        else
+        {
+            ToastService.ShowError("Soldi impostati erratamente");
+        }
+    }
+}
+

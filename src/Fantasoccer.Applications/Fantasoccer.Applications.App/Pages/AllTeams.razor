@@ -9,30 +9,7 @@
     foreach (var team in teams)
     {
         <h4 style="margin-top:10px;">@team.Name (@team.Owner) @(State.SelectedLeagueSettings!.StartingMoney - team.Cost) [@team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)-@team.ActivePlayers.Count(x => x.Role == Role.Defensor)-@team.ActivePlayers.Count(x => x.Role == Role.Midfielder)-@team.ActivePlayers.Count(x => x.Role == Role.Forward)]</h4>
-        <FluentDataGrid Items="@team.Players.Select(x => ToStatPlayer(x)).AsQueryable()" GridTemplateColumns="@gridTemplateColumns">
-            <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
-            <PropertyColumn Property="@(p => p.Price)" Sortable="true" />
-            <PropertyColumn Property="@(p => p.RealTeam.Name)" Sortable="true" />
-            <PropertyColumn Property="@(p => p.Average)" Sortable="true" />
-            <PropertyColumn Property="@(p => p.FantaAverage)" Sortable="true" />
-            @if (!isMobile)
-            {
-                <PropertyColumn Property="@(p => p.IsEnough)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.WithVote)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.WithoutVote)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.WithSpecial)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.YellowCard)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.RedCard)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.Goal)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.Assist)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.Penalty)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.StoppedPenalty)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.SufferedGoal)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.WrongedPenalty)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.OwnGoal)" Sortable="true" />
-                <PropertyColumn Property="@(p => p.IsActive)" Sortable="true" />
-            }
-        </FluentDataGrid>
+        <PlayersView StatPlayers="team.Players.Select(x => ToStatPlayer(x))"></PlayersView>
     }
 }
 
@@ -43,8 +20,6 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     private List<Team>? teams;
     private List<StatPlayer>? players;
-    private string gridTemplateColumns = "2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr";
-    private bool isMobile;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -56,9 +31,6 @@
         if (State?.SelectedYearlyLeague != null)
         {
             LoadingIndicator?.Show();
-            isMobile = await UiUtilityService.IsMobileAsync();
-            if (isMobile)
-                gridTemplateColumns = "2fr 1fr 1fr 1fr 1fr";
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
             teams = new();
             var teamsInThisLeagueAndYear = State.Teams;

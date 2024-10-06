@@ -64,6 +64,10 @@ namespace Fantasoccer.Engine
                 .AddBackgroundJob<HallOfFameJob>(options =>
                 {
                     options.Cron = "0 0 3 * * 2";
+                })
+                .AddBackgroundJob<MarketJob>(options =>
+                {
+                    options.Cron = "0 0 2 * * *";
                 });
             return services;
         }
