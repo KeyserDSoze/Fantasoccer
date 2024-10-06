@@ -22,7 +22,7 @@ namespace Fantasoccer.Business
         {
             if (!players.Any())
                 return Array.Empty<EnrichedPlayer>();
-            var allPlayers = players.OrderByDescending(x => x.Vote?.IsFinal == true ? 1 : 0).ThenByDescending(x => x.FinalValue?.Value ?? -1000).ToList();
+            var allPlayers = players.OrderByDescending(x => x.FinalValue?.Value ?? -1000).ToList();
             var goalkeepers = allPlayers.Where(x => x.Current.Role == Role.GoalKeeper).ToList();
             goalkeepers[0].CurrentPosition = FantaSoccerRole.GoalKeeper;
             goalkeepers[1].CurrentPosition = FantaSoccerRole.BackupGoalKeeper;
