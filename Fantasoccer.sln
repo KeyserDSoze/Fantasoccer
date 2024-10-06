@@ -34,6 +34,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ops", "Ops", "{7733D513-280E-4364-BC1B-E2751594E315}"
+	ProjectSection(SolutionItems) = preProject
+		ops\copystorage.txt = ops\copystorage.txt
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prod", "Prod", "{813E55E5-9349-4602-870F-C1954A89E06F}"
 	ProjectSection(SolutionItems) = preProject

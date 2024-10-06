@@ -1,0 +1,3 @@
+azcopy copy "https://fasostorage.blob.core.windows.net/?sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-10-06T20:59:08Z&st=2024-10-06T12:59:08Z&spr=https&sig=vHxf3%2BFd2y3PLfNBgSnfOfsosJXwONwojX4x2BMduN8%3D" "https://fasostoragedemo.blob.core.windows.net/?sv=2022-11-02&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2024-10-06T20:58:05Z&st=2024-10-06T12:58:05Z&spr=https&sig=0evFScwaySZBgKZxf%2BfVm2lMeitoEeRn%2B%2FoKpnR0VzY%3D" --recursive
+
+https://fasostorage.blob.core.windows.net/appidentity/al.forbicioni@gmail.com

@@ -18,6 +18,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddTransient<UiUtilityService>();
 builder.Services.AddSingleton<ImageUriHelper>();
+builder.Services.AddSingleton<VersionService>();
 builder.Services.AddFluentUIComponents(options =>
 {
     options.ValidateClassNames = false;

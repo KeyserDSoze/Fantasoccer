@@ -1,6 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @attribute [Authorize]
-
+@inject VersionService VersionService
 <PageTitle>Fantasoccer</PageTitle>
 
 <FluentLayout Style="min-height: 100vh;">
@@ -127,7 +127,7 @@
                         </FluentNavGroup>
                     }
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" OnClick="()=> Logout?.Invoke(false)" Tooltip="Esci dalla piattaforma">Logout</FluentNavLink>
-                    <FluentNavLink Icon="@(new Icons.Regular.Size24.Diversity())" Tooltip="Versione">v. 0.4.0-beta</FluentNavLink>
+                    <FluentNavLink Icon="@(new Icons.Regular.Size24.Diversity())" Tooltip="Versione">v. @VersionService.Version</FluentNavLink>
                 }
             }
         </FluentNavMenu>

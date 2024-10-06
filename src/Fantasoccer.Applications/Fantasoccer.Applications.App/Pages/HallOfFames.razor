@@ -15,7 +15,7 @@
         <PropertyColumn Property="@(p => string.Join(",", p.Wins.Values.SelectMany(x => x).OrderBy(x => x).Select(x => FantacalcioTime.LabelYear(x))))" Title="Anni" />
     </FluentDataGrid>
     <h1>Giocatori vincenti</h1>
-    <FluentDataGrid Items="hallOfFame.WinningPlayers.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).Take(6).AsQueryable()">
+    <FluentDataGrid Items="hallOfFame.WinningPlayers.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).ThenBy(x => x.Wins.SelectMany(t => t.Value).OrderBy(t => t).First()).Take(6).AsQueryable()">
         <PropertyColumn Property="@(p => p.Player.Name)" Title="Squadra" />
         <PropertyColumn Property="@(p => p.Wins.Values.SelectMany(x => x).Count().ToString())" Title="Vittorie" />
         <PropertyColumn Property="@(p => string.Join(",", p.Wins.Values.SelectMany(x => x).OrderBy(x => x).Select(x => FantacalcioTime.LabelYear(x))))" Title="Anni" />
