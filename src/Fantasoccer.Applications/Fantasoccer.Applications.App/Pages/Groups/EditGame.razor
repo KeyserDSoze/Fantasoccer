@@ -156,7 +156,7 @@
                     Group = wrapper.Key.Group,
                     Year = wrapper.Key.Year
                 };
-            var result = await Api.DailyTeam.ExistAsync(bypassKey) ?
+            var result = await Api.DailyTeam.ExistAsync(wrapper.Key) ?
                 await Api.DailyTeam.UpdateAsync(bypassKey, wrapper.Team) :
                 await Api.DailyTeam.InsertAsync(bypassKey, wrapper.Team);
             if (result)
