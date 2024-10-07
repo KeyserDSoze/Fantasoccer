@@ -25,8 +25,14 @@ function checkConnection(dotNetHelper) {
 
 window.setInterval(() => {
     const reconnectElement = document.getElementById("components-reconnect-modal");
+    const uiError = document.getElementById("blazor-error-ui");
     if (reconnectElement != null) {
         if (reconnectElement.style.display == 'block') {
+            window.location.reload();
+        }
+    }
+    if (uiError != null) {
+        if (uiError.style.display == 'block') {
             window.location.reload();
         }
     }
