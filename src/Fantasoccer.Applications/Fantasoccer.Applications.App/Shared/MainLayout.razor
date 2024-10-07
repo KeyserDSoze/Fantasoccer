@@ -165,7 +165,21 @@
     private bool Expanded = true;
     private bool ShowOnCollpase = true;
     private int activeMarketCounts;
-
+    private const string CheckConnectionJavascriptFunctionName = "checkConnection";
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        if (firstRender)
+        {
+            var dotNetReference = DotNetObjectReference.Create(this);
+            JsRuntime.InvokeVoidAsync(CheckConnectionJavascriptFunctionName, [dotNetReference]);
+        }
+    }
+    [JSInvokable]
+    public Task CheckConnection()
+    {
+        return Task.CompletedTask;
+    }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.Identity?.Groups != null)
