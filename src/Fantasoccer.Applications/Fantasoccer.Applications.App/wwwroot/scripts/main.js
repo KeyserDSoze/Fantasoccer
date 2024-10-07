@@ -15,7 +15,6 @@ function checkConnection(dotNetHelper) {
         if (document.visibilityState === 'visible') {
             try {
                 await dotNetHelper.invokeMethodAsync('CheckConnection');
-                console.log("Connection active");
             } catch (error) {
                 window.location.reload();
             }
