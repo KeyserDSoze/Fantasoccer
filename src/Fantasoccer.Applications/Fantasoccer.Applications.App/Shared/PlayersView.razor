@@ -4,6 +4,10 @@
 {
     <FluentDataGrid ResizableColumns="true" AutoFit="true" ShowHover="true" Items="@StatPlayers.AsQueryable()" GridTemplateColumns="@gridTemplateColumns">
         <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
+        @if (withPrice)
+        {
+            <PropertyColumn Property="@(p => ((StatPlayerWithPrice)p).Price)" Sortable="true" />
+        }
         <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
         <PropertyColumn Property="@(p => p.Average)" Sortable="true" />
         <PropertyColumn Property="@(p => p.FantaAverage)" Sortable="true" />
@@ -40,6 +44,8 @@
     public IEnumerable<StatPlayer>? StatPlayers { get; set; }
     [Parameter]
     public IEnumerable<Player>? Players { get; set; }
+
+    private bool withPrice;
     private bool isMobile;
     private string gridTemplateColumns = "2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr";
     protected override async Task OnParametersSetAsync()
@@ -47,6 +53,7 @@
         isMobile = await UiUtilityService.IsMobileAsync();
         if (isMobile)
             gridTemplateColumns = "2fr 1fr 1fr 1fr";
+        withPrice = StatPlayers?.Any(x => x is StatPlayerWithPrice) ?? false;
         await base.OnParametersSetAsync();
     }
 }
