@@ -1,4 +1,4 @@
-﻿@page "/calendar"
+﻿@page "/calendar/{Value?}"
 
 <PageTitle>Calendar</PageTitle>
 
@@ -10,14 +10,14 @@
             @foreach (var calendarByRound in calendar.Rounds)
             {
                 <FluentTab Name="@($"tab-{calendarByRound.Key}")">
-                    <Calendaring Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
+                    <Calendaring IsAdminEdit=adminMode Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
                 </FluentTab>
             }
         </FluentTabs>
     }
     else
     {
-        <Calendaring Days="calendar.Rounds.First().Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
+        <Calendaring IsAdminEdit=adminMode Days="calendar.Rounds.First().Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
     }
 }
 @if (isVisible)
@@ -31,13 +31,15 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-
+    [Parameter]
+    public string? Value { get; set; }
     private Calendar? calendar;
     private RankedTeam? selectedTeam;
     private string? selectedTab;
     private string? nullCalendar;
     private bool onlyOne;
     private bool isVisible => nullCalendar != null;
+    private bool adminMode;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -55,6 +57,10 @@
         if (State != null)
         {
             LoadingIndicator?.Show();
+            if (Value == "edit" && State.IsAdmin())
+            {
+                adminMode = true;
+            }
             calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             if (calendar != null && calendar.Rounds.Count > 0)
             {

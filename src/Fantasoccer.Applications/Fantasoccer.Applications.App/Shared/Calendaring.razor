@@ -29,6 +29,8 @@
     public int Desktop { get; set; } = 6;
     [Parameter]
     public int Mobile { get; set; } = 12;
+    [Parameter]
+    public bool IsAdminEdit { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
     private string CalculateResult(CalendarGame game)
@@ -45,6 +47,9 @@
     private void NavigateTo(FluentDataGridRow<CalendarGame> calendarGame)
     {
         var gameId = calendarGame?.Item?.Id ?? string.Empty;
-        NavigationManager.NavigateTo($"game/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
+        if (!IsAdminEdit)
+            NavigationManager.NavigateTo($"game/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
+        else
+            NavigationManager.NavigateTo($"editgame/{GroupId}/{LeagueId}/{Year}/{gameId}", false);
     }
 }

@@ -1,0 +1,192 @@
+﻿@page "/editgame/{groupId?}/{leagueId?}/{year:int?}/{gameId?}"
+@using System.Text.RegularExpressions;
+@using Fantasoccer.Business;
+
+<style>
+    fluent-data-grid-cell {
+        overflow: visible !important;
+    }
+</style>
+@if (State != null && State.IsAdmin() && calendarGame != null && teams.Any())
+{
+    foreach (var wrappedTeam in teams)
+    {
+        <div>
+            <h2>@wrappedTeam.Team.Name [@wrappedTeam.Key.Email]</h2>
+            <FluentDataGrid ResizableColumns="true" AutoFit="true" ShowHover="true" Items="@wrappedTeam.Team.Players.OrderBy(x => x.Position).AsQueryable()" GridTemplateColumns="3fr 1fr 1fr">
+                <PropertyColumn Property="@(p => p.Name)" />
+                <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" />
+                <TemplateColumn Title="Posizione">
+                    <FluentSelect TOption="FantaSoccerRole"
+                                  Items="Enum.GetValues<FantaSoccerRole>()"
+                                  OptionText="x => x.ToString()"
+                                  OptionValue="x => x.ToString()"
+                                  SelectedOption="@context.Position"
+                                  SelectedOptionChanged="(x => ChangePosition(context, x))" />
+                </TemplateColumn>
+            </FluentDataGrid>
+            <FluentButton OnClick="() => SaveAsync(wrappedTeam)">Salva</FluentButton>
+            <FluentButton OnClick="() => CopyLastDayAsync(wrappedTeam)">Copia giornata precedente</FluentButton>
+            <FluentButton OnClick="() => DeleteAsync(wrappedTeam)">Cancella formazione</FluentButton>
+            <FluentButton OnClick="() => ResetTeam(wrappedTeam)">Resetta</FluentButton>
+        </div>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Parameter]
+    public string? GroupId { get; set; }
+    [Parameter]
+    public string? LeagueId { get; set; }
+    [Parameter]
+    public string? GameId { get; set; }
+    [Parameter]
+    public int? Year { get; set; }
+    private CalendarGame? calendarGame;
+    private List<TeamWrapper> teams = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        if (State != null)
+        {
+            var leagueKey = State.LeagueKey;
+            var year = Year ?? State.Year;
+            var serieADay = 0;
+            LoadingIndicator?.Show();
+            var calendar = await Api.Calendar.GetAsync(leagueKey);
+            if (GameId != null && calendar != null)
+            {
+                Check();
+
+                void Check()
+                {
+                    foreach (var round in calendar.Rounds)
+                    {
+                        foreach (var day in round.Value)
+                        {
+                            foreach (var game in day.Games)
+                            {
+                                if (game.Id == GameId)
+                                {
+                                    calendarGame = game;
+                                    serieADay = day.SerieADay;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            foreach (var owner in GetOwners())
+            {
+                var teamKey = new TeamDayKey
+                    {
+                        Group = GroupId!,
+                        Year = Year!.Value,
+                        Email = owner,
+                        BasketId = State.SelectedGroup!.GetBasketId(owner!, Year!)!,
+                        Day = serieADay
+                    };
+                var team = await Api.DailyTeam.GetAsync(teamKey);
+                if (team == null)
+                {
+                    team = await Api.Team.GetAsync(new TeamKey
+                        {
+                            Group = teamKey.Group,
+                            Year = teamKey.Year,
+                            Email = teamKey.Email,
+                            BasketId = teamKey.BasketId
+                        });
+                }
+                teams.Add(new TeamWrapper
+                    {
+                        Key = teamKey,
+                        Team = team
+                    });
+            }
+            IEnumerable<string> GetOwners()
+            {
+                yield return calendarGame.HomeOwner;
+                yield return calendarGame.AwayOwner;
+            }
+        }
+    }
+    private void ChangePosition(Player player, FantaSoccerRole role)
+    {
+        player.Position = role;
+    }
+    private async Task SaveAsync(TeamWrapper wrapper)
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            var result = await Api.DailyTeam.ExistAsync(wrapper.Key) ?
+            await Api.DailyTeam.UpdateAsync(wrapper.Key, wrapper.Team) :
+            await Api.DailyTeam.InsertAsync(wrapper.Key, wrapper.Team);
+            if (result)
+                ToastService.ShowMention("Salvataggio completato");
+            else
+                ToastService.ShowError($"Errore nel salvataggio: {result.Message}");
+            LoadingIndicator?.Hide();
+        }
+    }
+    private async Task DeleteAsync(TeamWrapper wrapper)
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            var result = await Api.DailyTeam.DeleteAsync(wrapper.Key);
+            if (result)
+            {
+                ToastService.ShowMention("Cancellazione completata");
+                ResetTeam(wrapper);
+            }
+            else
+                ToastService.ShowError($"Errore nel salvataggio: {result.Message}");
+            LoadingIndicator?.Hide();
+        }
+    }
+    private async Task CopyLastDayAsync(TeamWrapper wrapper)
+    {
+        LoadingIndicator?.Show();
+        var lastDayTeamKey = new TeamDayKey
+            {
+                BasketId = wrapper.Key.BasketId,
+                Day = wrapper.Key.Day - 1,
+                Email = wrapper.Key.Email,
+                Group = wrapper.Key.Group,
+                Year = wrapper.Key.Year
+            };
+        var lastDayTeam = await Api.DailyTeam.GetAsync(lastDayTeamKey);
+        if (lastDayTeam != null)
+        {
+            wrapper.Team.Players = lastDayTeam.Players;
+            StateHasChanged();
+        }
+        LoadingIndicator?.Hide();
+    }
+    private void ResetTeam(TeamWrapper wrapper)
+    {
+        foreach (var player in wrapper.Team.Players)
+        {
+            player.Position = FantaSoccerRole.Tribune;
+        }
+        StateHasChanged();
+    }
+    private sealed class TeamWrapper
+    {
+        public required Team Team { get; set; }
+        public required TeamDayKey Key { get; set; }
+    }
+}
