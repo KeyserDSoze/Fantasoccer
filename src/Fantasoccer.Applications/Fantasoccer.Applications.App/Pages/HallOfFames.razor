@@ -8,7 +8,7 @@
     <h1>Classifica totale</h1>
     <Ranking Teams="hallOfFame.Ranks.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
     <h1>Albo d'oro</h1>
-    <FluentDataGrid Items="hallOfFame.WinningTeams.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).AsQueryable()">
+    <FluentDataGrid Items="hallOfFame.WinningTeams.OrderByDescending(x => x.Wins.Values.SelectMany(x => x).Count()).ThenBy(x => x.Wins.SelectMany(t => t.Value).OrderByDescending(t => t).First()).AsQueryable()">
         <PropertyColumn Property="@(p => p.Team)" Title="Squadra" />
         <PropertyColumn Property="@(p => p.Owner)" Title="Vincitore" />
         <PropertyColumn Property="@(p => p.Wins.Values.SelectMany(x => x).Count().ToString())" Title="Vittorie" />
