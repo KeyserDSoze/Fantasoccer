@@ -26,9 +26,11 @@
                 </TemplateColumn>
             </FluentDataGrid>
             <FluentButton OnClick="() => SaveAsync(wrappedTeam)">Salva</FluentButton>
+            <FluentButton OnClick="() => BypassSaveAsync(wrappedTeam)">Salva senza controllo</FluentButton>
             <FluentButton OnClick="() => CopyLastDayAsync(wrappedTeam)">Copia giornata precedente</FluentButton>
             <FluentButton OnClick="() => DeleteAsync(wrappedTeam)">Cancella formazione</FluentButton>
             <FluentButton OnClick="() => ResetTeam(wrappedTeam)">Resetta</FluentButton>
+            <FluentButton OnClick="() => ResetTeamAndSaveAsync(wrappedTeam)">Resetta e salva senza controllo</FluentButton>
         </div>
     }
 }
@@ -141,6 +143,29 @@
             LoadingIndicator?.Hide();
         }
     }
+    private async Task BypassSaveAsync(TeamWrapper wrapper)
+    {
+        if (State != null)
+        {
+            LoadingIndicator?.Show();
+            var bypassKey = new TeamDayKey
+                {
+                    BasketId = wrapper.Key.BasketId,
+                    Day = wrapper.Key.Day,
+                    Email = $"uncheck_{wrapper.Key.Email}",
+                    Group = wrapper.Key.Group,
+                    Year = wrapper.Key.Year
+                };
+            var result = await Api.DailyTeam.ExistAsync(bypassKey) ?
+                await Api.DailyTeam.UpdateAsync(bypassKey, wrapper.Team) :
+                await Api.DailyTeam.InsertAsync(bypassKey, wrapper.Team);
+            if (result)
+                ToastService.ShowMention("Salvataggio completato");
+            else
+                ToastService.ShowError($"Errore nel salvataggio: {result.Message}");
+            LoadingIndicator?.Hide();
+        }
+    }
     private async Task DeleteAsync(TeamWrapper wrapper)
     {
         if (State != null)
@@ -182,6 +207,15 @@
         {
             player.Position = FantaSoccerRole.Tribune;
         }
+        StateHasChanged();
+    }
+    private async Task ResetTeamAndSaveAsync(TeamWrapper wrapper)
+    {
+        foreach (var player in wrapper.Team.Players)
+        {
+            player.Position = FantaSoccerRole.Tribune;
+        }
+        await BypassSaveAsync(wrapper);
         StateHasChanged();
     }
     private sealed class TeamWrapper

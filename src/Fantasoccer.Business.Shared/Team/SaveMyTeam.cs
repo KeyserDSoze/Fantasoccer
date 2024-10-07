@@ -18,12 +18,30 @@ namespace Fantasoccer.Business.Shared
         {
             return BeforeInsertOrUpdateAsync(entity);
         }
+        private const string UncheckLabel = "uncheck_";
+        private const string ServerUncheckLabel = "serveruncheck_";
+        private const string ServerFinalUncheckLabel = "serveruncheck_uncheck_";
         private Task<State<Team, TeamDayKey>> BeforeInsertOrUpdateAsync(Entity<Team, TeamDayKey> entity)
         {
+            if (entity.Key == null)
+                return Task.FromResult(State.NotOk<Team, TeamDayKey>());
             if (entity.Value == null)
                 return Task.FromResult(State.NotOk<Team, TeamDayKey>());
-            var response = _checker.Validate(entity.Value);
-            return Task.FromResult(new State<Team, TeamDayKey>(response.IsOk, message: response.Message));
+            if (entity.Key.Email.StartsWith(UncheckLabel))
+            {
+                entity.Key.Email = $"{ServerUncheckLabel}{entity.Key.Email}";
+                return Task.FromResult(State.Ok<Team, TeamDayKey>());
+            }
+            else if (entity.Key.Email.StartsWith(ServerFinalUncheckLabel))
+            {
+                entity.Key.Email = entity.Key.Email.Replace(ServerFinalUncheckLabel, string.Empty);
+                return Task.FromResult(State.Ok<Team, TeamDayKey>());
+            }
+            else
+            {
+                var response = _checker.Validate(entity.Value);
+                return Task.FromResult(new State<Team, TeamDayKey>(response.IsOk, message: response.Message));
+            }
         }
     }
 }
