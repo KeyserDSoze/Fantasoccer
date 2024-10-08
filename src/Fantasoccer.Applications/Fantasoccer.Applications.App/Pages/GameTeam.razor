@@ -18,9 +18,25 @@
             }
             @if (teams != null)
             {
+                var inHome = true;
                 <img class="backgroundField" src="../../static/field.jpg" />
+                <img class="backgroundMiddleBench" src="../../static/fieldmiddle.jpg" />
+                <img class="backgroundEndBench" src="../../static/fieldendbench.jpg" />
+                <img class="backgroundLeftBench" src="../../static/fieldleftbench.png" />
+                <img class="backgroundRightBench" src="../../static/fieldrightbench.png" />
+                @if (isInEdit)
+                {
+                    <img class="backgroundTribune" src="../../static/verticalbenchfield.jpg" />
+                }
                 foreach (var team in teams)
                 {
+                    @if (team.LastUpdate > DateTime.MinValue)
+                    {
+                        <FluentTooltip Anchor="@(inHome ? "team-name-home" : "team-name-away")">
+                            @team.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss")
+                        </FluentTooltip>
+                    }
+                    inHome = !inHome;
                     if (team.CanModify)
                     {
                         <DesktopEditableTeam Inverted="team.Inverted" Players="team.Players" SaveTeam="SaveAsync"></DesktopEditableTeam>
@@ -105,12 +121,15 @@
     private Team? myTeam;
     private League? selectedLeague;
     private bool isMobile;
+    private DateTime lastUpdateHome = DateTime.MinValue;
+    private DateTime lastUpdateAway = DateTime.MinValue;
 
     private sealed class TeamsWrapper
     {
         public required IEnumerable<EnrichedPlayer> Players { get; set; }
         public bool CanModify { get; set; }
         public required bool Inverted { get; set; }
+        public required DateTime LastUpdate { get; set; }
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -187,7 +206,8 @@
                         {
                             CanModify = isMyTeam && isInEdit,
                             Inverted = counter == 1,
-                            Players = team != null ? TeamCalculator.Enrich(team.ActivePlayers) : Array.Empty<EnrichedPlayer>()
+                            Players = team != null ? TeamCalculator.Enrich(team.ActivePlayers) : Array.Empty<EnrichedPlayer>(),
+                            LastUpdate = team?.LastUpdate ?? DateTime.MinValue
                         });
                     counter++;
                 }
@@ -217,7 +237,8 @@
                         {
                             CanModify = true,
                             Inverted = false,
-                            Players = TeamCalculator.Enrich(myTeam.ActivePlayers)
+                            Players = TeamCalculator.Enrich(myTeam.ActivePlayers),
+                            LastUpdate = myTeam.LastUpdate
                         });
                 this.teams = teams;
             }
@@ -247,12 +268,14 @@
             }
             else
             {
-                ToastService.ShowError("Errore durante il savaltaggio della formazione.");
+                if (!isMobile)
+                    ToastService.ShowError("Errore durante il savaltaggio della formazione.");
             }
         }
         else
         {
-            ToastService.ShowError("Errore nell'insieme dei numeri immaginari.");
+            if (!isMobile)
+                ToastService.ShowError("Errore nell'insieme dei numeri immaginari.");
         }
     }
 }

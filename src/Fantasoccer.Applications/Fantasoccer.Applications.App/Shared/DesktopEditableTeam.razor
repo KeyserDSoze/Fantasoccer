@@ -89,7 +89,6 @@
             if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
             {
                 await UiUtilityService.RemoveClassAsync(targetDropZoneId, PlayerSubstitution);
-
             }
         }
         else if (sourceIsAPlayer)
@@ -113,6 +112,7 @@
         {
             if (sourceIsAPlayer && targetIsAPlayer)
             {
+                await UiUtilityService.RemoveClassAsync(targetDropZoneId, PlayerSubstitution);
                 var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
                 var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
                 if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
@@ -132,6 +132,7 @@
             }
             else if (sourceIsAPlayer)
             {
+                await UiUtilityService.RemoveClassAsync(targetDropZoneId, RainbowBords);
                 var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
                 var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
                 var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
@@ -155,6 +156,7 @@
                     ToastService.ShowError($"{sourcePlayer.Current.Name} non può diventare un {role}");
                 }
             }
+            StateHasChanged();
         }
     }
 }

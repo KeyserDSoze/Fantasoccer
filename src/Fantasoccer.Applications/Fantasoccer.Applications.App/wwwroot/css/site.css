@@ -160,6 +160,39 @@ a, .btn-link {
         height: 720px;
     }
 
+    .field .backgroundLeftBench {
+        position: absolute;
+        top: 792px;
+        left: 0px;
+        width: 548px;
+    }
+    .field .backgroundMiddleBench {
+        position: absolute;
+        top: 792px;
+        left: 514px;
+        width: 110px;
+    }
+    .field .backgroundEndBench {
+        position: absolute;
+        top: 792px;
+        left: 1034px;
+        width: 106px;
+    }
+
+    .field .backgroundRightBench {
+        position: absolute;
+        top: 792px;
+        left: 571px;
+        width: 548px;
+    }
+
+    .field .backgroundTribune {
+        position: absolute;
+        top: 85px;
+        left: 1123px;
+        width: 202px;
+    }
+
     .field .playerContainer {
         position: relative;
         float: left;
@@ -213,7 +246,7 @@ a, .btn-link {
         position: relative;
         float: left;
         min-width: 125px;
-        padding-top: 30px;
+        padding-top: 47px;
         padding-left: 15px;
         min-height: 160px;
     }
@@ -231,27 +264,22 @@ a, .btn-link {
     }
 
     .field .columnContainerWithWhiteBackground {
-        background: rgba(255,255,255,0.3);
     }
 
     .field .columnContainerWithRedBackground {
-        background: rgba(86,114,184,0.4);
         min-height: 138px;
         max-height: 138px;
     }
 
     .field .columnContainerWithVioletBackground {
-        background: rgba(154,28,147,0.4);
         min-height: 138px;
         max-height: 138px;
     }
 
     .field .columnContainerWithBlackBackground {
-        background: rgba(0,0,0,0.4);
     }
 
     .field .columnContainerInvisibleBackground {
-        background: rgba(0,0,0,0);
     }
 
 .fieldMobile {
@@ -275,11 +303,13 @@ a, .btn-link {
         margin-left: 3%;
         margin-top: 10px;
         margin-bottom: 10px;
-        background: #ccffcc;
+        background: url(../../static/verticalbenchfield.jpg);
+        background-size: contain;
     }
 
     .fieldMobile .playerContainerMobile50-0 {
-        background: #99ccff;
+        background: url(../../static/verticalbenchfield.jpg);
+        background-size: contain;
     }
 
     .fieldMobile .playerContainerMobileTribune {
@@ -287,7 +317,8 @@ a, .btn-link {
         float: left;
         width: 100%;
         padding-top: 52px;
-        background: rgba(0,0,0,0.8);
+        background: url(../../static/verticalbenchfield.jpg);
+        background-size: contain;
     }
 
     .fieldMobile .gameContainerMobile {

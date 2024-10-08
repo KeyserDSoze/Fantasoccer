@@ -40,6 +40,7 @@ namespace Fantasoccer.Business.Shared
             else
             {
                 var response = _checker.Validate(entity.Value);
+                entity.Value.LastUpdate = FantacalcioTime.ItalyNow;
                 return Task.FromResult(new State<Team, TeamDayKey>(response.IsOk, message: response.Message));
             }
         }

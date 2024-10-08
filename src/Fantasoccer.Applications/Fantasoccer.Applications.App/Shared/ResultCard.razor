@@ -2,7 +2,7 @@
 {
     <div class="@Css">
         <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.HomeOwner)" />
-        <span class="team">@Game.Home</span>
+        <span id="team-name-home" class="team">@Game.Home</span>
         @if (Game.Result != default && !Game.Result.IsCancelled)
         {
             @if (Game.Result.Home.DefensiveBonus)
@@ -31,7 +31,7 @@
         {
             <span class="goals"> - </span>
         }
-        <span class="team">@Game.Away</span>
+        <span id="team-name-away" class="team">@Game.Away</span>
         <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.AwayOwner)" />
     </div>
 }
@@ -42,4 +42,8 @@
     public string Css { get; set; }
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
+    [Parameter]
+    public DateTime LastUpdateHome { get; set; }
+    [Parameter]
+    public DateTime LastUpdateAway { get; set; }
 }

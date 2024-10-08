@@ -18,6 +18,8 @@ namespace Fantasoccer
         public int RevenueMoney { get; set; }
         [JsonPropertyName("m")]
         public int MoneyFromRank { get; set; }
+        [JsonPropertyName("d")]
+        public DateTime LastUpdate { get; set; }
         [JsonIgnore]
         public int MoneyFromSoldWithNoReturnedPrice => Players.Where(x => x.Status == PlayerInTeamStatus.SoldWithNoReturnedPrice).Sum(x => x.Price);
         [JsonIgnore]
