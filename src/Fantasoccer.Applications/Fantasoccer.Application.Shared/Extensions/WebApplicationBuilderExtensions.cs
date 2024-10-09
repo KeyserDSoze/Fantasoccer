@@ -35,7 +35,6 @@ namespace Fantasoccer.Application.Shared.Extensions
             });
             builder.Services.AddTransient<AuctionHubClient>();
             builder.Services.AddSharedBusiness();
-            builder.Services.AddFantasoccerBusinessForApp();
             builder.Services.AddDefaultAuthorizationInterceptorForApiHttpClient<TokenManager>();
             builder.Services.AddSocialLoginUI(x =>
             {

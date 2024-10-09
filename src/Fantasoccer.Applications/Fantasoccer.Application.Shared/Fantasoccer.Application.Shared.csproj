@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
@@ -11,11 +11,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0-rc.1.24452.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="8.0.10" />
         <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.10.1" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.DataGrid.EntityFrameworkAdapter" Version="4.10.1" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.10.1" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.10.2" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.DataGrid.EntityFrameworkAdapter" Version="4.10.2" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.10.2" />
         <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Emoji" Version="4.6.0" />
         <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.10" />
@@ -25,7 +25,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\Fantasoccer.Business.Shared\Fantasoccer.Business.Shared.csproj" />
-        <ProjectReference Include="..\..\Fantasoccer.Business\Fantasoccer.Business.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
         <ProjectReference Include="..\..\Fantasoccer.Infrastructure.ClientStorage\Fantasoccer.Infrastructure.ClientStorage.csproj" />
     </ItemGroup>
