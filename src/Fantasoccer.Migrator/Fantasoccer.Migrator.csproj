@@ -9,8 +9,8 @@
     <ItemGroup>
         <PackageReference Include="Cronos" Version="0.8.4" />
         <PackageReference Include="Mapster" Version="7.4.0" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.8" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+        <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.10" />
         <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
         <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.App" />
@@ -20,7 +20,7 @@
         <PackageReference Include="Azure.Messaging.EventGrid" Version="4.26.0" />
         <PackageReference Include="Azure.Messaging.EventHubs" Version="5.11.5" />
         <PackageReference Include="Azure.Messaging.EventHubs.Processor" Version="5.11.5" />
-        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.1" />
+        <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.2" />
         <PackageReference Include="Azure.Security.KeyVault.Certificates" Version="4.6.0" />
         <PackageReference Include="Azure.Security.KeyVault.Keys" Version="4.6.0" />
         <PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.6.0" />
@@ -32,9 +32,9 @@
         <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.8" />
         <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.6.2" />
         <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
         <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
-        <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
+        <PackageReference Include="System.Drawing.Common" Version="8.0.10" />
     </ItemGroup>
     <ItemGroup>
       <Folder Include="Migration\" />

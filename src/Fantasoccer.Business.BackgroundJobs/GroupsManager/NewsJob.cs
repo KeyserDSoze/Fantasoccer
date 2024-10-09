@@ -1,10 +1,12 @@
-﻿using System.Reflection;
+﻿using System.ClientModel;
+using System.Reflection;
 using System.Text.Json;
 using System.Timers;
 using Azure;
 using Azure.AI.OpenAI;
 using Fantasoccer.Domain;
 using Microsoft.Extensions.Configuration;
+using OpenAI.Chat;
 using RepositoryFramework;
 
 namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
@@ -94,12 +96,12 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                         {
                                             hasEnded = days.SelectMany(x => x.Value).SelectMany(x => x.Games).Count() == 1;
                                         }
-                                        var messages = new List<ChatRequestMessage>
+                                        var messages = new List<ChatMessage>
                                         {
-                                            new ChatRequestSystemMessage($"Sei un giornalista sportivo e devi scrivere un articolo di calcio basato sui risultati in formato json che ti metterò nel punto 1). Basato sul rank in json che ti metterò nel punto 2). Fai un articolo pieno di enfasi, in cui si nota molto bene l'emozione. Mi raccomando, non mettere il titolo, scrivi solo l'articolo."),
-                                            new ChatRequestSystemMessage($"L'output deve usare i tag HTML classici per un articolo sul web. Non usare backtips prima, mettimi solo l'HTMl dell'articolo e non mettere il titolo. {(hasEnded ? "Il campionato è finito. Celebra il campione.".ToUpper() : "Il campionato non è ancora finito.".ToUpper())}"),
-                                            new ChatRequestUserMessage($"1) {days.ToJson()}"),
-                                            new ChatRequestUserMessage($"2) {rank.ToJson()}")
+                                            new SystemChatMessage($"Sei un giornalista sportivo e devi scrivere un articolo di calcio basato sui risultati in formato json che ti metterò nel punto 1). Basato sul rank in json che ti metterò nel punto 2). Fai un articolo pieno di enfasi, in cui si nota molto bene l'emozione. Mi raccomando, non mettere il titolo, scrivi solo l'articolo."),
+                                            new SystemChatMessage($"L'output deve usare i tag HTML classici per un articolo sul web. Non usare backtips prima, mettimi solo l'HTMl dell'articolo e non mettere il titolo. {(hasEnded ? "Il campionato è finito. Celebra il campione.".ToUpper() : "Il campionato non è ancora finito.".ToUpper())}"),
+                                            new UserChatMessage($"1) {days.ToJson()}"),
+                                            new UserChatMessage($"2) {rank.ToJson()}")
                                         };
                                         var newsContent = string.Empty;
                                         try
@@ -115,8 +117,8 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                             var titleContent = string.Empty;
                                             messages =
                                             [
-                                                new ChatRequestSystemMessage($"Sei un giornalista sportivo e devi dare un titolo ad un articolo che hai scritto."),
-                                                new ChatRequestUserMessage($"{newsContent}")
+                                                new SystemChatMessage($"Sei un giornalista sportivo e devi dare un titolo ad un articolo che hai scritto."),
+                                                new UserChatMessage($"{newsContent}")
                                             ];
                                             try
                                             {
@@ -149,31 +151,31 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                 }
             }
         }
-        private async IAsyncEnumerable<string> RequestAsync(IList<ChatRequestMessage> messages, bool withDelay)
+        private async IAsyncEnumerable<string> RequestAsync(IList<ChatMessage> messages, bool withDelay)
         {
             if (withDelay)
                 await Task.Delay(60_000);
             var apiKey = _configuration["OpenAi:ApiKey"];
             var uriOai = _configuration["OpenAi:Endpoint"];
             var model = _configuration["OpenAi:ModelName"];
-            var client33 = new OpenAIClient(new Uri(uriOai), new AzureKeyCredential(apiKey));
-            var chatCompletionsOptions = new ChatCompletionsOptions()
+            var openAiClientFactory = new AzureOpenAIClient(new Uri(uriOai), new ApiKeyCredential(apiKey));
+            var chatCompletionsOptions = new ChatCompletionOptions()
             {
-                DeploymentName = model,
-                MaxTokens = 4096
+                MaxOutputTokenCount = 4096
             };
-            foreach (var message in messages)
-                chatCompletionsOptions.Messages.Add(message);
-            var tt = client33.GetChatCompletionsStreaming(chatCompletionsOptions);
-            await foreach (var chatUpdate in tt)
+            var openAiClient = openAiClientFactory.GetChatClient(model);
+
+            var requests = openAiClient.CompleteChatStreamingAsync(messages, chatCompletionsOptions);
+            await foreach (var chatUpdate in requests)
             {
-                if (!string.IsNullOrWhiteSpace(chatUpdate.ToolCallUpdate?.Id))
+                if (chatUpdate.FinishReason == ChatFinishReason.ToolCalls)
                 {
                     break;
                 }
-                if (!string.IsNullOrEmpty(chatUpdate.ContentUpdate))
+                foreach (var contentPart in chatUpdate.ContentUpdate)
                 {
-                    yield return chatUpdate.ContentUpdate;
+                    if (!string.IsNullOrWhiteSpace(contentPart.Text))
+                        yield return contentPart.Text;
                 }
             }
         }
