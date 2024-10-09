@@ -6,7 +6,8 @@ trigger:
     - "master"
  paths:
     include:
-    - "src/Fantasoccer.Applications/Fantasoccer.Applications.App/"
+    - "src/Fantasoccer.Applications/Fantasoccer.Application.App/"
+    - "src/Fantasoccer.Applications/Fantasoccer.Application.Shared/"
     - "src/Fantasoccer.Business.Shared/"
     - "src/Fantasoccer.Domain/"
     - "ops/prod/app"
@@ -25,14 +26,14 @@ jobs:
     inputs:
       SourceFolder: 'ops/prod/app/'
       Contents: 'appsettings.json'
-      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.App/"
+      TargetFolder: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Application.App/"
       OverWrite: true
 
   - template: ../template/dotnet-build.yml
     parameters:
       buildMode: "release"
-      workingDirectory: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Applications.App/"
-      projects: "Fantasoccer.Applications.App.csproj"
+      workingDirectory: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Application.App/"
+      projects: "Fantasoccer.Application.App.csproj"
       executeAllTests: false
       sdkVersion: "8.x"
       artifactName: "fantasoccer_app"

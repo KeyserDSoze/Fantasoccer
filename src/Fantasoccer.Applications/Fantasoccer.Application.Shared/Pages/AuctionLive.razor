@@ -1,0 +1,77 @@
+﻿@page "/auctionlive"
+
+<PageTitle>Auction Live</PageTitle>
+
+<div>
+    @foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
+    {
+        <FluentCard>
+            <p>@team.Owner</p>
+            <FluentDivider Style="width: 100%;" Orientation=Orientation.Horizontal Role="DividerRole.Separator"></FluentDivider>
+            <p>Rimangono: @(State.SelectedLeagueSettings!.StartingMoney - team.Cost)</p>
+            <p>
+                Portieri: @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)
+            </p>
+            <p>
+                Difensori: @team.ActivePlayers.Count(x => x.Role == Role.Defensor)
+            </p>
+            <p>
+                Centrocapisti: @team.ActivePlayers.Count(x => x.Role == Role.Midfielder)
+            </p>
+            <p>
+                Attaccanti: @team.ActivePlayers.Count(x => x.Role == Role.Forward)
+            </p>
+        </FluentCard>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Inject]
+    public NavigationManager NavigationManager { get; set; }
+    // [Inject]
+    // public AuctionHubClient AuctionHubClient { get; set; }
+    private List<Team>? teams;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.HasAGroup == true && State.Teams != null)
+        {
+            LoadingIndicator?.Show();
+            // await AuctionHubClient.StartAsync(OnReceive);
+            teams = new();
+            foreach (var team in State.Teams)
+            {
+                var teamKey = State.OtherTeamKey(team.Owner);
+                var actualTeam = await Api.Team.GetAsync(teamKey);
+                if (actualTeam == null)
+                {
+                    actualTeam = new() { Name = team.Name, Owner = team.Owner, Players = new() };
+                    await Api.Team.InsertAsync(teamKey, actualTeam);
+                }
+                teams.Add(actualTeam);
+                var rank = await Api.Ranks.GetAsync(State.LeagueKey);
+                actualTeam.MoneyFromRank = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == team.Owner).PlusMoney;
+            }
+        }
+        await base.OnParametersSetAsync();
+    }
+    // void OnReceive(string user, string message)
+    // {
+    //     var x = user;
+    //     var y = message;
+    // }
+
+    // async Task SendAsync()
+    // {
+    //     await AuctionHubClient.SendAsync(State.Identity.Email, "Hello from Blazor!");
+    // }
+}

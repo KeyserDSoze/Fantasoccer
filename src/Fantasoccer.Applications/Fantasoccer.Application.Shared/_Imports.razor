@@ -1,0 +1,20 @@
+﻿@using System.Net.Http
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@using Fantasoccer.Application.Shared
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.FluentUI.AspNetCore.Components.Extensions
+@using Fantasoccer.Application.Shared.Models
+@using Microsoft.Extensions.DependencyInjection
+@using Fantasoccer.Application.Shared.Modals
+
+@inject ApiService Api
+@inject IToastService ToastService
+@inject IDialogService DialogService
+@inject UiUtilityService UiUtilityService
+@inject ImageUriHelper ImageUriHelper

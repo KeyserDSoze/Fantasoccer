@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UserSecretsId>aspnet-Fantasoccer.Applications.App-ab104fe3-7070-4785-beca-ce6a2399ab59</UserSecretsId>
+        <WebProject_DirectoryAccessLevelKey>0</WebProject_DirectoryAccessLevelKey>
+        <ApplicationInsightsResourceId>/subscriptions/6a37c895-4239-4b1e-bc34-a48c4994cc8a/resourceGroups/fc/providers/microsoft.insights/components/fcappinsinghts</ApplicationInsightsResourceId>
+        <UseRazorSourceGenerator>false</UseRazorSourceGenerator>
+    </PropertyGroup>
+    <ItemGroup>
+        
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Fantasoccer.Application.Shared\Fantasoccer.Application.Shared.csproj" />
+    </ItemGroup>
+
+   
+
+</Project>

@@ -1,0 +1,67 @@
+﻿@page "/groups"
+@using Fantasoccer.Application.Shared.Components.GroupComponents
+
+<PageTitle>Gestione gruppi</PageTitle>
+
+@if (State?.IsAuthenticated == true)
+{
+    <FluentTabs @bind-ActiveTabId="@selectedTab">
+        <FluentTab Id="groups" Label="Gruppi">
+            <GroupManager CanCreateNewGroup=canCreateNewGroup></GroupManager>
+        </FluentTab>
+        <FluentTab Id="users" Label="Utenti">
+            <UserManager SaveAsync="SaveAsync"></UserManager>
+        </FluentTab>
+        <FluentTab Id="baskets" Label="Contenitori squadre">
+            <BasketManager CanCreateNewGroup=canCreateNewGroup></BasketManager>
+        </FluentTab>
+        <FluentTab Id="leagues" Label="Leghe">
+            <LeagueManager CanCreateNewGroup=canCreateNewGroup SaveAsync="SaveAsync"></LeagueManager>
+        </FluentTab>
+    </FluentTabs>
+}
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    private string selectedTab = "groups";
+    private bool canCreateNewGroup;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State != null && State.Identity != null)
+        {
+            LoadingIndicator?.Show();
+            canCreateNewGroup = State.Identity.Email == "alessandro.rapiti44@gmail.com";
+        }
+        await base.OnParametersSetAsync();
+    }
+    private async Task SaveAsync()
+    {
+        if (State?.HasAGroup == true)
+        {
+            LoadingIndicator?.Show();
+            await Api.Groups.UpdateAsync(State.SelectedGroup!.Id, State.SelectedGroup);
+            foreach (var user in State.SelectedGroup.Users)
+            {
+                var toUpdateUser = await Api.AppIdentity.GetAsync(user.Email);
+                if (toUpdateUser != null)
+                {
+                    var groupToRemove = toUpdateUser.Groups.FirstOrDefault(x => x.Id == State.SelectedGroup.Id);
+                    if (groupToRemove != null)
+                        toUpdateUser.Groups.Remove(groupToRemove);
+                    toUpdateUser.Groups.Add(State.SelectedGroup.ToGroupIdentity(toUpdateUser.Email));
+                    await Api.AppIdentity.UpdateAsync(toUpdateUser.Email, toUpdateUser);
+                }
+            }
+            State?.UpdateUi();
+            LoadingIndicator?.Hide();
+        }
+    }
+}
