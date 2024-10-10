@@ -19,14 +19,14 @@
             @if (teams != null)
             {
                 var inHome = true;
-                <img class="backgroundField" src="../../static/field.jpg" />
-                <img class="backgroundMiddleBench" src="../../static/fieldmiddle.jpg" />
-                <img class="backgroundEndBench" src="../../static/fieldendbench.jpg" />
-                <img class="backgroundLeftBench" src="../../static/fieldleftbench.png" />
-                <img class="backgroundRightBench" src="../../static/fieldrightbench.png" />
+                <img class="backgroundField" src="@StaticSettings.GetStaticContentUri("static/field.jpg")" />
+                <img class="backgroundMiddleBench" src="@StaticSettings.GetStaticContentUri("static/fieldmiddle.jpg")" />
+                <img class="backgroundEndBench" src="@StaticSettings.GetStaticContentUri("static/fieldendbench.jpg")" />
+                <img class="backgroundLeftBench" src="@StaticSettings.GetStaticContentUri("static/fieldleftbench.png")" />
+                <img class="backgroundRightBench" src="@StaticSettings.GetStaticContentUri("static/fieldrightbench.png")" />
                 @if (isInEdit)
                 {
-                    <img class="backgroundTribune" src="../../static/verticalbenchfield.jpg" />
+                    <img class="backgroundTribune" src="@StaticSettings.GetStaticContentUri("static/verticalbenchfield.jpg")" />
                 }
                 foreach (var team in teams)
                 {

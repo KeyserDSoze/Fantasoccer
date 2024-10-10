@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Fantasoccer.Infrastructure;
+using Microsoft.AspNetCore.Hosting;
 
 namespace Fantasoccer.Application.Shared.Extensions
 {
@@ -21,7 +22,7 @@ namespace Fantasoccer.Application.Shared.Extensions
             builder.Services.AddHttpClient();
             builder.Services.AddTransient<UiUtilityService>();
             builder.Services.AddSingleton<ImageUriHelper>();
-            builder.Services.AddSingleton<VersionService>();
+            builder.Services.AddSingleton<StaticSettings>();
             builder.Services.AddFluentUIComponents(options =>
             {
                 options.ValidateClassNames = false;

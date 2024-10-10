@@ -7,11 +7,11 @@
         {
             @if (Game.Result.Home.DefensiveBonus)
             {
-                <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
+                <img title="Bonus difesa (+3)" class="defensivebonus" src="@StaticSettings.GetStaticContentUri("static/wallred.png")" />
             }
             @if (Game.Result.Home.OwnGoal && !Game.Result.Away.OwnGoal)
             {
-                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
+                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="@StaticSettings.GetStaticContentUri("static/goal_red_v2.png")" />
             }
             <span class="points">@Game.Result.Home.Value</span>
 
@@ -20,11 +20,11 @@
             <span class="points">@Game.Result.Away.Value</span>
             @if (Game.Result.Away.DefensiveBonus)
             {
-                <img title="Bonus difesa (+3)" class="defensivebonus" src="./static/wallred.png" />
+                <img title="Bonus difesa (+3)" class="defensivebonus" src="@StaticSettings.GetStaticContentUri("static/wallred.png")" />
             }
             @if (Game.Result.Away.OwnGoal && !Game.Result.Home.OwnGoal)
             {
-                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="./static/goal_red_v2.png" />
+                <img title="Autogol (punteggio inferiore a 60, un gol all'avversario)" class="defensivebonus" src="@StaticSettings.GetStaticContentUri("static/goal_red_v2.png")" />
             }
         }
         else

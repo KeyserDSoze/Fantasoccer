@@ -166,12 +166,14 @@ a, .btn-link {
         left: 0px;
         width: 548px;
     }
+
     .field .backgroundMiddleBench {
         position: absolute;
         top: 792px;
         left: 514px;
         width: 110px;
     }
+
     .field .backgroundEndBench {
         position: absolute;
         top: 792px;
@@ -303,12 +305,12 @@ a, .btn-link {
         margin-left: 3%;
         margin-top: 10px;
         margin-bottom: 10px;
-        background: url(../../static/verticalbenchfield.jpg);
+        background: var(--vertical-bench);
         background-size: contain;
     }
 
     .fieldMobile .playerContainerMobile50-0 {
-        background: url(../../static/verticalbenchfield.jpg);
+        background: var(--vertical-bench);
         background-size: contain;
     }
 
@@ -317,7 +319,7 @@ a, .btn-link {
         float: left;
         width: 100%;
         padding-top: 52px;
-        background: url(../../static/verticalbenchfield.jpg);
+        background: var(--vertical-bench);
         background-size: contain;
     }
 
@@ -325,7 +327,7 @@ a, .btn-link {
         position: relative;
         float: left;
         width: 100%;
-        background-image: url(../static/verticalfield.jpg);
+        background-image: var(--vertical-field);
         background-size: 100% 100%;
     }
 
@@ -439,3 +441,19 @@ a, .btn-link {
     }
 }
 
+::-webkit-scrollbar {
+    width: 3px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--fill-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--accent-fill-rest);
+}
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-foreground-hover);
+        cursor: pointer;
+    }

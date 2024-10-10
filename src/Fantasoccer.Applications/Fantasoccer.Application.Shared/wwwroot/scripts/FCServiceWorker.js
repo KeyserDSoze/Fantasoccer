@@ -22,8 +22,8 @@ self.addEventListener('push', function (event) {
     const options = {
         body: value.Body,
         data: value.Data,
-        icon: 'https://fantacalcio.xyz/fantaicon.jpg',
-        badge: 'https://fantacalcio.xyz/favicon-96x96.png',
+        icon: 'https://fantacalcio.xyz/shared/fantaicon.jpg',
+        badge: 'https://fantacalcio.xyz/shared/favicon-96x96.png',
         vibrate: [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500]
     };
 
