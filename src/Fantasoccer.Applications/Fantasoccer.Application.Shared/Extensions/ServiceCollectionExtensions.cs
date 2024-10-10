@@ -16,7 +16,6 @@ namespace Fantasoccer.Application.Shared.Extensions
                     uri = $"https://{uri}";
                 x.BaseAddress = new Uri($"{uri}/Authentication/Token");
             });
-            services.AddScoped<IdentityService>();
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, LeagueKey>(configuration, "random");

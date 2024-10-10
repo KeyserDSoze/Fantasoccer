@@ -11,8 +11,8 @@
   "MultiProjectConfigurations": {
     "Api+App": {
       "Projects": {
-        "Fantasoccer.Applications.Api": {},
-        "Fantasoccer.Applications.App": {}
+        "Fantasoccer.Application.Api": {},
+        "Fantasoccer.Application.App": {}
       }
     }
   }
