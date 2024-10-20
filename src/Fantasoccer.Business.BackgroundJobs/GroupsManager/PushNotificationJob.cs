@@ -127,7 +127,7 @@ namespace Fantasoccer.Engine.GroupsManager
                         }
                     }
                 }
-                if (realCalendar.NextDay?.Games.Any(t => t.Date != null && Math.Abs(FantacalcioTime.ItalyNow.Subtract(t.Date.Value).TotalHours) < 1) == true)
+                if (realCalendar.NextDay?.Games.Any(t => t.Date != null && Math.Abs(FantacalcioTime.ItalyNow.Subtract(t.Date.Value).TotalHours) < 8) == true)
                 {
                     var yearlyDayKey = new YearDayKey
                     {

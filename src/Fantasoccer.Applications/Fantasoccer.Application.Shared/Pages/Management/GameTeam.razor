@@ -121,8 +121,11 @@
     private Team? myTeam;
     private League? selectedLeague;
     private bool isMobile;
+    private bool isLive;
     private DateTime lastUpdateHome = DateTime.MinValue;
     private DateTime lastUpdateAway = DateTime.MinValue;
+    private LeagueSetting? leagueSettings;
+    private int intervalId = -1;
 
     private sealed class TeamsWrapper
     {
@@ -136,6 +139,14 @@
         await base.OnAfterRenderAsync(firstRender);
         if (!firstRender)
             LoadingIndicator?.Hide();
+        if (isLive && intervalId == -1)
+            intervalId = await JS.InvokeAsync<int>("intervalManager.addInterval", objRef, nameof(LiveAsync), 10_000);
+    }
+    private DotNetObjectReference<GameTeam>? objRef;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        objRef = DotNetObjectReference.Create(this);
     }
     protected override async Task OnParametersSetAsync()
     {
@@ -153,7 +164,7 @@
                 leagueKey = new LeagueKey { Group = GroupId, League = LeagueId, Year = year };
                 selectedLeague = State.SelectedGroup?.Leagues.Find(x => x.Id == LeagueId);
             }
-            var leagueSettings = selectedLeague?.Years.Find(x => x.Year == year)?.Settings;
+            leagueSettings = selectedLeague?.Years.Find(x => x.Year == year)?.Settings;
             leagueCalculator = LeagueCalculatorFactory.Create(selectedLeague?.GetAnnualType(year).ToString());
             LoadingIndicator?.Show();
             isMobile = await UiUtilityService.IsMobileAsync();
@@ -161,6 +172,7 @@
             teams = null;
             myTeam = null;
             var calendar = await Api.Calendar.GetAsync(leagueKey);
+            var realCalendar = await Api.RealCalendar.GetAsync(year);
             serieADay = 0;
             if (GameId != null && calendar != null)
             {
@@ -187,6 +199,7 @@
             }
             await TeamCalculator.BuildRequestAsync(year, serieADay, selectedLeague!.GetAnnualType(year), leagueSettings!, true, !isInEdit, true);
             serieADay = TeamCalculator.SerieADay;
+            isLive = serieADay == realCalendar?.LiveSerieADay;
             if (game == null && calendar != null)
             {
                 myTeam = await Api.Team.GetAsync(State.TeamKey);
@@ -195,38 +208,7 @@
             }
             if (game != null)
             {
-                var teams = new List<TeamsWrapper>();
-                var counter = 0;
-                foreach (var owner in GetOwners())
-                {
-                    var isMyTeam = myTeam != null && myTeam.Owner == owner;
-                    var team = isMyTeam ? myTeam
-                         : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner, year));
-                    teams.Add(new TeamsWrapper
-                        {
-                            CanModify = isMyTeam && isInEdit,
-                            Inverted = counter == 1,
-                            Players = team != null ? TeamCalculator.Enrich(team.ActivePlayers) : Array.Empty<EnrichedPlayer>(),
-                            LastUpdate = team?.LastUpdate ?? DateTime.MinValue
-                        });
-                    counter++;
-                }
-                if (!isInEdit && game.Result == null)
-                {
-                    game.Result = new()
-                        {
-                            Home = TeamCalculator.CalculatePoint(teams[0].Players),
-                            Away = TeamCalculator.CalculatePoint(teams[1].Players)
-                        };
-                    if (TeamCalculator.LeagueSetting != null)
-                        game.Result.CalculateGoals(TeamCalculator.LeagueSetting);
-                }
-                this.teams = teams;
-                IEnumerable<string> GetOwners()
-                {
-                    yield return game.HomeOwner;
-                    yield return game.AwayOwner;
-                }
+                await GetTeamsAsync(year);
             }
             else if (isInEdit)
             {
@@ -244,6 +226,49 @@
             }
         }
         await base.OnParametersSetAsync();
+    }
+    [JSInvokable]
+    public async ValueTask LiveAsync()
+    {
+        var year = Year ?? State?.Year ?? 1;
+        await TeamCalculator.BuildRequestAsync(year, serieADay, selectedLeague!.GetAnnualType(year), leagueSettings!, true, true, true);
+        await GetTeamsAsync(year);
+        await InvokeAsync(StateHasChanged);
+    }
+    private async ValueTask GetTeamsAsync(int year)
+    {
+        var teams = new List<TeamsWrapper>();
+        var counter = 0;
+        foreach (var owner in GetOwners())
+        {
+            var isMyTeam = myTeam != null && myTeam.Owner == owner;
+            var team = isMyTeam ? myTeam
+                 : await Api.DailyTeam.GetAsync(State.TeamDayKey(serieADay, owner, year));
+            teams.Add(new TeamsWrapper
+                {
+                    CanModify = isMyTeam && isInEdit,
+                    Inverted = counter == 1,
+                    Players = team != null ? TeamCalculator.Enrich(team.ActivePlayers) : Array.Empty<EnrichedPlayer>(),
+                    LastUpdate = team?.LastUpdate ?? DateTime.MinValue
+                });
+            counter++;
+        }
+        if (!isInEdit && game.Result == null)
+        {
+            game.Result = new()
+                {
+                    Home = TeamCalculator.CalculatePoint(teams[0].Players),
+                    Away = TeamCalculator.CalculatePoint(teams[1].Players)
+                };
+            if (TeamCalculator.LeagueSetting != null)
+                game.Result.CalculateGoals(TeamCalculator.LeagueSetting);
+        }
+        this.teams = teams;
+        IEnumerable<string> GetOwners()
+        {
+            yield return game.HomeOwner;
+            yield return game.AwayOwner;
+        }
     }
     private string? message;
     public async ValueTask SaveAsync()

@@ -36,3 +36,18 @@ window.setInterval(() => {
         }
     }
 }, 1000);
+
+window.intervalManager = {
+    intervals: [],
+    addInterval: function (dotNetHelper, methodToCall, milliseconds) {
+        const interval = window.setInterval(() => {
+            return dotNetHelper.invokeMethodAsync(methodToCall);
+        }, milliseconds);
+        this.intervals.push(interval);
+        return this.intervals.length - 1;
+    },
+    removeInterval: function (index) {
+        const interval = this.intervals.splice(index, 1);
+        window.clearInterval(interval);
+    }
+}
