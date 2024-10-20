@@ -145,7 +145,7 @@ else
                 }
                 await Api.Market.UpdateAsync(State.LeagueKey, market);
                 ToastService.ShowEvent($"Hai votato. Status: {exchange.Status}");
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
             }
         }
     }

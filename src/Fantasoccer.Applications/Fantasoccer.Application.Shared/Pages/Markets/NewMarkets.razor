@@ -100,7 +100,7 @@ else
         exchange.SellerPlayers = [];
         sellerTeam = await Api.Team.GetAsync(State.OtherTeamKey(seller.Owner));
         maxSeller = State.SelectedLeagueSettings.StartingMoney - sellerTeam.TotalCostForPlayers;
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
     private void SelectPlayers(bool isMine, IEnumerable<Player> players)
     {

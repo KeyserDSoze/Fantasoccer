@@ -156,7 +156,7 @@
                     ToastService.ShowError($"{sourcePlayer.Current.Name} non può diventare un {role}");
                 }
             }
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 }

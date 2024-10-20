@@ -197,7 +197,7 @@
         if (lastDayTeam != null)
         {
             wrapper.Team.Players = lastDayTeam.Players;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
         LoadingIndicator?.Hide();
     }
@@ -207,7 +207,7 @@
         {
             player.Position = FantaSoccerRole.Tribune;
         }
-        StateHasChanged();
+        _ = InvokeAsync(StateHasChanged);
     }
     private async Task ResetTeamAndSaveAsync(TeamWrapper wrapper)
     {
@@ -216,7 +216,7 @@
             player.Position = FantaSoccerRole.Tribune;
         }
         await BypassSaveAsync(wrapper);
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
     }
     private sealed class TeamWrapper
     {

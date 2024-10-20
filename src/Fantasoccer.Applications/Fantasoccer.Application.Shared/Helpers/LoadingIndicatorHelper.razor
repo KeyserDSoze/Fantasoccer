@@ -15,7 +15,7 @@
     protected override void OnInitialized()
     {
         if (LoadingIndicator != null)
-            LoadingIndicator.ShowOrHide = () => StateHasChanged();
+            LoadingIndicator.ShowOrHide = () => _ = InvokeAsync(StateHasChanged);
         base.OnInitialized();
     }
 }

@@ -289,7 +289,7 @@
             if (state.IsOk)
             {
                 ToastService.ShowSuccess("Formazione salvata correttamente.");
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
             }
             else
             {

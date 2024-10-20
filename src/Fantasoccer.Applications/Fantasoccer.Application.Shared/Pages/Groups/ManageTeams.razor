@@ -177,7 +177,7 @@
                     break;
                 }
             }
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
     protected override async Task OnParametersSetAsync()
@@ -287,7 +287,7 @@
                         });
                     await Api.Team.UpdateAsync(State.OtherTeamKey(team.Owner), team);
                     players.Remove(realPlayer);
-                    StateHasChanged();
+                    await InvokeAsync(StateHasChanged);
                 }
                 else
                 {
@@ -371,7 +371,7 @@
             activeTeamId = cancellation.Owner;
             if (player.IsActive)
                 players.Add(player);
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 }

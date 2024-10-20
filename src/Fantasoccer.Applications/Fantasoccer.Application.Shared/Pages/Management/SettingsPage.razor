@@ -108,11 +108,11 @@
     public OfficeColor? OfficeColor { get; set; }
     void OnLoaded(LoadedEventArgs e)
     {
-        StateHasChanged();
+        _ = InvokeAsync(StateHasChanged);
     }
     void OnLuminanceChanged(LuminanceChangedEventArgs e)
     {
-        StateHasChanged();
+        _ = InvokeAsync(StateHasChanged);
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -149,7 +149,7 @@
             if (response)
             {
                 ToastService.ShowSuccess("Logo caricato con successo.");
-                StateHasChanged();
+                await InvokeAsync(StateHasChanged);
             }
             else
             {
