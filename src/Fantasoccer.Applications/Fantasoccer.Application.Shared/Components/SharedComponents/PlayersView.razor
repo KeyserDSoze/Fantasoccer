@@ -2,7 +2,7 @@
 
 @if (StatPlayers != null)
 {
-    <FluentDataGrid ResizableColumns="true" AutoFit="true" ShowHover="true" Items="@StatPlayers.AsQueryable()" GridTemplateColumns="@gridTemplateColumns">
+    <FluentDataGrid ResizableColumns="true" ShowHover="true" Items="@StatPlayers.AsQueryable()" GridTemplateColumns="@gridTemplateColumns">
         <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
         @if (withPrice)
         {
@@ -32,7 +32,7 @@
 }
 @if (Players != null)
 {
-    <FluentDataGrid ResizableColumns="true" AutoFit="true" ShowHover="true" Items="@Players.AsQueryable()" GridTemplateColumns="3fr 1fr 1fr">
+    <FluentDataGrid ResizableColumns="true" ShowHover="true" Items="@Players.AsQueryable()" GridTemplateColumns="3fr 1fr 1fr">
         <PropertyColumn Property="@(p => p.Name)" Sortable="true" />
         <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Team" Sortable="true" />
         <PropertyColumn Property="@(p => p.Price)" Sortable="true" />
