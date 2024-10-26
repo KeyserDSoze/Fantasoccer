@@ -2,12 +2,19 @@
     <div class="playerimage-container">
         <img class="playerimage" onerror="@ImageUriHelper.GetPlaceholderPlayerImageUri()" src="@ImageUriHelper.GetPlayerImageUri(Player.Current)" />
     </div>
-    @if (Player.RealGame?.IsPlayed == true)
+    @if (Player.RealGame?.IsPlayed == true || Player.RealGame?.Delayed == true)
     {
         <div class="playerrealteam">@Player.Current.RealTeam.Name</div>
         <div class="playerenemy">
             <div class="enemyname">@EnemyName</div>
-            <div class="enemyhour">@Player.RealGame?.HomeGoal - @Player.RealGame?.AwayGoal</div>
+            @if (Player.RealGame?.Delayed == true)
+            {
+                <div class="enemyhour">rimandata</div>
+            }
+            else
+            {
+                <div class="enemyhour">@Player.RealGame?.HomeGoal - @Player.RealGame?.AwayGoal</div>
+            }
         </div>
     }
     else
