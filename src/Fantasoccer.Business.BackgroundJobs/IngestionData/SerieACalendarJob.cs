@@ -26,14 +26,13 @@ namespace Fantasoccer.Engine.IngestionData
                 var lastDay = calendar.LastDay?.SerieADay ?? calendar.LiveDay?.SerieADay ?? 39;
                 if (lastDay <= 38)
                 {
-                    var maxDay = lastDay + 3;
-                    for (var day = lastDay; day <= maxDay && day <= 38; day++)
+                    var partOfTheRealCalendar = await _calendar.GetAsync(lastDay, lastDay + 3);
+                    foreach (var actualDay in partOfTheRealCalendar.Days)
                     {
-                        var actualDay = await _calendar.GetDayAsync(day);
-                        calendar.Days.Remove(calendar.Days.Find(x => x.SerieADay == day)!);
+                        calendar.Days.Remove(calendar.Days.Find(x => x.SerieADay == actualDay.SerieADay)!);
                         calendar.Days.Add(actualDay);
                     }
-                    calendar.Days = calendar.Days.OrderBy(x => x.SerieADay).ToList();
+                    calendar.Days = [.. calendar.Days.OrderBy(x => x.SerieADay)];
                     result = await _repository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
                 }
             }

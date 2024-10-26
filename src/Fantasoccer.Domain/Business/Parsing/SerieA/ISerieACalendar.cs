@@ -2,7 +2,6 @@
 {
     public interface ISerieACalendar
     {
-        Task<RealCalendar> GetAsync();
-        Task<RealDay> GetDayAsync(int day);
+        Task<RealCalendar> GetAsync(int min = 1, int max = 38);
     }
 }

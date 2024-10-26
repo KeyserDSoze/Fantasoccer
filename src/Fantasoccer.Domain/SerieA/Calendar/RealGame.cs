@@ -17,6 +17,6 @@ namespace Fantasoccer
         [JsonPropertyName("e")]
         public bool Delayed { get; set; }
         [JsonIgnore]
-        public bool IsPlayed => !Date.HasValue || FantacalcioTime.ItalyNow > Date.Value;
+        public bool IsPlayed => !Delayed && Date.HasValue && FantacalcioTime.ItalyNow > Date.Value;
     }
 }
