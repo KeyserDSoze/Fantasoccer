@@ -1,0 +1,31 @@
+﻿@if (Teams != null)
+{
+    <FluentDataGrid Items="Teams.AsQueryable()" TGridItem="RealRankedTeam" GridTemplateColumns="@gridTemplateColumns">
+        <PropertyColumn Property="@(x => x.Name)" Title="Squadra" />
+        <PropertyColumn Property="@(x => x.Point)" Title="P" />
+        <PropertyColumn Property="@(x => x.Goal)" Title="G" />
+        @if (!isMobile)
+        {
+            <PropertyColumn Property="@(x => x.SufferedGoal)" Title="SG" />
+            <PropertyColumn Property="@(x => x.Victories)" Title="V" />
+            <PropertyColumn Property="@(x => x.Draws)" Title="D" />
+            <PropertyColumn Property="@(x => x.Defeats)" Title="De" />
+        }
+    </FluentDataGrid>
+}
+@code {
+    [Parameter]
+    public List<RealRankedTeam>? Teams { get; set; }
+    [Parameter]
+    public bool WithFluentSize { get; set; }
+
+    private string gridTemplateColumns = "5fr 2fr 2fr 1fr 1fr 1fr 1fr";
+    private bool isMobile;
+    protected override async Task OnParametersSetAsync()
+    {
+        isMobile = await UiUtilityService.IsMobileAsync();
+        if (isMobile)
+            gridTemplateColumns = "5fr 2fr 2fr";
+        await base.OnParametersSetAsync();
+    }
+}

@@ -42,6 +42,7 @@ namespace Fantasoccer.Infrastructure
         public static async Task<IServiceCollection> AddStorageInfrastructuresAsync(this IServiceCollection services, string storageConnectionString)
         {
             await services.AddBlobStorage<RealCalendar, int>(storageConnectionString);
+            await services.AddBlobStorage<RealRank, int>(storageConnectionString);
             await services.AddBlobStorage<RealPlayersWrapper, int>(storageConnectionString);
             await services.AddBlobStorage<RealPlayersWrapper, LeagueKey>(storageConnectionString, "random", "randomizedplayers");
             await services.AddBlobStorage<ChancedRealPlayerWrapper, YearDayKey>(storageConnectionString);

@@ -8,11 +8,11 @@ namespace Fantasoccer.Tests.Tests.Services
     {
         private readonly IOfficialVote _official;
         private readonly ILiveVote _live;
-        private readonly ISerieACalendar _serieACalendar;
+        private readonly ISerieAInformation _serieACalendar;
 
         public VotingTest(IOfficialVote official,
             ILiveVote live,
-            ISerieACalendar serieACalendar)
+            ISerieAInformation serieACalendar)
         {
             _official = official;
             _live = live;
@@ -29,7 +29,7 @@ namespace Fantasoccer.Tests.Tests.Services
         [Fact]
         public async Task FetchLiveAsync()
         {
-            var calendar = await _serieACalendar.GetAsync().NoContext();
+            var calendar = await _serieACalendar.GetCalendarAsync().NoContext();
             var isLive = calendar.IsLive;
             var players = await _live.GetAsync(FantacalcioTime.ActualYear, 2).NoContext();
             Assert.NotNull(players);

@@ -8,9 +8,9 @@ namespace Fantasoccer.Tests.Tests.Services
     public class FormationParserTests
     {
         private readonly IFactory<IFormationParser> _factory;
-        private readonly ISerieACalendar _serieACalendar;
+        private readonly ISerieAInformation _serieACalendar;
         private readonly IRepository<RealCalendar, int> _repository;
-        public FormationParserTests(IFactory<IFormationParser> factory, ISerieACalendar serieACalendar, IRepository<RealCalendar, int> repository)
+        public FormationParserTests(IFactory<IFormationParser> factory, ISerieAInformation serieACalendar, IRepository<RealCalendar, int> repository)
         {
             _factory = factory;
             _serieACalendar = serieACalendar;
@@ -23,7 +23,7 @@ namespace Fantasoccer.Tests.Tests.Services
         [InlineData("Mediaset")]
         public async Task TestParserAsync(string name)
         {
-            var calendar = await _serieACalendar.GetAsync().NoContext();
+            var calendar = await _serieACalendar.GetCalendarAsync().NoContext();
             await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
             var parser = _factory.Create(name);
             var players = await parser.GetPlayersAsync();
@@ -35,7 +35,7 @@ namespace Fantasoccer.Tests.Tests.Services
         [InlineData("Injury")]
         public async Task TestInjuryParserAsync(string name)
         {
-            var calendar = await _serieACalendar.GetAsync().NoContext();
+            var calendar = await _serieACalendar.GetCalendarAsync().NoContext();
             await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
             var parser = _factory.Create(name);
             var players = await parser.GetPlayersAsync();

@@ -10,14 +10,9 @@ namespace Fantasoccer.Engine
         public static IServiceCollection AddFantasoccerBackgroundWork(this IServiceCollection services)
         {
             services
-                .AddWarmUp(async serviceProvider =>
+                .AddBackgroundJob<SerieAJob>(options =>
                 {
-                    var serieACalendarioJob = serviceProvider.GetRequiredService<SerieACalendarJob>();
-                    await serieACalendarioJob.ActionToDoAsync(default);
-                });
-            services
-                .AddBackgroundJob<SerieACalendarJob>(options =>
-                {
+                    options.RunImmediately = true;
                     options.Cron = "0 */5 * * * *";
                 })
                 .AddBackgroundJob<AllPlayersAndAllTeamsJob>(options =>

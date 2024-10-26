@@ -17,6 +17,7 @@ namespace Fantasoccer.Application.Shared.Extensions
                 x.BaseAddress = new Uri($"{uri}/Authentication/Token");
             });
             services.AddHttpClientIntegration<RealCalendar, int>(configuration);
+            services.AddHttpClientIntegration<RealRank, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<RealPlayersWrapper, LeagueKey>(configuration, "random");
             services.AddHttpClientIntegration<ChancedRealPlayerWrapper, YearDayKey>(configuration);

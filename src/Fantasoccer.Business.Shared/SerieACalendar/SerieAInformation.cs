@@ -4,15 +4,15 @@ using System.Text.Json.Serialization;
 
 namespace Fantasoccer.Business
 {
-    internal sealed class SerieACalendar : ISerieACalendar
+    internal sealed class SerieAInformation : ISerieAInformation
     {
         private readonly HttpClient _serieAHttpClient;
-        public SerieACalendar(IHttpClientFactory httpClientFactory)
+        public SerieAInformation(IHttpClientFactory httpClientFactory)
         {
             _serieAHttpClient = httpClientFactory.CreateClient("seriea");
         }
 
-        public async Task<RealCalendar> GetAsync(int min = 1, int max = 38)
+        public async Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38)
         {
             var calendar = new RealCalendar
             {
@@ -50,6 +50,33 @@ namespace Fantasoccer.Business
             await Task.Delay(10);
             return realDay;
         }
+
+        public async Task<RealRank> GetRankAsync()
+        {
+            var season = FantacalcioTime.LabelYear(FantacalcioTime.ItalyNow, '-', true);
+            var rank = await _serieAHttpClient.GetFromJsonAsync<RankRoot>($"stats/Classificacompleta?CAMPIONATO=A&STAGIONE={season}&TURNO=UNICO&GIRONE=UNI", default);
+            var realRank = new RealRank
+            {
+                Teams = [],
+            };
+            foreach (var team in rank.Data)
+            {
+                realRank.Teams.Add(new RealRankedTeam
+                {
+                    Name = team.Nome,
+                    Goal = team.RETIFATTE,
+                    SufferedGoal = team.RETISUBITE,
+                    Defeats = team.Perse,
+                    Draws = team.Pareggiate,
+                    Victories = team.Vinte,
+                    Point = team.PuntiCls,
+                    Played = team.Giocate
+                });
+            }
+            realRank.Teams = [.. realRank.Teams.OrderByDescending(x => x.Point)];
+            return realRank;
+        }
+
         private class CalendarDataBody
         {
             [JsonPropertyName("background_image")]
@@ -413,6 +440,143 @@ namespace Fantasoccer.Business
             public int Code { get; set; }
         }
 
+        public class RankDatum
+        {
+            [JsonPropertyName("CAMPIONATO")]
+            public string CAMPIONATO { get; set; }
+
+            [JsonPropertyName("CODSQUADRA")]
+            public string CODSQUADRA { get; set; }
+
+            [JsonPropertyName("GIRONE")]
+            public string GIRONE { get; set; }
+
+            [JsonPropertyName("Giocate")]
+            public int Giocate { get; set; }
+
+            [JsonPropertyName("GiocateCasa")]
+            public int GiocateCasa { get; set; }
+
+            [JsonPropertyName("GiocateFuori")]
+            public int GiocateFuori { get; set; }
+
+            [JsonPropertyName("Nome")]
+            public string Nome { get; set; }
+
+            [JsonPropertyName("NomeCompleto")]
+            public string NomeCompleto { get; set; }
+
+            [JsonPropertyName("NomeSintetico")]
+            public string NomeSintetico { get; set; }
+
+            [JsonPropertyName("Pareggiate")]
+            public int Pareggiate { get; set; }
+
+            [JsonPropertyName("PareggiateCasa")]
+            public int PareggiateCasa { get; set; }
+
+            [JsonPropertyName("PareggiateFuori")]
+            public int PareggiateFuori { get; set; }
+
+            [JsonPropertyName("Perse")]
+            public int Perse { get; set; }
+
+            [JsonPropertyName("PerseCasa")]
+            public int PerseCasa { get; set; }
+
+            [JsonPropertyName("PerseFuori")]
+            public int PerseFuori { get; set; }
+
+            [JsonPropertyName("PosCls")]
+            public int PosCls { get; set; }
+
+            [JsonPropertyName("PuntiCls")]
+            public int PuntiCls { get; set; }
+
+            [JsonPropertyName("PuntiClsCasa")]
+            public int PuntiClsCasa { get; set; }
+
+            [JsonPropertyName("PuntiClsFuori")]
+            public int PuntiClsFuori { get; set; }
+
+            [JsonPropertyName("PuntiPen")]
+            public int PuntiPen { get; set; }
+
+            [JsonPropertyName("RETIFATTE")]
+            public int RETIFATTE { get; set; }
+
+            [JsonPropertyName("RETISUBITE")]
+            public int RETISUBITE { get; set; }
+
+            [JsonPropertyName("RetiFatteCasa")]
+            public int RetiFatteCasa { get; set; }
+
+            [JsonPropertyName("RetiFatteFuori")]
+            public int RetiFatteFuori { get; set; }
+
+            [JsonPropertyName("RetiSubiteCasa")]
+            public int RetiSubiteCasa { get; set; }
+
+            [JsonPropertyName("RetiSubiteFuori")]
+            public int RetiSubiteFuori { get; set; }
+
+            [JsonPropertyName("STAGIONE")]
+            public string STAGIONE { get; set; }
+
+            [JsonPropertyName("TURNO")]
+            public string TURNO { get; set; }
+
+            [JsonPropertyName("Vinte")]
+            public int Vinte { get; set; }
+
+            [JsonPropertyName("VinteCasa")]
+            public int VinteCasa { get; set; }
+
+            [JsonPropertyName("VinteFuori")]
+            public int VinteFuori { get; set; }
+
+            [JsonPropertyName("do_deleted")]
+            public int DoDeleted { get; set; }
+
+            [JsonPropertyName("do_inserted")]
+            public int DoInserted { get; set; }
+
+            [JsonPropertyName("do_loaded")]
+            public int DoLoaded { get; set; }
+
+            [JsonPropertyName("do_updated")]
+            public int DoUpdated { get; set; }
+
+            [JsonPropertyName("team_active")]
+            public string TeamActive { get; set; }
+
+            [JsonPropertyName("team_image")]
+            public string TeamImage { get; set; }
+
+            [JsonPropertyName("team_image_secondary")]
+            public string TeamImageSecondary { get; set; }
+
+            [JsonPropertyName("team_slug")]
+            public string TeamSlug { get; set; }
+        }
+
+        public class RankRoot
+        {
+            [JsonPropertyName("success")]
+            public bool Success { get; set; }
+
+            [JsonPropertyName("message")]
+            public string Message { get; set; }
+
+            [JsonPropertyName("errors")]
+            public List<object> Errors { get; set; }
+
+            [JsonPropertyName("data")]
+            public List<RankDatum> Data { get; set; }
+
+            [JsonPropertyName("code")]
+            public int Code { get; set; }
+        }
 
     }
 }

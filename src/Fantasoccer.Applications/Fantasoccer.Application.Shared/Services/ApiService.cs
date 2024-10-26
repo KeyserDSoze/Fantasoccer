@@ -8,6 +8,7 @@ namespace Fantasoccer.Application.Shared
     {
         public ApiService(
             IRepository<RealCalendar, int> realCalendar,
+            IRepository<RealRank, int> realRank,
             IRepository<RealPlayersWrapper, int> realPlayers,
             IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers,
             IRepository<StatPlayersWrapper, int> statsPlayers,
@@ -29,6 +30,7 @@ namespace Fantasoccer.Application.Shared
             IRepository<PushNotificationSettings, string> pushNotification)
         {
             RealCalendar = realCalendar;
+            RealRank = realRank;
             RealPlayers = realPlayers;
             StatsPlayers = statsPlayers;
             Chances = chances;
@@ -52,6 +54,7 @@ namespace Fantasoccer.Application.Shared
         }
 
         public IRepository<RealCalendar, int> RealCalendar { get; }
+        public IRepository<RealRank, int> RealRank { get; }
         public IRepository<RealPlayersWrapper, int> RealPlayers { get; }
         public IRepository<RealPlayersWrapper, LeagueKey> RandomizedRealPlayers { get; }
         public IRepository<StatPlayersWrapper, int> StatsPlayers { get; }

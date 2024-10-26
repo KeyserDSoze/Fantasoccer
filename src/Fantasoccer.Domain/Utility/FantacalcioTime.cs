@@ -14,11 +14,11 @@
         }
         public static string ActualLabelYear
             => LabelYear(DateTime.UtcNow);
-        public static string LabelYear(DateTime date)
+        public static string LabelYear(DateTime date, char splitter = '/', bool lastYearMin = false)
         {
             if (date.Month < 8 || (date.Month == 8 && date.Day < 10))
-                return $"{(date.Year - 1)}/{date.Year}";
-            return $"{date.Year}/{(date.Year + 1)}";
+                return $"{(date.Year - 1)}{splitter}{(!lastYearMin ? date.Year.ToString() : date.Year.ToString().Substring(2))}";
+            return $"{date.Year}{splitter}{(!lastYearMin ? (date.Year + 1).ToString() : (date.Year + 1).ToString().Substring(2))}";
         }
         public static string LabelYear(int year)
             => $"{2011 + year}/{(2012 + year)}";

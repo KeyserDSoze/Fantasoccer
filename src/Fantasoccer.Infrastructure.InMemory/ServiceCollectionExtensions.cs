@@ -77,8 +77,8 @@ namespace Fantasoccer.InMemory
                 try
                 {
                     var calendarRepository = serviceProvider.GetRequiredService<IRepository<RealCalendar, int>>();
-                    var calendarService = serviceProvider.GetRequiredService<ISerieACalendar>();
-                    var calendar = await calendarService.GetAsync().NoContext();
+                    var calendarService = serviceProvider.GetRequiredService<ISerieAInformation>();
+                    var calendar = await calendarService.GetCalendarAsync().NoContext();
                     var result = false;
                     if (await calendarRepository.ExistAsync(FantacalcioTime.ActualYear).NoContext())
                     {

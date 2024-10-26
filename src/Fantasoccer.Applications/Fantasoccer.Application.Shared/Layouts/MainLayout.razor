@@ -62,7 +62,10 @@
                         </ChildContent>
                     </FluentNavGroup>
                 }
-                <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagClock())" Href="../../serieacalendar" Tooltip="Serie A">Calendario Serie A</FluentNavLink>
+                <FluentNavGroup Title="Serie A" Tooltip="Tutte le informazioni sulla serie A" Icon="@(new Icons.Regular.Size24.AirplaneLanding())">
+                    <FluentNavLink Icon="@(new Icons.Regular.Size24.Flag())" Href="../../seriearank" Tooltip="Classifica Serie A">Classifica</FluentNavLink>
+                    <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagOff())" Href="../../serieacalendar" Tooltip="Calendario Serie A">Calendario</FluentNavLink>
+                </FluentNavGroup>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.FlagClock())" Href="../../auctionlive" Tooltip="Controlla l'asta in tempo reale">Asta Live</FluentNavLink>
                 @if (State?.Groups != null && State?.Identity != null)
                 {

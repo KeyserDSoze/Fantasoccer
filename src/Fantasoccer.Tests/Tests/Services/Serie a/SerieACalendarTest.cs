@@ -4,16 +4,16 @@ namespace Fantasoccer.Tests.Tests.Services
 {
     public class SerieACalendarTest
     {
-        private readonly ISerieACalendar _serieACalendar;
+        private readonly ISerieAInformation _serieACalendar;
 
-        public SerieACalendarTest(ISerieACalendar serieACalendar)
+        public SerieACalendarTest(ISerieAInformation serieACalendar)
         {
             _serieACalendar = serieACalendar;
         }
         [Fact]
         public async Task CalendarAsync()
         {
-            var calendar = await _serieACalendar.GetAsync();
+            var calendar = await _serieACalendar.GetCalendarAsync();
             Assert.NotNull(calendar);
             Assert.Equal(38, calendar.Days.Count);
             foreach (var day in calendar.Days)
