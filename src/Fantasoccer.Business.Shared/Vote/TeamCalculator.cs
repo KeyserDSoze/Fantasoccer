@@ -210,7 +210,7 @@ namespace Fantasoccer.Business
         }
         public async Task<bool> RecalculateDayAsync(int serieADay)
         {
-            var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, serieADay);
+            var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true);
             return checkIfAVoteIsUpdated > 0;
         }
     }

@@ -24,10 +24,10 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var calendar = await _realCalendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
-            var lastDay = calendar?.LiveDay ?? calendar?.LastDay;
+            var lastDay = calendar?.LastDay;
             if (lastDay != default)
             {
-                var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, lastDay.SerieADay, lastDay.SerieADay);
+                var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, lastDay.SerieADay);
                 if (checkIfAVoteIsUpdated > 0)
                 {
                     await _statsPlayerGenerator.GenerateAndSaveAsync(lastDay.Year, lastDay.SerieADay);
