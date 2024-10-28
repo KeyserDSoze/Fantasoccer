@@ -23,8 +23,8 @@ namespace Fantasoccer.Tests.Tests.Services
         [InlineData("Mediaset")]
         public async Task TestParserAsync(string name)
         {
-            var calendar = await _serieACalendar.GetCalendarAsync().NoContext();
-            await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+            //var calendar = await _serieACalendar.GetCalendarAsync().NoContext();
+            //await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
             var parser = _factory.Create(name);
             var players = await parser.GetPlayersAsync();
             Assert.NotEmpty(players);

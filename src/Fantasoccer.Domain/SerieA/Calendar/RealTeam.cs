@@ -6,7 +6,18 @@ namespace Fantasoccer
     {
         [JsonPropertyName("n")]
         public required string Name { get; set; }
-        [JsonIgnore]
-        public string Abbreviation => Name == null || Name.Length < 3 ? Name ?? string.Empty : Name.ToLower()[..3];
+        private string? _abbreviation;
+        [JsonPropertyName("a")]
+        public string Abbreviation
+        {
+            get
+            {
+                return _abbreviation ??= Name == null || Name.Length < 3 ? Name ?? string.Empty : Name.ToLower()[..3];
+            }
+            set
+            {
+                _abbreviation = value;
+            }
+        }
     }
 }

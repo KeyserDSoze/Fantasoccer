@@ -1,5 +1,6 @@
 ﻿using System.Timers;
 using Fantasoccer.Business.IngestionData;
+using Fantasoccer.Domain;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
@@ -12,25 +13,28 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _repository;
         private readonly IRepository<RealCalendar, int> _calendar;
         private readonly IRepository<RealPlayersWrapper, int> _realPlayersRepository;
+        private readonly IRepository<StatPlayersWrapper, int> _statsRepository;
 
         public PlayerOddsJob(IFantasoccerLogger logger,
             IFactory<IFormationParser> formations,
             IRepository<ChancedRealPlayerWrapper, YearDayKey> repository,
             IRepository<RealCalendar, int> calendar,
-            IRepository<RealPlayersWrapper, int> realPlayersRepository)
+            IRepository<RealPlayersWrapper, int> realPlayersRepository,
+            IRepository<StatPlayersWrapper, int> statsRepository)
         {
             _logger = logger;
             _repository = repository;
             _calendar = calendar;
-            _parsers = new List<IFormationParser>()
-            {
-                formations.Create("Fantagazzetta"),
-                formations.Create("Gazzetta"),
-                formations.Create("Mediaset"),
-                //formations.Create("Sky"),
-                formations.Create("Injury"),
-            };
+            _parsers =
+            [
+                formations.Create("Fantagazzetta")!,
+                formations.Create("Gazzetta")!,
+                //formations.Create("Mediaset")!,
+                //formations.Create("Sky")!,
+                formations.Create("Injury")!,
+            ];
             _realPlayersRepository = realPlayersRepository;
+            _statsRepository = statsRepository;
         }
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
@@ -40,15 +44,16 @@ namespace Fantasoccer.Engine.IngestionData
                 var day = (calendar.LiveDay ?? calendar.NextDay)?.SerieADay ?? 0;
                 if (day > 0)
                 {
+                    var statPlayersWrapper = await _statsRepository.GetAsync(FantacalcioTime.ActualYear, cancellationToken);
                     var key = new YearDayKey
                     {
                         Year = FantacalcioTime.ActualYear,
                         Day = day
                     };
-                    var players = (await _repository.GetAsync(key).NoContext())?.Players ?? new();
+                    var players = (await _repository.GetAsync(key).NoContext())?.Players ?? [];
                     if (players.Count == 0)
                     {
-                        foreach (var player in (await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext()).Players)
+                        foreach (var player in (await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext())!.Players)
                         {
                             players.Add(new ChancedRealPlayer
                             {
@@ -57,35 +62,54 @@ namespace Fantasoccer.Engine.IngestionData
                                 Role = player.Role,
                                 Visible = player.Visible,
                                 IsActive = player.IsActive,
-                                Chance = new Chance
-                                {
-
-                                }
+                                Chance = new Chance()
                             });
                         }
+                    }
+                    foreach (var player in players.Where(x => x.Chance.LastGame == default))
+                    {
+                        var currentStatPlayer = statPlayersWrapper!.Players.FirstOrDefault(x => x.Key == player.Key);
+                        if (player.Chance == default)
+                            player.Chance = new Chance();
+                        player.Chance.LastGame = currentStatPlayer?.AllGames?.OrderByDescending(x => x.SerieADay).FirstOrDefault();
+                        var positivenessCount = 2;
+                        var lastThreeGames = currentStatPlayer?.AllGames?.OrderByDescending(x => x.SerieADay).Take(3);
+                        if (lastThreeGames != null)
+                            foreach (var theGame in lastThreeGames)
+                            {
+                                if (theGame.Positiveness > 1)
+                                    positivenessCount++;
+                                else if (theGame.Positiveness < 0)
+                                    positivenessCount--;
+                            }
+                        if (positivenessCount > 4)
+                            positivenessCount = 4;
+                        else if (positivenessCount < 0)
+                            positivenessCount = 0;
+                        player.Chance.Trend = (TrendType)positivenessCount;
+                    }
+                    foreach (var player in players)
+                    {
+                        player.Chance.Fantagazzetta = false;
+                        player.Chance.Gazzetta = false;
+                        player.Chance.Mediaset = false;
+                        player.Chance.Sky = false;
                     }
                     foreach (var parser in _parsers)
                     {
                         var playersFromParser = await parser.GetPlayersAsync().NoContext();
-                        if (players.Count == 0)
-                            players = playersFromParser;
-                        else
+
+                        foreach (var parsedPlayer in playersFromParser)
                         {
-                            foreach (var parsedPlayer in playersFromParser)
+                            var chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
+                            if (chancedPlayer != default)
                             {
-                                var chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
-                                if (chancedPlayer == default)
-                                    players.Add(parsedPlayer);
-                                else
-                                    chancedPlayer.Chance = new Chance
-                                    {
-                                        Fantagazzetta = chancedPlayer.Chance.Fantagazzetta || parsedPlayer.Chance.Fantagazzetta,
-                                        Gazzetta = chancedPlayer.Chance.Gazzetta || parsedPlayer.Chance.Gazzetta,
-                                        Mediaset = chancedPlayer.Chance.Mediaset || parsedPlayer.Chance.Mediaset,
-                                        Sky = chancedPlayer.Chance.Sky || parsedPlayer.Chance.Sky,
-                                        Status = chancedPlayer.Chance.Status == ChanceType.Normal ? parsedPlayer.Chance.Status : chancedPlayer.Chance.Status,
-                                        Description = parsedPlayer.Chance.Description ?? chancedPlayer.Chance.Description
-                                    };
+                                chancedPlayer.Chance.Fantagazzetta |= parsedPlayer.Chance.Fantagazzetta;
+                                chancedPlayer.Chance.Gazzetta |= parsedPlayer.Chance.Gazzetta;
+                                chancedPlayer.Chance.Mediaset |= parsedPlayer.Chance.Mediaset;
+                                chancedPlayer.Chance.Sky |= parsedPlayer.Chance.Sky;
+                                chancedPlayer.Chance.Status = parsedPlayer.Chance.Status;
+                                chancedPlayer.Chance.Description = parsedPlayer.Chance.Description;
                             }
                         }
                     }

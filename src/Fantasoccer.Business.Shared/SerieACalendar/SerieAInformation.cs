@@ -39,8 +39,8 @@ namespace Fantasoccer.Business
             {
                 realDay.Games.Add(new RealGame
                 {
-                    Home = new RealTeam { Name = match.HomeTeamName.ToLower().ToUpperCaseFirst() },
-                    Away = new RealTeam { Name = match.AwayTeamName.ToLower().ToUpperCaseFirst() },
+                    Home = new RealTeam { Name = match.HomeTeamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.HomeTeamShortName.ToLower() },
+                    Away = new RealTeam { Name = match.AwayTeamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.AwayTeamShortName.ToLower() },
                     Date = FantacalcioTime.ToItalyNow(match.DateTime),
                     Delayed = FantacalcioTime.ItalyNow > match.DateTime.AddHours(3) && string.IsNullOrWhiteSpace(match.AwaySchema),
                     HomeGoal = match.HomeGoal,

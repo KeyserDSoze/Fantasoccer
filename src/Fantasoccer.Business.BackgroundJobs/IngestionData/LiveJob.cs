@@ -1,7 +1,5 @@
 ﻿using System.Timers;
 using Fantasoccer.Business;
-using Fantasoccer.Business.IngestionData;
-using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
 namespace Fantasoccer.Engine.IngestionData

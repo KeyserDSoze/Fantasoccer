@@ -1,8 +1,9 @@
 ﻿using System.Text.Json.Serialization;
+using Fantasoccer.Domain;
 
 namespace Fantasoccer
 {
-    public class Chance
+    public sealed class Chance
     {
         [JsonPropertyName("f")]
         public bool Fantagazzetta { get; set; }
@@ -16,6 +17,10 @@ namespace Fantasoccer
         public ChanceType Status { get; set; }
         [JsonPropertyName("d")]
         public string? Description { get; set; }
+        [JsonPropertyName("l")]
+        public StatPlayerGame? LastGame { get; set; }
+        [JsonPropertyName("r")]
+        public TrendType Trend { get; set; }
         public static Chance Default() => new()
         {
             Status = ChanceType.Normal,

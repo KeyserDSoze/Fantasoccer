@@ -169,7 +169,7 @@
             }
 
     .player .playerrealteam.statusNormal {
-    }
+    } 
 
     .player .playerrealteam.statusDisqualified {
         background: #eb1212;
@@ -181,6 +181,25 @@
 
     .player .playerrealteam.statusInjury {
         background: #3c3c3c;
+    }
+
+    .player .playerchance .playerstatus.statusBad {
+        background: #c31f0f;
+    }
+    .player .playerchance .playerstatus.statusNotBad {
+        background: #6f34d0;
+    }
+    .player .playerchance .playerstatus.statusNormal {
+        background: #333;
+    }
+
+    .player .playerchance .playerstatus.statusVeryGood {
+        background: #1a48ba;
+    }
+
+    .player .playerchance .playerstatus.statusExcellent {
+        background: #ffbb1a;
+        color: #333;
     }
 
     .player .playervote {

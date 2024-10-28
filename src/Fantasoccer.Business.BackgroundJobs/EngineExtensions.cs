@@ -19,10 +19,6 @@ namespace Fantasoccer.Engine
                 {
                     options.Cron = "0 0 5 * * *";
                 })
-                .AddBackgroundJob<PlayerOddsJob>(options =>
-                {
-                    options.Cron = "0 0 6,10,12,14,18,20 * * *";
-                })
                 .AddBackgroundJob<LiveVotesJob>(options =>
                 {
                     options.Cron = "0 */1 * * * *";
@@ -33,7 +29,13 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
+                    //options.RunImmediately = true;
                     options.Cron = "0 0 3,4 * * *";
+                })
+                .AddBackgroundJob<PlayerOddsJob>(options =>
+                {
+                    //options.RunImmediately = true;
+                    options.Cron = "0 0 6,10,12,14,18,20 * * *";
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
                 {

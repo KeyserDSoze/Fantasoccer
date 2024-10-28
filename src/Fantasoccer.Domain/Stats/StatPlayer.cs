@@ -42,5 +42,7 @@ namespace Fantasoccer.Domain
         public int ManOfTheMatch { get; set; }
         [JsonPropertyName("ij")]
         public int Injured { get; set; }
+        [JsonPropertyName("lg")]
+        public List<StatPlayerGame>? AllGames { get; set; }
     }
 }
