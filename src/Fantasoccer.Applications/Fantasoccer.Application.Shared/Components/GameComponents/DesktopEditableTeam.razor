@@ -46,61 +46,63 @@
     }
     private const string RainbowBords = "rainbow";
     private const string PlayerSubstitution = "substitution";
-    private async ValueTask DragOverAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
+    private ValueTask DragOverAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
     {
-        var sourceDropZoneId = dropItem.Source.Id!;
-        var targetDropZoneId = dropItem.Target.Id!;
-        if (sourceDropZoneId == targetDropZoneId)
-            return;
-        var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
-        var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
-        if (sourceIsAPlayer && targetIsAPlayer)
-        {
-            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
-            var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
-            if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
-            {
-                await UiUtilityService.AddClassAsync(targetDropZoneId, PlayerSubstitution);
-            }
-        }
-        else if (sourceIsAPlayer)
-        {
-            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
-            var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
-            var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
-            if (role == Role.Undefined || sourcePlayer.Current.Role == role)
-            {
-                await UiUtilityService.AddClassAsync(targetDropZoneId, RainbowBords);
-            }
-        }
+        return ValueTask.CompletedTask;
+        // var sourceDropZoneId = dropItem.Source.Id!;
+        // var targetDropZoneId = dropItem.Target.Id!;
+        // if (sourceDropZoneId == targetDropZoneId)
+        //     return;
+        // var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        // var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        // if (sourceIsAPlayer && targetIsAPlayer)
+        // {
+        //     var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+        //     var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
+        //     if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
+        //     {
+        //         await UiUtilityService.AddClassAsync(targetDropZoneId, PlayerSubstitution);
+        //     }
+        // }
+        // else if (sourceIsAPlayer)
+        // {
+        //     var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+        //     var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
+        //     var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
+        //     if (role == Role.Undefined || sourcePlayer.Current.Role == role)
+        //     {
+        //         await UiUtilityService.AddClassAsync(targetDropZoneId, RainbowBords);
+        //     }
+        // }
     }
-    private async ValueTask DragLeaveAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
+    private ValueTask DragLeaveAsync(FluentDragEventArgs<EnrichedPlayer> dropItem)
     {
-        var sourceDropZoneId = dropItem.Source.Id!;
-        var targetDropZoneId = dropItem.Target.Id!;
-        if (sourceDropZoneId == targetDropZoneId)
-            return;
-        var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
-        var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
-        if (sourceIsAPlayer && targetIsAPlayer)
-        {
-            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
-            var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
-            if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
-            {
-                await UiUtilityService.RemoveClassAsync(targetDropZoneId, PlayerSubstitution);
-            }
-        }
-        else if (sourceIsAPlayer)
-        {
-            var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
-            var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
-            var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
-            if (role == Role.Undefined || sourcePlayer.Current.Role == role)
-            {
-                await UiUtilityService.RemoveClassAsync(targetDropZoneId, RainbowBords);
-            }
-        }
+        return ValueTask.CompletedTask;
+        // var sourceDropZoneId = dropItem.Source.Id!;
+        // var targetDropZoneId = dropItem.Target.Id!;
+        // if (sourceDropZoneId == targetDropZoneId)
+        //     return;
+        // var sourceIsAPlayer = dropItem.Source.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        // var targetIsAPlayer = dropItem.Target.AdditionalAttributes?.ContainsKey(s_playerLabelForKey) == true;
+        // if (sourceIsAPlayer && targetIsAPlayer)
+        // {
+        //     var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+        //     var targetPlayer = Players.First(x => x.Current.Key == targetDropZoneId);
+        //     if (sourcePlayer.Current.Role == targetPlayer.Current.Role)
+        //     {
+        //         await UiUtilityService.RemoveClassAsync(targetDropZoneId, PlayerSubstitution);
+        //     }
+        // }
+        // else if (sourceIsAPlayer)
+        // {
+        //     var sourcePlayer = Players.First(x => x.Current.Key == sourceDropZoneId);
+        //     var position = (FantaSoccerRole)Enum.Parse(typeof(FantaSoccerRole), targetDropZoneId);
+        //     var role = FantaSoccerPosition.Default.First(x => x.Position == position).Role;
+        //     if (role == Role.Undefined || sourcePlayer.Current.Role == role)
+        //     {
+        //         await UiUtilityService.RemoveClassAsync(targetDropZoneId, RainbowBords);
+        //     }
+        // }
     }
     private async ValueTask ItemDropped(FluentDragEventArgs<EnrichedPlayer> dropItem)
     {
