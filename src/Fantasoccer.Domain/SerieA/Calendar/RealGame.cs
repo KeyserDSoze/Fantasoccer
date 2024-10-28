@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Fantasoccer
 {
@@ -18,5 +19,29 @@ namespace Fantasoccer
         public bool Delayed { get; set; }
         [JsonIgnore]
         public bool IsPlayed => !Delayed && Date.HasValue && FantacalcioTime.ItalyNow > Date.Value;
+    }
+    public static class RealGameExtensions
+    {
+        private const string DelayedLabel = "rimandata";
+        private const string ToPlayLabel = "da giocare";
+        public static string CalculateResultAsString(this RealGame? realGame)
+        {
+            if (realGame == null)
+            {
+                return ToPlayLabel;
+            }
+            else if (realGame.IsPlayed)
+            {
+                return $"{realGame.HomeGoal} - {realGame.AwayGoal}";
+            }
+            else if (realGame.Delayed == true)
+            {
+                return DelayedLabel;
+            }
+            else
+            {
+                return realGame.Date?.ToString("yyyy-MM-dd HH:mm") ?? ToPlayLabel;
+            }
+        }
     }
 }

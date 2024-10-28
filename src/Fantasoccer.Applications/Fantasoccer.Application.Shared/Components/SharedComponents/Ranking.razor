@@ -3,11 +3,11 @@
     <h3>
         @if (Day > 0)
         {
-            @:(Day @Day (Serie A @SerieADay))
+            @:(@(Day)&ordf; giornata (@SerieADay))
         }
         else
         {
-            @:Rank
+            @:Classifica
         }
     </h3>
     <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="@gridTemplateColumns">

@@ -5,10 +5,10 @@
         {
             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                 <FluentCard>
-                    <h3>Day @day.SerieADay</h3>
+                    <h3>@(day.SerieADay)&ordf; giornata</h3>
                     <FluentDataGrid TGridItem="RealGame" Items="day.Games.AsQueryable()">
                         <PropertyColumn Property="@(p => p.Home.Name)" Sortable="true" Title="Casa" />
-                        <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
+                        <PropertyColumn Property="@(p => p.CalculateResultAsString())" Sortable="true" Title="Risultato" />
                         <PropertyColumn Property="@(p => p.Away.Name)" Sortable="true" Title="Trasferta" />
                     </FluentDataGrid>
                 </FluentCard>
@@ -21,22 +21,4 @@
     public List<RealDay>? Days { get; set; }
     [Parameter]
     public bool WithFluentSize { get; set; }
-    private const string Delayed = "rimandata";
-    private const string ToPlay = "da giocare";
-
-    private string CalculateResult(RealGame game)
-    {
-        if (game.IsPlayed)
-        {
-            return $"{game.HomeGoal} - {game.AwayGoal}";
-        }
-        else if (game.Delayed)
-        {
-            return Delayed;
-        }
-        else
-        {
-            return game.Date?.ToString("yyyy-MM-dd HH:mm") ?? ToPlay;
-        }
-    }
 }

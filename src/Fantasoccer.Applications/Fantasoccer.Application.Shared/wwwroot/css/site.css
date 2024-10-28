@@ -400,3 +400,7 @@ html, body {
         background: var(--accent-foreground-hover);
         cursor: pointer;
     }
+
+fluent-badge span {
+    white-space: break-spaces !important;
+}

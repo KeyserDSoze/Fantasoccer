@@ -17,7 +17,7 @@
         <FluentNavMenu @bind-Expanded="@Expanded" Width="250" Collapsible="true" CollapsedChildNavigation="@ShowOnCollpase">
             @if (State?.HasAGroup == true)
             {
-                <FluentNavLink Icon="@(new Icons.Regular.Size24.ReadAloud())" Href="../../" Tooltip="Leggi le notizie prima degli altri" Match="NavLinkMatch.All">News</FluentNavLink>
+                <FluentNavLink Icon="@(new Icons.Regular.Size24.ReadAloud())" Href="../../" Tooltip="Leggi le notizie prima degli altri" Match="NavLinkMatch.All">Home</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.DataBarVerticalStar())" Href="../../rank" Tooltip="La tua classifica">Classifica</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar())" Href="../../calendar" Tooltip="Confronta il tuo percorso con quello degli altri">Calendario</FluentNavLink>
                 <FluentNavLink Icon="@(new Icons.Regular.Size24.Live())" Href="../../live" Tooltip="Controlla la giornata attuale e sogna in grande">Live</FluentNavLink>

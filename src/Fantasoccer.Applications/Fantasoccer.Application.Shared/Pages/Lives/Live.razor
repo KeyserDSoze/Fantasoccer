@@ -57,6 +57,23 @@
         }
     </FluentTabs>
 }
+@if (currentDay != null)
+{
+    <h3 style="margin-top:20px">@(currentDay.SerieADay)&ordf; giornata [ultimo aggiornamento: @lastUpdate.ToString("yyyy-MM-dd HH:mm")]</h3>
+    <FluentDataGrid TGridItem="RealGame" Items="currentDay.Games.AsQueryable()" GridTemplateColumns="2fr 1fr 2fr">
+        <TemplateColumn Title="Casa">
+            <SerieAEvent TeamName="@context.Home.Name" TeamNameAbbreviation="@context.Home.Abbreviation" EnemyNameAbbreviation="@context.Away.Abbreviation" VotedRealPlayerWrapper="votedRealPlayerWrapper" />
+        </TemplateColumn>
+        <TemplateColumn Title="Risultato">
+            <h5>
+                @(context.CalculateResultAsString())
+            </h5>
+        </TemplateColumn>
+        <TemplateColumn Title="Trasferta">
+            <SerieAEvent TeamName="@context.Away.Name" TeamNameAbbreviation="@context.Away.Abbreviation" EnemyNameAbbreviation="@context.Home.Abbreviation" VotedRealPlayerWrapper="votedRealPlayerWrapper" />
+        </TemplateColumn>
+    </FluentDataGrid>
+}
 @if (nullCalendar != null)
 {
     <h4>Not Found</h4>
@@ -74,41 +91,85 @@
     private string? selectedTab;
     private Dictionary<string, string>? innerSelectedTab;
     private string? nullCalendar;
-
+    private RealDay? currentDay;
+    private VotedRealPlayerWrapper? votedRealPlayerWrapper;
+    private int intervalId = -1;
+    private DotNetObjectReference<Live>? objRef;
+    private DateTime lastUpdate = FantacalcioTime.ItalyNow;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        objRef = DotNetObjectReference.Create(this);
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
         if (!firstRender)
             LoadingIndicator?.Hide();
+        if (intervalId == -1)
+            intervalId = await JS.InvokeAsync<int>("intervalManager.addInterval", objRef, nameof(LiveAsync), 30_000);
     }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.HasAGroup == true)
         {
             LoadingIndicator?.Show();
-            if (State.Year != FantacalcioTime.ActualYear)
-                await State.ChangeYearAsync(FantacalcioTime.ActualYear);
-            liveGroup = await Api.Live.GetAsync(State.GroupId!);
-            if (liveGroup?.Leagues?.Count == 0)
-                nullCalendar = $"Live non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
-            else
-            {
-                if (State.LeagueId != null && liveGroup!.Leagues.Any(x => x.Id == State.LeagueId && x.Rounds.Count >= 1))
-                    selectedTab = $"tab-{State.LeagueId}";
-                else
-                    selectedTab = $"tab-{liveGroup!.Leagues.First(x => x.Rounds.Count >= 1).Id}";
-                innerSelectedTab = new Dictionary<string, string>();
-                foreach (var league in liveGroup.Leagues)
-                {
-                    if (league.Rounds.Count >= 1)
-                        innerSelectedTab.Add($"tab-{league.Id}", league.Rounds.First().Key);
-                }
-            }
+            await UpdateAsync();
         }
         await base.OnParametersSetAsync();
     }
     private void NavigateTo(string gameId)
     {
         NavigationManager.NavigateTo($"game/{gameId}", false);
+    }
+    [JSInvokable]
+    public async ValueTask LiveAsync()
+    {
+        await UpdateAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+    public async ValueTask UpdateAsync()
+    {
+        if (State.Year != FantacalcioTime.ActualYear)
+            await State.ChangeYearAsync(FantacalcioTime.ActualYear);
+        liveGroup = await Api.Live.GetAsync(State.GroupId!);
+        if (liveGroup?.Leagues?.Count == 0)
+            nullCalendar = $"Live non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";
+        else
+        {
+            if (selectedTab == null)
+            {
+                if (State.LeagueId != null && liveGroup!.Leagues.Any(x => x.Id == State.LeagueId && x.Rounds.Count >= 1))
+                    selectedTab = $"tab-{State.LeagueId}";
+                else
+                    selectedTab = $"tab-{liveGroup!.Leagues.First(x => x.Rounds.Count >= 1).Id}";
+            }
+            innerSelectedTab = new Dictionary<string, string>();
+            foreach (var league in liveGroup.Leagues)
+            {
+                if (league.Rounds.Count >= 1)
+                    innerSelectedTab.Add($"tab-{league.Id}", league.Rounds.First().Key);
+            }
+        }
+        var calendar = await Api.RealCalendar.GetAsync(State.Year);
+        var isLive = calendar?.IsLive == true;
+        currentDay = calendar?.LiveDay ?? calendar?.NextDay;
+        if (isLive)
+        {
+            votedRealPlayerWrapper = await Api.LiveVote.GetAsync(new YearDayKey
+                {
+                    Year = FantacalcioTime.ActualYear,
+                    Day = currentDay!.SerieADay
+                });
+        }
+        else
+        {
+            votedRealPlayerWrapper = await Api.OfficialVote.GetAsync(new YearDayKey
+                {
+                    Year = FantacalcioTime.ActualYear,
+                    Day = currentDay!.SerieADay
+                });
+        }
+        lastUpdate = FantacalcioTime.ItalyNow;
     }
 }

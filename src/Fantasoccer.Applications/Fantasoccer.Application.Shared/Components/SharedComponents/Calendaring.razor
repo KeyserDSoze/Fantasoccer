@@ -4,7 +4,7 @@
         @foreach (var day in Days)
         {
             <FluentGridItem xl="Desktop" md="Mobile" xxl="Desktop" xs="Mobile" sm="Mobile" lg="Desktop">
-                <h3>Giornata @day.Number (@day.SerieADay)</h3>
+                <h3>@(day.Number)&ordf; giornata (@day.SerieADay)</h3>
                 <FluentDataGrid RowClass="@(x => "calendarrow")" TGridItem="CalendarGame" Items="day.Games.AsQueryable()" GridTemplateColumns="2fr 3fr 2fr" OnRowClick="p => NavigateTo(p)">
                     <PropertyColumn Property="@(p => p.Home)" Title="Casa" />
                     <PropertyColumn Property="@(p => CalculateResult(p))" Title="Risultato" />

@@ -1,0 +1,175 @@
+﻿<h5>@TeamName</h5>
+@if (goals?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Appearance="Appearance.Accent">
+            <FluentIcon Color="Color.FillInverse" Value="@s_soccerBall" />
+            @goals.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (penalties?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Appearance="Appearance.Accent">
+            <FluentIcon Color="Color.FillInverse" Value="@s_soccerBall" />
+            @penalties.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (ownGoals?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="violet" Color="black">
+            <FluentIcon Color="Color.Custom" CustomColor="black" Value="@s_soccerBall" />
+            @ownGoals.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (assists?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="brown" Color="white">
+            <FluentIcon CustomColor="white" Color="Color.Custom" Value="@s_glasses" />
+            @assists.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (wrongPenalties?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="orange" Color="black">
+            <FluentIcon CustomColor="black" Color="Color.Custom" Value="@s_globeError" />
+            @wrongPenalties.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (stoppedPenalties?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="blue" Color="white">
+            <FluentIcon CustomColor="white" Color="Color.Custom" Value="@s_stop" />
+            @stoppedPenalties.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (yellowCards?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="yellow" Color="black">
+            <FluentIcon CustomColor="black" Color="Color.Custom" Value="@s_playingCards" />
+            @yellowCards.AsString()
+        </FluentBadge>
+    </div>
+}
+@if (redCards?.HasEvent == true)
+{
+    <div style="margin-bottom:10px">
+        <FluentBadge Fill="highlight" BackgroundColor="red" Color="black">
+            <FluentIcon CustomColor="black" Color="Color.Custom" Value="@s_playingCards" />
+            @redCards.AsString()
+        </FluentBadge>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? TeamName { get; set; }
+    [Parameter]
+    public string? TeamNameAbbreviation { get; set; }
+    [Parameter]
+    public string? EnemyNameAbbreviation { get; set; }
+    [Parameter]
+    public VotedRealPlayerWrapper? VotedRealPlayerWrapper { get; set; }
+    private static readonly Icons.Regular.Size16.SportSoccer s_soccerBall = new Icons.Regular.Size16.SportSoccer();
+    private static readonly Icons.Regular.Size16.Glasses s_glasses = new Icons.Regular.Size16.Glasses();
+    private static readonly Icons.Regular.Size20.PlayingCards s_playingCards = new Icons.Regular.Size20.PlayingCards();
+    private static readonly Icons.Regular.Size16.GlobeError s_globeError = new Icons.Regular.Size16.GlobeError();
+    private static readonly Icons.Regular.Size16.RecordStop s_stop = new Icons.Regular.Size16.RecordStop();
+    private PlayersWrapper? goals;
+    private PlayersWrapper? penalties;
+    private PlayersWrapper? ownGoals;
+    private PlayersWrapper? assists;
+    private PlayersWrapper? wrongPenalties;
+    private PlayersWrapper? stoppedPenalties;
+    private PlayersWrapper? yellowCards;
+    private PlayersWrapper? redCards;
+    private const string Penalty = " (P)";
+    private const string OwnGoal = " (OG)";
+    override protected void OnParametersSet()
+    {
+        base.OnParametersSet();
+        goals = GetValues(TeamNameAbbreviation, string.Empty, x => x.Vote.Goal);
+        penalties = GetValues(TeamNameAbbreviation, Penalty, x => x.Vote.Penalty);
+        ownGoals = GetValues(EnemyNameAbbreviation, OwnGoal, x => x.Vote.OwnGoal);
+        assists = GetValues(TeamNameAbbreviation, string.Empty, x => x.Vote.Assist);
+        wrongPenalties = GetValues(TeamNameAbbreviation, string.Empty, x => x.Vote.WrongedPenalty);
+        stoppedPenalties = GetValues(TeamNameAbbreviation, string.Empty, x => x.Vote.StoppedPenalty);
+        yellowCards = GetValues(TeamNameAbbreviation, x => x.Vote.Status == Behaviour.YellowCard);
+        redCards = GetValues(TeamNameAbbreviation, x => x.Vote.Status == Behaviour.RedCard);
+    }
+
+    private PlayersWrapper GetValues(string? abbreviatedTeamName, string addToName, params Func<VotedRealPlayer, int>[] predicates)
+    {
+        var wrapper = new PlayersWrapper() { Players = [], AddToName = addToName };
+        if (VotedRealPlayerWrapper != null)
+        {
+            foreach (var player in VotedRealPlayerWrapper.Players.Where(x => x.RealTeam != null && x.RealTeam.Abbreviation == abbreviatedTeamName && x.Vote?.HasVote == true))
+            {
+                var count = 0;
+                foreach (var predicate in predicates)
+                {
+                    count += predicate(player);
+                }
+                if (count > 0)
+                    wrapper.Players.Add(new SinglePlayerWrapper
+                        {
+                            Name = player.Name,
+                            NumberOfEvents = count
+                        });
+            }
+        }
+        return wrapper;
+    }
+    private PlayersWrapper GetValues(string? abbreviatedTeamName, params Func<VotedRealPlayer, bool>[] predicates)
+    {
+        var wrapper = new PlayersWrapper() { Players = [], AddToName = string.Empty };
+        if (VotedRealPlayerWrapper != null)
+        {
+            foreach (var player in VotedRealPlayerWrapper.Players.Where(x => x.RealTeam != null && x.RealTeam.Abbreviation == abbreviatedTeamName && x.Vote?.HasVote == true))
+            {
+                var didIt = false;
+                foreach (var predicate in predicates)
+                {
+                    didIt |= predicate(player);
+                }
+                if (didIt)
+                    wrapper.Players.Add(new SinglePlayerWrapper
+                        {
+                            Name = player.Name,
+                            NumberOfEvents = 1
+                        });
+            }
+        }
+        return wrapper;
+    }
+    private sealed class PlayersWrapper
+    {
+        public bool HasEvent => Players.Count > 0;
+        private string _addToName = string.Empty;
+        public required string AddToName { get; set; }
+        public required List<SinglePlayerWrapper> Players { get; set; }
+        public string AsString() => string.Join(", ", Players.OrderByDescending(x => x.NumberOfEvents).Select(x =>
+        {
+            if (x.NumberOfEvents > 1)
+                return $"{x.Name} ({x.NumberOfEvents}){AddToName}";
+            else
+                return !string.IsNullOrWhiteSpace(AddToName) ? $"{x.Name}{AddToName}" : x.Name;
+        }));
+    }
+    private sealed class SinglePlayerWrapper
+    {
+        public required string Name { get; set; }
+        public int NumberOfEvents { get; set; }
+    }
+}
