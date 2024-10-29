@@ -11,7 +11,7 @@
             <SerieAEvent TeamName="@context.Home.Name" TeamNameAbbreviation="@context.Home.Abbreviation" EnemyNameAbbreviation="@context.Away.Abbreviation" VotedRealPlayerWrapper="votedRealPlayerWrapper" />
         </TemplateColumn>
         <TemplateColumn Title="Risultato">
-            <h6>
+            <h6 class="text-wrap-auto">
                 @(context.CalculateResultAsString())
             </h6>
         </TemplateColumn>

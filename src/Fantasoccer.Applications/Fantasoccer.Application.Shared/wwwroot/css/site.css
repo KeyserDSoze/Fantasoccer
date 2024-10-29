@@ -404,3 +404,7 @@ html, body {
 fluent-badge span {
     white-space: break-spaces !important;
 }
+
+.text-wrap-auto {
+    text-wrap: auto;
+}
