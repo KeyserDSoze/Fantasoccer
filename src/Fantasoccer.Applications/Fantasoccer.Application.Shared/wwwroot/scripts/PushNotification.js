@@ -61,7 +61,7 @@ async function isSubscribedToNotification() {
 if ('serviceWorker' in navigator && 'PushManager' in window) {
     console.log('Service Worker and Push is supported');
 
-    navigator.serviceWorker.register('../../../../../../scripts/FCServiceWorker.js')
+    navigator.serviceWorker.register('../../../../../../shared/scripts/FCServiceWorker.js')
         .then(function (swReg) {
             console.log('Service Worker is registered', swReg);
 
