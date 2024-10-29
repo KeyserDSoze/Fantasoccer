@@ -1,11 +1,8 @@
 ﻿using System.Security.Claims;
-using Fantasoccer.Application.Api.Hubs;
 using Fantasoccer.Business;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
-using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";

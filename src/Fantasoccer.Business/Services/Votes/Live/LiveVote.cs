@@ -25,20 +25,24 @@ namespace Fantasoccer.Business.IngestionData
                 {
                     if (game.PlayersHome != null)
                         foreach (var player in game.PlayersHome)
-                            SetPlayer(player);
+                            SetPlayer(game.TeamHome, player);
                     if (game.PlayersAway != null)
                         foreach (var player in game.PlayersAway)
-                            SetPlayer(player);
+                            SetPlayer(game.TeamAway, player);
                 }
             }
 
-            void SetPlayer(PlayerProto playerProto)
+            void SetPlayer(string teamName, PlayerProto playerProto)
             {
                 if (playerProto.Position == "ALL")
                     return;
                 VotedRealPlayer player = new()
                 {
                     Name = playerProto.Name[..1].ToUpper() + playerProto.Name[1..].ToLower(),
+                    RealTeam = new RealTeam
+                    {
+                        Name = teamName
+                    }
                 };
                 Dictionary<int, int> currentEvents = new();
                 if (playerProto.Events != null)
