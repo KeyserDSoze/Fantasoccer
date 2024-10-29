@@ -41,7 +41,6 @@ namespace Fantasoccer.Engine.IngestionData
                             var currentPlayer = parsedPlayers.Players.FirstOrDefault(x => x.Key == player.Key);
                             if (currentPlayer != null)
                             {
-                                currentPlayer.RealTeam = player.RealTeam;
                                 currentPlayer.Vote = player.Vote;
                             }
                             else
