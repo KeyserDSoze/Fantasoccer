@@ -152,8 +152,9 @@
             }
         }
         var calendar = await Api.RealCalendar.GetAsync(State.Year);
-        var isLive = calendar?.IsLive == true;
-        currentDay = calendar?.LiveDay ?? calendar?.NextDay;
+        var liveDay = calendar?.LiveDay;
+        var isLive = liveDay != null;
+        currentDay = liveDay ?? calendar?.NextDay;
         if (isLive)
         {
             votedRealPlayerWrapper = await Api.LiveVote.GetAsync(new YearDayKey
