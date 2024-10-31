@@ -18,7 +18,7 @@ namespace Fantasoccer.Business
             _realCalendar = realCalendar;
             _repository = factory.Create("official")!;
         }
-        public async ValueTask<int> GenerateAndSaveAsync(int year, int untilThisDay, bool force = false, int withMax = 1)
+        public async ValueTask<bool> GenerateAndSaveAsync(int year, int untilThisDay, bool force = false, int withMax = 1)
         {
             var calendar = await _realCalendar.GetAsync(year);
             var counter = 0;
@@ -31,11 +31,11 @@ namespace Fantasoccer.Business
                     Year = year,
                 };
                 var exist = await _repository.ExistAsync(key);
+                var dayOfCalendar = calendar!.Days.First(x => x.SerieADay == serieADay);
+                var numberOfTeamsThatHavePlayedThisDay = dayOfCalendar.Games.Count(x => !x.Delayed) * 2;
                 if (exist)
                 {
                     var votes = await _repository.GetAsync(key);
-                    var dayOfCalendar = calendar!.Days.First(x => x.SerieADay == serieADay);
-                    var numberOfTeamsThatHavePlayedThisDay = dayOfCalendar.Games.Count(x => !x.Delayed) * 2;
                     var numberOfTeamsThatHaveInBasket = votes!.Players.Where(x => x.RealTeam != null).GroupBy(x => x.RealTeam.Name).Select(x => x.Key).Distinct().Count();
                     hasAllVotes = numberOfTeamsThatHaveInBasket >= numberOfTeamsThatHavePlayedThisDay;
                 }
@@ -52,10 +52,13 @@ namespace Fantasoccer.Business
                         {
                             Players = players.Where(x => !string.IsNullOrWhiteSpace(x.Key)).ToList(),
                         });
-                    counter++;
+                    var numberOfTeamsThatHaveInBasket = players.Where(x => x.RealTeam != null).GroupBy(x => x.RealTeam.Name).Select(x => x.Key).Distinct().Count();
+                    hasAllVotes = numberOfTeamsThatHaveInBasket >= numberOfTeamsThatHavePlayedThisDay;
+                    if (hasAllVotes)
+                        counter++;
                 }
             }
-            return counter;
+            return counter > 0;
         }
     }
 }

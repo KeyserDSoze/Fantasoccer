@@ -208,10 +208,7 @@ namespace Fantasoccer.Business
                 Special = special
             };
         }
-        public async Task<bool> RecalculateDayAsync(int serieADay)
-        {
-            var checkIfAVoteIsUpdated = await _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true);
-            return checkIfAVoteIsUpdated > 0;
-        }
+        public ValueTask<bool> RecalculateDayAsync(int serieADay)
+            => _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true);
     }
 }

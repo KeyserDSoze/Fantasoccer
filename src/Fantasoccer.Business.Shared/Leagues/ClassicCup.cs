@@ -187,19 +187,21 @@ namespace Fantasoccer.Business
             var winners = new List<LeagueWinner>();
             if (calendar != null)
             {
-                var champions = calendar.Rounds[Finals].OrderByDescending(x => x.Number).Last().Games.First();
-                var championsWinner = GetWinner(champions);
-                if (championsWinner != null)
-                    winners.Add(new LeagueWinner
-                    {
-                        Owner = championsWinner,
-                        Round = Finals
-                    });
-                return winners;
+                var champions = calendar.Rounds[Finals].OrderByDescending(x => x.Number).LastOrDefault()?.Games.FirstOrDefault();
+                if (champions != null)
+                {
+                    var championsWinner = GetWinner(champions);
+                    if (championsWinner != null)
+                        winners.Add(new LeagueWinner
+                        {
+                            Owner = championsWinner,
+                            Round = Finals
+                        });
+                }
             }
             return winners;
 
-            string? GetWinner(CalendarGame game)
+            static string? GetWinner(CalendarGame game)
             {
                 if (game.Result != null)
                 {

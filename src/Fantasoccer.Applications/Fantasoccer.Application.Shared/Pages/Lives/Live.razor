@@ -57,23 +57,7 @@
         }
     </FluentTabs>
 }
-@if (currentDay != null)
-{
-    <h3 style="margin-top:20px">@(currentDay.SerieADay)&ordf; giornata [ultimo aggiornamento: @lastUpdate.ToString("yyyy-MM-dd HH:mm")]</h3>
-    <FluentDataGrid TGridItem="RealGame" Items="currentDay.Games.AsQueryable()" GridTemplateColumns="2fr 1fr 2fr">
-        <TemplateColumn Title="Casa">
-            <SerieAEvent TeamName="@context.Home.Name" TeamNameAbbreviation="@context.Home.Abbreviation" EnemyNameAbbreviation="@context.Away.Abbreviation" VotedRealPlayerWrapper="votedRealPlayerWrapper" />
-        </TemplateColumn>
-        <TemplateColumn Title="Risultato">
-            <h6 class="text-wrap-auto">
-                @(context.CalculateResultAsString())
-            </h6>
-        </TemplateColumn>
-        <TemplateColumn Title="Trasferta">
-            <SerieAEvent TeamName="@context.Away.Name" TeamNameAbbreviation="@context.Away.Abbreviation" EnemyNameAbbreviation="@context.Home.Abbreviation" VotedRealPlayerWrapper="votedRealPlayerWrapper" />
-        </TemplateColumn>
-    </FluentDataGrid>
-}
+<SerieADayLive UpdateNumber="updateNumber" />
 @if (nullCalendar != null)
 {
     <h4>Not Found</h4>
@@ -91,11 +75,9 @@
     private string? selectedTab;
     private Dictionary<string, string>? innerSelectedTab;
     private string? nullCalendar;
-    private RealDay? currentDay;
-    private VotedRealPlayerWrapper? votedRealPlayerWrapper;
     private int intervalId = -1;
     private DotNetObjectReference<Live>? objRef;
-    private DateTime lastUpdate = FantacalcioTime.ItalyNow;
+    private int updateNumber;
     protected override void OnInitialized()
     {
         base.OnInitialized();
@@ -126,6 +108,7 @@
     public async ValueTask LiveAsync()
     {
         await UpdateAsync();
+        updateNumber++;
         await InvokeAsync(StateHasChanged);
     }
     public async ValueTask UpdateAsync()
@@ -151,26 +134,6 @@
                     innerSelectedTab.Add($"tab-{league.Id}", league.Rounds.First().Key);
             }
         }
-        var calendar = await Api.RealCalendar.GetAsync(State.Year);
-        var liveDay = calendar?.LiveDay;
-        var isLive = liveDay != null;
-        currentDay = liveDay ?? calendar?.NextDay;
-        if (isLive)
-        {
-            votedRealPlayerWrapper = await Api.LiveVote.GetAsync(new YearDayKey
-                {
-                    Year = FantacalcioTime.ActualYear,
-                    Day = currentDay!.SerieADay
-                });
-        }
-        else
-        {
-            votedRealPlayerWrapper = await Api.OfficialVote.GetAsync(new YearDayKey
-                {
-                    Year = FantacalcioTime.ActualYear,
-                    Day = currentDay!.SerieADay
-                });
-        }
-        lastUpdate = FantacalcioTime.ItalyNow;
+
     }
 }
