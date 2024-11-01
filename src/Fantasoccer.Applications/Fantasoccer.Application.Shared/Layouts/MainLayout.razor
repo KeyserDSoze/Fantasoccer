@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using System.Text
+@inherits LayoutComponentBase
 @attribute [Authorize]
 @inject StaticSettings VersionService
 <PageTitle>Fantasoccer</PageTitle>
@@ -128,9 +129,14 @@
                             <FluentNavLink Icon="@(new Icons.Regular.Size24.PeopleAudience())" Href="../../users" Tooltip="Gestisci gli utenti">Utenti</FluentNavLink>
                             <FluentNavLink Icon="@(new Icons.Regular.Size24.CalendarAgenda())" Href="../../calendar/edit" Tooltip="Gestisci il calendario della tua lega">Calendario</FluentNavLink>
                             <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" Href="../../managecalendar" Tooltip="Gestisci tramite il calendario di Serie A">Calendario Serie A</FluentNavLink>
+                            <FluentNavLink Icon="@(new Icons.Regular.Size24.ErrorCircle())" Href="../../errorviewers" Tooltip="Controlla gli errori">Errors</FluentNavLink>
                         </FluentNavGroup>
                     }
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Calendar3Day())" OnClick="()=> Logout?.Invoke(false)" Tooltip="Esci dalla piattaforma">Logout</FluentNavLink>
+                    @if (nextDayRemainedTime != null)
+                    {
+                        <FluentNavLink Icon="@(new Icons.Regular.Size24.Next())" Tooltip="Prossima partita">@GetNextTime(nextDayRemainedTime.Value)</FluentNavLink>
+                    }
                     <FluentNavLink Icon="@(new Icons.Regular.Size24.Diversity())" Tooltip="Versione">v. @VersionService.Version</FluentNavLink>
                 }
             }
@@ -169,6 +175,7 @@
     private bool Expanded = true;
     private bool ShowOnCollpase = true;
     private int activeMarketCounts;
+    private double? nextDayRemainedTime;
     private const string CheckConnectionJavascriptFunctionName = "checkConnection";
     protected override void OnAfterRender(bool firstRender)
     {
@@ -203,6 +210,16 @@
                     if (market != null)
                     {
                         activeMarketCounts = market.Markets.Count(x => x.Status == MarketStatus.Pending);
+                    }
+                }
+                var calendar = await Api.RealCalendar.GetAsync(State.Year);
+                var nextDay = calendar.LiveDay ?? calendar.NextDay;
+                if (nextDay != null)
+                {
+                    var firstGame = nextDay.Games.OrderBy(x => x.Date).FirstOrDefault();
+                    if (firstGame != null && firstGame.Date.HasValue)
+                    {
+                        nextDayRemainedTime = firstGame.Date.Value.Subtract(FantacalcioTime.ItalyNow).TotalMinutes;
                     }
                 }
             }
@@ -241,5 +258,24 @@
             return State.ChangeTeamAsync(groupId, leagueId, owner);
         }
         return Task.CompletedTask;
+    }
+    private string GetNextTime(double minutes)
+    {
+        var time = TimeSpan.FromMinutes(minutes);
+        var builder = new StringBuilder();
+        if (time.Days > 0)
+        {
+            builder.Append($"{time.Days}g ");
+        }
+        if (time.Hours > 0)
+        {
+            builder.Append($"{time.Hours}o ");
+        }
+        else if (time.Days > 0)
+        {
+            builder.Append($"0o ");
+        }
+        builder.Append($"{time.Minutes}m");
+        return builder.ToString();
     }
 }

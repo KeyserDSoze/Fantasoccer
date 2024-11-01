@@ -1,6 +1,6 @@
 ﻿@if (Game != null)
 {
-    <div class="@Css">
+    <div class="@Css" @onclick=OnClick>
         <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.HomeOwner)" />
         <span id="team-name-home" class="team">@Game.Home</span>
         @if (Game.Result != default && !Game.Result.IsCancelled)
@@ -46,4 +46,6 @@
     public DateTime LastUpdateHome { get; set; }
     [Parameter]
     public DateTime LastUpdateAway { get; set; }
+    [Parameter]
+    public EventCallback OnClick { get; set; }
 }

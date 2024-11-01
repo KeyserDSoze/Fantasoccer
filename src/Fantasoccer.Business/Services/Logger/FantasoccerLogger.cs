@@ -2,7 +2,7 @@
 
 namespace Fantasoccer.Business
 {
-    internal class FantasoccerLogger : IFantasoccerLogger
+    internal sealed class FantasoccerLogger : IFantasoccerLogger
     {
         private readonly IRepository<FantasoccerLog, string> _repository;
 
@@ -30,6 +30,12 @@ namespace Fantasoccer.Business
                 Message = exception.Message,
                 Error = exception.ToString()
             });
+        }
+
+        public async Task<IEnumerable<FantasoccerLog>> Top100Async()
+        {
+            var top100 = await _repository.Take(100).ToListAsEntityAsync();
+            return top100;
         }
     }
 }

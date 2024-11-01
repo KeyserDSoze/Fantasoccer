@@ -27,7 +27,8 @@ namespace Fantasoccer.Application.Shared
             IRepository<LiveGroup, string> live,
             IRepository<NewsWrapper, YearDayGroup> news,
             IRepository<HallOfFame, GeneralLeagueKey> hallOfFame,
-            IRepository<PushNotificationSettings, string> pushNotification)
+            IRepository<PushNotificationSettings, string> pushNotification,
+            IRepository<TeamWithAi, TeamDayKey> teamWithAi)
         {
             RealCalendar = realCalendar;
             RealRank = realRank;
@@ -51,6 +52,7 @@ namespace Fantasoccer.Application.Shared
             PushNotification = pushNotification;
             LiveVote = voteFactory.Create("live");
             OfficialVote = voteFactory.Create("official");
+            TeamWithAi = teamWithAi;
         }
 
         public IRepository<RealCalendar, int> RealCalendar { get; }
@@ -65,6 +67,7 @@ namespace Fantasoccer.Application.Shared
         public IRepository<PlayedGame, GameKey> Games { get; }
         public IRepository<RealTeamWrapper, int> SerieA { get; }
         public IRepository<Team, TeamKey> Team { get; }
+        public IRepository<TeamWithAi, TeamDayKey> TeamWithAi { get; }
         public IRepository<Team, TeamDayKey> DailyTeam { get; }
         public IRepository<AppIdentity, string> AppIdentity { get; }
         public IRepository<Rank, YearDayLeague> DailyRank { get; }

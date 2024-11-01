@@ -49,6 +49,7 @@ namespace Fantasoccer.Application.Shared.Extensions
             services.AddHttpClientIntegration<StatPlayersWrapper, int>(configuration);
             services.AddHttpClientIntegration<Team, TeamKey>(configuration);
             services.AddHttpClientIntegration<Team, TeamDayKey>(configuration, "day");
+            services.AddHttpClientIntegration<TeamWithAi, TeamDayKey>(configuration);
             services.AddHttpClientIntegration<NewsWrapper, YearDayGroup>(configuration, "news");
             services.AddHttpClientIntegration<PushNotificationSettings, string>(configuration);
             services.AddHttpClientIntegration<AppIdentity, string>(configuration);

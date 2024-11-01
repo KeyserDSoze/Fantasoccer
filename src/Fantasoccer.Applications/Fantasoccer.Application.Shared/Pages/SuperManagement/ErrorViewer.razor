@@ -1,0 +1,41 @@
+﻿@page "/errorviewers"
+@using System.Text.Json;
+
+<PageTitle>Errors</PageTitle>
+
+@if (canSee && logs != null)
+{
+    <FluentDataGrid Items="logs.AsQueryable()">
+        <PropertyColumn Property="@(p => p.PrimaryKey)" Sortable="true" Title="Primary" />
+        <PropertyColumn Property="@(p => p.SecondaryKey)" Sortable="true" Title="Id" />
+        <PropertyColumn Property="@(p => p.Timestamp)" Sortable="true" Title="Timestamp" />
+        <PropertyColumn Property="@(p => p.Message)" Sortable="true" Title="Messaggio" />
+    </FluentDataGrid>
+}
+
+@code {
+    [CascadingParameter]
+    private FantasoccerState? State { get; set; }
+    [CascadingParameter]
+    private LoadingIndicator? LoadingIndicator { get; set; }
+    [Inject]
+    public IFantasoccerLogger? FantasoccerLogger { get; set; }
+    private IEnumerable<FantasoccerLog>? logs;
+    private bool canSee;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (!firstRender)
+            LoadingIndicator?.Hide();
+    }
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State?.IsAuthenticated == true)
+        {
+            LoadingIndicator?.Show();
+            canSee = State.Identity.Email == "alessandro.rapiti44@gmail.com";
+            logs = await FantasoccerLogger.Top100Async();
+            await base.OnParametersSetAsync();
+        }
+    }
+}

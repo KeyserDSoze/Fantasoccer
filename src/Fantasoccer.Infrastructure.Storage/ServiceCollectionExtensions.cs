@@ -77,6 +77,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<PlayedGame, GameKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamKey>(storageConnectionString);
             await services.AddBlobStorage<Team, TeamDayKey>(storageConnectionString, "day", "dailyteams");
+            await services.AddBlobStorage<TeamWithAi, TeamDayKey>(storageConnectionString);
             await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
             await services.AddBlobStorage<NewsWrapper, YearDayGroup>(storageConnectionString, "news", "news");
             await services.AddBlobStorage<PushNotificationSettings, string>(storageConnectionString, null, "pushnotification");

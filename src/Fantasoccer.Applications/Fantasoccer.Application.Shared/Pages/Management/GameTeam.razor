@@ -10,11 +10,11 @@
         <div class="field">
             @if (game != null)
             {
-                <ResultCard Css="gameResult animOpacity" Game="game"></ResultCard>
+                <ResultCard OnClick="@ShowInfoFromAi" Css="gameResult animOpacity" Game="game"></ResultCard>
             }
             else
             {
-                <div class="gameResult animOpacity">&nbsp;</div>
+                <div @onclick=@ShowInfoFromAi class="gameResult animOpacity">&nbsp;</div>
             }
             @if (teams != null)
             {
@@ -301,6 +301,31 @@
         {
             if (!isMobile)
                 ToastService.ShowError("Errore nell'insieme dei numeri immaginari.");
+        }
+    }
+    private void ShowInfoFromAi()
+    {
+        if (isInEdit)
+        {
+            _ = ShowAiInfoAsync();
+        }
+    }
+    private async ValueTask ShowAiInfoAsync()
+    {
+        var message = await Api.TeamWithAi.GetAsync(State!.TeamDayKey(serieADay));
+        if (message != null)
+        {
+            DialogParameters parameters = new()
+                {
+                    Title = $"Aiutante",
+                    PrimaryActionEnabled = false,
+                    Width = "500px",
+                    TrapFocus = true,
+                    Modal = true,
+                    PreventScroll = false
+                };
+            IDialogReference dialog = await DialogService.ShowDialogAsync<TeamAiModal>(message.Message, parameters);
+            DialogResult? result = await dialog.Result;
         }
     }
 }

@@ -35,5 +35,11 @@
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </Content>
     </ItemGroup>
+
+    <ItemGroup>
+      <Content Update="Modals\TeamAiModal.razor">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </Content>
+    </ItemGroup>
    
 </Project>
