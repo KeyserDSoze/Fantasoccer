@@ -54,7 +54,7 @@
         <div class="fieldMobile">
             @if (game != null)
             {
-                <ResultCard Css="gameResultMobile animOpacity" Game="game"></ResultCard>
+                <ResultCard OnClick="@ShowInfoFromAi" Css="gameResultMobile animOpacity" Game="game"></ResultCard>
             }
             @if (teams != null)
             {
