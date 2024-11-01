@@ -19,6 +19,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         private readonly IRepository<Team, TeamKey> _teamRepository;
         private readonly IRepository<RealCalendar, int> _serieACalendar;
         private readonly IRepository<TeamWithAi, TeamDayKey> _teamWithAiRepository;
+        private readonly IRepository<Settings, string> _settings;
         private readonly IRepository<RealRank, int> _realRankRepository;
         private readonly IConfiguration _configuration;
         private readonly ILeagueCalculator _superLeagueCalculator;
@@ -31,7 +32,8 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             IConfiguration configuration,
             IRepository<Team, TeamKey> teamRepository,
             IRepository<RealRank, int> realRankRepository,
-            IRepository<TeamWithAi, TeamDayKey> teamWithAiRepository)
+            IRepository<TeamWithAi, TeamDayKey> teamWithAiRepository,
+            IRepository<Settings, string> settings)
         {
             _logger = logger;
             _teamCalculator = teamCalculator;
@@ -41,6 +43,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             _teamRepository = teamRepository;
             _realRankRepository = realRankRepository;
             _teamWithAiRepository = teamWithAiRepository;
+            _settings = settings;
             _superLeagueCalculator = leagueCalculator.Create(LeagueType.SuperLeague.ToString())!;
         }
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
@@ -61,7 +64,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                             .SelectMany(x => x.Teams)
                             .Select(x => x.Owner))
                         {
-                            await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, nextDay, LeagueType.Null, LeagueSetting.Default, true, true, true);
+                            await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, nextDay, LeagueType.Null, LeagueSetting.Default, true, false, true);
                             var teamKey = new TeamDayKey
                             {
                                 Year = FantacalcioTime.ActualYear,
@@ -79,15 +82,27 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                             });
                             if (team != null)
                             {
-                                var players = _teamCalculator.Enrich(team.ActivePlayers);
+                                var players = PlayersAsString(_teamCalculator.Enrich(team.ActivePlayers));
+                                var rightFormation = string.Empty;
+                                if (nextDay - 1 > 0)
+                                {
+                                    await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, nextDay - 1, LeagueType.SuperLeague, LeagueSetting.Default, false, true, false);
+                                    rightFormation = RightFormationAsString(_superLeagueCalculator.GetRightFormation(team.ActivePlayers, _teamCalculator));
+                                }
                                 var messages = new List<ChatMessage>
                                 {
                                     new SystemChatMessage($"Sei un giornalista sportivo e devi scrivere un articolo sulla miglior formazione possibile che può fare giocare questo allenatore. Ti troverai la lista di tutti i giocatori, che chance hanno di giocare e che calendario si ritrovano ad avere, in più ci sarà anche la classifica di serie a per capire la forza delle squadre in cui militano. Sono validi solo i seguenti moduli: 3-4-3 (di solito il preferito), 4-3-3, 4-4-2, 3-5-2, 4-5-1, 3-6-1, 5-4-1, 5-3-2."),
                                     new SystemChatMessage($"L'output deve usare i tag HTML classici per un articolo sul web. Non usare backtips prima, mettimi solo l'HTMl dell'articolo e non mettere il titolo. Crea almeno gli 11 titolari e spiega perché dovrebbero essere titolari, e per ogni settore del campo: difesa, centrocampo e attacco dai almeno due sostituti spiegandone il motivo."),
-                                    new SystemChatMessage($"Usa solo questi giocatori per comporre la squadra: {PlayersAsString(players)}"),
+                                    new SystemChatMessage($"Usa solo questi giocatori per comporre la squadra: {players}"),
+                                    new SystemChatMessage($"La scorsa settimana la tua squadra migliore era: {rightFormation}"),
                                     new SystemChatMessage($"giornata serie a) {currentDay.ToJson()}"),
                                     new SystemChatMessage($"classifica serie a) {serieARank.ToJson()}")
                                 };
+                                var settings = await _settings.GetAsync(owner);
+                                if (!string.IsNullOrWhiteSpace(settings?.AiPrompt))
+                                {
+                                    messages.Add(new UserChatMessage(settings.AiPrompt));
+                                }
                                 var newsContent = string.Empty;
                                 try
                                 {
@@ -117,7 +132,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                 }
             }
         }
-        public string PlayersAsString(IEnumerable<EnrichedPlayer> players)
+        private string PlayersAsString(IEnumerable<EnrichedPlayer> players)
         {
             StringBuilder stringBuilder = new();
             stringBuilder.AppendLine();
@@ -133,6 +148,41 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                 {
                     stringBuilder.Append($"Secondo la gazzetta {(player.Chance.Gazzetta ? "giocherà titolare" : "non giocherà")}. ");
                     stringBuilder.Append($"Secondo la fantacalcio {(player.Chance.Fantagazzetta ? "giocherà titolare" : "non giocherà")}. ");
+                }
+                stringBuilder.AppendLine();
+                counter++;
+            }
+            return stringBuilder.ToString();
+        }
+        private string RightFormationAsString(IEnumerable<EnrichedPlayer> players)
+        {
+            StringBuilder stringBuilder = new();
+            stringBuilder.AppendLine();
+            var counter = 1;
+            foreach (var player in players.OrderBy(x => x.CurrentPosition)
+                .Where(x => (int)x.CurrentPosition >= 0 && (int)x.CurrentPosition < 4))
+            {
+                stringBuilder.Append($"Il giocatore numero {counter} di nome: {player.Current.Name}. ");
+                stringBuilder.Append($" con il ruolo: {player.CurrentPosition}. ");
+                if (player.Vote != null)
+                {
+                    stringBuilder.Append($" ha preso un voto di {player.Vote.Value}. ");
+                    if (player.Vote.Goal > 0)
+                        stringBuilder.Append($" ha fatto {player.Vote.Goal} goal.");
+                    if (player.Vote.Penalty > 0)
+                        stringBuilder.Append($" ha fatto {player.Vote.Penalty} goal su rigore.");
+                    if (player.Vote.OwnGoal > 0)
+                        stringBuilder.Append($" purtroppo ha fatto {player.Vote.OwnGoal} autogoal.");
+                    if (player.Vote.StoppedPenalty > 0)
+                        stringBuilder.Append($" ha parato {player.Vote.StoppedPenalty} rigori.");
+                    if (player.Vote.Assist > 0)
+                        stringBuilder.Append($" ha fatto {player.Vote.Assist} assist.");
+                    if (player.Vote.SufferedGoal > 0)
+                        stringBuilder.Append($" purtroppo ha subito {player.Vote.SufferedGoal} goal.");
+                    if (player.Vote.WrongedPenalty > 0)
+                        stringBuilder.Append($" purtroppo ha sbagliato {player.Vote.WrongedPenalty} rigori.");
+                    if (player.Vote.ManOfTheMatch)
+                        stringBuilder.Append($" è stato l'uomo migliore in campo.");
                 }
                 stringBuilder.AppendLine();
                 counter++;

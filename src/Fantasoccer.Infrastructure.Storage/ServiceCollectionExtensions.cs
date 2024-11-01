@@ -66,6 +66,7 @@ namespace Fantasoccer.Infrastructure
             });
             await services.AddBlobStorage<PushNotificationSent, YearDayKey>(storageConnectionString, null, "pushnotificationsent");
             await services.AddBlobStorage<Group, string>(storageConnectionString);
+            await services.AddBlobStorage<Settings, string>(storageConnectionString);
             await services.AddBlobStorage<HallOfFame, GeneralLeagueKey>(storageConnectionString);
             await services.AddBlobStorage<LiveGroup, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);

@@ -52,6 +52,13 @@
                 </FluentInputFile>
             </div>
         </FluentGridItem>
+        <FluentGridItem xl="12" md="12" xxl="12" xs="12" sm="12" lg="12" Style="margin-top:10px;">
+            <h3>Allena la tua AI</h3>
+            <FluentTextArea Cols="100" Rows="10" @bind-Value="@aiLearner"></FluentTextArea>
+            <FluentButton Appearance="Appearance.Accent" OnClick="@SavePromptAsync">
+                Salva il tuo prompt
+            </FluentButton>
+        </FluentGridItem>
         @if (pushNotificationSettings != null)
         {
             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6" Style="margin-top:10px;">
@@ -103,6 +110,7 @@
     private PushNotificationSettings? pushNotificationSettings;
     private const string applicationServerPublicKey = "BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8";
     private bool isSubscribed;
+    private string aiLearner = string.Empty;
     public DesignThemeModes Mode { get; set; }
 
     public OfficeColor? OfficeColor { get; set; }
@@ -135,8 +143,30 @@
                 };
             pushNotificationSettings = await Api.PushNotification.GetAsync(State.Identity!.Email!) ?? new PushNotificationSettings();
             isSubscribed = await JS.InvokeAsync<bool>("isSubscribedToNotification", null);
+            var settings = await Api.Settings.GetAsync(State.Identity.Email);
+            if (settings?.AiPrompt != null)
+            {
+                aiLearner = settings.AiPrompt;
+            }
         }
         await base.OnParametersSetAsync();
+    }
+    private async Task SavePromptAsync()
+    {
+        if (await Api.Settings.ExistAsync(State!.Identity!.Email))
+        {
+            await Api.Settings.UpdateAsync(State.Identity.Email, new Settings
+                {
+                    AiPrompt = aiLearner
+                });
+        }
+        else
+        {
+            await Api.Settings.InsertAsync(State.Identity.Email, new Settings
+                {
+                    AiPrompt = aiLearner
+                });
+        }
     }
     private async Task OnCompletedAsync(IEnumerable<FluentInputFileEventArgs> files)
     {
@@ -157,6 +187,7 @@
             }
         }
     }
+
     async Task OnSaveClicked()
     {
 
