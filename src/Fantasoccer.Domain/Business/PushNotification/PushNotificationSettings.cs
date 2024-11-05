@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using WebPush;
+﻿using WebPush;
 
 namespace Fantasoccer
 {

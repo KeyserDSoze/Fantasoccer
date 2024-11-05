@@ -72,7 +72,7 @@ namespace Fantasoccer.Engine.GroupsManager
                         await _notificationVoteRepository.UpdateAsync(yearDayKey, liveVotes);
                         if (notificationsToSend.Any())
                         {
-                            var notificationUsers = await _pushNotificationRepository.Where(x => x.MatchEvents).ToListAsync();
+                            var notificationUsers = await _pushNotificationRepository.Where(x => x.MatchEvents || x.OpponentMatchEvents).ToListAsync();
                             foreach (var group in await _liveGroupRepository.ToListAsync())
                             {
                                 var teams = new List<Team>();
@@ -85,19 +85,16 @@ namespace Fantasoccer.Engine.GroupsManager
                                     {
                                         foreach (var team in currentYear.Teams)
                                         {
-                                            if (notificationUsers.Any(x => x.Key == team.Owner || team.AdditionalOwners?.Contains(x.Key!) == true))
+                                            var currentTeam = await _teamDayRepository.GetAsync(new TeamDayKey
                                             {
-                                                var currentTeam = await _teamDayRepository.GetAsync(new TeamDayKey
-                                                {
-                                                    BasketId = basket.Id,
-                                                    Day = liveDay.SerieADay,
-                                                    Email = team.Owner,
-                                                    Group = groupKey!,
-                                                    Year = actualYear
-                                                });
-                                                if (currentTeam != null)
-                                                    teams.Add(currentTeam);
-                                            }
+                                                BasketId = basket.Id,
+                                                Day = liveDay.SerieADay,
+                                                Email = team.Owner,
+                                                Group = groupKey!,
+                                                Year = actualYear
+                                            });
+                                            if (currentTeam != null)
+                                                teams.Add(currentTeam);
                                         }
                                     }
                                 }
@@ -120,12 +117,12 @@ namespace Fantasoccer.Engine.GroupsManager
 
                                             void AddOpponent(string owner, string opponent)
                                             {
-                                                var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == owner);
+                                                var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == opponent);
                                                 if (notificationUser != null && notificationUser.Value?.OpponentMatchEvents == true)
                                                 {
-                                                    if (!currentOpponents.ContainsKey(opponent))
-                                                        currentOpponents.Add(opponent, []);
-                                                    currentOpponents[opponent].Add(new OpponentNotification
+                                                    if (!currentOpponents.ContainsKey(owner))
+                                                        currentOpponents.Add(owner, []);
+                                                    currentOpponents[owner].Add(new OpponentNotification
                                                     {
                                                         League = league.Name,
                                                         Owner = owner,
@@ -140,7 +137,7 @@ namespace Fantasoccer.Engine.GroupsManager
                                 {
                                     foreach (var team in teams.Where(x => x.Players.Any(t => t.Key == notification.PlayerKey)))
                                     {
-                                        await SendNotificationAsync(team, notification, null, null, false);
+                                        await SendNotificationAsync(team, notification, null, null, x => x?.Value?.MatchEvents == true);
                                         if (currentOpponents.ContainsKey(team.Owner))
                                         {
                                             var opponents = currentOpponents[team.Owner];
@@ -148,19 +145,19 @@ namespace Fantasoccer.Engine.GroupsManager
                                             {
                                                 var opponentTeam = teams.FirstOrDefault(x => x.Owner == opponent.Opponent);
                                                 if (opponentTeam != null)
-                                                    await SendNotificationAsync(opponentTeam, notification, opponent.League, opponentTeam.Name, true);
+                                                    await SendNotificationAsync(opponentTeam, notification, $"[{opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true);
                                             }
                                         }
                                     }
                                 }
                             }
-                            async ValueTask SendNotificationAsync(Team currentTeam, NotificationToSend notification, string? prefix, string? postfix, bool bypassMatchEvents)
+                            async ValueTask SendNotificationAsync(Team currentTeam, NotificationToSend notification, string? prefix, string? postfix, Func<Entity<PushNotificationSettings, string>?, bool> predicate)
                             {
                                 List<string> emails = currentTeam.AdditionalOwners != null ? [currentTeam.Owner, .. currentTeam.AdditionalOwners] : [currentTeam.Owner];
                                 foreach (var email in emails)
                                 {
                                     var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == email);
-                                    if (notificationUser?.Value != null && (bypassMatchEvents || notificationUser.Value.MatchEvents == true))
+                                    if (notificationUser?.Value != null && predicate(notificationUser))
                                     {
                                         var body = !string.IsNullOrWhiteSpace(prefix) ? $"{prefix} {notification.Body}" : notification.Body;
                                         if (!string.IsNullOrWhiteSpace(postfix))
