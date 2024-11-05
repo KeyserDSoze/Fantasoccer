@@ -168,7 +168,7 @@ namespace Fantasoccer.Engine.GroupsManager
             Check(current.Vote.Penalty, live.Vote.Penalty, "Rigore", true);
             Check(current.Vote.OwnGoal, live.Vote.OwnGoal, "Autogol", true);
             Check(current.Vote.WrongedPenalty, live.Vote.WrongedPenalty, "Rigore sbagliato", true);
-            Check(current.Vote.SufferedGoal, live.Vote.SufferedGoal, "Rigore subito", true);
+            Check(current.Vote.SufferedGoal, live.Vote.SufferedGoal, "Goal subito", true);
             Check(current.Vote.StoppedPenalty, live.Vote.StoppedPenalty, "Rigore parato", true);
             Check(current.Vote.ManOfTheMatch ? 1 : 0, live.Vote.ManOfTheMatch ? 1 : 0, "Migliore in campo", true);
             Check(current.Vote.Status == Behaviour.YellowCard ? 1 : 0, live.Vote.Status == Behaviour.YellowCard ? 1 : 0, "Giallo", true);
