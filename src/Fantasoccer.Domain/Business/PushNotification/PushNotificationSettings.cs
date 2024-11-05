@@ -6,6 +6,7 @@ namespace Fantasoccer
     public sealed class PushNotificationSettings
     {
         public bool MatchEvents { get; set; }
+        public bool OpponentMatchEvents { get; set; }
         public bool DeploymentReminder { get; set; }
         public bool EndDay { get; set; }
         public bool MarketEvents { get; set; }

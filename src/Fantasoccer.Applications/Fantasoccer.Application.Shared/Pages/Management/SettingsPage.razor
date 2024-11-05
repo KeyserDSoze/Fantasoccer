@@ -65,6 +65,7 @@
                 <h3>Notifiche</h3>
                 <div>
                     <FluentCheckbox @bind-Value="@pushNotificationSettings.MatchEvents" Label="Eventi della partita" />
+                    <FluentCheckbox @bind-Value="@pushNotificationSettings.OpponentMatchEvents" Label="Eventi della partita del tuo avversario" />
                     <FluentCheckbox @bind-Value="@pushNotificationSettings.DeploymentReminder" Label="Reminder formazione" />
                     <FluentCheckbox @bind-Value="@pushNotificationSettings.EndDay" Label="Fine giornata" />
                     <FluentCheckbox @bind-Value="@pushNotificationSettings.MarketEvents" Label="Scambi (compravendita)" />

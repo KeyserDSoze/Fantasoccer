@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.ComponentModel;
+using System.Text;
 using System.Timers;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -13,6 +14,7 @@ namespace Fantasoccer.Engine.GroupsManager
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly IRepository<RealCalendar, int> _serieACalendar;
         private readonly IPushNotificationService _pushNotificationService;
+        private readonly IRepository<Calendar, LeagueKey> _calendarRepository;
         private readonly IRepository<PushNotificationSettings, string> _pushNotificationRepository;
         private readonly IRepository<PushNotificationSent, YearDayKey> _pushNotificationSentRepository;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _liveVoteRepository;
@@ -24,6 +26,7 @@ namespace Fantasoccer.Engine.GroupsManager
             IRepository<Team, TeamDayKey> teamDayRepository,
             IRepository<RealCalendar, int> serieACalendar,
             IPushNotificationService pushNotificationService,
+            IRepository<Calendar, LeagueKey> calendarRepository,
             IRepository<PushNotificationSettings, string> pushNotificationRepository,
             IRepository<PushNotificationSent, YearDayKey> pushNotificationSentRepository)
         {
@@ -33,6 +36,7 @@ namespace Fantasoccer.Engine.GroupsManager
             _teamDayRepository = teamDayRepository;
             _serieACalendar = serieACalendar;
             _pushNotificationService = pushNotificationService;
+            _calendarRepository = calendarRepository;
             _pushNotificationRepository = pushNotificationRepository;
             _pushNotificationSentRepository = pushNotificationSentRepository;
             _liveVoteRepository = factory.Create("live")!;
@@ -97,29 +101,81 @@ namespace Fantasoccer.Engine.GroupsManager
                                         }
                                     }
                                 }
+                                var currentOpponents = new Dictionary<string, List<OpponentNotification>>();
+                                foreach (var league in group.Value!.Leagues)
+                                {
+                                    var currentCalendar = await _calendarRepository.GetAsync(new LeagueKey
+                                    {
+                                        Group = groupKey!,
+                                        League = league.Id,
+                                        Year = actualYear
+                                    });
+                                    var currentDay = currentCalendar?.Rounds.SelectMany(x => x.Value).FirstOrDefault(x => x.SerieADay == liveDay.SerieADay);
+                                    if (currentDay != null)
+                                    {
+                                        foreach (var game in currentDay.Games)
+                                        {
+                                            AddOpponent(game.HomeOwner, game.AwayOwner);
+                                            AddOpponent(game.AwayOwner, game.HomeOwner);
+
+                                            void AddOpponent(string owner, string opponent)
+                                            {
+                                                var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == owner);
+                                                if (notificationUser != null && notificationUser.Value?.OpponentMatchEvents == true)
+                                                {
+                                                    if (!currentOpponents.ContainsKey(opponent))
+                                                        currentOpponents.Add(opponent, []);
+                                                    currentOpponents[opponent].Add(new OpponentNotification
+                                                    {
+                                                        League = league.Name,
+                                                        Owner = owner,
+                                                        Opponent = opponent
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 foreach (var notification in notificationsToSend)
                                 {
                                     foreach (var team in teams.Where(x => x.Players.Any(t => t.Key == notification.PlayerKey)))
                                     {
-                                        List<string> emails = team.AdditionalOwners != null ? [team.Owner, .. team.AdditionalOwners] : [team.Owner];
-                                        foreach (var email in emails)
+                                        await SendNotificationAsync(team, notification, null, null, false);
+                                        if (currentOpponents.ContainsKey(team.Owner))
                                         {
-                                            var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == email);
-                                            if (notificationUser != null && notificationUser.Value?.MatchEvents == true)
+                                            var opponents = currentOpponents[team.Owner];
+                                            foreach (var opponent in opponents)
                                             {
-                                                await _pushNotificationService.SendNotificationAsync(email,
-                                                    notificationUser.Value,
-                                                    new Notification
-                                                    {
-                                                        Body = notification.Body,
-                                                        Title = "fantacalcio.xyz",
-                                                        Data = new NotificationData
-                                                        {
-                                                            Uri = "https://fantacalcio.xyz/live"
-                                                        }
-                                                    });
+                                                var opponentTeam = teams.FirstOrDefault(x => x.Owner == opponent.Opponent);
+                                                if (opponentTeam != null)
+                                                    await SendNotificationAsync(opponentTeam, notification, opponent.League, opponentTeam.Name, true);
                                             }
                                         }
+                                    }
+                                }
+                            }
+                            async ValueTask SendNotificationAsync(Team currentTeam, NotificationToSend notification, string? prefix, string? postfix, bool bypassMatchEvents)
+                            {
+                                List<string> emails = currentTeam.AdditionalOwners != null ? [currentTeam.Owner, .. currentTeam.AdditionalOwners] : [currentTeam.Owner];
+                                foreach (var email in emails)
+                                {
+                                    var notificationUser = notificationUsers.FirstOrDefault(x => x.Key == email);
+                                    if (notificationUser?.Value != null && (bypassMatchEvents || notificationUser.Value.MatchEvents == true))
+                                    {
+                                        var body = !string.IsNullOrWhiteSpace(prefix) ? $"{prefix} {notification.Body}" : notification.Body;
+                                        if (!string.IsNullOrWhiteSpace(postfix))
+                                            body = $"{body} {postfix}";
+                                        await _pushNotificationService.SendNotificationAsync(email,
+                                            notificationUser.Value,
+                                            new Notification
+                                            {
+                                                Body = body,
+                                                Title = "fantacalcio.xyz",
+                                                Data = new NotificationData
+                                                {
+                                                    Uri = "https://fantacalcio.xyz/live"
+                                                }
+                                            });
                                     }
                                 }
                             }
@@ -158,6 +214,12 @@ namespace Fantasoccer.Engine.GroupsManager
                 }
                 //todo add end day to this notification
             }
+        }
+        private sealed class OpponentNotification
+        {
+            public string League { get; set; }
+            public string Owner { get; set; }
+            public string Opponent { get; set; }
         }
         private NotificationToSend? GetNotification(VotedRealPlayer live, VotedRealPlayer current)
         {
