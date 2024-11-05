@@ -57,7 +57,6 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<PushNotificationJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 */1 * * * *";
                 })
                 .AddBackgroundJob<HallOfFameJob>(options =>

@@ -15,7 +15,6 @@ namespace Fantasoccer.Business
             //services.AddFactory<IFormationParser, Mediaset>(nameof(Mediaset));
             //services.AddFactory<IFormationParser, Sky>(nameof(Sky));
             services.AddTransient<IAllPlayers, FantagazzettaAllPlayers>();
-            services.AddTransient<IFantasoccerLogger, FantasoccerLogger>();
             services.AddTransient<ILiveVote, LiveVote>();
             //services.AddTransient<ILiveVote, LiveVoteWithHtml>();
             services.AddTransient<IPushNotificationService, PushNotificationService>();

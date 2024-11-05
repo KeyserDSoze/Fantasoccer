@@ -55,6 +55,7 @@ namespace Fantasoccer.Application.Shared.Extensions
             services.AddHttpClientIntegration<PushNotificationSettings, string>(configuration);
             services.AddHttpClientIntegration<AppIdentity, string>(configuration);
             services.AddHttpClientIntegration<HallOfFame, GeneralLeagueKey>(configuration);
+            services.AddHttpClientIntegration<FantasoccerLog, string>(configuration);
             return services;
         }
         private static IServiceCollection AddHttpClientIntegration<T, TKey>(this IServiceCollection services,

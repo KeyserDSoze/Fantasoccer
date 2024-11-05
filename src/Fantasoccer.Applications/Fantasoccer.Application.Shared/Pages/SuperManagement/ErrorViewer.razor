@@ -6,10 +6,9 @@
 @if (canSee && logs != null)
 {
     <FluentDataGrid Items="logs.AsQueryable()">
-        <PropertyColumn Property="@(p => p.PrimaryKey)" Sortable="true" Title="Primary" />
-        <PropertyColumn Property="@(p => p.SecondaryKey)" Sortable="true" Title="Id" />
-        <PropertyColumn Property="@(p => p.Timestamp)" Sortable="true" Title="Timestamp" />
-        <PropertyColumn Property="@(p => p.Message)" Sortable="true" Title="Messaggio" />
+        <PropertyColumn Property="@(p => p.SecondaryKey)" Title="Id" />
+        <PropertyColumn Property="@(p => p.Message)" Title="Messaggio" />
+        <PropertyColumn Property="@(p => p.Error)" Title="Errore" />
     </FluentDataGrid>
 }
 
@@ -34,7 +33,7 @@
         {
             LoadingIndicator?.Show();
             canSee = State.Identity.Email == "alessandro.rapiti44@gmail.com";
-            logs = await FantasoccerLogger.Top100Async();
+            logs = await FantasoccerLogger.Top100ErrorAsync();
             await base.OnParametersSetAsync();
         }
     }
