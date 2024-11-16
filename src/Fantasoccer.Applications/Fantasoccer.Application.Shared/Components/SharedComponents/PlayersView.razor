@@ -16,7 +16,7 @@
             <TemplateColumn Title="FantaMedia" Sortable="true" SortBy="GridSort<StatPlayer>.ByAscending(x => x.FantaAverage)">
                 @context.FantaAverage.ToString("N2")
             </TemplateColumn>
-            <PropertyColumn Property="@(p => p.IsEnough)" Title="> 6" Sortable="true" />
+            <PropertyColumn Property="@(p => p.IsEnough)" Title=">= 6" Sortable="true" />
             <PropertyColumn Property="@(p => p.ManOfTheMatch)" Title="MotM" Sortable="true" />
             <PropertyColumn Property="@(p => p.WithVote)" Title="Con voto" Sortable="true" />
             <PropertyColumn Property="@(p => p.WithoutVote)" Title="Senza voto" Sortable="true" />
