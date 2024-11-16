@@ -20,7 +20,7 @@
         <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
         <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="9.0.0" />
-        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="9.0.0" />
+        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="9.0.1" />
         <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="9.0.0" />
     </ItemGroup>
 
