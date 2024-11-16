@@ -16,19 +16,19 @@
             <TemplateColumn Title="FantaMedia" Sortable="true" SortBy="GridSort<StatPlayer>.ByAscending(x => x.FantaAverage)">
                 @context.FantaAverage.ToString("N2")
             </TemplateColumn>
-            <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
-            <PropertyColumn Property="@(p => p.ManOfTheMatch)" Sortable="true" />
+            <PropertyColumn Property="@(p => p.IsEnough)" Title="> 6" Sortable="true" />
+            <PropertyColumn Property="@(p => p.ManOfTheMatch)" Title="MotM" Sortable="true" />
             <PropertyColumn Property="@(p => p.WithVote)" Title="Con voto" Sortable="true" />
             <PropertyColumn Property="@(p => p.WithoutVote)" Title="Senza voto" Sortable="true" />
             <PropertyColumn Property="@(p => p.YellowCard)" Title="Gialli" Sortable="true" />
             <PropertyColumn Property="@(p => p.RedCard)" Title="Rossi" Sortable="true" />
             <PropertyColumn Property="@(p => p.Goal)" Title="Reti" Sortable="true" />
-            <PropertyColumn Property="@(p => p.Assist)" Title="Assist" Sortable="true" />
             <PropertyColumn Property="@(p => p.Penalty)" Title="Rigori" Sortable="true" />
-            <PropertyColumn Property="@(p => p.StoppedPenalty)" Title="Rigori parati" Sortable="true" />
-            <PropertyColumn Property="@(p => p.SufferedGoal)" Title="Goal subiti" Sortable="true" />
+            <PropertyColumn Property="@(p => p.Assist)" Title="Assist" Sortable="true" />
             <PropertyColumn Property="@(p => p.WrongedPenalty)" Title="Rigori sbagliati" Sortable="true" />
             <PropertyColumn Property="@(p => p.OwnGoal)" Title="Autogoal" Sortable="true" />
+            <PropertyColumn Property="@(p => p.SufferedGoal)" Title="Goal subiti" Sortable="true" />
+            <PropertyColumn Property="@(p => p.StoppedPenalty)" Title="Rigori parati" Sortable="true" />
             <PropertyColumn Property="@(p => p.IsActive)" Title="Attivo" Sortable="true" />
         </FluentDataGrid>
     </div>
