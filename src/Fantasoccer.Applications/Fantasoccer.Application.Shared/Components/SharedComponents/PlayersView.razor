@@ -3,17 +3,17 @@
 @if (StatPlayers != null)
 {
     <div class="fluent-table-container fluent-great-table-container">
-        <FluentDataGrid AutoFit="true" ShowHover="true" Items="@StatPlayers.AsQueryable()">
+        <FluentDataGrid ShowHover="true" Items="@StatPlayers.AsQueryable()" GridTemplateColumns="3fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr">
             <PropertyColumn Property="@(p => p.Name)" Sortable="true" Title="Nome" />
             @if (withPrice)
             {
                 <PropertyColumn Property="@(p => ((StatPlayerWithPrice)p).Price)" Title="Prezzo" Sortable="true" />
             }
             <PropertyColumn Property="@(p => p.RealTeam.Name)" Title="Squadra" Sortable="true" />
-            <TemplateColumn Title="Media" Sortable="true">
+            <TemplateColumn Title="Media" Sortable="true" SortBy="GridSort<StatPlayer>.ByAscending(x => x.Average)">
                 @context.Average.ToString("N2")
             </TemplateColumn>
-            <TemplateColumn Title="FantaMedia" Sortable="true">
+            <TemplateColumn Title="FantaMedia" Sortable="true" SortBy="GridSort<StatPlayer>.ByAscending(x => x.FantaAverage)">
                 @context.FantaAverage.ToString("N2")
             </TemplateColumn>
             <PropertyColumn Property="@(p => p.IsEnough)" Title="Almeno 6" Sortable="true" />
