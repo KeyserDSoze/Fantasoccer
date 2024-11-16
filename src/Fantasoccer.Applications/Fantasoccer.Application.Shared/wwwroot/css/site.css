@@ -448,8 +448,11 @@ fluent-badge span {
 
 
 @media only screen and (max-width: 768px) {
-    .fluent-table-container fluent-data-grid {
+    .fluent-table-container.fluent-mid-table-container fluent-data-grid {
         width: 165%;
+    }
+    .fluent-table-container.fluent-great-table-container fluent-data-grid {
+        width: 265%;
     }
 }
     /*.fluent-table-container fluent-data-grid-row, .fluent-table-container fluent-data-grid-cell {

@@ -10,7 +10,7 @@
             @:Classifica
         }
     </h3>
-    <div class="fluent-table-container">
+    <div class="fluent-table-container fluent-mid-table-container">
         <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" AutoFit="true">
             <TemplateColumn Title="#">
                 <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
@@ -38,13 +38,4 @@
     public int SerieADay { get; set; }
     [CascadingParameter]
     public FantasoccerState? State { get; set; }
-    private string gridTemplateColumns = "5fr 2fr 2fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr";
-    private bool isMobile;
-    protected override async Task OnParametersSetAsync()
-    {
-        isMobile = await UiUtilityService.IsMobileAsync();
-        if (isMobile)
-            gridTemplateColumns = "5fr 2fr 2fr";
-        await base.OnParametersSetAsync();
-    }
 }

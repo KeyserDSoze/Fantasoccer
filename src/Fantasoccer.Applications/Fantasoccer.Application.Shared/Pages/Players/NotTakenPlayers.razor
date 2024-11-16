@@ -9,7 +9,10 @@
         @foreach (var playersByRole in players.GroupBy(x => x.Role).OrderBy(x => x.Key))
         {
             <FluentTab Label="@playersByRole.Key.ToString()" Id="@playersByRole.Key.ToString()">
-                <PlayersView StatPlayers="playersByRole"></PlayersView>
+                @if (currentRole == playersByRole.Key.ToString())
+                {
+                    <PlayersView StatPlayers="playersByRole" Key="@currentRole"></PlayersView>
+                }
             </FluentTab>
         }
     </FluentTabs>

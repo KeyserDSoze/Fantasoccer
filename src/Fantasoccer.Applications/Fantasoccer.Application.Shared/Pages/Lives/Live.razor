@@ -11,46 +11,49 @@
             if (innerSelectedTab.ContainsKey(tabId))
             {
                 <FluentTab Id="@tabId" Label="@league.Name">
-                    @if (league.Rounds.Count != 1)
+                    @if (selectedTab == tabId)
                     {
-                        <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
-                            @foreach (var dayByRound in league.Rounds)
-                            {
-                                <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
-                                    <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
-                                        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                            @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
-                                            {
-                                                <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
-                                            }
-                                        </FluentGridItem>
-                                        <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                            <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
-                                                         GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
-                                                         Desktop="12" Mobile="12">
-                                            </Calendaring>
-                                        </FluentGridItem>
-                                    </FluentGrid>
-                                </FluentTab>
-                            }
-                        </FluentTabs>
-                    }
-                    else
-                    {
-                        <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
-                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                @if (league.Rank?.RankedTeams.ContainsKey(league.Rounds.First().Key) == true)
+                        @if (league.Rounds.Count != 1)
+                        {
+                            <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
+                                @foreach (var dayByRound in league.Rounds)
                                 {
-                                    <Ranking Teams="league.Rank.RankedTeams[league.Rounds.First().Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                    <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
+                                        <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+                                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                                @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
+                                                {
+                                                    <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                                }
+                                            </FluentGridItem>
+                                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                                <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                                                             GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                                             Desktop="12" Mobile="12">
+                                                </Calendaring>
+                                            </FluentGridItem>
+                                        </FluentGrid>
+                                    </FluentTab>
                                 }
-                            </FluentGridItem>
-                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                <Calendaring Days="new List<Day>{ league.Rounds.First().Value }" WithFluentSize=false
-                                             GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
-                                             Desktop="12" Mobile="12">
-                                </Calendaring>
-                            </FluentGridItem>
-                        </FluentGrid>
+                            </FluentTabs>
+                        }
+                        else
+                        {
+                            <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
+                                <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                    @if (league.Rank?.RankedTeams.ContainsKey(league.Rounds.First().Key) == true)
+                                    {
+                                        <Ranking Teams="league.Rank.RankedTeams[league.Rounds.First().Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
+                                    }
+                                </FluentGridItem>
+                                <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                    <Calendaring Days="new List<Day>{ league.Rounds.First().Value }" WithFluentSize=false
+                                                 GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                                 Desktop="12" Mobile="12">
+                                    </Calendaring>
+                                </FluentGridItem>
+                            </FluentGrid>
+                        }
                     }
                 </FluentTab>
             }
