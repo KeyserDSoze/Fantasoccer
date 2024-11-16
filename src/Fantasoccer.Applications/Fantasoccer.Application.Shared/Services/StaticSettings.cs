@@ -8,7 +8,7 @@
         public List<JavascriptStaticSettings> Javascripts { get; }
         public StaticSettings()
         {
-            Version = "0.6.0-beta";
+            Version = "0.6.5-beta";
             StaticContent = "shared/";
             Csses = GetCsses().ToList();
             Javascripts = GetJavascripts().ToList();

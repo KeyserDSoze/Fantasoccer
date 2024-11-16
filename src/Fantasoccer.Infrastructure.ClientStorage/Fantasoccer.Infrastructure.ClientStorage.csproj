@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.Content.Infrastructure.Storage.Blob" Version="6.2.0" />
+        <PackageReference Include="Rystem.Content.Infrastructure.Storage.Blob" Version="9.0.0" />
     </ItemGroup>
 </Project>

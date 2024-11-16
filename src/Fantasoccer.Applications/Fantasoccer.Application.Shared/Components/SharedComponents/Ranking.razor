@@ -10,15 +10,14 @@
             @:Classifica
         }
     </h3>
-    <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" GridTemplateColumns="@gridTemplateColumns">
-        <TemplateColumn Title="#">
-            <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
-            @context.Name
-        </TemplateColumn>
-        <PropertyColumn Property="@(x => x.Point)" Title="P" />
-        <PropertyColumn Property="@(x => x.ValuePoint)" Title="VP" />
-        @if (!isMobile)
-        {
+    <div class="fluent-table-container">
+        <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" AutoFit="true">
+            <TemplateColumn Title="#">
+                <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
+                @context.Name
+            </TemplateColumn>
+            <PropertyColumn Property="@(x => x.Point)" Title="P" />
+            <PropertyColumn Property="@(x => x.ValuePoint)" Title="VP" />
             <PropertyColumn Property="@(x => x.Victories)" Title="V" />
             <PropertyColumn Property="@(x => x.Draws)" Title="D" />
             <PropertyColumn Property="@(x => x.Defeats)" Title="De" />
@@ -26,8 +25,8 @@
             <PropertyColumn Property="@(x => x.SufferedGoal)" Title="SG" />
             <PropertyColumn Property="@(x => x.SufferedValuePoint)" Title="SV" />
             <PropertyColumn Property="@(x => x.ValueAssets)" Title="M" />
-        }
-    </FluentDataGrid>
+        </FluentDataGrid>
+    </div>
 }
 
 @code {

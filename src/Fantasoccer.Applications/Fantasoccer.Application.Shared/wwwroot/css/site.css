@@ -386,6 +386,7 @@ html, body {
 
 ::-webkit-scrollbar {
     width: 3px;
+    height: 3px;
 }
 
 ::-webkit-scrollbar-track {
@@ -408,3 +409,64 @@ fluent-badge span {
 .text-wrap-auto {
     text-wrap: auto;
 }
+
+.fluent-table-container {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+    .fluent-table-container fluent-data-grid {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+    }
+
+    .fluent-table-container fluent-data-grid-row, .fluent-table-container fluent-data-grid-cell {
+        white-space: nowrap; /* Prevent wrapping */
+    }
+
+        .fluent-table-container fluent-data-grid-row:first-child, .fluent-table-container fluent-data-grid-cell:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 2; /* Ensure the sticky column stays on top */
+            background-color: var(--neutral-fill-layer-rest);
+            border-radius: 0px;
+        }
+
+    .fluent-table-container .champion-color {
+        border-right: 1px solid var(--accent-fill-rest);
+    }
+
+    .fluent-table-container .second-color {
+        border-right: 1px solid var(--accent-fill-rest);
+    }
+
+    .fluent-table-container .third-color {
+        border-right: 1px solid var(--accent-fill-rest);
+    }
+
+
+@media only screen and (max-width: 768px) {
+    .fluent-table-container fluent-data-grid {
+        width: 165%;
+    }
+}
+    /*.fluent-table-container fluent-data-grid-row, .fluent-table-container fluent-data-grid-cell {
+        padding: 0px;
+    }*/
+
+/*.fluent-table-container fluent-data-grid-cell {
+    padding: 10px;*/ /* Spaziatura interna */
+    /*box-sizing: border-box;*/ /* Include padding nei calcoli della larghezza */
+    /*white-space: nowrap;*/ /* Impedisce il wrapping del testo */
+/*}
+
+.fluent-table-container fluent-data-grid-row {
+    display: grid;
+    grid-auto-columns: minmax(auto, max-content);*/ /* Imposta le colonne in base al contenuto */
+/*}
+
+    .fluent-table-container .column-header {
+        font-weight: bold;*/ /* Opzionale: Stile del titolo della colonna */
+    /*}*/
