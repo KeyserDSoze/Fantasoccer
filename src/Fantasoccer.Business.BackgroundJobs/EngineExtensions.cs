@@ -33,7 +33,6 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<PlayerOddsJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 0 6,10,12,14,18,20 * * *";
                 })
                 .AddBackgroundJob<PlayerImagesJob>(options =>
