@@ -18,7 +18,16 @@
                         <PropertyColumn Property="@(p => CalculateResult(p))" Sortable="true" Title="Risultato" />
                         <PropertyColumn Property="@(p => p.Away.Name)" Sortable="true" Title="Trasferta" />
                         <TemplateColumn>
-                            <FluentButton Appearance="Appearance.Accent" OnClick="() => ChangeInDelayed(day.SerieADay, context)">Rinviata</FluentButton>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="() => ChangeTheDelayed(day.SerieADay, context)">
+                                @if (context.Delayed)
+                                {
+                                    @:Gioca
+                                }
+                                else
+                                {
+                                    @:Rinvia
+                                }
+                            </FluentButton>
                         </TemplateColumn>
                     </FluentDataGrid>
                 </FluentCard>
@@ -54,11 +63,9 @@
         }
         await base.OnParametersSetAsync();
     }
-    private void ChangeInDelayed(int serieADay, RealGame realGame)
+    private void ChangeTheDelayed(int serieADay, RealGame realGame)
     {
-        realGame.Delayed = true;
-        realGame.HomeGoal = null;
-        realGame.AwayGoal = null;
+        realGame.Delayed = !realGame.Delayed;
         recalculateForDelayed.Add(serieADay);
     }
     private async Task SaveAsync()
