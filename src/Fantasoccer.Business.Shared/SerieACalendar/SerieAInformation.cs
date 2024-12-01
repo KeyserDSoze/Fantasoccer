@@ -42,7 +42,7 @@ namespace Fantasoccer.Business
                     Home = new RealTeam { Name = match.HomeTeamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.HomeTeamShortName.ToLower() },
                     Away = new RealTeam { Name = match.AwayTeamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.AwayTeamShortName.ToLower() },
                     Date = FantacalcioTime.ToItalyNow(match.DateTime),
-                    Delayed = FantacalcioTime.ItalyNow > match.DateTime.AddHours(3) && string.IsNullOrWhiteSpace(match.AwaySchema),
+                    Delayed = match.MatchStatus == 4,
                     HomeGoal = match.HomeGoal,
                     AwayGoal = match.AwayGoal
                 });

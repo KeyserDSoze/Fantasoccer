@@ -38,18 +38,18 @@ namespace Fantasoccer.Engine.IngestionData
                             var serieADay = calendar.Days.Find(x => x.SerieADay == actualDay.SerieADay)!;
                             if (serieADay != null)
                             {
-                                calendar.Days.Remove(calendar.Days.Find(x => x.SerieADay == serieADay.SerieADay)!);
-                                foreach (var game in serieADay.Games)
-                                {
-                                    if (game.Delayed)
-                                    {
-                                        var theActualGame = actualDay.Games.FirstOrDefault(x => x.Home == game.Home && x.Away == game.Away);
-                                        if (theActualGame != null)
-                                        {
-                                            theActualGame.Delayed = true;
-                                        }
-                                    }
-                                }
+                                calendar.Days.Remove(serieADay);
+                                //foreach (var game in serieADay.Games)
+                                //{
+                                //    if (game.Delayed)
+                                //    {
+                                //        var theActualGame = actualDay.Games.FirstOrDefault(x => x.Home == game.Home && x.Away == game.Away);
+                                //        if (theActualGame != null)
+                                //        {
+                                //            theActualGame.Delayed = true;
+                                //        }
+                                //    }
+                                //}
                             }
                             calendar.Days.Add(actualDay);
                         }
