@@ -64,13 +64,13 @@ namespace Fantasoccer.Business
                 realRank.Teams.Add(new RealRankedTeam
                 {
                     Name = team.Nome,
-                    Goal = team.RETIFATTE,
-                    SufferedGoal = team.RETISUBITE,
-                    Defeats = team.Perse,
-                    Draws = team.Pareggiate,
-                    Victories = team.Vinte,
-                    Point = team.PuntiCls,
-                    Played = team.Giocate
+                    Goal = team.RETIFATTE ?? 0,
+                    SufferedGoal = team.RETISUBITE ?? 0,
+                    Defeats = team.Perse ?? 0,
+                    Draws = team.Pareggiate ?? 0,
+                    Victories = team.Vinte ?? 0,
+                    Point = team.PuntiCls ?? 0,
+                    Played = team.Giocate ?? 0
                 });
             }
             realRank.Teams = [.. realRank.Teams.OrderByDescending(x => x.Point)];
@@ -191,13 +191,13 @@ namespace Fantasoccer.Business
             public string AwayCoachSurname { get; set; }
 
             [JsonPropertyName("away_goal")]
-            public int AwayGoal { get; set; }
+            public int? AwayGoal { get; set; }
 
             [JsonPropertyName("away_netco_id")]
             public string AwayNetcoId { get; set; }
 
             [JsonPropertyName("away_penalty_goal")]
-            public int AwayPenaltyGoal { get; set; }
+            public int? AwayPenaltyGoal { get; set; }
 
             [JsonPropertyName("away_schema")]
             public string AwaySchema { get; set; }
@@ -206,7 +206,7 @@ namespace Fantasoccer.Business
             public string AwaySecondaryTeamLogo { get; set; }
 
             [JsonPropertyName("away_team_active")]
-            public int AwayTeamActive { get; set; }
+            public int? AwayTeamActive { get; set; }
 
             [JsonPropertyName("away_team_logo")]
             public string AwayTeamLogo { get; set; }
@@ -230,10 +230,10 @@ namespace Fantasoccer.Business
             public string ChampionshipBackgroundImage { get; set; }
 
             [JsonPropertyName("championship_category_id")]
-            public int ChampionshipCategoryId { get; set; }
+            public int? ChampionshipCategoryId { get; set; }
 
             [JsonPropertyName("championship_category_status")]
-            public object ChampionshipCategoryStatus { get; set; }
+            public object? ChampionshipCategoryStatus { get; set; }
 
             [JsonPropertyName("championship_image")]
             public string ChampionshipImage { get; set; }
@@ -248,7 +248,7 @@ namespace Fantasoccer.Business
             public DateTime DateTime { get; set; }
 
             [JsonPropertyName("georule_id")]
-            public int GeoruleId { get; set; }
+            public int? GeoruleId { get; set; }
 
             [JsonPropertyName("highlight")]
             public string Highlight { get; set; }
@@ -266,13 +266,13 @@ namespace Fantasoccer.Business
             public string HomeCoachSurname { get; set; }
 
             [JsonPropertyName("home_goal")]
-            public int HomeGoal { get; set; }
+            public int? HomeGoal { get; set; }
 
             [JsonPropertyName("home_netco_id")]
             public string HomeNetcoId { get; set; }
 
             [JsonPropertyName("home_penalty_goal")]
-            public int HomePenaltyGoal { get; set; }
+            public int? HomePenaltyGoal { get; set; }
 
             [JsonPropertyName("home_schema")]
             public string HomeSchema { get; set; }
@@ -281,7 +281,7 @@ namespace Fantasoccer.Business
             public string HomeSecondaryTeamLogo { get; set; }
 
             [JsonPropertyName("home_team_active")]
-            public int HomeTeamActive { get; set; }
+            public int? HomeTeamActive { get; set; }
 
             [JsonPropertyName("home_team_logo")]
             public string HomeTeamLogo { get; set; }
@@ -308,7 +308,7 @@ namespace Fantasoccer.Business
             public string MatchDayCategoryStatus { get; set; }
 
             [JsonPropertyName("match_day_id_category")]
-            public int MatchDayIdCategory { get; set; }
+            public int? MatchDayIdCategory { get; set; }
 
             [JsonPropertyName("match_day_order")]
             public string MatchDayOrder { get; set; }
@@ -320,7 +320,7 @@ namespace Fantasoccer.Business
             public string MatchHm { get; set; }
 
             [JsonPropertyName("match_id")]
-            public int MatchId { get; set; }
+            public int? MatchId { get; set; }
 
             [JsonPropertyName("match_lineup_pdf")]
             public string MatchLineupPdf { get; set; }
@@ -332,13 +332,13 @@ namespace Fantasoccer.Business
             public string MatchProgramPdf { get; set; }
 
             [JsonPropertyName("match_report")]
-            public int MatchReport { get; set; }
+            public int? MatchReport { get; set; }
 
             [JsonPropertyName("match_report_pdf")]
             public string MatchReportPdf { get; set; }
 
             [JsonPropertyName("match_status")]
-            public int MatchStatus { get; set; }
+            public int? MatchStatus { get; set; }
 
             [JsonPropertyName("minutes_played")]
             public string MinutesPlayed { get; set; }
@@ -353,7 +353,7 @@ namespace Fantasoccer.Business
             public string PlayerHeadShot { get; set; }
 
             [JsonPropertyName("player_id")]
-            public int PlayerId { get; set; }
+            public int? PlayerId { get; set; }
 
             [JsonPropertyName("player_image")]
             public string PlayerImage { get; set; }
@@ -386,7 +386,7 @@ namespace Fantasoccer.Business
             public object RoundCategoryStatus { get; set; }
 
             [JsonPropertyName("round_id_category")]
-            public int RoundIdCategory { get; set; }
+            public int? RoundIdCategory { get; set; }
 
             [JsonPropertyName("round_title")]
             public string RoundTitle { get; set; }
@@ -401,13 +401,13 @@ namespace Fantasoccer.Business
             public string TicketUrl { get; set; }
 
             [JsonPropertyName("unknown_datetime")]
-            public int UnknownDatetime { get; set; }
+            public int? UnknownDatetime { get; set; }
 
             [JsonPropertyName("venue_background_image")]
             public string VenueBackgroundImage { get; set; }
 
             [JsonPropertyName("venue_id")]
-            public int VenueId { get; set; }
+            public int? VenueId { get; set; }
 
             [JsonPropertyName("venue_image")]
             public string VenueImage { get; set; }
@@ -425,7 +425,7 @@ namespace Fantasoccer.Business
         private class SingleDaySerieA
         {
             [JsonPropertyName("success")]
-            public bool Success { get; set; }
+            public bool? Success { get; set; }
 
             [JsonPropertyName("message")]
             public string Message { get; set; }
@@ -437,7 +437,7 @@ namespace Fantasoccer.Business
             public List<CalendarSerieAGame> Data { get; set; }
 
             [JsonPropertyName("code")]
-            public int Code { get; set; }
+            public int? Code { get; set; }
         }
 
         public class RankDatum
@@ -452,13 +452,13 @@ namespace Fantasoccer.Business
             public string GIRONE { get; set; }
 
             [JsonPropertyName("Giocate")]
-            public int Giocate { get; set; }
+            public int? Giocate { get; set; }
 
             [JsonPropertyName("GiocateCasa")]
-            public int GiocateCasa { get; set; }
+            public int? GiocateCasa { get; set; }
 
             [JsonPropertyName("GiocateFuori")]
-            public int GiocateFuori { get; set; }
+            public int? GiocateFuori { get; set; }
 
             [JsonPropertyName("Nome")]
             public string Nome { get; set; }
@@ -470,55 +470,55 @@ namespace Fantasoccer.Business
             public string NomeSintetico { get; set; }
 
             [JsonPropertyName("Pareggiate")]
-            public int Pareggiate { get; set; }
+            public int? Pareggiate { get; set; }
 
             [JsonPropertyName("PareggiateCasa")]
-            public int PareggiateCasa { get; set; }
+            public int? PareggiateCasa { get; set; }
 
             [JsonPropertyName("PareggiateFuori")]
-            public int PareggiateFuori { get; set; }
+            public int? PareggiateFuori { get; set; }
 
             [JsonPropertyName("Perse")]
-            public int Perse { get; set; }
+            public int? Perse { get; set; }
 
             [JsonPropertyName("PerseCasa")]
-            public int PerseCasa { get; set; }
+            public int? PerseCasa { get; set; }
 
             [JsonPropertyName("PerseFuori")]
-            public int PerseFuori { get; set; }
+            public int? PerseFuori { get; set; }
 
             [JsonPropertyName("PosCls")]
-            public int PosCls { get; set; }
+            public int? PosCls { get; set; }
 
             [JsonPropertyName("PuntiCls")]
-            public int PuntiCls { get; set; }
+            public int? PuntiCls { get; set; }
 
             [JsonPropertyName("PuntiClsCasa")]
-            public int PuntiClsCasa { get; set; }
+            public int? PuntiClsCasa { get; set; }
 
             [JsonPropertyName("PuntiClsFuori")]
-            public int PuntiClsFuori { get; set; }
+            public int? PuntiClsFuori { get; set; }
 
             [JsonPropertyName("PuntiPen")]
-            public int PuntiPen { get; set; }
+            public int? PuntiPen { get; set; }
 
             [JsonPropertyName("RETIFATTE")]
-            public int RETIFATTE { get; set; }
+            public int? RETIFATTE { get; set; }
 
             [JsonPropertyName("RETISUBITE")]
-            public int RETISUBITE { get; set; }
+            public int? RETISUBITE { get; set; }
 
             [JsonPropertyName("RetiFatteCasa")]
-            public int RetiFatteCasa { get; set; }
+            public int? RetiFatteCasa { get; set; }
 
             [JsonPropertyName("RetiFatteFuori")]
-            public int RetiFatteFuori { get; set; }
+            public int? RetiFatteFuori { get; set; }
 
             [JsonPropertyName("RetiSubiteCasa")]
-            public int RetiSubiteCasa { get; set; }
+            public int? RetiSubiteCasa { get; set; }
 
             [JsonPropertyName("RetiSubiteFuori")]
-            public int RetiSubiteFuori { get; set; }
+            public int? RetiSubiteFuori { get; set; }
 
             [JsonPropertyName("STAGIONE")]
             public string STAGIONE { get; set; }
@@ -527,25 +527,25 @@ namespace Fantasoccer.Business
             public string TURNO { get; set; }
 
             [JsonPropertyName("Vinte")]
-            public int Vinte { get; set; }
+            public int? Vinte { get; set; }
 
             [JsonPropertyName("VinteCasa")]
-            public int VinteCasa { get; set; }
+            public int? VinteCasa { get; set; }
 
             [JsonPropertyName("VinteFuori")]
-            public int VinteFuori { get; set; }
+            public int? VinteFuori { get; set; }
 
             [JsonPropertyName("do_deleted")]
-            public int DoDeleted { get; set; }
+            public int? DoDeleted { get; set; }
 
             [JsonPropertyName("do_inserted")]
-            public int DoInserted { get; set; }
+            public int? DoInserted { get; set; }
 
             [JsonPropertyName("do_loaded")]
-            public int DoLoaded { get; set; }
+            public int? DoLoaded { get; set; }
 
             [JsonPropertyName("do_updated")]
-            public int DoUpdated { get; set; }
+            public int? DoUpdated { get; set; }
 
             [JsonPropertyName("team_active")]
             public string TeamActive { get; set; }
@@ -575,7 +575,7 @@ namespace Fantasoccer.Business
             public List<RankDatum> Data { get; set; }
 
             [JsonPropertyName("code")]
-            public int Code { get; set; }
+            public int? Code { get; set; }
         }
 
     }
