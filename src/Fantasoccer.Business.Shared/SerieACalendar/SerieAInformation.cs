@@ -14,9 +14,11 @@ namespace Fantasoccer.Business
 
         public async Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38)
         {
+            if (max > 38)
+                max = 38;
             var calendar = new RealCalendar
             {
-                Days = new List<RealDay>()
+                Days = []
             };
             var serieCalendar = await _serieAHttpClient.GetFromJsonAsync<CalendarRoot>("widget/category?lang=it&parent=264699&limit=50&order_index=ASC", default);
             foreach (var day in serieCalendar!.Data.Body.OrderBy(x => int.Parse(x.Order)))
