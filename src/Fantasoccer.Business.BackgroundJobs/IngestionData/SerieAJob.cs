@@ -43,7 +43,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 {
                                     if (game.Delayed)
                                     {
-                                        var theActualGame = actualDay.Games.FirstOrDefault(x => x.Home == game.Home && x.Away == game.Away);
+                                        var theActualGame = actualDay.Games.FirstOrDefault(x => x.Home.Name == game.Home.Name && x.Away.Name == game.Away.Name);
                                         if (theActualGame != null)
                                         {
                                             theActualGame.Delayed = true;
