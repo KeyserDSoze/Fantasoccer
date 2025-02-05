@@ -26,7 +26,9 @@ namespace Fantasoccer.Business
             var goalkeepers = allPlayers.Where(x => x.Current.Role == Role.GoalKeeper).ToList();
             goalkeepers[0].CurrentPosition = FantaSoccerRole.GoalKeeper;
             goalkeepers[0].Current.Position = FantaSoccerRole.GoalKeeper;
+            goalkeepers[1].CurrentPosition = FantaSoccerRole.BackupGoalKeeper;
             goalkeepers[1].Current.Position = FantaSoccerRole.BackupGoalKeeper;
+            goalkeepers[2].CurrentPosition = FantaSoccerRole.Tribune;
             goalkeepers[2].Current.Position = FantaSoccerRole.Tribune;
             List<EnrichedPlayer> refactoredTeam = [.. goalkeepers];
             Change(allPlayers.Where(x => x.Current.Role == Role.Defensor).Take(3), FantaSoccerRole.Defensor);
@@ -49,40 +51,48 @@ namespace Fantasoccer.Business
             var maxDefenders = 2;
             var maxMidfielders = 2;
             var maxForwards = 2;
-            foreach (var player in allPlayers)
+            AddPlayers(allPlayers.Where(x => x.Vote?.Value >= 6));
+            if (maxInField > 0)
             {
-                if (player.Current.Role == Role.Defensor && maxDefenders > 0)
-                {
-                    player.CurrentPosition = FantaSoccerRole.Defensor;
-                    player.Current.Position = FantaSoccerRole.Defensor;
-                    refactoredTeam.Add(player);
-                    maxDefenders--;
-                    maxInField--;
-                }
-                else if (player.Current.Role == Role.Midfielder && maxMidfielders > 0)
-                {
-                    player.CurrentPosition = FantaSoccerRole.Midfielder;
-                    player.Current.Position = FantaSoccerRole.Midfielder;
-                    refactoredTeam.Add(player);
-                    maxMidfielders--;
-                    maxInField--;
-                }
-                else if (player.Current.Role == Role.Forward && maxForwards > 0)
-                {
-                    player.CurrentPosition = FantaSoccerRole.Forward;
-                    player.Current.Position = FantaSoccerRole.Forward;
-                    refactoredTeam.Add(player);
-                    maxForwards--;
-                    maxInField--;
-                }
-                if (maxInField == 0)
-                {
-                    break;
-                }
+                AddPlayers(allPlayers.OrderByDescending(x => x.FinalValue?.Value ?? -1000).ThenByDescending(x => x.Current.Role).ThenByDescending(x => x.Vote?.Value ?? -1000));
             }
-            foreach (var player in refactoredTeam)
+            void AddPlayers(IEnumerable<EnrichedPlayer> checkedPlayers)
             {
-                allPlayers.Remove(player);
+                foreach (var player in checkedPlayers)
+                {
+                    if (player.Current.Role == Role.Defensor && maxDefenders > 0)
+                    {
+                        player.CurrentPosition = FantaSoccerRole.Defensor;
+                        player.Current.Position = FantaSoccerRole.Defensor;
+                        refactoredTeam.Add(player);
+                        maxDefenders--;
+                        maxInField--;
+                    }
+                    else if (player.Current.Role == Role.Midfielder && maxMidfielders > 0)
+                    {
+                        player.CurrentPosition = FantaSoccerRole.Midfielder;
+                        player.Current.Position = FantaSoccerRole.Midfielder;
+                        refactoredTeam.Add(player);
+                        maxMidfielders--;
+                        maxInField--;
+                    }
+                    else if (player.Current.Role == Role.Forward && maxForwards > 0)
+                    {
+                        player.CurrentPosition = FantaSoccerRole.Forward;
+                        player.Current.Position = FantaSoccerRole.Forward;
+                        refactoredTeam.Add(player);
+                        maxForwards--;
+                        maxInField--;
+                    }
+                    if (maxInField == 0)
+                    {
+                        break;
+                    }
+                }
+                foreach (var player in refactoredTeam)
+                {
+                    allPlayers.Remove(player);
+                }
             }
             var firstBackupDefensor = allPlayers.Where(x => x.Current.Role == Role.Defensor).First();
             var secondBackupDefensor = allPlayers.Where(x => x.Current.Role == Role.Defensor).Skip(1).First();
