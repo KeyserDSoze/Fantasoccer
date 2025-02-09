@@ -12,8 +12,8 @@
                 {
                     <FluentTab Id="@role.ToString()" Label="@role.ToString()">
                         <FluentDataGrid TGridItem="StatPlayer"
-                                        Items="players.Where(x => x.Role == role && x.IsActive).Select(x => GetStatPlayer(x)).AsQueryable()"
-                                        OnRowClick="PlayerClicked">
+                        Items="players.Where(x => x.Role == role && x.IsActive).Select(x => GetStatPlayer(x)).AsQueryable()"
+                        OnRowClick="PlayerClicked">
                             <TemplateColumn Title="Nome">
                                 @if (context.Visible)
                                 {
@@ -95,8 +95,8 @@
                 {
                     <FluentAccordionItem Id="@team.Owner" Heading="@(GetHeadingTeam(team))">
                         <FluentDataGrid TGridItem="Player"
-                                        Items="team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name).AsQueryable()"
-                                        OnRowClick="(x) => Remove(x.Item!, team.Owner)">
+                        Items="team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name).AsQueryable()"
+                        OnRowClick="(x) => Remove(x.Item!, team.Owner)">
                             <PropertyColumn Property="@(x => x.Name)" Title="Nome" />
                             <PropertyColumn Property="@(x => x.RealTeam.Name)" Title="Team" />
                             <PropertyColumn Property="@(x => x.Price)" Title="Prezzo" />
@@ -141,7 +141,7 @@
         StringBuilder stringBuilder = new();
         stringBuilder.Append(team.Name);
         stringBuilder.Append($" ({team.Owner})");
-        stringBuilder.Append($" {State.SelectedLeagueSettings!.StartingMoney - team.Cost}");
+        stringBuilder.Append($" {State.SelectedLeagueSettings!.StartingMoney - team.Cost + team.MoneyFromRank + team.RevenueMoney}");
         stringBuilder.Append($"[{team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)}-");
         stringBuilder.Append($"{team.ActivePlayers.Count(x => x.Role == Role.Defensor)}-");
         stringBuilder.Append($"{team.ActivePlayers.Count(x => x.Role == Role.Midfielder)}-");
@@ -173,6 +173,7 @@
                 if (!player.Visible || (clickedPlayer != null && clickedPlayer.Key == player.Key))
                 {
                     player.Visible = true;
+                    clickedPlayer.Visible = true;
                     await Api.RandomizedRealPlayers.UpdateAsync(State.LeagueKey, new RealPlayersWrapper { Players = players });
                     break;
                 }
@@ -210,14 +211,14 @@
                     foreach (var player in actualTeam.ActivePlayers)
                     {
                         var playerKey = player.Key;
-                        var toRemovePlayer = allPlayersWrapper.Players.FirstOrDefault(x => x.Key == playerKey);
+                        var toRemovePlayer = allPlayers.FirstOrDefault(x => x.Key == playerKey);
                         if (toRemovePlayer != null)
                         {
-                            allPlayersWrapper.Players.Remove(toRemovePlayer);
+                            allPlayers.Remove(toRemovePlayer);
                         }
                     }
                 }
-                players = allPlayersWrapper.Players.Where(x => x.IsActive).ToList();
+                players = allPlayers.Where(x => x.IsActive).ToList();
                 var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
                 statsPlayers = playersWrapper?.Players;
                 var calendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
@@ -232,6 +233,19 @@
         {
             var playerKey = player.Key;
             var statPlayer = statsPlayers.FirstOrDefault(x => x.Key == playerKey);
+            if (statPlayer == null)
+            {
+                statPlayer = new StatPlayer
+                    {
+                        Name = player.Name,
+                        RealTeam = player.RealTeam,
+                        Role = player.Role,
+                        IsActive = player.IsActive,
+                        Visible = player.Visible
+                    };
+            }
+            else if (!player.Visible)
+                statPlayer.Visible = false;
             return statPlayer;
         }
         return null;

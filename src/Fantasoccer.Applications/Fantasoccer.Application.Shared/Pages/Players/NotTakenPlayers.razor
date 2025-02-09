@@ -44,7 +44,7 @@
                 {
                     if (!playersWrapper.Players.Any(p => p.Key == player.Key))
                     {
-                        playersWrapper.Players.Add(new StatPlayer { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role });
+                        playersWrapper.Players.Add(new StatPlayer { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role, IsActive = player.IsActive });
                     }
                 }
                 foreach (var team in State.Teams)

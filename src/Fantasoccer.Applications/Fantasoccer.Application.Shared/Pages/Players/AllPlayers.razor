@@ -39,10 +39,15 @@
             var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
             if (playersWrapper != null)
             {
-                players = playersWrapper.Players;
-                if (players != null)
+                var allPlayersWrapper = await Api.RealPlayers.GetAsync(State.Year);
+                foreach (var player in allPlayersWrapper.Players)
                 {
+                    if (!playersWrapper.Players.Any(p => p.Key == player.Key))
+                    {
+                        playersWrapper.Players.Add(new StatPlayer { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role, IsActive = player.IsActive });
+                    }
                 }
+                players = playersWrapper.Players;
             }
         }
         await base.OnParametersSetAsync();
