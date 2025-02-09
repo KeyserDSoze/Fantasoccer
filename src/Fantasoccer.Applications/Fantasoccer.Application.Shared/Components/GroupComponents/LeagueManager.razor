@@ -314,7 +314,15 @@
                 {
                     player.Visible = false;
                 }
-                await Api.RandomizedRealPlayers.UpdateAsync(
+                if (await Api.RandomizedRealPlayers.ExistAsync(State.LeagueKey))
+                    await Api.RandomizedRealPlayers.UpdateAsync(
+                        State.LeagueKey,
+                        new RealPlayersWrapper
+                            {
+                                Players = randomizedPlayers
+                            });
+                else
+                    await Api.RandomizedRealPlayers.InsertAsync(
                     State.LeagueKey,
                     new RealPlayersWrapper
                         {
