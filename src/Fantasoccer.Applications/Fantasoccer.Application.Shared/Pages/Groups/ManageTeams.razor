@@ -141,7 +141,7 @@
         StringBuilder stringBuilder = new();
         stringBuilder.Append(team.Name);
         stringBuilder.Append($" ({team.Owner})");
-        stringBuilder.Append($" {State.SelectedLeagueSettings!.StartingMoney - team.Cost + team.MoneyFromRank + team.RevenueMoney}");
+        stringBuilder.Append($" {State.SelectedLeagueSettings!.StartingMoney - team.Cost}");
         stringBuilder.Append($"[{team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)}-");
         stringBuilder.Append($"{team.ActivePlayers.Count(x => x.Role == Role.Defensor)}-");
         stringBuilder.Append($"{team.ActivePlayers.Count(x => x.Role == Role.Midfielder)}-");
