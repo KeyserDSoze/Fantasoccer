@@ -9,16 +9,20 @@
         var defenders = @team.ActivePlayers.Count(x => x.Role == Role.Defensor);
         var midfielders = @team.ActivePlayers.Count(x => x.Role == Role.Midfielder);
         var forwards = @team.ActivePlayers.Count(x => x.Role == Role.Forward);
-        <FluentGridItem xs="12" sm="3">
+        var gkOpacity = goalkeepers >= 3 ? "1" : "0.4";
+        var dfOpacity = defenders >= 8 ? "1" : "0.4";
+        var mdOpacity = midfielders >= 8 ? "1" : "0.4";
+        var fwOpacity = forwards >= 6 ? "1" : "0.4";
+        <FluentGridItem xs="12" sm="4" md="2">
             <FluentCard>
                 <p class="info"><span class="highlight">@team.Name</span></p>
                 <FluentDivider Style="width: 100%;" Orientation=Orientation.Horizontal Role="DividerRole.Separator"></FluentDivider>
                 <p class="info">Rimangono: <span class="highlight">@(State.SelectedLeagueSettings!.StartingMoney - team.Cost)</span></p>
                 <div class="bar-container">
-                    <div class="bar goalkeeper" style="height:calc(@goalkeepers * 15px)">@goalkeepers</div>
-                    <div class="bar defender" style="height:calc(@defenders * 15px)">@defenders</div>
-                    <div class="bar midfielder" style="height:calc(@midfielders * 15px)">@midfielders</div>
-                    <div class="bar forward" style="height:calc(@forwards * 15px)">@forwards</div>
+                    <div class="bar goalkeeper" style="opacity: @gkOpacity ; height:calc(@goalkeepers * 15px)">@goalkeepers</div>
+                    <div class="bar defender" style="opacity: @dfOpacity ; height:calc(@defenders * 15px)">@defenders</div>
+                    <div class="bar midfielder" style="opacity: @mdOpacity ; height:calc(@midfielders * 15px)">@midfielders</div>
+                    <div class="bar forward" style="opacity: @fwOpacity ; height:calc(@forwards * 15px)">@forwards</div>
                 </div>
             </FluentCard>
         </FluentGridItem>
