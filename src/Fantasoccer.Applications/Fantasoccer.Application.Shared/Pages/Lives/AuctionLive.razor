@@ -2,28 +2,28 @@
 
 <PageTitle>Auction Live</PageTitle>
 
-<div>
+<FluentGrid AdaptiveRendering="true" class="auction" Justify="JustifyContent.FlexStart">
     @foreach (var team in teams.OrderByDescending(x => State.SelectedLeagueSettings!.StartingMoney - x.Cost))
     {
-        <FluentCard>
-            <p>@team.Owner</p>
-            <FluentDivider Style="width: 100%;" Orientation=Orientation.Horizontal Role="DividerRole.Separator"></FluentDivider>
-            <p>Rimangono: @(State.SelectedLeagueSettings!.StartingMoney - team.Cost)</p>
-            <p>
-                Portieri: @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper)
-            </p>
-            <p>
-                Difensori: @team.ActivePlayers.Count(x => x.Role == Role.Defensor)
-            </p>
-            <p>
-                Centrocapisti: @team.ActivePlayers.Count(x => x.Role == Role.Midfielder)
-            </p>
-            <p>
-                Attaccanti: @team.ActivePlayers.Count(x => x.Role == Role.Forward)
-            </p>
-        </FluentCard>
+        var goalkeepers = @team.ActivePlayers.Count(x => x.Role == Role.GoalKeeper);
+        var defenders = @team.ActivePlayers.Count(x => x.Role == Role.Defensor);
+        var midfielders = @team.ActivePlayers.Count(x => x.Role == Role.Midfielder);
+        var forwards = @team.ActivePlayers.Count(x => x.Role == Role.Forward);
+        <FluentGridItem xs="12" sm="3">
+            <FluentCard>
+                <p class="info"><span class="highlight">@team.Name</span></p>
+                <FluentDivider Style="width: 100%;" Orientation=Orientation.Horizontal Role="DividerRole.Separator"></FluentDivider>
+                <p class="info">Rimangono: <span class="highlight">@(State.SelectedLeagueSettings!.StartingMoney - team.Cost)</span></p>
+                <div class="bar-container">
+                    <div class="bar goalkeeper" style="height:calc(@goalkeepers * 15px)">@goalkeepers</div>
+                    <div class="bar defender" style="height:calc(@defenders * 15px)">@defenders</div>
+                    <div class="bar midfielder" style="height:calc(@midfielders * 15px)">@midfielders</div>
+                    <div class="bar forward" style="height:calc(@forwards * 15px)">@forwards</div>
+                </div>
+            </FluentCard>
+        </FluentGridItem>
     }
-</div>
+</FluentGrid>
 
 @code {
     [CascadingParameter]
@@ -32,46 +32,54 @@
     private LoadingIndicator? LoadingIndicator { get; set; }
     [Inject]
     public NavigationManager NavigationManager { get; set; }
-    // [Inject]
-    // public AuctionHubClient AuctionHubClient { get; set; }
+    private int intervalId = -1;
+    private DotNetObjectReference<AuctionLive>? objRef;
+    private int updateNumber;
     private List<Team>? teams;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        objRef = DotNetObjectReference.Create(this);
+    }
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
         if (!firstRender)
             LoadingIndicator?.Hide();
+        if (intervalId == -1)
+            intervalId = await JS.InvokeAsync<int>("intervalManager.addInterval", objRef, nameof(LiveAsync), 30_000);
+    }
+    [JSInvokable]
+    public async ValueTask LiveAsync()
+    {
+        await UpdateAsync();
+        updateNumber++;
+        await InvokeAsync(StateHasChanged);
     }
     protected override async Task OnParametersSetAsync()
     {
         if (State?.HasAGroup == true && State.Teams != null)
         {
             LoadingIndicator?.Show();
-            // await AuctionHubClient.StartAsync(OnReceive);
-            teams = new();
-            foreach (var team in State.Teams)
-            {
-                var teamKey = State.OtherTeamKey(team.Owner);
-                var actualTeam = await Api.Team.GetAsync(teamKey);
-                if (actualTeam == null)
-                {
-                    actualTeam = new() { Name = team.Name, Owner = team.Owner, Players = new() };
-                    await Api.Team.InsertAsync(teamKey, actualTeam);
-                }
-                teams.Add(actualTeam);
-                var rank = await Api.Ranks.GetAsync(State.LeagueKey);
-                actualTeam.MoneyFromRank = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == team.Owner).PlusMoney;
-            }
+            await UpdateAsync();
         }
         await base.OnParametersSetAsync();
     }
-    // void OnReceive(string user, string message)
-    // {
-    //     var x = user;
-    //     var y = message;
-    // }
-
-    // async Task SendAsync()
-    // {
-    //     await AuctionHubClient.SendAsync(State.Identity.Email, "Hello from Blazor!");
-    // }
+    private async ValueTask UpdateAsync()
+    {
+        teams = new();
+        foreach (var team in State.Teams)
+        {
+            var teamKey = State.OtherTeamKey(team.Owner);
+            var actualTeam = await Api.Team.GetAsync(teamKey);
+            if (actualTeam == null)
+            {
+                actualTeam = new() { Name = team.Name, Owner = team.Owner, Players = new() };
+                await Api.Team.InsertAsync(teamKey, actualTeam);
+            }
+            teams.Add(actualTeam);
+            var rank = await Api.Ranks.GetAsync(State.LeagueKey);
+            actualTeam.MoneyFromRank = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == team.Owner).PlusMoney;
+        }
+    }
 }
