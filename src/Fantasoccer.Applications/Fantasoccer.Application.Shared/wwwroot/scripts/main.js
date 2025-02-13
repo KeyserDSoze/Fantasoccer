@@ -51,3 +51,12 @@ window.intervalManager = {
         window.clearInterval(interval);
     }
 }
+
+window.downloadFile = (filename, contentType, content) => {
+    const file = new Blob([content], { type: contentType });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+};

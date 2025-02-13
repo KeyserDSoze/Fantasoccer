@@ -1,0 +1,106 @@
+﻿@using Fantasoccer.Domain
+@using System.Text
+@inject IJSRuntime JS
+
+<FluentButton Appearance="Appearance.Accent" OnClick="@DownloadCsv">
+    Esporta in CSV
+</FluentButton>
+
+@code {
+
+    [Parameter]
+    public IEnumerable<StatPlayer>? StatPlayers { get; set; }
+    [Parameter]
+    public string Name { get; set; }
+    [Parameter]
+    public bool WithPrice { get; set; }
+
+    private async Task DownloadCsv()
+    {
+        var csvContent = GenerateCsv(StatPlayers);
+        await JS.InvokeVoidAsync("downloadFile", $"players_{Name}_{FantacalcioTime.ItalyNow:yyyy-MM-dd HH:mm}.csv", "text/csv", csvContent);
+    }
+
+    private string GenerateCsv(IEnumerable<StatPlayer> players)
+    {
+        var csvBuilder = new StringBuilder();
+        var headerColumns = new List<string> { "Nome", "Ruolo" };
+
+        if (WithPrice)
+        {
+            headerColumns.Add("Prezzo");
+        }
+
+        headerColumns.AddRange(new[]
+        {
+            "Squadra",
+            "Media",
+            "FantaMedia",
+            ">= 6",
+            "MotM",
+            "Con voto",
+            "Senza voto",
+            "Gialli",
+            "Rossi",
+            "Reti",
+            "Rigori",
+            "Assist",
+            "Rigori sbagliati",
+            "Autogoal",
+            "Goal subiti",
+            "Rigori parati",
+            "Attivo"
+        });
+
+        csvBuilder.AppendLine(string.Join(',', headerColumns.Select(x => Escape(x))));
+
+        foreach (var player in players)
+        {
+            var row = new List<string>();
+
+            row.Add(Escape(player.Name));
+            row.Add(player.Role.AsString());
+            if (WithPrice)
+            {
+                if (player is StatPlayerWithPrice pwp)
+                {
+                    row.Add(pwp.Price.ToString());
+                }
+            }
+
+            row.Add(Escape(player.RealTeam.Name));
+            row.Add(player.Average.ToString("N2"));
+            row.Add(player.FantaAverage.ToString("N2"));
+            row.Add(player.IsEnough.ToString());
+            row.Add(player.ManOfTheMatch.ToString());
+            row.Add(player.WithVote.ToString());
+            row.Add(player.WithoutVote.ToString());
+            row.Add(player.YellowCard.ToString());
+            row.Add(player.RedCard.ToString());
+            row.Add(player.Goal.ToString());
+            row.Add(player.Penalty.ToString());
+            row.Add(player.Assist.ToString());
+            row.Add(player.WrongedPenalty.ToString());
+            row.Add(player.OwnGoal.ToString());
+            row.Add(player.SufferedGoal.ToString());
+            row.Add(player.StoppedPenalty.ToString());
+            row.Add(player.IsActive.ToString());
+
+            csvBuilder.AppendLine(string.Join(',', row));
+        }
+
+        return csvBuilder.ToString();
+    }
+
+    private string Escape(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return "";
+        if (input.Contains(',') || input.Contains('"'))
+        {
+            input = input.Replace("\"", "\"\"");
+            input = $"\"{input}\"";
+        }
+        return input;
+    }
+}

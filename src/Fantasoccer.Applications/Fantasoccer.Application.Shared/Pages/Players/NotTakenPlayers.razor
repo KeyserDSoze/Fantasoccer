@@ -5,6 +5,7 @@
 
 @if (players != null)
 {
+    <StatPlayersDownloadButton StatPlayers="players" Name="Non presi" WithPrice="false"></StatPlayersDownloadButton>
     <FluentTabs @bind-ActiveTabId="currentRole">
         @foreach (var playersByRole in players.GroupBy(x => x.Role).OrderBy(x => x.Key))
         {
