@@ -12,8 +12,8 @@
                 {
                     <FluentTab Id="@role.ToString()" Label="@role.ToString()">
                         <FluentDataGrid TGridItem="StatPlayer"
-                        Items="players.Where(x => x.Role == role && x.IsActive).Select(x => GetStatPlayer(x)).AsQueryable()"
-                        OnRowClick="PlayerClicked">
+                                        Items="players.Where(x => x.Role == role && x.IsActive).Select(x => GetStatPlayer(x)).AsQueryable()"
+                                        OnRowClick="PlayerClicked">
                             <TemplateColumn Title="Nome">
                                 @if (context.Visible)
                                 {
@@ -95,8 +95,8 @@
                 {
                     <FluentAccordionItem Id="@team.Owner" Heading="@(GetHeadingTeam(team))">
                         <FluentDataGrid TGridItem="Player"
-                        Items="team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name).AsQueryable()"
-                        OnRowClick="(x) => Remove(x.Item!, team.Owner)">
+                                        Items="team.ActivePlayers.OrderBy(x => x.Role).ThenBy(x => x.Name).AsQueryable()"
+                                        OnRowClick="(x) => Remove(x.Item!, team.Owner)">
                             <PropertyColumn Property="@(x => x.Name)" Title="Nome" />
                             <PropertyColumn Property="@(x => x.RealTeam.Name)" Title="Team" />
                             <PropertyColumn Property="@(x => x.Price)" Title="Prezzo" />
@@ -115,8 +115,8 @@
     private FantasoccerState? State { get; set; }
     [CascadingParameter]
     private LoadingIndicator? LoadingIndicator { get; set; }
-    private List<RealPlayer>? allPlayers;
     private List<RealPlayer>? players;
+    private List<RealPlayer> allPlayers = [];
     private List<Team>? teams;
     private string? activeTeamId;
     private string selectedTab = Roles.First().ToString();
@@ -174,7 +174,9 @@
                 {
                     player.Visible = true;
                     clickedPlayer.Visible = true;
-                    await Api.RandomizedRealPlayers.UpdateAsync(State.LeagueKey, new RealPlayersWrapper { Players = players });
+                    var currentPlayer = allPlayers.First(x => x.Key == player.Key);
+                    currentPlayer.Visible = true;
+                    await Api.RandomizedRealPlayers.UpdateAsync(State.LeagueKey, new RealPlayersWrapper { Players = allPlayers });
                     break;
                 }
             }
@@ -193,9 +195,10 @@
                 await Api.RealPlayers.GetAsync(State.Year);
             if (allPlayersWrapper?.Players != null)
             {
-                allPlayers = State.SelectedLeagueSettings?.RandomAuction == true ?
+                var playersFromStore = State.SelectedLeagueSettings?.RandomAuction == true ?
                     allPlayersWrapper.Players.OrderBy(x => x.Role).ToList() :
                     allPlayersWrapper.Players.OrderBy(x => x.Role).ThenBy(x => x.Name).ToList();
+                allPlayers.AddRange(playersFromStore);
                 var rank = await Api.Ranks.GetAsync(State.LeagueKey);
                 foreach (var team in State.Teams)
                 {
@@ -211,14 +214,14 @@
                     foreach (var player in actualTeam.ActivePlayers)
                     {
                         var playerKey = player.Key;
-                        var toRemovePlayer = allPlayers.FirstOrDefault(x => x.Key == playerKey);
+                        var toRemovePlayer = playersFromStore.FirstOrDefault(x => x.Key == playerKey);
                         if (toRemovePlayer != null)
                         {
-                            allPlayers.Remove(toRemovePlayer);
+                            playersFromStore.Remove(toRemovePlayer);
                         }
                     }
                 }
-                players = allPlayers.Where(x => x.IsActive).ToList();
+                players = playersFromStore.Where(x => x.IsActive).ToList();
                 var playersWrapper = await Api.StatsPlayers.GetAsync(State.Year);
                 statsPlayers = playersWrapper?.Players;
                 var calendar = await Api.RealCalendar.GetAsync(FantacalcioTime.ActualYear);
@@ -274,13 +277,14 @@
                 Modal = true,
                 PreventScroll = true
             };
-        IDialogReference dialog = await DialogService.ShowDialogAsync<BuyModal>(new BuyPlayerModalModel
-            {
-                Player = player,
-                Price = 1,
-                Teams = teams,
-                Team = teams.First()
-            }, parameters);
+        IDialogReference dialog = await DialogService.ShowDialogAsync<BuyModal>
+    (new BuyPlayerModalModel
+        {
+            Player = player,
+            Price = 1,
+            Teams = teams,
+            Team = teams.First()
+        }, parameters);
         DialogResult? result = await dialog.Result;
         if (result?.Cancelled == false && result?.Data is BuyPlayerModalModel buying)
         {
@@ -356,7 +360,7 @@
     private async Task Remove(Player player, string owner)
     {
         var playerKey = player.Key;
-        realPlayer = allPlayers.FirstOrDefault(x => x.Key == playerKey);
+        realPlayer = players?.FirstOrDefault(x => x.Key == playerKey);
         DialogParameters parameters = new()
             {
                 Title = $"Remove player",
@@ -367,13 +371,14 @@
                 Modal = true,
                 PreventScroll = true
             };
-        IDialogReference dialog = await DialogService.ShowDialogAsync<RemoveModal>(new CancelPlayerModalModel
-            {
-                Owner = owner,
-                Player = player,
-                Price = player.Price,
-                Status = PlayerInTeamStatus.Removed
-            }, parameters);
+        IDialogReference dialog = await DialogService.ShowDialogAsync<RemoveModal>
+            (new CancelPlayerModalModel
+                {
+                    Owner = owner,
+                    Player = player,
+                    Price = player.Price,
+                    Status = PlayerInTeamStatus.Removed
+                }, parameters);
         DialogResult? result = await dialog.Result;
         if (result?.Cancelled == false && result?.Data is CancelPlayerModalModel cancellation)
         {
