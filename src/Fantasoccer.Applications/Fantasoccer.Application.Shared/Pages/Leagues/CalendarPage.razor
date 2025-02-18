@@ -9,7 +9,10 @@
         <FluentTabs @bind-ActiveTabId="selectedTab">
             @foreach (var calendarByRound in calendar.Rounds)
             {
-                <FluentTab Name="@($"tab-{calendarByRound.Key}")">
+                var tabId = $"tab-{calendarByRound.Key}";
+                if (tabId == tabWithAt)
+                    tabId = tabStart;
+                <FluentTab Label="@calendarByRound.Key" Id="@tabId">
                     <Calendaring IsAdminEdit=adminMode Days="calendarByRound.Value" WithFluentSize=true GroupId="@State.GroupId" LeagueId="@State.LeagueId" Year="@State.Year"></Calendaring>
                 </FluentTab>
             }
@@ -40,6 +43,8 @@
     private bool onlyOne;
     private bool isVisible => nullCalendar != null;
     private bool adminMode;
+    private const string tabStart = "tab-start";
+    private const string tabWithAt = "tab-@";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
@@ -64,7 +69,9 @@
             calendar = await Api.Calendar.GetAsync(State.LeagueKey);
             if (calendar != null && calendar.Rounds.Count > 0)
             {
-                selectedTab = $"tab-{calendar.Rounds.First().Key}";
+                selectedTab = $"tab_{calendar.Rounds.First().Key}";
+                if (selectedTab == tabWithAt)
+                    selectedTab = tabStart;
                 onlyOne = calendar.Rounds.Count == 1;
             }
             else

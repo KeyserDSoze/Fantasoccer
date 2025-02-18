@@ -9,7 +9,10 @@
         <FluentTabs @bind-ActiveTabId="@selectedTab">
             @foreach (var rankByRound in rank.RankedTeams)
             {
-                <FluentTab Label="@rankByRound.Key" Id="@($"tab-{rankByRound.Key}")">
+                var tabId = $"tab-{rankByRound.Key}";
+                if (tabId == tabWithAt)
+                    tabId = tabStart;
+                <FluentTab Label="@rankByRound.Key" Id="@tabId">
                     <Ranking Teams="rankByRound.Value"></Ranking>
                 </FluentTab>
             }
@@ -37,6 +40,8 @@
     private string? nullRank;
     private bool onlyOne;
     private bool isVisible => nullRank != null;
+    private const string tabStart = "tab-start";
+    private const string tabWithAt = "tab-@";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -55,6 +60,8 @@
             {
                 onlyOne = rank.RankedTeams.Count == 1;
                 selectedTab = $"tab-{rank.RankedTeams.First().Key}";
+                if (selectedTab == tabWithAt)
+                    selectedTab = tabStart;
             }
             else
                 nullRank = $"Classifica non presente per l'anno {FantacalcioTime.LabelYear(State.Year)}.";

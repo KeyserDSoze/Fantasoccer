@@ -18,6 +18,9 @@
                             <FluentTabs @bind-ActiveTabId="@innerSelectedTab[selectedTab]">
                                 @foreach (var dayByRound in league.Rounds)
                                 {
+                                    var dayKey = $"innertab-{dayByRound.Key}";
+                                    if (dayKey == tabWithAt)
+                                        dayKey = tabStart;
                                     <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
                                         <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
                                             <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
@@ -81,6 +84,8 @@
     private int intervalId = -1;
     private DotNetObjectReference<Live>? objRef;
     private int updateNumber;
+    private const string tabStart = "innertab-start";
+    private const string tabWithAt = "innertab-@";
     protected override void OnInitialized()
     {
         base.OnInitialized();
@@ -134,7 +139,12 @@
             foreach (var league in liveGroup.Leagues)
             {
                 if (league.Rounds.Count >= 1)
-                    innerSelectedTab.Add($"tab-{league.Id}", league.Rounds.First().Key);
+                {
+                    var key = $"innertab-{league.Rounds.First().Key}";
+                    if (key == tabWithAt)
+                        key = tabStart;
+                    innerSelectedTab.Add($"tab-{league.Id}", key);
+                }
             }
         }
 
