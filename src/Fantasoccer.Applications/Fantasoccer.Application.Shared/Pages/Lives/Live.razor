@@ -23,18 +23,27 @@
                                         dayKey = tabStart;
                                     <FluentTab Id="@dayByRound.Key" Label="@dayByRound.Key">
                                         <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
-                                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                                @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
-                                                {
+                                            @if (league.Rank?.RankedTeams.ContainsKey(dayByRound.Key) == true)
+                                            {
+                                                <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
                                                     <Ranking Teams="league.Rank.RankedTeams[dayByRound.Key].OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint)"></Ranking>
-                                                }
-                                            </FluentGridItem>
-                                            <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
-                                                <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
-                                                             GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
-                                                             Desktop="12" Mobile="12">
-                                                </Calendaring>
-                                            </FluentGridItem>
+                                                </FluentGridItem>
+                                                <FluentGridItem xl="6" md="12" xxl="6" xs="12" sm="12" lg="6">
+                                                    <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                                                                 GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                                                 Desktop="12" Mobile="12">
+                                                    </Calendaring>
+                                                </FluentGridItem>
+                                            }
+                                            else
+                                            {
+                                                <FluentGridItem xl="12" md="12" xxl="12" xs="12" sm="12" lg="12">
+                                                    <Calendaring Days="new List<Day>{ dayByRound.Value }" WithFluentSize=false
+                                                                 GroupId="@State.GroupId" LeagueId="@league.Id" Year="FantacalcioTime.ActualYear"
+                                                                 Desktop="12" Mobile="12">
+                                                    </Calendaring>
+                                                </FluentGridItem>
+                                            }
                                         </FluentGrid>
                                     </FluentTab>
                                 }
@@ -135,15 +144,20 @@
                 else
                     selectedTab = $"tab-{liveGroup!.Leagues.First(x => x.Rounds.Count >= 1).Id}";
             }
-            innerSelectedTab = new Dictionary<string, string>();
+            if (innerSelectedTab == null)
+                innerSelectedTab = [];
             foreach (var league in liveGroup.Leagues)
             {
                 if (league.Rounds.Count >= 1)
                 {
-                    var key = $"innertab-{league.Rounds.First().Key}";
-                    if (key == tabWithAt)
-                        key = tabStart;
-                    innerSelectedTab.Add($"tab-{league.Id}", key);
+                    var leagueKey = $"tab-{league.Id}";
+                    if (!innerSelectedTab.ContainsKey(leagueKey))
+                    {
+                        var key = $"innertab-{league.Rounds.First().Key}";
+                        if (key == tabWithAt)
+                            key = tabStart;
+                        innerSelectedTab.Add(leagueKey, key);
+                    }
                 }
             }
         }
