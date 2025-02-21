@@ -64,7 +64,7 @@ namespace Fantasoccer.Engine.IngestionData
                                 {
                                     Id = league.Id,
                                     Name = league.Name,
-                                    Rounds = new()
+                                    Rounds = []
                                 };
                                 foreach (var round in calendar.Rounds)
                                 {
@@ -105,12 +105,16 @@ namespace Fantasoccer.Engine.IngestionData
                                         }
                                     }
                                 }
-                                if (!(liveLeague.Rounds.Count == 1 && liveLeague.Rounds.ContainsKey("Finals")))
+                                var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
+                                if (rank != null)
                                 {
-                                    var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
-                                    if (rank != null)
+                                    if (!liveLeague.Rounds.ContainsKey(Finals))
                                     {
                                         liveLeague.Rank = _rankCalculator.AddDay(leagueSettings, rank, liveLeague.Rounds);
+                                    }
+                                    else
+                                    {
+                                        liveLeague.Rank = rank;
                                     }
                                 }
                                 liveGroup.Leagues.Add(liveLeague);
@@ -122,7 +126,7 @@ namespace Fantasoccer.Engine.IngestionData
                 }
             }
         }
-
+        private const string Finals = "Finals";
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<LiveVotesJob>(exception);
     }
