@@ -11,17 +11,17 @@
         <SupportedPlatform Include="browser" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.3" />
         <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.10.4" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.DataGrid.EntityFrameworkAdapter" Version="4.10.4" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.10.4" />
-        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Emoji" Version="4.6.0" />
-        <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
-        <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="9.0.0" />
-        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="9.0.1" />
-        <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="9.0.0" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.11.7" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.DataGrid.EntityFrameworkAdapter" Version="4.11.7" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.11.7" />
+        <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Emoji" Version="4.11.7" />
+        <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.23.0" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.3" />
+        <PackageReference Include="Rystem.RepositoryFramework.Api.Client" Version="9.0.31" />
+        <PackageReference Include="Rystem.Authentication.Social.Blazor" Version="9.0.31" />
+        <PackageReference Include="Rystem.RepositoryFramework.Api.Client.Authentication.BlazorServer" Version="9.0.31" />
     </ItemGroup>
 
     <ItemGroup>

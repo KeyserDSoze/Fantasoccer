@@ -521,3 +521,7 @@ fluent-badge span {
 .auction .forward {
     background: #FF5733;
 }
+
+td {
+    min-height:45px;
+}

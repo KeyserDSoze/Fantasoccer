@@ -1,10 +1,10 @@
 ﻿using Blazored.LocalStorage;
 using Fantasoccer.Business;
+using Fantasoccer.Infrastructure;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
-using Fantasoccer.Infrastructure;
-using Microsoft.AspNetCore.Hosting;
 
 namespace Fantasoccer.Application.Shared.Extensions
 {
