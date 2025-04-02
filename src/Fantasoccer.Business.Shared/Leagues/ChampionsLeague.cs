@@ -15,6 +15,8 @@ namespace Fantasoccer.Business
         }
         private const string ChampionsFinals = "Finals";
         private const string EuropaLeagueFinals = "Europa League";
+        //todo: super cup to add
+        private const string SuperCup = "Supercoppa";
         private static readonly List<string> s_avoidCalculationRounds = new() { ChampionsFinals, EuropaLeagueFinals };
         private static readonly int s_multiplier = 1;
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)

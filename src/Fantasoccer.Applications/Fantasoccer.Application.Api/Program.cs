@@ -6,23 +6,6 @@ using Fantasoccer.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
-builder.Services.AddSocialLogin(x =>
-{
-    //x.Google.ClientId = builder.Configuration["SocialLogin:Google:ClientId"];
-    //x.Google.ClientSecret = builder.Configuration["SocialLogin:Google:ClientSecret"];
-    //x.Google.RedirectDomain = builder.Configuration["SocialLogin:Google:RedirectDomain"];
-    x.Microsoft.ClientId = builder.Configuration["SocialLogin:Microsoft:ClientId"];
-    x.Microsoft.ClientSecret = builder.Configuration["SocialLogin:Microsoft:ClientSecret"];
-    x.Microsoft.AllowedDomains = [.. builder.Configuration["SocialLogin:Microsoft:RedirectDomains"]!.Split(',')];
-    //x.Facebook.ClientId = builder.Configuration["SocialLogin:Facebook:ClientId"];
-    //x.Facebook.ClientSecret = builder.Configuration["SocialLogin:Facebook:ClientSecret"];
-    //x.Facebook.RedirectDomain = builder.Configuration["SocialLogin:Facebook:RedirectDomain"];
-},
-x =>
-{
-    x.BearerTokenExpiration = TimeSpan.FromHours(1);
-    x.RefreshTokenExpiration = TimeSpan.FromDays(100);
-});
 builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>
@@ -45,7 +28,7 @@ else
 {
     await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 }
-builder.Services.AddFantasoccerBusiness();
+builder.Services.AddFantasoccerBusiness(builder.Configuration);
 builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()

@@ -1,14 +1,31 @@
 ﻿using Fantasoccer.Business.Authorization;
 using Fantasoccer.Business.IngestionData;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Business
 {
     public static class ServiceCollectionExtensions
     {
-        public static IServiceCollection AddFantasoccerBusiness(this IServiceCollection services)
+        public static IServiceCollection AddFantasoccerBusiness(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddSocialUserProvider<SocialUserProvider>();
+            services.AddSocialLogin<SocialUserProvider>(x =>
+            {
+                //x.Google.ClientId = builder.Configuration["SocialLogin:Google:ClientId"];
+                //x.Google.ClientSecret = builder.Configuration["SocialLogin:Google:ClientSecret"];
+                //x.Google.RedirectDomain = builder.Configuration["SocialLogin:Google:RedirectDomain"];
+                x.Microsoft.ClientId = configuration["SocialLogin:Microsoft:ClientId"];
+                x.Microsoft.ClientSecret = configuration["SocialLogin:Microsoft:ClientSecret"];
+                x.Microsoft.AddUris(configuration["SocialLogin:Microsoft:RedirectDomains"]!.Split(','));
+                //x.Facebook.ClientId = builder.Configuration["SocialLogin:Facebook:ClientId"];
+                //x.Facebook.ClientSecret = builder.Configuration["SocialLogin:Facebook:ClientSecret"];
+                //x.Facebook.RedirectDomain = builder.Configuration["SocialLogin:Facebook:RedirectDomain"];
+            },
+            x =>
+            {
+                x.BearerTokenExpiration = TimeSpan.FromHours(1);
+                x.RefreshTokenExpiration = TimeSpan.FromDays(100);
+            });
             services.AddFactory<IFormationParser, Fantagazzetta>(nameof(Fantagazzetta));
             services.AddFactory<IFormationParser, Gazzetta>(nameof(Gazzetta));
             services.AddFactory<IFormationParser, Injury>(nameof(Injury));

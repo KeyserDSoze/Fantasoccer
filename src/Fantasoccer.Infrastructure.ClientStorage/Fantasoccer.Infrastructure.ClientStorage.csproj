@@ -6,6 +6,6 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.Content.Infrastructure.Storage.Blob" Version="9.0.0" />
+        <PackageReference Include="Rystem.Content.Infrastructure.Storage.Blob" Version="9.0.31" />
     </ItemGroup>
 </Project>
