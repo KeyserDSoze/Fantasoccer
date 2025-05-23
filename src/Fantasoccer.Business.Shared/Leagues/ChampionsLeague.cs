@@ -26,11 +26,36 @@ namespace Fantasoccer.Business
             var numberOfDaysUntilNow = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.Number);
             if (toPlayGames == 0)
             {
+                List<Team> winners = [];
                 for (var i = 0; i < s_avoidCalculationRounds.Count; i++)
                 {
-                    Calculate(i, s_avoidCalculationRounds[i], serieADay, calendar, rank, numberOfDaysUntilNow);
+                    var theWinner = Calculate(i, s_avoidCalculationRounds[i], serieADay, calendar, rank, numberOfDaysUntilNow);
+                    if (theWinner != null)
+                    {
+                        winners.Add(theWinner);
+                    }
                 }
-                static void Calculate(int index, string roundName, int serieADay, Calendar calendar, Rank rank, int numberOfDaysUntilNow)
+                if (winners.Count == 2)
+                {
+                    var day = new Day
+                    {
+                        Number = 38,
+                        Games = new(),
+                        SerieADay = 38
+                    };
+                    calendar.Rounds.Add(SuperCup, []);
+                    calendar.Rounds[SuperCup].Add(day);
+                    day.Games.Add(new CalendarGame
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Number = 1,
+                        Home = winners[0].Name,
+                        HomeOwner = winners[0].Owner,
+                        Away = winners[1].Name,
+                        AwayOwner = winners[1].Owner,
+                    });
+                }
+                static Team? Calculate(int index, string roundName, int serieADay, Calendar calendar, Rank rank, int numberOfDaysUntilNow)
                 {
                     List<Team> nextTeams = new();
                     if (!calendar.Rounds.ContainsKey(roundName))
@@ -38,6 +63,16 @@ namespace Fantasoccer.Business
                         foreach (var teamInGroup in rank.RankedTeams)
                             nextTeams.AddRange(teamInGroup.Value.Skip(index * 8).Take(8).Select(x => new Team { Owner = x.Owner, Name = x.Name }));
                         calendar.Rounds.Add(roundName, new());
+                    }
+                    else if (!calendar.Rounds.ContainsKey(SuperCup) && calendar.Rounds[roundName].Any(x => x.Games.Count == 1 && x.Games.All(t => t.Result != null)))
+                    {
+                        var theFinal = calendar.Rounds[roundName].Last().Games.First();
+                        if (theFinal.Result!.HomeGoal > theFinal.Result.AwayGoal
+                            || theFinal.Result.Home.Value > theFinal.Result.Away.Value)
+                            return new Team { Owner = theFinal.HomeOwner, Name = theFinal.Home };
+                        else if (theFinal.Result.AwayGoal > theFinal.Result.HomeGoal
+                            || theFinal.Result.Away.Value > theFinal.Result.Home.Value)
+                            return new Team { Owner = theFinal.AwayOwner, Name = theFinal.Away };
                     }
                     else if (calendar.Rounds[roundName].Count > 1)
                     {
@@ -113,6 +148,7 @@ namespace Fantasoccer.Business
                             }
                         }
                     }
+                    return null;
                 }
             }
             return calendar;

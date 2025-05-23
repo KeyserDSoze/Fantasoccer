@@ -8,7 +8,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
     {
         private readonly IFantasoccerLogger _logger;
         private readonly ITeamCalculator _teamCalculator;
-        private readonly IRankCalculator _rankCalculator;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IFactory<ILeagueCalculator> _leagueCalculatorFactory;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<Calendar, LeagueKey> _calendarRepository;
@@ -19,7 +19,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
 
         public GroupsManagerJob(IFantasoccerLogger logger,
             ITeamCalculator teamCalculator,
-            IRankCalculator rankCalculator,
+            IServiceProvider serviceProvider,
             IFactory<ILeagueCalculator> leagueCalculatorFactory,
             IRepository<Group, string> groups,
             IRepository<Calendar, LeagueKey> calendarRepository,
@@ -30,7 +30,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         {
             _logger = logger;
             _teamCalculator = teamCalculator;
-            _rankCalculator = rankCalculator;
+            _serviceProvider = serviceProvider;
             _leagueCalculatorFactory = leagueCalculatorFactory;
             _groups = groups;
             _calendarRepository = calendarRepository;
@@ -66,37 +66,13 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                 foreach (var round in calendar.Rounds.Where(x => x.Value.Any(t => t.SerieADay == lastDaySerieA)))
                                 {
                                     var day = round.Value.First(x => x.SerieADay == lastDaySerieA);
-                                    foreach (var game in day.Games)
-                                    {
-                                        if (game.Result?.IsCancelled == true)
-                                            continue;
-                                        var homeTeamKey = new TeamDayKey
-                                        {
-                                            Year = actualYear,
-                                            Group = group.Id,
-                                            Day = day.SerieADay,
-                                            BasketId = group.GetBasketId(game.HomeOwner)!,
-                                            Email = game.HomeOwner
-                                        };
-                                        var homeTeam = await _teamDayRepository.GetAsync(homeTeamKey);
-                                        var awayTeamKey = new TeamDayKey
-                                        {
-                                            Year = actualYear,
-                                            Group = group.Id,
-                                            Day = day.SerieADay,
-                                            BasketId = group.GetBasketId(game.AwayOwner)!,
-                                            Email = game.AwayOwner
-                                        };
-                                        var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey);
-                                        var homePoint = homeTeam != null ? _teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
-                                        var awayPoint = awayTeam != null ? _teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
-                                        game.Result = new GameResult
-                                        {
-                                            Home = homePoint,
-                                            Away = awayPoint,
-                                        };
-                                        game.Result.CalculateGoals(leagueSettings);
-                                    }
+                                    await CalculateDayAsync(group, league, leagueSettings, day, actualYear, lastDaySerieA, false);
+                                }
+                                foreach (var round in calendar.Rounds.Where(x => x.Value.Any(t => t.SerieADay < lastDaySerieA && t.Games.Any(q => q.Result == null))))
+                                {
+                                    var days = round.Value.Where(x => x.SerieADay < lastDaySerieA && x.Games.Any(q => q.Result == null));
+                                    foreach (var day in days)
+                                        await CalculateDayAsync(group, league, leagueSettings, day, actualYear, lastDaySerieA, true);
                                 }
                                 rank = leagueCalculator.GetRank(leagueSettings, calendar);
                                 var annualLeague = league.Years.First(x => x.Year == actualYear);
@@ -117,7 +93,48 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                 }
             }
         }
-
+        private async ValueTask CalculateDayAsync(Group group, League league, LeagueSetting settings, Day day, int actualYear, int lastDaySerieA, bool onlyNull)
+        {
+            var teamCalculator = _teamCalculator;
+            if (lastDaySerieA != day.SerieADay)
+            {
+                teamCalculator = _serviceProvider.GetRequiredService<ITeamCalculator>();
+                await teamCalculator.BuildRequestAsync(actualYear, day.SerieADay, league.Type, settings, false, true, false);
+            }
+            foreach (var game in day.Games)
+            {
+                if (game.Result?.IsCancelled == true)
+                    continue;
+                if (onlyNull && game.Result != null)
+                    continue;
+                var homeTeamKey = new TeamDayKey
+                {
+                    Year = actualYear,
+                    Group = group.Id,
+                    Day = day.SerieADay,
+                    BasketId = group.GetBasketId(game.HomeOwner)!,
+                    Email = game.HomeOwner
+                };
+                var homeTeam = await _teamDayRepository.GetAsync(homeTeamKey);
+                var awayTeamKey = new TeamDayKey
+                {
+                    Year = actualYear,
+                    Group = group.Id,
+                    Day = day.SerieADay,
+                    BasketId = group.GetBasketId(game.AwayOwner)!,
+                    Email = game.AwayOwner
+                };
+                var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey);
+                var homePoint = homeTeam != null ? teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
+                var awayPoint = awayTeam != null ? teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
+                game.Result = new GameResult
+                {
+                    Home = homePoint,
+                    Away = awayPoint,
+                };
+                game.Result.CalculateGoals(settings);
+            }
+        }
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<GroupsManagerJob>(exception);
     }
