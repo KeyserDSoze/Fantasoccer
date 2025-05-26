@@ -31,7 +31,7 @@
         var calendar = await Api.RealCalendar.GetAsync(State.Year);
         var liveDay = calendar?.LiveDay;
         var isLive = liveDay != null;
-        currentDay = liveDay ?? calendar?.NextDay;
+        currentDay = liveDay ?? calendar?.NextDay ?? calendar?.LastDay;
         if (isLive)
         {
             votedRealPlayerWrapper = await Api.LiveVote.GetAsync(new YearDayKey
