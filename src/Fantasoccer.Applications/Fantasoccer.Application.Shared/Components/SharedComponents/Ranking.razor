@@ -11,8 +11,8 @@
         }
     </h3>
     <div class="fluent-table-container fluent-mid-table-container">
-        <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam" AutoFit="true">
-            <TemplateColumn Title="#">
+        <FluentDataGrid Items="Teams.OrderByDescending(x => x.Point).ThenByDescending(x => x.ValuePoint).AsQueryable()" TGridItem="RankedTeam">
+            <TemplateColumn Title="#" Style="min-width:200px">
                 <img class="teamImageForRank" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, context.Owner)" />
                 @context.Name
             </TemplateColumn>

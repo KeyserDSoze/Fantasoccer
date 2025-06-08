@@ -9,6 +9,12 @@ html, body {
     min-height: calc(100vh - 50px);
 }
 
+td {
+    height: auto !important;
+    text-overflow: unset !important;
+    min-width:60px;
+}
+
 #blazor-error-ui {
     background: lightyellow;
     bottom: 0;
@@ -523,5 +529,5 @@ fluent-badge span {
 }
 
 td {
-    min-height:45px;
+    min-height: 45px;
 }
