@@ -6,7 +6,7 @@
             Items="@State.SelectedGroup!.Baskets" 
             OptionText="@(x => x.Name)"
             OptionValue="@(x => x.Id)"
-            Value="@State.SelectedBasketId" 
+            Value="@basketId" 
             SelectedOptionChanged="@OnSelectedBasketChanged" />
         <FluentTextField @bind-Value=newBasketName Label="Nome basket"></FluentTextField>
         <FluentButton Appearance="Appearance.Accent" OnClick="@CreateNewBasket">
@@ -33,7 +33,7 @@
 
     protected override Task OnParametersSetAsync()
     {
-        basketId = State?.SelectedGroup?.Baskets?.FirstOrDefault()?.Id;
+        basketId ??= State?.SelectedGroup?.Baskets?.FirstOrDefault()?.Id;
         teams = State?.GetTeamsFromBasket(State?.GroupId, basketId, State?.Year ?? FantacalcioTime.ActualYear);
         return base.OnParametersSetAsync();
     }

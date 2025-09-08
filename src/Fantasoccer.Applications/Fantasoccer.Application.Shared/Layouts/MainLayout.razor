@@ -105,7 +105,7 @@
                         @for (var year = FantacalcioTime.ActualYear; year > 0; year--)
                         {
                             var actualYear = year;
-                            if (State?.SelectedLeague?.Years.Any(x => x.Year == year) == true)
+                            if (actualYear == FantacalcioTime.ActualYear || State?.SelectedLeague?.Years.Any(x => x.Year == year) == true)
                             {
                                 <FluentNavLink Class="@(State?.Year == actualYear || (State == null && actualYear == FantacalcioTime.ActualYear) ? "active" : string.Empty)"
                                                OnClick="() => ChangeYearAsync(actualYear)"

@@ -6,8 +6,8 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="9.1.1" />
-        <PackageReference Include="Rystem.Authentication.Social" Version="9.1.1" />
+        <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="9.1.3" />
+        <PackageReference Include="Rystem.Authentication.Social" Version="9.1.3" />
         <PackageReference Include="WebPush" Version="1.0.12" />
     </ItemGroup>
 
