@@ -17,6 +17,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<AllPlayersAndAllTeamsJob>(options =>
                 {
+                    options.RunImmediately = true;
                     options.Cron = "0 0 5 * * *";
                 })
                 .AddBackgroundJob<LiveVotesJob>(options =>

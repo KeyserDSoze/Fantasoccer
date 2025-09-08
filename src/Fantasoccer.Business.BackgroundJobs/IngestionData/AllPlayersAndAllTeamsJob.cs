@@ -36,7 +36,7 @@ namespace Fantasoccer.Engine.IngestionData
             var year = FantacalcioTime.ActualYear;
             var realTeams = await _realTeamsRepository.GetAsync(year);
             var notExistsRealTeams = realTeams == null;
-            var notCorrectNumberForRealTeams = realTeams.Teams.Count < 20;
+            var notCorrectNumberForRealTeams = realTeams?.Teams?.Count < 20;
             if (notExistsRealTeams || notCorrectNumberForRealTeams)
             {
                 var officialVotes = await _vote.GetAsync(year, 1);
