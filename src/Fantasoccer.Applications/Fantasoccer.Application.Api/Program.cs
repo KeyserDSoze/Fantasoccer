@@ -45,6 +45,7 @@ if (isInMemory)
     builder.Services.AddDefaultValues(false);
 }
 
+
 var app = builder.Build();
 await app.Services.WarmUpAsync();
 //app.UseResponseCompression();
