@@ -60,7 +60,7 @@ namespace Fantasoccer.Engine.IngestionData
                 else
                 {
                     var calendar = await _serieA.GetCalendarAsync().NoContext();
-                    result = await _repository.InsertAsync(FantacalcioTime.ActualYear, calendar).NoContext();
+                    result = await _repository.UpdateAsync(FantacalcioTime.ActualYear, calendar).NoContext();
                 }
                 var rank = await _serieA.GetRankAsync().NoContext();
                 if (await _rankRepository.ExistAsync(FantacalcioTime.ActualYear))

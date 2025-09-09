@@ -7,9 +7,12 @@ namespace Fantasoccer.Business
     internal sealed class SerieAInformation : ISerieAInformation
     {
         private readonly HttpClient _serieAHttpClient;
+        private readonly HttpClient _calendarHttpClientFromGazzetta;
+
         public SerieAInformation(IHttpClientFactory httpClientFactory)
         {
             _serieAHttpClient = httpClientFactory.CreateClient("seriea");
+            _calendarHttpClientFromGazzetta = httpClientFactory.CreateClient("seriea-gazzetta-calendar");
         }
 
         public async Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38)
@@ -20,17 +23,44 @@ namespace Fantasoccer.Business
             {
                 Days = []
             };
-            var serieCalendar = await _serieAHttpClient.GetFromJsonAsync<CalendarRoot>("widget/category?lang=it&parent=264699&limit=50&order_index=ASC", default);
-            foreach (var day in serieCalendar!.Data.Body.OrderBy(x => int.Parse(x.Order)))
+            for (var day = min; day <= max; day++)
             {
-                var serieADay = int.Parse(day.Order);
-                if (serieADay < min)
-                    continue;
-                if (serieADay > max)
-                    continue;
-                var theDay = await GetDayAsync(serieADay, day.Id);
-                calendar.Days.Add(theDay);
+                var theDay = await _calendarHttpClientFromGazzetta.GetFromJsonAsync<GazzettaCalendario>($"v1/sports/calendar?day={day}&sportId=1&competitionId=21");
+                var realDay = new RealDay
+                {
+                    Games = [],
+                    SerieADay = day,
+                    Year = FantacalcioTime.ActualYear
+                };
+                calendar.Days.Add(realDay);
+                foreach (var game in theDay.data.games)
+                {
+                    foreach (var match in game.matches)
+                    {
+                        realDay.Games.Add(new RealGame
+                        {
+                            Home = new RealTeam { Name = match.homeTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.homeTeam.shortTeamName.ToLower() },
+                            Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName.ToLower() },
+                            Date = FantacalcioTime.ToItalyNow(match.utcDate),
+                            Delayed = false,
+                            HomeGoal = match.homeTeam.score,
+                            AwayGoal = match.awayTeam.score
+                        });
+                    }
+                }
+                await Task.Delay(300);
             }
+            //var serieCalendar = await _serieAHttpClient.GetFromJsonAsync<CalendarRoot>("widget/category?lang=it&parent=266660&limit=50&order_index=ASC", default);
+            //foreach (var day in serieCalendar!.Data.Body.OrderBy(x => int.Parse(x.Order)))
+            //{
+            //    var serieADay = int.Parse(day.Order);
+            //    if (serieADay < min)
+            //        continue;
+            //    if (serieADay > max)
+            //        continue;
+            //    var theDay = await GetDayAsync(serieADay, day.Id);
+            //    calendar.Days.Add(theDay);
+            //}
             return calendar;
         }
         private async Task<RealDay> GetDayAsync(int day, string dayId)
@@ -56,23 +86,23 @@ namespace Fantasoccer.Business
         public async Task<RealRank> GetRankAsync()
         {
             var season = FantacalcioTime.LabelYear(FantacalcioTime.ItalyNow, '-', true);
-            var rank = await _serieAHttpClient.GetFromJsonAsync<RankRoot>($"stats/Classificacompleta?CAMPIONATO=A&STAGIONE={season}&TURNO=UNICO&GIRONE=UNI", default);
+            var rank = await _serieAHttpClient.GetFromJsonAsync<RankRoot>($"stats/v3/live/overall?season_id=serie-a::Football_Season::5f0e080fc3a44073984b75b3a8e06a8a", default);
             var realRank = new RealRank
             {
                 Teams = [],
             };
-            foreach (var team in rank.Data)
+            foreach (var team in rank!.data.standings.First().teams)
             {
                 realRank.Teams.Add(new RealRankedTeam
                 {
-                    Name = team.Nome,
-                    Goal = team.RETIFATTE ?? 0,
-                    SufferedGoal = team.RETISUBITE ?? 0,
-                    Defeats = team.Perse ?? 0,
-                    Draws = team.Pareggiate ?? 0,
-                    Victories = team.Vinte ?? 0,
-                    Point = team.PuntiCls ?? 0,
-                    Played = team.Giocate ?? 0
+                    Name = team.officialName,
+                    Goal = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "goals-for")?.statsValue.ToString() ?? "0"),
+                    SufferedGoal = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "goals-against")?.statsValue.ToString() ?? "0"),
+                    Defeats = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "lose")?.statsValue.ToString() ?? "0"),
+                    Draws = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "draw")?.statsValue.ToString() ?? "0"),
+                    Victories = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "win")?.statsValue.ToString() ?? "0"),
+                    Point = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "points")?.statsValue.ToString() ?? "0"),
+                    Played = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "matches-played")?.statsValue.ToString() ?? "0")
                 });
             }
             realRank.Teams = [.. realRank.Teams.OrderByDescending(x => x.Point)];
@@ -442,143 +472,123 @@ namespace Fantasoccer.Business
             public int? Code { get; set; }
         }
 
-        public class RankDatum
-        {
-            [JsonPropertyName("CAMPIONATO")]
-            public string CAMPIONATO { get; set; }
-
-            [JsonPropertyName("CODSQUADRA")]
-            public string CODSQUADRA { get; set; }
-
-            [JsonPropertyName("GIRONE")]
-            public string GIRONE { get; set; }
-
-            [JsonPropertyName("Giocate")]
-            public int? Giocate { get; set; }
-
-            [JsonPropertyName("GiocateCasa")]
-            public int? GiocateCasa { get; set; }
-
-            [JsonPropertyName("GiocateFuori")]
-            public int? GiocateFuori { get; set; }
-
-            [JsonPropertyName("Nome")]
-            public string Nome { get; set; }
-
-            [JsonPropertyName("NomeCompleto")]
-            public string NomeCompleto { get; set; }
-
-            [JsonPropertyName("NomeSintetico")]
-            public string NomeSintetico { get; set; }
-
-            [JsonPropertyName("Pareggiate")]
-            public int? Pareggiate { get; set; }
-
-            [JsonPropertyName("PareggiateCasa")]
-            public int? PareggiateCasa { get; set; }
-
-            [JsonPropertyName("PareggiateFuori")]
-            public int? PareggiateFuori { get; set; }
-
-            [JsonPropertyName("Perse")]
-            public int? Perse { get; set; }
-
-            [JsonPropertyName("PerseCasa")]
-            public int? PerseCasa { get; set; }
-
-            [JsonPropertyName("PerseFuori")]
-            public int? PerseFuori { get; set; }
-
-            [JsonPropertyName("PosCls")]
-            public int? PosCls { get; set; }
-
-            [JsonPropertyName("PuntiCls")]
-            public int? PuntiCls { get; set; }
-
-            [JsonPropertyName("PuntiClsCasa")]
-            public int? PuntiClsCasa { get; set; }
-
-            [JsonPropertyName("PuntiClsFuori")]
-            public int? PuntiClsFuori { get; set; }
-
-            [JsonPropertyName("PuntiPen")]
-            public int? PuntiPen { get; set; }
-
-            [JsonPropertyName("RETIFATTE")]
-            public int? RETIFATTE { get; set; }
-
-            [JsonPropertyName("RETISUBITE")]
-            public int? RETISUBITE { get; set; }
-
-            [JsonPropertyName("RetiFatteCasa")]
-            public int? RetiFatteCasa { get; set; }
-
-            [JsonPropertyName("RetiFatteFuori")]
-            public int? RetiFatteFuori { get; set; }
-
-            [JsonPropertyName("RetiSubiteCasa")]
-            public int? RetiSubiteCasa { get; set; }
-
-            [JsonPropertyName("RetiSubiteFuori")]
-            public int? RetiSubiteFuori { get; set; }
-
-            [JsonPropertyName("STAGIONE")]
-            public string STAGIONE { get; set; }
-
-            [JsonPropertyName("TURNO")]
-            public string TURNO { get; set; }
-
-            [JsonPropertyName("Vinte")]
-            public int? Vinte { get; set; }
-
-            [JsonPropertyName("VinteCasa")]
-            public int? VinteCasa { get; set; }
-
-            [JsonPropertyName("VinteFuori")]
-            public int? VinteFuori { get; set; }
-
-            [JsonPropertyName("do_deleted")]
-            public int? DoDeleted { get; set; }
-
-            [JsonPropertyName("do_inserted")]
-            public int? DoInserted { get; set; }
-
-            [JsonPropertyName("do_loaded")]
-            public int? DoLoaded { get; set; }
-
-            [JsonPropertyName("do_updated")]
-            public int? DoUpdated { get; set; }
-
-            [JsonPropertyName("team_active")]
-            public string TeamActive { get; set; }
-
-            [JsonPropertyName("team_image")]
-            public string TeamImage { get; set; }
-
-            [JsonPropertyName("team_image_secondary")]
-            public string TeamImageSecondary { get; set; }
-
-            [JsonPropertyName("team_slug")]
-            public string TeamSlug { get; set; }
-        }
-
         public class RankRoot
         {
-            [JsonPropertyName("success")]
-            public bool Success { get; set; }
-
-            [JsonPropertyName("message")]
-            public string Message { get; set; }
-
-            [JsonPropertyName("errors")]
-            public List<object> Errors { get; set; }
-
-            [JsonPropertyName("data")]
-            public List<RankDatum> Data { get; set; }
-
-            [JsonPropertyName("code")]
-            public int? Code { get; set; }
+            public bool success { get; set; }
+            public string message { get; set; }
+            public object[] errors { get; set; }
+            public Data data { get; set; }
+            public int code { get; set; }
         }
 
+        public class Data
+        {
+            public DateTime apiCallRequestTime { get; set; }
+            public Standing[] standings { get; set; }
+        }
+
+        public class Standing
+        {
+            public DateTime apiCallRequestTime { get; set; }
+            public Competition competition { get; set; }
+            public Editorial[] editorials { get; set; }
+            public object[] legenda { get; set; }
+            public Team[] teams { get; set; }
+            public string type { get; set; }
+        }
+
+        public class Competition
+        {
+            public string acronymName { get; set; }
+            public string competitionId { get; set; }
+            public object endDateUtc { get; set; }
+            public string name { get; set; }
+            public string officialName { get; set; }
+            public string providerId { get; set; }
+            public string seasonId { get; set; }
+            public string seasonName { get; set; }
+            public string shortName { get; set; }
+            public object startDateUtc { get; set; }
+        }
+
+        public class Editorial
+        {
+            public string colour { get; set; }
+            public string label { get; set; }
+            public string standingPosition { get; set; }
+            public string standingType { get; set; }
+        }
+
+        public class Team
+        {
+            public object[] achievementStatuses { get; set; }
+            public string acronymName { get; set; }
+            public string acronymNameLocalized { get; set; }
+            public object countryCode { get; set; }
+            public bool isTeamFake { get; set; }
+            public string mediaName { get; set; }
+            public string mediaShortName { get; set; }
+            public string note { get; set; }
+            public string officialName { get; set; }
+            public string providerId { get; set; }
+            public object qualification { get; set; }
+            public string shortName { get; set; }
+            public object stadium { get; set; }
+            public Stat[] stats { get; set; }
+            public string teamId { get; set; }
+            public object teamType { get; set; }
+            public string team_active { get; set; }
+            public string team_id { get; set; }
+            public string team_image { get; set; }
+            public string team_image_secondary { get; set; }
+            public string team_slug { get; set; }
+        }
+
+        public class Stat
+        {
+            public string statsId { get; set; }
+            public string statsLabel { get; set; }
+            public string statsLabelAbbreviation { get; set; }
+            public object statsUnit { get; set; }
+            public object statsUnitAbbreviation { get; set; }
+            public object statsValue { get; set; }
+        }
+
+        public class GazzettaCalendario
+        {
+            public GazzettaData data { get; set; }
+        }
+
+        public class GazzettaData
+        {
+            public Game[] games { get; set; }
+        }
+
+        public class Game
+        {
+            public Match[] matches { get; set; }
+        }
+
+        public class Match
+        {
+            public DateTime utcDate { get; set; }
+            public bool liveUpdated { get; set; }
+            public bool highlighted { get; set; }
+            public string competitionId { get; set; }
+            public string competitionName { get; set; }
+            public string competitionDay { get; set; }
+            public GazzettaTeam awayTeam { get; set; }
+            public GazzettaTeam homeTeam { get; set; }
+            public string status { get; set; }
+        }
+
+        public class GazzettaTeam
+        {
+            public string shortTeamName { get; set; }
+            public string teamCode { get; set; }
+            public string teamName { get; set; }
+            public int score { get; set; }
+            public string teamId { get; set; }
+        }
     }
 }
