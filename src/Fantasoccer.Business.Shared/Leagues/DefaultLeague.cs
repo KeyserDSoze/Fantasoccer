@@ -37,6 +37,7 @@ namespace Fantasoccer.Business
                 if (!calendar.Rounds.ContainsKey(key))
                     calendar.Rounds.Add(key, []);
                 var singleRound = calendar.Rounds[key];
+                var oddRounds = homeAwayRound % 2 == 0;
                 foreach (var rounds in randomizedCalendar.GroupBy(x => x.Day))
                 {
                     foreach (var games in rounds.GroupBy(x => x.Round))
@@ -48,8 +49,8 @@ namespace Fantasoccer.Business
                         var gameCount = 1;
                         foreach (var game in games)
                         {
-                            var home = homeAwayRound % 2 == 0 ? randomizedTeams[game.Game.ATeam] : randomizedTeams[game.Game.BTeam];
-                            var away = homeAwayRound % 2 == 0 ? randomizedTeams[game.Game.BTeam] : randomizedTeams[game.Game.ATeam];
+                            var home = oddRounds ? randomizedTeams[game.Game.ATeam] : randomizedTeams[game.Game.BTeam];
+                            var away = oddRounds ? randomizedTeams[game.Game.BTeam] : randomizedTeams[game.Game.ATeam];
                             day.Games.Add(new CalendarGame
                             {
                                 Id = Guid.NewGuid().ToString(),
