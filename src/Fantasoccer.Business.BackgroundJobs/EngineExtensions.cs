@@ -12,7 +12,6 @@ namespace Fantasoccer.Engine
             services
                 .AddBackgroundJob<SerieAJob>(options =>
                 {
-                    options.RunImmediately = true;
                     options.Cron = "0 */5 * * * *";
                 })
                 .AddBackgroundJob<AllPlayersAndAllTeamsJob>(options =>
