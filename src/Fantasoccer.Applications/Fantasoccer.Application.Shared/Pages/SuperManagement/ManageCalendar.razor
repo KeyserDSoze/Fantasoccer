@@ -6,6 +6,7 @@
 
 @if (realCalendar != null)
 {
+    <FluentButton Appearance="Appearance.Accent" OnClick="() => RecalculateStatsForPlayers()">Ricalcola le statistiche dei giocatori</FluentButton>
     <FluentGrid Spacing="0" AdaptiveRendering="true" Justify="JustifyContent.FlexStart">
         @foreach (var day in realCalendar.Days)
         {
@@ -46,6 +47,8 @@
     public bool WithFluentSize { get; set; }
     [Inject]
     public required ITeamCalculator TeamCalculator { get; set; }
+    [Inject]
+    public required IStatsPlayerGenerator StatPlayerGenerator { get; set; }
     private List<int> recalculateForDelayed = new();
     private RealCalendar? realCalendar;
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -81,6 +84,12 @@
     {
         LoadingIndicator?.Show();
         await TeamCalculator.RecalculateDayAsync(serieADay);
+        LoadingIndicator?.Hide();
+    }
+    private async Task RecalculateStatsForPlayers()
+    {
+        LoadingIndicator?.Show();
+        await StatPlayerGenerator.GenerateAndSaveAsync(State.Year, realCalendar.LastDay.SerieADay);
         LoadingIndicator?.Hide();
     }
     private string CalculateResult(RealGame game)
