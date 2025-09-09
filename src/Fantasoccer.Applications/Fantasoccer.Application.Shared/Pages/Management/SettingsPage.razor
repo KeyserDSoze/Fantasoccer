@@ -32,6 +32,11 @@
             <h3>Logo</h3>
             <div>
                 <img style="max-width:100px;margin-bottom:10px;" src="@ImageUriHelper.GetTeamImageUri(State.GroupId!, State.Year, State.Identity.Email)" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" />
+                <div style="margin-bottom:10px;">
+                    <FluentButton Appearance="Appearance.Accent" OnClick="@UseOldLogoAsync">
+                        Usa il logo dell'anno precedente
+                    </FluentButton>
+                </div>
                 <FluentInputFile Id="logo-uploader"
                                  Mode="InputFileMode.Stream"
                                  Multiple="false"
@@ -137,11 +142,11 @@
         if (State?.SelectedTeam != null)
         {
             team = await Api.Team.GetAsync(State.OtherTeamKey(State.SelectedTeam.Owner)) ?? new Team
-                {
-                    Name = State.SelectedTeam.Name,
-                    Owner = State.SelectedTeam.Owner,
-                    Players = new()
-                };
+            {
+                Name = State.SelectedTeam.Name,
+                Owner = State.SelectedTeam.Owner,
+                Players = new()
+            };
             pushNotificationSettings = await Api.PushNotification.GetAsync(State.Identity!.Email!) ?? new PushNotificationSettings();
             isSubscribed = await JS.InvokeAsync<bool>("isSubscribedToNotification", null);
             var settings = await Api.Settings.GetAsync(State.Identity.Email);
@@ -157,26 +162,33 @@
         if (await Api.Settings.ExistAsync(State!.Identity!.Email))
         {
             await Api.Settings.UpdateAsync(State.Identity.Email, new Settings
-                {
-                    AiPrompt = aiLearner
-                });
+            {
+                AiPrompt = aiLearner
+            });
         }
         else
         {
             await Api.Settings.InsertAsync(State.Identity.Email, new Settings
-                {
-                    AiPrompt = aiLearner
-                });
+            {
+                AiPrompt = aiLearner
+            });
         }
     }
     private async Task OnCompletedAsync(IEnumerable<FluentInputFileEventArgs> files)
     {
+        LoadingIndicator.Show();
         var contentRepository = ContentFactory.Create("logos")!;
         foreach (var file in files.Where(x => x?.Stream != null))
         {
             var logoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
             var data = await file.Stream!.ToArrayAsync();
-            var response = await contentRepository.UploadAsync(logoKey, data);
+            var response = await contentRepository.UploadAsync(logoKey, data, new ContentRepositoryOptions
+            {
+                Metadata = new Dictionary<string, string>
+                    {
+                        { "Content-Type", "image/png" }
+                    }
+            });
             if (response)
             {
                 ToastService.ShowSuccess("Logo caricato con successo.");
@@ -187,6 +199,44 @@
                 ToastService.ShowError($"Errore durante il caricamento del logo.");
             }
         }
+        StateHasChanged();
+        LoadingIndicator.Hide();
+    }
+    private async Task UseOldLogoAsync()
+    {
+        LoadingIndicator.Show();
+        var contentRepository = ContentFactory.Create("logos")!;
+        var oldLogoKey = $"{State.GroupId}/{State.Year - 1}/{team.Owner}.png";
+        var newLogoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
+        if (await contentRepository.ExistAsync(oldLogoKey))
+        {
+            var data = await contentRepository.DownloadAsync(oldLogoKey);
+            if (data?.Data != null)
+            {
+                var response = await contentRepository.UploadAsync(newLogoKey, data.Data, new ContentRepositoryOptions
+                {
+                    Metadata = new Dictionary<string, string>
+                    {
+                        { "Content-Type", "image/png" }
+                    }
+                });
+                if (response)
+                {
+                    ToastService.ShowSuccess("Logo caricato con successo.");
+                    await InvokeAsync(StateHasChanged);
+                }
+                else
+                {
+                    ToastService.ShowError($"Errore durante il caricamento del logo.");
+                }
+            }
+        }
+        else
+        {
+            ToastService.ShowError("Non esiste un logo per l'anno precedente.");
+        }
+        StateHasChanged();
+        LoadingIndicator.Hide();
     }
 
     async Task OnSaveClicked()
@@ -295,17 +345,17 @@
         {
             var key = State.Identity!.Email!;
             PushNotificationSubscription notificationSubscription = value.FromJson<PushNotificationSubscription>(new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+            {
+                PropertyNameCaseInsensitive = true
+            });
             if (!pushNotificationSettings!.Subscriptions.Any(x => x.Auth == notificationSubscription.Keys.Auth))
             {
                 pushNotificationSettings.Subscriptions.Add(new PushSubscription
-                    {
-                        Auth = notificationSubscription.Keys.Auth,
-                        Endpoint = notificationSubscription.Endpoint,
-                        P256DH = notificationSubscription.Keys.P256DH
-                    });
+                {
+                    Auth = notificationSubscription.Keys.Auth,
+                    Endpoint = notificationSubscription.Endpoint,
+                    P256DH = notificationSubscription.Keys.P256DH
+                });
             }
             await SavePushSettingsAsync();
         }
@@ -316,9 +366,9 @@
         {
             var key = State.Identity!.Email!;
             PushNotificationSubscription notificationSubscription = value.FromJson<PushNotificationSubscription>(new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+            {
+                PropertyNameCaseInsensitive = true
+            });
             if (await Api.PushNotification.ExistAsync(key))
             {
                 var subscription = pushNotificationSettings!.Subscriptions.FirstOrDefault(x => x.Auth == notificationSubscription.Keys.Auth);
