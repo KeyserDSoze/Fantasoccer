@@ -177,47 +177,18 @@
     private async Task OnCompletedAsync(IEnumerable<FluentInputFileEventArgs> files)
     {
         LoadingIndicator.Show();
-        var contentRepository = ContentFactory.Create("logos")!;
-        foreach (var file in files.Where(x => x?.Stream != null))
+        try
         {
-            var logoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
-            var data = await file.Stream!.ToArrayAsync();
-            var response = await contentRepository.UploadAsync(logoKey, data, new ContentRepositoryOptions
+            var contentRepository = ContentFactory.Create("logos")!;
+            foreach (var file in files.Where(x => x?.Stream != null))
             {
-                Metadata = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "image/png" }
-                    }
-            });
-            if (response)
-            {
-                ToastService.ShowSuccess("Logo caricato con successo.");
-                await InvokeAsync(StateHasChanged);
-            }
-            else
-            {
-                ToastService.ShowError($"Errore durante il caricamento del logo.");
-            }
-        }
-        StateHasChanged();
-        LoadingIndicator.Hide();
-    }
-    private async Task UseOldLogoAsync()
-    {
-        LoadingIndicator.Show();
-        var contentRepository = ContentFactory.Create("logos")!;
-        var oldLogoKey = $"{State.GroupId}/{State.Year - 1}/{team.Owner}.png";
-        var newLogoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
-        if (await contentRepository.ExistAsync(oldLogoKey))
-        {
-            var data = await contentRepository.DownloadAsync(oldLogoKey);
-            if (data?.Data != null)
-            {
-                var response = await contentRepository.UploadAsync(newLogoKey, data.Data, new ContentRepositoryOptions
+                var logoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
+                var data = await file.Stream!.ToArrayAsync();
+                var response = await contentRepository.UploadAsync(logoKey, data, new ContentRepositoryOptions
                 {
-                    Metadata = new Dictionary<string, string>
+                    HttpHeaders = new()
                     {
-                        { "Content-Type", "image/png" }
+                        ContentType = "image/png"
                     }
                 });
                 if (response)
@@ -230,12 +201,56 @@
                     ToastService.ShowError($"Errore durante il caricamento del logo.");
                 }
             }
+            StateHasChanged();
         }
-        else
+        catch (Exception ex)
         {
-            ToastService.ShowError("Non esiste un logo per l'anno precedente.");
+            ToastService.ShowError($"Errore durante il caricamento del logo.");
         }
-        StateHasChanged();
+        LoadingIndicator.Hide();
+    }
+    private async Task UseOldLogoAsync()
+    {
+        LoadingIndicator.Show();
+        try
+        {
+
+            var contentRepository = ContentFactory.Create("logos")!;
+            var oldLogoKey = $"{State.GroupId}/{State.Year - 1}/{team.Owner}.png";
+            var newLogoKey = $"{State.GroupId}/{State.Year}/{team.Owner}.png";
+            if (await contentRepository.ExistAsync(oldLogoKey))
+            {
+                var data = await contentRepository.DownloadAsync(oldLogoKey);
+                if (data?.Data != null)
+                {
+                    var response = await contentRepository.UploadAsync(newLogoKey, data.Data, new ContentRepositoryOptions
+                    {
+                        HttpHeaders = new()
+                        {
+                            ContentType = "image/png"
+                        }
+                    });
+                    if (response)
+                    {
+                        ToastService.ShowSuccess("Logo caricato con successo.");
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    else
+                    {
+                        ToastService.ShowError($"Errore durante il caricamento del logo.");
+                    }
+                }
+            }
+            else
+            {
+                ToastService.ShowError("Non esiste un logo per l'anno precedente.");
+            }
+            StateHasChanged();
+        }
+        catch
+        {
+            ToastService.ShowError($"Errore durante il caricamento del logo.");
+        }
         LoadingIndicator.Hide();
     }
 
