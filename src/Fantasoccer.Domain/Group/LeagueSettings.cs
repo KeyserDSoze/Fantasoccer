@@ -34,6 +34,8 @@ namespace Fantasoccer
         public int PointForStrongDefense4 { get; set; }
         [JsonPropertyName("5")]
         public int PointForStrongDefense5 { get; set; }
+        [JsonPropertyName("gp")]
+        public int PointForGoodPeople { get; set; }
         [JsonPropertyName("l")]
         public int PointForCleanSheet { get; set; }
         [JsonPropertyName("m")]
@@ -61,7 +63,7 @@ namespace Fantasoccer
                  SufferedGoal = -1,
                  WrongedPenalty = -3,
                  Injury = 0,
-                 ManOfTheMatch = 0
+                 ManOfTheMatch = 2
             } } },
             DelayedDay = 2,
             CancelledDay = 1,
@@ -73,12 +75,13 @@ namespace Fantasoccer
             PointForVictory = 3,
             PointForDefeat = 0,
             PointForDraw = 1,
-            PointForStrongDefense = 3,
-            PointForStrongDefense4 = 3,
-            PointForStrongDefense5 = 3,
+            PointForStrongDefense = 2,
+            PointForStrongDefense4 = 4,
+            PointForStrongDefense5 = 6,
             MoneyForGoal = 5,
             MoneyForSufferedGoal = 3,
             PointForCleanSheet = 1,
+            PointForGoodPeople = 2,
             RandomAuction = false
         };
     }

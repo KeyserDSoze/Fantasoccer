@@ -92,11 +92,12 @@ namespace Fantasoccer.Business
         public Point CalculatePoint(IEnumerable<EnrichedPlayer> players)
         {
             if (!players.Any() || LeagueSetting == null)
-                return new Point(0F, false, false);
+                return new Point(0F, false, false, false);
             var point = 0F;
             var defensiveBonus = true;
             var defensorCount = 0;
             var leagueCalculator = _leagueCalculator.Create(LeagueType.ToString())!;
+            var goodPeople = true;
             foreach (var player in leagueCalculator.GetRightFormation(players).Where(x => x.CurrentPosition <= FantaSoccerRole.Forward))
             {
                 if (player.Vote != default && player.Vote.HasVote)
@@ -107,7 +108,11 @@ namespace Fantasoccer.Business
                 }
                 if (player.Current.Role == Role.Defensor && (player.Vote == default || !player.Vote.HasVote || player.Vote.Value < 6))
                     defensiveBonus = false;
+                if (player.Vote == default || !player.Vote.HasVote || player.Vote.Status != Behaviour.Nothing)
+                    goodPeople = false;
             }
+            if (goodPeople)
+                point += LeagueSetting.PointForGoodPeople;
             if (defensiveBonus)
             {
                 if (defensorCount == 3)
@@ -117,7 +122,7 @@ namespace Fantasoccer.Business
                 else if (defensorCount == 5)
                     point += LeagueSetting.PointForStrongDefense5;
             }
-            return new Point(point, defensiveBonus,
+            return new Point(point, defensiveBonus, goodPeople,
                 LeagueSetting.PointForOwnGoal > 0 && point < LeagueSetting.PointForFirstGoal - LeagueSetting.PointForOwnGoal);
         }
         public EnrichedPlayer Enrich(Player player)
