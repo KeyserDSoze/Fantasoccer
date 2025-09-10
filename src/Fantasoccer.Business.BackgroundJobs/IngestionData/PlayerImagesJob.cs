@@ -14,9 +14,6 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IFantasoccerLogger _logger;
         private readonly IRepository<RealPlayersWrapper, int> _realPlayers;
         private readonly IContentRepository _contentRepository;
-        private static readonly Regex s_link = new("class=\"spieler-zelle\"");
-        private static readonly Regex s_linkTeam = new("class=\"club\"");
-        private static readonly Regex s_image = new("https://img.a.transfermarkt.technology");
         public PlayerImagesJob(IFantasoccerLogger logger, IHttpClientFactory httpClientFactory,
             IRepository<RealPlayersWrapper, int> realPlayers,
             IFactory<IContentRepository> factory)
@@ -39,7 +36,7 @@ namespace Fantasoccer.Engine.IngestionData
             var players = (await _realPlayers.GetAsync(year).NoContext())?.Players;
             if (players != null)
             {
-                var url = "https://www.legaseriea.it/api/widget/player?lang=it&offset=0&limit=1030&type=PRIMAVERA";
+                var url = "https://www.legaseriea.it/api/widget/player?lang=it&offset=0&limit=1030";
                 var playerImages = await _httpClient.GetFromJsonAsync<Rootobject>(url).NoContext();
                 foreach (var player in players)
                 {
