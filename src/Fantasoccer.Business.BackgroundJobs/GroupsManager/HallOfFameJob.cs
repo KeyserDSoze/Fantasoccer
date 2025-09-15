@@ -105,7 +105,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                             {
                                 foreach (var game in day.Games)
                                 {
-                                    if (game.Result == null || !game.Result.HasValue)
+                                    if (game.HasNoResult)
                                         continue;
                                     if (hallOfFame.RecordGame == null)
                                         hallOfFame.RecordGame = new RecordGame

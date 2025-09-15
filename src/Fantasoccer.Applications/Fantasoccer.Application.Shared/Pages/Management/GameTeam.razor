@@ -253,7 +253,7 @@
                 });
             counter++;
         }
-        if (!isInEdit && game.Result == null)
+        if (!isInEdit && game?.HasNoResult == true)
         {
             game.Result = new()
                 {

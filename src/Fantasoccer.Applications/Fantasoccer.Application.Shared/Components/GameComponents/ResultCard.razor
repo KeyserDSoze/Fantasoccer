@@ -3,7 +3,7 @@
     <div class="@Css" @onclick=OnClick>
         <img class="teamImage" onerror="@ImageUriHelper.GetPlaceholderTeamImageUri()" src="@ImageUriHelper.GetTeamImageUri(State.GroupId, State.Year, Game.HomeOwner)" />
         <span id="team-name-home" class="team">@Game.Home</span>
-        @if (Game.Result != default && !Game.Result.IsCancelled)
+        @if (!Game.HasNoResult && !Game.Result.IsCancelled)
         {
             @if (Game.Result.Home.DefensiveBonus)
             {

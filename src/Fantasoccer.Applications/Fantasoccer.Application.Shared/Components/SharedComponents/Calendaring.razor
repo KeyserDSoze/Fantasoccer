@@ -35,13 +35,13 @@
     public NavigationManager NavigationManager { get; set; }
     private string CalculateResult(CalendarGame game)
     {
-        if (game.Result == null)
+        if (game.HasNoResult)
             return "Da giocare";
-        else if (game.Result.IsCancelled)
+        else if (game.Result?.IsCancelled == true)
             return "Cancellata";
         else
         {
-            return $"{game.Result.HomeGoal} ({game.Result.Home.Value}) - ({game.Result.Away.Value}) {game.Result.AwayGoal}";
+            return $"{game.Result!.HomeGoal} ({game.Result.Home.Value}) - ({game.Result.Away.Value}) {game.Result.AwayGoal}";
         }
     }
     private void NavigateTo(FluentDataGridRow<CalendarGame> calendarGame)

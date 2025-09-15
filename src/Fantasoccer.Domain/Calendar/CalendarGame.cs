@@ -18,5 +18,8 @@ namespace Fantasoccer
         public string AwayOwner { get; set; }
         [JsonPropertyName("r")]
         public GameResult? Result { get; set; }
+
+        [JsonIgnore]
+        public bool HasNoResult => Result == null || !Result.HasValue;
     }
 }

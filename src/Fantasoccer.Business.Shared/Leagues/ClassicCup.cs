@@ -203,7 +203,7 @@ namespace Fantasoccer.Business
 
             static string? GetWinner(CalendarGame game)
             {
-                if (game.Result != null)
+                if (!game.HasNoResult)
                 {
                     if (game.Result.HomeGoal > game.Result.AwayGoal)
                         return game.HomeOwner;
