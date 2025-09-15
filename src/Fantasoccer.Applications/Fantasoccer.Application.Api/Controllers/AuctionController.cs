@@ -14,16 +14,28 @@ namespace Fantasoccer.Application.Api.Controllers
         private IRepository<RealPlayersWrapper, int> RealPlayers { get; }
         private IRepository<RealPlayersWrapper, LeagueKey> RandomizedRealPlayers { get; }
         private IRepository<Team, TeamKey> Team { get; }
-        public AuctionController(IRepository<RealPlayersWrapper, int> realPlayers, IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers, IRepository<Team, TeamKey> team)
+        private IRepository<Group, string> Groups { get; }
+        public AuctionController(IRepository<RealPlayersWrapper, int> realPlayers, IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups)
         {
             RealPlayers = realPlayers;
             RandomizedRealPlayers = randomizedRealPlayers;
             Team = team;
+            Groups = groups;
         }
         [HttpGet]
         public async Task<string> GetTeamNameAsync([FromQuery] string email, [FromQuery] string group, [FromQuery] string basket, [FromQuery] int year)
         {
-            var team = await Team.GetAsync(new TeamKey { Year = year, Email = email, Group = group, BasketId = basket });
+            var teamKey = new TeamKey { Year = year, Email = email, Group = group, BasketId = basket };
+            var team = await Team.GetAsync(teamKey);
+            if (team == null)
+            {
+                var theGroup = await Groups.GetAsync(group);
+                var theBasket = theGroup.Baskets.First(x => x.Id == basket);
+                var theYear = theBasket.Years.First(x => x.Year == year);
+                var theTeam = theYear.Teams.First(x => x.Owner == email);
+                team = new() { Name = theTeam.Name, Owner = theTeam.Owner, Players = [] };
+                await Team.UpdateAsync(teamKey, team);
+            }
             return team.Name;
         }
         [HttpGet]
