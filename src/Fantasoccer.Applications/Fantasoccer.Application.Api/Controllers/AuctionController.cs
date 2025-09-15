@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System;
+using System.Drawing;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RepositoryFramework;
 
@@ -6,21 +8,30 @@ namespace Fantasoccer.Application.Api.Controllers
 {
     [AllowAnonymous]
     [ApiController]
-    [Route("[controller]")]
+    [Route("[controller]/[action]")]
     public class AuctionController : ControllerBase
     {
         private IRepository<RealPlayersWrapper, int> RealPlayers { get; }
         private IRepository<RealPlayersWrapper, LeagueKey> RandomizedRealPlayers { get; }
-        public AuctionController(IRepository<RealPlayersWrapper, int> realPlayers, IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers)
+        private IRepository<Team, TeamKey> Team { get; }
+        public AuctionController(IRepository<RealPlayersWrapper, int> realPlayers, IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers, IRepository<Team, TeamKey> team)
         {
             RealPlayers = realPlayers;
             RandomizedRealPlayers = randomizedRealPlayers;
+            Team = team;
         }
-
         [HttpGet]
-        public async Task<RealPlayer?> GetNextPlayerAsync([FromQuery] string group, [FromQuery] string league, [FromQuery] int year, [FromQuery] bool isRandom = false)
+        public async Task<string> GetTeamNameAsync([FromQuery] string email, [FromQuery] string group, [FromQuery] string basket, [FromQuery] int year)
         {
-            LeagueKey leagueKey = new LeagueKey
+            var team = await Team.GetAsync(new TeamKey { Year = year, Email = email, Group = group, BasketId = basket });
+            return team.Name;
+        }
+        [HttpGet]
+        public async ValueTask<bool> SetPlayerAsync([FromQuery] string email, [FromQuery] string group, [FromQuery] string league, [FromQuery] string basket, [FromQuery] int year, [FromQuery] string playerName, [FromQuery] int price, [FromQuery] bool isRandom = false)
+        {
+            var teamKey = new TeamKey { Year = year, Email = email, Group = group, BasketId = basket };
+            var team = await Team.GetAsync(teamKey);
+            var leagueKey = new LeagueKey
             {
                 Group = group,
                 League = league,
@@ -33,12 +44,43 @@ namespace Fantasoccer.Application.Api.Controllers
                     allPlayersWrapper.Players.OrderBy(x => x.Role).ToList() :
                     allPlayersWrapper.Players.OrderBy(x => x.Role).ThenBy(x => x.Name).ToList();
             var players = playersFromStore.Where(x => x.IsActive).ToList();
-            return await ShowTheNextPlayerAsync(leagueKey, players);
+            var thePlayer = players.FirstOrDefault(x => x.Name == playerName);
+            team.Players.Add(new Player
+            {
+                IsActive = true,
+                Name = thePlayer.Name,
+                RealTeam = thePlayer.RealTeam,
+                Price = price,
+                Role = thePlayer.Role,
+                Status = PlayerInTeamStatus.Active,
+                Position = FantaSoccerRole.Tribune
+            });
+            return await Team.UpdateAsync(teamKey, team);
+        }
+
+        [HttpGet]
+        public async Task<RealPlayer?> GetNextPlayerAsync([FromQuery] string group, [FromQuery] string league, [FromQuery] int year, [FromQuery] int role, [FromQuery] bool isRandom = false)
+        {
+            var theRole = (Role)role;
+            var leagueKey = new LeagueKey
+            {
+                Group = group,
+                League = league,
+                Year = year,
+            };
+            var allPlayersWrapper = isRandom ?
+                await RandomizedRealPlayers.GetAsync(leagueKey) :
+                await RealPlayers.GetAsync(leagueKey.Year);
+            var playersFromStore = isRandom == true ?
+                    allPlayersWrapper.Players.OrderBy(x => x.Role).ToList() :
+                    allPlayersWrapper.Players.OrderBy(x => x.Role).ThenBy(x => x.Name).ToList();
+            var players = playersFromStore.Where(x => x.IsActive).ToList();
+            return await ShowTheNextPlayerAsync(leagueKey, players, theRole);
 
         }
-        private async Task<RealPlayer?> ShowTheNextPlayerAsync(LeagueKey leagueKey, List<RealPlayer> players)
+        private async Task<RealPlayer?> ShowTheNextPlayerAsync(LeagueKey leagueKey, List<RealPlayer> players, Role role)
         {
-            foreach (var player in players.OrderBy(x => x.Role))
+            foreach (var player in players.Where(x => x.Role == role).OrderBy(x => x.Role))
             {
                 if (!player.Visible)
                 {
