@@ -26,6 +26,7 @@ namespace Fantasoccer.Application.Api.Controllers
         public async Task<string> GetTeamNameAsync([FromQuery] string email, [FromQuery] string group, [FromQuery] string basket, [FromQuery] int year)
         {
             var teamKey = new TeamKey { Year = year, Email = email, Group = group, BasketId = basket };
+
             var team = await Team.GetAsync(teamKey);
             if (team == null)
             {
