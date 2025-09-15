@@ -35,10 +35,10 @@
     public NavigationManager NavigationManager { get; set; }
     private string CalculateResult(CalendarGame game)
     {
-        if (game.HasNoResult)
-            return "Da giocare";
-        else if (game.Result?.IsCancelled == true)
+        if (game.Result?.IsCancelled == true)
             return "Cancellata";
+        else if (game.HasNoResult)
+            return "Da giocare";
         else
         {
             return $"{game.Result!.HomeGoal} ({game.Result.Home.Value}) - ({game.Result.Away.Value}) {game.Result.AwayGoal}";
