@@ -11,6 +11,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@azure/msal-browser": "^3.26.1",
+    "@azure/msal-react": "^2.1.1",
     "@tamagui/config": "^1.133.0",
     "@tamagui/next-theme": "^1.133.0",
     "app": "0.0.0",
