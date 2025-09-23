@@ -158,7 +158,6 @@ function AuthenticatedContent({ user }: { user: any }) {
 
       <TokenSystemExample />
 
-      <DashboardDemo />
     </YStack>
   )
 }
@@ -190,78 +189,5 @@ function FeatureCard({ icon, title, description }: {
         </Text>
       </YStack>
     </Card>
-  )
-}
-
-function DashboardDemo() {
-  const toast = useToastController()
-  const [open, setOpen] = useState(false)
-  const [position, setPosition] = useState(0)
-
-  return (
-    <YStack gap="$4" align="center">
-      <Button
-        size="$5"
-        icon={open ? ChevronDown : ChevronUp}
-        onPress={() => setOpen((x) => !x)}
-        bg="$blue10"
-        color="white"
-      >
-        Mostra Menu Rapido
-      </Button>
-      
-      <Sheet
-        modal
-        animation="medium"
-        open={open}
-        onOpenChange={setOpen}
-        snapPoints={[80]}
-        position={position}
-        onPositionChange={setPosition}
-        dismissOnSnapToBottom
-      >
-        <Sheet.Overlay
-          bg="$shadow4"
-          animation="lazy"
-          enterStyle={{ opacity: 0 }}
-          exitStyle={{ opacity: 0 }}
-        />
-        <Sheet.Handle bg="$color8" />
-        <Sheet.Frame items="center" justify="center" gap="$6" bg="$color2">
-          <H3 color="$color12">Menu Fantasoccer</H3>
-          
-          <YStack gap="$3" align="center">
-            <Button size="$4" bg="$green10" color="white" disabled opacity={0.6}>
-              Le Mie Leghe
-            </Button>
-            <Button size="$4" bg="$orange10" color="white" disabled opacity={0.6}>
-              Mercato
-            </Button>
-            <Button size="$4" bg="$purple10" color="white" disabled opacity={0.6}>
-              Statistiche
-            </Button>
-          </YStack>
-
-          <Text fontSize="$3" color="$color10" textAlign="center">
-            Funzionalità in arrivo con l'integrazione completa delle API
-          </Text>
-
-          <Button
-            size="$4"
-            bg="$red10"
-            color="white"
-            icon={ChevronDown}
-            onPress={() => {
-              setOpen(false)
-              toast.show('Menu chiuso!', {
-                message: 'Torna presto per nuove funzionalità...',
-              })
-            }}
-          >
-            Chiudi
-          </Button>
-        </Sheet.Frame>
-      </Sheet>
-    </YStack>
   )
 }

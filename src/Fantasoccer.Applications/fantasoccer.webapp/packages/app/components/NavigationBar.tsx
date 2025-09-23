@@ -44,30 +44,31 @@ const navigationItems = [
     section: 'Main',
     items: [
       { path: '/', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
-      { path: '/standings', label: 'Fantasy Standings', icon: Trophy, description: 'Fantasy league standings' },
-      { path: '/calendar', label: 'Fantasy Calendar', icon: Calendar, description: 'Fantasy league calendar' },
-      { path: '/live', label: 'Live', icon: Zap, description: 'Live matches and fantasy points' },
+      { path: '/standings', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
+      { path: '/calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
+      { path: '/live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
     ],
   },
   {
-    section: 'League',
+    section: 'Lega',
     items: [
-      { path: '/teams', label: 'Teams', icon: Users, description: 'Teams in current fantasy league' },
+      { path: '/my-team', label: 'My Team', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
+      { path: '/teams', label: 'Teams', icon: Users, description: 'Tutte le squadre della tua lega' },
     ],
   },
   {
-    section: 'Players',
+    section: 'Giocatori',
     items: [
-      { path: '/players', label: 'All Players', icon: UserCheck, description: 'Serie A players list' },
-      { path: '/free-players', label: 'Free Players', icon: User, description: 'Available free players' },
+      { path: '/players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Elenco dei giocatori di Serie A' },
+      { path: '/free-players', label: 'Giocatori liberi', icon: User, description: 'Giocatori disponibili nella tua lega' },
     ],
   },
   {
-    section: 'Market',
+    section: 'Mercato',
     items: [
-      { path: '/market', label: 'Market Hub', icon: DollarSign, description: 'Trading marketplace' },
-      { path: '/market/trades', label: 'Current Trades', icon: TrendingUp, description: 'Active trade offers' },
-      { path: '/market/trades/history', label: 'Trade History', icon: Calendar, description: 'Past trades' },
+      { path: '/market', label: 'Mercato', icon: DollarSign, description: 'Trading marketplace' },
+      { path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
+      { path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
     ],
   },
   {
@@ -75,12 +76,6 @@ const navigationItems = [
     items: [
       { path: '/seriea/standings', label: 'Serie A Standings', icon: Trophy, description: 'Official Serie A table' },
       { path: '/seriea/calendar', label: 'Serie A Calendar', icon: Calendar, description: 'Serie A fixtures' },
-    ],
-  },
-  {
-    section: 'My Team',
-    items: [
-      { path: '/my-team', label: 'My Team', icon: Users, description: 'Manage lineup for current round' },
     ],
   },
   {
@@ -128,7 +123,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const userGroups = user?.groups || []
   const isAdmin = userGroups.some(group => hasRole(group.role, IdentityRole.Admin))
   // For now, super admin logic would need backend implementation
-  const isSuperAdmin = userGroups.some(group => hasRole(group.role, IdentityRole.Admin) && group.name === 'SuperAdmin')
+  const isSuperAdmin = userGroups.some(group => hasRole(group.role, IdentityRole.SuperAdmin))
 
   // Responsive sheet settings
   const snapPointsMode = media.gtSm ? 'fit' : 'percent'
