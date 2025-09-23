@@ -14,11 +14,11 @@ L'integrazione con le API del backend Fantasoccer è stata completata con succes
 ### Endpoints Configurati:
 
 **Development (localhost:7223)**:
-- Token Exchange: `GET /api/Authentication/Social/Token?code={msalToken}&code=2`
+- Token Exchange: `GET /api/Authentication/Social/Token?code={msalToken}&provider=2`
 - User Info: `GET /api/Authentication/Social/User`
 
 **Production (apifc.azurewebsites.net)**:
-- Token Exchange: `GET /api/Authentication/Social/Token?code={msalToken}&code=2`
+- Token Exchange: `GET /api/Authentication/Social/Token?code={msalToken}&provider=2`
 - User Info: `GET /api/Authentication/Social/User`
 
 ### Rilevamento Ambiente:
