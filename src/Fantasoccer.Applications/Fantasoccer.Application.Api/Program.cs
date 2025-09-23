@@ -34,6 +34,15 @@ builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()
     .WithDefaultCorsWithAllOrigins();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("LocalHost",
+        policy => policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
 //builder.Services.AddSignalR();
 //builder.Services.AddResponseCompression(opts =>
 //{
@@ -50,6 +59,7 @@ var app = builder.Build();
 await app.Services.WarmUpAsync();
 //app.UseResponseCompression();
 app.UseHttpsRedirection();
+app.UseCors("LocalHost");
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
