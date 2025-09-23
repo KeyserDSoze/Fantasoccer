@@ -3,10 +3,13 @@ import { RepositoryServices } from "rystem.repository.client";
 import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "app/types/identity";
+import { RealCalendarRaw } from "../types/serieA";
+import { buildApiUrl } from "app/services/apiConfig";
 
 // Repository setup
 export const setupRepositoryServices = () => {
-  const baseUrl = 'https://fcapi.azurewebsites.net/api/';
+  // const baseUrl = 'https://fcapi.azurewebsites.net/api/';
+  const baseUrl = buildApiUrl('/api/');
 
   RepositoryServices
     .Create(baseUrl)
@@ -16,12 +19,19 @@ export const setupRepositoryServices = () => {
       x.path = "AppIdentity";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
+    })
+    // RealCalendar (Serie A)
+    .addRepository<RealCalendarRaw, number>(x => {
+      x.name = "RealCalendar";
+      x.path = "RealCalendar";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
     });
 };
 
 // Helper function for auth headers
 const getAuthHeaders = async () : Promise<HeadersInit> => {
-  const accessToken = tokenStorageService.getTokenString();
+  const accessToken = await tokenStorageService.getTokenString();
   return accessToken ? {
     "Authorization": `Bearer ${accessToken}`,
     "Content-Type": "application/json"

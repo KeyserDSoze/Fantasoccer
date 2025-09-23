@@ -3,15 +3,6 @@ export interface ApiEndpoints {
   // Authentication
   tokenExchange: string
   userInfo: string
-  
-  // Serie A Calendar
-  realCalendar: string
-  
-  // Future endpoints can be added here
-  // teams: string
-  // players: string
-  // market: string
-  // etc.
 }
 
 export interface ApiConfig {
@@ -22,20 +13,12 @@ export interface ApiConfig {
 // Configuration for different environments
 export const API_CONFIGS = {
   development: {
-    // baseUrl: 'https://localhost:7223',
-    baseUrl: 'https://apifc.azurewebsites.net',
+    baseUrl: 'https://localhost:7223',
+    // baseUrl: 'https://apifc.azurewebsites.net',
     endpoints: {
       // Authentication endpoints
       tokenExchange: '/api/Authentication/Social/Token',
       userInfo: '/api/Authentication/Social/User',
-      
-      // Serie A Calendar
-      realCalendar: '/api/RealCalendar/Get',
-      
-      // Future endpoints
-      // teams: '/api/Teams',
-      // players: '/api/Players',
-      // market: '/api/Market',
     },
   },
   production: {
@@ -43,15 +26,7 @@ export const API_CONFIGS = {
     endpoints: {
       // Authentication endpoints
       tokenExchange: '/api/Authentication/Social/Token',
-      userInfo: '/api/Authentication/Social/User',
-      
-      // Serie A Calendar
-      realCalendar: '/api/RealCalendar/Get',
-      
-      // Future endpoints
-      // teams: '/api/Teams',
-      // players: '/api/Players',
-      // market: '/api/Market',
+      userInfo: '/api/Authentication/Social/User'
     },
   },
 } as const

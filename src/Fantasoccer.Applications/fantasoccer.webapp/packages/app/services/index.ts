@@ -1,5 +1,6 @@
 // Export all services for easy import
 export { authService, TokenExchangeResponse } from './authService'
+export { serieAService } from './serieAService'
 export { tokenStorageService } from './tokenStorageService'
 export type { StoredTokenData } from './tokenStorageService'
 

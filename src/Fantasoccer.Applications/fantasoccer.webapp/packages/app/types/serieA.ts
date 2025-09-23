@@ -4,29 +4,29 @@
 // RAW INTERFACES (matching JSON property names from C#)
 // ============================================
 
-export interface RawRealTeam {
+export interface RealTeamRaw {
   n: string           // Name (matches [JsonPropertyName("n")])
   a: string           // Abbreviation (matches [JsonPropertyName("a")])
 }
 
-export interface RawRealGame {
-  h: RawRealTeam      // Home team (matches [JsonPropertyName("h")])
-  a: RawRealTeam      // Away team (matches [JsonPropertyName("a")])
+export interface RealGameRaw {
+  h: RealTeamRaw      // Home team (matches [JsonPropertyName("h")])
+  a: RealTeamRaw      // Away team (matches [JsonPropertyName("a")])
   d: string | null    // Date (matches [JsonPropertyName("d")]) - ISO string from backend
   g: number | null    // Home goals (matches [JsonPropertyName("g")])
   y: number | null    // Away goals (matches [JsonPropertyName("y")])
   e: boolean          // Delayed (matches [JsonPropertyName("e")])
 }
 
-export interface RawRealDay {
+export interface RealDayRaw {
   y: number           // Year (matches [JsonPropertyName("y")])
   a: number           // Serie A Day number (matches [JsonPropertyName("a")])
-  g: RawRealGame[]    // Games (matches [JsonPropertyName("g")])
+  g: RealGameRaw[]    // Games (matches [JsonPropertyName("g")])
 }
 
-export interface RawRealCalendar {
+export interface RealCalendarRaw {
   y: number           // Year (matches [JsonPropertyName("y")])
-  d: RawRealDay[]     // Days (matches [JsonPropertyName("d")])
+  d: RealDayRaw[]     // Days (matches [JsonPropertyName("d")])
 }
 
 // ============================================
@@ -62,14 +62,14 @@ export interface RealCalendar {
 // MAPPING FUNCTIONS
 // ============================================
 
-export function mapRawTeamToTeam(raw: RawRealTeam): RealTeam {
+export function mapRawTeamToTeam(raw: RealTeamRaw): RealTeam {
   return {
     name: raw.n,
     abbreviation: raw.a
   }
 }
 
-export function mapRawGameToGame(raw: RawRealGame): RealGame {
+export function mapRawGameToGame(raw: RealGameRaw): RealGame {
   return {
     home: mapRawTeamToTeam(raw.h),
     away: mapRawTeamToTeam(raw.a),
@@ -80,7 +80,7 @@ export function mapRawGameToGame(raw: RawRealGame): RealGame {
   }
 }
 
-export function mapRawDayToDay(raw: RawRealDay): RealDay {
+export function mapRawDayToDay(raw: RealDayRaw): RealDay {
   return {
     year: raw.y,
     serieADay: raw.a,
@@ -88,7 +88,7 @@ export function mapRawDayToDay(raw: RawRealDay): RealDay {
   }
 }
 
-export function mapRawCalendarToCalendar(raw: RawRealCalendar): RealCalendar {
+export function mapRawCalendarToCalendar(raw: RealCalendarRaw): RealCalendar {
   return {
     year: raw.y,
     days: raw.d.map(mapRawDayToDay)

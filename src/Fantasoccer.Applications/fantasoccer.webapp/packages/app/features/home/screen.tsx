@@ -12,11 +12,11 @@ import {
 } from '@my/ui'
 import { Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
 import { Platform } from 'react-native'
-import { useLink } from 'solito/navigation'
 import { useAuth } from '../../auth/AuthProvider'
 import { LoginButton, UserProfile } from '../auth'
 import { TokenSystemExample } from '../../components/TokenSystemExample'
 import { NavigationBar } from '../../components/NavigationBar'
+import { SerieADayCard } from '../../components/SerieADayCard'
 
 export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
   const { isAuthenticated, user, isLoading } = useAuth()
@@ -112,32 +112,7 @@ function AuthenticatedContent({ user }: { user: any }) {
   return (
     <YStack gap="$6" maxWidth={800} align="center" width="100%">
       <YStack gap="$4" width="100%">
-        <H3 textAlign="center" color="$color12">
-          Giornata Attuale Serie A
-        </H3>
-        
-        <Card padding="$4" bg="$color2" borderRadius="$4" width="100%">
-          <YStack gap="$3" align="center">
-            <XStack gap="$2" align="center">
-              <Calendar size="$2" color="$orange10" />
-              <Text fontSize="$6" fontWeight="bold" color="$color12">
-                Giornata in caricamento...
-              </Text>
-            </XStack>
-            <Text fontSize="$4" color="$color10" textAlign="center">
-              Le informazioni sulla giornata verranno caricate dalle API
-            </Text>
-            <Button 
-              size="$4" 
-              bg="$blue10" 
-              color="white"
-              disabled
-              opacity={0.6}
-            >
-              Gestisci Formazione
-            </Button>
-          </YStack>
-        </Card>
+        <SerieADayCard />
       </YStack>
 
       <TokenSystemExample />
