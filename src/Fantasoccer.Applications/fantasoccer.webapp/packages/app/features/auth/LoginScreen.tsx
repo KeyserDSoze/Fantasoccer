@@ -1,0 +1,73 @@
+import React from 'react'
+import { Text, YStack, XStack, Spinner, H1, H2, Card } from '@my/ui'
+import { useAuth } from '../../auth'
+import { LoginButton } from './LoginButton'
+
+export function LoginScreen() {
+  const { isLoading, error } = useAuth()
+
+  return (
+    <YStack flex={1} justifyContent="center" alignItems="center" padding="$4" backgroundColor="$background">
+      <YStack maxWidth={400} width="100%" gap="$6" alignItems="center">
+        
+        {/* App Logo/Title */}
+        <YStack alignItems="center" gap="$2">
+          <H1 color="$blue10" fontWeight="800" textAlign="center">
+            ⚽ Fantasoccer
+          </H1>
+          <Text fontSize="$4" color="$gray10" textAlign="center">
+            La tua lega fantacalcio
+          </Text>
+        </YStack>
+
+        {/* Login Card */}
+        <Card padding="$6" width="100%" backgroundColor="$background" borderRadius="$6" elevate>
+          <YStack gap="$4" alignItems="center">
+            
+            <YStack alignItems="center" gap="$2">
+              <H2 fontSize="$6" fontWeight="600" color="$gray12">
+                Benvenuto
+              </H2>
+              <Text fontSize="$4" color="$gray10" textAlign="center">
+                Accedi con il tuo account Microsoft per continuare
+              </Text>
+            </YStack>
+
+            {/* Error Message */}
+            {error && (
+              <Card backgroundColor="$red2" borderColor="$red8" borderWidth={1} padding="$3" width="100%">
+                <Text color="$red11" fontSize="$3" textAlign="center">
+                  {error}
+                </Text>
+              </Card>
+            )}
+
+            {/* Loading State */}
+            {isLoading ? (
+              <YStack alignItems="center" gap="$3" paddingVertical="$4">
+                <Spinner size="large" color="$blue10" />
+                <Text color="$gray10" fontSize="$3">
+                  Accesso in corso...
+                </Text>
+              </YStack>
+            ) : (
+              <LoginButton variant="primary" size="$5" fullWidth />
+            )}
+
+            {/* Info Text */}
+            <Text fontSize="$2" color="$gray8" textAlign="center" maxWidth="90%">
+              Utilizzando l'accesso Microsoft, accetti i nostri termini di servizio e la privacy policy.
+            </Text>
+          </YStack>
+        </Card>
+
+        {/* Additional Info */}
+        <YStack alignItems="center" gap="$2">
+          <Text fontSize="$3" color="$gray9" textAlign="center">
+            Primo accesso? Il tuo account verrà creato automaticamente.
+          </Text>
+        </YStack>
+      </YStack>
+    </YStack>
+  )
+}
