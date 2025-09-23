@@ -1,6 +1,13 @@
 // Authentication service - handles all auth-related API calls
+import { 
+  AppIdentity, 
+  AppIdentityRaw, 
+  mapAppIdentity, 
+  mapAppIdentityToRaw 
+} from '../types/identity'
 import { buildApiUrl, getCommonHeaders, ApiError } from './apiConfig'
 import { tokenStorageService } from './tokenStorageService'
+import { RepositoryServices } from 'rystem.repository.client'
 
 // Response types
 export interface TokenExchangeResponse {
@@ -8,44 +15,6 @@ export interface TokenExchangeResponse {
   accessToken: string    // The actual JWT token to use for API calls
   expiresIn: number      // Token expiration in seconds (e.g., 3600)
   refreshToken: string   // Token used to refresh when accessToken expires
-}
-
-export interface UserInfoResponse {
-  u: string              // Username
-  e: string              // Email
-  s: {                   // State
-    g: string            // Current group ID
-    l: string            // Current league ID
-    y: number            // Year
-    m: string            // Working email (may be different from main email)
-  }
-  g: Array<{            // Groups array
-    i: string            // Group ID
-    n: string            // Group name
-    r: number            // Role flags (Reader=1, Participant=2, Admin=4)
-  }>
-}
-
-// Enum for Identity Roles (as flags)
-export enum IdentityRole {
-  None = 0,
-  Reader = 1,
-  Participant = 2,
-  Admin = 4,
-  SuperAdmin = 8,
-}
-
-// Helper functions for role checking
-export const hasRole = (userRole: number, role: IdentityRole): boolean => {
-  return (userRole & role) === role
-}
-
-export const getUserRoleNames = (roleFlags: number): string[] => {
-  const roles: string[] = []
-  if (hasRole(roleFlags, IdentityRole.Reader)) roles.push('Reader')
-  if (hasRole(roleFlags, IdentityRole.Participant)) roles.push('Participant')
-  if (hasRole(roleFlags, IdentityRole.Admin)) roles.push('Admin')
-  return roles
 }
 
 // PKCE Helper for OAuth flow
@@ -67,41 +36,27 @@ export class AuthService {
           provider: '2',
           code_verifier: options.codeVerifier
         })
-        console.log('🔄 Exchanging OAuth code with PKCE for backend token...')
-        console.log('🔐 Code Verifier:', options.codeVerifier)
       } else {
         // MSAL flow: send MSAL token directly
         url = buildApiUrl('/api/Authentication/Social/Token', {
           code: authCode,
           provider: '2'
         })
-        console.log('🔄 Exchanging MSAL token for backend token...')
       }
-      
-      console.log('📍 API URL:', url.replace(/code_verifier=[^&]*/, 'code_verifier=***')) // Hide verifier in logs
-      console.log('🎫 Auth Code (first 20 chars):', authCode.substring(0, 20) + '...')
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getCommonHeaders(),
       })
 
-      console.log('📊 Exchange response status:', response.status)
-      console.log('📊 Exchange response headers:', Object.fromEntries(response.headers.entries()))
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Token exchange failed:', errorText)
         throw new ApiError(`Token exchange failed: ${response.status} ${response.statusText}`, response.status, errorText)
       }
 
       const data = await response.json()
-      console.log('✅ Token exchange successful!')
-      console.log('📄 Backend token response:', data)
-
       return data
     } catch (error) {
-      console.error('❌ Token exchange error:', error)
       if (error instanceof ApiError) throw error
       throw new ApiError(`Failed to exchange token: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
@@ -115,62 +70,42 @@ export class AuthService {
   // Refresh access token using refresh token
   async refreshToken(refreshToken: string): Promise<TokenExchangeResponse> {
     try {
-      console.log('🔄 Refreshing access token...')
-      
       // Use provider=0 and refreshToken as code parameter
       const url = buildApiUrl('/api/Authentication/Social/Token', {
         code: refreshToken,
         provider: '0'
       })
-      
-      console.log('📍 Refresh API URL:', url.replace(/code=[^&]*/, 'code=***'))
-      console.log('🔄 Refresh Token (first 20 chars):', refreshToken.substring(0, 20) + '...')
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getCommonHeaders(),
       })
 
-      console.log('📊 Refresh response status:', response.status)
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Token refresh failed:', errorText)
         throw new ApiError(`Token refresh failed: ${response.status} ${response.statusText}`, response.status, errorText)
       }
 
       const data = await response.json()
-      console.log('✅ Token refresh successful!')
-      console.log('📄 New token expires in:', data.expiresIn, 'seconds')
-
       return data
     } catch (error) {
-      console.error('❌ Token refresh error:', error)
       if (error instanceof ApiError) throw error
       throw new ApiError(`Failed to refresh token: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   // Get user information using backend JWT token with automatic refresh
-  async getUserInfo(accessToken: string, refreshToken?: string): Promise<UserInfoResponse> {
+  async getUserInfo(accessToken: string, refreshToken?: string): Promise<AppIdentity> {
     try {
       const url = buildApiUrl('/api/Authentication/Social/User')
-      
-      console.log('🔄 Fetching user info from backend...')
-      console.log('📍 API URL:', url)
-      console.log('🎫 Access Token (first 20 chars):', accessToken.substring(0, 20) + '...')
 
       const response = await fetch(url, {
         method: 'GET',
         headers: getCommonHeaders(true, accessToken),
       })
 
-      console.log('📊 User info response status:', response.status)
-
       // If unauthorized and we have a refresh token, try to refresh
       if (response.status === 401 && refreshToken) {
-        console.log('🔄 Access token expired, attempting refresh...')
-        
         try {
           const newTokenData = await this.refreshToken(refreshToken)
           
@@ -183,18 +118,15 @@ export class AuthService {
           })
           
           // Retry the original request with new token
-          console.log('🔄 Retrying user info request with refreshed token...')
           return await this.getUserInfo(newTokenData.accessToken)
           
         } catch (refreshError) {
-          console.error('❌ Token refresh failed, user needs to re-login:', refreshError)
           throw new ApiError('REFRESH_FAILED') // Special error to trigger re-login
         }
       }
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ User info fetch failed:', errorText)
         
         if (response.status === 401) {
           throw new ApiError('UNAUTHORIZED') // Trigger re-login
@@ -203,43 +135,188 @@ export class AuthService {
         throw new ApiError(`User info fetch failed: ${response.status} ${response.statusText}`, response.status, errorText)
       }
 
-      const data = await response.json()
-      console.log('✅ User info fetch successful!')
-      console.log('👤 User data:', data)
-
-      return data
+      const rawData: AppIdentityRaw = await response.json()
+      return mapAppIdentity(rawData)
     } catch (error) {
-      console.error('❌ User info fetch error:', error)
-      
-      // More specific error details
-      if (error instanceof Error) {
-        console.error('Error name:', error.name)
-        console.error('Error message:', error.message)
-      }
-      
       if (error instanceof ApiError) throw error
       throw new ApiError(`Failed to fetch user info: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
+  // Update user state and groups
+  async updateUserState(updatedUser: AppIdentity): Promise<boolean> {
+    const repository = RepositoryServices
+      .Repository<AppIdentityRaw, string>("AppIdentity");
 
-  // Check if user has specific role in any group
-  hasUserRole(user: UserInfoResponse, role: IdentityRole): boolean {
-    return user.g.some(group => hasRole(group.r, role))
+    const userId = updatedUser.id || updatedUser.email; // Use email as fallback ID
+    const result = await repository.update(userId, mapAppIdentityToRaw(updatedUser));
+    if (!result) 
+        return false;
+    return result.isOk;
   }
 
-  // Get user's current year from state
-  getUserYear(user: UserInfoResponse): number {
-    return user.s.y
+  // Helper methods for updating specific parts of user state
+  
+  // Update user's current year
+  async updateUserYear(user: AppIdentity, newYear: number): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      state: {
+        ...user.state,
+        year: newYear,
+        raw: {
+          ...user.state.raw,
+          y: newYear
+        }
+      },
+      raw: {
+        ...user.raw,
+        s: {
+          ...user.raw.s,
+          y: newYear
+        }
+      }
+    }
+    return this.updateUserState(updatedUser)
   }
 
-  // Get user's current group ID
-  getUserGroupId(user: UserInfoResponse): string {
-    return user.s.g
+  // Update user's current league
+  async updateUserLeague(user: AppIdentity, newLeagueId: string): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      state: {
+        ...user.state,
+        leagueId: newLeagueId,
+        raw: {
+          ...user.state.raw,
+          l: newLeagueId
+        }
+      },
+      raw: {
+        ...user.raw,
+        s: {
+          ...user.raw.s,
+          l: newLeagueId
+        }
+      }
+    }
+    return this.updateUserState(updatedUser)
   }
 
-  // Get user's current league ID
-  getUserLeagueId(user: UserInfoResponse): string {
-    return user.s.l
+  // Update user's current group
+  async updateUserGroup(user: AppIdentity, newGroupId: string): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      state: {
+        ...user.state,
+        groupId: newGroupId,
+        raw: {
+          ...user.state.raw,
+          g: newGroupId
+        }
+      },
+      raw: {
+        ...user.raw,
+        s: {
+          ...user.raw.s,
+          g: newGroupId
+        }
+      }
+    }
+    return this.updateUserState(updatedUser)
+  }
+
+  // Update user's working email
+  async updateUserWorkingEmail(user: AppIdentity, newWorkingEmail: string): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      state: {
+        ...user.state,
+        meOrLeaderEmail: newWorkingEmail,
+        raw: {
+          ...user.state.raw,
+          m: newWorkingEmail
+        }
+      },
+      raw: {
+        ...user.raw,
+        s: {
+          ...user.raw.s,
+          m: newWorkingEmail
+        }
+      }
+    }
+    return this.updateUserState(updatedUser)
+  }
+
+  // Add a group to user's groups array
+  async addUserGroup(user: AppIdentity, newGroup: { id: string, name: string, role: number }): Promise<boolean> {
+    const newMappedGroup = {
+      id: newGroup.id,
+      name: newGroup.name,
+      role: newGroup.role,
+      raw: {
+        i: newGroup.id,
+        n: newGroup.name,
+        r: newGroup.role
+      }
+    }
+    
+    const updatedUser: AppIdentity = {
+      ...user,
+      groups: [...user.groups, newMappedGroup],
+      raw: {
+        ...user.raw,
+        g: [...user.raw.g, newMappedGroup.raw]
+      }
+    }
+    return this.updateUserState(updatedUser)
+  }
+
+  // Remove a group from user's groups array
+  async removeUserGroup(user: AppIdentity, groupIdToRemove: string): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      groups: user.groups.filter(group => group.id !== groupIdToRemove),
+      raw: {
+        ...user.raw,
+        g: user.raw.g.filter(group => group.i !== groupIdToRemove)
+      }
+    }
+    return this.updateUserState(updatedUser)
+  }
+
+  // Update a specific group in user's groups array
+  async updateUserGroupInfo(user: AppIdentity, groupId: string, updatedGroup: { name?: string, role?: number }): Promise<boolean> {
+    const updatedUser: AppIdentity = {
+      ...user,
+      groups: user.groups.map(group => 
+        group.id === groupId 
+          ? {
+              ...group,
+              ...(updatedGroup.name && { name: updatedGroup.name }),
+              ...(updatedGroup.role !== undefined && { role: updatedGroup.role }),
+              raw: {
+                ...group.raw,
+                ...(updatedGroup.name && { n: updatedGroup.name }),
+                ...(updatedGroup.role !== undefined && { r: updatedGroup.role })
+              }
+            }
+          : group
+      ),
+      raw: {
+        ...user.raw,
+        g: user.raw.g.map(group => 
+          group.i === groupId 
+            ? {
+                ...group,
+                ...(updatedGroup.name && { n: updatedGroup.name }),
+                ...(updatedGroup.role !== undefined && { r: updatedGroup.role })
+              }
+            : group
+        )
+      }
+    }
+    return this.updateUserState(updatedUser)
   }
 }
 

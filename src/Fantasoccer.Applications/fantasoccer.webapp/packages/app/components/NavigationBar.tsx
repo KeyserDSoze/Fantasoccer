@@ -31,7 +31,7 @@ import {
   Gavel,
 } from '@tamagui/lucide-icons'
 import { useAuth } from '../auth/AuthProvider'
-import { hasRole, IdentityRole } from '../services/authService'
+import { hasRole, IdentityRole } from '../types/identity'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 
 interface NavigationBarProps {
@@ -238,9 +238,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
             <YStack padding="$4" gap="$4">
               {/* Header */}
               <XStack justifyContent="space-between" alignItems="center" marginBottom="$4">
-                <Text fontSize="$8" fontWeight="bold" color="$blue10">
-                  Fantasoccer ⚽
-                </Text>
+                 {user && (<Text fontSize="$8" fontWeight="bold" color="$blue10">
+                  Ciao {user.username}
+                </Text>)}
                 <Button
                   size="$3"
                   circular
@@ -260,17 +260,14 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                   borderRadius="$4" 
                   marginBottom="$4"
                 >
-                  <Text fontSize="$5" fontWeight="600" color="$color12">
-                    {user.username}
-                  </Text>
-                  <Text fontSize="$3" color="$color10">
-                    {user.email}
-                  </Text>
                   {user.groups?.[0] && (
                     <Text fontSize="$3" color="$blue10" marginTop="$1">
                       📊 {user.groups[0].name} • Year {user.state?.year}
                     </Text>
                   )}
+                  <Text fontSize="$3" color="$color10">
+                    {user.email}
+                  </Text>
                 </YStack>
               )}
 

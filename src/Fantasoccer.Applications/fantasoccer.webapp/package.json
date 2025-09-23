@@ -41,6 +41,7 @@
     "eslint": "^9.3.0",
     "husky": "^9.1.6",
     "prettier": "^3.3.3",
+    "rystem.repository.client": "^0.2.5",
     "turbo": "^1.13.4",
     "typescript": "~5.8.3",
     "ultra-runner": "^3.10.5",

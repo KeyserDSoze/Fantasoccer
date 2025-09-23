@@ -3,7 +3,8 @@ import React, { useState } from 'react'
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native'
 import { useAuth } from '../auth/AuthProvider'
 import { apiRequest } from '../services/apiRequestHelper'
-import { authService, getUserRoleNames, IdentityRole, hasRole } from '../services/authService'
+import { authService } from '../services/authService'
+import { getUserRoleNames, IdentityRole, hasRole } from '../types/identity'
 import { tokenStorageService } from '../services/tokenStorageService'
 
 export const TokenSystemExample: React.FC = () => {

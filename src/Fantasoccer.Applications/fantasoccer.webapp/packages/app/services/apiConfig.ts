@@ -22,7 +22,8 @@ export interface ApiConfig {
 // Configuration for different environments
 export const API_CONFIGS = {
   development: {
-    baseUrl: 'https://localhost:7223',
+    // baseUrl: 'https://localhost:7223',
+    baseUrl: 'https://apifc.azurewebsites.net',
     endpoints: {
       // Authentication endpoints
       tokenExchange: '/api/Authentication/Social/Token',

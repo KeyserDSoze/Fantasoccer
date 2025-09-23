@@ -1,4 +1,12 @@
 // Export all services for easy import
-export { authService,TokenExchangeResponse, UserInfoResponse } from './authService'
+export { authService, TokenExchangeResponse } from './authService'
 export { tokenStorageService } from './tokenStorageService'
 export type { StoredTokenData } from './tokenStorageService'
+
+// Export types from centralized types folder
+export * from '../types'
+
+// Repository Framework exports
+export { 
+  setupRepositoryServices
+} from '../providers/repositoryConfig'

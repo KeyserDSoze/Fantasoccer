@@ -1,22 +1,16 @@
 import {
-  Anchor,
   Button,
   H1,
-  H2,
   H3,
   Paragraph,
   Separator,
-  Sheet,
-  SwitchRouterButton,
   SwitchThemeButton,
-  useToastController,
   XStack,
   YStack,
   Text,
   Card,
 } from '@my/ui'
-import { ChevronDown, ChevronUp, Trophy, Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
-import { useState } from 'react'
+import { Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
 import { Platform } from 'react-native'
 import { useLink } from 'solito/navigation'
 import { useAuth } from '../../auth/AuthProvider'
@@ -26,10 +20,6 @@ import { NavigationBar } from '../../components/NavigationBar'
 
 export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
   const { isAuthenticated, user, isLoading } = useAuth()
-  const linkTarget = pagesMode ? '/pages-example-user' : '/user'
-  const linkProps = useLink({
-    href: `${linkTarget}/nate`,
-  })
 
   return (
     <YStack flex={1} bg="$background">
@@ -44,7 +34,12 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
         borderBottomColor="$borderColor"
       >
         <XStack align="center" gap="$3">
-          <Trophy size="$4" color="$blue10" />
+          <Text 
+            fontSize={34}
+            lineHeight={44}
+            >
+            ⚽
+            </Text>
         </XStack>
 
         <XStack align="center" gap="$3">
@@ -116,17 +111,6 @@ function WelcomeContent() {
 function AuthenticatedContent({ user }: { user: any }) {
   return (
     <YStack gap="$6" maxWidth={800} align="center" width="100%">
-      <YStack gap="$2" align="center">
-        <H1 textAlign="center" color="$blue10" fontWeight="800">
-          Ciao {user?.displayName || user?.name}! 👋
-        </H1>
-        <Text fontSize="$5" color="$color10" textAlign="center">
-          Benvenuto nel tuo Fantasoccer
-        </Text>
-      </YStack>
-
-      <Separator width="80%" />
-
       <YStack gap="$4" width="100%">
         <H3 textAlign="center" color="$color12">
           Giornata Attuale Serie A

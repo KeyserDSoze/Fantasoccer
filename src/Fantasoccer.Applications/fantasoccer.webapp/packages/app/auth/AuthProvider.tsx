@@ -1,27 +1,29 @@
 ﻿import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { Platform } from 'react-native'
-import { authService, TokenExchangeResponse, UserInfoResponse } from '../services/authService'
+import { authService, TokenExchangeResponse } from '../services/authService'
+import { AppIdentity } from '../types/identity'
 import { tokenStorageService } from '../services/tokenStorageService'
 import { PKCEHelper } from '../utils/pkceHelper'
 import { idTokenDecoder } from '../utils/idTokenDecoder'
+import { useGlobalLoading } from '../providers/LoadingProvider'
 
 // Helper function to convert backend user data to AuthUser
-const mapUserInfoToAuthUser = (userInfo: UserInfoResponse): AuthUser => {
+const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {
   return {
-    username: userInfo.u,
-    email: userInfo.e,
-    name: userInfo.u, // Use username as name
-    displayName: userInfo.u, // Use username as display name
+    username: userInfo.username || '',
+    email: userInfo.email,
+    name: userInfo.username || userInfo.email, // Use username or email as name
+    displayName: userInfo.username || userInfo.email, // Use username or email as display name
     state: {
-      groupId: userInfo.s.g,
-      leagueId: userInfo.s.l,
-      year: userInfo.s.y,
-      workingEmail: userInfo.s.m,
+      groupId: userInfo.state.groupId || '',
+      leagueId: userInfo.state.leagueId || '',
+      year: userInfo.state.year || 0,
+      workingEmail: userInfo.state.meOrLeaderEmail || '',
     },
-    groups: userInfo.g.map(group => ({
-      id: group.i,
-      name: group.n,
-      role: group.r,
+    groups: userInfo.groups.map(group => ({
+      id: group.id,
+      name: group.name,
+      role: group.role,
     })),
     rawData: userInfo, // Keep original data for compatibility
   }
@@ -100,6 +102,8 @@ const getMsalConfig = () => ({
 
 // Provider Component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const { showLoading, hideLoading } = useGlobalLoading()
+  
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     isLoading: true,
@@ -115,7 +119,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize MSAL
   const initializeMsal = async () => {
     try {
-      console.log('🔄 Initializing MSAL for platform:', Platform.OS)
+      showLoading('Inizializzazione...')
       
       if (Platform.OS === 'web') {
         // Web MSAL initialization
@@ -123,33 +127,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const instance = new PublicClientApplication(getMsalConfig())
         await instance.initialize()
         setMsalInstance(instance)
-        console.log('✅ Web MSAL initialized')
       } else {
         // React Native - MSAL may not be available, fallback to PKCE only
-        console.log('📱 React Native detected - using PKCE flow')
         setMsalInstance(null) // Will use PKCE flow instead
       }
       
       setIsInitialized(true)
     } catch (error) {
-      console.error('❌ MSAL initialization failed:', error)
       setState(prev => ({ 
         ...prev, 
         error: `MSAL initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         isLoading: false 
       }))
+      hideLoading()
     }
   }
 
   // Check existing authentication
   const checkExistingAuth = async () => {
     try {
-      console.log('🔍 Checking existing authentication...')
+      showLoading('Verifica credenziali...')
       
       // Check stored token
       const storedData = await tokenStorageService.loadToken()
       if (storedData) {
-        console.log('🎫 Found stored token, fetching user info...')
+        showLoading('Caricamento profilo utente...')
         
         try {
           // Verify token with backend (includes automatic refresh if needed)
@@ -164,12 +166,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             error: null,
           }))
           
-          console.log('✅ Authentication restored from storage')
+          hideLoading()
           return
         } catch (error) {
           // If refresh failed or unauthorized, redirect to login
           if (error instanceof Error && (error.message === 'REFRESH_FAILED' || error.message === 'UNAUTHORIZED')) {
-            console.log('🔄 Token refresh failed, user needs to re-login')
             await tokenStorageService.removeToken()
             // Don't set error state, just continue to show login screen
           } else {
@@ -178,11 +179,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
       
-      console.log('ℹ️ No stored token found')
       setState(prev => ({ ...prev, isLoading: false }))
+      hideLoading()
       
     } catch (error) {
-      console.error('❌ Auth check failed:', error)
       // Clear invalid token
       await tokenStorageService.removeToken()
       setState(prev => ({ 
@@ -190,6 +190,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: null // Don't show error for expired/invalid tokens
       }))
+      hideLoading()
     }
   }
 
@@ -220,7 +221,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const state = urlParams.get('state')
 
       if (error) {
-        console.error('❌ OAuth callback error:', error)
         setState(prev => ({ 
           ...prev, 
           error: `OAuth error: ${error}`,
@@ -230,9 +230,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (authCode) {
-        console.log('✅ Authorization code received:', authCode.substring(0, 20) + '...')
-        console.log('🔗 Full authorization code:', authCode)
-        
         // Clear URL parameters
         window.history.replaceState({}, document.title, window.location.pathname)
         
@@ -240,7 +237,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         try {
           // Exchange authorization code for backend token using PKCE
-          console.log('🔄 Exchanging authorization code with PKCE...')
           const tokenResponse = await authService.exchangeToken(authCode, { isPKCE: true })
           
           // Get user info using the new accessToken
@@ -264,10 +260,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             error: null,
           }))
 
-          console.log('✅ OAuth callback login completed successfully!')
-
         } catch (exchangeError) {
-          console.error('❌ Token exchange failed:', exchangeError)
           setState(prev => ({
             ...prev,
             isLoading: false,
@@ -276,7 +269,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('❌ OAuth callback handling failed:', error)
       setState(prev => ({ 
         ...prev, 
         error: `Callback handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -290,13 +282,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
       
-      console.log('🔄 Starting OAuth authorization code flow...')
-      
       // Always use PKCE flow to get authorization code (not tokens)
       return await loginWithPKCE()
 
     } catch (error) {
-      console.error('❌ Login failed:', error)
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -310,7 +299,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loginWithPKCE = async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
-      console.log('🔄 Starting PKCE login...')
 
       // Check PKCE support
       if (!PKCEHelper.isSupported()) {
@@ -337,7 +325,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
     } catch (error) {
-      console.error('❌ PKCE login failed:', error)
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -351,7 +338,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true }))
-      console.log('🔄 Logging out...')
 
       // Clear stored token
       await tokenStorageService.removeToken()
@@ -364,10 +350,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
       })
 
-      console.log('✅ Logout completed')
-
     } catch (error) {
-      console.error('❌ Logout failed:', error)
       setState(prev => ({
         ...prev,
         isLoading: false,

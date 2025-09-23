@@ -9,6 +9,11 @@ import {
 } from '@my/ui'
 import { ToastViewport } from './ToastViewport'
 import { AuthProvider } from '../auth'
+import { LoadingProvider } from '../providers/LoadingProvider'
+import { setupRepositoryServices } from '../providers/repositoryConfig'
+
+// Initialize repository services
+setupRepositoryServices()
 
 export function Provider({
   children,
@@ -21,11 +26,13 @@ export function Provider({
   return (
     <TamaguiProvider config={config} defaultTheme={theme} {...rest}>
       <ToastProvider swipeDirection="horizontal" duration={6000} native={isWeb ? [] : ['mobile']}>
-        <AuthProvider>
-          {children}
-          <CustomToast />
-          <ToastViewport />
-        </AuthProvider>
+        <LoadingProvider>
+          <AuthProvider>
+            {children}
+            <CustomToast />
+            <ToastViewport />
+          </AuthProvider>
+        </LoadingProvider>
       </ToastProvider>
     </TamaguiProvider>
   )
