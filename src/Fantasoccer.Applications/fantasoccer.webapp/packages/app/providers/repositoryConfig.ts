@@ -36,9 +36,11 @@ export const setupRepositoryServices = () => {
     });
 };
 
-// Helper function for auth headers
+// Helper function for auth headers with automatic token refresh
 const getAuthHeaders = async () : Promise<HeadersInit> => {
-  const accessToken = await tokenStorageService.getTokenString();
+  // Use the new ensureValidToken method that handles refresh automatically
+  const accessToken = await tokenStorageService.ensureValidToken();
+  
   return accessToken ? {
     "Authorization": `Bearer ${accessToken}`,
     "Content-Type": "application/json"
@@ -47,19 +49,43 @@ const getAuthHeaders = async () : Promise<HeadersInit> => {
   };
 };
 
-// Error handler for auth issues
+// Error handler for auth issues with automatic token refresh and save
 const handleAuthError = async (endpoint: any, uri: string, method: string, headers: any, body: any, err: any) => {
   if (err.status === 401) {
+    console.log('🔐 401 Unauthorized - attempting token refresh...');
     try {
       const storedData = await tokenStorageService.loadToken();
       if (storedData?.refreshToken) {
-        await authService.refreshToken(storedData.refreshToken);
-        return true; // Retry the request
+        console.log('🔄 Refreshing token...');
+        const newTokenData = await authService.refreshToken(storedData.refreshToken);
+        
+        // Calculate expiration time (assuming token is valid for the specified seconds)
+        const expiresAt = Date.now() + (newTokenData.expiresIn * 1000);
+        
+        // Save the new token data
+        const updatedTokenData = {
+          tokenType: newTokenData.tokenType,
+          accessToken: newTokenData.accessToken,
+          refreshToken: newTokenData.refreshToken,
+          expiresAt
+        };
+        
+        await tokenStorageService.saveToken(updatedTokenData);
+        console.log('✅ Token refreshed and saved successfully');
+        
+        return true; // Retry the request with new token
+      } else {
+        console.log('❌ No refresh token available');
       }
     } catch (refreshError) {
-      console.error("Token refresh failed", refreshError);
+      console.error("❌ Token refresh failed:", refreshError);
+      
+      // Clear invalid tokens
+      await tokenStorageService.removeToken();
+      
       // Refresh failed, user needs to re-login
-      // You could trigger a logout here
+      // In a real app, you might want to trigger a logout or redirect to login
+      console.log('🚪 User needs to re-authenticate');
     }
   }
   return false; // Don't retry

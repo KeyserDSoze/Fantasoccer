@@ -12,6 +12,11 @@ export interface StoredTokenData {
   user?: any            // User information (optional, can be stored separately)
 }
 
+export interface TokenSaveOptions {
+  expiresIn?: number     // Token expiration in seconds (if provided, will calculate expiresAt)
+  expiresAt?: number     // Absolute expiration timestamp (if provided, will use this)
+}
+
 class TokenStorageService {
   // Save backend token to storage
   async saveToken(tokenData: StoredTokenData): Promise<void> {
@@ -32,6 +37,31 @@ class TokenStorageService {
       console.error('❌ Failed to save token:', error)
       throw error
     }
+  }
+
+  // Convenience method to save token with automatic expiration calculation
+  async saveTokenWithExpiration(
+    tokenData: Omit<StoredTokenData, 'expiresAt'>, 
+    options: TokenSaveOptions
+  ): Promise<void> {
+    let expiresAt: number
+
+    if (options.expiresAt) {
+      expiresAt = options.expiresAt
+    } else if (options.expiresIn) {
+      expiresAt = Date.now() + (options.expiresIn * 1000)
+    } else {
+      // Default to 1 hour if no expiration info provided
+      expiresAt = Date.now() + (60 * 60 * 1000)
+      console.warn('⚠️ No expiration info provided, defaulting to 1 hour')
+    }
+
+    const completeTokenData: StoredTokenData = {
+      ...tokenData,
+      expiresAt
+    }
+
+    await this.saveToken(completeTokenData)
   }
 
   // Load backend token from storage
@@ -103,6 +133,79 @@ class TokenStorageService {
   async getTokenString(): Promise<string | null> {
     const tokenData = await this.loadToken()
     return tokenData?.accessToken || null
+  }
+
+  // Check if token is close to expiration (within specified minutes, default 5)
+  async isTokenNearExpiry(minutesBeforeExpiry: number = 5): Promise<boolean> {
+    const tokenData = await this.loadToken()
+    if (!tokenData || !tokenData.expiresAt) {
+      return false
+    }
+    
+    const thresholdTime = Date.now() + (minutesBeforeExpiry * 60 * 1000)
+    return tokenData.expiresAt < thresholdTime
+  }
+
+  // Get current token expiration info
+  async getTokenExpirationInfo(): Promise<{ expiresAt: number | null; isExpired: boolean; minutesUntilExpiry: number | null }> {
+    const tokenData = await this.loadToken()
+    if (!tokenData || !tokenData.expiresAt) {
+      return { expiresAt: null, isExpired: true, minutesUntilExpiry: null }
+    }
+    
+    const now = Date.now()
+    const minutesUntilExpiry = Math.floor((tokenData.expiresAt - now) / (1000 * 60))
+    
+    return {
+      expiresAt: tokenData.expiresAt,
+      isExpired: tokenData.expiresAt <= now,
+      minutesUntilExpiry: minutesUntilExpiry > 0 ? minutesUntilExpiry : 0
+    }
+  }
+
+  // Refresh token automatically if needed and update storage
+  async ensureValidToken(): Promise<string | null> {
+    const tokenData = await this.loadToken()
+    if (!tokenData) {
+      return null
+    }
+
+    // If token is not close to expiry, return current token
+    const isNearExpiry = await this.isTokenNearExpiry(5) // 5 minutes threshold
+    if (!isNearExpiry) {
+      return tokenData.accessToken
+    }
+
+    // Token is near expiry or expired, try to refresh
+    try {
+      console.log('🔄 Token refresh needed, refreshing...')
+      
+      // Import authService dynamically to avoid circular dependency
+      const { authService } = await import('./authService')
+      const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+      
+      // Calculate new expiration
+      const expiresAt = Date.now() + (newTokenData.expiresIn * 1000)
+      
+      // Save new token
+      const updatedTokenData: StoredTokenData = {
+        tokenType: newTokenData.tokenType,
+        accessToken: newTokenData.accessToken,
+        refreshToken: newTokenData.refreshToken,
+        expiresAt,
+        user: tokenData.user // Preserve user data
+      }
+      
+      await this.saveToken(updatedTokenData)
+      console.log('✅ Token refreshed automatically')
+      
+      return updatedTokenData.accessToken
+    } catch (error) {
+      console.error('❌ Auto token refresh failed:', error)
+      // Remove invalid token
+      await this.removeToken()
+      return null
+    }
   }
 
   // Save user info separately (for quick access)

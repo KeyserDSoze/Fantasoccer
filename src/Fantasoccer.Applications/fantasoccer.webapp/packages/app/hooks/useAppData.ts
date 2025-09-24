@@ -16,9 +16,9 @@ export const useCurrentGroup = () => {
 }
 
 /**
- * Hook to get user's groups
+ * Hook to get user's groups from app state
  */
-export const useUserGroups = () => {
+export const useAppUserGroups = () => {
   const { userGroups, isGroupsLoading, groupsError, refreshGroups } = useApp()
   
   return {
