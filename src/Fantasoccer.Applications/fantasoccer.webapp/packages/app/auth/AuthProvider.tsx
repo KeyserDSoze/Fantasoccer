@@ -66,6 +66,7 @@ export interface AuthContextType extends AuthState {
   logout: () => Promise<void>
   clearError: () => void
   refreshAuth: () => Promise<void>
+  updateUser: (updatedUser: AppIdentity) => void
 }
 
 // Context
@@ -371,6 +372,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await checkExistingAuth()
   }
 
+  // Update user information
+  const updateUser = (updatedUser: AppIdentity) => {
+    const mappedUser = mapUserInfoToAuthUser(updatedUser)
+    setState(prev => ({
+      ...prev,
+      user: mappedUser
+    }))
+  }
+
   const contextValue: AuthContextType = {
     ...state,
     login,
@@ -378,6 +388,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     clearError,
     refreshAuth,
+    updateUser,
   }
 
   return (

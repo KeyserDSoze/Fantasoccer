@@ -46,7 +46,7 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children }: AppProviderProps) {
-  const { isAuthenticated, user, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, user, isLoading: authLoading, updateUser } = useAuth()
   const { showLoading, hideLoading } = useGlobalLoading()
   
   // App state
@@ -129,11 +129,41 @@ export function AppProvider({ children }: AppProviderProps) {
     // Update local state
     await setCurrentGroupInternal(groupId)
     
-    // Update backend user state
+    // Update backend user state with current local state
     if (user && user.rawData) {
       try {
-        await authService.updateUserGroup(user.rawData, groupId)
-        console.log('✅ User group updated on backend')
+        // Build updated user with current local state
+        const currentUpdatedUser = {
+          ...user.rawData,
+          state: {
+            ...user.rawData.state,
+            groupId: groupId,
+            leagueId: selectedLeagueId || user.rawData.state.leagueId,
+            year: selectedYear || user.rawData.state.year,
+            raw: {
+              ...user.rawData.state.raw,
+              g: groupId,
+              l: selectedLeagueId || user.rawData.state.raw.l,
+              y: selectedYear || user.rawData.state.raw.y
+            }
+          },
+          raw: {
+            ...user.rawData.raw,
+            s: {
+              ...user.rawData.raw.s,
+              g: groupId,
+              l: selectedLeagueId || user.rawData.raw.s.l,
+              y: selectedYear || user.rawData.raw.s.y
+            }
+          }
+        }
+        
+        await authService.updateUserState(currentUpdatedUser)
+        console.log('✅ User group updated on backend with full state')
+        
+        // Update the auth context with the complete updated data
+        updateUser(currentUpdatedUser)
+        
       } catch (error) {
         console.error('❌ Failed to update user group on backend:', error)
         // Note: We don't revert local state to avoid UI flickering
@@ -170,11 +200,41 @@ export function AppProvider({ children }: AppProviderProps) {
       }
     }
     
-    // Update backend user state
+    // Update backend user state with current local state
     if (user && user.rawData && leagueId) {
       try {
-        await authService.updateUserLeague(user.rawData, leagueId)
-        console.log('✅ User league updated on backend')
+        // Build updated user with current local state
+        const currentUpdatedUser = {
+          ...user.rawData,
+          state: {
+            ...user.rawData.state,
+            groupId: currentGroup?.id || user.rawData.state.groupId,
+            leagueId: leagueId,
+            year: selectedYear || user.rawData.state.year,
+            raw: {
+              ...user.rawData.state.raw,
+              g: currentGroup?.id || user.rawData.state.raw.g,
+              l: leagueId,
+              y: selectedYear || user.rawData.state.raw.y
+            }
+          },
+          raw: {
+            ...user.rawData.raw,
+            s: {
+              ...user.rawData.raw.s,
+              g: currentGroup?.id || user.rawData.raw.s.g,
+              l: leagueId,
+              y: selectedYear || user.rawData.raw.s.y
+            }
+          }
+        }
+        
+        await authService.updateUserState(currentUpdatedUser)
+        console.log('✅ User league updated on backend with full state')
+        
+        // Update the auth context with the complete updated data
+        updateUser(currentUpdatedUser)
+        
       } catch (error) {
         console.error('❌ Failed to update user league on backend:', error)
       }
@@ -185,11 +245,41 @@ export function AppProvider({ children }: AppProviderProps) {
     // Update local state
     setSelectedYear(year)
     
-    // Update backend user state
+    // Update backend user state with current local state
     if (user && user.rawData && year !== null) {
       try {
-        await authService.updateUserYear(user.rawData, year)
-        console.log('✅ User year updated on backend')
+        // Build updated user with current local state
+        const currentUpdatedUser = {
+          ...user.rawData,
+          state: {
+            ...user.rawData.state,
+            groupId: currentGroup?.id || user.rawData.state.groupId,
+            leagueId: selectedLeagueId || user.rawData.state.leagueId,
+            year: year,
+            raw: {
+              ...user.rawData.state.raw,
+              g: currentGroup?.id || user.rawData.state.raw.g,
+              l: selectedLeagueId || user.rawData.state.raw.l,
+              y: year
+            }
+          },
+          raw: {
+            ...user.rawData.raw,
+            s: {
+              ...user.rawData.raw.s,
+              g: currentGroup?.id || user.rawData.raw.s.g,
+              l: selectedLeagueId || user.rawData.raw.s.l,
+              y: year
+            }
+          }
+        }
+        
+        await authService.updateUserState(currentUpdatedUser)
+        console.log('✅ User year updated on backend with full state')
+        
+        // Update the auth context with the complete updated data
+        updateUser(currentUpdatedUser)
+        
       } catch (error) {
         console.error('❌ Failed to update user year on backend:', error)
       }
