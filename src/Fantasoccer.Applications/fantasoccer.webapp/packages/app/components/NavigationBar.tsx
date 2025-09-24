@@ -41,6 +41,18 @@ interface NavigationBarProps {
   onNavigate?: (path: string) => void
 }
 
+// Helper function to convert year number to season string
+const getSeasonFromYear = (yearNumber: number): string => {
+  // Year 14 = 2025/26, Year 13 = 2024/25, etc.
+  // Base calculation: 2025 - 14 = 2011, so 2011 + yearNumber = startYear
+  const baseYear = 2011
+  const startYear = baseYear + yearNumber
+  const endYear = startYear + 1
+  
+  // return `${startYear}/${String(endYear).slice(-2)} (${yearNumber})`
+  return `${startYear}/${String(endYear).slice(-2)}`
+}
+
 // Navigation items structure based on prompt_frontendapp routing
 const navigationItems = [
   {
@@ -290,7 +302,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                       {selectedLeagueId && (
                         <Text fontSize="$2" color="$color11">
                           🏆 {getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'Unknown League'}
-                          {selectedYear && ` • Anno ${selectedYear}`}
+                          {selectedYear && ` • Anno ${getSeasonFromYear(selectedYear)}`}
                         </Text>
                       )}
                     </YStack>
@@ -391,7 +403,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                                 minWidth="$3"
                               >
                                 <Text fontSize="$1" color={selectedYear === year ? "$orange11" : "$color11"}>
-                                  {year}
+                                  {getSeasonFromYear(year)}
                                 </Text>
                               </Button>
                             ))}

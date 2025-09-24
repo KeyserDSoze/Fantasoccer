@@ -147,7 +147,7 @@ export class AuthService {
     const repository = RepositoryServices
       .Repository<AppIdentityRaw, string>("AppIdentity");
 
-    const userId = updatedUser.id || updatedUser.email; // Use email as fallback ID
+    const userId = updatedUser.email;
     const result = await repository.update(userId, mapAppIdentityToRaw(updatedUser));
     if (!result) 
         return false;
