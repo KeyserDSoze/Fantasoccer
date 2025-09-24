@@ -1,29 +1,44 @@
 import React from 'react'
 import { Button, Spinner, Text, YStack, XStack, Image } from '@my/ui'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../../auth'
 
 interface LoginButtonProps {
   variant?: 'primary' | 'outline'
   size?: '$4' | '$5' | '$6'
   fullWidth?: boolean
+  /** Se true, esegue il login direttamente. Se false (default), naviga alla pagina di login */
+  directLogin?: boolean
 }
 
-export function LoginButton({ variant = 'primary', size = '$5', fullWidth = true }: LoginButtonProps) {
+export function LoginButton({ 
+  variant = 'primary', 
+  size = '$5', 
+  fullWidth = true,
+  directLogin = false 
+}: LoginButtonProps) {
+  const router = useRouter()
   const { login, isLoading } = useAuth()
 
-  const handleLogin = async () => {
-    try {
-      await login()
-    } catch (error) {
-      console.error('Login failed:', error)
+  const handlePress = async () => {
+    if (directLogin) {
+      // Login diretto con Microsoft
+      try {
+        await login()
+      } catch (error) {
+        console.error('Login failed:', error)
+      }
+    } else {
+      // Naviga alla pagina di login dedicata
+      router.push('/login')
     }
   }
 
   return (
     <Button
       size={size}
-      onPress={handleLogin}
-      disabled={isLoading}
+      onPress={handlePress}
+      disabled={directLogin && isLoading}
       backgroundColor={variant === 'primary' ? '$blue10' : 'transparent'}
       borderColor={variant === 'outline' ? '$blue10' : 'transparent'}
       borderWidth={variant === 'outline' ? 1 : 0}
@@ -32,7 +47,7 @@ export function LoginButton({ variant = 'primary', size = '$5', fullWidth = true
       disabledStyle={{ opacity: 0.5 }}
     >
       <XStack alignItems="center" gap="$2">
-        {isLoading ? (
+        {directLogin && isLoading ? (
           <Spinner color={variant === 'primary' ? 'white' : '$blue10'} />
         ) : (
           <>
@@ -55,7 +70,7 @@ export function LoginButton({ variant = 'primary', size = '$5', fullWidth = true
               fontWeight="600"
               fontSize="$4"
             >
-              Accedi con Microsoft
+              {directLogin ? 'Accedi con Microsoft' : 'Accedi'}
             </Text>
           </>
         )}

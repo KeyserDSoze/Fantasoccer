@@ -1,7 +1,25 @@
 import React from 'react'
-import { Text, YStack, XStack, Spinner, H1, H2, Card } from '@my/ui'
+import { Text, YStack, XStack, Spinner, H1, H2, Card, Button } from '@my/ui'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '../../auth'
 import { LoginButton } from './LoginButton'
+
+function HomeButton() {
+  const router = useRouter()
+  
+  return (
+    <Button
+      variant="outline"
+      size="$3"
+      onPress={() => router.push('/')}
+      chromeless
+    >
+      <Text fontSize="$3" color="$gray10">
+        ← Torna alla Home
+      </Text>
+    </Button>
+  )
+}
 
 export function LoginScreen() {
   const { isLoading, error } = useAuth()
@@ -51,7 +69,22 @@ export function LoginScreen() {
                 </Text>
               </YStack>
             ) : (
-              <LoginButton variant="primary" size="$5" fullWidth />
+              <YStack gap="$3" width="100%">
+                {/* Login con Microsoft */}
+                <LoginButton variant="primary" size="$5" fullWidth directLogin />
+                
+                {/* Placeholder per futuri provider */}
+                {/* <LoginButton variant="outline" size="$5" fullWidth provider="google">
+                  Accedi con Google
+                </LoginButton> */}
+                
+                {/* Separatore per futuri provider */}
+                {/* <XStack alignItems="center" gap="$3" marginVertical="$2">
+                  <YStack flex={1} height={1} backgroundColor="$gray6" />
+                  <Text fontSize="$2" color="$gray9">oppure</Text>
+                  <YStack flex={1} height={1} backgroundColor="$gray6" />
+                </XStack> */}
+              </YStack>
             )}
 
             {/* Info Text */}
@@ -66,6 +99,8 @@ export function LoginScreen() {
           <Text fontSize="$3" color="$gray9" textAlign="center">
             Primo accesso? Il tuo account verrà creato automaticamente.
           </Text>
+          
+          <HomeButton />
         </YStack>
       </YStack>
     </YStack>

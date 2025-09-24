@@ -43,10 +43,8 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
         </XStack>
 
         <XStack align="center" gap="$3">
-          {isAuthenticated ? (
+          {isAuthenticated && (
             <NavigationBar />
-          ) : (
-            <LoginButton />
           )}
         </XStack>
       </XStack>
@@ -73,6 +71,14 @@ function WelcomeContent() {
           Il tuo fantacalcio ti aspetta. Crea la tua squadra, sfida i tuoi amici 
           e vinci il campionato!
         </Paragraph>
+      </YStack>
+
+      {/* Call to Action */}
+      <YStack gap="$3" align="center">
+        <Text fontSize="$4" color="$color11" textAlign="center" fontWeight="600">
+          Inizia subito la tua avventura!
+        </Text>
+        <LoginButton variant="primary" size="$6"/>
       </YStack>
 
       <Separator width="100%" />
