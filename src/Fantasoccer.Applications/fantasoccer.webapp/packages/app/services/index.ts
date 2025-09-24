@@ -2,6 +2,7 @@
 export { authService } from './authService'
 export type { TokenExchangeResponse, PKCEOptions } from './authService'
 export { serieAService } from './serieAService'
+export { groupService } from './groupService'
 export { tokenStorageService } from './tokenStorageService'
 export type { StoredTokenData } from './tokenStorageService'
 

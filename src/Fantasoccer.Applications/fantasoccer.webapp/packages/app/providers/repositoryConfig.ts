@@ -5,6 +5,7 @@ import { authService } from '../services/authService';
 import { AppIdentityRaw } from "app/types/identity";
 import { RealCalendarRaw } from "../types/serieA";
 import { buildApiUrl } from "app/services/apiConfig";
+import { GroupRaw } from "app/types";
 
 // Repository setup
 export const setupRepositoryServices = () => {
@@ -23,6 +24,13 @@ export const setupRepositoryServices = () => {
     .addRepository<RealCalendarRaw, number>(x => {
       x.name = "RealCalendar";
       x.path = "RealCalendar";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Group for leagues
+    .addRepository<GroupRaw, string>(x => {
+      x.name = "Group";
+      x.path = "Group";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     });
