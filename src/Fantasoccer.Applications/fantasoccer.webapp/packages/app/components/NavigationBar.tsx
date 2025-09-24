@@ -372,7 +372,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                       {/* Year Selector */}
                       {selectedLeagueId && getAvailableYears().length > 1 && (
                         <YStack gap="$1" marginTop="$2">
-                          <Text fontSize="$2" fontWeight="bold" color="$color12">Years:</Text>
+                          <Text fontSize="$2" fontWeight="bold" color="$color12">Anni:</Text>
                           <XStack gap="$1" flexWrap="wrap">
                             {getAvailableYears().sort((a, b) => b - a).map((year) => (
                               <Button

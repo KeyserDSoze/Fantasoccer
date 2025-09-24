@@ -225,22 +225,44 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   }, [isAuthenticated, user, authLoading])
 
-  // Effect to set default league and year when current group changes
+  // Effect to initialize league and year from user state when user is loaded
+  useEffect(() => {
+    if (user && user.state) {
+      // Initialize selected league and year from user's saved state
+      if (user.state.leagueId && user.state.leagueId !== selectedLeagueId) {
+        setSelectedLeagueId(user.state.leagueId)
+      }
+      if (user.state.year && user.state.year !== selectedYear) {
+        setSelectedYear(user.state.year)
+      }
+    }
+  }, [user]) // Only depend on user, not on selectedLeagueId/selectedYear to avoid loops
+
+  // Effect to set default league and year when current group changes (only if no user preference)
   useEffect(() => {
     if (currentGroup && currentGroup.leagues.length > 0) {
-      // Set main league as default or first league
-      const mainLeague = currentGroup.leagues.find(l => l.isMain) || currentGroup.leagues[0]
-      if (!selectedLeagueId || !currentGroup.leagues.find(l => l.id === selectedLeagueId)) {
-        setSelectedLeagueId(mainLeague.id)
-        
+      // Only set defaults if user doesn't have saved preferences
+      const hasUserLeaguePreference = user?.state?.leagueId
+      const hasUserYearPreference = user?.state?.year
+      
+      if (!hasUserLeaguePreference || !currentGroup.leagues.find(l => l.id === user.state.leagueId)) {
+        // Set main league as default or first league
+        const mainLeague = currentGroup.leagues.find(l => l.isMain) || currentGroup.leagues[0]
+        if (!selectedLeagueId || !currentGroup.leagues.find(l => l.id === selectedLeagueId)) {
+          setSelectedLeagueId(mainLeague.id)
+        }
+      }
+      
+      if (!hasUserYearPreference && selectedLeagueId) {
         // Set latest year as default
-        if (mainLeague.years.length > 0) {
-          const latestYear = Math.max(...mainLeague.years.map(y => y.year))
+        const league = currentGroup.leagues.find(l => l.id === selectedLeagueId)
+        if (league && league.years.length > 0 && !selectedYear) {
+          const latestYear = Math.max(...league.years.map(y => y.year))
           setSelectedYear(latestYear)
         }
       }
     }
-  }, [currentGroup])
+  }, [currentGroup, selectedLeagueId]) // Include selectedLeagueId to handle league changes
 
   // Note: Global loading state is managed directly in the AuthGuard component
 
