@@ -53,20 +53,6 @@ export function LoginButton({
           <Spinner color={variant === 'primary' ? 'white' : '$blue10'} />
         ) : (
           <>
-            {/* Microsoft Logo */}
-            <XStack>
-              {/* Simple Microsoft-like logo using colored squares */}
-              <YStack gap="$0.5">
-                <XStack gap="$0.5">
-                  <YStack width="$0.5" height="$0.5" backgroundColor="#F25022" />
-                  <YStack width="$0.5" height="$0.5" backgroundColor="#7FBA00" />
-                </XStack>
-                <XStack gap="$0.5">
-                  <YStack width="$0.5" height="$0.5" backgroundColor="#00A4EF" />
-                  <YStack width="$0.5" height="$0.5" backgroundColor="#FFB900" />
-                </XStack>
-              </YStack>
-            </XStack>
             <Text
               color={variant === 'primary' ? 'white' : '$blue10'}
               fontWeight="600"

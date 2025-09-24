@@ -9,6 +9,6 @@ namespace Fantasoccer
         [JsonPropertyName("e")]
         public string Email { get; set; }
         [JsonPropertyName("r")]
-        public IdentityRole Role { get; set; } 
+        public IdentityRole Role { get; set; }
     }
 }
