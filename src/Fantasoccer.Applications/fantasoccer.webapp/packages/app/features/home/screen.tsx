@@ -1,3 +1,5 @@
+'use client'
+
 import {
   Button,
   H1,
@@ -17,6 +19,7 @@ import { LoginButton, UserProfile } from '../auth'
 import { TokenSystemExample } from '../../components/TokenSystemExample'
 import { NavigationBar } from '../../components/NavigationBar'
 import { SerieADayCard } from '../../components/SerieADayCard'
+import { FantasoccerLogo, FantasoccerLogoCompact } from '../../components/FantasoccerLogo'
 
 export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
   const { isAuthenticated, user, isLoading } = useAuth()
@@ -34,12 +37,11 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
         borderBottomColor="$borderColor"
       >
         <XStack align="center" gap="$3">
-          <Text 
-            fontSize={34}
-            lineHeight={44}
-            >
-            ⚽
-            </Text>
+          <FantasoccerLogoCompact 
+            width={44}
+            height={44}
+            color="$blue10"
+          />
         </XStack>
 
         <XStack align="center" gap="$3">
@@ -65,7 +67,7 @@ function WelcomeContent() {
     <YStack gap="$6" maxWidth={600} align="center">
       <YStack gap="$4" align="center">
         <H1 textAlign="center" color="$blue10" fontWeight="800" fontSize="$10">
-          Benvenuto in Fantasoccer! ⚽
+          Benvenuto in Fantasoccer!
         </H1>
         <Paragraph color="$color10" textAlign="center" fontSize="$5" lineHeight="$6">
           Il tuo fantacalcio ti aspetta. Crea la tua squadra, sfida i tuoi amici 

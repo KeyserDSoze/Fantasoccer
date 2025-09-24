@@ -1,3 +1,5 @@
+'use client'
+
 // Componente per mostrare la giornata Serie A attuale
 import React from 'react'
 import {

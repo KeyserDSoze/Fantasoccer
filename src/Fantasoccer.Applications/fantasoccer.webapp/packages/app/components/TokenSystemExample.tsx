@@ -1,3 +1,5 @@
+'use client'
+
 // Example component showing the new token system usage
 import React, { useState } from 'react'
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native'

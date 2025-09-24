@@ -1,3 +1,5 @@
+'use client'
+
 // Global Loading Overlay Component
 import React, { useEffect, useState } from 'react'
 import { YStack, XStack, Text, AnimatePresence } from '@my/ui'

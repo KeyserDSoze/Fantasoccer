@@ -1,3 +1,5 @@
+'use client'
+
 // Global Loading Provider
 import React, { createContext, useContext, useState, ReactNode } from 'react'
 import { LoadingOverlay } from '../components/LoadingOverlay'

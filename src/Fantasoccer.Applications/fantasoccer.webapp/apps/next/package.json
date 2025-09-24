@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "cd ../.. && yarn build && cd apps/next && next build",
+    "build:static": "cd ../.. && yarn build && cd apps/next && next build",
+    "export": "next export",
+    "build:export": "yarn build:static && yarn export",
     "start": "next start",
     "serve": "NODE_ENV=production next start --port 8151",
     "lint": "next lint",

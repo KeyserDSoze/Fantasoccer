@@ -1,8 +1,11 @@
+'use client'
+
 import React from 'react'
 import { Text, YStack, XStack, Spinner, H1, H2, Card, Button } from '@my/ui'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../auth'
 import { LoginButton } from './LoginButton'
+import { FantasoccerLogo } from '../../components/FantasoccerLogo'
 
 function HomeButton() {
   const router = useRouter()
@@ -29,13 +32,20 @@ export function LoginScreen() {
       <YStack maxWidth={400} width="100%" gap="$6" alignItems="center">
         
         {/* App Logo/Title */}
-        <YStack alignItems="center" gap="$2">
-          <H1 color="$blue10" fontWeight="800">
-            ⚽ Fantasoccer
-          </H1>
-          <Text fontSize="$4" color="$gray10" textAlign="center">
-            La tua lega fantacalcio
-          </Text>
+        <YStack alignItems="center" gap="$4">
+          <FantasoccerLogo 
+            width={120}
+            height={120}
+            color="$blue10"
+          />
+          <YStack alignItems="center" gap="$2">
+            <H1 color="$blue10" fontWeight="800">
+              Fantasoccer
+            </H1>
+            <Text fontSize="$4" color="$gray10" textAlign="center">
+              La tua lega fantacalcio
+            </Text>
+          </YStack>
         </YStack>
 
         {/* Login Card */}

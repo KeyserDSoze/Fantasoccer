@@ -1,4 +1,6 @@
-﻿import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+﻿'use client'
+
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { Platform } from 'react-native'
 import { authService, TokenExchangeResponse } from '../services/authService'
 import { AppIdentity } from '../types/identity'

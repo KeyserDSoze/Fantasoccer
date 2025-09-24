@@ -45,6 +45,14 @@ module.exports = () => {
     experimental: {
       scrollRestoration: true,
     },
+    // Configuration for static export (GitHub Pages)
+    output: 'export',
+    trailingSlash: true,
+    images: {
+      unoptimized: true
+    },
+    // Disable server-side features for static export
+    distDir: 'out',
   }
 
   for (const plugin of plugins) {
