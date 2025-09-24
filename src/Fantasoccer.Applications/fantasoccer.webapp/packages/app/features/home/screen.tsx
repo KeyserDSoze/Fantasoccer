@@ -116,9 +116,7 @@ function AuthenticatedContent({ user }: { user: any }) {
       <YStack gap="$4" width="100%">
         <SerieADayCard />
       </YStack>
-
       <TokenSystemExample />
-
     </YStack>
   )
 }

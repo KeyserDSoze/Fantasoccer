@@ -30,7 +30,7 @@ export function convertUTCToItalianTimezone(utcDateString: string | null): strin
     const offsetMinutes = offsetHours * 60;
     
     // Creiamo una nuova data aggiungendo l'offset
-    const italianDate = new Date(utcDate.getTime() + offsetMinutes * 60 * 1000);
+    const italianDate = new Date(utcDate.getTime());
     
     // Formattiamo la data con il timezone italiano
     const offsetString = isDST ? '+02:00' : '+01:00';

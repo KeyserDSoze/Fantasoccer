@@ -175,7 +175,7 @@ export const getDayStatusText = (
   if (isLive && liveDay) {
     return `Giornata ${liveDay.serieADay} - IN CORSO`
   } else if (nextDay) {
-    return `Prossima: Giornata ${nextDay.serieADay}`
+    return `Prossima Giornata (${nextDay.serieADay})`
   } else {
     return 'Nessuna giornata disponibile'
   }
