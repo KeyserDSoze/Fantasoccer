@@ -8,7 +8,6 @@ import { buildApiUrl } from "app/services/apiConfig";
 
 // Repository setup
 export const setupRepositoryServices = () => {
-  // const baseUrl = 'https://fcapi.azurewebsites.net/api/';
   const baseUrl = buildApiUrl('/api/');
 
   RepositoryServices

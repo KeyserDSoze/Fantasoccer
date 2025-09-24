@@ -72,7 +72,7 @@ export function SerieADayCard() {
       <YStack gap="$4">
         {/* Header con status giornata */}
         <XStack gap="$3" align="center" justify="center">
-          <Calendar size="$1.5" color={isLive ? "$green10" : "$orange10"} />
+          <Calendar size="$1.5" color={isLive ? "$green10" : "$yellow10"} />
           <Text fontSize="$6" fontWeight="bold" color="$color12">
             {statusText}
           </Text>

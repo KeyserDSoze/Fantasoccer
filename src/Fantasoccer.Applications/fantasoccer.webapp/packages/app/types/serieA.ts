@@ -1,4 +1,5 @@
 // Types matching the C# RealCalendar structure
+import { convertUTCToItalianTimezone } from '../utils/timezoneHelpers';
 
 // ============================================
 // RAW INTERFACES (matching JSON property names from C#)
@@ -58,6 +59,8 @@ export interface RealCalendar {
   days: RealDay[]
 }
 
+
+
 // ============================================
 // MAPPING FUNCTIONS
 // ============================================
@@ -73,7 +76,7 @@ export function mapRawGameToGame(raw: RealGameRaw): RealGame {
   return {
     home: mapRawTeamToTeam(raw.h),
     away: mapRawTeamToTeam(raw.a),
-    date: raw.d,
+    date: convertUTCToItalianTimezone(raw.d),
     homeGoals: raw.g,
     awayGoals: raw.y,
     delayed: raw.e
@@ -195,6 +198,37 @@ export class RealCalendarHelper {
   static isDuringSerieADay(calendar: RealCalendar): boolean {
     return RealCalendarHelper.getLiveSerieADay(calendar) > 0
   }
+
+  /**
+   * Utility method per debug - mostra informazioni sulle date del calendario
+   */
+  static debugCalendarDates(calendar: RealCalendar): void {
+    console.log('🗓️ Debug Calendario Serie A - Date convertite:')
+    console.log('=' .repeat(50))
+    
+    calendar.days.forEach(day => {
+      console.log(`📅 Giornata ${day.serieADay} (Anno ${day.year}):`)
+      
+      day.games.forEach((game, index) => {
+        if (game.date) {
+          const gameDate = new Date(game.date)
+          console.log(`  ${index + 1}. ${game.home.name} vs ${game.away.name}`)
+          console.log(`     📍 Data originale: ${game.date}`)
+          console.log(`     🇮🇹 Data Italia: ${gameDate.toLocaleString('it-IT', { 
+            timeZone: 'Europe/Rome',
+            weekday: 'short',
+            year: 'numeric',
+            month: '2-digit', 
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}`)
+          console.log(`     ⏰ Timezone: ${gameDate.toString().match(/GMT[+-]\d{4}/)?.[0] || 'Unknown'}`)
+        }
+      })
+      console.log('---')
+    })
+  }
 }
 
 // Enhanced RealCalendar interface with computed properties
@@ -221,3 +255,13 @@ export const enhanceRealCalendar = (calendar: RealCalendar): EnhancedRealCalenda
     isDuringSerieADay: RealCalendarHelper.isDuringSerieADay(calendar),
   }
 }
+
+// ============================================
+// TIMEZONE UTILITIES (EXPORTED)
+// ============================================
+
+/**
+ * Utility function per convertire manualmente una data UTC+0 a timezone italiano
+ * Utile per test e debug
+ */
+export const convertUTCToItalianTimeUtil = convertUTCToItalianTimezone;

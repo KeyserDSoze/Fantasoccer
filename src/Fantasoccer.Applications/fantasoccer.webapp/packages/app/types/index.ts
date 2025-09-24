@@ -43,5 +43,6 @@ export {
   mapRawDayToDay,
   mapRawCalendarToCalendar,
   RealCalendarHelper,
-  enhanceRealCalendar
+  enhanceRealCalendar,
+  convertUTCToItalianTimeUtil
 } from './serieA';

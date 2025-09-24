@@ -94,7 +94,7 @@ function WelcomeContent() {
             description="Analizza le prestazioni dei giocatori"
           />
           <FeatureCard
-            icon={<Calendar size="$3" color="$orange10" />}
+            icon={<Calendar size="$3" color="$yellow10" />}
             title="Giornate"
             description="Gestisci le formazioni per ogni turno"
           />
