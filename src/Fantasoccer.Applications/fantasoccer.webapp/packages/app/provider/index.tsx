@@ -10,6 +10,7 @@ import {
 import { ToastViewport } from './ToastViewport'
 import { AuthProvider } from '../auth'
 import { LoadingProvider } from '../providers/LoadingProvider'
+import { AppProvider } from '../providers/AppProvider'
 import { setupRepositoryServices } from '../providers/repositoryConfig'
 
 // Initialize repository services
@@ -28,9 +29,11 @@ export function Provider({
       <ToastProvider swipeDirection="horizontal" duration={6000} native={isWeb ? [] : ['mobile']}>
         <LoadingProvider>
           <AuthProvider>
-            {children}
-            <CustomToast />
-            <ToastViewport />
+            <AppProvider>
+              {children}
+              <CustomToast />
+              <ToastViewport />
+            </AppProvider>
           </AuthProvider>
         </LoadingProvider>
       </ToastProvider>

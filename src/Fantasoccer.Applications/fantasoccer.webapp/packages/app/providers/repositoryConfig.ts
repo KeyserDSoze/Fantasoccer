@@ -5,7 +5,7 @@ import { authService } from '../services/authService';
 import { AppIdentityRaw } from "app/types/identity";
 import { RealCalendarRaw } from "../types/serieA";
 import { buildApiUrl } from "app/services/apiConfig";
-import { GroupRaw } from "app/types";
+import { GroupRaw } from "app/types/group";
 
 // Repository setup
 export const setupRepositoryServices = () => {
