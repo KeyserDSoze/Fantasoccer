@@ -338,7 +338,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                       {/* League Selector */}
                       {currentGroup && currentGroup.leagues.length > 1 && (
                         <YStack gap="$1" marginTop="$2">
-                          <Text fontSize="$2" fontWeight="bold" color="$color12">Leagues:</Text>
+                          <Text fontSize="$2" fontWeight="bold" color="$color12">Leghe:</Text>
                           {currentGroup.leagues.map((league) => (
                             <Button
                               key={league.id}
@@ -350,7 +350,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                               justifyContent="flex-start"
                             >
                               <Text fontSize="$1" color={selectedLeagueId === league.id ? "$green11" : "$color11"}>
-                                🏆 {league.name} {league.isMain ? '(Main)' : ''}
+                                🏆 {league.name} {league.isMain ? '(Principale)' : ''}
                               </Text>
                             </Button>
                           ))}
