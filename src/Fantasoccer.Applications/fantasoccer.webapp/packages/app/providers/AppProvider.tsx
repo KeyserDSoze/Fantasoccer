@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useAuth } from '../auth'
 import { groupService } from '../services/groupService'
+import { authService } from '../services/authService'
 import { Group, EnhancedGroup, enhanceGroup } from '../types/group'
 import { useGlobalLoading } from './LoadingProvider'
 
@@ -20,8 +21,8 @@ export interface AppState {
 export interface AppContextType extends AppState {
   refreshGroups: () => Promise<void>
   setCurrentGroup: (groupId: string | null) => Promise<void>
-  setSelectedLeague: (leagueId: string | null) => void
-  setSelectedYear: (year: number | null) => void
+  setSelectedLeague: (leagueId: string | null) => Promise<void>
+  setSelectedYear: (year: number | null) => Promise<void>
   getAvailableLeagues: () => import('../types/group').League[]
   getAvailableYears: (leagueId?: string) => number[]
   clearError: () => void
@@ -125,7 +126,20 @@ export function AppProvider({ children }: AppProviderProps) {
       return
     }
     
+    // Update local state
     await setCurrentGroupInternal(groupId)
+    
+    // Update backend user state
+    if (user && user.rawData) {
+      try {
+        await authService.updateUserGroup(user.rawData, groupId)
+        console.log('✅ User group updated on backend')
+      } catch (error) {
+        console.error('❌ Failed to update user group on backend:', error)
+        // Note: We don't revert local state to avoid UI flickering
+        // The user can try again or the change will sync later
+      }
+    }
   }
 
   // Refresh groups
@@ -139,7 +153,8 @@ export function AppProvider({ children }: AppProviderProps) {
   }
 
   // League and year management functions
-  const setSelectedLeague = (leagueId: string | null) => {
+  const setSelectedLeague = async (leagueId: string | null) => {
+    // Update local state
     setSelectedLeagueId(leagueId)
     
     // When switching league, check if current year is available
@@ -154,10 +169,31 @@ export function AppProvider({ children }: AppProviderProps) {
         }
       }
     }
+    
+    // Update backend user state
+    if (user && user.rawData && leagueId) {
+      try {
+        await authService.updateUserLeague(user.rawData, leagueId)
+        console.log('✅ User league updated on backend')
+      } catch (error) {
+        console.error('❌ Failed to update user league on backend:', error)
+      }
+    }
   }
 
-  const setSelectedYearFunc = (year: number | null) => {
+  const setSelectedYearFunc = async (year: number | null) => {
+    // Update local state
     setSelectedYear(year)
+    
+    // Update backend user state
+    if (user && user.rawData && year !== null) {
+      try {
+        await authService.updateUserYear(user.rawData, year)
+        console.log('✅ User year updated on backend')
+      } catch (error) {
+        console.error('❌ Failed to update user year on backend:', error)
+      }
+    }
   }
 
   const getAvailableLeagues = () => {

@@ -324,7 +324,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                               variant={currentGroup?.id === group.id ? "outlined" : "ghost"}
                               borderColor={currentGroup?.id === group.id ? "$blue8" : "transparent"}
                               backgroundColor={currentGroup?.id === group.id ? "$blue2" : "transparent"}
-                              onPress={() => setCurrentGroup(group.id)}
+                              onPress={async () => {
+                                try {
+                                  await setCurrentGroup(group.id)
+                                } catch (error) {
+                                  console.error('Error switching group:', error)
+                                }
+                              }}
                               justifyContent="flex-start"
                             >
                               <Text fontSize="$1" color={currentGroup?.id === group.id ? "$blue11" : "$color11"}>
@@ -346,7 +352,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                               variant={selectedLeagueId === league.id ? "outlined" : "ghost"}
                               borderColor={selectedLeagueId === league.id ? "$green8" : "transparent"}
                               backgroundColor={selectedLeagueId === league.id ? "$green2" : "transparent"}
-                              onPress={() => setSelectedLeague(league.id)}
+                              onPress={async () => {
+                                try {
+                                  await setSelectedLeague(league.id)
+                                } catch (error) {
+                                  console.error('Error switching league:', error)
+                                }
+                              }}
                               justifyContent="flex-start"
                             >
                               <Text fontSize="$1" color={selectedLeagueId === league.id ? "$green11" : "$color11"}>
@@ -369,7 +381,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                                 variant={selectedYear === year ? "outlined" : "ghost"}
                                 borderColor={selectedYear === year ? "$orange8" : "transparent"}
                                 backgroundColor={selectedYear === year ? "$orange2" : "transparent"}
-                                onPress={() => setSelectedYear(year)}
+                                onPress={async () => {
+                                  try {
+                                    await setSelectedYear(year)
+                                  } catch (error) {
+                                    console.error('Error switching year:', error)
+                                  }
+                                }}
                                 minWidth="$3"
                               >
                                 <Text fontSize="$1" color={selectedYear === year ? "$orange11" : "$color11"}>
