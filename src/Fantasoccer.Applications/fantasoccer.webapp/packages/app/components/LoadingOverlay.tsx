@@ -92,7 +92,6 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
                 fontSize="$5"
                 fontWeight="600"
                 color="$color12"
-                textAlign="center"
               >
                 {message}
               </Text>

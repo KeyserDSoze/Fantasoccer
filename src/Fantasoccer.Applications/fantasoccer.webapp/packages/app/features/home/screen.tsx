@@ -46,7 +46,7 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
           {isAuthenticated ? (
             <NavigationBar />
           ) : (
-            Platform.OS === 'web' && <SwitchThemeButton />
+            <LoginButton />
           )}
         </XStack>
       </XStack>
@@ -99,10 +99,6 @@ function WelcomeContent() {
             description="Gestisci le formazioni per ogni turno"
           />
         </XStack>
-      </YStack>
-
-      <YStack gap="$3" align="center">
-        <LoginButton />
       </YStack>
     </YStack>
   )

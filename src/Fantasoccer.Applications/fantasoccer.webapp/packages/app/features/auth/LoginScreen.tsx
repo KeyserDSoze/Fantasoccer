@@ -12,7 +12,7 @@ export function LoginScreen() {
         
         {/* App Logo/Title */}
         <YStack alignItems="center" gap="$2">
-          <H1 color="$blue10" fontWeight="800" textAlign="center">
+          <H1 color="$blue10" fontWeight="800">
             ⚽ Fantasoccer
           </H1>
           <Text fontSize="$4" color="$gray10" textAlign="center">
