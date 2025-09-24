@@ -33,6 +33,7 @@ import {
   Gavel,
 } from '@tamagui/lucide-icons'
 import { useAuth } from '../auth/AuthProvider'
+import { useApp } from '../providers/AppProvider'
 import { hasRole, IdentityRole } from '../types/identity'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 
@@ -117,15 +118,27 @@ const superAdminItems = [
 
 export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const [showGroupSelector, setShowGroupSelector] = useState(false)
   const { user, logout } = useAuth()
+  const { 
+    currentGroup, 
+    userGroups,
+    selectedLeagueId,
+    selectedYear,
+    setCurrentGroup,
+    setSelectedLeague,
+    setSelectedYear,
+    getAvailableLeagues,
+    getAvailableYears
+  } = useApp()
   const { navigate } = useAppNavigation()
   const media = useMedia()
 
-  // Check user roles for admin sections
-  const userGroups = user?.groups || []
-  const isAdmin = userGroups.some(group => hasRole(group.role, IdentityRole.Admin))
+  // Check user roles for admin sections - find current user's role in current group
+  const currentUserInGroup = currentGroup?.users.find(u => u.username === user?.username)
+  const isAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
   // For now, super admin logic would need backend implementation
-  const isSuperAdmin = userGroups.some(group => hasRole(group.role, IdentityRole.SuperAdmin))
+  const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
 
   // Responsive sheet settings
   const snapPointsMode = media.gtSm ? 'fit' : 'percent'
@@ -262,14 +275,113 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                   borderRadius="$4" 
                   marginBottom="$4"
                 >
-                  {user.groups?.[0] && (
-                    <Text fontSize="$3" color="$blue10" marginTop="$1">
-                      📊 {user.groups[0].name} • Year {user.state?.year}
-                    </Text>
-                  )}
                   <Text fontSize="$3" color="$color10">
                     {user.email}
                   </Text>
+                  
+                  {/* Current Group Info */}
+                  {currentGroup && (
+                    <YStack gap="$2" marginTop="$2">
+                      <Text fontSize="$3" color="$blue10">
+                        📊 {currentGroup.name}
+                      </Text>
+                      
+                      {/* Show current league and year if available */}
+                      {selectedLeagueId && (
+                        <Text fontSize="$2" color="$color11">
+                          🏆 {getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'Unknown League'}
+                          {selectedYear && ` • Anno ${selectedYear}`}
+                        </Text>
+                      )}
+                    </YStack>
+                  )}
+                  
+                  {/* Group/League Selector Toggle */}
+                  {(userGroups.length > 1 || (currentGroup && currentGroup.leagues.length > 1)) && (
+                    <Button
+                      size="$2"
+                      variant="outlined"
+                      marginTop="$3"
+                      onPress={() => setShowGroupSelector(!showGroupSelector)}
+                    >
+                      <Text fontSize="$2">
+                        {showGroupSelector ? '← Nascondi' : '⚙️ Cambia Gruppo/Leghe/Anno'}
+                      </Text>
+                    </Button>
+                  )}
+                  
+                  {/* Group/League Selector */}
+                  {showGroupSelector && (
+                    <YStack gap="$2" marginTop="$3" padding="$2" backgroundColor="$color3" borderRadius="$3">
+                      {/* Group Selector */}
+                      {userGroups.length > 1 && (
+                        <YStack gap="$1">
+                          <Text fontSize="$2" fontWeight="bold" color="$color12">Groups:</Text>
+                          {userGroups.map((group) => (
+                            <Button
+                              key={group.id}
+                              size="$1"
+                              variant={currentGroup?.id === group.id ? "outlined" : "ghost"}
+                              borderColor={currentGroup?.id === group.id ? "$blue8" : "transparent"}
+                              backgroundColor={currentGroup?.id === group.id ? "$blue2" : "transparent"}
+                              onPress={() => setCurrentGroup(group.id)}
+                              justifyContent="flex-start"
+                            >
+                              <Text fontSize="$1" color={currentGroup?.id === group.id ? "$blue11" : "$color11"}>
+                                {group.name}
+                              </Text>
+                            </Button>
+                          ))}
+                        </YStack>
+                      )}
+                      
+                      {/* League Selector */}
+                      {currentGroup && currentGroup.leagues.length > 1 && (
+                        <YStack gap="$1" marginTop="$2">
+                          <Text fontSize="$2" fontWeight="bold" color="$color12">Leagues:</Text>
+                          {currentGroup.leagues.map((league) => (
+                            <Button
+                              key={league.id}
+                              size="$1"
+                              variant={selectedLeagueId === league.id ? "outlined" : "ghost"}
+                              borderColor={selectedLeagueId === league.id ? "$green8" : "transparent"}
+                              backgroundColor={selectedLeagueId === league.id ? "$green2" : "transparent"}
+                              onPress={() => setSelectedLeague(league.id)}
+                              justifyContent="flex-start"
+                            >
+                              <Text fontSize="$1" color={selectedLeagueId === league.id ? "$green11" : "$color11"}>
+                                🏆 {league.name} {league.isMain ? '(Main)' : ''}
+                              </Text>
+                            </Button>
+                          ))}
+                        </YStack>
+                      )}
+                      
+                      {/* Year Selector */}
+                      {selectedLeagueId && getAvailableYears().length > 1 && (
+                        <YStack gap="$1" marginTop="$2">
+                          <Text fontSize="$2" fontWeight="bold" color="$color12">Years:</Text>
+                          <XStack gap="$1" flexWrap="wrap">
+                            {getAvailableYears().sort((a, b) => b - a).map((year) => (
+                              <Button
+                                key={year}
+                                size="$1"
+                                variant={selectedYear === year ? "outlined" : "ghost"}
+                                borderColor={selectedYear === year ? "$orange8" : "transparent"}
+                                backgroundColor={selectedYear === year ? "$orange2" : "transparent"}
+                                onPress={() => setSelectedYear(year)}
+                                minWidth="$3"
+                              >
+                                <Text fontSize="$1" color={selectedYear === year ? "$orange11" : "$color11"}>
+                                  {year}
+                                </Text>
+                              </Button>
+                            ))}
+                          </XStack>
+                        </YStack>
+                      )}
+                    </YStack>
+                  )}
                 </YStack>
               )}
 

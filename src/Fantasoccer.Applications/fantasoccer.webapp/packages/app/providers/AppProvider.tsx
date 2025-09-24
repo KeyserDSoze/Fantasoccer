@@ -13,11 +13,17 @@ export interface AppState {
   userGroups: Group[]
   isGroupsLoading: boolean
   groupsError: string | null
+  selectedLeagueId: string | null
+  selectedYear: number | null
 }
 
 export interface AppContextType extends AppState {
   refreshGroups: () => Promise<void>
   setCurrentGroup: (groupId: string | null) => Promise<void>
+  setSelectedLeague: (leagueId: string | null) => void
+  setSelectedYear: (year: number | null) => void
+  getAvailableLeagues: () => import('../types/group').League[]
+  getAvailableYears: (leagueId?: string) => number[]
   clearError: () => void
 }
 
@@ -48,6 +54,8 @@ export function AppProvider({ children }: AppProviderProps) {
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [isGroupsLoading, setIsGroupsLoading] = useState<boolean>(false)
   const [groupsError, setGroupsError] = useState<string | null>(null)
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
 
   // Load user groups when user is authenticated
   const loadUserGroups = async () => {
@@ -130,6 +138,42 @@ export function AppProvider({ children }: AppProviderProps) {
     setGroupsError(null)
   }
 
+  // League and year management functions
+  const setSelectedLeague = (leagueId: string | null) => {
+    setSelectedLeagueId(leagueId)
+    
+    // When switching league, check if current year is available
+    if (leagueId && currentGroup) {
+      const league = currentGroup.leagues.find(l => l.id === leagueId)
+      if (league && selectedYear) {
+        const availableYears = league.years.map(y => y.year)
+        if (!availableYears.includes(selectedYear)) {
+          // Set to latest available year
+          const latestYear = Math.max(...availableYears)
+          setSelectedYear(latestYear)
+        }
+      }
+    }
+  }
+
+  const setSelectedYearFunc = (year: number | null) => {
+    setSelectedYear(year)
+  }
+
+  const getAvailableLeagues = () => {
+    return currentGroup?.leagues || []
+  }
+
+  const getAvailableYears = (leagueId?: string) => {
+    if (!currentGroup) return []
+    
+    const targetLeagueId = leagueId || selectedLeagueId
+    if (!targetLeagueId) return []
+    
+    const league = currentGroup.leagues.find(l => l.id === targetLeagueId)
+    return league?.years.map(y => y.year) || []
+  }
+
   // Effect to load groups when auth state changes
   useEffect(() => {
     if (isAuthenticated && user && !authLoading) {
@@ -140,8 +184,27 @@ export function AppProvider({ children }: AppProviderProps) {
       setCurrentGroupState(null)
       setEnhancedGroup(null)
       setGroupsError(null)
+      setSelectedLeagueId(null)
+      setSelectedYear(null)
     }
   }, [isAuthenticated, user, authLoading])
+
+  // Effect to set default league and year when current group changes
+  useEffect(() => {
+    if (currentGroup && currentGroup.leagues.length > 0) {
+      // Set main league as default or first league
+      const mainLeague = currentGroup.leagues.find(l => l.isMain) || currentGroup.leagues[0]
+      if (!selectedLeagueId || !currentGroup.leagues.find(l => l.id === selectedLeagueId)) {
+        setSelectedLeagueId(mainLeague.id)
+        
+        // Set latest year as default
+        if (mainLeague.years.length > 0) {
+          const latestYear = Math.max(...mainLeague.years.map(y => y.year))
+          setSelectedYear(latestYear)
+        }
+      }
+    }
+  }, [currentGroup])
 
   // Note: Global loading state is managed directly in the AuthGuard component
 
@@ -152,10 +215,16 @@ export function AppProvider({ children }: AppProviderProps) {
     userGroups,
     isGroupsLoading,
     groupsError,
+    selectedLeagueId,
+    selectedYear,
     
     // Actions
     refreshGroups,
     setCurrentGroup,
+    setSelectedLeague,
+    setSelectedYear: setSelectedYearFunc,
+    getAvailableLeagues,
+    getAvailableYears,
     clearError
   }
 
