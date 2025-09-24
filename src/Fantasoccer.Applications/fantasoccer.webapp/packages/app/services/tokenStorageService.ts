@@ -64,7 +64,7 @@ class TokenStorageService {
     await this.saveToken(completeTokenData)
   }
 
-  // Load backend token from storage
+  // Load backend token from storage with automatic refresh if expired
   async loadToken(): Promise<StoredTokenData | null> {
     try {
       let storedData: string | null = null
@@ -85,9 +85,47 @@ class TokenStorageService {
 
       const tokenData = JSON.parse(storedData) as StoredTokenData
       
-      // Check if token is expired
-      if (tokenData.expiresAt && Date.now() > tokenData.expiresAt) {
-        console.log('⏰ Stored token is expired, removing...')
+      // Check if token is expired or close to expiry
+      if (tokenData.expiresAt && tokenData.refreshToken) {
+        const now = Date.now()
+        const fiveMinutesFromNow = now + (5 * 60 * 1000) // 5 minutes threshold
+        
+        // If token is expired or expires within 5 minutes, try to refresh
+        if (tokenData.expiresAt <= fiveMinutesFromNow) {
+          console.log('🔄 Token expired or expiring soon, attempting refresh...')
+          
+          try {
+            // Import authService dynamically to avoid circular dependency
+            const { authService } = await import('./authService')
+            const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+            
+            // Calculate new expiration
+            const expiresAt = now + (newTokenData.expiresIn * 1000)
+            
+            // Save new token data
+            const refreshedTokenData: StoredTokenData = {
+              tokenType: newTokenData.tokenType,
+              accessToken: newTokenData.accessToken,
+              refreshToken: newTokenData.refreshToken,
+              expiresAt,
+              user: tokenData.user // Preserve user data
+            }
+            
+            await this.saveToken(refreshedTokenData)
+            console.log('✅ Token refreshed successfully during load')
+            
+            return refreshedTokenData
+            
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed during load:', refreshError)
+            // Remove invalid tokens
+            await this.removeToken()
+            return null
+          }
+        }
+      } else if (tokenData.expiresAt && Date.now() > tokenData.expiresAt) {
+        // Token expired and no refresh token available
+        console.log('⏰ Token expired and no refresh token available, removing...')
         await this.removeToken()
         return null
       }
@@ -98,6 +136,35 @@ class TokenStorageService {
       console.error('❌ Failed to load token:', error)
       // If there's an error parsing, remove the invalid data
       await this.removeToken()
+      return null
+    }
+  }
+
+  // Load token without attempting automatic refresh (for silent checks)
+  async loadTokenSilent(): Promise<StoredTokenData | null> {
+    try {
+      let storedData: string | null = null
+
+      if (Platform.OS === 'web') {
+        // Web: use localStorage
+        storedData = localStorage.getItem(TOKEN_KEY)
+      } else {
+        // React Native: use AsyncStorage
+        const AsyncStorage = await import('@react-native-async-storage/async-storage')
+        storedData = await AsyncStorage.default.getItem(TOKEN_KEY)
+      }
+
+      if (!storedData) {
+        return null
+      }
+
+      const tokenData = JSON.parse(storedData) as StoredTokenData
+      
+      // Simply return token data without refresh attempts
+      // Caller can check expiration manually if needed
+      return tokenData
+    } catch (error) {
+      console.error('❌ Failed to load token silently:', error)
       return null
     }
   }
@@ -123,10 +190,21 @@ class TokenStorageService {
     }
   }
 
-  // Check if we have a valid stored token
+  // Check if we have a valid stored token (without triggering refresh)
   async hasValidToken(): Promise<boolean> {
-    const tokenData = await this.loadToken()
-    return tokenData !== null
+    const tokenData = await this.loadTokenSilent()
+    if (!tokenData || !tokenData.expiresAt) {
+      return false
+    }
+    
+    // Check if token is still valid (not expired)
+    return Date.now() < tokenData.expiresAt
+  }
+
+  // Get token without automatic refresh (for internal checks)
+  async getTokenSilent(): Promise<string | null> {
+    const tokenData = await this.loadTokenSilent()
+    return tokenData?.accessToken || null
   }
 
   // Get just the access token string

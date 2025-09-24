@@ -76,17 +76,30 @@ const handleAuthError = async (endpoint: any, uri: string, method: string, heade
         return true; // Retry the request with new token
       } else {
         console.log('❌ No refresh token available');
+        await handleAuthenticationFailure();
       }
     } catch (refreshError) {
       console.error("❌ Token refresh failed:", refreshError);
-      
-      // Clear invalid tokens
-      await tokenStorageService.removeToken();
-      
-      // Refresh failed, user needs to re-login
-      // In a real app, you might want to trigger a logout or redirect to login
-      console.log('🚪 User needs to re-authenticate');
+      await handleAuthenticationFailure();
     }
   }
   return false; // Don't retry
+};
+
+// Handle authentication failure by clearing tokens and redirecting to login
+const handleAuthenticationFailure = async () => {
+  try {
+    // Clear all stored tokens
+    await tokenStorageService.removeToken();
+    console.log('🧹 Cleared invalid tokens');
+    
+    // If we're in browser environment, redirect to login
+    if (typeof window !== 'undefined') {
+      console.log('🚪 Redirecting to login...');
+      // Clear any cached state that might depend on authentication
+      window.location.href = '/login';
+    }
+  } catch (error) {
+    console.error('❌ Error handling authentication failure:', error);
+  }
 };
