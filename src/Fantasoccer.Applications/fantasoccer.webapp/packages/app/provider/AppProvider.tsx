@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { useAuth } from '../auth'
+import { useAuth } from './AuthProvider'
 import { groupService } from '../services/groupService'
 import { authService } from '../services/authService'
 import { Group, EnhancedGroup, enhanceGroup } from '../types/group'

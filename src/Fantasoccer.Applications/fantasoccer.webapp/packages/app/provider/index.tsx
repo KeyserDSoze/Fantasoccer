@@ -8,7 +8,7 @@ import {
   isWeb,
 } from '@my/ui'
 import { ToastViewport } from './ToastViewport'
-import { AuthProvider } from '../auth'
+import { AuthProvider } from './AuthProvider'
 import { LoadingProvider } from './LoadingProvider'
 import { AppProvider } from './AppProvider'
 import { MobileEnhancements } from '../components/MobileEnhancements'

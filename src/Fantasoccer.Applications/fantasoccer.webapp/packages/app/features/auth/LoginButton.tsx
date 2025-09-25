@@ -2,7 +2,7 @@
 
 import { Button, Spinner, Text, YStack, XStack, Image } from '@my/ui'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '../../auth'
+import { useAuth } from '../../provider/AuthProvider'
 
 interface LoginButtonProps {
   variant?: 'primary' | 'outline'
