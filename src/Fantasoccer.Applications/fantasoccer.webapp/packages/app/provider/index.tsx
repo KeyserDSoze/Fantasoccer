@@ -11,6 +11,7 @@ import { ToastViewport } from './ToastViewport'
 import { AuthProvider } from '../auth'
 import { LoadingProvider } from '../providers/LoadingProvider'
 import { AppProvider } from '../providers/AppProvider'
+import { AppInitializer } from '../components/AppInitializer'
 import { setupRepositoryServices } from '../providers/repositoryConfig'
 
 // Initialize repository services
@@ -30,7 +31,9 @@ export function Provider({
         <LoadingProvider>
           <AuthProvider>
             <AppProvider>
-              {children}
+              <AppInitializer>
+                {children}
+              </AppInitializer>
               <CustomToast />
               <ToastViewport />
             </AppProvider>
