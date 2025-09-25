@@ -36,6 +36,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useApp } from '../providers/AppProvider'
 import { hasRole, IdentityRole } from '../types/identity'
 import { useAppNavigation } from '../hooks/useAppNavigation'
+import { useRouter } from 'next/navigation'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -144,6 +145,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     getAvailableYears
   } = useApp()
   const { navigate } = useAppNavigation()
+  const router = useRouter()
   const media = useMedia()
 
   // Check user roles for admin sections - find current user's role in current group
@@ -170,7 +172,17 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     if (onNavigate) {
       onNavigate(path)
     } else {
-      navigate(path)
+      if (Platform.OS === 'web') {
+        // Use Next.js client router for in-app client-side navigation
+        try {
+          router.push(path)
+        } catch (err) {
+          // Fallback to the hook fallback which uses history.pushState
+          navigate(path)
+        }
+      } else {
+        navigate(path)
+      }
     }
     setIsOpen(false)
   }

@@ -103,9 +103,16 @@ const handleAuthenticationFailure = async () => {
     
     // If we're in browser environment, redirect to login
     if (typeof window !== 'undefined') {
-      console.log('🚪 Redirecting to login...');
-      // Clear any cached state that might depend on authentication
-      window.location.href = '/login';
+      console.log('🚪 Redirecting to login (client-side) ...');
+      try {
+        // Prefer client-side navigation via history API so Next App Router can handle it
+        window.history.pushState({}, '', '/login')
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      } catch (err) {
+        // Fallback to full reload if history API fails
+        console.warn('Client-side redirect failed, falling back to full redirect', err)
+        window.location.href = '/login'
+      }
     }
   } catch (error) {
     console.error('❌ Error handling authentication failure:', error);

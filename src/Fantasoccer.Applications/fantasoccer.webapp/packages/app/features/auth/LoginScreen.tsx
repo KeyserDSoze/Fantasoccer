@@ -9,7 +9,7 @@ import { FantasoccerLogo } from '../../components/FantasoccerLogo'
 
 function HomeButton() {
   const router = useRouter()
-  
+  console.log('Navigating in login...')
   return (
     <Button
       variant="outline"
