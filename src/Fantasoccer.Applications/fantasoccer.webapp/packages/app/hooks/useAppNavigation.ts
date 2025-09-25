@@ -1,49 +1,21 @@
-import { useCallback } from 'react'
+// Route definitions that match the prompt_frontendapp specification
 import { Platform } from 'react-native'
 
-// Hook for navigation that works across web and mobile
+// Platform-proxy hook: when code imports `useAppNavigation` from this module
+// we delegate at runtime to the platform-specific implementation. This
+// avoids bundling `next/navigation` into native builds and keeps a single
+// import path for consumers.
 export const useAppNavigation = () => {
-  const navigate = useCallback((path: string) => {
-    if (Platform.OS === 'web') {
-      // For web - use Next.js App Router
-      if (typeof window !== 'undefined') {
-        // Use window.location.href for Next.js App Router navigation
-        // This works with static export and avoids client-side routing issues
-        window.location.href = path
-      }
-    } else {
-      // For React Native - use React Navigation
-      // This would need to be implemented when setting up mobile navigation
-      console.log('React Native navigation to:', path)
-      // TODO: Implement React Navigation integration
-      // const navigation = useNavigation()
-      // navigation.navigate(getScreenNameFromPath(path))
-    }
-  }, [])
-
-  const canGoBack = useCallback(() => {
-    if (Platform.OS === 'web') {
-      return typeof window !== 'undefined' && window.history.length > 1
-    }
-    return true // React Navigation handles this
-  }, [])
-
-  const goBack = useCallback(() => {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined') {
-        window.history.back()
-      }
-    } else {
-      // React Navigation goBack
-      console.log('React Native go back')
-    }
-  }, [])
-
-  return {
-    navigate,
-    canGoBack,
-    goBack,
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { useAppNavigation: webHook } = require('./useAppNavigation.web') as { useAppNavigation: any }
+    return webHook()
   }
+
+  // native fallback
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { useAppNavigation: nativeHook } = require('./useAppNavigation.native') as { useAppNavigation: any }
+  return nativeHook()
 }
 
 // Route definitions that match the prompt_frontendapp specification
@@ -185,3 +157,10 @@ export const getScreenNameFromPath = (path: string): string => {
   
   return pathToScreen[path] || 'Home'
 }
+
+// Note: platform-specific `useAppNavigation` hooks are provided in
+// `useAppNavigation.web.ts` (web - Next.js App Router) and
+// `useAppNavigation.native.ts` (React Native). Importing the hook
+// by bare module specifier will resolve to the correct file for
+// the target platform (e.g. bundlers that support .web/.native
+// resolution such as Metro and Next's webpack config).
