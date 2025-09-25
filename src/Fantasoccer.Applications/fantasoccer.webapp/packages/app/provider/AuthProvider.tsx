@@ -123,6 +123,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const initializeMsal = async () => {
     try {
       showLoading('Inizializzazione...')
+      // debug
+      // eslint-disable-next-line no-console
+      console.debug('[AuthProvider] initializeMsal start')
       
       if (Platform.OS === 'web') {
         // Web MSAL initialization
@@ -135,7 +138,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setMsalInstance(null) // Will use PKCE flow instead
       }
       
-      setIsInitialized(true)
+  setIsInitialized(true)
+  // Initialization finished, hide the global loader started above.
+  // eslint-disable-next-line no-console
+  console.debug('[AuthProvider] initializeMsal done')
+  hideLoading()
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
@@ -150,6 +157,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkExistingAuth = async () => {
     try {
       showLoading('Verifica credenziali...')
+      // eslint-disable-next-line no-console
+      console.debug('[AuthProvider] checkExistingAuth start')
       
       // Check stored token
       const storedData = await tokenStorageService.loadToken()
@@ -169,6 +178,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             error: null,
           }))
           
+          // eslint-disable-next-line no-console
+          console.debug('[AuthProvider] checkExistingAuth: user loaded')
           hideLoading()
           return
         } catch (error) {
@@ -182,8 +193,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
       
-      setState(prev => ({ ...prev, isLoading: false }))
-      hideLoading()
+  setState(prev => ({ ...prev, isLoading: false }))
+  // eslint-disable-next-line no-console
+  console.debug('[AuthProvider] checkExistingAuth: no token')
+  hideLoading()
       
     } catch (error) {
       // Clear invalid token
@@ -193,6 +206,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: false,
         error: null // Don't show error for expired/invalid tokens
       }))
+      // eslint-disable-next-line no-console
+      console.debug('[AuthProvider] checkExistingAuth: error', error)
       hideLoading()
     }
   }
@@ -200,20 +215,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize on mount
   useEffect(() => {
     const initialize = async () => {
+      // eslint-disable-next-line no-console
+      console.debug('[AuthProvider] overall initialize start')
       await initializeMsal()
-      
+
       // Check for OAuth callback with authorization code
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.debug('[AuthProvider] detecting OAuth callback...')
         await handleOAuthCallback()
       }
-      
-      if (isInitialized) {
-        await checkExistingAuth()
-      }
+
+      // After init (regardless of state variable timing), check existing auth
+      // eslint-disable-next-line no-console
+      console.debug('[AuthProvider] calling checkExistingAuth')
+      await checkExistingAuth()
     }
-    
+
+    // Run once on mount
     initialize()
-  }, [isInitialized])
+  }, [])
 
   // Handle OAuth callback with authorization code
   const handleOAuthCallback = async () => {
@@ -229,6 +250,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           error: `OAuth error: ${error}`,
           isLoading: false 
         }))
+        // Ensure global loader is hidden when an OAuth error occurs
+        hideLoading()
         return
       }
 
@@ -262,6 +285,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             isLoading: false,
             error: null,
           }))
+          // Hide global loader after successful token exchange and user load
+          hideLoading()
 
         } catch (exchangeError) {
           setState(prev => ({
@@ -277,6 +302,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: `Callback handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         isLoading: false 
       }))
+      // Ensure global loader is hidden on errors
+      hideLoading()
     }
   }
 

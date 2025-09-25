@@ -1,7 +1,7 @@
 'use client'
 
 // Global Loading Provider
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { SplashScreen } from 'app/components/SplashScreen'
 
 interface LoadingContextType {
@@ -19,15 +19,21 @@ interface LoadingProviderProps {
 }
 
 export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [loadingMessage, setLoadingMessage] = useState("Caricamento...")
 
   const showLoading = (message?: string) => {
     if (message) setLoadingMessage(message)
+    // debug
+    // eslint-disable-next-line no-console
+    console.debug('[LoadingProvider] showLoading', { message })
     setIsLoading(true)
   }
 
   const hideLoading = () => {
+    // debug
+    // eslint-disable-next-line no-console
+    console.debug('[LoadingProvider] hideLoading')
     setIsLoading(false)
   }
 
@@ -53,6 +59,21 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
     hideLoading,
     withLoading
   }
+
+  // Dev-only fallback: auto-hide the splash if it's still visible after a timeout
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const timer = setTimeout(() => {
+        if (isLoading) {
+          // eslint-disable-next-line no-console
+          console.warn('[LoadingProvider] dev fallback: hiding loading after timeout')
+          setIsLoading(false)
+        }
+      }, 8000)
+      return () => clearTimeout(timer)
+    }
+    return
+  }, [isLoading])
 
   return (
     <LoadingContext.Provider value={contextValue}>
