@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { NextTamaguiProvider } from 'app/provider/NextTamaguiProvider'
+import { NavigationBar } from 'app/components/NavigationBar'
 
 export const metadata: Metadata = {
   title: 'Fantasoccer | La tua lega fantacalcio',
@@ -80,7 +81,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
       </head>
       <body>
-        <NextTamaguiProvider>{children}</NextTamaguiProvider>
+        <NextTamaguiProvider>
+          <>
+            {/* Persistent header/navigation - kept outside children so it isn't remounted on child route changes */}
+            <NavigationBar />
+
+            {/* Main app body - children are wrapped by Provider/AppInitializer inside NextTamaguiProvider
+                AppInitializer will show the SplashScreen until initialization completes, so the splash
+                is preserved. */}
+            <main id="app-root">{children}</main>
+          </>
+        </NextTamaguiProvider>
       </body>
     </html>
   )
