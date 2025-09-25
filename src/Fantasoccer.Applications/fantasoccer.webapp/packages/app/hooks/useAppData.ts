@@ -1,5 +1,5 @@
 // Additional hooks for easier access to group data
-import { useApp } from '../providers'
+import { useApp } from '../provider/AppProvider'
 import { Group, EnhancedGroup, League, Basket, UserOfAGroup } from '../types/group'
 
 /**

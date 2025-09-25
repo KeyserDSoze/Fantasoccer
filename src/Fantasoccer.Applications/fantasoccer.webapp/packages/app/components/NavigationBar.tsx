@@ -33,7 +33,7 @@ import {
   Gavel,
 } from '@tamagui/lucide-icons'
 import { useAuth } from '../auth/AuthProvider'
-import { useApp } from '../providers/AppProvider'
+import { useApp } from '../provider/AppProvider'
 import { hasRole, IdentityRole } from '../types/identity'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 import { useRouter } from 'next/navigation'

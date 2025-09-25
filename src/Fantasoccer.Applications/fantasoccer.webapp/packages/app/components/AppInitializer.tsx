@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { useApp } from '../providers/AppProvider'
+import { useApp } from '../provider/AppProvider'
 import { SplashScreen } from '../components/SplashScreen'
 import { HomeScreen } from '../features/home/screen'
+import { LoginScreen } from 'app/features/auth'
 
 interface AppInitializerProps {
   children?: React.ReactNode
@@ -38,7 +39,7 @@ export const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
 
   // Se non autenticato, mostra la home screen (che include il welcome)
   if (!isAuthenticated) {
-    return <HomeScreen />
+    return <LoginScreen />
   }
 
   // Se autenticato ma senza gruppi, mostra messaggio appropriato

@@ -9,18 +9,18 @@ import {
 } from '@my/ui'
 import { ToastViewport } from './ToastViewport'
 import { AuthProvider } from '../auth'
-import { LoadingProvider } from '../providers/LoadingProvider'
-import { AppProvider } from '../providers/AppProvider'
+import { LoadingProvider } from './LoadingProvider'
+import { AppProvider } from './AppProvider'
 import { AppInitializer } from '../components/AppInitializer'
 import { MobileEnhancements } from '../components/MobileEnhancements'
-import { setupRepositoryServices } from '../providers/repositoryConfig'
+import { setupRepositoryServices } from '../bootstrap/repositoryConfig'
 
 // Initialize repository services
 setupRepositoryServices()
 
 export function Provider({
   children,
-  defaultTheme = 'light',
+  defaultTheme = 'dark',
   ...rest
 }: Omit<TamaguiProviderProps, 'config'> & { defaultTheme?: string }) {
   const colorScheme = useColorScheme()

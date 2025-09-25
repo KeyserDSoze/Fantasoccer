@@ -1,7 +1,7 @@
 import React from 'react'
 import { YStack, Spinner, Text } from '@my/ui'
 import { useAuth } from '../../auth'
-import { useApp } from '../../providers'
+import { useApp } from '../../provider/AppProvider'
 import { LoginScreen } from './LoginScreen'
 
 interface AuthGuardProps {

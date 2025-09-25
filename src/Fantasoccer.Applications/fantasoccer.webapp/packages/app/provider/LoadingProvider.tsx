@@ -2,7 +2,7 @@
 
 // Global Loading Provider
 import React, { createContext, useContext, useState, ReactNode } from 'react'
-import { LoadingOverlay } from '../components/LoadingOverlay'
+import { SplashScreen } from 'app/components/SplashScreen'
 
 interface LoadingContextType {
   isLoading: boolean
@@ -56,12 +56,11 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
 
   return (
     <LoadingContext.Provider value={contextValue}>
-      <LoadingOverlay 
-        isVisible={isLoading} 
-        message={loadingMessage}
-      >
-        {children}
-      </LoadingOverlay>
+      {isLoading ?(
+      <SplashScreen 
+              message={loadingMessage}
+              showSpinner={true}
+            />) : children}
     </LoadingContext.Provider>
   )
 }

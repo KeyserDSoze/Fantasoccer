@@ -12,4 +12,4 @@ export * from '../types'
 // Repository Framework exports
 export { 
   setupRepositoryServices
-} from '../providers/repositoryConfig'
+} from '../bootstrap/repositoryConfig'

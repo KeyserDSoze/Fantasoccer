@@ -7,7 +7,7 @@ import { AppIdentity } from '../types/identity'
 import { tokenStorageService } from '../services/tokenStorageService'
 import { PKCEHelper } from '../utils/pkceHelper'
 import { idTokenDecoder } from '../utils/idTokenDecoder'
-import { useGlobalLoading } from '../providers/LoadingProvider'
+import { useGlobalLoading } from '../provider/LoadingProvider'
 
 // Helper function to convert backend user data to AuthUser
 const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {

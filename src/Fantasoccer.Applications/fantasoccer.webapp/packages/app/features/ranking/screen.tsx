@@ -13,7 +13,7 @@ import {
   Separator
 } from 'tamagui'
 import { RefreshCw, Trophy, TrendingUp, Users } from '@tamagui/lucide-icons'
-import { useApp } from '../../providers/AppProvider'
+import { useApp } from '../../provider/AppProvider'
 import { RankingTable } from '../../components/RankingTable'
 import { rankService } from '../../services/rankService'
 import { EnhancedRankedTeam, Rank, LeagueKey, RankHelper } from '../../types/rank'
