@@ -5,29 +5,19 @@ import { Platform } from 'react-native'
 export const useAppNavigation = () => {
   const navigate = useCallback((path: string) => {
     if (Platform.OS === 'web') {
-      // For web - would integrate with Next.js router
-      // For now, using window.location for demo
+      // For web - use Next.js App Router
       if (typeof window !== 'undefined') {
-        // In a real app, you'd use Next.js router:
-        // import { useRouter } from 'next/router'
-        // const router = useRouter()
-        // router.push(path)
-        
-        console.log('Navigate to:', path)
-        // Temporary: just log or redirect to home for demo
-        if (path === '/') {
-          window.location.reload()
-        } else {
-          alert(`Navigation to: ${path}\n\nThis would use Next.js router in production.`)
-        }
+        // Use window.location.href for Next.js App Router navigation
+        // This works with static export and avoids client-side routing issues
+        window.location.href = path
       }
     } else {
-      // For React Native - would use React Navigation
-      // import { useNavigation } from '@react-navigation/native'
-      // const navigation = useNavigation()
-      // navigation.navigate(routeName, params)
-      
+      // For React Native - use React Navigation
+      // This would need to be implemented when setting up mobile navigation
       console.log('React Native navigation to:', path)
+      // TODO: Implement React Navigation integration
+      // const navigation = useNavigation()
+      // navigation.navigate(getScreenNameFromPath(path))
     }
   }, [])
 
@@ -64,6 +54,7 @@ export const ROUTES = {
   
   // Main
   HOME: '/',
+  RANKINGS: '/ranking',
   STANDINGS: '/standings',
   CALENDAR: '/calendar',
   LIVE: '/live',
@@ -121,6 +112,7 @@ export const ROUTES = {
 export const getRouteTitle = (path: string): string => {
   const routeTitles: Record<string, string> = {
     '/': 'Home',
+    '/ranking': 'Rankings',
     '/standings': 'Fantasy Standings',
     '/calendar': 'Fantasy Calendar', 
     '/live': 'Live',
@@ -153,4 +145,43 @@ export const getRouteTitle = (path: string): string => {
   }
   
   return routeTitles[path] || path
+}
+
+// Mobile screen name mapping for React Navigation
+export const getScreenNameFromPath = (path: string): string => {
+  const pathToScreen: Record<string, string> = {
+    '/': 'Home',
+    '/ranking': 'Rankings',
+    '/standings': 'Standings',
+    '/calendar': 'Calendar',
+    '/live': 'Live',
+    '/teams': 'Teams',
+    '/players': 'Players',
+    '/free-players': 'FreePlayers',
+    '/market': 'Market',
+    '/market/trades': 'MarketTrades',
+    '/market/trades/history': 'TradeHistory',
+    '/market/trades/new': 'NewTrade',
+    '/hall-of-fame': 'HallOfFame',
+    '/seriea/standings': 'SerieAStandings',
+    '/seriea/calendar': 'SerieACalendar',
+    '/auction': 'Auction',
+    '/auction/manage': 'AuctionManage',
+    '/my-team': 'MyTeam',
+    '/settings': 'Settings',
+    '/settings/team': 'TeamSettings',
+    '/settings/league': 'LeagueSettings',
+    '/settings/seasons': 'SeasonsSettings',
+    '/admin': 'Admin',
+    '/admin/groups': 'AdminGroups',
+    '/admin/auction': 'AdminAuction',
+    '/superadmin': 'SuperAdmin',
+    '/superadmin/users': 'SuperAdminUsers',
+    '/superadmin/logs': 'SuperAdminLogs',
+    '/superadmin/errors': 'SuperAdminErrors',
+    '/superadmin/league-calendar': 'SuperAdminLeagueCalendar',
+    '/superadmin/seriea-calendar': 'SuperAdminSerieACalendar',
+  }
+  
+  return pathToScreen[path] || 'Home'
 }
