@@ -3,7 +3,7 @@
 import React from 'react'
 import { Text, YStack, XStack, Spinner, H1, H2, Card, Button } from '@my/ui'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '../../auth'
+import { useAuth } from '../../provider/AuthProvider'
 import { LoginButton } from './LoginButton'
 import { FantasoccerLogo } from '../../components/FantasoccerLogo'
 

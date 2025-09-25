@@ -1,33 +1,28 @@
 'use client'
 
 import {
-  Button,
   H1,
   H3,
   Paragraph,
   Separator,
-  SwitchThemeButton,
   XStack,
   YStack,
   Text,
   Card,
 } from '@my/ui'
 import { Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
-import { Platform } from 'react-native'
 import { useAuth } from '../../provider/AuthProvider'
 import { LoginButton } from '../auth'
-import { NavigationBar } from '../../components/NavigationBar'
 import { SerieADayCard } from '../../components/SerieADayCard'
-import { FantasoccerLogo, FantasoccerLogoCompact } from '../../components/FantasoccerLogo'
 
-export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
+export function HomeScreen() {
   const { isAuthenticated, user, isLoading } = useAuth()
 
   return (
     !isAuthenticated ? (
         <WelcomeContent />
       ) : (
-        <AuthenticatedContent user={user} />
+        <AuthenticatedContent />
       )
   )
 }
@@ -82,7 +77,7 @@ function WelcomeContent() {
   )
 }
 
-function AuthenticatedContent({ user }: { user: any }) {
+function AuthenticatedContent() {
   return (
     <YStack gap="$6" maxWidth={800} alignItems="center" width="100%">
       <YStack gap="$4" width="100%">

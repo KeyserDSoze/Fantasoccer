@@ -12,10 +12,8 @@ import { ReactNode } from 'react'
 interface LayoutPageProps {
   children: ReactNode
 }
-
-export function LayoutPage({ children }: LayoutPageProps) {
-  const { isAuthenticated, user, isLoading } = useAuth()
-
+export const LayoutPage: React.FC<LayoutPageProps> = ({ children }) =>{
+  const { isAuthenticated } = useAuth()
   return (
     <YStack flex={1} bg="$background">
       <XStack
