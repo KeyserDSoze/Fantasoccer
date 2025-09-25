@@ -49,10 +49,60 @@ module.exports = () => {
     output: 'export',
     trailingSlash: true,
     images: {
-      unoptimized: true
+      unoptimized: true,
+      // Optimize for mobile images
+      deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+      imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     },
     // Disable server-side features for static export
     distDir: 'out',
+    // Mobile optimizations
+    compress: true,
+    poweredByHeader: false,
+    // Security headers for mobile
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff',
+            },
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY',
+            },
+            {
+              key: 'X-XSS-Protection',
+              value: '1; mode=block',
+            },
+            {
+              key: 'Referrer-Policy',
+              value: 'strict-origin-when-cross-origin',
+            },
+            // PWA cache headers
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+        {
+          source: '/manifest.json',
+          headers: [
+            {
+              key: 'Content-Type',
+              value: 'application/manifest+json',
+            },
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+      ]
+    },
   }
 
   for (const plugin of plugins) {

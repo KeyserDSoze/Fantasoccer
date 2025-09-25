@@ -12,6 +12,7 @@ import { AuthProvider } from '../auth'
 import { LoadingProvider } from '../providers/LoadingProvider'
 import { AppProvider } from '../providers/AppProvider'
 import { AppInitializer } from '../components/AppInitializer'
+import { MobileEnhancements } from '../components/MobileEnhancements'
 import { setupRepositoryServices } from '../providers/repositoryConfig'
 
 // Initialize repository services
@@ -36,6 +37,7 @@ export function Provider({
               </AppInitializer>
               <CustomToast />
               <ToastViewport />
+              <MobileEnhancements />
             </AppProvider>
           </AuthProvider>
         </LoadingProvider>
