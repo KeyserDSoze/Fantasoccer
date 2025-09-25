@@ -81,7 +81,7 @@ const navigationItems = [
   {
     section: 'Mercato',
     items: [
-      { path: '/market', label: 'Mercato', icon: DollarSign, description: 'Trading marketplace' },
+      { path: '/market', label: 'Mercato', icon: DollarSign, description: 'Inizia un nuovo scambio' },
       { path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
       { path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
     ],
@@ -89,16 +89,16 @@ const navigationItems = [
   {
     section: 'Serie A',
     items: [
-      { path: '/seriea/standings', label: 'Serie A Standings', icon: Trophy, description: 'Official Serie A table' },
-      { path: '/seriea/calendar', label: 'Serie A Calendar', icon: Calendar, description: 'Serie A fixtures' },
+      { path: '/seriea/standings', label: 'Classifica Serie A', icon: Trophy, description: 'Classifica ufficiale della Serie A' },
+      { path: '/seriea/calendar', label: 'Calendario Serie A', icon: Calendar, description: 'Calendario ufficiale della Serie A' },
     ],
   },
   {
     section: 'Other',
     items: [
-      { path: '/hall-of-fame', label: 'Hall of Fame', icon: Star, description: 'Past winners and seasons' },
-      { path: '/auction', label: 'Auction', icon: Gavel, description: 'Live auction screen' },
-      { path: '/settings', label: 'Settings', icon: Settings, description: 'User settings' },
+      { path: '/hall-of-fame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e stagioni passate' },
+      { path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
+      { path: '/settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
   },
 ]
