@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import { Button, Spinner, Text, YStack, XStack, Image } from '@my/ui'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../../auth'

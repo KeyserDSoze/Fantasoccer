@@ -15,7 +15,7 @@ import {
 import { Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
 import { Platform } from 'react-native'
 import { useAuth } from '../../auth/AuthProvider'
-import { LoginButton, UserProfile } from '../auth'
+import { LoginButton } from '../auth'
 import { NavigationBar } from '../../components/NavigationBar'
 import { SerieADayCard } from '../../components/SerieADayCard'
 import { FantasoccerLogo, FantasoccerLogoCompact } from '../../components/FantasoccerLogo'

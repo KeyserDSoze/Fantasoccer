@@ -56,11 +56,12 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
 
   return (
     <LoadingContext.Provider value={contextValue}>
-      {isLoading ?(
-      <SplashScreen 
-              message={loadingMessage}
-              showSpinner={true}
-            />) : children}
+      {isLoading ? (
+        <SplashScreen
+          message={loadingMessage}
+          showSpinner={true}
+        />
+      ) : children}
     </LoadingContext.Provider>
   )
 }
