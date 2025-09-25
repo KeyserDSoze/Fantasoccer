@@ -32,7 +32,7 @@ import {
   PlayCircle,
   Gavel,
 } from '@tamagui/lucide-icons'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth } from '../provider/AuthProvider'
 import { useApp } from '../provider/AppProvider'
 import { hasRole, IdentityRole } from '../types/identity'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -155,13 +155,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
 
   // Responsive sheet settings
-  const snapPointsMode = media.gtSm ? 'fit' : 'percent'
+  const snapPointsMode = media.sm ? 'fit' : 'percent'
   const sheetProps = {
     modal: true,
     open: isOpen,
     onOpenChange: setIsOpen,
     snapPointsMode: snapPointsMode as 'fit' | 'percent',
-    snapPoints: media.gtSm ? undefined : [90],
+    snapPoints: media.sm ? undefined : [90],
     moveOnKeyboardChange: false,
     dismissOnSnapToBottom: true,
     disableDrag: false,
@@ -198,7 +198,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         return (
           <Button
             key={item.path}
-            variant="ghost"
+            variant="outlined"
             justifyContent="flex-start"
             paddingHorizontal="$4"
             paddingVertical="$3"
@@ -256,11 +256,11 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           padding="$0"
-          width={media.gtSm ? '25%' : '100%'}
-          alignSelf={media.gtSm ? 'flex-start' : 'center'}
-          marginLeft={media.gtSm ? '$0' : '$0'}
-          height={media.gtSm ? '90%' : '90vh'}
-          flex={media.gtSm ? undefined : 1}
+          width={!media.sm ? '25%' : '100%'}
+          alignSelf={!media.sm ? 'flex-start' : 'center'}
+          marginLeft={!media.sm ? '$0' : '$0'}
+          height={!media.sm ? '90%' : '90vh'}
+          flex={!media.sm ? undefined : 1}
           overflow="hidden"
         >
           <ScrollView 
@@ -345,7 +345,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                             <Button
                               key={group.id}
                               size="$1"
-                              variant={currentGroup?.id === group.id ? "outlined" : "ghost"}
+                              variant={currentGroup?.id === group.id ? "outlined" : "outlined"}
                               borderColor={currentGroup?.id === group.id ? "$blue8" : "transparent"}
                               backgroundColor={currentGroup?.id === group.id ? "$blue2" : "transparent"}
                               onPress={async () => {
@@ -373,7 +373,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                             <Button
                               key={league.id}
                               size="$1"
-                              variant={selectedLeagueId === league.id ? "outlined" : "ghost"}
+                              variant={selectedLeagueId === league.id ? "outlined" : "outlined"}
                               borderColor={selectedLeagueId === league.id ? "$green8" : "transparent"}
                               backgroundColor={selectedLeagueId === league.id ? "$green2" : "transparent"}
                               onPress={async () => {
@@ -402,9 +402,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                               <Button
                                 key={year}
                                 size="$1"
-                                variant={selectedYear === year ? "outlined" : "ghost"}
-                                borderColor={selectedYear === year ? "$orange8" : "transparent"}
-                                backgroundColor={selectedYear === year ? "$orange2" : "transparent"}
+                                variant={selectedYear === year ? "outlined" : "outlined"}
+                                borderColor={selectedYear === year ? "orange" : "transparent"}
+                                backgroundColor={selectedYear === year ? "orange" : "transparent"}
                                 onPress={async () => {
                                   try {
                                     await setSelectedYear(year)
@@ -414,7 +414,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                                 }}
                                 minWidth="$3"
                               >
-                                <Text fontSize="$1" color={selectedYear === year ? "$orange11" : "$color11"}>
+                                <Text fontSize="$1" color={selectedYear === year ? "orange" : "$color11"}>
                                   {getSeasonFromYear(year)}
                                 </Text>
                               </Button>

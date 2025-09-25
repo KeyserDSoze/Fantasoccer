@@ -48,7 +48,7 @@ const TableContainer = styled(View, {
 })
 
 const HeaderRow = styled(XStack, {
-  backgroundColor: '$gray2',
+  backgroundColor: '$gray',
   borderBottomWidth: 1,
   borderBottomColor: '$borderColor',
   minHeight: 48,

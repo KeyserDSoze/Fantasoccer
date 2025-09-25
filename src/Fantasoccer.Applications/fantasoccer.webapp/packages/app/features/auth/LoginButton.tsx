@@ -105,7 +105,7 @@ export function LogoutButton({ variant = 'outline', size = '$4' }: LogoutButtonP
             color={
               variant === 'primary' ? 'white' : 
               variant === 'outline' ? '$red10' : 
-              '$gray11'
+              '#aaa'
             }
             fontWeight="500"
             fontSize="$3"

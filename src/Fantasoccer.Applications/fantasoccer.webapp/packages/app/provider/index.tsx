@@ -13,6 +13,7 @@ import { LoadingProvider } from './LoadingProvider'
 import { AppProvider } from './AppProvider'
 import { MobileEnhancements } from '../components/MobileEnhancements'
 import { setupRepositoryServices } from '../bootstrap/repositoryConfig'
+import { LayoutPage } from 'app/features/Layout'
 
 // Initialize repository services
 setupRepositoryServices()
@@ -31,7 +32,9 @@ export function Provider({
         <LoadingProvider>
           <AuthProvider>
             <AppProvider>
-              {children}
+              <LayoutPage>
+                {children}
+              </LayoutPage>
               <CustomToast />
               <ToastViewport />
               <MobileEnhancements />

@@ -14,7 +14,7 @@ import {
 } from '@my/ui'
 import { Users, Calendar, TrendingUp } from '@tamagui/lucide-icons'
 import { Platform } from 'react-native'
-import { useAuth } from '../../auth/AuthProvider'
+import { useAuth } from '../../provider/AuthProvider'
 import { LoginButton } from '../auth'
 import { NavigationBar } from '../../components/NavigationBar'
 import { SerieADayCard } from '../../components/SerieADayCard'
@@ -24,47 +24,18 @@ export function HomeScreen({ pagesMode = false }: { pagesMode?: boolean }) {
   const { isAuthenticated, user, isLoading } = useAuth()
 
   return (
-    <YStack flex={1} bg="$background">
-      {/* Header with Login */}
-      <XStack
-        width="100%"
-        justify="space-between"
-        align="center"
-        p="$2"
-        bg="$color2"
-        borderBottomWidth="$0.5"
-        borderBottomColor="$borderColor"
-      >
-        <XStack align="center" gap="$3">
-          <FantasoccerLogoCompact 
-            width={44}
-            height={44}
-            color="$blue10"
-          />
-        </XStack>
-
-        <XStack align="center" gap="$3">
-          {isAuthenticated && (
-            <NavigationBar />
-          )}
-        </XStack>
-      </XStack>
-
-      <YStack flex={1} justify="center" items="center" gap="$6" p="$4">
-        {!isAuthenticated ? (
-          <WelcomeContent />
-        ) : (
-          <AuthenticatedContent user={user} />
-        )}
-      </YStack>
-    </YStack>
+    !isAuthenticated ? (
+        <WelcomeContent />
+      ) : (
+        <AuthenticatedContent user={user} />
+      )
   )
 }
 
 function WelcomeContent() {
   return (
-    <YStack gap="$6" maxWidth={600} align="center">
-      <YStack gap="$4" align="center">
+    <YStack gap="$6" maxWidth={600} alignItems="center">
+      <YStack gap="$4" alignItems="center">
         <H1 textAlign="center" color="$blue10" fontWeight="800" fontSize="$10">
           Benvenuto in Fantasoccer!
         </H1>
@@ -75,7 +46,7 @@ function WelcomeContent() {
       </YStack>
 
       {/* Call to Action */}
-      <YStack gap="$3" align="center">
+      <YStack gap="$3" alignItems="center">
         <Text fontSize="$4" color="$color11" textAlign="center" fontWeight="600">
           Inizia subito la tua avventura!
         </Text>
@@ -113,7 +84,7 @@ function WelcomeContent() {
 
 function AuthenticatedContent({ user }: { user: any }) {
   return (
-    <YStack gap="$6" maxWidth={800} align="center" width="100%">
+    <YStack gap="$6" maxWidth={800} alignItems="center" width="100%">
       <YStack gap="$4" width="100%">
         <SerieADayCard />
       </YStack>
@@ -138,7 +109,7 @@ function FeatureCard({ icon, title, description }: {
       hoverStyle={{ backgroundColor: '$color3', scale: 1.02 }}
       pressStyle={{ scale: 0.98 }}
     >
-      <YStack gap="$3" align="center">
+      <YStack gap="$3" alignItems="center">
         {icon}
         <Text fontSize="$5" fontWeight="bold" color="$color12">
           {title}

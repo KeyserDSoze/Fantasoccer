@@ -166,22 +166,22 @@ export function RankingScreen() {
         {(currentGroup || selectedLeague || selectedYear) && (
           <XStack space="$2" flexWrap="wrap">
             {currentGroup && (
-              <Text fontSize="$2" color="$gray10">
+              <Text fontSize="$2" color="#888">
                 Gruppo: <Text fontWeight="600">{currentGroup.name}</Text>
               </Text>
             )}
             {selectedLeague && (
-              <Text fontSize="$2" color="$gray10">
+              <Text fontSize="$2" color="#888">
                 • Lega: <Text fontWeight="600">{selectedLeague.name}</Text>
               </Text>
             )}
             {selectedYear && (
-              <Text fontSize="$2" color="$gray10">
+              <Text fontSize="$2" color="#888">
                 • Anno: <Text fontWeight="600">{selectedYear}</Text>
               </Text>
             )}
             {currentDay > 0 && (
-              <Text fontSize="$2" color="$gray10">
+              <Text fontSize="$2" color="#888">
                 • Giornata: <Text fontWeight="600">{currentDay}</Text>
               </Text>
             )}
@@ -189,7 +189,7 @@ export function RankingScreen() {
         )}
 
         {lastRefresh && (
-          <Text fontSize="$2" color="$gray10">
+          <Text fontSize="$2" color="#888">
             Ultimo aggiornamento: {lastRefresh.toLocaleString('it-IT')}
           </Text>
         )}
@@ -240,7 +240,7 @@ export function RankingScreen() {
           <Card flex={1} minWidth={150} padding="$3" borderRadius="$3">
             <YStack space="$1" alignItems="center">
               <Users size="$1" color="$blue10" />
-              <Text fontSize="$2" color="$gray10">Squadre</Text>
+              <Text fontSize="$2" color="#888">Squadre</Text>
               <Text fontSize="$5" fontWeight="600" color="$color">
                 {stats.totalTeams}
               </Text>
@@ -250,7 +250,7 @@ export function RankingScreen() {
           <Card flex={1} minWidth={150} padding="$3" borderRadius="$3">
             <YStack space="$1" alignItems="center">
               <TrendingUp size="$1" color="$green10" />
-              <Text fontSize="$2" color="$gray10">Media Punti</Text>
+              <Text fontSize="$2" color="#888">Media Punti</Text>
               <Text fontSize="$5" fontWeight="600" color="$color">
                 {stats.averagePoints}
               </Text>
@@ -261,11 +261,11 @@ export function RankingScreen() {
             <Card flex={1} minWidth={200} padding="$3" borderRadius="$3">
               <YStack space="$1" alignItems="center">
                 <Trophy size="$1" color="$yellow10" />
-                <Text fontSize="$2" color="$gray10">Leader</Text>
+                <Text fontSize="$2" color="#888">Leader</Text>
                 <Text fontSize="$4" fontWeight="600" color="$color" textAlign="center" numberOfLines={1}>
                   {stats.leader.name}
                 </Text>
-                <Text fontSize="$3" color="$gray10" textAlign="center">
+                <Text fontSize="$3" color="#888" textAlign="center">
                   {stats.leader.points} pts
                   {stats.leader.advantage > 0 && (
                     <Text color="$green10"> (+{stats.leader.advantage})</Text>
@@ -281,7 +281,7 @@ export function RankingScreen() {
       {canLoadRanking && currentGroup && selectedYear && (
         <YStack flex={1} space="$2">
           {enhancedTeams.length > 0 && (
-            <Text fontSize="$3" color="$gray10">
+            <Text fontSize="$3" color="#888">
               {enhancedTeams.length} squadre • Ordinata per punti
             </Text>
           )}
@@ -305,12 +305,12 @@ export function RankingScreen() {
 
       {/* No Data Available */}
       {canLoadRanking && !isLoading && !error && enhancedTeams.length === 0 && (
-        <Card padding="$4" borderRadius="$4" backgroundColor="$gray2">
+        <Card padding="$4" borderRadius="$4" backgroundColor="gray">
           <YStack space="$2" alignItems="center">
-            <Text fontSize="$4" fontWeight="600" color="$gray11" textAlign="center">
+            <Text fontSize="$4" fontWeight="600" color="#999" textAlign="center">
               📋 Nessun Dato
             </Text>
-            <Text fontSize="$3" color="$gray10" textAlign="center">
+            <Text fontSize="$3" color="#888" textAlign="center">
               La classifica per questa lega non è ancora disponibile
             </Text>
           </YStack>

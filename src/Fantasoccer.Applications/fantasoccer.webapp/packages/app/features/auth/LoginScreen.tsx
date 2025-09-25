@@ -12,12 +12,12 @@ function HomeButton() {
   console.log('Navigating in login...')
   return (
     <Button
-      variant="outline"
+      variant="outlined"
       size="$3"
       onPress={() => router.push('/')}
       chromeless
     >
-      <Text fontSize="$3" color="$gray10">
+      <Text fontSize="$3" color="#888">
         ← Torna alla Home
       </Text>
     </Button>
@@ -42,7 +42,7 @@ export function LoginScreen() {
             <H1 color="$blue10" fontWeight="800">
               Fantasoccer
             </H1>
-            <Text fontSize="$4" color="$gray10" textAlign="center">
+            <Text fontSize="$4" color="#888" textAlign="center">
               La tua lega fantacalcio
             </Text>
           </YStack>
@@ -53,10 +53,10 @@ export function LoginScreen() {
           <YStack gap="$4" alignItems="center">
             
             <YStack alignItems="center" gap="$2">
-              <H2 fontSize="$6" fontWeight="600" color="$gray12">
+              <H2 fontSize="$6" fontWeight="600" color="#aaa">
                 Benvenuto
               </H2>
-              <Text fontSize="$4" color="$gray10" textAlign="center">
+              <Text fontSize="$4" color="#888" textAlign="center">
                 Accedi con il tuo account Microsoft per continuare
               </Text>
             </YStack>
@@ -74,7 +74,7 @@ export function LoginScreen() {
             {isLoading ? (
               <YStack alignItems="center" gap="$3" paddingVertical="$4">
                 <Spinner size="large" color="$blue10" />
-                <Text color="$gray10" fontSize="$3">
+                <Text color="#888" fontSize="$3">
                   Accesso in corso...
                 </Text>
               </YStack>
@@ -98,7 +98,7 @@ export function LoginScreen() {
             )}
 
             {/* Info Text */}
-            <Text fontSize="$2" color="$gray8" textAlign="center" maxWidth="90%">
+            <Text fontSize="$2" color="#666" textAlign="center" maxWidth="90%">
               Utilizzando l'accesso Microsoft, accetti i nostri termini di servizio e la privacy policy.
             </Text>
           </YStack>
@@ -106,7 +106,7 @@ export function LoginScreen() {
 
         {/* Additional Info */}
         <YStack alignItems="center" gap="$2">
-          <Text fontSize="$3" color="$gray9" textAlign="center">
+          <Text fontSize="$3" color="#888" textAlign="center">
             Primo accesso? Il tuo account verrà creato automaticamente.
           </Text>
           

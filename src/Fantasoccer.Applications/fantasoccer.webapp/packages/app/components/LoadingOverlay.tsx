@@ -3,7 +3,6 @@
 // Global Loading Overlay Component
 import React, { useEffect, useState } from 'react'
 import { YStack, XStack, Text, AnimatePresence } from '@my/ui'
-import { Platform } from 'react-native'
 
 interface LoadingOverlayProps {
   isVisible: boolean

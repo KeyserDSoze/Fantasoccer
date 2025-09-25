@@ -36,7 +36,7 @@ export function SerieADayCard() {
   if (isLoading) {
     return (
       <Card padding="$4" bg="$color2" borderRadius="$4" width="100%">
-        <YStack gap="$3" align="center">
+        <YStack gap="$3" alignItems="center">
           <Spinner size="large" color="$blue10" />
           <Text fontSize="$4" color="$color10">
             Caricamento calendario Serie A...
@@ -49,7 +49,7 @@ export function SerieADayCard() {
   if (error) {
     return (
       <Card padding="$4" bg="$color2" borderRadius="$4" width="100%">
-        <YStack gap="$3" align="center">
+        <YStack gap="$3" alignItems="center">
           <Text fontSize="$4" color="$red10">
             {error}
           </Text>
@@ -73,13 +73,13 @@ export function SerieADayCard() {
     <Card padding="$4" bg="$color2" borderRadius="$4" width="100%">
       <YStack gap="$4">
         {/* Header con status giornata */}
-        <XStack gap="$3" align="center" justify="center">
+        <XStack gap="$3" alignItems="center" justify="center">
           <Calendar size="$1.5" color={isLive ? "$green10" : "$yellow10"} />
           <Text fontSize="$6" fontWeight="bold" color="$color12">
             {statusText}
           </Text>
           {isLive && (
-            <XStack gap="$1" align="center">
+            <XStack gap="$1" alignItems="center">
               <Play size="$1.5" color="$green10" />
               <YStack 
                 width="$0.5" 
@@ -112,7 +112,7 @@ export function SerieADayCard() {
               <XStack 
                 key={index}
                 justify="space-between" 
-                align="center"
+                alignItems="center"
                 bg="$color3"
                 padding="$2"
                 borderRadius="$2"
@@ -120,7 +120,7 @@ export function SerieADayCard() {
                 <Text fontSize="$3" color="$color11">
                   {game.home.name} vs {game.away.name}
                 </Text>
-                <XStack gap="$1" align="center">
+                <XStack gap="$1" alignItems="center">
                   {game.homeGoals !== null && game.awayGoals !== null ? (
                     <Text fontSize="$3" fontWeight="bold" color="$color12">
                       {game.homeGoals} - {game.awayGoals}
@@ -141,7 +141,7 @@ export function SerieADayCard() {
               <XStack 
                 key={index}
                 justify="space-between" 
-                align="center"
+                alignItems="center"
                 bg="$color3"
                 padding="$2"
                 borderRadius="$2"
@@ -177,15 +177,15 @@ export function SerieADayCard() {
         </Button>
 
         {/* Info refresh e ultimo aggiornamento */}
-        {isLive && (<YStack gap="$1" align="center">
-          <XStack justify="center" gap="$2" align="center">
+        {isLive && (<YStack gap="$1" alignItems="center">
+          <XStack justify="center" gap="$2" alignItems="center">
             <Clock size="$0.75" color="$color8" />
             <Text fontSize="$1" color="$color8">
                🔴 Aggiornamento automatico attivo
             </Text>
           </XStack>
           
-          <XStack justify="center" gap="$2" align="center">
+          <XStack justify="center" gap="$2" alignItems="center">
             <Text fontSize="$1" color="$color8">
               Ultimo aggiornamento: {timeAgo}
             </Text>
