@@ -170,7 +170,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     if (onNavigate) {
       onNavigate(path)
     } else {
-      navigate(path)
+      navigation.navigate(path)
     }
     setIsOpen(false)
   }
