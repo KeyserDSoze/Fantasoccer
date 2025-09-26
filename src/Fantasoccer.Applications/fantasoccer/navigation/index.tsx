@@ -20,6 +20,9 @@ const Stack = createStackNavigator({
       }),
     },
   },
+  screenOptions: {
+    headerShown: false,
+  },
 });
 
 export type RootNavigatorParamList = StaticParamList<typeof Stack>;
