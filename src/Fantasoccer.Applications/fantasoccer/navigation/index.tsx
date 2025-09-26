@@ -7,13 +7,13 @@ import { Login } from 'screens/login';
 
 const Stack = createStackNavigator({
   screens: {
-    home: {
+    "Home": {
       screen: Home,
     },
-    login:{
+    "Login": {
       screen: Login,
     },
-    details: {
+    "Details": {
       screen: Details,
       options: ({ navigation }) => ({
         headerLeft: () => <BackButton onPress={navigation.goBack} />,
@@ -22,7 +22,7 @@ const Stack = createStackNavigator({
   },
 });
 
-type RootNavigatorParamList = StaticParamList<typeof Stack>;
+export type RootNavigatorParamList = StaticParamList<typeof Stack>;
 
 declare global {
   namespace ReactNavigation {

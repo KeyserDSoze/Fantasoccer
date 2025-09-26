@@ -36,9 +36,37 @@ import { useApp } from 'providers/AppProvider'
 import { hasRole, IdentityRole } from '../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
+import type { RootNavigatorParamList } from 'navigation'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
+}
+
+type NavigationRouteName = keyof RootNavigatorParamList
+
+type IconType = typeof Home
+
+type NavigationBaseItem = {
+  label: string
+  icon: IconType
+  description: string
+}
+
+type NavigationRouteItem = NavigationBaseItem & {
+  type: 'route'
+  route: NavigationRouteName
+}
+
+type NavigationLinkItem = NavigationBaseItem & {
+  type: 'link'
+  path: string
+}
+
+type NavigationItem = NavigationRouteItem | NavigationLinkItem
+
+type NavigationSection = {
+  section: string
+  items: NavigationItem[]
 }
 
 // Helper function to convert year number to season string
@@ -54,76 +82,76 @@ const getSeasonFromYear = (yearNumber: number): string => {
 }
 
 // Navigation items structure based on prompt_frontendapp routing
-const navigationItems = [
+const navigationItems: NavigationSection[] = [
   {
     section: 'Main',
     items: [
-      { path: '/', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
-      { path: '/ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
-      { path: '/calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
-      { path: '/live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
+      { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
+      { type: 'link', path: '/ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
+      { type: 'link', path: '/calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
+      { type: 'link', path: '/live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
     ],
   },
   {
     section: 'Lega',
     items: [
-      { path: '/my-team', label: 'My Team', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
-      { path: '/teams', label: 'Teams', icon: Users, description: 'Tutte le squadre della tua lega' },
+      { type: 'link', path: '/my-team', label: 'My Team', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
+      { type: 'link', path: '/teams', label: 'Teams', icon: Users, description: 'Tutte le squadre della tua lega' },
     ],
   },
   {
     section: 'Giocatori',
     items: [
-      { path: '/players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Elenco dei giocatori di Serie A' },
-      { path: '/free-players', label: 'Giocatori liberi', icon: User, description: 'Giocatori disponibili nella tua lega' },
+      { type: 'link', path: '/players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Elenco dei giocatori di Serie A' },
+      { type: 'link', path: '/free-players', label: 'Giocatori liberi', icon: User, description: 'Giocatori disponibili nella tua lega' },
     ],
   },
   {
     section: 'Mercato',
     items: [
-      { path: '/market', label: 'Mercato', icon: DollarSign, description: 'Inizia un nuovo scambio' },
-      { path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
-      { path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
+      { type: 'link', path: '/market', label: 'Mercato', icon: DollarSign, description: 'Inizia un nuovo scambio' },
+      { type: 'link', path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
+      { type: 'link', path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
     ],
   },
   {
     section: 'Serie A',
     items: [
-      { path: '/seriea/standings', label: 'Classifica Serie A', icon: Trophy, description: 'Classifica ufficiale della Serie A' },
-      { path: '/seriea/calendar', label: 'Calendario Serie A', icon: Calendar, description: 'Calendario ufficiale della Serie A' },
+      { type: 'link', path: '/seriea/standings', label: 'Classifica Serie A', icon: Trophy, description: 'Classifica ufficiale della Serie A' },
+      { type: 'link', path: '/seriea/calendar', label: 'Calendario Serie A', icon: Calendar, description: 'Calendario ufficiale della Serie A' },
     ],
   },
   {
     section: 'Other',
     items: [
-      { path: '/hall-of-fame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e stagioni passate' },
-      { path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
-      { path: '/settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
+      { type: 'link', path: '/hall-of-fame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e stagioni passate' },
+      { type: 'link', path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
+      { type: 'link', path: '/settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
   },
 ]
 
 // Admin items (shown only to admins)
-const adminItems = [
+const adminItems: NavigationSection[] = [
   {
     section: 'Admin',
     items: [
-      { path: '/admin', label: 'Admin Dashboard', icon: Shield, description: 'Admin dashboard' },
-      { path: '/admin/groups', label: 'Manage Groups', icon: Users, description: 'Manage groups and leagues' },
-      { path: '/admin/auction', label: 'Auction Control', icon: Gavel, description: 'Auction control panel' },
+      { type: 'link', path: '/admin', label: 'Admin Dashboard', icon: Shield, description: 'Admin dashboard' },
+      { type: 'link', path: '/admin/groups', label: 'Manage Groups', icon: Users, description: 'Manage groups and leagues' },
+      { type: 'link', path: '/admin/auction', label: 'Auction Control', icon: Gavel, description: 'Auction control panel' },
     ],
   },
 ]
 
 // Super Admin items (shown only to super admins)
-const superAdminItems = [
+const superAdminItems: NavigationSection[] = [
   {
     section: 'Super Admin',
     items: [
-      { path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
-      { path: '/superadmin/users', label: 'Manage Users', icon: Users, description: 'User management' },
-      { path: '/superadmin/logs', label: 'Logs', icon: PlayCircle, description: 'System logs' },
-      { path: '/superadmin/errors', label: 'Error Reports', icon: X, description: 'Error tracking' },
+      { type: 'link', path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
+      { type: 'link', path: '/superadmin/users', label: 'Manage Users', icon: Users, description: 'User management' },
+      { type: 'link', path: '/superadmin/logs', label: 'Logs', icon: PlayCircle, description: 'System logs' },
+      { type: 'link', path: '/superadmin/errors', label: 'Error Reports', icon: X, description: 'Error tracking' },
     ],
   },
 ]
@@ -143,7 +171,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     getAvailableLeagues,
     getAvailableYears
   } = useApp()
-  const { navigate } = useNavigation()
   const media = useMedia()
   const navigation = useNavigation()
   // Check user roles for admin sections - find current user's role in current group
@@ -166,17 +193,19 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   }
 
   // Handle navigation
-  const handleNavigate = (path: string) => {
-    if (onNavigate) {
-      onNavigate(path)
+  const handleNavigate = (item: NavigationItem) => {
+    if (item.type === 'route') {
+      ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
+    } else if (onNavigate) {
+      onNavigate(item.path)
     } else {
-      navigation.navigate(path)
+      console.warn(`NavigationBar: no navigation handler provided for path "${item.path}"`)
     }
     setIsOpen(false)
   }
 
   // Render navigation section
-  const renderSection = (section: typeof navigationItems[0]) => (
+  const renderSection = (section: NavigationSection) => (
     <YStack key={section.section} gap="$2" marginBottom="$4">
       <Text fontSize="$6" fontWeight="bold" color="$color12" marginBottom="$2">
         {section.section}
@@ -185,12 +214,12 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         const IconComponent = item.icon
         return (
           <Button
-            key={item.path}
+            key={item.type === 'route' ? item.route : item.path}
             variant="outlined"
             justifyContent="flex-start"
             paddingHorizontal="$4"
             paddingVertical="$3"
-            onPress={() => handleNavigate(item.path)}
+            onPress={() => handleNavigate(item)}
             borderRadius="$4"
             backgroundColor="transparent"
             hoverStyle={{ backgroundColor: '$color3' }}

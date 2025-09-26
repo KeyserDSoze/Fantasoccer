@@ -29,7 +29,7 @@ export function LoginButton({
       }
     } else {
       // Naviga alla pagina di login dedicata
-      navigation.navigate('login')
+      navigation.navigate('Login')
     }
   }
 

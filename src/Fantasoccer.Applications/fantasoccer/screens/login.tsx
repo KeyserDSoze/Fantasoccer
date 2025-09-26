@@ -11,7 +11,7 @@ function HomeButton() {
     <Button
       variant="outlined"
       size="$3"
-      onPress={() => navigation.navigate('home')}
+      onPress={() => navigation.navigate('Home')}
       chromeless
     >
       <Text fontSize="$3" color="#888">
