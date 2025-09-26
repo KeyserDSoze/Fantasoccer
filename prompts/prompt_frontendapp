@@ -2,11 +2,11 @@
 
 ## 🔹 Tech Stack
 
-* **Frontend Web** → Next.js + Tamagui (UI condivisa con Expo).
+* **Frontend Web** → React native + Tamagui (UI condivisa con Expo).
 * **Mobile App** → Expo (React Native) + Tamagui.
 * **Backend** → .NET API già esistenti, che forniscono tutti i dati (utenti, squadre, giocatori, calendario, scambi, ecc.).
 * **Autenticazione** → Microsoft Login (OAuth2/OpenID Connect).
-* **Path** → ~/src/Fantasoccer.Applications/fantasoccer.webapp.
+* **Path** → ~/src/Fantasoccer.Applications/fantasoccer
 * **Cose da prediligere** → Devi sempre creare componenti che siano riutilizzabili, non usare mai regole css fine a se stessi ma deve essere ponderato tutto all'interno dell'applicazione. Usa il più possibile Tamagui.
 
 ---

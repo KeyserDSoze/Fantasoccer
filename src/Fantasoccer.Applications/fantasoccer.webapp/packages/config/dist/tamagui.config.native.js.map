@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": ["c:\\Users\\aless\\source\\repos\\Fantasoccer\\src\\Fantasoccer.Applications\\fantasoccer.webapp\\packages\\config\\src\\tamagui.config.ts"],
-  "mappings": ";;;;;;;;;;;;;;AAAA;;;;;gBAA8B,+BAC9B,iBAA8B,oBAC9B,eAAsC,oBACtC,oBAA2B,yBAEdA,aAASC,8BAAc;EAClC,GAAGC;EACHC;EACAC,OAAO;IACLC,MAAMC;IACNC,SAASC;EACX;EACAC,UAAS;IACP,GAAGP,wBAAcO;IACjBC,qBAAqB;EACvB;AACF,CAAA;",
-  "names": ["config", "createTamagui", "defaultConfig", "animations", "fonts", "body", "bodyFont", "heading", "headingFont", "settings", "onlyAllowShorthands"]
-}

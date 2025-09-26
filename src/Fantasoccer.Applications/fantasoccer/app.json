@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "fantasoccer",
+    "slug": "fantasoccer",
+    "version": "1.0.0",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "plugins": [
+      [
+        "expo-dev-menu",
+        {
+          "launchMode": "most-recent"
+        }
+      ],
+      "expo-font"
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.keyserdsoze.fantasoccer"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8f9e9822-b1b3-4aab-b236-5237394802c4"
+      }
+    }
+  }
+}
