@@ -172,6 +172,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     getAvailableYears
   } = useApp()
   const media = useMedia()
+  const isDesktop = !media.sm
   const navigation = useNavigation()
   // Check user roles for admin sections - find current user's role in current group
   const currentUserInGroup = currentGroup?.users.find(u => u.username === user?.username)
@@ -180,16 +181,16 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
 
   // Responsive sheet settings
-  const snapPointsMode = media.sm ? 'fit' : 'percent'
+  const snapPointsMode = isDesktop ? 'fit' : 'percent'
   const sheetProps = {
     modal: true,
     open: isOpen,
     onOpenChange: setIsOpen,
     snapPointsMode: snapPointsMode as 'fit' | 'percent',
-    snapPoints: media.sm ? undefined : [90],
+    snapPoints: isDesktop ? [800] : [90],
     moveOnKeyboardChange: false,
-    dismissOnSnapToBottom: true,
-    disableDrag: false,
+    dismissOnSnapToBottom: !isDesktop,
+    disableDrag: isDesktop,
   }
 
   // Handle navigation
@@ -270,14 +271,12 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         
         <Sheet.Frame
           backgroundColor="$background"
-          borderTopLeftRadius="$6"
-          borderTopRightRadius="$6"
+          borderTopLeftRadius={isDesktop ? 0 : '$6'}
+          borderTopRightRadius={isDesktop ? 0 : '$6'}
           padding="$0"
-          width={!media.sm ? '25%' : '100%'}
-          alignSelf={!media.sm ? 'flex-start' : 'center'}
-          marginLeft={!media.sm ? '$0' : '$0'}
-          height={!media.sm ? '90%' : '90vh'}
-          flex={!media.sm ? undefined : 1}
+          width="100%"
+          alignSelf="center"
+          height={isDesktop ? '100vh' : '90vh'}
           overflow="hidden"
         >
           <ScrollView 
