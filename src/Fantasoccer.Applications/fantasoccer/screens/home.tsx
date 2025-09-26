@@ -161,6 +161,6 @@ function FeatureCard({ icon, title, description }: {
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    padding: 0,
   },
 });
