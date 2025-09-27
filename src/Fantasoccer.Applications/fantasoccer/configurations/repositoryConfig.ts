@@ -7,6 +7,7 @@ import { RealCalendarRaw } from "../types/serieA";
 import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
+import { LiveGroupRaw } from "types/liveGroup";
 import { RankRaw, LeagueKeyRaw } from "types/rank";
 import { PlayedGameRaw, GameKeyRaw } from "types/game";
 import { TeamRaw, TeamKeyRaw, TeamDayKeyRaw } from "types/team";
@@ -35,6 +36,13 @@ export const setupRepositoryServices = () => {
     .addRepository<GroupRaw, string>(x => {
       x.name = "Group";
       x.path = "Group";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Live data for live matches and rankings
+    .addRepository<LiveGroupRaw, string>(x => {
+      x.name = "Live";
+      x.path = "Live";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
