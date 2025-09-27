@@ -9,6 +9,7 @@ import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { RankRaw, LeagueKeyRaw } from "types/rank";
 import { PlayedGameRaw, GameKeyRaw } from "types/game";
+import { TeamRaw, TeamKeyRaw, TeamDayKeyRaw } from "types/team";
 
 // Repository setup
 export const setupRepositoryServices = () => {
@@ -44,6 +45,20 @@ export const setupRepositoryServices = () => {
         x.addHeadersEnricher(() => getAuthHeaders());
         x.addErrorHandler(handleAuthError);
       })
+    // Team repository (season level)
+    .addRepository<TeamRaw, TeamKeyRaw>(x => {
+      x.name = "Team";
+      x.path = "Team";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Team repository (day lineup)
+    .addRepository<TeamRaw, TeamDayKeyRaw>(x => {
+      x.name = "TeamDay";
+      x.path = "Team/day";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
     // Calendar for fantasy leagues
     .addRepository<CalendarRaw, LeagueKeyRaw>(x => {
       x.name = "Calendar";

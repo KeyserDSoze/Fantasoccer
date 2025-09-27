@@ -3,7 +3,7 @@ import { Role } from './group'
 import {
   RealTeam,
   RealTeamRaw,
-  mapRawTeamToTeam
+  mapRawTeamToTeam as mapRawRealTeamToTeam
 } from './serieA'
 
 // ============================================
@@ -121,7 +121,7 @@ export interface Player extends RealPlayer {
 
 export const mapRawRealPlayerToRealPlayer = (raw: RealPlayerRaw): RealPlayer => ({
   name: raw.n,
-  team: mapRawTeamToTeam(raw.t),
+  team: mapRawRealTeamToTeam(raw.t),
   role: raw.r,
   isActive: raw.a,
   visible: raw.vh
@@ -151,3 +151,170 @@ export class PlayerHelper {
     return [...players].sort((a, b) => b.price - a.price)
   }
 }
+
+// ============================================
+// TEAM KEYS (matching C# key classes)
+// ============================================
+
+export interface TeamKeyRaw {
+  g: string
+  y: number
+  b: string
+  e: string
+}
+
+export interface TeamKey {
+  group: string
+  year: number
+  basketId: string
+  email: string
+}
+
+export interface TeamDayKeyRaw extends TeamKeyRaw {
+  d: number
+}
+
+export interface TeamDayKey extends TeamKey {
+  day: number
+}
+
+export const mapRawTeamKeyToTeamKey = (raw: TeamKeyRaw): TeamKey => ({
+  group: raw.g,
+  year: raw.y,
+  basketId: raw.b,
+  email: raw.e
+})
+
+export const mapTeamKeyToRawTeamKey = (key: TeamKey): TeamKeyRaw => ({
+  g: key.group,
+  y: key.year,
+  b: key.basketId,
+  e: key.email
+})
+
+export const mapRawTeamDayKeyToTeamDayKey = (raw: TeamDayKeyRaw): TeamDayKey => ({
+  ...mapRawTeamKeyToTeamKey(raw),
+  day: raw.d
+})
+
+export const mapTeamDayKeyToRawTeamDayKey = (key: TeamDayKey): TeamDayKeyRaw => ({
+  ...mapTeamKeyToRawTeamKey(key),
+  d: key.day
+})
+
+export class TeamKeyHelper {
+  static create(group: string, year: number, basketId: string, email: string): TeamKey {
+    return { group, year, basketId, email }
+  }
+
+  static createDayKey(group: string, year: number, basketId: string, day: number, email: string): TeamDayKey {
+    return { group, year, basketId, day, email }
+  }
+
+  static toString(key: TeamKey): string {
+    return `${key.group}-${key.year}-${key.basketId}-${key.email}`
+  }
+
+  static toDayString(key: TeamDayKey): string {
+    return `${key.group}-${key.year}-${key.basketId}-${key.day}-${key.email}`
+  }
+}
+
+// ============================================
+// TEAM RAW/CLEAN TYPES
+// ============================================
+
+export interface TeamRaw {
+  n: string
+  o: string
+  a?: string[] | null
+  p: PlayerRaw[]
+  r: number
+  m: number
+  d?: string | null
+}
+
+export interface Team {
+  name: string
+  owner: string
+  additionalOwners: string[]
+  players: Player[]
+  revenueMoney: number
+  moneyFromRank: number
+  lastUpdate: Date | null
+}
+
+export interface EnhancedTeam extends Team {
+  totalPlayers: number
+  activePlayers: Player[]
+  totalCost: number
+  moneyFromSoldWithNoReturnedPrice: number
+  moneyFromSoldWithOneHalfReturnedPrice: number
+  netCost: number
+}
+
+export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
+  name: raw?.n ?? '',
+  owner: raw?.o ?? '',
+  additionalOwners: raw?.a ?? [],
+  players: raw?.p?.map(mapRawPlayerToPlayer) ?? [],
+  revenueMoney: raw?.r ?? 0,
+  moneyFromRank: raw?.m ?? 0,
+  lastUpdate: raw?.d ? new Date(raw.d) : null
+})
+
+// ============================================
+// TEAM HELPERS
+// ============================================
+
+export class TeamHelper {
+  static getActivePlayers(team: Team): Player[] {
+    return PlayerHelper.filterActive(team.players)
+  }
+
+  static getPlayersByRole(team: Team, role: Role): Player[] {
+    return PlayerHelper.filterByMainRole(team.players, role)
+  }
+
+  static getTotalCost(team: Team): number {
+    return team.players.reduce((sum, player) => sum + (player.price ?? 0), 0)
+  }
+
+  static getMoneyFromSoldWithNoReturnedPrice(team: Team): number {
+    return team.players
+      .filter(player => player.status === PlayerInTeamStatus.SoldWithNoReturnedPrice)
+      .reduce((sum, player) => sum + player.price, 0)
+  }
+
+  static getMoneyFromSoldWithOneHalfReturnedPrice(team: Team): number {
+    return team.players
+      .filter(player => player.status === PlayerInTeamStatus.SoldForOneHalf)
+      .reduce((sum, player) => sum + player.price / 2, 0)
+  }
+
+  static getNetCost(team: Team): number {
+    return TeamHelper.getTotalCost(team)
+      - team.revenueMoney
+      - team.moneyFromRank
+      - TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
+  }
+
+  static enhance(team: Team): EnhancedTeam {
+    const totalCost = TeamHelper.getTotalCost(team)
+    const moneyNoReturn = TeamHelper.getMoneyFromSoldWithNoReturnedPrice(team)
+    const moneyHalfReturn = TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
+    const netCost = TeamHelper.getNetCost(team)
+
+    return {
+      ...team,
+      totalPlayers: team.players.length,
+      activePlayers: TeamHelper.getActivePlayers(team),
+      totalCost,
+      moneyFromSoldWithNoReturnedPrice: moneyNoReturn,
+      moneyFromSoldWithOneHalfReturnedPrice: moneyHalfReturn,
+      netCost
+    }
+  }
+}
+
+export const enhanceTeam = (team: Team): EnhancedTeam => TeamHelper.enhance(team)
