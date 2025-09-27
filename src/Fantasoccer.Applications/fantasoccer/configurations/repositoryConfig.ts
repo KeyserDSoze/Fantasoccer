@@ -4,6 +4,7 @@ import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "types/identity";
 import { RealCalendarRaw } from "../types/serieA";
+import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { RankRaw, LeagueKeyRaw } from "types/rank";
@@ -32,6 +33,13 @@ export const setupRepositoryServices = () => {
     .addRepository<GroupRaw, string>(x => {
       x.name = "Group";
       x.path = "Group";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Calendar for fantasy leagues
+    .addRepository<CalendarRaw, LeagueKeyRaw>(x => {
+      x.name = "Calendar";
+      x.path = "Calendar";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
