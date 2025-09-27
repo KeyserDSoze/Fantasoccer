@@ -8,6 +8,7 @@ import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { RankRaw, LeagueKeyRaw } from "types/rank";
+import { PlayedGameRaw, GameKeyRaw } from "types/game";
 
 // Repository setup
 export const setupRepositoryServices = () => {
@@ -36,6 +37,13 @@ export const setupRepositoryServices = () => {
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
+      // PlayedGame repository for detailed match data
+      .addRepository<PlayedGameRaw, GameKeyRaw>(x => {
+        x.name = "PlayedGame";
+        x.path = "PlayedGame";
+        x.addHeadersEnricher(() => getAuthHeaders());
+        x.addErrorHandler(handleAuthError);
+      })
     // Calendar for fantasy leagues
     .addRepository<CalendarRaw, LeagueKeyRaw>(x => {
       x.name = "Calendar";
