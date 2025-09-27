@@ -11,8 +11,11 @@ import { LoadingProvider } from 'providers/LoadingProvider';
 import { AuthProvider } from 'providers/AuthProvider';
 import { AppProvider } from 'providers/AppProvider';
 import { ThemeProvider, useAppTheme } from 'providers/ThemeProvider';
+import { setupRepositoryServices } from 'configurations/repositoryConfig';
 
 SplashScreen.preventAutoHideAsync();
+
+setupRepositoryServices();
 
 export default function App() {
   const [loaded] = useFonts({

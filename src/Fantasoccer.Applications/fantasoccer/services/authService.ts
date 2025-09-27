@@ -5,7 +5,7 @@ import {
   mapAppIdentity, 
   mapAppIdentityToRaw 
 } from '../types/identity'
-import { buildApiUrl, getCommonHeaders, ApiError } from './apiConfig'
+import { buildApiUrl, getCommonHeaders, ApiError } from '../configurations/apiConfig'
 import { tokenStorageService } from './tokenStorageService'
 import { RepositoryServices } from 'rystem.repository.client'
 
