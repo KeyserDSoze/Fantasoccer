@@ -6,6 +6,7 @@ import { Calendar, TrendingUp, Users, ShieldCheck } from '@tamagui/lucide-icons'
 import { LoginButton } from 'features/LoginButton';
 import { useAuth } from 'providers/AuthProvider';
 import type { AuthUser } from 'providers/AuthProvider';
+import { SerieALiveWidget } from 'components/SerieALiveWidget';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -25,54 +26,10 @@ export default function Home() {
 
 function AuthenticatedContent({ user }: { user: AuthUser | null }) {
   const displayName = user?.displayName || user?.name || 'Fantallenatore';
-  const email = user?.email ?? '—';
-  const league = user?.state.leagueId || 'Nessuna lega selezionata';
-  const group = user?.state.groupId || 'Nessun gruppo';
-  const year = user?.state.year ? `Stagione ${user.state.year}` : 'Stagione non impostata';
 
   return (
     <YStack gap="$6" maxWidth={600} alignItems="center">
-      <YStack gap="$3" alignItems="center">
-        <ShieldCheck size="$5" color="$green10" />
-        <H1 textAlign="center" color="$blue10" fontWeight="800" fontSize="$9">
-          Bentornato, {displayName}!
-        </H1>
-        <Paragraph color="$color10" textAlign="center" fontSize="$5" lineHeight="$6">
-          Sei autenticato e pronto a gestire la tua squadra.
-        </Paragraph>
-      </YStack>
-
-      <Separator width="100%" />
-
-      <YStack gap="$4" width="100%">
-        <H3 textAlign="center" color="$color12">
-          Le tue informazioni principali
-        </H3>
-
-        <Card
-          padding="$4"
-          backgroundColor="$color2"
-          borderRadius="$4"
-          borderWidth="$0.5"
-          borderColor="$borderColor"
-          hoverStyle={{ backgroundColor: '$color3', scale: 1.01 }}
-        >
-          <YStack gap="$2">
-            <Text fontSize="$4" color="$color11">
-              Email: {email}
-            </Text>
-            <Text fontSize="$4" color="$color11">
-              Lega attuale: {league}
-            </Text>
-            <Text fontSize="$4" color="$color11">
-              Gruppo: {group}
-            </Text>
-            <Text fontSize="$4" color="$color11">
-              {year}
-            </Text>
-          </YStack>
-        </Card>
-      </YStack>
+      <SerieALiveWidget refreshInterval={60000} enablePolling pollOnlyWhenLive={false} />
     </YStack>
   );
 }

@@ -4,7 +4,12 @@
     "slug": "fantasoccer",
     "version": "1.0.0",
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "styles": {
+        "body": {
+          "overflow": "auto"
+        }
+      }
     },
     "experiments": {
       "tsconfigPaths": true

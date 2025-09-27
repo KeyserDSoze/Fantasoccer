@@ -30,6 +30,21 @@ export interface RealCalendarRaw {
   d: RealDayRaw[]     // Days (matches [JsonPropertyName("d")])
 }
 
+export interface RealRankedTeamRaw {
+  n: string          // Team name (matches [JsonPropertyName("n")])
+  p: number          // Points (matches [JsonPropertyName("p")])
+  v: number          // Victories (matches [JsonPropertyName("v")])
+  d: number          // Draws (matches [JsonPropertyName("d")])
+  e: number          // Defeats (matches [JsonPropertyName("e")])
+  g: number          // Goals scored (matches [JsonPropertyName("g")])
+  s: number          // Goals conceded (matches [JsonPropertyName("s")])
+  k: number          // Matches played (matches [JsonPropertyName("k")])
+}
+
+export interface RealRankRaw {
+  r: RealRankedTeamRaw[] // Ranked teams (matches [JsonPropertyName("r")])
+}
+
 // ============================================
 // CLEAN INTERFACES (with readable property names)
 // ============================================
@@ -57,6 +72,22 @@ export interface RealDay {
 export interface RealCalendar {
   year: number
   days: RealDay[]
+}
+
+export interface RealRankedTeam {
+  name: string
+  points: number
+  victories: number
+  draws: number
+  defeats: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+  played: number
+}
+
+export interface RealRank {
+  teams: RealRankedTeam[]
 }
 
 
@@ -95,6 +126,29 @@ export function mapRawCalendarToCalendar(raw: RealCalendarRaw): RealCalendar {
   return {
     year: raw.y,
     days: raw.d.map(mapRawDayToDay)
+  }
+}
+
+export function mapRawRankedTeamToRankedTeam(raw: RealRankedTeamRaw): RealRankedTeam {
+  const goalsFor = raw.g ?? 0
+  const goalsAgainst = raw.s ?? 0
+
+  return {
+    name: raw.n,
+    points: raw.p ?? 0,
+    victories: raw.v ?? 0,
+    draws: raw.d ?? 0,
+    defeats: raw.e ?? 0,
+    goalsFor,
+    goalsAgainst,
+    goalDifference: goalsFor - goalsAgainst,
+    played: raw.k ?? 0
+  }
+}
+
+export function mapRawRankToRank(raw: RealRankRaw): RealRank {
+  return {
+    teams: raw?.r?.map(mapRawRankedTeamToRankedTeam) ?? []
   }
 }
 

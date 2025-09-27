@@ -1,7 +1,7 @@
 // Hook per gestire il calendario Serie A
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { serieAService } from '../services/serieAService'
-import { EnhancedRealCalendar, RealDay, RealGame } from '../types/serieA'
+import { EnhancedRealCalendar, RealDay, RealGame, RealRank } from '../types/serieA'
 
 interface SerieACalendarState {
   calendar: EnhancedRealCalendar | null
@@ -178,5 +178,115 @@ export const getDayStatusText = (
     return `Prossima Giornata (${nextDay.serieADay})`
   } else {
     return 'Nessuna giornata disponibile'
+  }
+}
+
+interface SerieARankState {
+  rank: RealRank | null
+  isLoading: boolean
+  error: string | null
+  lastUpdated: Date | null
+}
+
+interface UseSerieARankOptions {
+  /** Intervallo di aggiornamento in millisecondi (default: 120000 = 2 minuti) */
+  refreshInterval?: number
+  /** Se abilitare il polling automatico (default: true) */
+  enablePolling?: boolean
+}
+
+export function useSerieARank(options: UseSerieARankOptions = {}) {
+  const { refreshInterval = 120000, enablePolling = true } = options
+
+  const [state, setState] = useState<SerieARankState>({
+    rank: null,
+    isLoading: true,
+    error: null,
+    lastUpdated: null
+  })
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const mountedRef = useRef(true)
+
+  const fetchRank = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) {
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
+    }
+
+    try {
+      const rank = await serieAService.getCurrentUserRank()
+
+      if (!mountedRef.current) {
+        return
+      }
+
+      if (rank) {
+        setState({
+          rank,
+          isLoading: false,
+          error: null,
+          lastUpdated: new Date()
+        })
+      } else {
+        setState(prev => ({
+          ...prev,
+          rank: null,
+          isLoading: false,
+          error: 'Classifica non disponibile',
+          lastUpdated: new Date()
+        }))
+      }
+    } catch (error) {
+      console.error('Errore nel caricamento della classifica Serie A:', error)
+      if (!mountedRef.current) {
+        return
+      }
+
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Errore nel caricamento della classifica',
+        lastUpdated: new Date()
+      }))
+    }
+  }, [])
+
+  useEffect(() => {
+    mountedRef.current = true
+    fetchRank()
+
+    return () => {
+      mountedRef.current = false
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [fetchRank])
+
+  useEffect(() => {
+    if (!enablePolling) {
+      return undefined
+    }
+
+    intervalRef.current = setInterval(() => {
+      if (!mountedRef.current) {
+        return
+      }
+
+      fetchRank(true)
+    }, refreshInterval)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [enablePolling, refreshInterval, fetchRank])
+
+  const refetch = useCallback(() => fetchRank(false), [fetchRank])
+
+  return {
+    ...state,
+    refetch
   }
 }

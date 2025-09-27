@@ -3,7 +3,7 @@ import { RepositoryServices } from "rystem.repository.client";
 import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "types/identity";
-import { RealCalendarRaw } from "../types/serieA";
+import { RealCalendarRaw, RealRankRaw } from "../types/serieA";
 import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
@@ -29,6 +29,13 @@ export const setupRepositoryServices = () => {
     .addRepository<RealCalendarRaw, number>(x => {
       x.name = "RealCalendar";
       x.path = "RealCalendar";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // RealRank (Serie A standings)
+    .addRepository<RealRankRaw, number>(x => {
+      x.name = "RealRank";
+      x.path = "RealRank";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
