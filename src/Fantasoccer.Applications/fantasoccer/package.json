@@ -21,7 +21,7 @@
     "@react-navigation/stack": "7.4.8",
     "@tamagui/animations-react-native": "1.134.0",
     "@tamagui/font-inter": "1.134.0",
-    "@tamagui/lucide-icons": "^1.134.0",
+  "@tamagui/lucide-icons": "1.134.0",
     "@tamagui/react-native-media-driver": "1.134.0",
     "@tamagui/shorthands": "1.134.0",
     "@tamagui/themes": "1.134.0",
@@ -38,7 +38,7 @@
     "react-native-safe-area-context": "5.6.1",
     "react-native-screens": "4.16.0",
     "react-native-svg": "^15.13.0",
-    "rystem.repository.client": "0.2.5",
+    "rystem.repository.client": "0.2.7",
     "tamagui": "1.134.0",
     "zustand": "5.0.8"
   },

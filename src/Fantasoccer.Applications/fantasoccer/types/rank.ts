@@ -83,7 +83,7 @@ export interface RankedTeam {
  */
 export interface Rank {
   serieADay: number
-  rankedTeams: Record<string, RankedTeam[]>  // league -> teams
+  rounds: Record<string, RankedTeam[]>  // roundKey -> teams ("@" = default, others = gironi)
 }
 
 /**
@@ -153,16 +153,16 @@ export function mapRankedTeamToRawRankedTeam(team: RankedTeam): RankedTeamRaw {
  * Maps raw Rank data to clean interface
  */
 export function mapRawRankToRank(raw: RankRaw): Rank {
-  const rankedTeams: Record<string, RankedTeam[]> = {}
-  
-  // Map each league's teams
-  for (const [leagueId, teams] of Object.entries(raw.r)) {
-    rankedTeams[leagueId] = teams.map(mapRawRankedTeamToRankedTeam)
+  const rounds: Record<string, RankedTeam[]> = {}
+
+  // Map each round's teams ("@" = default, others = gironi specifici)
+  for (const [roundKey, teams] of Object.entries(raw.r)) {
+    rounds[roundKey] = teams.map(mapRawRankedTeamToRankedTeam)
   }
 
   return {
     serieADay: raw.d,
-    rankedTeams
+    rounds
   }
 }
 
@@ -170,16 +170,16 @@ export function mapRawRankToRank(raw: RankRaw): Rank {
  * Maps clean Rank to raw interface
  */
 export function mapRankToRawRank(rank: Rank): RankRaw {
-  const rankedTeams: Record<string, RankedTeamRaw[]> = {}
-  
-  // Map each league's teams back to raw
-  for (const [leagueId, teams] of Object.entries(rank.rankedTeams)) {
-    rankedTeams[leagueId] = teams.map(mapRankedTeamToRawRankedTeam)
+  const rounds: Record<string, RankedTeamRaw[]> = {}
+
+  // Map each round's teams back to raw
+  for (const [roundKey, teams] of Object.entries(rank.rounds)) {
+    rounds[roundKey] = teams.map(mapRankedTeamToRawRankedTeam)
   }
 
   return {
     d: rank.serieADay,
-    r: rankedTeams
+    r: rounds
   }
 }
 
@@ -237,52 +237,52 @@ export class RankHelper {
   /**
    * Get ranked team by owner from a specific league
    */
-  static getRankedTeamByOwner(rank: Rank, leagueId: string, owner: string): RankedTeam | null {
-    const leagueTeams = rank.rankedTeams[leagueId]
-    if (!leagueTeams) return null
-    
-    return leagueTeams.find(team => team.owner === owner) || null
+  static getRankedTeamByOwner(rank: Rank, roundId: string, owner: string): RankedTeam | null {
+    const roundTeams = rank.rounds[roundId]
+    if (!roundTeams) return null
+
+    return roundTeams.find(team => team.owner === owner) || null
   }
 
   /**
-   * Get all leagues available in a rank
+   * Get all rounds available in a rank
    */
-  static getAvailableLeagues(rank: Rank): string[] {
-    return Object.keys(rank.rankedTeams)
+  static getAvailableRounds(rank: Rank): string[] {
+    return Object.keys(rank.rounds)
   }
 
   /**
-   * Get team count for a specific league
+   * Get team count for a specific round
    */
-  static getTeamCount(rank: Rank, leagueId: string): number {
-    return rank.rankedTeams[leagueId]?.length || 0
+  static getTeamCount(rank: Rank, roundId: string): number {
+    return rank.rounds[roundId]?.length || 0
   }
 
   /**
-   * Get teams sorted by points for a specific league
+   * Get teams sorted by points for a specific round
    */
-  static getTeamsSortedByPoints(rank: Rank, leagueId: string): RankedTeam[] {
-    const teams = rank.rankedTeams[leagueId]
+  static getTeamsSortedByPoints(rank: Rank, roundId: string): RankedTeam[] {
+    const teams = rank.rounds[roundId]
     if (!teams) return []
-    
+
     return [...teams].sort((a, b) => b.point - a.point)
   }
 
   /**
-   * Get teams sorted by value assets for a specific league
+   * Get teams sorted by value assets for a specific round
    */
-  static getTeamsSortedByValueAssets(rank: Rank, leagueId: string): RankedTeam[] {
-    const teams = rank.rankedTeams[leagueId]
+  static getTeamsSortedByValueAssets(rank: Rank, roundId: string): RankedTeam[] {
+    const teams = rank.rounds[roundId]
     if (!teams) return []
-    
+
     return [...teams].sort((a, b) => b.valueAssets - a.valueAssets)
   }
 
   /**
    * Get team position in ranking (1-based)
    */
-  static getTeamPosition(rank: Rank, leagueId: string, owner: string): number {
-    const sortedTeams = RankHelper.getTeamsSortedByPoints(rank, leagueId)
+  static getTeamPosition(rank: Rank, roundId: string, owner: string): number {
+    const sortedTeams = RankHelper.getTeamsSortedByPoints(rank, roundId)
     const position = sortedTeams.findIndex(team => team.owner === owner)
     return position >= 0 ? position + 1 : -1 // 1-based position, -1 if not found
   }
@@ -367,9 +367,9 @@ export class RankHelper {
  * Enhanced Rank interface with computed properties
  */
 export interface EnhancedRank extends Rank {
-  availableLeagues: string[]
+  availableRounds: string[]
   totalTeamsCount: number
-  leagueTeamCounts: Record<string, number>
+  roundTeamCounts: Record<string, number>
 }
 
 /**
@@ -390,21 +390,21 @@ export interface EnhancedRankedTeam extends RankedTeam {
  * Enhance a Rank with computed properties
  */
 export const enhanceRank = (rank: Rank): EnhancedRank => {
-  const availableLeagues = RankHelper.getAvailableLeagues(rank)
-  const leagueTeamCounts: Record<string, number> = {}
+  const availableRounds = RankHelper.getAvailableRounds(rank)
+  const roundTeamCounts: Record<string, number> = {}
   let totalTeamsCount = 0
 
-  for (const leagueId of availableLeagues) {
-    const count = RankHelper.getTeamCount(rank, leagueId)
-    leagueTeamCounts[leagueId] = count
+  for (const roundId of availableRounds) {
+    const count = RankHelper.getTeamCount(rank, roundId)
+    roundTeamCounts[roundId] = count
     totalTeamsCount += count
   }
 
   return {
     ...rank,
-    availableLeagues,
+    availableRounds,
     totalTeamsCount,
-    leagueTeamCounts
+    roundTeamCounts
   }
 }
 
@@ -423,16 +423,16 @@ export const enhanceRankedTeam = (team: RankedTeam, position?: number): Enhanced
  * Enhance all teams in a rank with computed properties and positions
  */
 export const enhanceRankWithTeamPositions = (rank: Rank): Record<string, EnhancedRankedTeam[]> => {
-  const enhancedLeagues: Record<string, EnhancedRankedTeam[]> = {}
+  const enhancedRounds: Record<string, EnhancedRankedTeam[]> = {}
 
-  for (const [leagueId, teams] of Object.entries(rank.rankedTeams)) {
-    const sortedTeams = RankHelper.getTeamsSortedByPoints(rank, leagueId)
-    enhancedLeagues[leagueId] = sortedTeams.map((team, index) => 
+  for (const [roundId, teams] of Object.entries(rank.rounds)) {
+    const sortedTeams = RankHelper.getTeamsSortedByPoints(rank, roundId)
+    enhancedRounds[roundId] = sortedTeams.map((team, index) => 
       enhanceRankedTeam(team, index + 1)
     )
   }
 
-  return enhancedLeagues
+  return enhancedRounds
 }
 
 // ============================================
@@ -463,5 +463,5 @@ export const DefaultRankedTeam: RankedTeam = {
  */
 export const DefaultRank: Rank = {
   serieADay: 0,
-  rankedTeams: {}
+  rounds: {}
 }

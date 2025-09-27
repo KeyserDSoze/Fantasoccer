@@ -2,6 +2,7 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createStackNavigator } from '@react-navigation/stack';
 import Home from 'screens/home';
 import Details from 'screens/details';
+import Ranking from 'screens/ranking';
 import { BackButton } from '../components/BackButton';
 import { Login } from 'screens/login';
 
@@ -18,6 +19,9 @@ const Stack = createStackNavigator({
       options: ({ navigation }) => ({
         headerLeft: () => <BackButton onPress={navigation.goBack} />,
       }),
+    },
+    "Ranking": {
+      screen: Ranking,
     },
   },
   screenOptions: {

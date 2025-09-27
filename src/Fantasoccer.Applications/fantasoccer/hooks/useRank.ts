@@ -23,11 +23,11 @@ export interface UseRankResult {
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
-  availableLeagues: string[]
-  getLeagueRanking: (leagueId: string) => RankedTeam[]
-  getEnhancedLeagueRanking: (leagueId: string) => EnhancedRankedTeam[]
-  getTeamByOwner: (leagueId: string, owner: string) => RankedTeam | null
-  getTeamPosition: (leagueId: string, owner: string) => number
+  availableRounds: string[]
+  getRoundRanking: (roundId: string) => RankedTeam[]
+  getEnhancedRoundRanking: (roundId: string) => EnhancedRankedTeam[]
+  getTeamByOwner: (roundId: string, owner: string) => RankedTeam | null
+  getTeamPosition: (roundId: string, owner: string) => number
 }
 
 const useRankBase = (
@@ -83,50 +83,50 @@ const useRankBase = (
     }
   }, [executeFetch, refreshInterval])
 
-  const enhancedLeagueMap = useMemo(() => {
+  const enhancedRoundMap = useMemo(() => {
     return rank ? enhanceRankWithTeamPositions(rank) : {}
   }, [rank])
 
-  const availableLeagues = useMemo(() => {
-    if (enhancedRank?.availableLeagues) {
-      return enhancedRank.availableLeagues
+  const availableRounds = useMemo(() => {
+    if (enhancedRank?.availableRounds) {
+      return enhancedRank.availableRounds
     }
-    return rank ? RankHelper.getAvailableLeagues(rank) : []
+    return rank ? RankHelper.getAvailableRounds(rank) : []
   }, [enhancedRank, rank])
 
-  const getLeagueRanking = useCallback(
-    (leagueId: string): RankedTeam[] => {
+  const getRoundRanking = useCallback(
+    (roundId: string): RankedTeam[] => {
       if (!rank) {
         return []
       }
-      return RankHelper.getTeamsSortedByPoints(rank, leagueId)
+      return RankHelper.getTeamsSortedByPoints(rank, roundId)
     },
     [rank]
   )
 
-  const getEnhancedLeagueRanking = useCallback(
-    (leagueId: string): EnhancedRankedTeam[] => {
-      return enhancedLeagueMap[leagueId] ?? []
+  const getEnhancedRoundRanking = useCallback(
+    (roundId: string): EnhancedRankedTeam[] => {
+      return enhancedRoundMap[roundId] ?? []
     },
-    [enhancedLeagueMap]
+    [enhancedRoundMap]
   )
 
   const getTeamByOwner = useCallback(
-    (leagueId: string, owner: string): RankedTeam | null => {
+    (roundId: string, owner: string): RankedTeam | null => {
       if (!rank) {
         return null
       }
-      return RankHelper.getRankedTeamByOwner(rank, leagueId, owner)
+      return RankHelper.getRankedTeamByOwner(rank, roundId, owner)
     },
     [rank]
   )
 
   const getTeamPosition = useCallback(
-    (leagueId: string, owner: string): number => {
+    (roundId: string, owner: string): number => {
       if (!rank) {
         return -1
       }
-      return RankHelper.getTeamPosition(rank, leagueId, owner)
+      return RankHelper.getTeamPosition(rank, roundId, owner)
     },
     [rank]
   )
@@ -139,9 +139,9 @@ const useRankBase = (
     loading,
     error,
     refetch,
-    availableLeagues,
-    getLeagueRanking,
-    getEnhancedLeagueRanking,
+    availableRounds,
+    getRoundRanking,
+    getEnhancedRoundRanking,
     getTeamByOwner,
     getTeamPosition
   }

@@ -27,6 +27,7 @@ Guidare l'LLM nella generazione completa di una nuova pagina per l'app React Nat
    - Aprire `navigation/index.tsx`.
    - Importare il nuovo screen.
    - Aggiungere l'entry nella definizione dello stack (sezione `screens`).
+   - Aggiornare `components/NavigationBar.tsx`: cercare se esiste già una voce per la nuova pagina e, in caso contrario, crearla o correggerne `path`/`route` per garantire la navigazione. Mantenere icona, etichetta e descrizione coerenti con le altre voci e scegliere `type: 'route'` quando la pagina è nello stack, altrimenti `type: 'link'`.
    - Se servono opzioni custom (header, pulsanti, parametri), configurarle nella stessa sezione.
 
 3. **Gestire eventuali hook/dati**

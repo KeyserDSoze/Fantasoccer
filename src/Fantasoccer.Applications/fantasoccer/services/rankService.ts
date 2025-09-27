@@ -200,69 +200,69 @@ export class RankService {
   /**
    * Get a specific team's ranking data
    */
-  async getTeamRanking(leagueKey: LeagueKey, leagueId: string, owner: string): Promise<RankedTeam | null> {
+  async getTeamRanking(leagueKey: LeagueKey, roundId: string, owner: string): Promise<RankedTeam | null> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return null
     }
 
-    return RankHelper.getRankedTeamByOwner(rank, leagueId, owner)
+    return RankHelper.getRankedTeamByOwner(rank, roundId, owner)
   }
 
   /**
    * Get enhanced team ranking with position and computed properties
    */
-  async getEnhancedTeamRanking(leagueKey: LeagueKey, leagueId: string, owner: string): Promise<EnhancedRankedTeam | null> {
+  async getEnhancedTeamRanking(leagueKey: LeagueKey, roundId: string, owner: string): Promise<EnhancedRankedTeam | null> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return null
     }
 
-    const team = RankHelper.getRankedTeamByOwner(rank, leagueId, owner)
+    const team = RankHelper.getRankedTeamByOwner(rank, roundId, owner)
     if (!team) {
       return null
     }
 
-    const position = RankHelper.getTeamPosition(rank, leagueId, owner)
+    const position = RankHelper.getTeamPosition(rank, roundId, owner)
     return enhanceRankedTeam(team, position > 0 ? position : undefined)
   }
 
   /**
    * Get team position in league ranking
    */
-  async getTeamPosition(leagueKey: LeagueKey, leagueId: string, owner: string): Promise<number> {
+  async getTeamPosition(leagueKey: LeagueKey, roundId: string, owner: string): Promise<number> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return -1
     }
 
-    return RankHelper.getTeamPosition(rank, leagueId, owner)
+    return RankHelper.getTeamPosition(rank, roundId, owner)
   }
 
   // ============================================
-  // LEAGUE-SPECIFIC OPERATIONS
+  // ROUND-SPECIFIC OPERATIONS
   // ============================================
 
   /**
-   * Get all teams for a specific league, sorted by points
+   * Get all teams for a specific round, sorted by points
    */
-  async getLeagueRanking(leagueKey: LeagueKey, leagueId: string): Promise<RankedTeam[]> {
+  async getRoundRanking(leagueKey: LeagueKey, roundId: string): Promise<RankedTeam[]> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return []
     }
 
-    return RankHelper.getTeamsSortedByPoints(rank, leagueId)
+    return RankHelper.getTeamsSortedByPoints(rank, roundId)
   }
 
   /**
-   * Get enhanced league ranking with positions and computed properties
+   * Get enhanced round ranking with positions and computed properties
    */
-  async getEnhancedLeagueRanking(leagueKey: LeagueKey, leagueId: string): Promise<EnhancedRankedTeam[]> {
+  async getEnhancedRoundRanking(leagueKey: LeagueKey, roundId: string): Promise<EnhancedRankedTeam[]> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
@@ -270,46 +270,46 @@ export class RankService {
     }
 
     const enhancedRankings = enhanceRankWithTeamPositions(rank)
-    return enhancedRankings[leagueId] || []
+    return enhancedRankings[roundId] || []
   }
 
   /**
    * Get teams sorted by value assets
    */
-  async getLeagueRankingByValueAssets(leagueKey: LeagueKey, leagueId: string): Promise<RankedTeam[]> {
+  async getRoundRankingByValueAssets(leagueKey: LeagueKey, roundId: string): Promise<RankedTeam[]> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return []
     }
 
-    return RankHelper.getTeamsSortedByValueAssets(rank, leagueId)
+    return RankHelper.getTeamsSortedByValueAssets(rank, roundId)
   }
 
   /**
-   * Get available leagues for a rank
+   * Get available rounds for a rank
    */
-  async getAvailableLeagues(leagueKey: LeagueKey): Promise<string[]> {
+  async getAvailableRounds(leagueKey: LeagueKey): Promise<string[]> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return []
     }
 
-    return RankHelper.getAvailableLeagues(rank)
+    return RankHelper.getAvailableRounds(rank)
   }
 
   /**
-   * Get team count for a specific league
+   * Get team count for a specific round
    */
-  async getLeagueTeamCount(leagueKey: LeagueKey, leagueId: string): Promise<number> {
+  async getRoundTeamCount(leagueKey: LeagueKey, roundId: string): Promise<number> {
     const rank = await this.getRank(leagueKey)
     
     if (!rank) {
       return 0
     }
 
-    return RankHelper.getTeamCount(rank, leagueId)
+    return RankHelper.getTeamCount(rank, roundId)
   }
 
   // ============================================
@@ -347,7 +347,7 @@ export class RankService {
    * Get user's team rankings across multiple groups/leagues
    */
   async getUserTeamRankings(
-    requests: { group: string, league: string, leagueId: string, year: number }[], 
+    requests: { group: string, league: string, roundId: string, year: number }[], 
     owner: string
   ): Promise<Record<string, { team: RankedTeam, position: number }>> {
     const results: Record<string, { team: RankedTeam, position: number }> = {}
@@ -359,8 +359,8 @@ export class RankService {
       const keyString = RankHelper.leagueKeyToString(key)
       
       if (rank) {
-        const team = RankHelper.getRankedTeamByOwner(rank, req.leagueId, owner)
-        const position = RankHelper.getTeamPosition(rank, req.leagueId, owner)
+        const team = RankHelper.getRankedTeamByOwner(rank, req.roundId, owner)
+        const position = RankHelper.getTeamPosition(rank, req.roundId, owner)
         
         if (team) {
           return { keyString, team, position }
@@ -411,7 +411,7 @@ export class RankService {
   createEmptyRank(serieADay: number): Rank {
     return {
       serieADay,
-      rankedTeams: {}
+      rounds: {}
     }
   }
 

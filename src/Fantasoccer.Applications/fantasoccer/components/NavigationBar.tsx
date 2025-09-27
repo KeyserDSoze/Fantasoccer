@@ -87,7 +87,7 @@ const navigationItems: NavigationSection[] = [
     section: 'Main',
     items: [
       { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
-      { type: 'link', path: '/ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
+  { type: 'route', route: 'Ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
       { type: 'link', path: '/calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
       { type: 'link', path: '/live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
     ],
