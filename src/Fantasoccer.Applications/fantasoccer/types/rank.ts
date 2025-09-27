@@ -43,6 +43,17 @@ export interface LeagueKeyRaw {
   y: number   // Year
 }
 
+/**
+ * Raw YearDayLeague interface matching C# JsonPropertyName attributes
+ * Used as the repository key for daily rank data
+ */
+export interface YearDayLeagueRaw {
+  y: number   // Year
+  d: number   // Day
+  g: string   // Group
+  l: string   // League
+}
+
 // ============================================
 // CLEAN INTERFACES (with readable property names)
 // ============================================
@@ -191,6 +202,30 @@ export function mapLeagueKeyToRawLeagueKey(key: LeagueKey): LeagueKeyRaw {
     g: key.group,
     l: key.league,
     y: key.year
+  }
+}
+
+/**
+ * Maps raw YearDayLeague data to clean interface
+ */
+export function mapRawYearDayLeagueToYearDayLeague(raw: YearDayLeagueRaw): YearDayLeague {
+  return {
+    group: raw.g,
+    league: raw.l,
+    year: raw.y,
+    day: raw.d
+  }
+}
+
+/**
+ * Maps clean YearDayLeague to raw interface
+ */
+export function mapYearDayLeagueToRawYearDayLeague(key: YearDayLeague): YearDayLeagueRaw {
+  return {
+    g: key.group,
+    l: key.league,
+    y: key.year,
+    d: key.day
   }
 }
 

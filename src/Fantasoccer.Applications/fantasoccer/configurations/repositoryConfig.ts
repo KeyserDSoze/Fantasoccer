@@ -8,7 +8,7 @@ import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { LiveGroupRaw } from "types/liveGroup";
-import { RankRaw, LeagueKeyRaw } from "types/rank";
+import { RankRaw, LeagueKeyRaw, YearDayLeagueRaw } from "types/rank";
 import { PlayedGameRaw, GameKeyRaw } from "types/game";
 import { TeamRaw, TeamKeyRaw, TeamDayKeyRaw } from "types/team";
 
@@ -74,10 +74,17 @@ export const setupRepositoryServices = () => {
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
-    // Rank for daily rankings with LeagueKey (YearDayLeague)
+    // Rank for season rankings with LeagueKey
     .addRepository<RankRaw, LeagueKeyRaw>(x => {
       x.name = "Rank";
-      x.path = "day/dailyrank";  // Matching the blob storage path "day", "dailyrank"
+      x.path = "Rank";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Daily rank with YearDayLeague key
+    .addRepository<RankRaw, YearDayLeagueRaw>(x => {
+      x.name = "DailyRank";
+      x.path = "day/dailyrank";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     });
