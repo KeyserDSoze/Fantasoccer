@@ -28,7 +28,7 @@ export const ScreenContent = ({ children }: ScreenContentProps) => {
         alwaysBounceHorizontal={true}
         bounces
       >
-        <YStack width="100%" maxWidth={900} alignSelf="center" gap="$6">
+        <YStack width="100%" alignSelf="center" gap="$6">
           <XStack
             width="100%"
             justifyContent="space-between"

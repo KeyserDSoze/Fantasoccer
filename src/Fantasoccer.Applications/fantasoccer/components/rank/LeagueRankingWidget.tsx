@@ -27,72 +27,171 @@ const defaultLoadingMessage = 'Caricamento classifica per il girone selezionato.
 const defaultRefreshLabel = 'Aggiorna classifica'
 const defaultErrorActionLabel = 'Riprova'
 
+type StatCellValue = {
+  value: string
+  color?: string
+  fontWeight?: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900
+}
+
+type StatColumnDefinition = {
+  key: string
+  label: string
+  width: number
+  render: (team: EnhancedRankedTeam) => StatCellValue
+}
+
+const createStatColumns = (isCompact: boolean) => {
+  const columns: StatColumnDefinition[] = [
+    {
+      key: 'points',
+      label: 'Pt',
+      width: isCompact ? 48 : 56,
+      render: (team) => ({
+        value: `${team.point ?? 0}`,
+        color: '$color12',
+        fontWeight: 700,
+      }),
+    },
+    {
+      key: 'victories',
+      label: 'V',
+      width: 36,
+      render: (team) => ({
+        value: `${team.victories ?? 0}`,
+      }),
+    },
+    {
+      key: 'draws',
+      label: 'N',
+      width: 36,
+      render: (team) => ({
+        value: `${team.draws ?? 0}`,
+      }),
+    },
+    {
+      key: 'defeats',
+      label: 'P',
+      width: 36,
+      render: (team) => ({
+        value: `${team.defeats ?? 0}`,
+      }),
+    },
+    {
+      key: 'goalDifference',
+      label: 'Diff',
+      width: isCompact ? 52 : 56,
+      render: (team) => {
+        const goalDiff =
+          team.goalDifference ?? (team.goal ?? 0) - (team.sufferedGoal ?? 0)
+        const formatted = goalDiff > 0 ? `+${goalDiff}` : `${goalDiff}`
+
+        return {
+          value: formatted,
+          color: goalDiff >= 0 ? '$color10' : '$red10',
+        }
+      },
+    },
+    {
+      key: 'pointsPerGame',
+      label: 'Pt/G',
+      width: isCompact ? 64 : 72,
+      render: (team) => {
+        const value =
+          typeof team.pointsPerGame === 'number' && Number.isFinite(team.pointsPerGame)
+            ? team.pointsPerGame.toFixed(2)
+            : '-'
+
+        return {
+          value,
+        }
+      },
+    },
+  ]
+
+  const gapBetweenColumns = 12
+  const minWidth = columns.reduce(
+    (acc, column, index) =>
+      acc + column.width + (index === columns.length - 1 ? 0 : gapBetweenColumns),
+    0,
+  )
+
+  return { columns, minWidth }
+}
+
 export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
-  leagueName = 'Lega non disponibile',
+  leagueName,
   seasonLabel,
   roundLabel,
   teamCount,
   rankedTeams,
-  loading = false,
-  error = null,
-  isSelectionIncomplete = false,
+  loading,
+  error,
+  isSelectionIncomplete,
   onRefresh,
   selectionMessage = defaultSelectionMessage,
   emptyMessage = defaultEmptyMessage,
   loadingMessage = defaultLoadingMessage,
   refreshLabel = defaultRefreshLabel,
-  errorActionLabel = defaultErrorActionLabel
+  errorActionLabel = defaultErrorActionLabel,
 }) => {
   const { width } = useWindowDimensions()
-  const isCompact = width < 768
+  const isCompact = width < 600
 
-  const showLoading = loading && rankedTeams.length === 0
-  const showEmpty = !loading && rankedTeams.length === 0 && !error && !isSelectionIncomplete
+  const showSelectionIncomplete = Boolean(isSelectionIncomplete)
+  const showError = Boolean(error)
+  const showLoading = Boolean(loading)
+  const showEmpty =
+    !showSelectionIncomplete && !showError && !showLoading && rankedTeams.length === 0
+
+  const { columns: statColumns, minWidth: statsMinWidth } = createStatColumns(isCompact)
+
+  const positionColumnWidth = 40
+  const teamColumnWidth = isCompact ? 170 : 240
+  const leftColumnWidth = positionColumnWidth + teamColumnWidth + (isCompact ? 12 : 16)
+  const rowMinHeight = isCompact ? 68 : 72
 
   return (
-    <Card
-      padding="$4"
-      backgroundColor="$color2"
-      borderRadius="$4"
-      borderWidth="$0.5"
-      borderColor="$borderColor"
-      gap="$3"
-    >
+    <Card padding="$3" elevate backgroundColor="$color1" gap="$3">
       <YStack gap="$1">
-        <Text fontSize="$5" fontWeight="700" color="$color12">
-          {leagueName ?? 'Lega non disponibile'}
-        </Text>
-        <Text fontSize="$3" color="$color10">
-          {seasonLabel ? `Stagione ${seasonLabel}` : 'Seleziona una stagione disponibile'}
-        </Text>
-        <Text fontSize="$2" color="$color9">
-          {roundLabel ?? 'Seleziona un girone disponibile'}
-        </Text>
-        <Text fontSize="$2" color="$color9">
-          {teamCount && teamCount > 0
-            ? `${teamCount} squadre in classifica`
-            : 'Nessuna squadra trovata per questa combinazione'}
-        </Text>
+        {leagueName && (
+          <Text fontSize="$5" fontWeight="700" color="$color12">
+            {leagueName}
+          </Text>
+        )}
+        <XStack gap="$2" flexWrap="wrap">
+          {seasonLabel && (
+            <Text fontSize="$2" color="$color10">
+              Stagione: {seasonLabel}
+            </Text>
+          )}
+          {roundLabel && (
+            <Text fontSize="$2" color="$color10">
+              Girone: {roundLabel}
+            </Text>
+          )}
+          {typeof teamCount === 'number' && Number.isFinite(teamCount) && (
+            <Text fontSize="$2" color="$color10">
+              Squadre: {teamCount}
+            </Text>
+          )}
+        </XStack>
       </YStack>
 
-      <Separator marginVertical="$2" />
-
-      {isSelectionIncomplete ? (
-        <YStack gap="$2" alignItems="center" paddingVertical="$4">
-          <Text color="$color10" fontSize="$3" textAlign="center">
+      {showSelectionIncomplete ? (
+        <YStack gap="$3" alignItems="center" paddingVertical="$4">
+          <AlertTriangle size={32} color="$yellow10" />
+          <Text color="$color10" textAlign="center">
             {selectionMessage}
           </Text>
         </YStack>
-      ) : error ? (
-        <YStack gap="$3">
-          <XStack alignItems="center" gap="$2">
-            <AlertTriangle size="$1.5" color="$red10" />
-            <Text color="$red11" fontWeight="600">
-              {error}
-            </Text>
-          </XStack>
+      ) : showError ? (
+        <YStack gap="$3" alignItems="center" paddingVertical="$4">
+          <AlertTriangle size={32} color="$red10" />
+          <Text color="$color10" textAlign="center">
+            {error}
+          </Text>
           {onRefresh && (
-            <Button icon={RefreshCw} onPress={() => { onRefresh() }} variant="outlined">
+            <Button onPress={() => { onRefresh() }} icon={RefreshCw} variant="outlined">
               {errorActionLabel}
             </Button>
           )}
@@ -103,7 +202,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
           <Text color="$color10">{loadingMessage}</Text>
         </YStack>
       ) : showEmpty ? (
-        <YStack gap="$2" alignItems="center" paddingVertical="$4">
+        <YStack gap="$3" alignItems="center" paddingVertical="$4">
           <Text color="$color10" fontSize="$3" textAlign="center">
             {emptyMessage}
           </Text>
@@ -115,129 +214,134 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
         </YStack>
       ) : (
         <YStack gap="$2">
-          <XStack
-            justifyContent="flex-start"
-            alignItems="center"
-            paddingHorizontal="$2"
-            paddingBottom="$1"
-            gap="$2"
-          >
-            <Text fontSize="$3" fontWeight="700" color="$color10" width={40} textAlign="center">
-              Pos
-            </Text>
-            <Text
-              fontSize="$3"
-              fontWeight="700"
-              color="$color10"
-              flexShrink={0}
-              flex={1}
-              minWidth={isCompact ? 140 : 220}
-              textAlign="left"
-            >
-              Squadra
-            </Text>
+          <XStack alignItems="stretch" gap="$2">
+            <YStack flexShrink={0} width={leftColumnWidth}>
+              <XStack
+                alignItems="center"
+                gap="$2"
+                paddingHorizontal="$2"
+                paddingBottom="$1"
+              >
+                <Text
+                  fontSize="$3"
+                  fontWeight="700"
+                  color="$color10"
+                  width={positionColumnWidth}
+                  textAlign="center"
+                >
+                  Pos
+                </Text>
+                <Text
+                  fontSize="$3"
+                  fontWeight="700"
+                  color="$color10"
+                  width={teamColumnWidth}
+                >
+                  Squadra
+                </Text>
+              </XStack>
+
+              <Separator />
+
+              <YStack gap="$1">
+                {rankedTeams.map((team, index) => {
+                  const position = team.position ?? index + 1
+
+                  return (
+                    <XStack
+                      key={`left-${team.owner}-${team.name}-${index}`}
+                      alignItems="center"
+                      gap="$2"
+                      paddingHorizontal="$2"
+                      paddingVertical="$1.5"
+                      backgroundColor={index % 2 === 0 ? '$color1' : 'transparent'}
+                      borderRadius="$2"
+                      minHeight={rowMinHeight}
+                    >
+                      <Text
+                        fontSize="$3"
+                        fontWeight="700"
+                        color="$color9"
+                        width={positionColumnWidth}
+                        textAlign="center"
+                      >
+                        {position}
+                      </Text>
+                      <YStack width={teamColumnWidth} gap="$1">
+                        <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
+                          {team.name}
+                        </Text>
+                        <Text fontSize="$2" color="$color10" numberOfLines={1}>
+                          Allenatore: {team.owner}
+                        </Text>
+                      </YStack>
+                    </XStack>
+                  )
+                })}
+              </YStack>
+            </YStack>
+
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={isCompact}
-              style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
-              contentContainerStyle={{ alignItems: 'center' }}
+              contentContainerStyle={{ paddingRight: 16 }}
             >
-              <XStack gap="$3" alignItems="center" paddingRight="$2">
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={44} textAlign="center">
-                  Pt
-                </Text>
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={36} textAlign="center">
-                  V
-                </Text>
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={36} textAlign="center">
-                  N
-                </Text>
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={36} textAlign="center">
-                  P
-                </Text>
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={48} textAlign="center">
-                  Diff
-                </Text>
-                <Text fontSize="$3" fontWeight="700" color="$color10" width={56} textAlign="center">
-                  Pt/G
-                </Text>
-              </XStack>
+              <YStack minWidth={statsMinWidth} flexShrink={0}>
+                <XStack
+                  alignItems="center"
+                  gap="$3"
+                  paddingHorizontal="$2"
+                  paddingBottom="$1"
+                >
+                  {statColumns.map((column) => (
+                    <Text
+                      key={`header-${column.key}`}
+                      fontSize="$3"
+                      fontWeight="700"
+                      color="$color10"
+                      width={column.width}
+                      textAlign="center"
+                    >
+                      {column.label}
+                    </Text>
+                  ))}
+                </XStack>
+
+                <Separator />
+
+                <YStack gap="$1">
+                  {rankedTeams.map((team, index) => (
+                    <XStack
+                      key={`right-${team.owner}-${team.name}-${index}`}
+                      alignItems="center"
+                      gap="$3"
+                      paddingHorizontal="$2"
+                      paddingVertical="$1.5"
+                      backgroundColor={index % 2 === 0 ? '$color1' : 'transparent'}
+                      borderRadius="$2"
+                      minHeight={rowMinHeight}
+                    >
+                      {statColumns.map((column) => {
+                        const { value, color, fontWeight } = column.render(team)
+                        return (
+                          <Text
+                            key={`${column.key}-${team.owner}-${team.name}-${index}`}
+                            fontSize="$3"
+                            color={color ?? '$color11'}
+                            fontWeight={fontWeight}
+                            width={column.width}
+                            textAlign="center"
+                          >
+                            {value}
+                          </Text>
+                        )
+                      })}
+                    </XStack>
+                  ))}
+                </YStack>
+              </YStack>
             </ScrollView>
           </XStack>
-
-          <Separator />
-
-          <YStack gap="$1">
-            {rankedTeams.map((team, index) => {
-              const goalDiff = team.goalDifference ?? team.goal - team.sufferedGoal
-              const position = team.position ?? '-'
-              const pointsPerGame = Number.isFinite(team.pointsPerGame)
-                ? team.pointsPerGame.toFixed(2)
-                : '-'
-              return (
-                <XStack
-                  key={`${team.owner}-${team.name}-${index}`}
-                  justifyContent="flex-start"
-                  alignItems="center"
-                  paddingVertical="$1.5"
-                  paddingHorizontal="$2"
-                  backgroundColor={index % 2 === 0 ? '$color1' : 'transparent'}
-                  borderRadius="$2"
-                  gap="$2"
-                >
-                  <Text fontSize="$3" fontWeight="700" color="$color9" width={40} textAlign="center">
-                    {position}
-                  </Text>
-                  <YStack
-                    flexShrink={0}
-                    flex={1}
-                    marginLeft="$2"
-                    gap="$1"
-                    minWidth={isCompact ? 160 : 240}
-                  >
-                    <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
-                      {team.name}
-                    </Text>
-                    <Text fontSize="$2" color="$color10" numberOfLines={1}>
-                      Allenatore: {team.owner}
-                    </Text>
-                  </YStack>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={isCompact}
-                    style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}
-                    contentContainerStyle={{ alignItems: 'center' }}
-                  >
-                    <XStack gap="$3" alignItems="center" paddingRight="$2">
-                      <Text fontSize="$3" fontWeight="700" color="$color12" width={44} textAlign="center">
-                        {team.point}
-                      </Text>
-                      <Text fontSize="$3" color="$color11" width={36} textAlign="center">
-                        {team.victories}
-                      </Text>
-                      <Text fontSize="$3" color="$color11" width={36} textAlign="center">
-                        {team.draws}
-                      </Text>
-                      <Text fontSize="$3" color="$color11" width={36} textAlign="center">
-                        {team.defeats}
-                      </Text>
-                      <Text
-                        fontSize="$3"
-                        color={goalDiff >= 0 ? '$color10' : '$red10'}
-                        width={48}
-                        textAlign="center"
-                      >
-                        {goalDiff >= 0 ? `+${goalDiff}` : goalDiff}
-                      </Text>
-                      <Text fontSize="$3" color="$color11" width={56} textAlign="center">
-                        {pointsPerGame}
-                      </Text>
-                    </XStack>
-                  </ScrollView>
-                </XStack>
-              )
-            })}
-          </YStack>
 
           {onRefresh && (
             <>
