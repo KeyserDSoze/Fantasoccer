@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Home from 'screens/home';
 import Details from 'screens/details';
 import Ranking from 'screens/ranking';
+import CalendarScreen from 'screens/calendar';
 import { BackButton } from '../components/BackButton';
 import { Login } from 'screens/login';
 
@@ -22,6 +23,9 @@ const Stack = createStackNavigator({
     },
     "Ranking": {
       screen: Ranking,
+    },
+    "Calendar": {
+      screen: CalendarScreen,
     },
   },
   screenOptions: {
