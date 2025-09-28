@@ -157,25 +157,6 @@ export default function Ranking() {
   return (
     <ScreenContent path="screens/ranking.tsx" title="Classifica">
       <YStack width="100%" maxWidth={820} gap="$4" alignItems="stretch">
-        <Card
-          padding="$4"
-          backgroundColor="$color2"
-          borderRadius="$4"
-          borderWidth="$0.5"
-          borderColor="$borderColor"
-          alignItems="stretch"
-        >
-          <XStack alignItems="center" gap="$3" marginBottom="$2">
-            <Trophy size="$2" color="$yellow10" />
-            <H2 color="$color12">Classifica stagione</H2>
-          </XStack>
-
-          <Paragraph color="$color10">
-            Consulta la classifica aggiornata della tua lega per la stagione selezionata.
-            Usa i selettori qui sotto per cambiare lega o anno quando disponibili.
-          </Paragraph>
-        </Card>
-
         {isGroupsLoading ? (
           <Card
             padding="$4"
