@@ -50,17 +50,26 @@ export default function CalendarScreen() {
     userGroups,
     selectedLeagueId,
     selectedYear,
-    setSelectedLeague,
-    setSelectedYear,
     getAvailableLeagues,
     getAvailableYears,
     isGroupsLoading,
     groupsError
   } = useApp()
 
+  const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId)
+  const [localYear, setLocalYear] = useState<number | null>(selectedYear ?? null)
+
+  useEffect(() => {
+    setLocalLeagueId(selectedLeagueId ?? null)
+  }, [selectedLeagueId])
+
+  useEffect(() => {
+    setLocalYear(selectedYear ?? null)
+  }, [selectedYear])
+
   const availableLeagues = getAvailableLeagues()
-  const selectedLeague = availableLeagues.find((league) => league.id === selectedLeagueId) ?? null
-  const availableYears = selectedLeagueId ? getAvailableYears(selectedLeagueId) : []
+  const selectedLeague = availableLeagues.find((league) => league.id === localLeagueId) ?? null
+  const availableYears = localLeagueId ? getAvailableYears(localLeagueId) : []
   const sortedYears = useMemo(() => [...availableYears].sort((a, b) => b - a), [availableYears])
   const leagueOptions = useMemo(
     () => availableLeagues.map((league) => ({ id: league.id, name: league.name, isMain: league.isMain })),
@@ -69,15 +78,15 @@ export default function CalendarScreen() {
 
   const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null)
 
-  const shouldSkipCalendar = !currentGroup || !selectedLeagueId || selectedYear == null
+  const shouldSkipCalendar = !currentGroup || !localLeagueId || localYear == null
 
   const leagueKey = useMemo(() => {
-    if (!currentGroup || !selectedLeagueId || selectedYear == null) {
+    if (!currentGroup || !localLeagueId || localYear == null) {
       return null
     }
 
-    return RankHelper.createLeagueKey(currentGroup.id, selectedLeagueId, selectedYear)
-  }, [currentGroup, selectedLeagueId, selectedYear])
+    return RankHelper.createLeagueKey(currentGroup.id, localLeagueId, localYear)
+  }, [currentGroup, localLeagueId, localYear])
 
   const {
     loading,
@@ -90,6 +99,27 @@ export default function CalendarScreen() {
     refreshInterval: 120000,
     skip: shouldSkipCalendar
   })
+
+  useEffect(() => {
+    if (!localLeagueId) {
+      if (localYear !== null) {
+        setLocalYear(null)
+      }
+      return
+    }
+
+    if (availableYears.length === 0) {
+      if (localYear !== null) {
+        setLocalYear(null)
+      }
+      return
+    }
+
+    if (localYear == null || !availableYears.includes(localYear)) {
+      const latestYear = Math.max(...availableYears)
+      setLocalYear(latestYear)
+    }
+  }, [localLeagueId, availableYears, localYear])
 
   useEffect(() => {
     if (shouldSkipCalendar) {
@@ -150,7 +180,7 @@ export default function CalendarScreen() {
   }, [getRound, selectedRoundId])
 
   const leagueName = selectedLeague?.name ?? (availableLeagues.length === 1 ? availableLeagues[0]?.name : null)
-  const seasonLabel = selectedYear != null ? formatSeasonFromYear(selectedYear) : null
+  const seasonLabel = localYear != null ? formatSeasonFromYear(localYear) : null
 
   const hasMultipleGroups = userGroups.length > 1
   const hasMultipleLeagues = availableLeagues.length > 1
@@ -243,14 +273,14 @@ export default function CalendarScreen() {
             {shouldRenderSelectors && (
               <LeagueSelectorsWidget
                 leagues={leagueOptions}
-                selectedLeagueId={selectedLeagueId}
+                selectedLeagueId={localLeagueId}
                 onSelectLeague={(leagueId) => {
-                  void setSelectedLeague(leagueId)
+                  setLocalLeagueId(leagueId)
                 }}
                 years={sortedYears}
-                selectedYear={selectedYear}
+                selectedYear={localYear}
                 onSelectYear={(year) => {
-                  void setSelectedYear(year)
+                  setLocalYear(year)
                 }}
                 formatYearLabel={formatSeasonFromYear}
                 emptyLeagueLabel={leagueName ?? '—'}
