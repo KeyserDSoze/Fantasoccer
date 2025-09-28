@@ -55,5 +55,5 @@ jobs:
         api_location: ""
         output_location: ""
         skip_app_build: true
-        azure_static_web_apps_connection: "azureconnection"
+        azure_static_web_apps_connection: "agiccloud"
         azure_static_web_apps_api_token: "$(staticWebAppToken)"
