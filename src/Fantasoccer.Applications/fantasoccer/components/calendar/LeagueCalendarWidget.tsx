@@ -35,11 +35,15 @@ const defaultRefreshLabel = 'Aggiorna calendario'
 const defaultErrorActionLabel = 'Riprova'
 
 const GameRow: FC<{ game: CalendarGame }> = ({ game }) => {
-  const hasResult = Boolean(game.result)
+  let hasResult = Boolean(game.result)
   const homeGoals = game.result?.homeGoals ?? '—'
   const awayGoals = game.result?.awayGoals ?? '—'
   const homePoints = game.result?.home.value ?? '—'
   const awayPoints = game.result?.away.value ?? '—'
+  if (homePoints === 0 && awayPoints === 0) {
+    hasResult = false
+  }
+  const isCancelled = game.result?.isCancelled ?? false
 
   return (
     <XStack
@@ -59,11 +63,11 @@ const GameRow: FC<{ game: CalendarGame }> = ({ game }) => {
 
       <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
         <Text color="$color11" fontWeight="600">
-          {hasResult ? `${homeGoals} - ${awayGoals}` : 'VS'}
+          {!isCancelled ? (hasResult ? `${homeGoals} - ${awayGoals}` : 'VS') : "Annullata"}
         </Text>
         {hasResult && (
           <Text color="$color9" fontSize="$2">
-            {homePoints} pt • {awayPoints} pt
+            {homePoints} • {awayPoints}
           </Text>
         )}
       </YStack>
