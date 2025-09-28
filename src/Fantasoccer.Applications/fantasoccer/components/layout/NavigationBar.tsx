@@ -126,7 +126,7 @@ const navigationItems: NavigationSection[] = [
     items: [
       { type: 'link', path: '/hall-of-fame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e stagioni passate' },
       { type: 'link', path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
-      { type: 'link', path: '/settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
+      { type: 'route', route: 'Settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
   },
 ]
