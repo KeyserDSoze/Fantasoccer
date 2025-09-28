@@ -7,7 +7,8 @@ import {
   Spinner,
   Text,
   XStack,
-  YStack
+  YStack,
+  useMedia
 } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/rank/LeagueSelectorsWidget'
@@ -39,6 +40,9 @@ const formatRoundLabel = (roundId: string): string => {
 }
 
 export default function Ranking() {
+  const media = useMedia()
+  const containerWidth = media.gtMd ? 960 : '100%'
+
   const {
     currentGroup,
     userGroups,
@@ -156,7 +160,13 @@ export default function Ranking() {
 
   return (
     <ScreenContent path="screens/ranking.tsx" title="Classifica">
-      <YStack width="100%" maxWidth={820} gap="$4" alignItems="stretch">
+      <YStack
+        width={containerWidth}
+        maxWidth={960}
+        gap="$4"
+        alignItems="stretch"
+        alignSelf="center"
+      >
         {isGroupsLoading ? (
           <Card
             padding="$4"

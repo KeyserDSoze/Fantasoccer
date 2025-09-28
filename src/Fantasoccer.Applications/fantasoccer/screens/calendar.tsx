@@ -7,7 +7,8 @@ import {
   Spinner,
   Text,
   XStack,
-  YStack
+  YStack,
+  useMedia
 } from 'tamagui'
 
 import { ScreenContent } from 'components/layout/ScreenContent'
@@ -41,6 +42,9 @@ const formatRoundLabel = (roundId: string): string => {
 }
 
 export default function CalendarScreen() {
+  const media = useMedia()
+  const containerWidth = media.gtMd ? 960 : '100%'
+
   const {
     currentGroup,
     userGroups,
@@ -161,7 +165,13 @@ export default function CalendarScreen() {
 
   return (
     <ScreenContent path="screens/calendar.tsx" title="Calendario">
-      <YStack width="100%" maxWidth={820} gap="$4" alignItems="stretch">
+      <YStack
+        width={containerWidth}
+        maxWidth={960}
+        gap="$4"
+        alignItems="stretch"
+        alignSelf="center"
+      >
         <Card
           padding="$4"
           backgroundColor="$color2"
