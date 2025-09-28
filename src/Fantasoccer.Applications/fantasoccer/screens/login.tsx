@@ -1,7 +1,7 @@
 import { Text, YStack, Spinner, H1, H2, Card, Button } from 'tamagui';
 import { useAuth } from '../providers/AuthProvider'
 import { LoginButton } from '../features/LoginButton'
-import { FantasoccerLogo } from '../components/FantasoccerLogo'
+import { FantasoccerLogo } from '../components/layout/FantasoccerLogo'
 import { useNavigation } from '@react-navigation/native';
 
 function HomeButton() {

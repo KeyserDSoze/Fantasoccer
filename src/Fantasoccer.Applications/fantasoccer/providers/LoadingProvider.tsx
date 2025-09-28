@@ -1,7 +1,7 @@
 // Global Loading Provider
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { View, StyleSheet } from 'react-native'
-import { SplashScreen } from '../components/SplashScreen'
+import { SplashScreen } from '../components/layout/SplashScreen'
 
 interface LoadingContextType {
   isLoading: boolean

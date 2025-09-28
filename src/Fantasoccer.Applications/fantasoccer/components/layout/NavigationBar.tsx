@@ -33,7 +33,7 @@ import {
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
-import { hasRole, IdentityRole } from '../types/identity'
+import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootNavigatorParamList } from 'navigation'

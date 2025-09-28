@@ -9,7 +9,7 @@ import {
   XStack,
   YStack
 } from 'tamagui'
-import { ScreenContent } from 'components/ScreenContent'
+import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/rank/LeagueSelectorsWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'

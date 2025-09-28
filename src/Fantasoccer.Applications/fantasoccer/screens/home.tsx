@@ -1,4 +1,4 @@
-import { ScreenContent } from 'components/ScreenContent';
+import { ScreenContent } from 'components/layout/ScreenContent';
 import { StyleSheet, View } from 'react-native';
 
 import { H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
@@ -6,7 +6,7 @@ import { Calendar, TrendingUp, Users, ShieldCheck } from '@tamagui/lucide-icons'
 import { LoginButton } from 'features/LoginButton';
 import { useAuth } from 'providers/AuthProvider';
 import type { AuthUser } from 'providers/AuthProvider';
-import { SerieALiveWidget } from 'components/SerieALiveWidget';
+import { SerieALiveWidget } from 'components/seriea/SerieALiveWidget';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();

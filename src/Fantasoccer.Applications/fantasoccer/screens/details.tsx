@@ -1,5 +1,5 @@
 import type { StaticScreenProps } from '@react-navigation/native';
-import { ScreenContent } from 'components/ScreenContent';
+import { ScreenContent } from 'components/layout/ScreenContent';
 
 import { StyleSheet, View } from 'react-native';
 

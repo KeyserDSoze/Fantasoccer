@@ -4,7 +4,7 @@ import Home from 'screens/home';
 import Details from 'screens/details';
 import Ranking from 'screens/ranking';
 import CalendarScreen from 'screens/calendar';
-import { BackButton } from '../components/BackButton';
+import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
 const Stack = createStackNavigator({
