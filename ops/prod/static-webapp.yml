@@ -1,0 +1,59 @@
+name: $(Build.DefinitionName)_$(date:yyyy).$(date:MM).0.$(rev:rr)
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - "src/Fantasoccer.Applications/fantasoccer/"
+      - "ops/prod/static-webapp.yml"
+
+variables:
+- name: srcPath
+  value: "$(Build.SourcesDirectory)/src"
+- name: appPath
+  value: "$(Build.SourcesDirectory)/src/Fantasoccer.Applications/fantasoccer"
+- name: staticWebAppToken
+  value: "e88022ac5f4c0760e1ca7ac13144a8c01b520755fb6194e7b790564ba25d7a5e02-59629d2b-20c5-41a6-8225-1ed57178fc5700320280ff029003"
+
+jobs:
+- job: Build_And_Deploy_StaticWebApp
+  displayName: "Build and deploy Fantasoccer Expo web to Azure Static Web App"
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+    - checkout: self
+      submodules: true
+
+    - task: NodeTool@0
+      displayName: "Use Node.js 20"
+      inputs:
+        versionSpec: "20.x"
+
+    - script: |
+        npm install
+      workingDirectory: $(appPath)
+      displayName: "Install frontend dependencies"
+      env:
+        CI: "1"
+
+    - script: |
+        rm -rf dist
+        npx expo export --platform web --output-dir dist --dump-sourcemap
+      workingDirectory: $(appPath)
+      displayName: "Build Expo web bundle"
+      env:
+        EXPO_NO_TELEMETRY: "1"
+        EXPO_NONINTERACTIVE: "1"
+        CI: "1"
+
+    - task: AzureStaticWebApp@0
+      displayName: "Deploy to Azure Static Web App (fcstaticapp)"
+      inputs:
+        app_location: "src/Fantasoccer.Applications/fantasoccer/dist"
+        api_location: ""
+        output_location: ""
+        skip_app_build: true
+        azure_static_web_apps_connection: "azureconnection"
+        azure_static_web_apps_api_token: "$(staticWebAppToken)"
