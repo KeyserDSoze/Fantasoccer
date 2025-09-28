@@ -12,7 +12,7 @@ import {
 } from 'tamagui'
 
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { LeagueSelectorsWidget } from 'components/rank/LeagueSelectorsWidget'
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget'
 import { useApp } from 'providers/AppProvider'
 import { useCalendar } from 'hooks/useCalendar'

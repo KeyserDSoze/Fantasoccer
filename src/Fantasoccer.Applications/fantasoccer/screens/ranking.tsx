@@ -11,7 +11,7 @@ import {
   useMedia
 } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { LeagueSelectorsWidget } from 'components/rank/LeagueSelectorsWidget'
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'
 import { useRankByComponents } from 'hooks/useRank'
