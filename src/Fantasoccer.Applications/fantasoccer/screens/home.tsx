@@ -28,7 +28,7 @@ function AuthenticatedContent({ user }: { user: AuthUser | null }) {
   const displayName = user?.displayName || user?.name || 'Fantallenatore';
 
   return (
-    <YStack gap="$6" maxWidth={600} alignItems="center">
+    <YStack gap="$6" width="100%">
       <SerieALiveWidget refreshInterval={60000} enablePolling pollOnlyWhenLive={false} />
     </YStack>
   );
@@ -37,7 +37,7 @@ function AuthenticatedContent({ user }: { user: AuthUser | null }) {
 
 function WelcomeContent() {
   return (
-    <YStack gap="$6" maxWidth={600} alignItems="center">
+    <YStack gap="$6" width="100%" alignItems="center">
       <YStack gap="$4" alignItems="center">
         <H1 textAlign="center" color="$blue10" fontWeight="800" fontSize="$10">
           Benvenuto in Fantasoccer!

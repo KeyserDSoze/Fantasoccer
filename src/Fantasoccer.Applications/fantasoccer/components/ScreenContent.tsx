@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { XStack, YStack } from 'tamagui';
+import { XStack, YStack, useMedia } from 'tamagui';
 import { NavigationBar } from './NavigationBar';
 import { FantasoccerBrand } from './FantasoccerLogo';
 import { useAuth } from 'providers/AuthProvider';
@@ -13,6 +13,10 @@ type ScreenContentProps = {
 
 export const ScreenContent = ({ children }: ScreenContentProps) => {
   const { isAuthenticated } = useAuth();
+  const media = useMedia();
+  const isWideLayout = media.gtMd ?? false;
+  const contentWidth = isWideLayout ? '100%' : 640;
+  const horizontalPadding = isWideLayout ? '$6' : '$4';
   useEffect(() => {
       if (Platform.OS === "web") {
         document.body.style.overflow = "auto";
@@ -28,22 +32,32 @@ export const ScreenContent = ({ children }: ScreenContentProps) => {
         alwaysBounceHorizontal={true}
         bounces
       >
-        <YStack width="100%" alignSelf="center" gap="$6">
+        <YStack width="100%" alignItems="center" gap="$6">
           <XStack
             width="100%"
+            maxWidth={contentWidth}
+            alignSelf="center"
             justifyContent="space-between"
             alignItems="center"
-            paddingHorizontal="$4"
+            paddingHorizontal={horizontalPadding}
             paddingVertical="$3"
             backgroundColor="$color2"
             borderBottomWidth="$0.5"
             borderBottomColor="$color5"
+            borderRadius={isWideLayout ? '$0' : '$4'}
           >
             <FantasoccerBrand width={48} height={48} textSize="medium" showText={false} />
             {isAuthenticated && <NavigationBar />}
           </XStack>
 
-          <YStack gap="$4" alignItems="center" paddingBottom="$6" width="100%">
+          <YStack
+            gap="$4"
+            width="100%"
+            maxWidth={contentWidth}
+            alignSelf="center"
+            paddingHorizontal={horizontalPadding}
+            paddingBottom="$6"
+          >
             {children}
           </YStack>
         </YStack>
