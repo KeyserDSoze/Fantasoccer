@@ -21,6 +21,8 @@ namespace Fantasoccer
         [JsonIgnore]
         public IEnumerable<UserOfAGroup> AdminUsers => Users.Where(x => x.Role.HasFlag(IdentityRole.Admin));
         [JsonIgnore]
+        public IEnumerable<UserOfAGroup> SuperAdminUsers => Users.Where(x => x.Role.HasFlag(IdentityRole.SuperAdmin));
+        [JsonIgnore]
         public IEnumerable<UserOfAGroup> ReaderUsers => Users.Where(x => x.Role.HasFlag(IdentityRole.Reader));
         [JsonIgnore]
         public IEnumerable<UserOfAGroup> Participants => Users.Where(x => x.Role.HasFlag(IdentityRole.Participant));

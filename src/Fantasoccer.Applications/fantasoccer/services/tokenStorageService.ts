@@ -1,0 +1,255 @@
+// Token storage service for managing backend JWT tokens
+import { Platform } from 'react-native'
+import { AppIdentity } from 'types/identity'
+import { create } from 'zustand';
+
+const TOKEN_KEY = 'fantasoccer_backend_token'
+const USER_KEY = 'fantasoccer_user_info'
+
+// Simple storage adapter used by the store
+const nativeMemoryStore = new Map<string, string>()
+const storageApi = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') return localStorage.getItem(key)
+    return nativeMemoryStore.get(key) ?? null
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') return localStorage.setItem(key, value)
+    nativeMemoryStore.set(key, value)
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') return localStorage.removeItem(key)
+    nativeMemoryStore.delete(key)
+  },
+}
+
+export interface StoredTokenData {
+  tokenType: string      // "Bearer"
+  accessToken: string    // The actual JWT token to use for API calls
+  refreshToken: string   // Token used to refresh when accessToken expires
+  expiresAt: number      // Timestamp when token expires
+  user?: any            // User information (optional, can be stored separately)
+}
+
+export interface TokenSaveOptions {
+  expiresIn?: number     // Token expiration in seconds (if provided, will calculate expiresAt)
+  expiresAt?: number     // Absolute expiration timestamp (if provided, will use this)
+}
+
+interface TokenStoreState {
+  tokenData: StoredTokenData | null
+  isLoading: boolean
+
+  saveToken: (tokenData: StoredTokenData) => Promise<void>
+  saveTokenWithExpiration: (tokenData: Omit<StoredTokenData, 'expiresAt'>, options: TokenSaveOptions) => Promise<void>
+  loadToken: () => Promise<StoredTokenData | null>
+  loadTokenSilent: () => Promise<StoredTokenData | null>
+  removeToken: () => Promise<void>
+
+  hasValidToken: () => Promise<boolean>
+  getTokenSilent: () => Promise<string | null>
+  getTokenString: () => Promise<string | null>
+  isTokenNearExpiry: (minutesBeforeExpiry?: number) => Promise<boolean>
+  getTokenExpirationInfo: () => Promise<{ expiresAt: number | null; isExpired: boolean; minutesUntilExpiry: number | null }>
+  ensureValidToken: () => Promise<string | null>
+
+  saveUserInfo: (user: any) => Promise<void>
+  loadUserInfo: () => Promise<any | null>
+}
+
+export const useTokenStore = create<TokenStoreState>((set, get) => ({
+  tokenData: null,
+  isLoading: false,
+  saveToken: async (tokenData: StoredTokenData) => {
+    try {
+      const serialized = JSON.stringify(tokenData)
+      await storageApi.setItem(TOKEN_KEY, serialized)
+      set({ tokenData })
+      // persist user if present
+      if (tokenData.user) {
+        try {
+          const userSerialized = JSON.stringify(tokenData.user)
+          await storageApi.setItem(USER_KEY, userSerialized)
+        } catch {}
+      }
+    } catch (error) {
+      console.error('❌ Failed to save token:', error)
+      throw error
+    }
+  },
+
+  saveTokenWithExpiration: async (tokenData: Omit<StoredTokenData, 'expiresAt'>, options: TokenSaveOptions) => {
+    let expiresAt: number
+    if (options.expiresAt) expiresAt = options.expiresAt
+    else if (options.expiresIn) expiresAt = Date.now() + options.expiresIn * 1000
+    else expiresAt = Date.now() + 60 * 60 * 1000
+
+    const complete: StoredTokenData = { ...tokenData, expiresAt }
+    await get().saveToken(complete)
+  },
+
+    loadToken: async () => {
+    try {
+      const stored = await storageApi.getItem(TOKEN_KEY)
+      if (!stored) return null
+      const tokenData = JSON.parse(stored) as StoredTokenData
+
+      if (tokenData.expiresAt && tokenData.refreshToken) {
+        const now = Date.now()
+        const fiveMinutesFromNow = now + 5 * 60 * 1000
+        if (tokenData.expiresAt <= fiveMinutesFromNow) {
+          try {
+            const { authService } = await import('./authService')
+            const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+            const expiresAt = now + newTokenData.expiresIn * 1000
+            const refreshed: StoredTokenData = {
+              tokenType: newTokenData.tokenType,
+              accessToken: newTokenData.accessToken,
+              refreshToken: newTokenData.refreshToken,
+              expiresAt,
+              user: tokenData.user,
+            }
+            await get().saveToken(refreshed)
+            return refreshed
+          } catch (refreshError) {
+            console.error('❌ Token refresh failed during load:', refreshError)
+            await get().removeToken()
+            return null
+          }
+        }
+      } else if (tokenData.expiresAt && Date.now() > tokenData.expiresAt) {
+        await get().removeToken()
+        return null
+      }
+
+      set({ tokenData })
+      return tokenData
+    } catch (error) {
+      console.error('❌ Failed to load token:', error)
+      await get().removeToken()
+      return null
+    }
+  },
+
+    loadTokenSilent: async () => {
+    try {
+      const stored = await storageApi.getItem(TOKEN_KEY)
+      if (!stored) return null
+      const tokenData = JSON.parse(stored) as StoredTokenData
+      set({ tokenData })
+      return tokenData
+    } catch (error) {
+      console.error('❌ Failed to load token silently:', error)
+      return null
+    }
+  },
+
+  removeToken: async () => {
+    try {
+      await storageApi.removeItem(TOKEN_KEY)
+      await storageApi.removeItem(USER_KEY)
+      set({ tokenData: null })
+    } catch (error) {
+      console.error('❌ Failed to remove token:', error)
+      throw error
+    }
+  },
+
+  hasValidToken: async () => {
+    const t = await get().loadTokenSilent()
+    if (!t || !t.expiresAt) return false
+    return Date.now() < t.expiresAt
+  },
+
+  getTokenSilent: async () => {
+    const t = await get().loadTokenSilent()
+    return t?.accessToken || null
+  },
+
+  getTokenString: async () => {
+    const t = await get().loadToken()
+    return t?.accessToken || null
+  },
+
+  isTokenNearExpiry: async (minutesBeforeExpiry = 5) => {
+    const t = await get().loadToken()
+    if (!t || !t.expiresAt) return false
+    const threshold = Date.now() + minutesBeforeExpiry * 60 * 1000
+    return t.expiresAt < threshold
+  },
+
+  getTokenExpirationInfo: async () => {
+    const t = await get().loadToken()
+    if (!t || !t.expiresAt) return { expiresAt: null, isExpired: true, minutesUntilExpiry: null }
+    const now = Date.now()
+    const minutesUntilExpiry = Math.floor((t.expiresAt - now) / (1000 * 60))
+    return {
+      expiresAt: t.expiresAt,
+      isExpired: t.expiresAt <= now,
+      minutesUntilExpiry: minutesUntilExpiry > 0 ? minutesUntilExpiry : 0,
+    }
+  },
+
+  ensureValidToken: async () => {
+    const tokenData = await get().loadToken()
+    if (!tokenData) return null
+    const isNear = await get().isTokenNearExpiry(5)
+    if (!isNear) return tokenData.accessToken
+
+    try {
+      const { authService } = await import('./authService')
+      const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+      const expiresAt = Date.now() + newTokenData.expiresIn * 1000
+      const updated: StoredTokenData = {
+        tokenType: newTokenData.tokenType,
+        accessToken: newTokenData.accessToken,
+        refreshToken: newTokenData.refreshToken,
+        expiresAt,
+        user: tokenData.user,
+      }
+      await get().saveToken(updated)
+      return updated.accessToken
+    } catch (error) {
+      console.error('❌ Auto token refresh failed:', error)
+      await get().removeToken()
+      return null
+    }
+  },
+
+  saveUserInfo: async (user : AppIdentity) => {
+    try {
+      const s = JSON.stringify(user)
+      await storageApi.setItem(USER_KEY, s)
+    } catch (error) {
+      console.error('❌ Failed to save user info:', error)
+    }
+  },
+
+  loadUserInfo: async () => {
+    try {
+      const stored = await storageApi.getItem(USER_KEY)
+      if (!stored) return null
+      return JSON.parse(stored)
+    } catch (error) {
+      console.error('❌ Failed to load user info:', error)
+      return null
+    }
+  },
+}))
+
+// Backwards-compatible default export that delegates to the zustand store
+export const tokenStorageService = {
+  saveToken: (t: StoredTokenData) => useTokenStore.getState().saveToken(t),
+  saveTokenWithExpiration: (t: Omit<StoredTokenData, 'expiresAt'>, opts: TokenSaveOptions) => useTokenStore.getState().saveTokenWithExpiration(t, opts),
+  loadToken: () => useTokenStore.getState().loadToken(),
+  loadTokenSilent: () => useTokenStore.getState().loadTokenSilent(),
+  removeToken: () => useTokenStore.getState().removeToken(),
+  hasValidToken: () => useTokenStore.getState().hasValidToken(),
+  getTokenSilent: () => useTokenStore.getState().getTokenSilent(),
+  getTokenString: () => useTokenStore.getState().getTokenString(),
+  isTokenNearExpiry: (m?: number) => useTokenStore.getState().isTokenNearExpiry(m),
+  getTokenExpirationInfo: () => useTokenStore.getState().getTokenExpirationInfo(),
+  ensureValidToken: () => useTokenStore.getState().ensureValidToken(),
+  saveUserInfo: (u: any) => useTokenStore.getState().saveUserInfo(u),
+  loadUserInfo: () => useTokenStore.getState().loadUserInfo(),
+}

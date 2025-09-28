@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": ["c:\\Users\\aless\\source\\repos\\Fantasoccer\\src\\Fantasoccer.Applications\\fantasoccer.webapp\\packages\\config\\src\\fonts.ts"],
-  "mappings": ";;;;;;;;;;;;;;AAAA;;;;;;wBAAgC,gCAEnBA,kBAAcC,mCAAgB;EACzCC,MAAM;IACJ,GAAG;EACL;EACAC,WAAW;IACT,GAAG;IACH,GAAG;EACL;EACAC,QAAQ;IACN,GAAG;IACH,GAAG;EACL;EACAC,OAAO;IACL,GAAG;IACH,GAAG;EACL;EACAC,eAAe;IACb,GAAG;IACH,GAAG;IACH,GAAG;IACH,GAAG;IACH,GAAG;IACH,IAAI;IACJ,IAAI;IACJ,IAAI;IACJ,IAAI;EACN;EACAC,MAAM;IACJ,KAAK;MAAEC,QAAQ;IAAY;EAC7B;AACF,CAAA,GAEaC,eAAWR,mCACtB;EACEM,MAAM;IACJ,KAAK;MAAEC,QAAQ;IAAY;EAC7B;AACF,GACA;EACEE,UAAU,SAACR,MAAAA;WAASS,KAAKC,MAAMV,OAAO,GAAA;;EACtCW,gBAAgB,SAACX,MAAAA;WAASS,KAAKC,MAAMV,OAAO,OAAOA,OAAO,IAAK,GAAM;;AACvE,CAAA;",
-  "names": ["headingFont", "createInterFont", "size", "transform", "weight", "color", "letterSpacing", "face", "normal", "bodyFont", "sizeSize", "Math", "round", "sizeLineHeight"]
-}

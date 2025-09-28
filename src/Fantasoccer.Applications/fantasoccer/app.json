@@ -1,0 +1,86 @@
+{
+  "expo": {
+    "name": "fantasoccer",
+    "slug": "fantasoccer",
+    "version": "1.0.0",
+    "web": {
+      "favicon": "./assets/favicon-32x32.png",
+      "styles": {
+        "body": {
+          "overflow": "auto"
+        }
+      },
+      "manifest": {
+        "name": "Fantasoccer",
+        "shortName": "Fantasoccer",
+        "backgroundColor": "#020617",
+        "themeColor": "#1E40AF",
+        "icons": [
+          {
+            "src": "./assets/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+          },
+          {
+            "src": "./assets/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+          },
+          {
+            "src": "./assets/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png"
+          },
+          {
+            "src": "./assets/favicon-32x32.png",
+            "sizes": "32x32",
+            "type": "image/png"
+          },
+          {
+            "src": "./assets/favicon-16x16.png",
+            "sizes": "16x16",
+            "type": "image/png"
+          }
+        ]
+      }
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "plugins": [
+      [
+        "expo-dev-menu",
+        {
+          "launchMode": "most-recent"
+        }
+      ],
+      "expo-font"
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.keyserdsoze.fantasoccer"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "8f9e9822-b1b3-4aab-b236-5237394802c4"
+      }
+    }
+  }
+}
