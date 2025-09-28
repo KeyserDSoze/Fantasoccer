@@ -102,7 +102,7 @@ const navigationItems: NavigationSection[] = [
   {
     section: 'Giocatori',
     items: [
-      { type: 'link', path: '/players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Elenco dei giocatori di Serie A' },
+      { type: 'route', route: 'Players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Statistiche complete dei giocatori di Serie A' },
       { type: 'link', path: '/free-players', label: 'Giocatori liberi', icon: User, description: 'Giocatori disponibili nella tua lega' },
     ],
   },
