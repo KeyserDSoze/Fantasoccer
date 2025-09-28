@@ -1,5 +1,5 @@
 import { useAuth } from '../../providers/AuthProvider'
-import { NavigationBar } from '../NavigationBar'
+import { NavigationBar } from './NavigationBar'
 import { FantasoccerLogoCompact } from './FantasoccerLogo'
 import { ReactNode } from 'react'
 import { XStack, YStack } from 'tamagui'

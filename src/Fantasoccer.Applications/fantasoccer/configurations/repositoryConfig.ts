@@ -41,15 +41,15 @@ export const setupRepositoryServices = () => {
     })
     // RealPlayers (Serie A roster by year)
     .addRepository<RealPlayersWrapperRaw, number>(x => {
-      x.name = "RealPlayers";
-      x.path = "RealPlayers";
+      x.name = "RealPlayersWrapper";
+      x.path = "RealPlayersWrapper";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
     // Randomized RealPlayers (league scoped auction lists)
     .addRepository<RealPlayersWrapperRaw, LeagueKeyRaw>(x => {
-      x.name = "RandomRealPlayers";
-      x.path = "RealPlayers/random";
+      x.name = "RealPlayersWrapper";
+      x.path = "RealPlayersWrapper/random";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
@@ -104,8 +104,8 @@ export const setupRepositoryServices = () => {
     })
     // Daily rank with YearDayLeague key
     .addRepository<RankRaw, YearDayLeagueRaw>(x => {
-      x.name = "DailyRank";
-      x.path = "day/dailyrank";
+      x.name = "Rank";
+      x.path = "Rank/day";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     });
