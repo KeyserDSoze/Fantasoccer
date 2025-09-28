@@ -4,6 +4,8 @@ import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "types/identity";
 import { RealCalendarRaw, RealPlayersWrapperRaw, RealRankRaw, VotedRealPlayerWrapperRaw, YearDayKeyRaw } from "../types/serieA";
+import { StatPlayersWrapperRaw } from "types/stat";
+import { ChancedRealPlayerWrapperRaw } from "types/chance";
 import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
@@ -53,6 +55,13 @@ export const setupRepositoryServices = () => {
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
+    // Stat players (Serie A season stats)
+    .addRepository<StatPlayersWrapperRaw, number>(x => {
+      x.name = "StatPlayersWrapper";
+      x.path = "StatPlayersWrapper";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
     // Live voted players (Serie A live votes)
     .addRepository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
       x.name = "VotedRealPlayerWrapper/live";
@@ -64,6 +73,13 @@ export const setupRepositoryServices = () => {
     .addRepository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
       x.name = "VotedRealPlayerWrapper/official";
       x.path = "VotedRealPlayerWrapper/official";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Chanced real players (probable lineups)
+    .addRepository<ChancedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
+      x.name = "ChancedRealPlayerWrapper";
+      x.path = "ChancedRealPlayerWrapper";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
