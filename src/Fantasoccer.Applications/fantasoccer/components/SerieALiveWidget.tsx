@@ -1,16 +1,17 @@
 import { useMemo } from 'react'
+import { AlertTriangle, CalendarRange, RefreshCw } from '@tamagui/lucide-icons'
 import {
   Button,
   Card,
   H3,
-  Paragraph,
+  Separator,
   Spinner,
   Text,
   XStack,
   YStack
 } from 'tamagui'
 import { useSerieACalendar, useSerieARank, formatGameDate, getDayStatusText } from 'hooks/useSerieACalendar'
-import { RealCalendarHelper } from 'types/serieA'
+import { RealCalendarHelper, type RealDay, type RealGame } from 'types/serieA'
 
 export type SerieALiveWidgetProps = {
   refreshInterval?: number
@@ -52,146 +53,96 @@ export function SerieALiveWidget({
   const displayDay = liveDay ?? nextDay ?? null
   const displayGames = displayDay?.games ?? []
   const dayNumber = displayDay?.serieADay ?? (liveSerieADay > 0 ? liveSerieADay : null)
-  const sectionTitle = dayNumber ? `Serie A • Giornata ${dayNumber}` : 'Serie A • Calendario'
   const statusText = getDayStatusText(isLive, liveDay ?? null, nextDay ?? null)
+  const pendingGamesCount = displayDay
+    ? displayDay.games.filter(game => !RealCalendarHelper.isGamePlayed(game) && !game.delayed).length
+    : 0
 
   const liveGameKeys = useMemo(
-    () => new Set((liveGames ?? []).map(game => `${game.home.name}-${game.away.name}-${game.date ?? ''}`)),
+    () => new Set((liveGames ?? []).map(buildGameKey)),
     [liveGames]
   )
 
   const hasGames = displayGames.length > 0
+  const showLoadingState = isLoading && !hasGames && !error
+  const showErrorState = Boolean(error)
+  const showEmptyState = !showLoadingState && !showErrorState && !hasGames
   const rankTeams = rank?.teams ?? []
 
   return (
     <YStack gap="$3" width="100%">
-      <XStack justifyContent="space-between" alignItems="center" gap="$2" flexWrap="wrap">
-        <H3 color="$color12">{sectionTitle}</H3>
-        <Button size="$2" variant="outlined" disabled={isLoading} onPress={() => { void refetch() }}>
-          Aggiorna
-        </Button>
-      </XStack>
-
-      <Paragraph color="$color10" fontSize="$3">
-        {statusText}
-      </Paragraph>
-
-      {error && (
-        <Card backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5" padding="$3" borderRadius="$4">
-          <Text color="$red11" fontSize="$3">
-            {error}
-          </Text>
-        </Card>
-      )}
-
-      {isLoading && !hasGames && !error && (
-        <Card
-          padding="$4"
-          backgroundColor="$color2"
-          borderRadius="$4"
-          borderWidth="$0.5"
-          borderColor="$borderColor"
-        >
-          <XStack justifyContent="center" alignItems="center" gap="$3">
-            <Spinner size="large" color="$blue10" />
-            <Text color="$color10" fontSize="$3">
-              Caricamento calendario...
+      <Card padding="$3" elevate backgroundColor="$color1" gap="$3">
+        <XStack alignItems="center" gap="$2">
+          <CalendarRange size="$1.5" color="$purple10" />
+          <YStack gap="$1" flex={1}>
+            <Text fontSize="$5" fontWeight="700" color="$color12">
+              Serie A • Calendario
             </Text>
-          </XStack>
-        </Card>
-      )}
+            {dayNumber && (
+              <Text fontSize="$3" color="$color10">
+                Giornata {dayNumber}
+              </Text>
+            )}
+            <Text fontSize="$2" color="$color10">
+              {statusText}
+            </Text>
+            <Text fontSize="$2" color="$color10">
+              {pendingGamesCount} partite in attesa di risultato
+            </Text>
+            {lastUpdated && (
+              <Text fontSize="$2" color="$color9">
+                Ultimo aggiornamento: {lastUpdated.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </YStack>
+          {isLoading && (
+            <Spinner size="small" color="$blue10" />
+          )}
+        </XStack>
 
-      {hasGames ? (
-        <YStack gap="$3">
-          {displayGames.map(game => {
-            const key = `${game.home.name}-${game.away.name}-${game.date ?? 'n.d.'}`
-            const isGameLive = liveGameKeys.has(key)
-            const hasScore = game.homeGoals != null && game.awayGoals != null
-            const kickoffLabel = formatGameDate(game.date)
-            const isPlayed = RealCalendarHelper.isGamePlayed(game)
-            const showScore = hasScore && (isGameLive || isPlayed)
-            const statusLabel = isGameLive ? 'LIVE' : isPlayed ? 'Risultato finale' : 'Da giocare'
-            const statusColor = isGameLive ? '$red10' : isPlayed ? '$color10' : '$color9'
+        <Separator />
 
-            return (
-              <Card
-                key={key}
-                padding="$3"
-                backgroundColor="$color2"
-                borderRadius="$4"
-                borderWidth="$0.5"
-                borderColor={isGameLive ? '$red7' : '$borderColor'}
-              >
-                <YStack gap="$2">
-                  <XStack alignItems="center" width="100%" gap="$4">
-                    <Text fontWeight="700" color="$color12" flex={1} textAlign="left" numberOfLines={1}>
-                      {game.home.name}
-                    </Text>
+        {showErrorState ? (
+          <YStack gap="$3" alignItems="center" paddingVertical="$4">
+            <AlertTriangle size={32} color="$red10" />
+            <Text color="$color10" textAlign="center">
+              {error}
+            </Text>
+            <Button icon={RefreshCw} variant="outlined" onPress={() => { void refetch() }}>
+              Riprova
+            </Button>
+          </YStack>
+        ) : showLoadingState ? (
+          <YStack gap="$3" alignItems="center" paddingVertical="$4">
+            <Spinner size="small" color="$blue10" />
+            <Text color="$color10">Caricamento calendario...</Text>
+          </YStack>
+        ) : showEmptyState ? (
+          <YStack gap="$3" alignItems="center" paddingVertical="$4">
+            <Text color="$color10" fontSize="$3" textAlign="center">
+              Nessuna partita disponibile al momento. Riprova più tardi.
+            </Text>
+            <Button variant="outlined" onPress={() => { void refetch() }}>
+              Aggiorna calendario
+            </Button>
+          </YStack>
+        ) : displayDay ? (
+          <YStack gap="$3" paddingBottom="$2">
+            <SerieADayCard day={displayDay} liveGameKeys={liveGameKeys} />
+          </YStack>
+        ) : null}
 
-                    <YStack alignItems="center" gap="$1" width={150}>
-                      {showScore ? (
-                        <Text
-                          fontWeight="800"
-                          fontSize="$5"
-                          color={isGameLive ? '$red10' : '$color12'}
-                          textAlign="center"
-                        >
-                          {game.homeGoals} - {game.awayGoals}
-                        </Text>
-                      ) : (
-                        <Text fontWeight="700" fontSize="$5" color="$color10" textAlign="center">
-                          vs
-                        </Text>
-                      )}
-
-                      <Text fontSize="$3" color="$color10" textAlign="center">
-                        {kickoffLabel}
-                      </Text>
-
-                      <Text
-                        fontSize="$2"
-                        fontWeight={isGameLive ? '700' : '600'}
-                        color={statusColor}
-                        textAlign="center"
-                      >
-                        {statusLabel}
-                      </Text>
-
-                      {game.delayed && (
-                        <Text fontSize="$2" fontWeight="600" color="$yellow10">
-                          Rinviata
-                        </Text>
-                      )}
-                    </YStack>
-
-                    <Text fontWeight="700" color="$color12" flex={1} textAlign="right" numberOfLines={1}>
-                      {game.away.name}
-                    </Text>
-                  </XStack>
-                </YStack>
-              </Card>
-            )
-          })}
-        </YStack>
-      ) : !isLoading && !error ? (
-        <Card
-          padding="$4"
-          backgroundColor="$color2"
-          borderRadius="$4"
-          borderWidth="$0.5"
-          borderColor="$borderColor"
-        >
-          <Text color="$color10" fontSize="$3">
-            Nessuna partita disponibile al momento. Riprova più tardi.
-          </Text>
-        </Card>
-      ) : null}
-
-      {lastUpdated && (
-        <Text fontSize="$2" color="$color9">
-          Ultimo aggiornamento: {lastUpdated.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      )}
+        {hasGames && (
+          <>
+            <Separator marginTop="$2" />
+            <XStack justifyContent="flex-end">
+              <Button size="$2" variant="outlined" icon={RefreshCw} onPress={() => { void refetch() }}>
+                Aggiorna calendario
+              </Button>
+            </XStack>
+          </>
+        )}
+      </Card>
 
       <SeparatorSection
         title="Classifica Serie A"
@@ -306,5 +257,130 @@ function SeparatorSection({ title, onRefresh, isLoading }: SeparatorSectionProps
       )}
     </XStack>
   )
+}
+
+type SerieADayCardProps = {
+  day: RealDay
+  liveGameKeys: Set<string>
+}
+
+function SerieADayCard({ day, liveGameKeys }: SerieADayCardProps) {
+  const totalGames = day.games.length
+  const pendingGames = day.games.filter(game => !RealCalendarHelper.isGamePlayed(game) && !game.delayed).length
+
+  return (
+    <Card
+      padding="$3"
+      backgroundColor="$color2"
+      borderRadius="$4"
+      borderWidth="$0.5"
+      borderColor="$borderColor"
+      gap="$3"
+    >
+      <XStack justifyContent="space-between" alignItems="center">
+        <YStack gap="$1">
+          <Text color="$color12" fontSize="$4" fontWeight="700">
+            Giornata Serie A {day.serieADay}
+          </Text>
+          <Text color="$color10" fontSize="$2">
+            {pendingGames > 0
+              ? `${pendingGames} partite ancora da giocare`
+              : 'Tutte le partite concluse'}
+          </Text>
+        </YStack>
+        <Text color="$color10" fontWeight="600">
+          {totalGames} partite
+        </Text>
+      </XStack>
+
+      <Separator />
+
+      <YStack gap="$2">
+        {day.games.map(game => {
+          const key = buildGameKey(game)
+          const isGameLive = liveGameKeys.has(key)
+
+          return (
+            <Card
+              key={key}
+              paddingHorizontal="$2"
+              paddingVertical="$1.5"
+              backgroundColor="$color1"
+              borderRadius="$3"
+              borderWidth="$0.25"
+              borderColor={isGameLive ? '$red7' : '$color3'}
+            >
+              <SerieAGameRow game={game} isLive={isGameLive} />
+            </Card>
+          )
+        })}
+      </YStack>
+    </Card>
+  )
+}
+
+type SerieAGameRowProps = {
+  game: RealGame
+  isLive: boolean
+}
+
+function SerieAGameRow({ game, isLive }: SerieAGameRowProps) {
+  const kickoffLabel = formatGameDate(game.date)
+  const isPlayed = RealCalendarHelper.isGamePlayed(game)
+  const hasScore = game.homeGoals != null && game.awayGoals != null
+  const showScore = hasScore && (isLive || isPlayed)
+  const statusLabel = game.delayed
+    ? 'Rinviata'
+    : isLive
+      ? 'LIVE'
+      : isPlayed
+        ? 'Risultato finale'
+        : 'Da giocare'
+  const statusColor = game.delayed ? '$yellow10' : isLive ? '$red10' : isPlayed ? '$color10' : '$color9'
+
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      paddingVertical="$1.5"
+    >
+      <YStack flex={1} gap="$1">
+        <Text color="$color12" fontWeight="700" numberOfLines={1}>
+          {game.home.name}
+        </Text>
+      </YStack>
+
+      <YStack flexShrink={0} width={120} alignItems="center" gap="$1">
+        {showScore ? (
+          <Text fontWeight="800" fontSize="$5" color={isLive ? '$red10' : '$color12'} textAlign="center">
+            {game.homeGoals} - {game.awayGoals}
+          </Text>
+        ) : (
+          <Text fontWeight="700" fontSize="$5" color="$color10" textAlign="center">
+            vs
+          </Text>
+        )}
+
+        <Text fontSize="$3" color="$color10" textAlign="center">
+          {kickoffLabel}
+        </Text>
+
+        <Text fontSize="$2" fontWeight={isLive ? '700' : '600'} color={statusColor} textAlign="center">
+          {statusLabel}
+        </Text>
+      </YStack>
+
+      <YStack flex={1} gap="$1" alignItems="flex-end">
+        <Text color="$color12" fontWeight="700" numberOfLines={1}>
+          {game.away.name}
+        </Text>
+      </YStack>
+    </XStack>
+  )
+}
+
+function buildGameKey(game: RealGame): string {
+  return `${game.home.name}-${game.away.name}-${game.date ?? ''}`
 }
 
