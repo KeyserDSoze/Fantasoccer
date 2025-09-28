@@ -42,6 +42,12 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
+    options.AddPolicy("FantaZone",
+        policy => policy
+            .WithOrigins("https://fanta.zone")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 //builder.Services.AddSignalR();
 //builder.Services.AddResponseCompression(opts =>
@@ -60,6 +66,7 @@ await app.Services.WarmUpAsync();
 //app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseCors("LocalHost");
+app.UseCors("FantaZone");
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
