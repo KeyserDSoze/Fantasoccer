@@ -1,5 +1,6 @@
 // Types matching the C# RealCalendar structure
 import { convertUTCToItalianTimezone } from '../utils/timezoneHelpers';
+import { Role, RoleExtensions } from './group';
 
 // ============================================
 // RAW INTERFACES (matching JSON property names from C#)
@@ -45,6 +46,18 @@ export interface RealRankRaw {
   r: RealRankedTeamRaw[] // Ranked teams (matches [JsonPropertyName("r")])
 }
 
+export interface RealPlayerRaw {
+  n: string          // Player name (matches [JsonPropertyName("n")])
+  t: RealTeamRaw     // Real team (matches [JsonPropertyName("t")])
+  r: Role            // Role enum value (matches [JsonPropertyName("r")])
+  a: boolean         // Active flag (matches [JsonPropertyName("a")])
+  vh: boolean        // Visible flag (matches [JsonPropertyName("vh")])
+}
+
+export interface RealPlayersWrapperRaw {
+  p: RealPlayerRaw[] // Players collection (matches [JsonPropertyName("p")])
+}
+
 // ============================================
 // CLEAN INTERFACES (with readable property names)
 // ============================================
@@ -88,6 +101,29 @@ export interface RealRankedTeam {
 
 export interface RealRank {
   teams: RealRankedTeam[]
+}
+
+export interface RealPlayer {
+  name: string
+  key: string
+  realTeam: RealTeam
+  role: Role
+  roleLabel: string
+  isActive: boolean
+  isVisible: boolean
+}
+
+export interface RealPlayersWrapper {
+  players: RealPlayer[]
+}
+
+export type RealPlayerRoleBuckets = Partial<Record<Role, RealPlayer[]>>
+
+export interface EnhancedRealPlayersWrapper extends RealPlayersWrapper {
+  activePlayers: RealPlayer[]
+  inactivePlayers: RealPlayer[]
+  playersByRole: RealPlayerRoleBuckets
+  hasVisiblePlayers: boolean
 }
 
 
@@ -149,6 +185,119 @@ export function mapRawRankedTeamToRankedTeam(raw: RealRankedTeamRaw): RealRanked
 export function mapRawRankToRank(raw: RealRankRaw): RealRank {
   return {
     teams: raw?.r?.map(mapRawRankedTeamToRankedTeam) ?? []
+  }
+}
+
+export function mapRawRealPlayerToRealPlayer(raw: RealPlayerRaw): RealPlayer {
+  const role = raw?.r ?? Role.Undefined
+
+  return {
+    name: raw.n,
+    key: RealPlayerHelper.buildKey(raw.n),
+    realTeam: mapRawTeamToTeam(raw.t),
+    role,
+    roleLabel: RoleExtensions.asString(role),
+    isActive: raw?.a ?? false,
+    isVisible: raw?.vh ?? true
+  }
+}
+
+export function mapRawPlayersWrapperToPlayersWrapper(raw: RealPlayersWrapperRaw | null | undefined): RealPlayersWrapper {
+  const players = raw?.p?.map(mapRawRealPlayerToRealPlayer) ?? []
+
+  return {
+    players: RealPlayerHelper.sortByRoleAndName(players)
+  }
+}
+
+// ============================================
+// REAL PLAYER HELPERS AND ENHANCERS
+// ============================================
+
+const REAL_PLAYER_ROLE_SORT_ORDER: Role[] = [
+  Role.GoalKeeper,
+  Role.Defensor,
+  Role.Midfielder,
+  Role.Forward,
+  Role.Undefined
+]
+
+export class RealPlayerHelper {
+  static buildKey(name: string): string {
+    if (!name) {
+      return ''
+    }
+
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z]/g, '')
+  }
+
+  static sortByRoleAndName(players: RealPlayer[]): RealPlayer[] {
+    return [...players].sort((a, b) => {
+      const roleComparison = REAL_PLAYER_ROLE_SORT_ORDER.indexOf(a.role) - REAL_PLAYER_ROLE_SORT_ORDER.indexOf(b.role)
+
+      if (roleComparison !== 0) {
+        return roleComparison
+      }
+
+      return a.name.localeCompare(b.name, 'it-IT', { sensitivity: 'base' })
+    })
+  }
+
+  static groupByRole(players: RealPlayer[]): RealPlayerRoleBuckets {
+    return players.reduce<RealPlayerRoleBuckets>((acc, player) => {
+      const role = player.role ?? Role.Undefined
+      acc[role] = acc[role] ? [...acc[role]!, player] : [player]
+      return acc
+    }, {})
+  }
+
+  static filterByRole(players: RealPlayer[], role: Role): RealPlayer[] {
+    return players.filter(player => player.role === role)
+  }
+
+  static filterActive(players: RealPlayer[]): RealPlayer[] {
+    return players.filter(player => player.isActive)
+  }
+
+  static filterVisible(players: RealPlayer[]): RealPlayer[] {
+    return players.filter(player => player.isVisible)
+  }
+
+  static search(players: RealPlayer[], term: string): RealPlayer[] {
+    if (!term) {
+      return players
+    }
+
+    const normalizedTerm = RealPlayerHelper.buildKey(term)
+
+    return players.filter(player =>
+      player.name.toLowerCase().includes(term.toLowerCase()) ||
+      player.key.includes(normalizedTerm)
+    )
+  }
+}
+
+export const enhanceRealPlayersWrapper = (wrapper: RealPlayersWrapper): EnhancedRealPlayersWrapper => {
+  const activePlayers = RealPlayerHelper.filterActive(wrapper.players)
+  const inactivePlayers = wrapper.players.filter(player => !player.isActive)
+  const groupedPlayers = RealPlayerHelper.groupByRole(wrapper.players)
+
+  const sortedGroupedPlayers = Object.entries(groupedPlayers).reduce<RealPlayerRoleBuckets>((acc, [roleKey, players]) => {
+    const role = Number(roleKey) as Role
+    acc[role] = RealPlayerHelper.sortByRoleAndName(players)
+    return acc
+  }, {})
+
+  return {
+    ...wrapper,
+    activePlayers: RealPlayerHelper.sortByRoleAndName(activePlayers),
+    inactivePlayers: RealPlayerHelper.sortByRoleAndName(inactivePlayers),
+    playersByRole: sortedGroupedPlayers,
+    hasVisiblePlayers: activePlayers.some(player => player.isVisible)
   }
 }
 

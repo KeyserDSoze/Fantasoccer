@@ -3,7 +3,7 @@ import { RepositoryServices } from "rystem.repository.client";
 import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "types/identity";
-import { RealCalendarRaw, RealRankRaw } from "../types/serieA";
+import { RealCalendarRaw, RealPlayersWrapperRaw, RealRankRaw } from "../types/serieA";
 import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
@@ -36,6 +36,20 @@ export const setupRepositoryServices = () => {
     .addRepository<RealRankRaw, number>(x => {
       x.name = "RealRank";
       x.path = "RealRank";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // RealPlayers (Serie A roster by year)
+    .addRepository<RealPlayersWrapperRaw, number>(x => {
+      x.name = "RealPlayers";
+      x.path = "RealPlayers";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Randomized RealPlayers (league scoped auction lists)
+    .addRepository<RealPlayersWrapperRaw, LeagueKeyRaw>(x => {
+      x.name = "RandomRealPlayers";
+      x.path = "RealPlayers/random";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
