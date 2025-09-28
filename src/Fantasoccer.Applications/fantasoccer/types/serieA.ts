@@ -46,6 +46,12 @@ export interface RealRankRaw {
   r: RealRankedTeamRaw[] // Ranked teams (matches [JsonPropertyName("r")])
 }
 
+export enum Behaviour {
+  Nothing = 0,
+  YellowCard = 1,
+  RedCard = 2
+}
+
 export interface RealPlayerRaw {
   n: string          // Player name (matches [JsonPropertyName("n")])
   t: RealTeamRaw     // Real team (matches [JsonPropertyName("t")])
@@ -56,6 +62,38 @@ export interface RealPlayerRaw {
 
 export interface RealPlayersWrapperRaw {
   p: RealPlayerRaw[] // Players collection (matches [JsonPropertyName("p")])
+}
+
+export interface VoteRaw {
+  r: Role        // Role (matches [JsonPropertyName("r")])
+  v: number      // Value (matches [JsonPropertyName("v")])
+  i: boolean     // IsFinal (matches [JsonPropertyName("i")])
+  g: number      // Goal (matches [JsonPropertyName("g")])
+  p: number      // Penalty (matches [JsonPropertyName("p")])
+  a: number      // Assist (matches [JsonPropertyName("a")])
+  s: number      // StoppedPenalty (matches [JsonPropertyName("s")])
+  d: number      // SufferedGoal (matches [JsonPropertyName("d")])
+  w: number      // WrongedPenalty (matches [JsonPropertyName("w")])
+  o: number      // OwnGoal (matches [JsonPropertyName("o")])
+  t: Behaviour   // Status (matches [JsonPropertyName("t")])
+  c: boolean     // ManOfTheMatch (matches [JsonPropertyName("c")])
+  h: boolean     // HasVote (matches [JsonPropertyName("h")])
+  u: boolean     // IsOut (matches [JsonPropertyName("u")])
+  n: boolean     // IsIn (matches [JsonPropertyName("n")])
+  j: boolean     // Injured (matches [JsonPropertyName("j")])
+}
+
+export interface VotedRealPlayerRaw extends RealPlayerRaw {
+  v: VoteRaw      // Vote data (matches [JsonPropertyName("v")])
+}
+
+export interface VotedRealPlayerWrapperRaw {
+  p: VotedRealPlayerRaw[] // Players collection (matches [JsonPropertyName("p")])
+}
+
+export interface YearDayKeyRaw {
+  y: number      // Year (matches [JsonPropertyName("y")])
+  d: number      // Day (matches [JsonPropertyName("d")])
 }
 
 // ============================================
@@ -124,6 +162,51 @@ export interface EnhancedRealPlayersWrapper extends RealPlayersWrapper {
   inactivePlayers: RealPlayer[]
   playersByRole: RealPlayerRoleBuckets
   hasVisiblePlayers: boolean
+}
+
+export interface Vote {
+  role: Role
+  value: number
+  isFinal: boolean
+  goals: number
+  penalties: number
+  assists: number
+  stoppedPenalties: number
+  sufferedGoals: number
+  wrongedPenalties: number
+  ownGoals: number
+  status: Behaviour
+  manOfTheMatch: boolean
+  hasVote: boolean
+  isOut: boolean
+  isIn: boolean
+  injured: boolean
+  hasPositiveBonus: boolean
+  hasNegativeBonus: boolean
+  hasDoneSomething: boolean
+}
+
+export interface VotedRealPlayer extends RealPlayer {
+  vote: Vote
+}
+
+export interface VotedRealPlayerWrapper {
+  players: VotedRealPlayer[]
+}
+
+export type VotedRealPlayerRoleBuckets = Partial<Record<Role, VotedRealPlayer[]>>
+
+export interface EnhancedVotedRealPlayerWrapper extends VotedRealPlayerWrapper {
+  playersByRole: VotedRealPlayerRoleBuckets
+  playersWithVote: VotedRealPlayer[]
+  playersWithoutVote: VotedRealPlayer[]
+  totalPlayers: number
+  votedPlayersCount: number
+}
+
+export interface YearDayKey {
+  year: number
+  day: number
 }
 
 
@@ -207,6 +290,74 @@ export function mapRawPlayersWrapperToPlayersWrapper(raw: RealPlayersWrapperRaw 
 
   return {
     players: RealPlayerHelper.sortByRoleAndName(players)
+  }
+}
+
+export function mapRawVoteToVote(raw: VoteRaw): Vote {
+  const goals = raw?.g ?? 0
+  const penalties = raw?.p ?? 0
+  const assists = raw?.a ?? 0
+  const stoppedPenalties = raw?.s ?? 0
+  const sufferedGoals = raw?.d ?? 0
+  const wrongedPenalties = raw?.w ?? 0
+  const ownGoals = raw?.o ?? 0
+  const status = raw?.t ?? Behaviour.Nothing
+
+  const hasPositiveBonus = goals > 0 || penalties > 0 || assists > 0 || stoppedPenalties > 0
+  const hasNegativeBonus = ownGoals > 0 || wrongedPenalties > 0 || sufferedGoals > 0 || status !== Behaviour.Nothing
+  const hasDoneSomething = hasPositiveBonus || hasNegativeBonus || (raw?.v ?? 0) > 0 && raw?.r === Role.GoalKeeper
+
+  return {
+    role: raw?.r ?? Role.Undefined,
+    value: raw?.v ?? 0,
+    isFinal: raw?.i ?? false,
+    goals,
+    penalties,
+    assists,
+    stoppedPenalties,
+    sufferedGoals,
+    wrongedPenalties,
+    ownGoals,
+    status,
+    manOfTheMatch: raw?.c ?? false,
+    hasVote: raw?.h ?? false,
+    isOut: raw?.u ?? false,
+    isIn: raw?.n ?? false,
+    injured: raw?.j ?? false,
+    hasPositiveBonus,
+    hasNegativeBonus,
+    hasDoneSomething
+  }
+}
+
+export function mapRawVotedRealPlayerToVotedRealPlayer(raw: VotedRealPlayerRaw): VotedRealPlayer {
+  const basePlayer = mapRawRealPlayerToRealPlayer(raw)
+
+  return {
+    ...basePlayer,
+    vote: mapRawVoteToVote(raw.v)
+  }
+}
+
+export function mapRawVotedPlayersWrapperToWrapper(raw: VotedRealPlayerWrapperRaw | null | undefined): VotedRealPlayerWrapper {
+  const players = raw?.p?.map(mapRawVotedRealPlayerToVotedRealPlayer) ?? []
+
+  return {
+    players: VotedRealPlayerHelper.sortByRoleAndName(players)
+  }
+}
+
+export function mapRawYearDayKeyToYearDayKey(raw: YearDayKeyRaw): YearDayKey {
+  return {
+    year: raw?.y ?? 0,
+    day: raw?.d ?? 0
+  }
+}
+
+export function mapYearDayKeyToRawYearDayKey(key: YearDayKey): YearDayKeyRaw {
+  return {
+    y: key.year,
+    d: key.day
   }
 }
 
@@ -298,6 +449,57 @@ export const enhanceRealPlayersWrapper = (wrapper: RealPlayersWrapper): Enhanced
     inactivePlayers: RealPlayerHelper.sortByRoleAndName(inactivePlayers),
     playersByRole: sortedGroupedPlayers,
     hasVisiblePlayers: activePlayers.some(player => player.isVisible)
+  }
+}
+
+const VOTED_PLAYER_ROLE_SORT_ORDER = REAL_PLAYER_ROLE_SORT_ORDER
+
+export class VotedRealPlayerHelper {
+  static sortByRoleAndName(players: VotedRealPlayer[]): VotedRealPlayer[] {
+    return [...players].sort((a, b) => {
+      const roleComparison = VOTED_PLAYER_ROLE_SORT_ORDER.indexOf(a.role) - VOTED_PLAYER_ROLE_SORT_ORDER.indexOf(b.role)
+      if (roleComparison !== 0) {
+        return roleComparison
+      }
+      return a.name.localeCompare(b.name, 'it-IT', { sensitivity: 'base' })
+    })
+  }
+
+  static groupByRole(players: VotedRealPlayer[]): VotedRealPlayerRoleBuckets {
+    return players.reduce<VotedRealPlayerRoleBuckets>((acc, player) => {
+      const role = player.role ?? Role.Undefined
+      acc[role] = acc[role] ? [...acc[role]!, player] : [player]
+      return acc
+    }, {})
+  }
+
+  static filterWithVote(players: VotedRealPlayer[]): VotedRealPlayer[] {
+    return players.filter(player => player.vote.hasVote)
+  }
+
+  static filterWithoutVote(players: VotedRealPlayer[]): VotedRealPlayer[] {
+    return players.filter(player => !player.vote.hasVote)
+  }
+}
+
+export const enhanceVotedRealPlayersWrapper = (wrapper: VotedRealPlayerWrapper): EnhancedVotedRealPlayerWrapper => {
+  const playersByRole = VotedRealPlayerHelper.groupByRole(wrapper.players)
+  const sortedGroupedPlayers = Object.entries(playersByRole).reduce<VotedRealPlayerRoleBuckets>((acc, [roleKey, players]) => {
+    const role = Number(roleKey) as Role
+    acc[role] = VotedRealPlayerHelper.sortByRoleAndName(players)
+    return acc
+  }, {})
+
+  const playersWithVote = VotedRealPlayerHelper.filterWithVote(wrapper.players)
+  const playersWithoutVote = VotedRealPlayerHelper.filterWithoutVote(wrapper.players)
+
+  return {
+    ...wrapper,
+    playersByRole: sortedGroupedPlayers,
+    playersWithVote,
+    playersWithoutVote,
+    totalPlayers: wrapper.players.length,
+    votedPlayersCount: playersWithVote.length
   }
 }
 

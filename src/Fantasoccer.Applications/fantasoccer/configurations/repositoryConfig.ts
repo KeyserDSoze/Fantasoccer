@@ -3,7 +3,7 @@ import { RepositoryServices } from "rystem.repository.client";
 import { tokenStorageService } from '../services/tokenStorageService';
 import { authService } from '../services/authService';
 import { AppIdentityRaw } from "types/identity";
-import { RealCalendarRaw, RealPlayersWrapperRaw, RealRankRaw } from "../types/serieA";
+import { RealCalendarRaw, RealPlayersWrapperRaw, RealRankRaw, VotedRealPlayerWrapperRaw, YearDayKeyRaw } from "../types/serieA";
 import { CalendarRaw } from "types/calendar";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
@@ -48,8 +48,22 @@ export const setupRepositoryServices = () => {
     })
     // Randomized RealPlayers (league scoped auction lists)
     .addRepository<RealPlayersWrapperRaw, LeagueKeyRaw>(x => {
-      x.name = "RealPlayersWrapper";
+      x.name = "RealPlayersWrapper/random";
       x.path = "RealPlayersWrapper/random";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Live voted players (Serie A live votes)
+    .addRepository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
+      x.name = "VotedRealPlayerWrapper/live";
+      x.path = "VotedRealPlayerWrapper/live";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // Official voted players (Serie A final votes)
+    .addRepository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
+      x.name = "VotedRealPlayerWrapper/official";
+      x.path = "VotedRealPlayerWrapper/official";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
@@ -83,7 +97,7 @@ export const setupRepositoryServices = () => {
     })
     // Team repository (day lineup)
     .addRepository<TeamRaw, TeamDayKeyRaw>(x => {
-      x.name = "TeamDay";
+      x.name = "TeamDay/day";
       x.path = "Team/day";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
@@ -104,7 +118,7 @@ export const setupRepositoryServices = () => {
     })
     // Daily rank with YearDayLeague key
     .addRepository<RankRaw, YearDayLeagueRaw>(x => {
-      x.name = "Rank";
+      x.name = "Rank/day";
       x.path = "Rank/day";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
