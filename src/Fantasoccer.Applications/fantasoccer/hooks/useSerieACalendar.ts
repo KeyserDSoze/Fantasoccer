@@ -1,7 +1,7 @@
 // Hook per gestire il calendario Serie A
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { serieAService } from '../services/serieAService'
-import { EnhancedRealCalendar, RealDay, RealGame, RealRank } from '../types/serieA'
+import { EnhancedRealCalendar, RealDay, RealGame, RealRank, RealCalendarHelper } from '../types/serieA'
 
 interface SerieACalendarState {
   calendar: EnhancedRealCalendar | null
@@ -168,17 +168,25 @@ export const formatGameDate = (dateString: string | null): string => {
 
 // Funzione helper per ottenere lo status della giornata
 export const getDayStatusText = (
-  isLive: boolean, 
-  liveDay: RealDay | null, 
+  isLive: boolean,
+  liveDay: RealDay | null,
   nextDay: RealDay | null
 ): string => {
-  if (isLive && liveDay) {
-    return `Giornata ${liveDay.serieADay} - IN CORSO`
-  } else if (nextDay) {
-    return `Prossima Giornata (${nextDay.serieADay})`
-  } else {
-    return 'Nessuna giornata disponibile'
+  if (liveDay) {
+    const hasRemainingGames = liveDay.games.some(game => !RealCalendarHelper.isGamePlayed(game) && !game.delayed)
+
+    if (isLive || hasRemainingGames) {
+      return `Giornata ${liveDay.serieADay} - IN CORSO`
+    }
+
+    return `Giornata ${liveDay.serieADay} - Completata`
   }
+
+  if (nextDay) {
+    return `Prossima Giornata (${nextDay.serieADay})`
+  }
+
+  return 'Nessuna giornata disponibile'
 }
 
 interface SerieARankState {

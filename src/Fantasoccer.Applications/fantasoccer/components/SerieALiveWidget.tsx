@@ -49,7 +49,7 @@ export function SerieALiveWidget({
     lastUpdated
   } = state
 
-  const displayDay = isLive ? liveDay ?? null : nextDay ?? liveDay ?? null
+  const displayDay = liveDay ?? nextDay ?? null
   const displayGames = displayDay?.games ?? []
   const dayNumber = displayDay?.serieADay ?? (liveSerieADay > 0 ? liveSerieADay : null)
   const sectionTitle = dayNumber ? `Serie A • Giornata ${dayNumber}` : 'Serie A • Calendario'
