@@ -202,25 +202,6 @@ export default function CalendarScreen() {
         alignItems="stretch"
         alignSelf="center"
       >
-        <Card
-          padding="$4"
-          backgroundColor="$color2"
-          borderRadius="$4"
-          borderWidth="$0.5"
-          borderColor="$borderColor"
-          alignItems="stretch"
-        >
-          <XStack alignItems="center" gap="$3" marginBottom="$2">
-            <CalendarRange size="$2" color="$purple10" />
-            <H2 color="$color12">Calendario incontri</H2>
-          </XStack>
-
-          <Paragraph color="$color10">
-            Consulta il calendario delle giornate per la lega selezionata. Usa i selettori per cambiare lega,
-            stagione o girone quando disponibili.
-          </Paragraph>
-        </Card>
-
         {isGroupsLoading ? (
           <Card
             padding="$4"
