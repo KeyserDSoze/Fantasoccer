@@ -1,4 +1,4 @@
-import { type FC } from 'react'
+import { type FC, useMemo } from 'react'
 import { AlertTriangle, CalendarRange, RefreshCw } from '@tamagui/lucide-icons'
 import {
   Button,
@@ -8,6 +8,7 @@ import {
   Text,
   XStack,
   YStack,
+  useMedia,
 } from 'tamagui'
 import type { CalendarDay, CalendarGame } from 'types/calendar'
 
@@ -86,13 +87,14 @@ const GameRow: FC<{ game: CalendarGame }> = ({ game }) => {
 
 const DayCard: FC<{ day: CalendarDay }> = ({ day }) => (
   <Card
-    key={day.number}
     padding="$3"
     backgroundColor="$color2"
     borderRadius="$4"
     borderWidth="$0.5"
     borderColor="$borderColor"
     gap="$3"
+    flex={1}
+    minWidth={0}
   >
     <XStack justifyContent="space-between" alignItems="center">
       <YStack gap="$1">
@@ -148,9 +150,35 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   const showError = Boolean(error)
   const showLoading = Boolean(loading)
   const hasDays = days.length > 0
+  const media = useMedia()
+
+  const cardsPerRow = useMemo(() => {
+    if (media.gtMd) {
+      return 3
+    }
+    if (media.gtSm) {
+      return 2
+    }
+    return 1
+  }, [media.gtMd, media.gtSm])
+
+  const chunkedDays = useMemo(() => {
+    if (!hasDays) {
+      return [] as CalendarDay[][]
+    }
+
+    const size = Math.max(cardsPerRow, 1)
+    const chunks: CalendarDay[][] = []
+
+    for (let index = 0; index < days.length; index += size) {
+      chunks.push(days.slice(index, index + size))
+    }
+
+    return chunks
+  }, [days, cardsPerRow, hasDays])
 
   return (
-    <Card padding="$3" elevate backgroundColor="$color1" gap="$3">
+    <Card padding="$3" elevate backgroundColor="$color1" gap="$3" width="100%">
       <XStack alignItems="center" gap="$2">
         <CalendarRange size="$1.5" color="$purple10" />
         <YStack gap="$1" flex={1}>
@@ -215,8 +243,17 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
         </YStack>
       ) : (
         <YStack gap="$3" paddingBottom="$2">
-          {days.map((day) => (
-            <DayCard key={day.number} day={day} />
+          {chunkedDays.map((rowDays, rowIndex) => (
+            <XStack
+              key={`calendar-row-${rowIndex}`}
+              gap="$3"
+              width="100%"
+              alignItems="stretch"
+            >
+              {rowDays.map((day) => (
+                <DayCard key={day.number} day={day} />
+              ))}
+            </XStack>
           ))}
         </YStack>
       )}

@@ -43,7 +43,7 @@ const formatRoundLabel = (roundId: string): string => {
 
 export default function CalendarScreen() {
   const media = useMedia()
-  const containerWidth = media.gtMd ? 960 : '100%'
+  const isWideLayout = Boolean(media.gtMd)
 
   const {
     currentGroup,
@@ -196,11 +196,11 @@ export default function CalendarScreen() {
   return (
     <ScreenContent path="screens/calendar.tsx" title="Calendario">
       <YStack
-        width={containerWidth}
-        maxWidth={960}
+        width="100%"
+        maxWidth={isWideLayout ? '100%' : 960}
         gap="$4"
         alignItems="stretch"
-        alignSelf="center"
+        alignSelf="stretch"
       >
         {isGroupsLoading ? (
           <Card
