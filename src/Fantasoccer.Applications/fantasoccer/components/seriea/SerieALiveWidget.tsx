@@ -75,37 +75,7 @@ export function SerieALiveWidget({
   const rankTeams = rank?.teams ?? []
 
   const calendarCard = (
-    <Card padding="$3" elevate backgroundColor="$color1" gap="$3">
-      <XStack alignItems="center" gap="$2">
-        <CalendarRange size="$1.5" color="$purple10" />
-        <YStack gap="$1" flex={1}>
-          <Text fontSize="$5" fontWeight="700" color="$color12">
-            Serie A • Calendario
-          </Text>
-          {dayNumber && (
-            <Text fontSize="$3" color="$color10">
-              Giornata {dayNumber}
-            </Text>
-          )}
-          <Text fontSize="$2" color="$color10">
-            {statusText}
-          </Text>
-          <Text fontSize="$2" color="$color10">
-            {pendingGamesCount} partite in attesa di risultato
-          </Text>
-          {lastUpdated && (
-            <Text fontSize="$2" color="$color9">
-              Ultimo aggiornamento: {lastUpdated.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          )}
-        </YStack>
-        {isLoading && (
-          <Spinner size="small" color="$blue10" />
-        )}
-      </XStack>
-
-      <Separator />
-
+    <Card elevate backgroundColor="$color1" gap="$3">
       {showErrorState ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
           <AlertTriangle size={32} color="$red10" />
@@ -250,20 +220,17 @@ export function SerieALiveWidget({
 
   return (
     <YStack gap={sectionGap} width="100%">
-      <XStack
-        gap={sectionGap}
-        width="100%"
-        flexDirection={isDesktop ? 'row' : 'column'}
-        alignItems="stretch"
-      >
-        <YStack flex={1} minWidth={isDesktop ? 0 : '100%'}>
+      {isDesktop ? (
+        <XStack gap={sectionGap} width="100%" alignItems="stretch">
+          <YStack flex={1}>{calendarCard}</YStack>
+          <YStack flex={1}>{rankingCard}</YStack>
+        </XStack>
+      ) : (
+        <YStack gap={sectionGap} width="100%">
           {calendarCard}
-        </YStack>
-
-        <YStack flex={1} minWidth={isDesktop ? 0 : '100%'}>
           {rankingCard}
         </YStack>
-      </XStack>
+      )}
     </YStack>
   )
 }
@@ -289,7 +256,7 @@ function SerieADayCard({ day, liveGameKeys }: SerieADayCardProps) {
       <XStack justifyContent="space-between" alignItems="center">
         <YStack gap="$1">
           <Text color="$color12" fontSize="$4" fontWeight="700">
-            Giornata Serie A {day.serieADay}
+            {day.serieADay}° Giornata Serie A
           </Text>
           <Text color="$color10" fontSize="$2">
             {pendingGames > 0
