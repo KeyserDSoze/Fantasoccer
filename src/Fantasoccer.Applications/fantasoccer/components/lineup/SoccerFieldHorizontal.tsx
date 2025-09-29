@@ -1,6 +1,6 @@
-import { memo } from 'react'
-import { XStack, YStack } from 'tamagui'
-import type { LineupFieldData, LineupPlayerSlot, LineupRow, LineupSide } from 'types/lineup'
+import { memo, useMemo } from 'react'
+import { YStack } from 'tamagui'
+import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { PlayerCard } from './PlayerCard'
 
 // SVG field background as a React component
@@ -27,57 +27,61 @@ const SoccerFieldSVG = memo(() => (
   </svg>
 ))
 
-// Helper to get player slots by role
-function getRoleRows(side: LineupSide): { [role: string]: LineupPlayerSlot[] } {
-  const roleRows: { [role: string]: LineupPlayerSlot[] } = {}
-  side.rows.forEach(row => {
-    row.slots.forEach(slot => {
-      if (slot.player) {
-        const role = slot.player.roleLabel
-        if (!roleRows[role]) roleRows[role] = []
-        roleRows[role].push(slot)
-      }
-    })
-  })
-  return roleRows
-}
-
 export interface SoccerFieldHorizontalProps {
-  data: LineupFieldData
+  gameWrapper?: GameWrapper | null
   style?: any
 }
 
-export const SoccerFieldHorizontal = memo(({ data, style }: SoccerFieldHorizontalProps) => {
-  // Home team (top/left), Away team (bottom/right)
-  const homeRoles = getRoleRows(data.home)
-  const awayRoles = getRoleRows(data.away)
+const PLAYER_GAP = 12
 
-  // For now, use fixed role order: GK, DEF, MID, ATT
-  const roleOrder = ['POR', 'DIF', 'CEN', 'ATT']
+function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam; away?: LiveTeam } {
+  const teams = gameWrapper?.teams ?? []
+  if (!teams.length) return {}
+
+  // Try to match by game home/away names
+  const game = gameWrapper?.game
+  if (game) {
+    const homeName = (game.home ?? '').toLowerCase()
+    const awayName = (game.away ?? '').toLowerCase()
+    const foundHome = teams.find(t => (t.name ?? '').toLowerCase() === homeName)
+    const foundAway = teams.find(t => (t.name ?? '').toLowerCase() === awayName)
+    if (foundHome || foundAway) return { home: foundHome ?? teams[0], away: foundAway ?? teams[1] ?? teams[0] }
+  }
+
+  // Fallback to first/second
+  return { home: teams[0], away: teams[1] }
+}
+
+export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHorizontalProps) => {
+  const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
+
+  const homeStarters: LivePlayer[] = (home?.players ?? []).slice(0, 11)
+  const awayStarters: LivePlayer[] = (away?.players ?? []).slice(0, 11)
 
   return (
-    <YStack position="relative" width="100%" height={500} {...style}>
+    <YStack position="relative" width="100%" height={700} {...style}>
       <SoccerFieldSVG />
-      {/* Home team: top, left */}
-      <YStack position="absolute" left={0} top={0} width="100%" height="50%" justifyContent="flex-start" alignItems="flex-start" pointerEvents="none">
-        {roleOrder.map((role, i) => (
-          <XStack key={role} gap="$2" marginTop={40 + i * 60} marginLeft={120 + i * 40} pointerEvents="auto">
-            {homeRoles[role]?.map((slot, idx) => (
-              slot.player && <PlayerCard key={slot.slotId} player={slot.player} variant="starter" />
-            ))}
-          </XStack>
-        ))}
+
+      {/* Home column - left */}
+      <YStack position="absolute" left={40} top={80} height="100%" justifyContent="center" pointerEvents="none">
+        <YStack pointerEvents="auto" space={PLAYER_GAP}>
+          {homeStarters.map((p, i) => (
+            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" />
+          ))}
+        </YStack>
       </YStack>
-      {/* Away team: bottom, right */}
-      <YStack position="absolute" right={0} bottom={0} width="100%" height="50%" justifyContent="flex-end" alignItems="flex-end" pointerEvents="none">
-        {roleOrder.map((role, i) => (
-          <XStack key={role} gap="$2" marginBottom={40 + i * 60} marginRight={120 + i * 40} pointerEvents="auto">
-            {awayRoles[role]?.map((slot, idx) => (
-              slot.player && <PlayerCard key={slot.slotId} player={slot.player} variant="starter" />
-            ))}
-          </XStack>
-        ))}
+
+      {/* Away column - right */}
+      <YStack position="absolute" right={40} top={80} height="100%" justifyContent="center" pointerEvents="none">
+        <YStack pointerEvents="auto" space={PLAYER_GAP} alignItems="flex-end">
+          {awayStarters.map((p, i) => (
+            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" showTeamName={true} />
+          ))}
+        </YStack>
       </YStack>
     </YStack>
   )
 })
+
+export default SoccerFieldHorizontal
+
