@@ -1,5 +1,6 @@
 import { buildApiUrl, getCommonHeaders } from 'configurations/apiConfig'
 import { mapRawGameWrapperToGameWrapper, GameWrapperRaw } from 'types/game'
+import { tokenStorageService } from './tokenStorageService';
 
 export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
@@ -10,7 +11,12 @@ export const gameEndpoints = {
 export const gameService = {
   async getGame(params: { groupId: string; leagueId: string; year: number; gameId: string }) {
     const url = gameEndpoints.getGame(params)
-    const res = await fetch(url, { headers: getCommonHeaders(true) })
+    const accessToken = await tokenStorageService.getTokenString()
+    if (!accessToken) {
+        console.warn('No valid access token available')
+        return null
+    }
+    const res = await fetch(url, { headers: getCommonHeaders(true, accessToken) })
     if (!res.ok) {
       const text = await res.text()
       throw new Error(`Failed to fetch game: ${res.status} ${text}`)
