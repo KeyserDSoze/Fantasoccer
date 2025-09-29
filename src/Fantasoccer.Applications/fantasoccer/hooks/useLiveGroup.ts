@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { liveGroupService } from '../services/liveGroupService'
 import {
   LiveGroup,
@@ -24,6 +24,7 @@ export interface UseLiveGroupResult {
   liveGroup: LiveGroup | null
   enhancedLiveGroup: EnhancedLiveGroup | null
   loading: boolean
+  refreshing: boolean
   error: string | null
   refetch: () => Promise<void>
   getLeagueById: (leagueId: string) => LiveLeague | null
@@ -33,45 +34,61 @@ export function useLiveGroup(groupId: string | null, options: UseLiveGroupOption
   const [liveGroup, setLiveGroup] = useState<LiveGroup | null>(null)
   const [enhancedLiveGroup, setEnhancedLiveGroup] = useState<EnhancedLiveGroup | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
+  const [refreshing, setRefreshing] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const hasDataRef = useRef<boolean>(false)
 
   const { refreshInterval = 0 } = options
 
-  const fetchLiveGroup = useCallback(async () => {
+  const fetchLiveGroup = useCallback(async (forceRefresh = false) => {
     if (!groupId) {
       setLiveGroup(null)
       setEnhancedLiveGroup(null)
       setError(null)
+      setLoading(false)
+      setRefreshing(false)
+      hasDataRef.current = false
       return
     }
 
-    setLoading(true)
+    const showInitialLoader = !hasDataRef.current
+    if (showInitialLoader) {
+      setLoading(true)
+    } else if (forceRefresh) {
+      setRefreshing(true)
+    }
     setError(null)
 
     try {
-      const [groupData, enhancedGroupData] = await Promise.all([
-        liveGroupService.getLiveGroup(groupId),
-        liveGroupService.getEnhancedLiveGroup(groupId)
-      ])
+      const groupData = await liveGroupService.getLiveGroup(groupId, { forceRefresh })
+      const enhancedGroupData = groupData ? enhanceLiveGroup(groupData) : null
 
       setLiveGroup(groupData)
-      setEnhancedLiveGroup(enhancedGroupData ?? (groupData ? enhanceLiveGroup(groupData) : null))
+      setEnhancedLiveGroup(enhancedGroupData)
+      hasDataRef.current = Boolean(groupData || enhancedGroupData)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch live group'
       setError(message)
       console.error('Error fetching live group:', err)
     } finally {
-      setLoading(false)
+      if (showInitialLoader) {
+        setLoading(false)
+      }
+      if (forceRefresh) {
+        setRefreshing(false)
+      }
     }
   }, [groupId])
 
   useEffect(() => {
-    fetchLiveGroup()
+    void fetchLiveGroup(true)
   }, [fetchLiveGroup])
 
   useEffect(() => {
     if (refreshInterval > 0) {
-      const interval = setInterval(fetchLiveGroup, refreshInterval)
+      const interval = setInterval(() => {
+        void fetchLiveGroup(true)
+      }, refreshInterval)
       return () => clearInterval(interval)
     }
   }, [fetchLiveGroup, refreshInterval])
@@ -88,8 +105,9 @@ export function useLiveGroup(groupId: string | null, options: UseLiveGroupOption
     liveGroup,
     enhancedLiveGroup,
     loading,
+    refreshing,
     error,
-    refetch: fetchLiveGroup,
+    refetch: () => fetchLiveGroup(true),
     getLeagueById
   }
 }

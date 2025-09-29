@@ -11,6 +11,7 @@ import {
   useMedia,
 } from 'tamagui'
 import type { CalendarDay, CalendarGame } from 'types/calendar'
+import { useNavigation } from '@react-navigation/native'
 
 export type LeagueCalendarWidgetProps = {
   leagueName?: string | null
@@ -35,7 +36,7 @@ const defaultLoadingMessage = 'Caricamento calendario...'
 const defaultRefreshLabel = 'Aggiorna calendario'
 const defaultErrorActionLabel = 'Riprova'
 
-const GameRow: FC<{ game: CalendarGame }> = ({ game }) => {
+const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumber }) => {
   let hasResult = Boolean(game.result)
   const homeGoals = game.result?.homeGoals ?? '—'
   const awayGoals = game.result?.awayGoals ?? '—'
@@ -46,42 +47,51 @@ const GameRow: FC<{ game: CalendarGame }> = ({ game }) => {
   }
   const isCancelled = game.result?.isCancelled ?? false
 
+  const navigation = useNavigation()
+
+  const onPress = () => {
+    // Navigate to Game screen. Pass the whole CalendarGame and the day number so the Game screen can load played-game data
+    ;(navigation as any).navigate('Game', { calendarGame: game, dayNumber })
+  }
+
   return (
-    <XStack
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
-      paddingVertical="$1.5"
-    >
-      <YStack flex={1} gap="$1">
-        <Text color="$color12" fontWeight="700" numberOfLines={1}>
-          {game.home}
-        </Text>
-        <Text color="$color10" fontSize="$2" numberOfLines={1}>
-          Allenatore: {game.homeOwner}
-        </Text>
-      </YStack>
-
-      <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
-        <Text color="$color11" fontWeight="600">
-          {!isCancelled ? (hasResult ? `${homeGoals} - ${awayGoals}` : 'VS') : "Annullata"}
-        </Text>
-        {hasResult && (
-          <Text color="$color9" fontSize="$2">
-            {homePoints} • {awayPoints}
+    <Button onPress={onPress} chromeless bordered={false} paddingHorizontal={0} paddingVertical={0}>
+      <XStack
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+        paddingVertical="$1.5"
+      >
+        <YStack flex={1} gap="$1">
+          <Text color="$color12" fontWeight="700" numberOfLines={1}>
+            {game.home}
           </Text>
-        )}
-      </YStack>
+          <Text color="$color10" fontSize="$2" numberOfLines={1}>
+            Allenatore: {game.homeOwner}
+          </Text>
+        </YStack>
 
-      <YStack flex={1} gap="$1" alignItems="flex-end">
-        <Text color="$color12" fontWeight="700" numberOfLines={1}>
-          {game.away}
-        </Text>
-        <Text color="$color10" fontSize="$2" numberOfLines={1}>
-          Allenatore: {game.awayOwner}
-        </Text>
-      </YStack>
-    </XStack>
+        <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
+          <Text color="$color11" fontWeight="600">
+            {!isCancelled ? (hasResult ? `${homeGoals} - ${awayGoals}` : 'VS') : "Annullata"}
+          </Text>
+          {hasResult && (
+            <Text color="$color9" fontSize="$2">
+              {homePoints} • {awayPoints}
+            </Text>
+          )}
+        </YStack>
+
+        <YStack flex={1} gap="$1" alignItems="flex-end">
+          <Text color="$color12" fontWeight="700" numberOfLines={1}>
+            {game.away}
+          </Text>
+          <Text color="$color10" fontSize="$2" numberOfLines={1}>
+            Allenatore: {game.awayOwner}
+          </Text>
+        </YStack>
+      </XStack>
+    </Button>
   )
 }
 
@@ -123,7 +133,7 @@ const DayCard: FC<{ day: CalendarDay }> = ({ day }) => (
           borderWidth="$0.25"
           borderColor="$color3"
         >
-          <GameRow game={game} />
+          <GameRow game={game} dayNumber={day.number} />
         </Card>
       ))}
     </YStack>
