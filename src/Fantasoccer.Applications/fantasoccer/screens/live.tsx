@@ -35,7 +35,6 @@ export default function LiveScreen() {
     currentGroup,
     userGroups,
     selectedLeagueId,
-    setSelectedLeague,
     getAvailableLeagues,
     isGroupsLoading,
     groupsError,
@@ -169,9 +168,8 @@ export default function LiveScreen() {
   const handleLeagueSelect = useCallback(
     (leagueId: string) => {
       setLocalLeagueId(leagueId)
-      void setSelectedLeague(leagueId)
     },
-    [setSelectedLeague]
+    []
   )
 
   const isSelectorVisible = leagueOptions.length > 0
