@@ -5,7 +5,7 @@ import { tokenStorageService } from './tokenStorageService';
 export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
     buildApiUrl('/Game/Get', params as any),
-  saveFormation: () => buildApiUrl('/Game/SaveFormation')
+    saveFormation: () => buildApiUrl('/Game/SaveFormation')
 }
 
 export const gameService = {
@@ -28,9 +28,14 @@ export const gameService = {
 
   async saveFormation(payload: any) {
     const url = gameEndpoints.saveFormation()
+    const accessToken = await tokenStorageService.getTokenString()
+    if (!accessToken) {
+        console.warn('No valid access token available')
+        return null
+    }
     const res = await fetch(url, {
       method: 'POST',
-      headers: { ...getCommonHeaders(true), 'Content-Type': 'application/json' },
+      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
 
