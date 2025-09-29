@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Card, Image, Text, XStack, YStack, useMedia } from 'tamagui'
+import { Card, Image, Text, XStack, YStack } from 'tamagui'
 import {
   Trophy,
   Target,
@@ -13,14 +13,14 @@ import {
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
-import { getPlayerImageSources } from 'utils/playerImage'
+import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import type { Chance } from 'types/chance'
 
 export type PlayerCardVariant = 'starter' | 'bench' | 'tribune'
 
 export interface PlayerCardProps {
-  player: LivePlayer | any
+  player: LivePlayer
   variant?: PlayerCardVariant
   showTeamName?: boolean
 }
@@ -35,21 +35,19 @@ const BONUS_ICON_MAP: { key: keyof Vote; icon: any; label: string }[] = [
 ]
 
 export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
-  const media = useMedia()
   const [useFallbackImage, setUseFallbackImage] = useState(false)
-
+  console.log(player)
   // Support both LivePlayer and the older LineupPlayerInfo shapes
-  const live: LivePlayer | undefined = (player && (player.current || player.c)) ? player as LivePlayer : undefined
 
-  const current = live ? live.current : (player as any)
-  const vote: Vote | undefined = live ? (live.vote as Vote | undefined) : (player.vote as Vote | undefined)
-  const chance: Chance | undefined = live ? (live.chance as Chance | undefined) : (player.chance as Chance | undefined)
+  const current = player.current
+  const vote: Vote | null | undefined = player.vote
+  const chance: Chance | null | undefined = player.chance
 
   const name = current?.name ?? 'Giocatore'
-  const teamName = current?.team?.name ?? current?.realTeam?.name ?? ''
-  const roleLabel = current?.roleLabel ?? current?.role ?? ''
+  const teamName = current?.team.name ?? ''
+  const roleLabel = current?.role ?? ''
 
-  const { src, fallback } = useMemo(() => getPlayerImageSources({ key: current?.key ?? current?.id, name }), [current?.key, current?.id, name])
+  const { src, fallback } = useMemo(() => getPlayerImageUrlFromName(current?.name), [current?.name])
   const imageUri = useFallbackImage ? fallback : src
 
   const voteLabel = vote ? (typeof vote.value === 'number' ? vote.value.toFixed(1) : String(vote.value)) : null

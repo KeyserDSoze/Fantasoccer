@@ -1,5 +1,6 @@
 // Types matching the C# RealCalendar structure
 import { convertUTCToItalianTimezone } from '../utils/timezoneHelpers';
+import { getPlayerKey } from '../utils/keyUtils'
 import { Role, RoleExtensions } from './group';
 
 // ============================================
@@ -375,15 +376,7 @@ const REAL_PLAYER_ROLE_SORT_ORDER: Role[] = [
 
 export class RealPlayerHelper {
   static buildKey(name: string): string {
-    if (!name) {
-      return ''
-    }
-
-    return name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z]/g, '')
+    return getPlayerKey(name)
   }
 
   static sortByRoleAndName(players: RealPlayer[]): RealPlayer[] {
