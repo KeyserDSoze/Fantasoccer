@@ -57,6 +57,7 @@ export default function LiveScreen() {
   const {
     enhancedLiveGroup,
     loading: liveLoading,
+    refreshing: liveRefreshing,
     error: liveError,
     refetch: refetchLive,
   } = useLiveGroup(groupId, {
@@ -275,7 +276,7 @@ export default function LiveScreen() {
                   onPress={() => {
                     void refetchLive()
                   }}
-                  disabled={liveLoading}
+                  disabled={liveLoading || liveRefreshing}
                 >
                   Aggiorna
                 </Button>
