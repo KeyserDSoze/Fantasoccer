@@ -36,15 +36,9 @@ builder.Services.AddApiFromRepositoryFramework()
     .WithDefaultCorsWithAllOrigins();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("LocalHost",
+    options.AddPolicy("DefaultCors",
         policy => policy
-            .WithOrigins("http://localhost:3000")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials());
-    options.AddPolicy("FantaZone",
-        policy => policy
-            .WithOrigins("https://fanta.zone")
+            .WithOrigins("http://localhost:3000", "https://fanta.zone") // no trailing slash, include scheme
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
@@ -65,8 +59,7 @@ var app = builder.Build();
 await app.Services.WarmUpAsync();
 //app.UseResponseCompression();
 app.UseHttpsRedirection();
-app.UseCors("LocalHost");
-app.UseCors("FantaZone");
+app.UseCors("DefaultCors");
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
