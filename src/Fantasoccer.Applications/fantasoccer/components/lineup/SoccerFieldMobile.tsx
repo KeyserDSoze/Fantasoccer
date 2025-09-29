@@ -1,6 +1,6 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { XStack, YStack } from 'tamagui'
-import type { LineupFieldData, LineupPlayerSlot, LineupRow, LineupSide } from 'types/lineup'
+import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { PlayerCard } from './PlayerCard'
 
 // SVG field background as a React component (scaled for mobile)
@@ -27,53 +27,56 @@ const SoccerFieldSVGMobile = memo(() => (
   </svg>
 ))
 
-function getRoleRows(side: LineupSide): { [role: string]: LineupPlayerSlot[] } {
-  const roleRows: { [role: string]: LineupPlayerSlot[] } = {}
-  side.rows.forEach(row => {
-    row.slots.forEach(slot => {
-      if (slot.player) {
-        const role = slot.player.roleLabel
-        if (!roleRows[role]) roleRows[role] = []
-        roleRows[role].push(slot)
-      }
-    })
-  })
-  return roleRows
-}
-
 export interface SoccerFieldMobileProps {
-  data: LineupFieldData
+  gameWrapper?: GameWrapper | null
   style?: any
 }
 
-export const SoccerFieldMobile = memo(({ data, style }: SoccerFieldMobileProps) => {
-  const homeRoles = getRoleRows(data.home)
-  const awayRoles = getRoleRows(data.away)
-  const roleOrder = ['POR', 'DIF', 'CEN', 'ATT']
+function pickHomeAwayTeamsMobile(gameWrapper?: GameWrapper | null): { home?: LiveTeam; away?: LiveTeam } {
+  const teams = gameWrapper?.teams ?? []
+  if (!teams.length) return {}
+
+  const game = gameWrapper?.game
+  if (game) {
+    const homeName = (game.home ?? '').toLowerCase()
+    const awayName = (game.away ?? '').toLowerCase()
+    const foundHome = teams.find(t => (t.name ?? '').toLowerCase() === homeName)
+    const foundAway = teams.find(t => (t.name ?? '').toLowerCase() === awayName)
+    if (foundHome || foundAway) return { home: foundHome ?? teams[0], away: foundAway ?? teams[1] ?? teams[0] }
+  }
+
+  return { home: teams[0], away: teams[1] }
+}
+
+export const SoccerFieldMobile = memo(({ gameWrapper, style }: SoccerFieldMobileProps) => {
+  const { home, away } = useMemo(() => pickHomeAwayTeamsMobile(gameWrapper), [gameWrapper])
+
+  const homeStarters: LivePlayer[] = (home?.players ?? []).slice(0, 11)
+  const awayStarters: LivePlayer[] = (away?.players ?? []).slice(0, 11)
 
   return (
     <YStack position="relative" width="100%" height={700} {...style}>
       <SoccerFieldSVGMobile />
-      {/* Home team: top, left */}
-      <YStack position="absolute" left={0} top={0} width="100%" height="50%" justifyContent="flex-start" alignItems="flex-start" pointerEvents="none">
-        {roleOrder.map((role, i) => (
-          <XStack key={role} gap="$1" marginTop={20 + i * 40} marginLeft={40 + i * 20} pointerEvents="auto">
-            {homeRoles[role]?.map((slot, idx) => (
-              slot.player && <PlayerCard key={slot.slotId} player={slot.player} variant="starter" />
-            ))}
-          </XStack>
-        ))}
+
+      {/* Home team - top */}
+      <YStack position="absolute" left={0} top={40} width="100%" height="45%" justifyContent="center" pointerEvents="none">
+        <YStack pointerEvents="auto" space={10} alignItems="center">
+          {homeStarters.map((p, i) => (
+            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" />
+          ))}
+        </YStack>
       </YStack>
-      {/* Away team: bottom, right */}
-      <YStack position="absolute" right={0} bottom={0} width="100%" height="50%" justifyContent="flex-end" alignItems="flex-end" pointerEvents="none">
-        {roleOrder.map((role, i) => (
-          <XStack key={role} gap="$1" marginBottom={20 + i * 40} marginRight={40 + i * 20} pointerEvents="auto">
-            {awayRoles[role]?.map((slot, idx) => (
-              slot.player && <PlayerCard key={slot.slotId} player={slot.player} variant="starter" />
-            ))}
-          </XStack>
-        ))}
+
+      {/* Away team - bottom */}
+      <YStack position="absolute" left={0} bottom={40} width="100%" height="45%" justifyContent="center" pointerEvents="none">
+        <YStack pointerEvents="auto" space={10} alignItems="center">
+          {awayStarters.map((p, i) => (
+            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" showTeamName={true} />
+          ))}
+        </YStack>
       </YStack>
     </YStack>
   )
 })
+
+export default SoccerFieldMobile

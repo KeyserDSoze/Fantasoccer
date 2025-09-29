@@ -5,10 +5,7 @@ import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
 import { useSerieACalendar, formatGameDate } from 'hooks/useSerieACalendar'
 import { SoccerFieldHorizontal, SoccerFieldMobile } from 'components/lineup'
 import { useMedia } from 'tamagui'
-import { useTeamDayByComponents } from 'hooks/useTeam'
-import { TeamKeyHelper } from 'types/team'
-import { LineupFieldData, LineupPlayerSlot, LineupPlayerInfo } from 'types/lineup'
-import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
+import type { GameWrapper, LiveTeam } from 'types/game'
 import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useCurrentGroup } from 'hooks/useAppData'
@@ -57,14 +54,7 @@ export default function GameScreen() {
   const group = currentGroup?.id ?? null
   const year = selectedYear ?? null
 
-  // For now, try to derive basketId/email from game if present (best-effort); these will be null if not available
-  const homeBasket = game?.homeBasketId ?? null
-  const awayBasket = game?.awayBasketId ?? null
-  const homeEmail = game?.homeOwnerEmail ?? null
-  const awayEmail = game?.awayOwnerEmail ?? null
-
-  const homeTeamDay = useTeamDayByComponents({ group, year, basketId: homeBasket, day: null, email: homeEmail, refreshInterval: 0 })
-  const awayTeamDay = useTeamDayByComponents({ group, year, basketId: awayBasket, day: null, email: awayEmail, refreshInterval: 0 })
+  // legacy team/day hooks removed — we will prefer server-provided GameWrapper via gameService
 
   // gameService result (live teams + extra info) — prefer this when available
   const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null)
@@ -91,103 +81,7 @@ export default function GameScreen() {
     return () => { mounted = false }
   }, [group, selectedLeagueId, selectedYear, game, route])
 
-  const fieldData: LineupFieldData | null = useMemo(() => {
-    if (!game) return null
-
-    // If we have enhanced team/day data, map players to lineup structure
-    const mapTeam = (teamResult: any, teamLabel: string): any => {
-      // Prefer the live team returned by the game API
-      const liveTeam: LiveTeam | undefined = gameWrapper?.teams?.find(t => (t.name ?? '').toLowerCase() === (teamLabel ?? '').toLowerCase())
-
-      if (liveTeam) {
-        // Convert LiveTeam players into a simplified enhanced.players shape expected below
-        const enhanced = {
-          players: (liveTeam.players || []).map((lp: any) => {
-            const p = lp.current || {}
-            return {
-              key: p.key ?? null,
-              name: p.name ?? 'Giocatore',
-              role: p.role ?? p.position ?? 'CEN',
-              roleLabel: '',
-              fantasyRoleLabel: undefined,
-              team: { name: liveTeam.name },
-              number: p.number ?? null,
-              isCaptain: p.isCaptain ?? false,
-              vote: lp.vote ?? null,
-              imageKey: p.imageKey ?? null,
-              availability: p.availability ?? null,
-              participation: p.participation ?? null
-            }
-          })
-        }
-
-        const roleOrder = ['POR','DIF','CEN','ATT']
-        const rows = roleOrder.map((r, idx) => {
-          const slots: LineupPlayerSlot[] = (enhanced.players || [])
-            .filter((p: any) => p.role && p.role.toString().startsWith(r.substring(0,3)))
-            .slice(0, 4)
-            .map((p: any, i: number) => ({ slotId: `${r}-${i}`, player: mapPlayerToLineupInfo(p) }))
-
-          return { rowId: `row-${idx}`, slots }
-        })
-
-        const bench = (enhanced.players || []).slice(11, 16).map((p: any, i: number) => ({ slotId: `bench-${i}`, player: mapPlayerToLineupInfo(p) }))
-        const tribune = (enhanced.players || []).slice(16, 22).map((p: any, i: number) => ({ slotId: `tribune-${i}`, player: mapPlayerToLineupInfo(p) }))
-
-        return {
-          teamName: teamLabel,
-          moduleLabel: '4-3-3',
-          rows,
-          bench,
-          tribune
-        }
-      }
-
-      // Fallback to existing teamResult (from useTeamDayByComponents)
-      if (!teamResult || (!teamResult.team && !teamResult.enhancedTeam)) {
-        return {
-          teamName: teamLabel,
-          moduleLabel: '4-3-3',
-          rows: [],
-          bench: [],
-          tribune: []
-        }
-      }
-
-      const enhanced = teamResult.enhancedTeam || teamResult.team
-
-      // Simple mapping: group players by role into rows; this is coarse and can be improved
-      const roleOrder = ['POR','DIF','CEN','ATT']
-
-      const rows = roleOrder.map((r, idx) => {
-        const slots: LineupPlayerSlot[] = (enhanced.players || [])
-          .filter((p: any) => p.role && p.role.toString().startsWith(r.substring(0,3)))
-          .slice(0, 4)
-          .map((p: any, i: number) => ({ slotId: `${r}-${i}`, player: mapPlayerToLineupInfo(p) }))
-
-        return { rowId: `row-${idx}`, slots }
-      })
-
-      const bench = (enhanced.players || []).slice(11, 16).map((p: any, i: number) => ({ slotId: `bench-${i}`, player: mapPlayerToLineupInfo(p) }))
-      const tribune = (enhanced.players || []).slice(16, 22).map((p: any, i: number) => ({ slotId: `tribune-${i}`, player: mapPlayerToLineupInfo(p) }))
-
-      return {
-        teamName: teamLabel,
-        moduleLabel: '4-3-3',
-        rows,
-        bench,
-        tribune
-      }
-    }
-
-    const homeLabel = typeof game.home === 'string' ? game.home : (game.home?.name ?? '')
-    const awayLabel = typeof game.away === 'string' ? game.away : (game.away?.name ?? '')
-
-    return {
-      home: mapTeam(homeTeamDay, homeLabel),
-      away: mapTeam(awayTeamDay, awayLabel)
-    }
-  }, [game, homeTeamDay, awayTeamDay, calendar])
+  // field rendering is driven directly by server GameWrapper (gameWrapper state)
 
   // Compute played score and MVP from gameService wrapper if available
   const playedScore = gameWrapper?.game?.result ? `${gameWrapper.game.result.homeGoals}-${gameWrapper.game.result.awayGoals}` : null
@@ -248,11 +142,13 @@ export default function GameScreen() {
 
           {game && (
             <Card padding="$3" backgroundColor="$color2">
-              {fieldData ? (
+              {gameLoading ? (
+                <Text>Caricamento formazione partita...</Text>
+              ) : gameWrapper ? (
                 media.sm ? (
-                  <SoccerFieldMobile data={fieldData} />
+                  <SoccerFieldMobile gameWrapper={gameWrapper} />
                 ) : (
-                  <SoccerFieldHorizontal data={fieldData} />
+                  <SoccerFieldHorizontal gameWrapper={gameWrapper} />
                 )
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
@@ -272,47 +168,4 @@ export default function GameScreen() {
   )
 }
 
-// TODO: Replace with real mapping from API/game to LineupFieldData
-function mockFieldDataForGame(game: any) {
-  // Build a minimal LineupFieldData shaped object from game data
-  return {
-    home: {
-      teamName: game.home,
-      moduleLabel: '4-3-3',
-      rows: [],
-      bench: [],
-      tribune: [],
-    },
-    away: {
-      teamName: game.away,
-      moduleLabel: '4-3-3',
-      rows: [],
-      bench: [],
-      tribune: [],
-    },
-  }
-}
-
-// Minimal mapper from team player object to LineupPlayerInfo used by field components
-function mapPlayerToLineupInfo(p: any): LineupPlayerInfo {
-  return {
-    id: p?.key ?? p?.name ?? `p-${Math.random().toString(36).substr(2, 6)}`,
-    name: p?.name ?? 'Giocatore',
-    key: p?.key ?? null,
-    role: p?.role ?? 'CEN',
-    roleLabel: p?.roleLabel ?? '',
-    fantasyRoleLabel: p?.fantasyRoleLabel ?? undefined,
-    teamName: p?.team?.name ?? '',
-    jerseyNumber: p?.number ?? null,
-    isCaptain: p?.isCaptain ?? false,
-    status: 'starter',
-    vote: p?.vote?.value ?? null,
-    voteIsFinal: p?.vote?.isFinal ?? false,
-    match: null,
-    events: [],
-    note: null,
-    imageKey: p?.imageKey ?? null,
-    availability: p?.availability ?? null,
-    participation: p?.participation ?? null
-  }
-}
+// legacy lineup mappers removed — UI now consumes server GameWrapper directly
