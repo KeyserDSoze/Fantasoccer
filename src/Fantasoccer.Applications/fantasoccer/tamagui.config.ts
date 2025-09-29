@@ -4,6 +4,17 @@ import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes, tokens } from '@tamagui/themes';
 
+// Ensure we provide an outlineColor token so components referencing $outlineColor resolve.
+// Merge with the upstream tokens so we don't drop existing values.
+const mergedTokens = {
+  ...(tokens as any),
+  color: {
+    ...((tokens as any)?.color ?? {}),
+    // prefer an existing border token if available, otherwise fallback to a neutral gray
+    outlineColor: ((tokens as any)?.color?.border ?? '#94a3b8') as string,
+  },
+}
+
 import { createTamagui, styled, SizableText, H1, YStack, Button as ButtonTamagui } from 'tamagui';
 
 const animations = createAnimations({
@@ -94,7 +105,7 @@ const config = createTamagui({
     heading: headingFont,
   },
   themes,
-  tokens,
+  tokens: mergedTokens,
   media: createMedia({
     xs: { maxWidth: 660 },
     sm: { maxWidth: 800 },
