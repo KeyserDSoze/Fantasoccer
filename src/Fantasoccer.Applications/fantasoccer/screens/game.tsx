@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
@@ -8,10 +8,11 @@ import { useMedia } from 'tamagui'
 import { useTeamDayByComponents } from 'hooks/useTeam'
 import { TeamKeyHelper } from 'types/team'
 import { LineupFieldData, LineupPlayerSlot, LineupPlayerInfo } from 'types/lineup'
+import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
+import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useCurrentGroup } from 'hooks/useAppData'
 import { useApp } from 'providers/AppProvider'
-import { usePlayedGameByComponents } from 'hooks/usePlayedGame'
 
 export default function GameScreen() {
   const media = useMedia()
@@ -65,11 +66,84 @@ export default function GameScreen() {
   const homeTeamDay = useTeamDayByComponents({ group, year, basketId: homeBasket, day: null, email: homeEmail, refreshInterval: 0 })
   const awayTeamDay = useTeamDayByComponents({ group, year, basketId: awayBasket, day: null, email: awayEmail, refreshInterval: 0 })
 
+  // gameService result (live teams + extra info) — prefer this when available
+  const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null)
+  const [gameLoading, setGameLoading] = useState(false)
+  const [gameError, setGameError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // need group, league and year + the calendar game id
+    const gid = (route as any)?.params?.calendarGame?.id ?? game?.id
+    if (!gid || !group || !selectedLeagueId || !selectedYear) {
+      setGameWrapper(null)
+      return
+    }
+
+    let mounted = true
+    setGameLoading(true)
+    setGameError(null)
+
+    gameService.getGame({ groupId: group, leagueId: selectedLeagueId, year: selectedYear, gameId: gid })
+      .then(result => { if (mounted) setGameWrapper(result) })
+      .catch(err => { if (mounted) setGameError(err?.message ?? String(err)) })
+      .finally(() => { if (mounted) setGameLoading(false) })
+
+    return () => { mounted = false }
+  }, [group, selectedLeagueId, selectedYear, game, route])
+
   const fieldData: LineupFieldData | null = useMemo(() => {
     if (!game) return null
 
     // If we have enhanced team/day data, map players to lineup structure
     const mapTeam = (teamResult: any, teamLabel: string): any => {
+      // Prefer the live team returned by the game API
+      const liveTeam: LiveTeam | undefined = gameWrapper?.teams?.find(t => (t.name ?? '').toLowerCase() === (teamLabel ?? '').toLowerCase())
+
+      if (liveTeam) {
+        // Convert LiveTeam players into a simplified enhanced.players shape expected below
+        const enhanced = {
+          players: (liveTeam.players || []).map((lp: any) => {
+            const p = lp.current || {}
+            return {
+              key: p.key ?? null,
+              name: p.name ?? 'Giocatore',
+              role: p.role ?? p.position ?? 'CEN',
+              roleLabel: '',
+              fantasyRoleLabel: undefined,
+              team: { name: liveTeam.name },
+              number: p.number ?? null,
+              isCaptain: p.isCaptain ?? false,
+              vote: lp.vote ?? null,
+              imageKey: p.imageKey ?? null,
+              availability: p.availability ?? null,
+              participation: p.participation ?? null
+            }
+          })
+        }
+
+        const roleOrder = ['POR','DIF','CEN','ATT']
+        const rows = roleOrder.map((r, idx) => {
+          const slots: LineupPlayerSlot[] = (enhanced.players || [])
+            .filter((p: any) => p.role && p.role.toString().startsWith(r.substring(0,3)))
+            .slice(0, 4)
+            .map((p: any, i: number) => ({ slotId: `${r}-${i}`, player: mapPlayerToLineupInfo(p) }))
+
+          return { rowId: `row-${idx}`, slots }
+        })
+
+        const bench = (enhanced.players || []).slice(11, 16).map((p: any, i: number) => ({ slotId: `bench-${i}`, player: mapPlayerToLineupInfo(p) }))
+        const tribune = (enhanced.players || []).slice(16, 22).map((p: any, i: number) => ({ slotId: `tribune-${i}`, player: mapPlayerToLineupInfo(p) }))
+
+        return {
+          teamName: teamLabel,
+          moduleLabel: '4-3-3',
+          rows,
+          bench,
+          tribune
+        }
+      }
+
+      // Fallback to existing teamResult (from useTeamDayByComponents)
       if (!teamResult || (!teamResult.team && !teamResult.enhancedTeam)) {
         return {
           teamName: teamLabel,
@@ -115,6 +189,22 @@ export default function GameScreen() {
     }
   }, [game, homeTeamDay, awayTeamDay, calendar])
 
+  // Compute played score and MVP from gameService wrapper if available
+  const playedScore = gameWrapper?.game?.result ? `${gameWrapper.game.result.homeGoals}-${gameWrapper.game.result.awayGoals}` : null
+  const playedMVP = useMemo(() => {
+    if (!gameWrapper?.teams) return null
+    let best: { name: string; value: number } | null = null
+    for (const t of gameWrapper.teams) {
+      for (const p of (t.players || [])) {
+        const val = (p as any).finalValue ?? null
+        if (typeof val === 'number') {
+          if (!best || val > best.value) best = { name: p.current?.name ?? 'Giocatore', value: val }
+        }
+      }
+    }
+    return best ? `${best.name} (${best.value})` : null
+  }, [gameWrapper])
+
   // Memoize the options to prevent excessive API calls
   const playedGameOptions = useMemo(() => ({
     group,
@@ -125,11 +215,6 @@ export default function GameScreen() {
     refreshInterval: 0
   }), [group, selectedLeagueId, selectedYear, routeDayNumber, routeCalendarGame?.id])
 
-  // If we navigated from the calendar, try to fetch the played game details
-  const playedGameHook = usePlayedGameByComponents(playedGameOptions)
-
-  const playedScore = playedGameHook.getScore()
-  const playedMVP = playedGameHook.getMVP()
 
   return (
     <View style={{ flex: 1 }}>

@@ -12,7 +12,6 @@ import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { LiveGroupRaw } from "types/liveGroup";
 import { RankRaw, LeagueKeyRaw, YearDayLeagueRaw } from "types/rank";
-import { PlayedGameRaw, GameKeyRaw } from "types/game";
 import { TeamRaw, TeamKeyRaw, TeamDayKeyRaw } from "types/team";
 
 // Repository setup
@@ -105,13 +104,6 @@ export const setupRepositoryServices = () => {
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
-      // PlayedGame repository for detailed match data
-      .addRepository<PlayedGameRaw, GameKeyRaw>(x => {
-        x.name = "PlayedGame";
-        x.path = "PlayedGame";
-        x.addHeadersEnricher(() => getAuthHeaders());
-        x.addErrorHandler(handleAuthError);
-      })
     // Team repository (season level)
     .addRepository<TeamRaw, TeamKeyRaw>(x => {
       x.name = "Team";
