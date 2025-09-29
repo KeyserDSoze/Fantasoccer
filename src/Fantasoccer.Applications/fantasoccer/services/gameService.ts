@@ -1,8 +1,6 @@
 import { buildApiUrl, getCommonHeaders } from 'configurations/apiConfig'
 import { mapRawGameWrapperToGameWrapper, GameWrapperRaw } from 'types/game'
 
-const BASE = '' // buildApiUrl will prepend base
-
 export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
     buildApiUrl('/Game/Get', params as any),
