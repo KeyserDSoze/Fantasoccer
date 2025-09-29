@@ -1,15 +1,17 @@
 // Types and mapping helpers for the Game API (GameWrapper / LiveTeam / LivePlayer)
-import { CalendarGame, mapRawGameResultToGameResult } from 'types/calendar'
-import { Player } from 'types/team'
-import { Vote } from 'types/serieA'
-import { Chance } from 'types/chance'
+// Use the existing raw interfaces and mappers from other modules so we produce consistent cleaned types.
+import { CalendarGame, CalendarGameRaw, mapRawCalendarGameToCalendarGame } from 'types/calendar'
+import { Player, PlayerRaw, mapRawPlayerToPlayer } from 'types/team'
+import { Vote, VoteRaw, mapRawVoteToVote } from 'types/serieA'
+import { Chance, ChanceRaw, mapRawChanceToChance } from 'types/chance'
 
 // RAW interfaces matching JSON names produced by the C# backend
 export interface LivePlayerRaw {
-  c: Player
-  v?: Vote | null
-  h?: Chance | null
-  r?: CalendarGame | null
+  // raw shapes coming from the server
+  c: PlayerRaw
+  v?: VoteRaw | null
+  h?: ChanceRaw | null
+  r?: CalendarGameRaw | null
   f?: number | null
   p?: number | null
 }
@@ -24,7 +26,7 @@ export interface LiveTeamRaw {
 
 export interface GameWrapperRaw {
   t?: LiveTeamRaw[]
-  g?: CalendarGame | null
+  g?: CalendarGameRaw | null
   s?: number
 }
 
@@ -54,10 +56,10 @@ export interface GameWrapper {
 
 // MAPPERS
 export const mapRawLivePlayerToLivePlayer = (raw: LivePlayerRaw): LivePlayer => ({
-  current: raw.c,
-  vote: raw.v ?? undefined,
-  chance: raw.h ?? undefined,
-  realGame: raw.r ?? undefined,
+  current: mapRawPlayerToPlayer(raw.c),
+  vote: raw.v ? mapRawVoteToVote(raw.v) : undefined,
+  chance: raw.h ? mapRawChanceToChance(raw.h) : undefined,
+  realGame: raw.r ? mapRawCalendarGameToCalendarGame(raw.r) : undefined,
   finalValue: raw.f ?? undefined,
   currentPosition: raw.p ?? undefined
 })
@@ -72,7 +74,7 @@ export const mapRawLiveTeamToLiveTeam = (raw: LiveTeamRaw): LiveTeam => ({
 
 export const mapRawGameWrapperToGameWrapper = (raw: GameWrapperRaw): GameWrapper => ({
   teams: (raw.t ?? []).map(mapRawLiveTeamToLiveTeam),
-  game: raw.g ?? undefined,
+  game: raw.g ? mapRawCalendarGameToCalendarGame(raw.g) : undefined,
   serieADay: raw.s ?? undefined
 })
 
