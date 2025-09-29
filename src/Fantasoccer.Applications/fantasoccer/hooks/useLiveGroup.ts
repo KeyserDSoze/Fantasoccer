@@ -49,13 +49,11 @@ export function useLiveGroup(groupId: string | null, options: UseLiveGroupOption
     setError(null)
 
     try {
-      const [groupData, enhancedGroupData] = await Promise.all([
-        liveGroupService.getLiveGroup(groupId),
-        liveGroupService.getEnhancedLiveGroup(groupId)
-      ])
+      const groupData = await liveGroupService.getLiveGroup(groupId, { forceRefresh: true })
+      const enhancedGroupData = groupData ? enhanceLiveGroup(groupData) : null
 
       setLiveGroup(groupData)
-      setEnhancedLiveGroup(enhancedGroupData ?? (groupData ? enhanceLiveGroup(groupData) : null))
+      setEnhancedLiveGroup(enhancedGroupData)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch live group'
       setError(message)

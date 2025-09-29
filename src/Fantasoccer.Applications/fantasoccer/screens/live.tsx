@@ -305,6 +305,49 @@ export default function LiveScreen() {
                   Non ci sono dati live disponibili per la lega selezionata al momento.
                 </Text>
               </Card>
+            ) : isWideLayout ? (
+              <XStack gap="$4" alignItems="stretch" flexWrap="nowrap">
+                <YStack flex={1} minWidth={0} gap="$4">
+                  <LeagueCalendarWidget
+                    leagueName={selectedLiveLeague?.name}
+                    seasonLabel={serieADayLabel}
+                    roundLabel={rankingRoundLabel}
+                    pendingGamesCount={pendingGamesCount}
+                    days={liveDays}
+                    loading={liveLoading && liveDays.length === 0}
+                    error={liveError}
+                    isSelectionIncomplete={!localLeagueId}
+                    onRefresh={() => {
+                      void refetchLive()
+                    }}
+                    selectionMessage="Seleziona una lega per visualizzare il calendario live."
+                    emptyMessage="Nessuna giornata live disponibile per la lega selezionata."
+                    loadingMessage="Caricamento calendario live..."
+                    refreshLabel="Aggiorna live"
+                    errorActionLabel="Riprova"
+                  />
+                </YStack>
+                <YStack flex={1} minWidth={0} gap="$4">
+                  <LeagueRankingWidget
+                    leagueName={selectedLiveLeague?.name}
+                    seasonLabel={serieADayLabel}
+                    roundLabel={rankingRoundLabel}
+                    teamCount={rankingTeamCount}
+                    rankedTeams={rankedTeams}
+                    loading={liveLoading && rankedTeams.length === 0}
+                    error={liveError}
+                    isSelectionIncomplete={!localLeagueId}
+                    onRefresh={() => {
+                      void refetchLive()
+                    }}
+                    selectionMessage="Seleziona una lega per visualizzare la classifica live."
+                    emptyMessage="La classifica live non è disponibile per la lega selezionata."
+                    loadingMessage="Caricamento classifica live..."
+                    refreshLabel="Aggiorna live"
+                    errorActionLabel="Riprova"
+                  />
+                </YStack>
+              </XStack>
             ) : (
               <YStack gap="$4">
                 <LeagueCalendarWidget
