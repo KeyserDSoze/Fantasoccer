@@ -420,7 +420,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                                 size="$1"
                                 variant={selectedYear === year ? "outlined" : "outlined"}
                                 borderColor={selectedYear === year ? "orange" : "transparent"}
-                                backgroundColor={selectedYear === year ? "orange" : "transparent"}
+                                backgroundColor={"transparent"}
                                 onPress={async () => {
                                   try {
                                     await setSelectedYear(year)
