@@ -100,8 +100,8 @@ export const setupRepositoryServices = () => {
     })
     // Live data for live matches and rankings
     .addRepository<LiveGroupRaw, string>(x => {
-      x.name = "Live";
-      x.path = "Live";
+      x.name = "LiveGroup";
+      x.path = "LiveGroup";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })

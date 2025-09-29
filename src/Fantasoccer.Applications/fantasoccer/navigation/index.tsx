@@ -5,6 +5,7 @@ import Details from 'screens/details';
 import Ranking from 'screens/ranking';
 import CalendarScreen from 'screens/calendar';
 import PlayersScreen from 'screens/players';
+import LiveScreen from 'screens/live';
 import SettingsScreen from 'screens/settings';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
@@ -31,6 +32,9 @@ const Stack = createStackNavigator({
     },
     "Players": {
       screen: PlayersScreen,
+    },
+    "Live": {
+      screen: LiveScreen,
     },
     "Settings": {
       screen: SettingsScreen,

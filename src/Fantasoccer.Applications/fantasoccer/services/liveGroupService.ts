@@ -16,7 +16,7 @@ import { CalendarDay, CalendarGame } from 'types/calendar'
 
 export class LiveGroupService {
   private getRepository() {
-    return RepositoryServices.Repository<LiveGroupRaw, string>('Live')
+    return RepositoryServices.Repository<LiveGroupRaw, string>('LiveGroup')
   }
 
   private async fetchRaw(groupId: string): Promise<LiveGroupRaw | null> {
