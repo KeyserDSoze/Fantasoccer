@@ -21,11 +21,11 @@ export interface VoteLookupOptions {
 
 export class RealVoteService {
   private getLiveRepository() {
-    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('LiveVotedRealPlayers')
+    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('VotedRealPlayerWrapper/live')
   }
 
   private getOfficialRepository() {
-    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('OfficialVotedRealPlayers')
+    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('VotedRealPlayerWrapper/official')
   }
 
   private async getCurrentUserYear(): Promise<number | null> {
