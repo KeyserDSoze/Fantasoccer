@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
 import {
   Trophy,
@@ -51,6 +51,7 @@ function BonusBadge({ Icon, count, color, label }: { Icon: any; count: number; c
 export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
+  const [isBlinking, setIsBlinking] = useState(false)
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -66,6 +67,64 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
   const imageUri = useFallbackImage ? fallback : src
 
   const voteLabel = vote ? (typeof vote.value === 'number' ? vote.value.toFixed(1) : String(vote.value)) : null
+
+  // Logica per determinare il colore del voto e se deve lampeggiare
+  const voteDisplayInfo = useMemo(() => {
+    if (!vote) return null
+
+    const now = new Date()
+    let backgroundColor = '#dc2626' // Rosso di default
+    let shouldBlink = false
+
+    // Determina il colore basato su isFinal e hasVote
+    // VERDE: voto finale confermato (isFinal=true, hasVote=true)
+    // ARANCIONE: voto live ma non finale (isFinal=false, hasVote=true) 
+    // GRIGIO: voto non valido - non ha giocato abbastanza (hasVote=false)
+    // ROSSO: casi edge/errore
+    if (vote.isFinal && vote.hasVote) {
+      backgroundColor = '#16a34a' // Verde - voto finale confermato
+    } else if (!vote.isFinal && vote.hasVote) {
+      backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+    } else if (!vote.hasVote) {
+      backgroundColor = '#6b7280' // Grigio - voto non valido (non ha giocato abbastanza)
+    }
+
+    // Determina se deve lampeggiare (solo se la partita è live e il giocatore non è uscito)
+    // Una partita è considerata "live" se siamo nel range di 2 ore dall'inizio
+    // Il lampeggiamento si ferma se il giocatore è uscito (isOut=true)
+    if (realGame?.date && vote.hasVote && !vote.isOut) {
+      const gameStart = new Date(realGame.date)
+      const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
+      
+      // La partita è live se siamo tra l'inizio e 2 ore dopo
+      if (now >= gameStart && now <= twoHoursAfterStart) {
+        shouldBlink = true
+      }
+    }
+
+    return {
+      backgroundColor,
+      shouldBlink,
+      borderColor: vote.isFinal ? '#fff' : 'rgba(255, 255, 255, 0.7)'
+    }
+  }, [vote, realGame])
+
+  // Effetto per gestire il lampeggiamento
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    
+    if (voteDisplayInfo?.shouldBlink) {
+      interval = setInterval(() => {
+        setIsBlinking(prev => !prev)
+      }, 800) // Lampeggia ogni 800ms
+    } else {
+      setIsBlinking(false)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [voteDisplayInfo?.shouldBlink])
 
   const bonusIcons = useMemo(() => {
     if (!vote) return []
@@ -154,11 +213,10 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       borderRadius={12}
       borderWidth={2}
       borderColor="#e5e5e5"
-      overflow="hidden"
       position="relative"
       elevation={4}
     >
-      {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card */}
+      {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card con bordi arrotondati */}
       <Image
         source={{ uri: imageUri }}
         width={cardWidth}
@@ -169,6 +227,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         top={0}
         left={0}
         zIndex={1}
+        borderRadius={12}
       />
 
       {/* Overlay semitrasparente per migliorare leggibilità */}
@@ -181,26 +240,71 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         backgroundColor="rgba(0,0,0,0.1)"
         zIndex={2}
       />
-      {/* Vote badge - posizionato sopra l'immagine, angolo top-left */}
-      {vote && (
+      {/* Vote badge - sporgente dall'angolo con effetto 3D pronunciato */}
+      {vote && voteDisplayInfo && (
         <YStack
           position="absolute"
-          top={8}
-          left={8}
-          width={isField ? 32 : 36}
-          height={isField ? 32 : 36}
-          borderRadius={isField ? 16 : 18}
-          backgroundColor="#dc2626"
+          top={-12}
+          left={-12}
+          width={isField ? 40 : 44}
+          height={isField ? 40 : 44}
+          borderRadius={isField ? 20 : 22}
+          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
-          zIndex={15}
-          borderWidth={3}
+          zIndex={25}
+          borderWidth={4}
           borderColor="#fff"
-          elevation={5}
+          elevation={12}
+          shadowColor="#000"
+          shadowOffset={{ width: 3, height: 6 }}
+          shadowOpacity={0.4}
+          shadowRadius={8}
+          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.7 : 1}
+          transform={[
+            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.1 : 1.0 }
+          ]}
         >
-          <Text fontSize={isField ? 10 : 12} fontWeight="800" color="#fff">
+          <Text fontSize={isField ? 12 : 14} fontWeight="900" color="#fff">
             {voteLabel}
           </Text>
+          
+          {/* Indicatori di stato sotto il voto */}
+          <XStack position="absolute" bottom={-8} gap={2}>
+            {!vote.hasVote && (
+              <YStack
+                width={6}
+                height={6}
+                borderRadius={3}
+                backgroundColor="#ef4444"
+                borderWidth={1}
+                borderColor="#fff"
+                elevation={3}
+              />
+            )}
+            {!vote.isFinal && vote.hasVote && (
+              <YStack
+                width={6}
+                height={6}
+                borderRadius={3}
+                backgroundColor="#f59e0b"
+                borderWidth={1}
+                borderColor="#fff"
+                elevation={3}
+              />
+            )}
+            {vote.isOut && (
+              <YStack
+                width={6}
+                height={6}
+                borderRadius={3}
+                backgroundColor="#6b7280"
+                borderWidth={1}
+                borderColor="#fff"
+                elevation={3}
+              />
+            )}
+          </XStack>
         </YStack>
       )}
 
@@ -293,12 +397,12 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
       {/* Rimuoviamo la sezione dell'immagine centrale - ora è lo sfondo */}
 
-      {/* Bonus icons - lato sinistro dell'immagine */}
+      {/* Bonus icons - lato sinistro dell'immagine, riposizionati per evitare sovrapposizione con voto sporgente */}
       {bonusIcons.length > 0 && (
         <YStack 
           position="absolute" 
           left={4} 
-          top={isField ? 40 : 55} 
+          top={isField ? 45 : 60} 
           gap={isField ? 3 : 4}
           zIndex={12}
         >
