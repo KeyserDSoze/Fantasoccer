@@ -18,7 +18,7 @@ import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import type { Chance } from 'types/chance'
 
-export type PlayerCardVariant = 'starter' | 'bench' | 'tribune'
+export type PlayerCardVariant = 'starter' | 'bench' | 'tribune' | 'field'
 
 export interface PlayerCardProps {
   player: LivePlayer
@@ -79,89 +79,138 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     return { status: chance.status, sources, label: chance.description }
   }, [chance])
 
-  // compact card sizes
-  const imageSize = variant === 'starter' ? 110 : variant === 'bench' ? 80 : 64
+  // Sizing based on variant
+  const isField = variant === 'field'
+  const cardWidth = isField ? 90 : 120
+  const imageSize = isField ? 70 : 90
 
   return (
-    <Card padding={0} borderRadius="$8" borderWidth={1} borderColor="$borderColor" backgroundColor="$background" width="80%" marginLeft="10%" overflow="hidden">
-      <YStack width="100%" height="auto" aspectRatio={1.1} position="relative" alignItems="center" justifyContent="center">
-        {/* left vertical team ribbon with stacked letters */}
-        {showTeamName && teamName ? (
-          <YStack position="absolute" left="-6%" top="12%" width="12%" alignItems="center" justifyContent="center" backgroundColor="$color2" paddingVertical="$2">
-            {String(teamName || '')
-              .slice(0, 14)
-              .split('')
-              .map((ch, idx) => (
-                <Text key={idx} fontSize="$1" color="$color9" opacity={0.95}>
-                  {ch}
-                </Text>
-              ))}
+    <YStack alignItems="center" width={cardWidth} pointerEvents="auto">
+      {/* Vote circle - top left of image */}
+      <YStack position="relative" alignItems="center">
+        {vote && (
+          <YStack
+            position="absolute"
+            top={-8}
+            left={-8}
+            width={28}
+            height={28}
+            borderRadius={14}
+            backgroundColor="#ef4444"
+            alignItems="center"
+            justifyContent="center"
+            zIndex={10}
+          >
+            <Text fontSize={isField ? 10 : 12} fontWeight="800" color="#fff">
+              {voteLabel}
+            </Text>
           </YStack>
-        ) : null}
+        )}
 
-        {/* framed player image */}
-        <YStack width="46%" height="46%" borderRadius={999} alignItems="center" justifyContent="center" elevation={4} backgroundColor="$background">
-          <YStack borderRadius={999} borderWidth={3} borderColor="$borderColor" overflow="hidden">
-            <Image source={{ uri: imageUri }} width="100%" height="100%" resizeMode="cover" onError={() => setUseFallbackImage(true)} />
+        {/* Injury icon - top right */}
+        {injury && (
+          <YStack position="absolute" top={-8} right={-8} zIndex={10}>
+            <AlertTriangle size={20} color="#ef4444" />
           </YStack>
+        )}
+
+        {/* Circular player image */}
+        <YStack
+          width={imageSize}
+          height={imageSize}
+          borderRadius={imageSize / 2}
+          borderWidth={3}
+          borderColor="#fff"
+          backgroundColor="#000"
+          overflow="hidden"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Image
+            source={{ uri: imageUri }}
+            width={imageSize - 6}
+            height={imageSize - 6}
+            borderRadius={(imageSize - 6) / 2}
+            resizeMode="cover"
+            onError={() => setUseFallbackImage(true)}
+          />
         </YStack>
 
-        {/* vote badge top-left */}
-        {vote ? (
-          <YStack position="absolute" top="4%" left="4%" borderRadius="$6" backgroundColor="#0284c7" paddingHorizontal="$2" paddingVertical="$1">
-            <Text fontWeight="800" color="#fff">{voteLabel}</Text>
+        {/* Bonus icons - right side stacked */}
+        {bonusIcons.length > 0 && (
+          <YStack position="absolute" right={-12} top={8} gap={2}>
+            {bonusIcons.slice(0, 3).map((b, i) => (
+              <YStack
+                key={i}
+                width={18}
+                height={18}
+                borderRadius={9}
+                backgroundColor={b.color ?? '#111'}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <b.Icon size={10} color="#fff" />
+              </YStack>
+            ))}
           </YStack>
-        ) : chanceSummary ? (
-          <YStack position="absolute" top="4%" left="4%" borderRadius="$6" backgroundColor="#475569" paddingHorizontal="$2" paddingVertical="$1">
-            <Text fontSize="$1" color="#fff">P</Text>
-          </YStack>
-        ) : null}
-
-        {/* injury icon top-right */}
-        {injury ? (
-          <YStack position="absolute" top="4%" right="4%">
-            <YStack
-              onHoverIn={() => setShowTooltip(true)}
-              onHoverOut={() => setShowTooltip(false)}
-              onPress={() => setShowTooltip(s => !s)}
-              alignItems="center"
-              justifyContent="center"
-              padding="$1"
-            >
-              <AlertTriangle size={18} color="#ef4444" />
-            </YStack>
-
-            {showTooltip ? (
-              <Card position="absolute" top="-8%" right={-8} padding="$2" borderRadius="$3" elevation={2} backgroundColor="#111">
-                <Text color="#fff" fontSize="$1">{String((injury && injury.description) || 'Infortunio')}</Text>
-              </Card>
-            ) : null}
-          </YStack>
-        ) : null}
-
-        {/* right stacked stat badges */}
-        <YStack position="absolute" right="-4%" top="28%" gap="$2">
-          {bonusIcons.slice(0, 3).map((b, i) => (
-            <YStack key={i} width="12%" height="12%" borderRadius={999} backgroundColor={b.color ?? '#111'} alignItems="center" justifyContent="center">
-              <b.Icon size={12} color="#fff" />
-            </YStack>
-          ))}
-        </YStack>
-
-        {/* bottom name ribbon overlapping */}
-        <YStack position="absolute" bottom="4%" left="8%" right="8%" alignItems="center" justifyContent="center">
-          <YStack borderRadius="$4" paddingHorizontal="$3" paddingVertical="$1" backgroundColor="#0ea5a4">
-            <Text fontWeight="800" color="#fff">{name}</Text>
-          </YStack>
-        </YStack>
+        )}
       </YStack>
 
-      {/* small meta row */}
-      <XStack padding="$2" gap="$2" alignItems="center" justifyContent="center">
-        <Text fontSize="$1" color="$color9">{roleLabel}</Text>
-        {!vote && chanceSummary ? <Text fontSize="$1" color="$color9">{(chanceSummary.sources || []).join(', ')}</Text> : null}
-      </XStack>
-    </Card>
+      {/* Team label - vertical on left */}
+      {showTeamName && teamName && !isField && (
+        <YStack
+          position="absolute"
+          left={-15}
+          top={10}
+          paddingVertical={4}
+          paddingHorizontal={2}
+          backgroundColor="rgba(0,0,0,0.7)"
+          borderRadius={2}
+          transform={[{ rotate: '-90deg' }]}
+          transformOrigin="center"
+        >
+          <Text fontSize={8} color="#fff" fontWeight="600">
+            {teamName.slice(0, 3).toUpperCase()}
+          </Text>
+        </YStack>
+      )}
+
+      {/* Player name - bottom */}
+      <YStack
+        marginTop={4}
+        paddingHorizontal={8}
+        paddingVertical={2}
+        backgroundColor="#16a34a"
+        borderRadius={4}
+        maxWidth={cardWidth}
+      >
+        <Text
+          fontSize={isField ? 10 : 12}
+          fontWeight="700"
+          color="#fff"
+          textAlign="center"
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+      </YStack>
+
+      {/* Role label - small below name */}
+      {!isField && (
+        <Text fontSize={8} color="$color9" marginTop={2} textAlign="center">
+          {roleLabel}
+        </Text>
+      )}
+
+      {/* Chance info for field variant */}
+      {isField && !vote && chanceSummary && (
+        <YStack marginTop={2} paddingHorizontal={4} paddingVertical={1} backgroundColor="rgba(0,0,0,0.5)" borderRadius={2}>
+          <Text fontSize={8} color="#fff">
+            {chanceSummary.sources.join(',')}
+          </Text>
+        </YStack>
+      )}
+    </YStack>
   )
 }
 

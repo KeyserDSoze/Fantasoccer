@@ -1,7 +1,7 @@
 // Types and mapping helpers for the Game API (GameWrapper / LiveTeam / LivePlayer)
 // Use the existing raw interfaces and mappers from other modules so we produce consistent cleaned types.
 import { CalendarGame, CalendarGameRaw, mapRawCalendarGameToCalendarGame } from 'types/calendar'
-import { Player, PlayerRaw, mapRawPlayerToPlayer } from 'types/team'
+import { FantaSoccerRole, Player, PlayerRaw, mapRawPlayerToPlayer } from 'types/team'
 import { Vote, VoteRaw, mapRawVoteToVote } from 'types/serieA'
 import { Chance, ChanceRaw, mapRawChanceToChance } from 'types/chance'
 
@@ -13,7 +13,7 @@ export interface LivePlayerRaw {
   h?: ChanceRaw | null
   r?: CalendarGameRaw | null
   f?: number | null
-  p?: number | null
+  p: FantaSoccerRole
 }
 
 export interface LiveTeamRaw {
@@ -37,7 +37,7 @@ export interface LivePlayer {
   chance?: Chance | null
   realGame?: CalendarGame | null
   finalValue?: number | null
-  currentPosition?: number | null
+  currentPosition: FantaSoccerRole
 }
 
 export interface LiveTeam {
