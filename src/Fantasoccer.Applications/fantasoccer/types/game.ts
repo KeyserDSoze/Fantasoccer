@@ -2,7 +2,7 @@
 // Use the existing raw interfaces and mappers from other modules so we produce consistent cleaned types.
 import { CalendarGame, CalendarGameRaw, mapRawCalendarGameToCalendarGame } from 'types/calendar'
 import { FantaSoccerRole, Player, PlayerRaw, mapRawPlayerToPlayer } from 'types/team'
-import { Vote, VoteRaw, mapRawVoteToVote } from 'types/serieA'
+import { RealGame, RealGameRaw, Vote, VoteRaw, mapRawGameToGame, mapRawVoteToVote } from 'types/serieA'
 import { Chance, ChanceRaw, mapRawChanceToChance } from 'types/chance'
 
 // RAW interfaces matching JSON names produced by the C# backend
@@ -11,7 +11,7 @@ export interface LivePlayerRaw {
   c: PlayerRaw
   v?: VoteRaw | null
   h?: ChanceRaw | null
-  r?: CalendarGameRaw | null
+  r?: RealGameRaw | null
   f?: number | null
   p: FantaSoccerRole
 }
@@ -35,7 +35,7 @@ export interface LivePlayer {
   current: Player
   vote?: Vote | null
   chance?: Chance | null
-  realGame?: CalendarGame | null
+  realGame?: RealGame | null
   finalValue?: number | null
   currentPosition: FantaSoccerRole
 }
@@ -59,7 +59,7 @@ export const mapRawLivePlayerToLivePlayer = (raw: LivePlayerRaw): LivePlayer => 
   current: mapRawPlayerToPlayer(raw.c),
   vote: raw.v ? mapRawVoteToVote(raw.v) : undefined,
   chance: raw.h ? mapRawChanceToChance(raw.h) : undefined,
-  realGame: raw.r ? mapRawCalendarGameToCalendarGame(raw.r) : undefined,
+  realGame: raw.r ? mapRawGameToGame(raw.r) : undefined,
   finalValue: raw.f ?? undefined,
   currentPosition: raw.p ?? undefined
 })

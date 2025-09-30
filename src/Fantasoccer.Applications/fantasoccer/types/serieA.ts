@@ -1,5 +1,5 @@
 // Types matching the C# RealCalendar structure
-import { convertUTCToItalianTimezone } from '../utils/timezoneHelpers';
+import { convertUTCToItalianTimezone, convertUTCToItalianTimezoneAsNotNullableDate } from '../utils/timezoneHelpers';
 import { getPlayerKey } from '../utils/keyUtils'
 import { Role, RoleExtensions } from './group';
 
@@ -15,7 +15,7 @@ export interface RealTeamRaw {
 export interface RealGameRaw {
   h: RealTeamRaw      // Home team (matches [JsonPropertyName("h")])
   a: RealTeamRaw      // Away team (matches [JsonPropertyName("a")])
-  d: string | null    // Date (matches [JsonPropertyName("d")]) - ISO string from backend
+  d: Date    // Date (matches [JsonPropertyName("d")]) - ISO string from backend
   g: number | null    // Home goals (matches [JsonPropertyName("g")])
   y: number | null    // Away goals (matches [JsonPropertyName("y")])
   e: boolean          // Delayed (matches [JsonPropertyName("e")])
@@ -109,7 +109,7 @@ export interface RealTeam {
 export interface RealGame {
   home: RealTeam
   away: RealTeam
-  date: string | null
+  date: Date
   homeGoals: number | null
   awayGoals: number | null
   delayed: boolean
@@ -227,7 +227,7 @@ export function mapRawGameToGame(raw: RealGameRaw): RealGame {
   return {
     home: mapRawTeamToTeam(raw.h),
     away: mapRawTeamToTeam(raw.a),
-    date: convertUTCToItalianTimezone(raw.d),
+    date: convertUTCToItalianTimezoneAsNotNullableDate(raw.d.toString()),
     homeGoals: raw.g,
     awayGoals: raw.y,
     delayed: raw.e

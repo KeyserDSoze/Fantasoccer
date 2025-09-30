@@ -11,8 +11,9 @@ import {
   YStack,
   useMedia
 } from 'tamagui'
-import { useSerieACalendar, useSerieARank, formatGameDate, getDayStatusText } from 'hooks/useSerieACalendar'
+import { useSerieACalendar, useSerieARank, getDayStatusText } from 'hooks/useSerieACalendar'
 import { RealCalendarHelper, type RealDay, type RealGame } from 'types/serieA'
+import { formatItalianDate } from 'utils/timezoneHelpers'
 
 export type SerieALiveWidgetProps = {
   refreshInterval?: number
@@ -301,7 +302,7 @@ type SerieAGameRowProps = {
 }
 
 function SerieAGameRow({ game, isLive }: SerieAGameRowProps) {
-  const kickoffLabel = formatGameDate(game.date)
+  const kickoffLabel = formatItalianDate(game.date.toString())
   const isPlayed = RealCalendarHelper.isGamePlayed(game)
   const hasScore = game.homeGoals != null && game.awayGoals != null
   const showScore = hasScore && (isLive || isPlayed)

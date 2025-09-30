@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
-import { useSerieACalendar, formatGameDate } from 'hooks/useSerieACalendar'
+import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { SoccerFieldHorizontal } from 'components/lineup'
 import { useMedia } from 'tamagui'
 import type { GameWrapper, LiveTeam } from 'types/game'
@@ -10,6 +10,7 @@ import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useCurrentGroup } from 'hooks/useAppData'
 import { useApp } from 'providers/AppProvider'
+import { convertUTCToItalianTimezone } from 'utils/timezoneHelpers'
 
 export default function GameScreen() {
   const media = useMedia()
@@ -124,7 +125,7 @@ export default function GameScreen() {
             ) : (
               <YStack gap="$2">
                 <H3>{game.home} vs {game.away}</H3>
-                <Text>{formatGameDate(game.date ?? null)}</Text>
+                <Text>{convertUTCToItalianTimezone(game.date ?? null)}</Text>
                 <Text>{game.venue ?? ''}</Text>
                 {playedScore && (
                   <Text fontSize="$4" fontWeight="bold">{playedScore}</Text>

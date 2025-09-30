@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Card, Image, Text, XStack, YStack } from 'tamagui'
+import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
 import {
   Trophy,
   Target,
@@ -11,6 +11,9 @@ import {
   Heart,
   Zap,
   Circle,
+  Calendar,
+  Clock,
+  Users,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
@@ -46,12 +49,13 @@ function BonusBadge({ Icon, count, color, label }: { Icon: any; count: number; c
 
 export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
-  const [showTooltip, setShowTooltip] = useState(false)
+  const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
   const chance: Chance | null | undefined = (player as any).chance
   const injury = (player as any).injury || (current && (current as any).injury)
+  const realGame = player.realGame
 
   const name = current?.name ?? 'Giocatore'
   const teamName = current?.team?.name ?? ''
@@ -79,113 +83,219 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     return { status: chance.status, sources, label: chance.description }
   }, [chance])
 
+  // Game info helper
+  const gameInfo = useMemo(() => {
+    if (!realGame) return null
+    const actualDate = new Date()
+    const isPlayed = realGame.date ?? new Date() < actualDate
+    if (isPlayed) {
+      return {
+        type: 'result' as const,
+        text: `${realGame.homeGoals}-${realGame.awayGoals}`,
+        subtitle: `${realGame.home} vs ${realGame.away}`
+      }
+    } else {
+      const gameDate = realGame.date ? new Date(realGame.date) : null
+      return {
+        type: 'upcoming' as const,
+        text: gameDate ? gameDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : 'TBD',
+        subtitle: `${realGame.home} vs ${realGame.away}`
+      }
+    }
+  }, [realGame])
+
   // Sizing based on variant
   const isField = variant === 'field'
-  const cardWidth = isField ? 90 : 120
-  const imageSize = isField ? 70 : 90
+  const cardWidth = isField ? 110 : 140
+  const cardHeight = isField ? 150 : 180
+  const imageSize = isField ? 60 : 80
 
   return (
-    <YStack alignItems="center" width={cardWidth} pointerEvents="auto">
-      {/* Vote circle - top left of image */}
-      <YStack position="relative" alignItems="center">
+    <Card
+      width={cardWidth}
+      height={cardHeight}
+      padding={0}
+      backgroundColor="#fff"
+      borderRadius={8}
+      borderWidth={2}
+      borderColor="#e5e5e5"
+      overflow="hidden"
+      position="relative"
+      elevation={3}
+    >
+      {/* Header - Team name and game info */}
+      <XStack
+        height={isField ? 20 : 24}
+        backgroundColor="#1f2937"
+        alignItems="center"
+        justifyContent="space-between"
+        paddingHorizontal={4}
+      >
+        <Text fontSize={isField ? 8 : 10} color="#fff" fontWeight="600" numberOfLines={1} flex={1}>
+          {teamName.slice(0, 10).toUpperCase()}
+        </Text>
+        {gameInfo && (
+          <XStack alignItems="center" gap={2}>
+            {gameInfo.type === 'result' ? (
+              <Trophy size={isField ? 10 : 12} color="#fbbf24" />
+            ) : (
+              <Calendar size={isField ? 10 : 12} color="#60a5fa" />
+            )}
+            <Text fontSize={isField ? 7 : 8} color="#fff" fontWeight="500">
+              {gameInfo.text}
+            </Text>
+          </XStack>
+        )}
+      </XStack>
+
+      {/* Main content area */}
+      <YStack flex={1} alignItems="center" justifyContent="center" paddingTop={8}>
+        {/* Vote badge - top left corner */}
         {vote && (
           <YStack
             position="absolute"
-            top={-8}
-            left={-8}
-            width={28}
-            height={28}
-            borderRadius={14}
+            top={isField ? 24 : 28}
+            left={4}
+            width={isField ? 24 : 28}
+            height={isField ? 24 : 28}
+            borderRadius={isField ? 12 : 14}
             backgroundColor="#ef4444"
             alignItems="center"
             justifyContent="center"
             zIndex={10}
+            borderWidth={2}
+            borderColor="#fff"
           >
-            <Text fontSize={isField ? 10 : 12} fontWeight="800" color="#fff">
+            <Text fontSize={isField ? 8 : 10} fontWeight="800" color="#fff">
               {voteLabel}
             </Text>
           </YStack>
         )}
 
-        {/* Injury icon - top right */}
+        {/* Injury indicator - top right corner */}
         {injury && (
-          <YStack position="absolute" top={-8} right={-8} zIndex={10}>
-            <AlertTriangle size={20} color="#ef4444" />
+          <Button
+            position="absolute"
+            top={isField ? 24 : 28}
+            right={4}
+            width={isField ? 24 : 28}
+            height={isField ? 24 : 28}
+            borderRadius={isField ? 12 : 14}
+            backgroundColor="#dc2626"
+            padding={0}
+            onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
+            zIndex={10}
+          >
+            <AlertTriangle size={isField ? 12 : 16} color="#fff" />
+          </Button>
+        )}
+
+        {/* Injury tooltip */}
+        {injury && showInjuryTooltip && (
+          <YStack
+            position="absolute"
+            top={isField ? 50 : 60}
+            right={4}
+            backgroundColor="#000"
+            padding={8}
+            borderRadius={4}
+            maxWidth={cardWidth - 16}
+            zIndex={20}
+          >
+            <Text fontSize={8} color="#fff" textAlign="center">
+              {injury.reason || 'Infortunato'}
+            </Text>
           </YStack>
         )}
 
-        {/* Circular player image */}
+        {/* Player image - center */}
         <YStack
           width={imageSize}
           height={imageSize}
-          borderRadius={imageSize / 2}
-          borderWidth={3}
-          borderColor="#fff"
-          backgroundColor="#000"
+          borderRadius={6}
+          backgroundColor="#f3f4f6"
           overflow="hidden"
           alignItems="center"
           justifyContent="center"
+          borderWidth={2}
+          borderColor="#e5e7eb"
         >
           <Image
             source={{ uri: imageUri }}
-            width={imageSize - 6}
-            height={imageSize - 6}
-            borderRadius={(imageSize - 6) / 2}
+            width={imageSize - 4}
+            height={imageSize - 4}
             resizeMode="cover"
             onError={() => setUseFallbackImage(true)}
           />
         </YStack>
 
-        {/* Bonus icons - right side stacked */}
+        {/* Bonus icons - right side */}
         {bonusIcons.length > 0 && (
-          <YStack position="absolute" right={-12} top={8} gap={2}>
-            {bonusIcons.slice(0, 3).map((b, i) => (
+          <YStack position="absolute" right={4} bottom={isField ? 40 : 50} gap={2}>
+            {bonusIcons.slice(0, isField ? 2 : 3).map((b, i) => (
               <YStack
                 key={i}
-                width={18}
-                height={18}
-                borderRadius={9}
+                width={isField ? 16 : 20}
+                height={isField ? 16 : 20}
+                borderRadius={isField ? 8 : 10}
                 backgroundColor={b.color ?? '#111'}
                 alignItems="center"
                 justifyContent="center"
+                borderWidth={1}
+                borderColor="#fff"
               >
-                <b.Icon size={10} color="#fff" />
+                <b.Icon size={isField ? 8 : 10} color="#fff" />
+                {b.count > 1 && (
+                  <Text
+                    position="absolute"
+                    top={-4}
+                    right={-4}
+                    fontSize={6}
+                    color="#fff"
+                    backgroundColor="#ef4444"
+                    borderRadius={6}
+                    paddingHorizontal={2}
+                    paddingVertical={1}
+                    minWidth={12}
+                    textAlign="center"
+                  >
+                    {b.count}
+                  </Text>
+                )}
               </YStack>
             ))}
           </YStack>
         )}
+
+        {/* Chance info - left side for field variant without vote */}
+        {isField && !vote && chanceSummary && (
+          <YStack
+            position="absolute"
+            left={4}
+            bottom={isField ? 40 : 50}
+            paddingHorizontal={4}
+            paddingVertical={2}
+            backgroundColor={injury ? "#dc2626" : "#0891b2"}
+            borderRadius={3}
+            borderWidth={1}
+            borderColor="#fff"
+          >
+            <Text fontSize={7} color="#fff" fontWeight="600">
+              {injury ? "INF" : chanceSummary.sources.join(',')}
+            </Text>
+          </YStack>
+        )}
       </YStack>
 
-      {/* Team label - vertical on left */}
-      {showTeamName && teamName && !isField && (
-        <YStack
-          position="absolute"
-          left={-15}
-          top={10}
-          paddingVertical={4}
-          paddingHorizontal={2}
-          backgroundColor="rgba(0,0,0,0.7)"
-          borderRadius={2}
-          transform={[{ rotate: '-90deg' }]}
-          transformOrigin="center"
-        >
-          <Text fontSize={8} color="#fff" fontWeight="600">
-            {teamName.slice(0, 3).toUpperCase()}
-          </Text>
-        </YStack>
-      )}
-
-      {/* Player name - bottom */}
+      {/* Footer - Player name and role */}
       <YStack
-        marginTop={4}
-        paddingHorizontal={8}
-        paddingVertical={2}
         backgroundColor="#16a34a"
-        borderRadius={4}
-        maxWidth={cardWidth}
+        paddingHorizontal={6}
+        paddingVertical={isField ? 4 : 6}
+        alignItems="center"
       >
         <Text
-          fontSize={isField ? 10 : 12}
+          fontSize={isField ? 9 : 11}
           fontWeight="700"
           color="#fff"
           textAlign="center"
@@ -193,24 +303,13 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         >
           {name}
         </Text>
-      </YStack>
-
-      {/* Role label - small below name */}
-      {!isField && (
-        <Text fontSize={8} color="$color9" marginTop={2} textAlign="center">
-          {roleLabel}
-        </Text>
-      )}
-
-      {/* Chance info for field variant */}
-      {isField && !vote && chanceSummary && (
-        <YStack marginTop={2} paddingHorizontal={4} paddingVertical={1} backgroundColor="rgba(0,0,0,0.5)" borderRadius={2}>
-          <Text fontSize={8} color="#fff">
-            {chanceSummary.sources.join(',')}
+        {!isField && roleLabel && (
+          <Text fontSize={7} color="#dcfce7" marginTop={1} textAlign="center">
+            {roleLabel}
           </Text>
-        </YStack>
-      )}
-    </YStack>
+        )}
+      </YStack>
+    </Card>
   )
 }
 

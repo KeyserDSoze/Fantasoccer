@@ -51,6 +51,11 @@ export function convertUTCToItalianTimezone(utcDateString: string | null): strin
   }
 }
 
+export function convertUTCToItalianTimezoneAsNotNullableDate(utcDateString: string | null): Date {
+  const currentDate = convertUTCToItalianTimezone(utcDateString);
+  return currentDate ? new Date(currentDate) : new Date();
+}
+
 /**
  * Verifica se una data è nel periodo dell'ora legale italiana
  * @param date - Data da verificare
@@ -78,18 +83,27 @@ export function getItalianTimezoneOffset(date: Date): number {
  * @param date - Data da formattare
  * @returns Stringa formattata con timezone italiano
  */
-export function formatItalianDate(date: Date | string): string {
+export function formatItalianDate(date: Date | string, showEverything: boolean = false): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   
-  return dateObj.toLocaleString('it-IT', {
-    timeZone: 'Europe/Rome',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  if (showEverything) 
+    return dateObj.toLocaleString('it-IT', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  else
+    return dateObj.toLocaleDateString('it-IT', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
 }
 
 /**
