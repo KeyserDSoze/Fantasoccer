@@ -71,7 +71,6 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
 export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
-console.log(home?.players)
 console.log(away?.players)
   const homeStarters: LivePlayer[] = (home?.players ?? []).filter(p => 
     p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
@@ -80,13 +79,18 @@ console.log(away?.players)
     p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
   )
 
-  // Panchine - giocatori backup (riserve)
-  const homeBench: LivePlayer[] = (home?.players ?? []).filter(p => 
-    p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
-  )
-  const awayBench: LivePlayer[] = (away?.players ?? []).filter(p => 
-    p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
-  )
+  // Panchine - giocatori backup (riserve) ordinati per currentPosition
+  const homeBench: LivePlayer[] = (home?.players ?? [])
+    .filter(p => 
+      p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
+    )
+    .sort((a, b) => a.currentPosition - b.currentPosition)
+    
+  const awayBench: LivePlayer[] = (away?.players ?? [])
+    .filter(p => 
+      p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
+    )
+    .sort((a, b) => a.currentPosition - b.currentPosition)
 
   // Tribuna - giocatori non utilizzati
   const homeTribune: LivePlayer[] = (home?.players ?? []).filter(p => 
@@ -140,6 +144,29 @@ console.log(away?.players)
         return '#6b7280'
     }
   }
+
+  // Funzione per raggruppare giocatori della panchina per ruolo
+  const groupBenchByRole = (benchPlayers: LivePlayer[]) => {
+    const groups = {
+      goalkeepers: benchPlayers.filter(p => p.currentPosition === FantaSoccerRole.BackupGoalKeeper),
+      defenders: benchPlayers.filter(p => 
+        p.currentPosition === FantaSoccerRole.FirstBackupDefensor ||
+        p.currentPosition === FantaSoccerRole.SecondBackupDefensor
+      ).sort((a, b) => a.currentPosition - b.currentPosition),
+      midfielders: benchPlayers.filter(p => 
+        p.currentPosition === FantaSoccerRole.FirstBackupMidfielder ||
+        p.currentPosition === FantaSoccerRole.SecondBackupMidfielder
+      ).sort((a, b) => a.currentPosition - b.currentPosition),
+      forwards: benchPlayers.filter(p => 
+        p.currentPosition === FantaSoccerRole.FirstBackupForward ||
+        p.currentPosition === FantaSoccerRole.SecondBackupForward
+      ).sort((a, b) => a.currentPosition - b.currentPosition)
+    }
+    return groups
+  }
+
+  const homeBenchGroups = groupBenchByRole(homeBench)
+  const awayBenchGroups = groupBenchByRole(awayBench)
   // Group players by FantaSoccerRole numeric enum (titolari: 0..3)
   function groupByPosition(players: LivePlayer[]) {
     const groups: { GK: LivePlayer[]; DEF: LivePlayer[]; MID: LivePlayer[]; FWD: LivePlayer[] } = { GK: [], DEF: [], MID: [], FWD: [] }
@@ -182,89 +209,88 @@ console.log(away?.players)
   return (
     <YStack space={16} {...style}>
       {/* CAMPO DA CALCIO */}
-    <YStack 
-      position="relative" 
-      width="100%" 
-      height={height}
-      {...style}
-    >
-      {/* SVG field background with responsive orientation */}
-      <SoccerFieldSVG orientation={orientation} />
+      <YStack 
+        position="relative" 
+        width="100%" 
+        height={height}
+      >
+        {/* SVG field background with responsive orientation */}
+        <SoccerFieldSVG orientation={orientation} />
 
-      {/* 8 equal containers positioned absolutely over the field */}
-      {stripes.map((playersInStripe, stripeIndex) => {
-        if (isMobile) {
-          // Mobile: vertical layout with horizontal rows
-          const topPercent = stripeIndex * 12.5
-          
-          return (
-            <XStack
-              key={`stripe-${stripeIndex}`}
-              position="absolute"
-              top={`${topPercent}%`}
-              left={0}
-              width="100%"
-              height="12.5%"
-              justifyContent="center"
-              alignItems="center"
-              pointerEvents="none"
-            >
-              <XStack 
-                pointerEvents="auto" 
-                space={8} 
-                alignItems="center" 
+        {/* 8 equal containers positioned absolutely over the field */}
+        {stripes.map((playersInStripe, stripeIndex) => {
+          if (isMobile) {
+            // Mobile: vertical layout with horizontal rows
+            const topPercent = stripeIndex * 12.5
+            
+            return (
+              <XStack
+                key={`stripe-${stripeIndex}`}
+                position="absolute"
+                top={`${topPercent}%`}
+                left={0}
+                width="100%"
+                height="12.5%"
                 justifyContent="center"
-                style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'center center'
-                }}
+                alignItems="center"
+                pointerEvents="none"
               >
-                {playersInStripe.map((p, i) => (
-                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                ))}
+                <XStack 
+                  pointerEvents="auto" 
+                  space={8} 
+                  alignItems="center" 
+                  justifyContent="center"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {playersInStripe.map((p, i) => (
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                  ))}
+                </XStack>
               </XStack>
-            </XStack>
-          )
-        } else {
-          // Desktop/Tablet: horizontal layout with vertical columns
-          const leftPercent = stripeIndex * 12.5
-          
-          return (
-            <YStack
-              key={`stripe-${stripeIndex}`}
-              position="absolute"
-              left={`${leftPercent}%`}
-              top={0}
-              width="12.5%"
-              height="100%"
-              justifyContent="center"
-              alignItems="center"
-              pointerEvents="none"
-            >
-              <YStack 
-                pointerEvents="auto" 
-                space={8} 
-                alignItems="center" 
+            )
+          } else {
+            // Desktop/Tablet: horizontal layout with vertical columns
+            const leftPercent = stripeIndex * 12.5
+            
+            return (
+              <YStack
+                key={`stripe-${stripeIndex}`}
+                position="absolute"
+                left={`${leftPercent}%`}
+                top={0}
+                width="12.5%"
+                height="100%"
                 justifyContent="center"
-                style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'center center'
-                }}
+                alignItems="center"
+                pointerEvents="none"
               >
-                {playersInStripe.map((p, i) => (
-                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                ))}
+                <YStack 
+                  pointerEvents="auto" 
+                  space={8} 
+                  alignItems="center" 
+                  justifyContent="center"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {playersInStripe.map((p, i) => (
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                  ))}
+                </YStack>
               </YStack>
-            </YStack>
-          )
-        }
-      })}
-    </YStack>
+            )
+          }
+        })}
+      </YStack>
 
-      {/* PANCHINE */}
+      {/* PANCHINE ORGANIZZATE PER RUOLO */}
       <XStack space={16} flex={1} justifyContent="space-between">
         {/* Panchina Casa */}
-        <YStack flex={1} space={8}>
+        <YStack flex={1} space={12}>
           <YStack 
             backgroundColor="#16a34a" 
             paddingHorizontal={16} 
@@ -276,37 +302,104 @@ console.log(away?.players)
               🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
             </Text>
           </YStack>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack space={8} paddingHorizontal={8}>
-              {homeBench.map((player, i) => (
-                <YStack key={`home-bench-${i}`} alignItems="center" space={4}>
-                  {/* Badge ruolo sopra la card */}
-                  <YStack
-                    backgroundColor={getRoleColor(player.currentPosition)}
-                    paddingHorizontal={8}
-                    paddingVertical={4}
-                    borderRadius={12}
-                    minWidth={24}
-                    alignItems="center"
-                  >
-                    <Text fontSize={12} fontWeight="700" color="#fff">
-                      {getRoleLabel(player.currentPosition)}
-                    </Text>
-                  </YStack>
-                  <PlayerCard player={player} variant="bench" />
+
+          {/* Portieri */}
+          {homeBenchGroups.goalkeepers.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#f59e0b">
+                🥅 PORTIERI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {homeBenchGroups.goalkeepers.map((player, i) => (
+                    <PlayerCard key={`home-gk-${i}`} player={player} variant="bench" />
+                  ))}
                 </YStack>
-              ))}
-              {homeBench.length === 0 && (
-                <Text fontSize={14} color="$gray10" fontStyle="italic">
-                  Nessun giocatore in panchina
-                </Text>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {homeBenchGroups.goalkeepers.map((player, i) => (
+                    <PlayerCard key={`home-gk-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
               )}
-            </XStack>
-          </ScrollView>
+            </YStack>
+          )}
+
+          {/* Difensori */}
+          {homeBenchGroups.defenders.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#3b82f6">
+                🛡️ DIFENSORI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {homeBenchGroups.defenders.map((player, i) => (
+                    <PlayerCard key={`home-def-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {homeBenchGroups.defenders.map((player, i) => (
+                    <PlayerCard key={`home-def-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {/* Centrocampisti */}
+          {homeBenchGroups.midfielders.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#10b981">
+                ⚽ CENTROCAMPISTI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {homeBenchGroups.midfielders.map((player, i) => (
+                    <PlayerCard key={`home-mid-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {homeBenchGroups.midfielders.map((player, i) => (
+                    <PlayerCard key={`home-mid-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {/* Attaccanti */}
+          {homeBenchGroups.forwards.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#ef4444">
+                🎯 ATTACCANTI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {homeBenchGroups.forwards.map((player, i) => (
+                    <PlayerCard key={`home-fwd-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {homeBenchGroups.forwards.map((player, i) => (
+                    <PlayerCard key={`home-fwd-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {homeBench.length === 0 && (
+            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+              Nessun giocatore in panchina
+            </Text>
+          )}
         </YStack>
 
         {/* Panchina Trasferta */}
-        <YStack flex={1} space={8}>
+        <YStack flex={1} space={12}>
           <YStack 
             backgroundColor="#dc2626" 
             paddingHorizontal={16} 
@@ -318,33 +411,100 @@ console.log(away?.players)
               ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
             </Text>
           </YStack>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <XStack space={8} paddingHorizontal={8}>
-              {awayBench.map((player, i) => (
-                <YStack key={`away-bench-${i}`} alignItems="center" space={4}>
-                  {/* Badge ruolo sopra la card */}
-                  <YStack
-                    backgroundColor={getRoleColor(player.currentPosition)}
-                    paddingHorizontal={8}
-                    paddingVertical={4}
-                    borderRadius={12}
-                    minWidth={24}
-                    alignItems="center"
-                  >
-                    <Text fontSize={12} fontWeight="700" color="#fff">
-                      {getRoleLabel(player.currentPosition)}
-                    </Text>
-                  </YStack>
-                  <PlayerCard player={player} variant="bench" />
+
+          {/* Portieri */}
+          {awayBenchGroups.goalkeepers.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#f59e0b">
+                🥅 PORTIERI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {awayBenchGroups.goalkeepers.map((player, i) => (
+                    <PlayerCard key={`away-gk-${i}`} player={player} variant="bench" />
+                  ))}
                 </YStack>
-              ))}
-              {awayBench.length === 0 && (
-                <Text fontSize={14} color="$gray10" fontStyle="italic">
-                  Nessun giocatore in panchina
-                </Text>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {awayBenchGroups.goalkeepers.map((player, i) => (
+                    <PlayerCard key={`away-gk-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
               )}
-            </XStack>
-          </ScrollView>
+            </YStack>
+          )}
+
+          {/* Difensori */}
+          {awayBenchGroups.defenders.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#3b82f6">
+                🛡️ DIFENSORI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {awayBenchGroups.defenders.map((player, i) => (
+                    <PlayerCard key={`away-def-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {awayBenchGroups.defenders.map((player, i) => (
+                    <PlayerCard key={`away-def-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {/* Centrocampisti */}
+          {awayBenchGroups.midfielders.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#10b981">
+                ⚽ CENTROCAMPISTI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {awayBenchGroups.midfielders.map((player, i) => (
+                    <PlayerCard key={`away-mid-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {awayBenchGroups.midfielders.map((player, i) => (
+                    <PlayerCard key={`away-mid-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {/* Attaccanti */}
+          {awayBenchGroups.forwards.length > 0 && (
+            <YStack space={8}>
+              <Text fontSize={14} fontWeight="600" color="#ef4444">
+                🎯 ATTACCANTI
+              </Text>
+              {isMobile ? (
+                <YStack space={8}>
+                  {awayBenchGroups.forwards.map((player, i) => (
+                    <PlayerCard key={`away-fwd-${i}`} player={player} variant="bench" />
+                  ))}
+                </YStack>
+              ) : (
+                <XStack space={8} flexWrap="wrap">
+                  {awayBenchGroups.forwards.map((player, i) => (
+                    <PlayerCard key={`away-fwd-${i}`} player={player} variant="bench" />
+                  ))}
+                </XStack>
+              )}
+            </YStack>
+          )}
+
+          {awayBench.length === 0 && (
+            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+              Nessun giocatore in panchina
+            </Text>
+          )}
         </YStack>
       </XStack>
 

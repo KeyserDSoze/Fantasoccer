@@ -20,6 +20,7 @@ import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import type { Chance } from 'types/chance'
+import { FantaSoccerRole } from 'types/team'
 
 export type PlayerCardVariant = 'starter' | 'bench' | 'tribune' | 'field'
 
@@ -82,6 +83,40 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     const sources = (chance.fantagazzetta ? ['F'] : []).concat(chance.gazzetta ? ['G'] : [], chance.mediaset ? ['M'] : [], chance.sky ? ['S'] : [])
     return { status: chance.status, sources, label: chance.description }
   }, [chance])
+
+  // Funzione per determinare il colore di background del nome basato sulla posizione originale
+  const getPlayerNameBackgroundColor = useMemo(() => {
+    const originalPosition = current?.position ?? player.currentPosition
+
+    // Titolari (0-3) - Verde (come era)
+    if (originalPosition >= FantaSoccerRole.GoalKeeper && originalPosition <= FantaSoccerRole.Forward) {
+      return "#16a34a" // Verde per titolari
+    }
+
+    // Primi panchinari (4, First Backup roles)
+    if (originalPosition === FantaSoccerRole.BackupGoalKeeper ||
+        originalPosition === FantaSoccerRole.FirstBackupDefensor ||
+        originalPosition === FantaSoccerRole.FirstBackupMidfielder ||
+        originalPosition === FantaSoccerRole.FirstBackupForward) {
+      return "#f59e0b" // Arancione per primi panchinari
+    }
+
+    // Secondi panchinari (Second Backup roles)
+    if (originalPosition === FantaSoccerRole.SecondBackupDefensor ||
+        originalPosition === FantaSoccerRole.SecondBackupMidfielder ||
+        originalPosition === FantaSoccerRole.SecondBackupForward) {
+      return "#3b82f6" // Blu per secondi panchinari
+    }
+
+    // Tribuna e altri (11 e < 0)
+    if (originalPosition === FantaSoccerRole.Tribune || 
+        originalPosition < FantaSoccerRole.GoalKeeper) {
+      return "#dc2626" // Rosso per tribuna/altri
+    }
+
+    // Default fallback
+    return "#6b7280" // Grigio per casi non gestiti
+  }, [current?.position, player.currentPosition])
 
   // Game info helper
   const gameInfo = useMemo(() => {
@@ -326,13 +361,13 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         </YStack>
       )}
 
-      {/* Nome giocatore - footer prominente con sfondo semitrasparente */}
+      {/* Nome giocatore - footer prominente con colore dinamico basato su posizione originale */}
       <YStack
         position="absolute"
         bottom={0}
         left={0}
         right={0}
-        backgroundColor="rgba(22, 163, 74, 0.95)"
+        backgroundColor={`${getPlayerNameBackgroundColor}E6`} // Aggiunge trasparenza (90%)
         paddingHorizontal={8}
         paddingVertical={isField ? 6 : 8}
         alignItems="center"
@@ -359,7 +394,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         {!isField && roleLabel && (
           <Text 
             fontSize={isField ? 8 : 9} 
-            color="#dcfce7" 
+            color="rgba(255, 255, 255, 0.9)" 
             marginTop={2} 
             fontWeight="600"
             textShadowColor="rgba(0, 0, 0, 0.5)"
