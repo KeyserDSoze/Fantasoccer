@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import { YStack } from 'tamagui'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
+import { FantaSoccerRole } from 'types/team'
 import { PlayerCard } from './PlayerCard'
 
 // SVG field background as a React component
@@ -58,27 +59,73 @@ export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHo
   const homeStarters: LivePlayer[] = (home?.players ?? []).slice(0, 11)
   const awayStarters: LivePlayer[] = (away?.players ?? []).slice(0, 11)
 
+  // Group players by FantaSoccerRole numeric enum (titolari: 0..3)
+  function groupByPosition(players: LivePlayer[]) {
+    const groups: { GK: LivePlayer[]; DEF: LivePlayer[]; MID: LivePlayer[]; FWD: LivePlayer[] } = { GK: [], DEF: [], MID: [], FWD: [] }
+    players.forEach(p => {
+      // position can be on player.position or player.current.position depending on shape
+      const pos = (p as any).position ?? (p.current as any)?.position
+      switch (pos) {
+        case FantaSoccerRole.GoalKeeper:
+          groups.GK.push(p)
+          break
+        case FantaSoccerRole.Defensor:
+          groups.DEF.push(p)
+          break
+        case FantaSoccerRole.Midfielder:
+          groups.MID.push(p)
+          break
+        case FantaSoccerRole.Forward:
+          groups.FWD.push(p)
+          break
+      }
+    })
+    return groups
+  }
+
+  const homeGroups = groupByPosition(homeStarters)
+  const awayGroups = groupByPosition(awayStarters)
+
+  // Stripes order: home GK, home DEF, home MID, home FWD, then mirrored away FWD, MID, DEF, GK
+  const stripes: LivePlayer[][] = [
+    homeGroups.GK,
+    homeGroups.DEF,
+    homeGroups.MID,
+    homeGroups.FWD,
+    awayGroups.FWD,
+    awayGroups.MID,
+    awayGroups.DEF,
+    awayGroups.GK,
+  ]
+
   return (
     <YStack position="relative" width="100%" height={700} {...style}>
       <SoccerFieldSVG />
 
-      {/* Home column - left */}
-      <YStack position="absolute" left={40} top={80} height="100%" justifyContent="center" pointerEvents="none">
-        <YStack pointerEvents="auto" space={PLAYER_GAP}>
-          {homeStarters.map((p, i) => (
-            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" />
-          ))}
-        </YStack>
-      </YStack>
-
-      {/* Away column - right */}
-      <YStack position="absolute" right={40} top={80} height="100%" justifyContent="center" pointerEvents="none">
-        <YStack pointerEvents="auto" space={PLAYER_GAP} alignItems="flex-end">
-          {awayStarters.map((p, i) => (
-            <PlayerCard key={(p.current?.name ?? '') + '-' + i} player={p} variant="starter" showTeamName={true} />
-          ))}
-        </YStack>
-      </YStack>
+      {/* Render 8 vertical stripes across the field area */}
+      {stripes.map((playersInStripe, stripeIndex) => {
+        // center positions of 8 stripes in percent
+        const leftPercent = `${(stripeIndex + 0.5) * (100 / 8)}%`
+        return (
+          <YStack
+            key={`stripe-${stripeIndex}`}
+            position="absolute"
+            left={leftPercent}
+            top={0}
+            height="100%"
+            width={`${100 / 8}%`}
+            justifyContent="center"
+            alignItems="center"
+            pointerEvents="none"
+          >
+            <YStack pointerEvents="auto" space={PLAYER_GAP} alignItems="center" justifyContent="center">
+              {playersInStripe.map((p, i) => (
+                <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="starter" />
+              ))}
+            </YStack>
+          </YStack>
+        )
+      })}
     </YStack>
   )
 })
