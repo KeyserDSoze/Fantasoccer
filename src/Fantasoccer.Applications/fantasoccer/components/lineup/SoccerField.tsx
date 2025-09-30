@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { YStack, XStack } from 'tamagui'
+import { YStack, XStack, Text, ScrollView } from 'tamagui'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
 import { PlayerCard } from './PlayerCard'
@@ -71,11 +71,74 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
 export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
-console.log(home?.players)
 console.log(away?.players)
-  const homeStarters: LivePlayer[] = (home?.players ?? [])
-  const awayStarters: LivePlayer[] = (away?.players ?? [])
+  const homeStarters: LivePlayer[] = (home?.players ?? []).filter(p => 
+    p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
+  )
+  const awayStarters: LivePlayer[] = (away?.players ?? []).filter(p => 
+    p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
+  )
 
+  // Panchine - giocatori backup (riserve)
+  const homeBench: LivePlayer[] = (home?.players ?? []).filter(p => 
+    p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
+  )
+  const awayBench: LivePlayer[] = (away?.players ?? []).filter(p => 
+    p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward
+  )
+
+  // Tribuna - giocatori non utilizzati
+  const homeTribune: LivePlayer[] = (home?.players ?? []).filter(p => 
+    p.currentPosition === FantaSoccerRole.Tribune
+  )
+  const awayTribune: LivePlayer[] = (away?.players ?? []).filter(p => 
+    p.currentPosition === FantaSoccerRole.Tribune
+  )
+
+  // Funzione per ottenere il label del ruolo
+  const getRoleLabel = (role: FantaSoccerRole): string => {
+    switch (role) {
+      case FantaSoccerRole.GoalKeeper:
+      case FantaSoccerRole.BackupGoalKeeper:
+        return 'P'
+      case FantaSoccerRole.Defensor:
+      case FantaSoccerRole.FirstBackupDefensor:
+      case FantaSoccerRole.SecondBackupDefensor:
+        return 'D'
+      case FantaSoccerRole.Midfielder:
+      case FantaSoccerRole.FirstBackupMidfielder:
+      case FantaSoccerRole.SecondBackupMidfielder:
+        return 'C'
+      case FantaSoccerRole.Forward:
+      case FantaSoccerRole.FirstBackupForward:
+      case FantaSoccerRole.SecondBackupForward:
+        return 'A'
+      default:
+        return 'T'
+    }
+  }
+
+  const getRoleColor = (role: FantaSoccerRole): string => {
+    switch (role) {
+      case FantaSoccerRole.GoalKeeper:
+      case FantaSoccerRole.BackupGoalKeeper:
+        return '#f59e0b'
+      case FantaSoccerRole.Defensor:
+      case FantaSoccerRole.FirstBackupDefensor:
+      case FantaSoccerRole.SecondBackupDefensor:
+        return '#3b82f6'
+      case FantaSoccerRole.Midfielder:
+      case FantaSoccerRole.FirstBackupMidfielder:
+      case FantaSoccerRole.SecondBackupMidfielder:
+        return '#10b981'
+      case FantaSoccerRole.Forward:
+      case FantaSoccerRole.FirstBackupForward:
+      case FantaSoccerRole.SecondBackupForward:
+        return '#ef4444'
+      default:
+        return '#6b7280'
+    }
+  }
   // Group players by FantaSoccerRole numeric enum (titolari: 0..3)
   function groupByPosition(players: LivePlayer[]) {
     const groups: { GK: LivePlayer[]; DEF: LivePlayer[]; MID: LivePlayer[]; FWD: LivePlayer[] } = { GK: [], DEF: [], MID: [], FWD: [] }
@@ -114,84 +177,231 @@ console.log(away?.players)
     awayGroups.DEF,
     awayGroups.GK,
   ]
+  
   return (
-    <YStack 
-      position="relative" 
-      width="100%" 
-      height={height}
-      {...style}
-    >
-      {/* SVG field background with responsive orientation */}
-      <SoccerFieldSVG orientation={orientation} />
+    <YStack space={16} {...style}>
+      {/* CAMPO DA CALCIO */}
+      <YStack 
+        position="relative" 
+        width="100%" 
+        height={height}
+      >
+        {/* SVG field background with responsive orientation */}
+        <SoccerFieldSVG orientation={orientation} />
 
-      {/* 8 equal containers positioned absolutely over the field */}
-      {stripes.map((playersInStripe, stripeIndex) => {
-        if (isMobile) {
-          // Mobile: vertical layout with horizontal rows
-          const topPercent = stripeIndex * 12.5
-          
-          return (
-            <XStack
-              key={`stripe-${stripeIndex}`}
-              position="absolute"
-              top={`${topPercent}%`}
-              left={0}
-              width="100%"
-              height="12.5%"
-              justifyContent="center"
-              alignItems="center"
-              pointerEvents="none"
-            >
-              <XStack 
-                pointerEvents="auto" 
-                space={8} 
-                alignItems="center" 
+        {/* 8 equal containers positioned absolutely over the field */}
+        {stripes.map((playersInStripe, stripeIndex) => {
+          if (isMobile) {
+            // Mobile: vertical layout with horizontal rows
+            const topPercent = stripeIndex * 12.5
+            
+            return (
+              <XStack
+                key={`stripe-${stripeIndex}`}
+                position="absolute"
+                top={`${topPercent}%`}
+                left={0}
+                width="100%"
+                height="12.5%"
                 justifyContent="center"
-                style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'center center'
-                }}
+                alignItems="center"
+                pointerEvents="none"
               >
-                {playersInStripe.map((p, i) => (
-                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                ))}
+                <XStack 
+                  pointerEvents="auto" 
+                  space={8} 
+                  alignItems="center" 
+                  justifyContent="center"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {playersInStripe.map((p, i) => (
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                  ))}
+                </XStack>
               </XStack>
-            </XStack>
-          )
-        } else {
-          // Desktop/Tablet: horizontal layout with vertical columns
-          const leftPercent = stripeIndex * 12.5
-          
-          return (
-            <YStack
-              key={`stripe-${stripeIndex}`}
-              position="absolute"
-              left={`${leftPercent}%`}
-              top={0}
-              width="12.5%"
-              height="100%"
-              justifyContent="center"
-              alignItems="center"
-              pointerEvents="none"
-            >
-              <YStack 
-                pointerEvents="auto" 
-                space={8} 
-                alignItems="center" 
+            )
+          } else {
+            // Desktop/Tablet: horizontal layout with vertical columns
+            const leftPercent = stripeIndex * 12.5
+            
+            return (
+              <YStack
+                key={`stripe-${stripeIndex}`}
+                position="absolute"
+                left={`${leftPercent}%`}
+                top={0}
+                width="12.5%"
+                height="100%"
                 justifyContent="center"
-                style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'center center'
-                }}
+                alignItems="center"
+                pointerEvents="none"
               >
-                {playersInStripe.map((p, i) => (
-                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                ))}
+                <YStack 
+                  pointerEvents="auto" 
+                  space={8} 
+                  alignItems="center" 
+                  justifyContent="center"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'center center'
+                  }}
+                >
+                  {playersInStripe.map((p, i) => (
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                  ))}
+                </YStack>
               </YStack>
+            )
+          }
+        })}
+      </YStack>
+
+      {/* PANCHINE */}
+      <XStack space={16} flex={1} justifyContent="space-between">
+        {/* Panchina Casa */}
+        <YStack flex={1} space={8}>
+          <YStack 
+            backgroundColor="#16a34a" 
+            paddingHorizontal={16} 
+            paddingVertical={8} 
+            borderRadius={8}
+            alignItems="center"
+          >
+            <Text fontSize={16} fontWeight="700" color="#fff">
+              🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
+            </Text>
+          </YStack>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <XStack space={8} paddingHorizontal={8}>
+              {homeBench.map((player, i) => (
+                <YStack key={`home-bench-${i}`} alignItems="center" space={4}>
+                  {/* Badge ruolo sopra la card */}
+                  <YStack
+                    backgroundColor={getRoleColor(player.currentPosition)}
+                    paddingHorizontal={8}
+                    paddingVertical={4}
+                    borderRadius={12}
+                    minWidth={24}
+                    alignItems="center"
+                  >
+                    <Text fontSize={12} fontWeight="700" color="#fff">
+                      {getRoleLabel(player.currentPosition)}
+                    </Text>
+                  </YStack>
+                  <PlayerCard player={player} variant="bench" />
+                </YStack>
+              ))}
+              {homeBench.length === 0 && (
+                <Text fontSize={14} color="$gray10" fontStyle="italic">
+                  Nessun giocatore in panchina
+                </Text>
+              )}
+            </XStack>
+          </ScrollView>
+        </YStack>
+
+        {/* Panchina Trasferta */}
+        <YStack flex={1} space={8}>
+          <YStack 
+            backgroundColor="#dc2626" 
+            paddingHorizontal={16} 
+            paddingVertical={8} 
+            borderRadius={8}
+            alignItems="center"
+          >
+            <Text fontSize={16} fontWeight="700" color="#fff">
+              ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
+            </Text>
+          </YStack>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <XStack space={8} paddingHorizontal={8}>
+              {awayBench.map((player, i) => (
+                <YStack key={`away-bench-${i}`} alignItems="center" space={4}>
+                  {/* Badge ruolo sopra la card */}
+                  <YStack
+                    backgroundColor={getRoleColor(player.currentPosition)}
+                    paddingHorizontal={8}
+                    paddingVertical={4}
+                    borderRadius={12}
+                    minWidth={24}
+                    alignItems="center"
+                  >
+                    <Text fontSize={12} fontWeight="700" color="#fff">
+                      {getRoleLabel(player.currentPosition)}
+                    </Text>
+                  </YStack>
+                  <PlayerCard player={player} variant="bench" />
+                </YStack>
+              ))}
+              {awayBench.length === 0 && (
+                <Text fontSize={14} color="$gray10" fontStyle="italic">
+                  Nessun giocatore in panchina
+                </Text>
+              )}
+            </XStack>
+          </ScrollView>
+        </YStack>
+      </XStack>
+
+      {/* TRIBUNA */}
+      {(homeTribune.length > 0 || awayTribune.length > 0) && (
+        <YStack space={12}>
+          <YStack 
+            backgroundColor="#6b7280" 
+            paddingHorizontal={16} 
+            paddingVertical={8} 
+            borderRadius={8}
+            alignItems="center"
+          >
+            <Text fontSize={16} fontWeight="700" color="#fff">
+              🏟️ TRIBUNA
+            </Text>
+          </YStack>
+          
+          <XStack space={16} flex={1}>
+            {/* Tribuna Casa */}
+            <YStack flex={1} space={8}>
+              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center">
+                {home?.name || 'Casa'}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <XStack space={8} paddingHorizontal={8}>
+                  {homeTribune.map((player, i) => (
+                    <PlayerCard key={`home-tribune-${i}`} player={player} variant="tribune" />
+                  ))}
+                  {homeTribune.length === 0 && (
+                    <Text fontSize={12} color="$gray10" fontStyle="italic">
+                      Nessuno in tribuna
+                    </Text>
+                  )}
+                </XStack>
+              </ScrollView>
             </YStack>
-          )
-        }
-      })}
+
+            {/* Tribuna Trasferta */}
+            <YStack flex={1} space={8}>
+              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center">
+                {away?.name || 'Trasferta'}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <XStack space={8} paddingHorizontal={8}>
+                  {awayTribune.map((player, i) => (
+                    <PlayerCard key={`away-tribune-${i}`} player={player} variant="tribune" />
+                  ))}
+                  {awayTribune.length === 0 && (
+                    <Text fontSize={12} color="$gray10" fontStyle="italic">
+                      Nessuno in tribuna
+                    </Text>
+                  )}
+                </XStack>
+              </ScrollView>
+            </YStack>
+          </XStack>
+        </YStack>
+      )}
     </YStack>
   )
 })

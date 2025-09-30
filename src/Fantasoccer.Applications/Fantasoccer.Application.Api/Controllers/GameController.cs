@@ -82,11 +82,14 @@ namespace Fantasoccer.Application.Api.Controllers
                                         BasketId = basketId
                                     });
                                 }
+                                var currentPlayers = _teamCalculator.Enrich(team?.ActivePlayers ?? []) ?? [];
+                                if (!canEdit)
+                                    currentPlayers = leagueCalculator?.GetRightFormation(currentPlayers) ?? [];
                                 teams.Add(new LiveTeam
                                 {
                                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
                                     Owner = team?.Owner ?? owner,
-                                    Players = [.. (team?.ActivePlayers != null ? leagueCalculator?.GetRightFormation(_teamCalculator.Enrich(team.ActivePlayers)).Select(x => new LivePlayer
+                                    Players = [.. currentPlayers.Select(x => new LivePlayer
                                     {
                                         Current = x.Current,
                                         Chance = x.Chance,
@@ -94,7 +97,7 @@ namespace Fantasoccer.Application.Api.Controllers
                                         FinalValue = x.FinalValue,
                                         RealGame = x.RealGame,
                                         Vote = x.Vote,
-                                    }) ?? [] : [])],
+                                    })],
                                     LastUpdate = team?.LastUpdate ?? DateTime.UtcNow,
                                 });
                                 if (!canEdit && hasNoResult)
