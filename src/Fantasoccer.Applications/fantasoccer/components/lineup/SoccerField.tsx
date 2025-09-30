@@ -45,7 +45,7 @@ const SoccerFieldSVG = memo(({ orientation }: SoccerFieldSVGProps) => {
   )
 })
 
-export interface SoccerFieldHorizontalProps {
+export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
   style?: any
 }
@@ -68,11 +68,11 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHorizontalProps) => {
-    console.log(gameWrapper)
+export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
-
+console.log(home?.players)
+console.log(away?.players)
   const homeStarters: LivePlayer[] = (home?.players ?? [])
   const awayStarters: LivePlayer[] = (away?.players ?? [])
 
@@ -82,7 +82,6 @@ export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHo
     players.forEach(p => {
       // position can be on player.position or player.current.position depending on shape
       const pos = p.currentPosition
-      console.log(p.current.name + ' pos: ' + pos)
       switch (pos) {
         case FantaSoccerRole.GoalKeeper:
           groups.GK.push(p)
@@ -115,7 +114,6 @@ export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHo
     awayGroups.DEF,
     awayGroups.GK,
   ]
-    console.log(stripes)
   return (
     <YStack 
       position="relative" 
@@ -198,5 +196,5 @@ export const SoccerFieldHorizontal = memo(({ gameWrapper, style }: SoccerFieldHo
   )
 })
 
-export default SoccerFieldHorizontal
+export default SoccerField
 
