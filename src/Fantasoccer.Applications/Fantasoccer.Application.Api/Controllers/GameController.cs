@@ -6,6 +6,7 @@ using RepositoryFramework;
 namespace Fantasoccer.Application.Api.Controllers
 {
     [Authorize(Policy = "authenticated")]
+    [Authorize(Policy = "authenticated")]
     [ApiController]
     [Route("[controller]/[action]")]
     public class GameController : ControllerBase

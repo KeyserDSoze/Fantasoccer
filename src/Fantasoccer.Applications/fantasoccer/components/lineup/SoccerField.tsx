@@ -71,6 +71,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
 export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
+console.log(home?.players)
 console.log(away?.players)
   const homeStarters: LivePlayer[] = (home?.players ?? []).filter(p => 
     p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
@@ -181,83 +182,84 @@ console.log(away?.players)
   return (
     <YStack space={16} {...style}>
       {/* CAMPO DA CALCIO */}
-      <YStack 
-        position="relative" 
-        width="100%" 
-        height={height}
-      >
-        {/* SVG field background with responsive orientation */}
-        <SoccerFieldSVG orientation={orientation} />
+    <YStack 
+      position="relative" 
+      width="100%" 
+      height={height}
+      {...style}
+    >
+      {/* SVG field background with responsive orientation */}
+      <SoccerFieldSVG orientation={orientation} />
 
-        {/* 8 equal containers positioned absolutely over the field */}
-        {stripes.map((playersInStripe, stripeIndex) => {
-          if (isMobile) {
-            // Mobile: vertical layout with horizontal rows
-            const topPercent = stripeIndex * 12.5
-            
-            return (
-              <XStack
-                key={`stripe-${stripeIndex}`}
-                position="absolute"
-                top={`${topPercent}%`}
-                left={0}
-                width="100%"
-                height="12.5%"
+      {/* 8 equal containers positioned absolutely over the field */}
+      {stripes.map((playersInStripe, stripeIndex) => {
+        if (isMobile) {
+          // Mobile: vertical layout with horizontal rows
+          const topPercent = stripeIndex * 12.5
+          
+          return (
+            <XStack
+              key={`stripe-${stripeIndex}`}
+              position="absolute"
+              top={`${topPercent}%`}
+              left={0}
+              width="100%"
+              height="12.5%"
+              justifyContent="center"
+              alignItems="center"
+              pointerEvents="none"
+            >
+              <XStack 
+                pointerEvents="auto" 
+                space={8} 
+                alignItems="center" 
                 justifyContent="center"
-                alignItems="center"
-                pointerEvents="none"
+                style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}
               >
-                <XStack 
-                  pointerEvents="auto" 
-                  space={8} 
-                  alignItems="center" 
-                  justifyContent="center"
-                  style={{
-                    transform: `scale(${cardScale})`,
-                    transformOrigin: 'center center'
-                  }}
-                >
-                  {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                  ))}
-                </XStack>
+                {playersInStripe.map((p, i) => (
+                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                ))}
               </XStack>
-            )
-          } else {
-            // Desktop/Tablet: horizontal layout with vertical columns
-            const leftPercent = stripeIndex * 12.5
-            
-            return (
-              <YStack
-                key={`stripe-${stripeIndex}`}
-                position="absolute"
-                left={`${leftPercent}%`}
-                top={0}
-                width="12.5%"
-                height="100%"
+            </XStack>
+          )
+        } else {
+          // Desktop/Tablet: horizontal layout with vertical columns
+          const leftPercent = stripeIndex * 12.5
+          
+          return (
+            <YStack
+              key={`stripe-${stripeIndex}`}
+              position="absolute"
+              left={`${leftPercent}%`}
+              top={0}
+              width="12.5%"
+              height="100%"
+              justifyContent="center"
+              alignItems="center"
+              pointerEvents="none"
+            >
+              <YStack 
+                pointerEvents="auto" 
+                space={8} 
+                alignItems="center" 
                 justifyContent="center"
-                alignItems="center"
-                pointerEvents="none"
+                style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}
               >
-                <YStack 
-                  pointerEvents="auto" 
-                  space={8} 
-                  alignItems="center" 
-                  justifyContent="center"
-                  style={{
-                    transform: `scale(${cardScale})`,
-                    transformOrigin: 'center center'
-                  }}
-                >
-                  {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
-                  ))}
-                </YStack>
+                {playersInStripe.map((p, i) => (
+                  <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                ))}
               </YStack>
-            )
-          }
-        })}
-      </YStack>
+            </YStack>
+          )
+        }
+      })}
+    </YStack>
 
       {/* PANCHINE */}
       <XStack space={16} flex={1} justifyContent="space-between">
