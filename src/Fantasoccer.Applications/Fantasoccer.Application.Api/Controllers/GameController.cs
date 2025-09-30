@@ -5,7 +5,7 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Controllers
 {
-    [AllowAnonymous]
+    [Authorize(Policy = "authenticated")]
     [ApiController]
     [Route("[controller]/[action]")]
     public class GameController : ControllerBase
@@ -86,7 +86,7 @@ namespace Fantasoccer.Application.Api.Controllers
                                 {
                                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
                                     Owner = team?.Owner ?? owner,
-                                    Players = [.. (team?.ActivePlayers != null ? _teamCalculator.Enrich(team.ActivePlayers).Select(x => new LivePlayer
+                                    Players = [.. (team?.ActivePlayers != null ? leagueCalculator?.GetRightFormation(_teamCalculator.Enrich(team.ActivePlayers)).Select(x => new LivePlayer
                                     {
                                         Current = x.Current,
                                         Chance = x.Chance,
@@ -94,7 +94,7 @@ namespace Fantasoccer.Application.Api.Controllers
                                         FinalValue = x.FinalValue,
                                         RealGame = x.RealGame,
                                         Vote = x.Vote,
-                                    }) : [])],
+                                    }) ?? [] : [])],
                                     LastUpdate = team?.LastUpdate ?? DateTime.UtcNow,
                                 });
                                 if (!canEdit && hasNoResult)

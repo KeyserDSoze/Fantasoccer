@@ -3,7 +3,7 @@ import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
-import { SoccerFieldHorizontal } from 'components/lineup'
+import { SoccerField } from 'components/lineup'
 import { useMedia } from 'tamagui'
 import type { GameWrapper, LiveTeam } from 'types/game'
 import gameService from 'services/gameService'
@@ -146,7 +146,7 @@ export default function GameScreen() {
               {gameLoading ? (
                 <Text>Caricamento formazione partita...</Text>
               ) : gameWrapper ? (
-                  <SoccerFieldHorizontal gameWrapper={gameWrapper} />
+                  <SoccerField gameWrapper={gameWrapper} />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
               )}

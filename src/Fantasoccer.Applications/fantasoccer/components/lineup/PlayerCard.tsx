@@ -106,9 +106,9 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
   // Sizing based on variant
   const isField = variant === 'field'
-  const cardWidth = isField ? 110 : 140
-  const cardHeight = isField ? 150 : 180
-  const imageSize = isField ? 60 : 80
+  const cardWidth = isField ? 120 : 150
+  const cardHeight = isField ? 160 : 200
+  const imageSize = isField ? 80 : 110 // Immagine molto più grande!
 
   return (
     <Card
@@ -116,195 +116,256 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       height={cardHeight}
       padding={0}
       backgroundColor="#fff"
-      borderRadius={8}
+      borderRadius={12}
       borderWidth={2}
       borderColor="#e5e5e5"
       overflow="hidden"
       position="relative"
-      elevation={3}
+      elevation={4}
     >
-      {/* Header - Team name and game info */}
-      <XStack
-        height={isField ? 20 : 24}
-        backgroundColor="#1f2937"
-        alignItems="center"
-        justifyContent="space-between"
-        paddingHorizontal={4}
-      >
-        <Text fontSize={isField ? 8 : 10} color="#fff" fontWeight="600" numberOfLines={1} flex={1}>
-          {teamName.slice(0, 10).toUpperCase()}
-        </Text>
-        {gameInfo && (
-          <XStack alignItems="center" gap={2}>
-            {gameInfo.type === 'result' ? (
-              <Trophy size={isField ? 10 : 12} color="#fbbf24" />
-            ) : (
-              <Calendar size={isField ? 10 : 12} color="#60a5fa" />
-            )}
-            <Text fontSize={isField ? 7 : 8} color="#fff" fontWeight="500">
-              {gameInfo.text}
-            </Text>
-          </XStack>
-        )}
-      </XStack>
+      {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card */}
+      <Image
+        source={{ uri: imageUri }}
+        width={cardWidth}
+        height={cardHeight}
+        resizeMode="cover"
+        onError={() => setUseFallbackImage(true)}
+        position="absolute"
+        top={0}
+        left={0}
+        zIndex={1}
+      />
 
-      {/* Main content area */}
-      <YStack flex={1} alignItems="center" justifyContent="center" paddingTop={8}>
-        {/* Vote badge - top left corner */}
-        {vote && (
-          <YStack
-            position="absolute"
-            top={isField ? 24 : 28}
-            left={4}
-            width={isField ? 24 : 28}
-            height={isField ? 24 : 28}
-            borderRadius={isField ? 12 : 14}
-            backgroundColor="#ef4444"
-            alignItems="center"
-            justifyContent="center"
-            zIndex={10}
-            borderWidth={2}
-            borderColor="#fff"
-          >
-            <Text fontSize={isField ? 8 : 10} fontWeight="800" color="#fff">
-              {voteLabel}
-            </Text>
-          </YStack>
-        )}
-
-        {/* Injury indicator - top right corner */}
-        {injury && (
-          <Button
-            position="absolute"
-            top={isField ? 24 : 28}
-            right={4}
-            width={isField ? 24 : 28}
-            height={isField ? 24 : 28}
-            borderRadius={isField ? 12 : 14}
-            backgroundColor="#dc2626"
-            padding={0}
-            onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
-            zIndex={10}
-          >
-            <AlertTriangle size={isField ? 12 : 16} color="#fff" />
-          </Button>
-        )}
-
-        {/* Injury tooltip */}
-        {injury && showInjuryTooltip && (
-          <YStack
-            position="absolute"
-            top={isField ? 50 : 60}
-            right={4}
-            backgroundColor="#000"
-            padding={8}
-            borderRadius={4}
-            maxWidth={cardWidth - 16}
-            zIndex={20}
-          >
-            <Text fontSize={8} color="#fff" textAlign="center">
-              {injury.reason || 'Infortunato'}
-            </Text>
-          </YStack>
-        )}
-
-        {/* Player image - center */}
+      {/* Overlay semitrasparente per migliorare leggibilità */}
+      <YStack
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        backgroundColor="rgba(0,0,0,0.1)"
+        zIndex={2}
+      />
+      {/* Vote badge - posizionato sopra l'immagine, angolo top-left */}
+      {vote && (
         <YStack
-          width={imageSize}
-          height={imageSize}
-          borderRadius={6}
-          backgroundColor="#f3f4f6"
-          overflow="hidden"
+          position="absolute"
+          top={8}
+          left={8}
+          width={isField ? 32 : 36}
+          height={isField ? 32 : 36}
+          borderRadius={isField ? 16 : 18}
+          backgroundColor="#dc2626"
           alignItems="center"
           justifyContent="center"
-          borderWidth={2}
-          borderColor="#e5e7eb"
+          zIndex={15}
+          borderWidth={3}
+          borderColor="#fff"
+          elevation={5}
         >
-          <Image
-            source={{ uri: imageUri }}
-            width={imageSize - 4}
-            height={imageSize - 4}
-            resizeMode="cover"
-            onError={() => setUseFallbackImage(true)}
-          />
+          <Text fontSize={isField ? 10 : 12} fontWeight="800" color="#fff">
+            {voteLabel}
+          </Text>
         </YStack>
+      )}
 
-        {/* Bonus icons - right side */}
-        {bonusIcons.length > 0 && (
-          <YStack position="absolute" right={4} bottom={isField ? 40 : 50} gap={2}>
-            {bonusIcons.slice(0, isField ? 2 : 3).map((b, i) => (
-              <YStack
-                key={i}
-                width={isField ? 16 : 20}
-                height={isField ? 16 : 20}
-                borderRadius={isField ? 8 : 10}
-                backgroundColor={b.color ?? '#111'}
-                alignItems="center"
-                justifyContent="center"
-                borderWidth={1}
-                borderColor="#fff"
-              >
-                <b.Icon size={isField ? 8 : 10} color="#fff" />
-                {b.count > 1 && (
-                  <Text
-                    position="absolute"
-                    top={-4}
-                    right={-4}
-                    fontSize={6}
-                    color="#fff"
-                    backgroundColor="#ef4444"
-                    borderRadius={6}
-                    paddingHorizontal={2}
-                    paddingVertical={1}
-                    minWidth={12}
-                    textAlign="center"
-                  >
-                    {b.count}
-                  </Text>
-                )}
-              </YStack>
-            ))}
-          </YStack>
-        )}
-
-        {/* Chance info - left side for field variant without vote */}
-        {isField && !vote && chanceSummary && (
-          <YStack
-            position="absolute"
-            left={4}
-            bottom={isField ? 40 : 50}
-            paddingHorizontal={4}
-            paddingVertical={2}
-            backgroundColor={injury ? "#dc2626" : "#0891b2"}
-            borderRadius={3}
-            borderWidth={1}
-            borderColor="#fff"
-          >
-            <Text fontSize={7} color="#fff" fontWeight="600">
-              {injury ? "INF" : chanceSummary.sources.join(',')}
-            </Text>
-          </YStack>
-        )}
+      {/* Team name badge - angolo top-right */}
+      <YStack
+        position="absolute"
+        top={8}
+        right={8}
+        paddingHorizontal={isField ? 6 : 8}
+        paddingVertical={isField ? 3 : 4}
+        backgroundColor="rgba(31, 41, 55, 0.9)"
+        borderRadius={6}
+        zIndex={15}
+        borderWidth={1}
+        borderColor="rgba(255, 255, 255, 0.3)"
+      >
+        <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
+          {teamName.slice(0, 3).toUpperCase()}
+        </Text>
       </YStack>
 
-      {/* Footer - Player name and role */}
+      {/* Game info badge - sotto il team name */}
+      {gameInfo && (
+        <XStack
+          position="absolute"
+          top={isField ? 35 : 42}
+          right={8}
+          paddingHorizontal={isField ? 4 : 6}
+          paddingVertical={isField ? 2 : 3}
+          backgroundColor={gameInfo.type === 'result' ? "rgba(5, 150, 105, 0.9)" : "rgba(2, 132, 199, 0.9)"}
+          borderRadius={4}
+          alignItems="center"
+          gap={2}
+          zIndex={15}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+        >
+          {gameInfo.type === 'result' ? (
+            <Trophy size={isField ? 8 : 10} color="#fff" />
+          ) : (
+            <Calendar size={isField ? 8 : 10} color="#fff" />
+          )}
+          <Text fontSize={isField ? 7 : 8} color="#fff" fontWeight="600">
+            {gameInfo.text}
+          </Text>
+        </XStack>
+      )}
+
+      {/* Injury indicator - angolo bottom-right dell'immagine */}
+      {injury && (
+        <Button
+          position="absolute"
+          bottom={isField ? 45 : 55}
+          right={8}
+          width={isField ? 28 : 32}
+          height={isField ? 28 : 32}
+          borderRadius={isField ? 14 : 16}
+          backgroundColor="rgba(220, 38, 38, 0.95)"
+          padding={0}
+          onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
+          zIndex={15}
+          borderWidth={2}
+          borderColor="#fff"
+          elevation={5}
+        >
+          <AlertTriangle size={isField ? 14 : 16} color="#fff" />
+        </Button>
+      )}
+
+      {/* Injury tooltip */}
+      {injury && showInjuryTooltip && (
+        <YStack
+          position="absolute"
+          bottom={isField ? 80 : 95}
+          right={8}
+          backgroundColor="rgba(0, 0, 0, 0.9)"
+          padding={8}
+          borderRadius={6}
+          maxWidth={cardWidth - 16}
+          zIndex={20}
+          elevation={10}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+        >
+          <Text fontSize={isField ? 8 : 9} color="#fff" textAlign="center">
+            {injury.reason || 'Infortunato'}
+          </Text>
+        </YStack>
+      )}
+
+      {/* Rimuoviamo la sezione dell'immagine centrale - ora è lo sfondo */}
+
+      {/* Bonus icons - lato sinistro dell'immagine */}
+      {bonusIcons.length > 0 && (
+        <YStack 
+          position="absolute" 
+          left={4} 
+          top={isField ? 40 : 55} 
+          gap={isField ? 3 : 4}
+          zIndex={12}
+        >
+          {bonusIcons.slice(0, isField ? 3 : 4).map((b, i) => (
+            <YStack
+              key={i}
+              width={isField ? 20 : 24}
+              height={isField ? 20 : 24}
+              borderRadius={isField ? 10 : 12}
+              backgroundColor={`${b.color ?? '#111'}E6`}
+              alignItems="center"
+              justifyContent="center"
+              borderWidth={2}
+              borderColor="#fff"
+              elevation={5}
+            >
+              <b.Icon size={isField ? 10 : 12} color="#fff" />
+              {b.count > 1 && (
+                <YStack
+                  position="absolute"
+                  top={-6}
+                  right={-6}
+                  width={14}
+                  height={14}
+                  borderRadius={7}
+                  backgroundColor="#ef4444"
+                  alignItems="center"
+                  justifyContent="center"
+                  borderWidth={1}
+                  borderColor="#fff"
+                >
+                  <Text fontSize={7} color="#fff" fontWeight="700">
+                    {b.count}
+                  </Text>
+                </YStack>
+              )}
+            </YStack>
+          ))}
+        </YStack>
+      )}
+
+      {/* Chance info - lato sinistro basso per field variant senza vote */}
+      {isField && !vote && chanceSummary && (
+        <YStack
+          position="absolute"
+          left={8}
+          bottom={isField ? 45 : 55}
+          paddingHorizontal={6}
+          paddingVertical={4}
+          backgroundColor={injury ? "rgba(220, 38, 38, 0.9)" : "rgba(8, 145, 178, 0.9)"}
+          borderRadius={6}
+          borderWidth={2}
+          borderColor="#fff"
+          zIndex={15}
+          elevation={5}
+        >
+          <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
+            {injury ? "INF" : chanceSummary.sources.join(',')}
+          </Text>
+        </YStack>
+      )}
+
+      {/* Nome giocatore - footer prominente con sfondo semitrasparente */}
       <YStack
-        backgroundColor="#16a34a"
-        paddingHorizontal={6}
-        paddingVertical={isField ? 4 : 6}
+        position="absolute"
+        bottom={0}
+        left={0}
+        right={0}
+        backgroundColor="rgba(22, 163, 74, 0.95)"
+        paddingHorizontal={8}
+        paddingVertical={isField ? 6 : 8}
         alignItems="center"
+        borderBottomLeftRadius={12}
+        borderBottomRightRadius={12}
+        zIndex={10}
+        borderTopWidth={1}
+        borderTopColor="rgba(255, 255, 255, 0.3)"
       >
         <Text
-          fontSize={isField ? 9 : 11}
-          fontWeight="700"
+          fontSize={isField ? 11 : 13}
+          fontWeight="800"
           color="#fff"
           textAlign="center"
           numberOfLines={1}
+          textTransform="uppercase"
+          letterSpacing={0.5}
+          textShadowColor="rgba(0, 0, 0, 0.5)"
+          textShadowOffset={{ width: 1, height: 1 }}
+          textShadowRadius={2}
         >
           {name}
         </Text>
         {!isField && roleLabel && (
-          <Text fontSize={7} color="#dcfce7" marginTop={1} textAlign="center">
+          <Text 
+            fontSize={isField ? 8 : 9} 
+            color="#dcfce7" 
+            marginTop={2} 
+            fontWeight="600"
+            textShadowColor="rgba(0, 0, 0, 0.5)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
             {roleLabel}
           </Text>
         )}
