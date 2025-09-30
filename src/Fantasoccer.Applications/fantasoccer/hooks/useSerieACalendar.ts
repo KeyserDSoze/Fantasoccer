@@ -148,24 +148,6 @@ export function useSerieACalendar(options: UseSerieACalendarOptions = {}) {
   }
 }
 
-// Funzione helper per formattare la data
-export const formatGameDate = (dateString: string | null): string => {
-  if (!dateString) return 'Data non disponibile'
-  
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('it-IT', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  } catch {
-    return 'Data non valida'
-  }
-}
-
 // Funzione helper per ottenere lo status della giornata
 export const getDayStatusText = (
   isLive: boolean,
