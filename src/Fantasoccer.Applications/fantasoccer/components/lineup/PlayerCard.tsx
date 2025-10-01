@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
 import {
   Trophy,
   Target,
@@ -88,9 +89,11 @@ export function PlayerCard({ player}: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
   const [showGameTooltip, setShowGameTooltip] = useState(false)
-  const [showBonusTooltip, setShowBonusTooltip] = useState<string | null>(null)
   const [showChanceTooltip, setShowChanceTooltip] = useState<string | null>(null)
   const [isBlinking, setIsBlinking] = useState(false)
+  
+  // Toast controller per mostrare informazioni bonus/malus
+  const toast = useToastController()
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -219,6 +222,70 @@ export function PlayerCard({ player}: PlayerCardProps) {
       hasManOfTheMatch
     }
   }, [vote])
+
+  // Funzione per generare messaggio descrittivo completo
+  const generatePlayerSummaryMessage = useMemo(() => {
+    if (!vote) return null
+
+    const parts: string[] = []
+    const playerName = name
+
+    // Raccogli tutti i bonus/malus
+    for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
+      const count = (vote as any)[bonusConfig.key] ?? 0
+      if (count > 0) {
+        const pluralLabel = count === 1 ? bonusConfig.description.slice(0, -1) : bonusConfig.description
+        parts.push(`${count} ${pluralLabel}`)
+      }
+    }
+
+    // Aggiungi comportamenti
+    if (vote.status !== Behaviour.Nothing) {
+      const behaviourConfig = BEHAVIOUR_CONFIG[vote.status]
+      if (behaviourConfig) {
+        if (vote.status === Behaviour.YellowCard) {
+          parts.push('è stato ammonito')
+        } else if (vote.status === Behaviour.RedCard) {
+          parts.push('è stato espulso')
+        }
+      }
+    }
+
+    // Aggiungi man of the match
+    const hasManOfTheMatch = (vote as any)?.manOfTheMatch ?? false
+    if (hasManOfTheMatch) {
+      parts.push('è stato il miglior giocatore in campo')
+    }
+
+    if (parts.length === 0) return null
+
+    // Costruisci frase
+    let message = `Il giocatore ${playerName} ha `
+    
+    if (parts.length === 1) {
+      message += parts[0]
+    } else if (parts.length === 2) {
+      message += parts.join(' ed ')
+    } else {
+      const lastPart = parts.pop()
+      message += parts.join(', ') + ' ed ' + lastPart
+    }
+
+    message += '.'
+    return message
+  }, [vote, name])
+
+  // Funzione per mostrare toast con informazioni complete
+  const showPlayerSummaryToast = () => {
+    const message = generatePlayerSummaryMessage
+    if (message) {
+      toast.show('Prestazione del Giocatore', {
+        message,
+        duration: 10000, // 10 secondi
+        native: true // Usa toast nativo su mobile
+      })
+    }
+  }
 
   // Informazioni chance 
   const chanceInfo = useMemo(() => {
@@ -350,6 +417,93 @@ export function PlayerCard({ player}: PlayerCardProps) {
       }
     }
   }, [realGame, teamName])
+
+  // Funzione per generare il messaggio completo sui bonus/malus
+  const generatePlayerStatsMessage = useMemo(() => {
+    if (!vote) return null
+
+    const parts: string[] = []
+    const playerName = name || 'Il giocatore'
+
+    // Raccoglie tutti i bonus/malus con i loro valori
+    const stats: { [key: string]: number } = {}
+    
+    for (const config of BONUS_MALUS_CONFIG) {
+      const value = (vote as any)[config.key] ?? 0
+      if (value > 0) {
+        stats[config.label] = value
+      }
+    }
+
+    // Costruisce la frase descrittiva
+    if (Object.keys(stats).length === 0 && vote.status === Behaviour.Nothing && !(vote as any)?.manOfTheMatch) {
+      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
+    }
+
+    // Aggiunge le statistiche
+    if (stats['Gol']) {
+      parts.push(`${stats['Gol']} ${stats['Gol'] === 1 ? 'gol' : 'gol'}`)
+    }
+    if (stats['Rigori']) {
+      parts.push(`${stats['Rigori']} ${stats['Rigori'] === 1 ? 'rigore segnato' : 'rigori segnati'}`)
+    }
+    if (stats['Assist']) {
+      parts.push(`${stats['Assist']} ${stats['Assist'] === 1 ? 'assist' : 'assist'}`)
+    }
+    if (stats['Parate']) {
+      parts.push(`${stats['Parate']} ${stats['Parate'] === 1 ? 'rigore parato' : 'rigori parati'}`)
+    }
+    if (stats['Gol Subiti']) {
+      parts.push(`${stats['Gol Subiti']} ${stats['Gol Subiti'] === 1 ? 'gol subito' : 'gol subiti'}`)
+    }
+    if (stats['Rig. Sbagliati']) {
+      parts.push(`${stats['Rig. Sbagliati']} ${stats['Rig. Sbagliati'] === 1 ? 'rigore sbagliato' : 'rigori sbagliati'}`)
+    }
+    if (stats['Autogol']) {
+      parts.push(`${stats['Autogol']} ${stats['Autogol'] === 1 ? 'autogol' : 'autogol'}`)
+    }
+
+    // Aggiunge man of the match
+    if ((vote as any)?.manOfTheMatch) {
+      parts.push('è stato il miglior giocatore in campo')
+    }
+
+    // Aggiunge comportamenti
+    if (vote.status === Behaviour.YellowCard) {
+      parts.push('è stato ammonito')
+    } else if (vote.status === Behaviour.RedCard) {
+      parts.push('è stato espulso')
+    }
+
+    if (parts.length === 0) {
+      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
+    }
+
+    // Costruisce la frase finale
+    let message = `${playerName} ha `
+    if (parts.length === 1) {
+      message += parts[0]
+    } else if (parts.length === 2) {
+      message += parts.join(' e ')
+    } else {
+      message += parts.slice(0, -1).join(', ') + ' ed ' + parts[parts.length - 1]
+    }
+    message += '.'
+
+    return message
+  }, [vote, name])
+
+  // Funzione per mostrare il toast con le statistiche del giocatore
+  const showPlayerStatsToast = () => {
+    console.log(generatePlayerStatsMessage)
+    if (generatePlayerStatsMessage) {
+      toast.show('Statistiche Giocatore', {
+        message: generatePlayerStatsMessage,
+        duration: 10000, // 10 secondi
+        native: false
+      })
+    }
+  }
 
   // Dimensioni base fisse - il scaling viene gestito dal contenitore via cardScale
   const cardWidth = 112
@@ -509,56 +663,53 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Area bonus/malus organizzata - a destra */}
+      {/* Area bonus/malus organizzata - a destra (cliccabile per toast) */}
       {(vote && (playerBehaviourAndBonus.bonusGroups.length > 0 || chanceInfo.length > 0)) && (
         <YStack
           position="absolute"
-          top={-4}
+          top={0}
           right={-4}
           maxWidth={48}
           borderRadius={6}
-          paddingVertical={6}
+          paddingVertical={0}
           paddingHorizontal={4}
-          gap={4}
+          gap={2}
           alignItems="center"
           zIndex={20}
         >
-          {/* Bonus/Malus organizzati per tipo */}
-          {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
-            <YStack key={group.config.key} alignItems="center" gap={2}>
-              {/* Riga di icone dello stesso tipo */}
-              <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
-                {group.items}
-              </XStack>
-              
-              {/* Contatore se ci sono più di 4 elementi */}
-              {group.count > 4 && (
-                <Text fontSize={8} color="#fff" fontWeight="600">
-                  +{group.count - 4}
-                </Text>
-              )}
-              
-              {/* Tooltip per gruppo */}
-              {showBonusTooltip === group.config.key && (
-                <YStack
-                  position="absolute"
-                  top={0}
-                  left={-85}
-                  backgroundColor="rgba(0, 0, 0, 0.95)"
-                  padding={4}
-                  borderRadius={4}
-                  zIndex={35}
-                  borderWidth={1}
-                  borderColor="rgba(255, 255, 255, 0.3)"
-                  minWidth={75}
-                >
-                  <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
-                    {group.count} {group.config.description}
-                  </Text>
-                </YStack>
-              )}
-            </YStack>
-          ))}
+          {/* Area bonus/malus cliccabile per toast */}
+          {playerBehaviourAndBonus.bonusGroups.length > 0 && (
+            <Button
+              position="relative"
+              padding={0}
+              backgroundColor="transparent"
+              borderWidth={0}
+              onPress={showPlayerSummaryToast}
+              pressStyle={{ scale: 0.95, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              borderRadius={6}
+              paddingVertical={4}
+              paddingHorizontal={2}
+            >
+              <YStack alignItems="center" gap={4}>
+                {/* Bonus/Malus organizzati per tipo */}
+                {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
+                  <YStack key={group.config.key} alignItems="center" gap={2}>
+                    {/* Riga di icone dello stesso tipo */}
+                    <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
+                      {group.items}
+                    </XStack>
+                    
+                    {/* Contatore se ci sono più di 4 elementi */}
+                    {group.count > 4 && (
+                      <Text fontSize={8} color="#fff" fontWeight="600">
+                        +{group.count - 4}
+                      </Text>
+                    )}
+                  </YStack>
+                ))}
+              </YStack>
+            </Button>
+          )}
           
           {/* Separatore se ci sono sia bonus che chance */}
           {playerBehaviourAndBonus.bonusGroups.length > 0 && chanceInfo.length > 0 && (
