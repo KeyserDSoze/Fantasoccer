@@ -10,6 +10,8 @@ import { useNavigation, useRoute } from '@react-navigation/native'
 import { formatItalianDate } from 'utils/timezoneHelpers'
 import type { RootStackParamList } from '../navigation'
 import type { RouteProp } from '@react-navigation/native'
+import { TeamLogo } from 'components/team/TeamLogo'
+import { TeamBonuses } from 'components/icons/BonusIcons'
 
 export default function GameScreen() {
   const {
@@ -89,17 +91,70 @@ export default function GameScreen() {
               <Text>Nessuna partita disponibile</Text>
             ) : (
               <YStack gap="$2">
-                <H3>{gameWrapper.game?.home} vs {gameWrapper.game?.away}</H3>
-                {gameDate && (
-                  <Text>{formatItalianDate(gameDate)}</Text>
-                )}
                 {playedScore && (
-                  <Text fontSize="$4" fontWeight="bold">{playedScore}</Text>
+                  <YStack gap="$3">
+                    {/* Risultato dettagliato con scudetti e bonus */}
+                    <XStack justifyContent="space-between" alignItems="center" gap="$4">
+                      {/* Squadra di casa */}
+                      <YStack alignItems="center" gap="$2" flex={1}>
+                        <TeamLogo 
+                          groupId={routeGroupId || ''} 
+                          year={routeYear || ''} 
+                          ownerEmail={gameWrapper.game?.homeOwner || ''}
+                          size={50}
+                        />
+                        <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                          {gameWrapper.game?.home}
+                        </Text>
+                        <YStack alignItems="center" gap="$1">
+                          <Text fontSize="$5" fontWeight="bold">
+                            {gameWrapper.game?.result?.home?.value || 0} pt
+                          </Text>
+                          <TeamBonuses 
+                            hasGoodDefense={homeHasAGoodDefense}
+                            hasGoodPeople={homeHasAGoodPeople}
+                            hasOwnGoal={homeHasDoneOwnGoal}
+                          />
+                        </YStack>
+                      </YStack>
+                      
+                      {/* VS e punteggio goals */}
+                      <YStack alignItems="center" gap="$1">
+                        <Text fontSize="$6" fontWeight="bold">
+                          {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
+                        </Text>
+                        <Text fontSize="$2" color="$color11">
+                          {gameDate && (
+                            <Text>{formatItalianDate(gameDate)}</Text>
+                    )}
+                        </Text>
+                      </YStack>
+                      
+                      {/* Squadra ospite */}
+                      <YStack alignItems="center" gap="$2" flex={1}>
+                        <TeamLogo 
+                          groupId={routeGroupId || ''} 
+                          year={routeYear || ''} 
+                          ownerEmail={gameWrapper.game?.awayOwner || ''}
+                          size={50}
+                        />
+                        <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                          {gameWrapper.game?.away}
+                        </Text>
+                        <YStack alignItems="center" gap="$1">
+                          <Text fontSize="$5" fontWeight="bold">
+                            {gameWrapper.game?.result?.away?.value || 0} pt
+                          </Text>
+                          <TeamBonuses 
+                            hasGoodDefense={awayHasAGoodDefense}
+                            hasGoodPeople={awayHasAGoodPeople}
+                            hasOwnGoal={awayHasDoneOwnGoal}
+                          />
+                        </YStack>
+                      </YStack>
+                    </XStack>
+                  </YStack>
                 )}
-                <XStack gap="$2">
-                  <Button onPress={() => navigation.navigate('Formation' as never)} >Vai alla formazione</Button>
-                  <Button variant="outlined" onPress={() => { /* TODO: refetch teams/day */ }}>Aggiorna</Button>
-                </XStack>
               </YStack>
             )}
           </Card>
