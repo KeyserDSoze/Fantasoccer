@@ -487,6 +487,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
       borderColor="#e5e5e5"
       position="relative"
       elevation={4}
+      overflow="hidden"
     >
       {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card con bordi arrotondati */}
       <Image
@@ -511,68 +512,61 @@ export function PlayerCard({ player}: PlayerCardProps) {
         backgroundColor="rgba(0,0,0,0.1)"
         zIndex={2}
       />
-      {/* Vote badge - sporgente dall'angolo con effetto 3D pronunciato */}
+      {/* Vote badge - quadrato in alto a sinistra interno alla card */}
       {vote && voteDisplayInfo && (
         <YStack
           position="absolute"
-          top={-12}
-          left={-12}
-          width={40}
-          height={40}
-          borderRadius={22}
+          top={-4}
+          left={-4}
+          width={36}
+          height={36}
+          borderRadius={6}
           backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
           zIndex={25}
-          borderWidth={4}
-          borderColor="#fff"
-          elevation={12}
-          shadowColor="#000"
-          shadowOffset={{ width: 3, height: 6 }}
-          shadowOpacity={0.4}
-          shadowRadius={8}
-          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.7 : 1}
+          borderWidth={2}
+          borderColor="rgba(255, 255, 255, 0.9)"
+          elevation={8}
+          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.8 : 1}
           transform={[
-            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.1 : 1.0 }
+            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.05 : 1.0 }
           ]}
         >
-          <Text fontSize={14} fontWeight="900" color="#fff">
+          <Text fontSize={13} fontWeight="900" color="#fff">
             {voteLabel}
           </Text>
           
-          {/* Indicatori di stato sotto il voto */}
-          <XStack position="absolute" bottom={-8} gap={2}>
+          {/* Indicatori di stato - piccoli pallini nell'angolo in basso a destra del quadrato */}
+          <XStack position="absolute" bottom={2} right={2} gap={1}>
             {!vote.hasVote && (
               <YStack
-                width={6}
-                height={6}
-                borderRadius={3}
+                width={4}
+                height={4}
+                borderRadius={2}
                 backgroundColor="#ef4444"
-                borderWidth={1}
+                borderWidth={0.5}
                 borderColor="#fff"
-                elevation={3}
               />
             )}
             {!vote.isFinal && vote.hasVote && (
               <YStack
-                width={6}
-                height={6}
-                borderRadius={3}
+                width={4}
+                height={4}
+                borderRadius={2}
                 backgroundColor="#f59e0b"
-                borderWidth={1}
+                borderWidth={0.5}
                 borderColor="#fff"
-                elevation={3}
               />
             )}
             {vote.isOut && (
               <YStack
-                width={6}
-                height={6}
-                borderRadius={3}
+                width={4}
+                height={4}
+                borderRadius={2}
                 backgroundColor="#6b7280"
-                borderWidth={1}
+                borderWidth={0.5}
                 borderColor="#fff"
-                elevation={3}
               />
             )}
           </XStack>
@@ -621,11 +615,11 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Sistema bonus/malus - in alto a destra */}
+      {/* Sistema bonus/malus - in alto a destra, spostato leggermente più in basso */}
       {vote && bonusIcons.length > 0 && (
         <YStack
           position="absolute"
-          top={-12}
+          top={6}
           right={-14}
           gap={3}
           zIndex={20}
