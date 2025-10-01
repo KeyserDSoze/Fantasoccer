@@ -44,7 +44,7 @@ function calculateFieldDimensions(screenWidth: number, screenHeight: number): Fi
   
   // Aspect ratio per campo da calcio: circa 1.55:1 (larghezza:altezza)
   // Per mobile verticale, invertiamo il rapporto
-  const aspectRatio = isMobile ? 0.65 : 1.55 // mobile: più alto che largo
+  const aspectRatio = isMobile ? 0.95 : 1.55 // mobile: più alto che largo
   const fieldHeight = fieldWidth / aspectRatio
 
   // Calcola fattore di scala per le card basato sulla larghezza del campo

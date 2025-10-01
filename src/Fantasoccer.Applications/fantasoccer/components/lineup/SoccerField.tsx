@@ -130,7 +130,7 @@ console.log(away?.players)
    * @param roleLabel - Etichetta del ruolo da mostrare (es. 'PORTIERI', 'DIFENSORI')
    * @param backgroundColor - Colore hex di sfondo per il badge del ruolo (es. '#f59e0b')
    * @param roleIcon - Emoji icona del ruolo (es. '🥅', '🛡️')
-   * @returns XStack con layout |ruolo verticale|cards orizzontali| o null se nessun giocatore
+   * @returns Layout mobile: YStack con ruolo sopra e cards sotto | Layout desktop: XStack con |ruolo verticale|cards orizzontali| o null se nessun giocatore
    */
   const renderBenchSection = (
     players: LivePlayer[],
@@ -149,6 +149,35 @@ console.log(away?.players)
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
+    // Layout mobile: colonna tradizionale
+    if (isMobile) {
+      return (
+        <YStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
+          {/* Ruolo orizzontale sopra */}
+          <Text 
+            fontSize={14} 
+            fontWeight="700" 
+            color={backgroundColor}
+            textAlign="center"
+            paddingBottom={4}
+          >
+            {roleIcon} {roleLabel}
+          </Text>
+          
+          {/* Cards giocatori in colonna */}
+          <YStack gap={8} alignItems="center" style={{
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'center top'
+          }}>
+            {players.map((player, i) => (
+              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
+            ))}
+          </YStack>
+        </YStack>
+      )
+    }
+
+    // Layout desktop: riga con ruolo verticale a sinistra
     return (
       <XStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
         {/* Ruolo in verticale */}
@@ -175,26 +204,15 @@ console.log(away?.players)
           </Text>
         </YStack>
         
-        {/* Cards giocatori */}
-        {isMobile ? (
-          <YStack gap={8} flex={1} style={{
-            transform: `scale(${cardScale})`,
-            transformOrigin: 'left top'
-          }}>
-            {players.map((player, i) => (
-              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
-            ))}
-          </YStack>
-        ) : (
-          <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-            transform: `scale(${cardScale})`,
-            transformOrigin: 'left top'
-          }}>
-            {players.map((player, i) => (
-              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
-            ))}
-          </XStack>
-        )}
+        {/* Cards giocatori in riga */}
+        <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
+          transform: `scale(${cardScale})`,
+          transformOrigin: 'left top'
+        }}>
+          {players.map((player, i) => (
+            <PlayerCard key={`${sectionKey}-${i}`} player={player} />
+          ))}
+        </XStack>
       </XStack>
     )
   }
