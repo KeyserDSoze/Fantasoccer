@@ -80,6 +80,11 @@ export default function GameScreen() {
   const awayHasAGoodPeople = gameWrapper?.game?.result?.away?.goodPeople
   const awayHasDoneOwnGoal = gameWrapper?.game?.result?.away?.ownGoal
 
+  // Calcola se almeno una squadra ha bonus per determinare l'altezza minima
+  const hasAnyBonus = homeHasAGoodDefense || homeHasAGoodPeople || homeHasDoneOwnGoal || 
+                     awayHasAGoodDefense || awayHasAGoodPeople || awayHasDoneOwnGoal
+  const bonusMinHeight = hasAnyBonus ? 32 : 8 // Se nessuna ha bonus, spazio minimo
+
   return (
     <View style={{ flex: 1 }}>
       <ScreenContent path="screens/game.tsx" title={title}>
@@ -185,12 +190,14 @@ export default function GameScreen() {
                             <Text fontSize="$6" fontWeight="bold">
                               {gameWrapper.game?.result?.home?.value || 0} pt
                             </Text>
-                            <TeamBonuses 
-                              hasGoodDefense={homeHasAGoodDefense}
-                              hasGoodPeople={homeHasAGoodPeople}
-                              hasOwnGoal={homeHasDoneOwnGoal}
-                              iconSize={28}
-                            />
+                            <View style={{ minHeight: bonusMinHeight, justifyContent: 'center' }}>
+                              <TeamBonuses 
+                                hasGoodDefense={homeHasAGoodDefense}
+                                hasGoodPeople={homeHasAGoodPeople}
+                                hasOwnGoal={homeHasDoneOwnGoal}
+                                iconSize={28}
+                              />
+                            </View>
                           </YStack>
                         </YStack>
                         
@@ -221,12 +228,14 @@ export default function GameScreen() {
                             <Text fontSize="$6" fontWeight="bold">
                               {gameWrapper.game?.result?.away?.value || 0} pt
                             </Text>
-                            <TeamBonuses 
-                              hasGoodDefense={awayHasAGoodDefense}
-                              hasGoodPeople={awayHasAGoodPeople}
-                              hasOwnGoal={awayHasDoneOwnGoal}
-                              iconSize={28}
-                            />
+                            <View style={{ minHeight: bonusMinHeight, justifyContent: 'center' }}>
+                              <TeamBonuses 
+                                hasGoodDefense={awayHasAGoodDefense}
+                                hasGoodPeople={awayHasAGoodPeople}
+                                hasOwnGoal={awayHasDoneOwnGoal}
+                                iconSize={28}
+                              />
+                            </View>
                           </YStack>
                         </YStack>
                       </XStack>
