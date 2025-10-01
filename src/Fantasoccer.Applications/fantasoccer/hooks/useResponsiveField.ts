@@ -47,9 +47,9 @@ function calculateFieldDimensions(screenWidth: number, screenHeight: number): Fi
   let fieldHeight: number
   
   if (isMobile) {
-    // Su mobile, usiamo una percentuale dell'altezza dello schermo per massimizzare l'uso dello spazio
-    // Lasciamo spazio per header/footer, quindi usiamo circa 60-70% dell'altezza schermo
-    fieldHeight = Math.min(screenHeight * 0.7, screenWidth * 1.4)
+    // Su mobile, aumentiamo significativamente l'altezza per evitare sovrapposizioni tra le linee
+    // Usiamo una percentuale maggiore dell'altezza schermo e rimuoviamo il limite di larghezza
+    fieldHeight = Math.min(screenHeight * 0.85, screenWidth * 2.2)
   } else {
     // Su desktop, manteniamo l'aspect ratio tradizionale
     const aspectRatio = 1.55 // desktop: più largo che alto
