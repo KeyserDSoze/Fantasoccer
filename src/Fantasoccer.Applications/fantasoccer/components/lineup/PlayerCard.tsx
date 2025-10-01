@@ -622,37 +622,6 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Rimuoviamo la sezione dell'immagine centrale - ora è lo sfondo */}
-
-      {/* Chance info - lato sinistro basso per field variant senza vote */}
-      {!vote && chance && (
-        <YStack
-          position="absolute"
-          left={8}
-          bottom={55}
-          paddingHorizontal={6}
-          paddingVertical={4}
-          backgroundColor={injury ? "rgba(220, 38, 38, 0.9)" : "rgba(8, 145, 178, 0.9)"}
-          borderRadius={6}
-          borderWidth={2}
-          borderColor="#fff"
-          zIndex={15}
-          elevation={5}
-        >
-          <Text fontSize={9} color="#fff" fontWeight="700">
-            {injury ? "INF" : (() => {
-              const gameNotStarted = !realGame?.date || new Date() < convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
-              if (gameNotStarted) {
-                return chance.fantagazzetta && chance.gazzetta ? "FG" :
-                       chance.fantagazzetta ? "F" :
-                       chance.gazzetta ? "G" : "?"
-              }
-              return "?"
-            })()}
-          </Text>
-        </YStack>
-      )}
-
       {/* Sistema bonus/malus - in alto a destra */}
       {vote && bonusIcons.length > 0 && (
         <YStack

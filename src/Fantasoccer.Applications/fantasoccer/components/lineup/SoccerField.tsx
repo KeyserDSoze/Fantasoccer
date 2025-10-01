@@ -100,51 +100,6 @@ console.log(away?.players)
     p.currentPosition === FantaSoccerRole.Tribune
   )
 
-  // Funzione per ottenere il label del ruolo
-  const getRoleLabel = (role: FantaSoccerRole): string => {
-    switch (role) {
-      case FantaSoccerRole.GoalKeeper:
-      case FantaSoccerRole.BackupGoalKeeper:
-        return 'P'
-      case FantaSoccerRole.Defensor:
-      case FantaSoccerRole.FirstBackupDefensor:
-      case FantaSoccerRole.SecondBackupDefensor:
-        return 'D'
-      case FantaSoccerRole.Midfielder:
-      case FantaSoccerRole.FirstBackupMidfielder:
-      case FantaSoccerRole.SecondBackupMidfielder:
-        return 'C'
-      case FantaSoccerRole.Forward:
-      case FantaSoccerRole.FirstBackupForward:
-      case FantaSoccerRole.SecondBackupForward:
-        return 'A'
-      default:
-        return 'T'
-    }
-  }
-
-  const getRoleColor = (role: FantaSoccerRole): string => {
-    switch (role) {
-      case FantaSoccerRole.GoalKeeper:
-      case FantaSoccerRole.BackupGoalKeeper:
-        return '#f59e0b'
-      case FantaSoccerRole.Defensor:
-      case FantaSoccerRole.FirstBackupDefensor:
-      case FantaSoccerRole.SecondBackupDefensor:
-        return '#3b82f6'
-      case FantaSoccerRole.Midfielder:
-      case FantaSoccerRole.FirstBackupMidfielder:
-      case FantaSoccerRole.SecondBackupMidfielder:
-        return '#10b981'
-      case FantaSoccerRole.Forward:
-      case FantaSoccerRole.FirstBackupForward:
-      case FantaSoccerRole.SecondBackupForward:
-        return '#ef4444'
-      default:
-        return '#6b7280'
-    }
-  }
-
   // Funzione per raggruppare giocatori della panchina per ruolo
   const groupBenchByRole = (benchPlayers: LivePlayer[]) => {
     const groups = {
@@ -167,6 +122,83 @@ console.log(away?.players)
 
   const homeBenchGroups = groupBenchByRole(homeBench)
   const awayBenchGroups = groupBenchByRole(awayBench)
+
+  /**
+   * Componente riutilizzabile per sezioni panchina
+   * @param players - Array di giocatori da mostrare
+   * @param sectionKey - Chiave univoca per le key React (es. 'home-gk', 'away-def')
+   * @param roleLabel - Etichetta del ruolo da mostrare (es. 'PORTIERI', 'DIFENSORI')
+   * @param backgroundColor - Colore hex di sfondo per il badge del ruolo (es. '#f59e0b')
+   * @param roleIcon - Emoji icona del ruolo (es. '🥅', '🛡️')
+   * @returns XStack con layout |ruolo verticale|cards orizzontali| o null se nessun giocatore
+   */
+  const renderBenchSection = (
+    players: LivePlayer[],
+    sectionKey: string,
+    roleLabel: string,
+    backgroundColor: string,
+    roleIcon: string
+  ) => {
+    if (players.length === 0) return null
+
+    // Converte hex color in rgba con opacità 0.1
+    const hexToRgba = (hex: string, alpha: number = 0.1) => {
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+
+    return (
+      <XStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
+        {/* Ruolo in verticale */}
+        <YStack 
+          minWidth={60} 
+          height={180}
+          justifyContent="center" 
+          alignItems="center"
+          backgroundColor={backgroundColor}
+          borderRadius={8}
+          paddingHorizontal={8}
+          paddingVertical={16}
+        >
+          <Text 
+            fontSize={14} 
+            fontWeight="700" 
+            color="#fff"
+            style={{ 
+              writingMode: 'vertical-lr',
+              textOrientation: 'mixed'
+            }}
+          >
+            {roleIcon} {roleLabel}
+          </Text>
+        </YStack>
+        
+        {/* Cards giocatori */}
+        {isMobile ? (
+          <YStack gap={8} flex={1} style={{
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'left top'
+          }}>
+            {players.map((player, i) => (
+              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
+            ))}
+          </YStack>
+        ) : (
+          <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'left top'
+          }}>
+            {players.map((player, i) => (
+              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
+            ))}
+          </XStack>
+        )}
+      </XStack>
+    )
+  }
+
   // Group players by FantaSoccerRole numeric enum (titolari: 0..3)
   function groupByPosition(players: LivePlayer[]) {
     const groups: { GK: LivePlayer[]; DEF: LivePlayer[]; MID: LivePlayer[]; FWD: LivePlayer[] } = { GK: [], DEF: [], MID: [], FWD: [] }
@@ -303,201 +335,11 @@ console.log(away?.players)
             </Text>
           </YStack>
 
-          {/* Portieri */}
-          {homeBenchGroups.goalkeepers.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(245, 158, 11, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#f59e0b"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🥅 PORTIERI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`home-gk-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`home-gk-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Difensori */}
-          {homeBenchGroups.defenders.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(59, 130, 246, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#3b82f6"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🛡️ DIFENSORI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`home-def-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`home-def-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Centrocampisti */}
-          {homeBenchGroups.midfielders.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(16, 185, 129, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#10b981"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  ⚽ CENTROCAMPISTI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`home-mid-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`home-mid-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Attaccanti */}
-          {homeBenchGroups.forwards.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(239, 68, 68, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#ef4444"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🎯 ATTACCANTI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`home-fwd-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {homeBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`home-fwd-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
+          {/* Sezioni ruoli con componente riutilizzabile */}
+          {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅')}
+          {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+          {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+          {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
 
           {homeBench.length === 0 && (
             <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
@@ -520,201 +362,11 @@ console.log(away?.players)
             </Text>
           </YStack>
 
-          {/* Portieri */}
-          {awayBenchGroups.goalkeepers.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(245, 158, 11, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#f59e0b"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🥅 PORTIERI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`away-gk-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`away-gk-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Difensori */}
-          {awayBenchGroups.defenders.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(59, 130, 246, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#3b82f6"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🛡️ DIFENSORI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`away-def-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`away-def-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Centrocampisti */}
-          {awayBenchGroups.midfielders.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(16, 185, 129, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#10b981"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  ⚽ CENTROCAMPISTI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`away-mid-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`away-mid-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
-
-          {/* Attaccanti */}
-          {awayBenchGroups.forwards.length > 0 && (
-            <XStack gap={8} backgroundColor="rgba(239, 68, 68, 0.1)" borderRadius={8} padding={12}>
-              {/* Ruolo in verticale */}
-              <YStack 
-                minWidth={60} 
-                justifyContent="center" 
-                alignItems="center"
-                backgroundColor="#ef4444"
-                borderRadius={8}
-                paddingHorizontal={8}
-                paddingVertical={16}
-              >
-                <Text 
-                  fontSize={14} 
-                  fontWeight="700" 
-                  color="#fff"
-                  style={{ 
-                    writingMode: 'vertical-lr',
-                    textOrientation: 'mixed'
-                  }}
-                >
-                  🎯 ATTACCANTI
-                </Text>
-              </YStack>
-              
-              {/* Cards giocatori */}
-              {isMobile ? (
-                <YStack gap={8} flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`away-fwd-${i}`} player={player} />
-                  ))}
-                </YStack>
-              ) : (
-                <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-                  transform: `scale(${cardScale})`,
-                  transformOrigin: 'left top'
-                }}>
-                  {awayBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`away-fwd-${i}`} player={player} />
-                  ))}
-                </XStack>
-              )}
-            </XStack>
-          )}
+          {/* Sezioni ruoli con componente riutilizzabile */}
+          {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅')}
+          {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+          {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+          {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
 
           {awayBench.length === 0 && (
             <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
