@@ -684,10 +684,13 @@ export function PlayerCard({ player}: PlayerCardProps) {
               backgroundColor="transparent"
               borderWidth={0}
               onPress={showPlayerSummaryToast}
-              pressStyle={{ scale: 0.95, backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
+              pressStyle={{ backgroundColor: 'transparent' }}
+              hoverStyle={{ backgroundColor: 'transparent' }}
+              focusStyle={{ backgroundColor: 'transparent' }}
               borderRadius={6}
               paddingVertical={4}
               paddingHorizontal={2}
+              unstyled={true}
             >
               <YStack alignItems="center" gap={4}>
                 {/* Bonus/Malus organizzati per tipo */}
