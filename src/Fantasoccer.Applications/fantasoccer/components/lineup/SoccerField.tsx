@@ -160,7 +160,7 @@ console.log(away?.players)
           backgroundColor={backgroundColor}
           borderRadius={8}
           paddingHorizontal={8}
-          paddingVertical={16}
+          paddingVertical={2}
         >
           <Text 
             fontSize={14} 

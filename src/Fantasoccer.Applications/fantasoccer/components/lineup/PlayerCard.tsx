@@ -234,6 +234,23 @@ export function PlayerCard({ player}: PlayerCardProps) {
 
   const voteLabel = vote ? (typeof vote.value === 'number' ? vote.value.toFixed(1) : String(vote.value)) : null
 
+  // Determina se è durante una partita live per lampeggiamento voti
+  const isGameLive = useMemo(() => {
+    if (!realGame?.date || !vote) return false
+    const now = new Date()
+    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
+    return now >= gameStart && now <= twoHoursAfterStart
+  }, [realGame, vote])
+
+  // Determina se la partita non è ancora iniziata per mostrare chance info
+  const isGameNotStarted = useMemo(() => {
+    if (!realGame?.date) return true // Se non c'è data, consideriamo non iniziata
+    const now = new Date()
+    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    return now < gameStart
+  }, [realGame])
+
   // Logica per determinare il colore del voto e se deve lampeggiare
   const voteDisplayInfo = useMemo(() => {
     if (!vote) return null
@@ -256,16 +273,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
 
     // Determina se deve lampeggiare (solo se la partita è live e il giocatore non è uscito)
-    // Una partita è considerata "live" se siamo nel range di 2 ore dall'inizio
     // Il lampeggiamento si ferma se il giocatore è uscito (isOut=true)
-    if (realGame?.date && vote.hasVote && !vote.isOut) {
-      const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
-      const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
-      
-      // La partita è live se siamo tra l'inizio e 2 ore dopo
-      if (now >= gameStart && now <= twoHoursAfterStart) {
-        shouldBlink = true
-      }
+    if (isGameLive && vote.hasVote && !vote.isOut) {
+      shouldBlink = true
     }
 
     return {
@@ -273,7 +283,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
       shouldBlink,
       borderColor: vote.isFinal ? '#fff' : 'rgba(255, 255, 255, 0.7)'
     }
-  }, [vote, realGame])
+  }, [vote, isGameLive])
 
   // Effetto per gestire il lampeggiamento
   useEffect(() => {
@@ -331,25 +341,14 @@ export function PlayerCard({ player}: PlayerCardProps) {
     return icons
   }, [vote])
 
-  // Determina se è durante una partita live per mostrare bonus o chance
-  const isGameLive = useMemo(() => {
-    if (!realGame?.date || !vote) return false
-    const now = new Date()
-    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
-    const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
-    return now >= gameStart && now <= twoHoursAfterStart
-  }, [realGame, vote])
-
-  // Informazioni chance per quando non è live
+  // Informazioni chance 
   const chanceInfo = useMemo(() => {
     if (!chance) return []
     
     const info: { type: keyof typeof CHANCE_INFO_MAP; value: any; label: string }[] = []
     
     // Solo se la partita non è ancora iniziata mostriamo F/G
-    const gameNotStarted = !realGame?.date || new Date() < convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
-    
-    if (gameNotStarted) {
+    if (isGameNotStarted) {
       // Fantagazzetta
       if (chance.fantagazzetta !== undefined) {
         info.push({ 
@@ -379,7 +378,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
     
     return info
-  }, [chance, realGame])
+  }, [chance, isGameNotStarted])
 
   // Funzione per determinare il colore di background del nome basato sulla posizione originale
   const getPlayerNameBackgroundColor = useMemo(() => {
@@ -646,8 +645,8 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Informazioni chance quando non è live */}
-      {!isGameLive && chanceInfo.length > 0 && (
+      {/* Informazioni chance */}
+      {chanceInfo.length > 0 && (
         <YStack
           position="absolute"
           top={8}
@@ -711,6 +710,10 @@ export function PlayerCard({ player}: PlayerCardProps) {
             textShadowColor="rgba(0, 0, 0, 0.8)"
             textShadowOffset={{ width: 1, height: 1 }}
             textShadowRadius={1}
+            opacity={isGameLive && gameInfo.type === 'result' && isBlinking ? 0.7 : 1}
+            transform={[
+              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.05 : 1.0 }
+            ]}
           >
             {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
           </Text>
@@ -752,6 +755,10 @@ export function PlayerCard({ player}: PlayerCardProps) {
               color="#10b981"
               textAlign="center"
               marginTop={4}
+              opacity={isGameLive && isBlinking ? 0.7 : 1}
+              transform={[
+                { scale: isGameLive && isBlinking ? 1.05 : 1.0 }
+              ]}
             >
               {gameInfo.resultText}
             </Text>
