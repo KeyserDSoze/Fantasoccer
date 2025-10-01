@@ -24,6 +24,9 @@ import {
   Info,
   CheckCircle,
   XCircle,
+  Radio,
+  Satellite,
+  BarChart,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
@@ -55,12 +58,12 @@ const BONUS_MALUS_MAP: { key: keyof Vote; icon: any; label: string; color: strin
 
 // Mappa per le informazioni di chance
 const CHANCE_INFO_MAP = {
-  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato' },
-  fantagazzetta: { icon: Plus, color: '#16a34a', label: 'Fantagazzetta' },
-  gazzetta: { icon: CheckCircle, color: '#059669', label: 'Gazzetta' },
-  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset' },
-  sky: { icon: Star, color: '#f59e0b', label: 'Sky' },
-  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma' },
+  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato', text: 'INF' },
+  fantagazzetta: { icon: null, color: '#16a34a', label: 'Fantagazzetta', text: 'F' },
+  gazzetta: { icon: null, color: '#059669', label: 'Gazzetta', text: 'G' },
+  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset', text: 'M' },
+  sky: { icon: Star, color: '#f59e0b', label: 'Sky', text: 'S' },
+  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma', text: 'T' },
 }
 
 // Componente per bonus/malus con tooltip
@@ -159,6 +162,7 @@ function ChanceIcon({
   onToggleTooltip: () => void
 }) {
   const config = CHANCE_INFO_MAP[type]
+  const IconComponent = config.icon
   
   return (
     <YStack alignItems="center">
@@ -177,7 +181,13 @@ function ChanceIcon({
         onHoverOut={() => showTooltip && onToggleTooltip()}
         pressStyle={{ scale: 0.95 }}
       >
-        <config.icon size={14} color="#fff" />
+        {IconComponent ? (
+          <IconComponent size={14} color="#fff" />
+        ) : (
+          <Text fontSize={12} fontWeight="bold" color="#fff">
+            {config.text}
+          </Text>
+        )}
       </YStack>
       
       {/* Tooltip */}
@@ -196,7 +206,9 @@ function ChanceIcon({
           minWidth={100}
         >
           <Text fontSize={10} color="#fff" textAlign="center" fontWeight="600">
-            {config.label}: {typeof value === 'boolean' ? (value ? 'Titolare' : 'Panchina') : value}
+            {type === 'fantagazzetta' ? 'Fantagazzetta' : 
+             type === 'gazzetta' ? 'Gazzetta' : 
+             config.label}: {typeof value === 'boolean' ? (value ? 'Titolare' : 'Panchina') : value}
           </Text>
         </YStack>
       )}
@@ -337,29 +349,34 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
   // Informazioni chance per quando non è live
   const chanceInfo = useMemo(() => {
-    if (!chance || isGameLive) return []
+    if (!chance) return []
     
     const info: { type: keyof typeof CHANCE_INFO_MAP; value: any; label: string }[] = []
     
-    // Fantagazzetta
-    if (chance.fantagazzetta !== undefined) {
-      info.push({ 
-        type: 'fantagazzetta', 
-        value: chance.fantagazzetta,
-        label: chance.fantagazzetta ? 'Titolare F' : 'Panchina F'
-      })
+    // Solo se la partita non è ancora iniziata mostriamo F/G
+    const gameNotStarted = !realGame?.date || new Date() < convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    
+    if (gameNotStarted) {
+      // Fantagazzetta
+      if (chance.fantagazzetta !== undefined) {
+        info.push({ 
+          type: 'fantagazzetta', 
+          value: chance.fantagazzetta,
+          label: chance.fantagazzetta ? 'Titolare F' : 'Panchina F'
+        })
+      }
+      
+      // Gazzetta
+      if (chance.gazzetta !== undefined) {
+        info.push({ 
+          type: 'gazzetta', 
+          value: chance.gazzetta,
+          label: chance.gazzetta ? 'Titolare G' : 'Panchina G'
+        })
+      }
     }
     
-    // Gazzetta
-    if (chance.gazzetta !== undefined) {
-      info.push({ 
-        type: 'gazzetta', 
-        value: chance.gazzetta,
-        label: chance.gazzetta ? 'Titolare G' : 'Panchina G'
-      })
-    }
-    
-    // Infortunio
+    // Infortunio sempre visibile
     if (chance.status === ChanceTypeEnum.Injury) {
       info.push({ 
         type: 'injury', 
@@ -369,7 +386,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     }
     
     return info
-  }, [chance, isGameLive])
+  }, [chance, realGame])
 
   // Funzione per determinare il colore di background del nome basato sulla posizione originale
   const getPlayerNameBackgroundColor = useMemo(() => {
@@ -614,53 +631,6 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
       {/* Rimuoviamo la sezione dell'immagine centrale - ora è lo sfondo */}
 
-      {/* Bonus icons - lato sinistro dell'immagine, riposizionati per evitare sovrapposizione con voto sporgente */}
-      {bonusIcons.length > 0 && (
-        <YStack 
-          position="absolute" 
-          left={4} 
-          top={60} 
-          gap={4}
-          zIndex={12}
-        >
-          {bonusIcons.slice(0, 4).map((b, i) => (
-            <YStack
-              key={i}
-              width={24}
-              height={24}
-              borderRadius={12}
-              backgroundColor={`${b.color ?? '#111'}E6`}
-              alignItems="center"
-              justifyContent="center"
-              borderWidth={2}
-              borderColor="#fff"
-              elevation={5}
-            >
-              <b.Icon size={12} color="#fff" />
-              {b.count > 1 && (
-                <YStack
-                  position="absolute"
-                  top={-6}
-                  right={-6}
-                  width={14}
-                  height={14}
-                  borderRadius={7}
-                  backgroundColor="#ef4444"
-                  alignItems="center"
-                  justifyContent="center"
-                  borderWidth={1}
-                  borderColor="#fff"
-                >
-                  <Text fontSize={7} color="#fff" fontWeight="700">
-                    {b.count}
-                  </Text>
-                </YStack>
-              )}
-            </YStack>
-          ))}
-        </YStack>
-      )}
-
       {/* Chance info - lato sinistro basso per field variant senza vote */}
       {!vote && chance && (
         <YStack
@@ -677,11 +647,15 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           elevation={5}
         >
           <Text fontSize={9} color="#fff" fontWeight="700">
-            {injury ? "INF" : (
-              chance.fantagazzetta && chance.gazzetta ? "FG" :
-              chance.fantagazzetta ? "F" :
-              chance.gazzetta ? "G" : "?"
-            )}
+            {injury ? "INF" : (() => {
+              const gameNotStarted = !realGame?.date || new Date() < convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+              if (gameNotStarted) {
+                return chance.fantagazzetta && chance.gazzetta ? "FG" :
+                       chance.fantagazzetta ? "F" :
+                       chance.gazzetta ? "G" : "?"
+              }
+              return "?"
+            })()}
           </Text>
         </YStack>
       )}
@@ -690,8 +664,8 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       {vote && bonusIcons.length > 0 && (
         <YStack
           position="absolute"
-          top={8}
-          right={-4}
+          top={-12}
+          right={-14}
           gap={3}
           zIndex={20}
         >
