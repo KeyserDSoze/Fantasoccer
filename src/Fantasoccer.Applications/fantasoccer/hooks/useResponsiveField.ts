@@ -43,9 +43,18 @@ function calculateFieldDimensions(screenWidth: number, screenHeight: number): Fi
   const fieldWidth = screenWidth
   
   // Aspect ratio per campo da calcio: circa 1.55:1 (larghezza:altezza)
-  // Per mobile verticale, invertiamo il rapporto
-  const aspectRatio = isMobile ? 0.95 : 1.55 // mobile: più alto che largo
-  const fieldHeight = fieldWidth / aspectRatio
+  // Per mobile verticale, usiamo più altezza per sfruttare lo schermo
+  let fieldHeight: number
+  
+  if (isMobile) {
+    // Su mobile, usiamo una percentuale dell'altezza dello schermo per massimizzare l'uso dello spazio
+    // Lasciamo spazio per header/footer, quindi usiamo circa 60-70% dell'altezza schermo
+    fieldHeight = Math.min(screenHeight * 0.7, screenWidth * 1.4)
+  } else {
+    // Su desktop, manteniamo l'aspect ratio tradizionale
+    const aspectRatio = 1.55 // desktop: più largo che alto
+    fieldHeight = fieldWidth / aspectRatio
+  }
 
   // Calcola fattore di scala per le card basato sulla larghezza del campo
   // Riferimento: 1400px = scala 1.0
