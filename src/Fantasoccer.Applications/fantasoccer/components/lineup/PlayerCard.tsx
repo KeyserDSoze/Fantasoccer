@@ -21,6 +21,7 @@ import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import type { Chance } from 'types/chance'
 import { FantaSoccerRole } from 'types/team'
+import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 
 export type PlayerCardVariant = 'starter' | 'bench' | 'tribune' | 'field'
 
@@ -51,6 +52,7 @@ function BonusBadge({ Icon, count, color, label }: { Icon: any; count: number; c
 export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
+  const [showGameTooltip, setShowGameTooltip] = useState(false)
   const [isBlinking, setIsBlinking] = useState(false)
 
   const current = (player as any).current ?? (player as any)
@@ -93,7 +95,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     // Una partita è considerata "live" se siamo nel range di 2 ore dall'inizio
     // Il lampeggiamento si ferma se il giocatore è uscito (isOut=true)
     if (realGame?.date && vote.hasVote && !vote.isOut) {
-      const gameStart = new Date(realGame.date)
+      const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
       const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
       
       // La partita è live se siamo tra l'inizio e 2 ore dopo
@@ -177,32 +179,66 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     return "#6b7280" // Grigio per casi non gestiti
   }, [current?.position, player.currentPosition])
 
-  // Game info helper
+  // Game info helper - informazioni complete della partita
   const gameInfo = useMemo(() => {
     if (!realGame) return null
     const actualDate = new Date()
-    const isPlayed = realGame.date ?? new Date() < actualDate
+    const gameDate = realGame.date ? convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString()) : null
+    const isPlayed = gameDate && gameDate < actualDate
+    
+    const homeTeamName = realGame.home?.name || realGame.home
+    const awayTeamName = realGame.away?.name || realGame.away
+    const playerTeamName = teamName // Squadra del giocatore
+    
+    // Determina quale squadra è quella del giocatore
+    const isPlayerInHomeTeam = String(homeTeamName).toLowerCase().includes(String(playerTeamName).toLowerCase()) ||
+                               String(playerTeamName).toLowerCase().includes(String(homeTeamName).toLowerCase())
+    
+    // Crea versioni con case differenziato
+    const homeTeamDisplay = isPlayerInHomeTeam ? 
+      String(homeTeamName).toUpperCase() : 
+      String(homeTeamName).toLowerCase()
+    const awayTeamDisplay = !isPlayerInHomeTeam ? 
+      String(awayTeamName).toUpperCase() : 
+      String(awayTeamName).toLowerCase()
+    
+    // Versioni abbreviate con case differenziato
+    const homeTeamShort = isPlayerInHomeTeam ? 
+      String(homeTeamName).substring(0, 3).toUpperCase() : 
+      String(homeTeamName).substring(0, 3).toLowerCase()
+    const awayTeamShort = !isPlayerInHomeTeam ? 
+      String(awayTeamName).substring(0, 3).toUpperCase() : 
+      String(awayTeamName).substring(0, 3).toLowerCase()
+    
     if (isPlayed) {
       return {
         type: 'result' as const,
-        text: `${realGame.homeGoals}-${realGame.awayGoals}`,
-        subtitle: `${realGame.home} vs ${realGame.away}`
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeGoals: realGame.homeGoals,
+        awayGoals: realGame.awayGoals,
+        resultText: `${realGame.homeGoals ?? 0}-${realGame.awayGoals ?? 0}`,
+        dateText: formatGameDateTime(gameDate),
+        matchText: `${homeTeamDisplay} vs ${awayTeamDisplay}`,
+        matchTextShort: `${homeTeamShort} vs ${awayTeamShort}`
       }
     } else {
-      const gameDate = realGame.date ? new Date(realGame.date) : null
       return {
         type: 'upcoming' as const,
-        text: gameDate ? gameDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : 'TBD',
-        subtitle: `${realGame.home} vs ${realGame.away}`
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeGoals: null,
+        awayGoals: null,
+        resultText: null,
+        dateText: formatGameDateTime(gameDate),
+        matchText: `${homeTeamDisplay} vs ${awayTeamDisplay}`,
+        matchTextShort: `${homeTeamShort} vs ${awayTeamShort}`
       }
     }
-  }, [realGame])
+  }, [realGame, teamName])
 
-  // Sizing based on variant
-  const isField = variant === 'field'
-  const cardWidth = isField ? 120 : 150
-  const cardHeight = isField ? 160 : 200
-  const imageSize = isField ? 80 : 110 // Immagine molto più grande!
+  const cardWidth = 112  
+  const cardHeight = 150 
 
   return (
     <Card
@@ -246,9 +282,9 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           position="absolute"
           top={-12}
           left={-12}
-          width={isField ? 40 : 44}
-          height={isField ? 40 : 44}
-          borderRadius={isField ? 20 : 22}
+          width={40}
+          height={40}
+          borderRadius={22}
           backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
@@ -265,7 +301,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
             { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.1 : 1.0 }
           ]}
         >
-          <Text fontSize={isField ? 12 : 14} fontWeight="900" color="#fff">
+          <Text fontSize={14} fontWeight="900" color="#fff">
             {voteLabel}
           </Text>
           
@@ -308,60 +344,15 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         </YStack>
       )}
 
-      {/* Team name badge - angolo top-right */}
-      <YStack
-        position="absolute"
-        top={8}
-        right={8}
-        paddingHorizontal={isField ? 6 : 8}
-        paddingVertical={isField ? 3 : 4}
-        backgroundColor="rgba(31, 41, 55, 0.9)"
-        borderRadius={6}
-        zIndex={15}
-        borderWidth={1}
-        borderColor="rgba(255, 255, 255, 0.3)"
-      >
-        <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
-          {teamName.slice(0, 3).toUpperCase()}
-        </Text>
-      </YStack>
-
-      {/* Game info badge - sotto il team name */}
-      {gameInfo && (
-        <XStack
-          position="absolute"
-          top={isField ? 35 : 42}
-          right={8}
-          paddingHorizontal={isField ? 4 : 6}
-          paddingVertical={isField ? 2 : 3}
-          backgroundColor={gameInfo.type === 'result' ? "rgba(5, 150, 105, 0.9)" : "rgba(2, 132, 199, 0.9)"}
-          borderRadius={4}
-          alignItems="center"
-          gap={2}
-          zIndex={15}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-        >
-          {gameInfo.type === 'result' ? (
-            <Trophy size={isField ? 8 : 10} color="#fff" />
-          ) : (
-            <Calendar size={isField ? 8 : 10} color="#fff" />
-          )}
-          <Text fontSize={isField ? 7 : 8} color="#fff" fontWeight="600">
-            {gameInfo.text}
-          </Text>
-        </XStack>
-      )}
-
       {/* Injury indicator - angolo bottom-right dell'immagine */}
       {injury && (
         <Button
           position="absolute"
-          bottom={isField ? 45 : 55}
+          bottom={55}
           right={8}
-          width={isField ? 28 : 32}
-          height={isField ? 28 : 32}
-          borderRadius={isField ? 14 : 16}
+          width={32}
+          height={32}
+          borderRadius={16}
           backgroundColor="rgba(220, 38, 38, 0.95)"
           padding={0}
           onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
@@ -370,7 +361,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           borderColor="#fff"
           elevation={5}
         >
-          <AlertTriangle size={isField ? 14 : 16} color="#fff" />
+          <AlertTriangle size={16} color="#fff" />
         </Button>
       )}
 
@@ -378,7 +369,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       {injury && showInjuryTooltip && (
         <YStack
           position="absolute"
-          bottom={isField ? 80 : 95}
+          bottom={95}
           right={8}
           backgroundColor="rgba(0, 0, 0, 0.9)"
           padding={8}
@@ -389,7 +380,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           borderWidth={1}
           borderColor="rgba(255, 255, 255, 0.3)"
         >
-          <Text fontSize={isField ? 8 : 9} color="#fff" textAlign="center">
+          <Text fontSize={9} color="#fff" textAlign="center">
             {injury.reason || 'Infortunato'}
           </Text>
         </YStack>
@@ -402,16 +393,16 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         <YStack 
           position="absolute" 
           left={4} 
-          top={isField ? 45 : 60} 
-          gap={isField ? 3 : 4}
+          top={60} 
+          gap={4}
           zIndex={12}
         >
-          {bonusIcons.slice(0, isField ? 3 : 4).map((b, i) => (
+          {bonusIcons.slice(0, 4).map((b, i) => (
             <YStack
               key={i}
-              width={isField ? 20 : 24}
-              height={isField ? 20 : 24}
-              borderRadius={isField ? 10 : 12}
+              width={24}
+              height={24}
+              borderRadius={12}
               backgroundColor={`${b.color ?? '#111'}E6`}
               alignItems="center"
               justifyContent="center"
@@ -419,7 +410,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
               borderColor="#fff"
               elevation={5}
             >
-              <b.Icon size={isField ? 10 : 12} color="#fff" />
+              <b.Icon size={12} color="#fff" />
               {b.count > 1 && (
                 <YStack
                   position="absolute"
@@ -445,11 +436,11 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       )}
 
       {/* Chance info - lato sinistro basso per field variant senza vote */}
-      {isField && !vote && chanceSummary && (
+      {!vote && chanceSummary && (
         <YStack
           position="absolute"
           left={8}
-          bottom={isField ? 45 : 55}
+          bottom={55}
           paddingHorizontal={6}
           paddingVertical={4}
           backgroundColor={injury ? "rgba(220, 38, 38, 0.9)" : "rgba(8, 145, 178, 0.9)"}
@@ -459,9 +450,101 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           zIndex={15}
           elevation={5}
         >
-          <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
+          <Text fontSize={9} color="#fff" fontWeight="700">
             {injury ? "INF" : chanceSummary.sources.join(',')}
           </Text>
+        </YStack>
+      )}
+
+      {/* Banda informazioni partita Serie A - sopra il nome */}
+      {gameInfo && (
+        <YStack
+          position="absolute"
+          bottom={32}
+          left={0}
+          right={0}
+          backgroundColor="rgba(0, 0, 0, 0.85)"
+          paddingHorizontal={8}
+          paddingVertical={6}
+          alignItems="center"
+          zIndex={9}
+          borderTopWidth={1}
+          borderBottomWidth={1}
+          borderColor="rgba(255, 255, 255, 0.2)"
+          onPress={() => setShowGameTooltip(!showGameTooltip)}
+          onHoverIn={() => setShowGameTooltip(true)}
+          onHoverOut={() => setShowGameTooltip(false)}
+          pressStyle={{ backgroundColor: "rgba(0, 0, 0, 0.95)" }}
+        >
+          {/* Squadre della partita - versione abbreviata */}
+          <Text
+            fontSize={11}
+            fontWeight="700"
+            color="#fff"
+            textAlign="center"
+            numberOfLines={1}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
+            {gameInfo.matchTextShort}
+          </Text>
+          
+          {/* Data o risultato */}
+          <Text
+            fontSize={9}
+            fontWeight="600"
+            color={gameInfo.type === 'result' ? "#10b981" : "#60a5fa"}
+            textAlign="center"
+            marginTop={1}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
+            {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
+          </Text>
+        </YStack>
+      )}
+
+      {/* Tooltip nomi completi partita */}
+      {gameInfo && showGameTooltip && (
+        <YStack
+          position="absolute"
+          bottom={85}
+          left={8}
+          right={8}
+          backgroundColor="rgba(0, 0, 0, 0.95)"
+          padding={8}
+          borderRadius={8}
+          alignItems="center"
+          zIndex={30}
+          elevation={12}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+        >
+          <Text
+            fontSize={12}
+            fontWeight="700"
+            color="#fff"
+            textAlign="center"
+            numberOfLines={2}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
+            {gameInfo.matchText}
+          </Text>
+          {gameInfo.type === 'result' && (
+            <Text
+              fontSize={10}
+              fontWeight="600"
+              color="#10b981"
+              textAlign="center"
+              marginTop={4}
+            >
+              {gameInfo.resultText}
+            </Text>
+          )}
         </YStack>
       )}
 
@@ -473,7 +556,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         right={0}
         backgroundColor={`${getPlayerNameBackgroundColor}E6`} // Aggiunge trasparenza (90%)
         paddingHorizontal={8}
-        paddingVertical={isField ? 6 : 8}
+        paddingVertical={8}
         alignItems="center"
         borderBottomLeftRadius={12}
         borderBottomRightRadius={12}
@@ -482,7 +565,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         borderTopColor="rgba(255, 255, 255, 0.3)"
       >
         <Text
-          fontSize={isField ? 11 : 13}
+          fontSize={13}
           fontWeight="800"
           color="#fff"
           textAlign="center"
@@ -495,19 +578,6 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         >
           {name}
         </Text>
-        {!isField && roleLabel && (
-          <Text 
-            fontSize={isField ? 8 : 9} 
-            color="rgba(255, 255, 255, 0.9)" 
-            marginTop={2} 
-            fontWeight="600"
-            textShadowColor="rgba(0, 0, 0, 0.5)"
-            textShadowOffset={{ width: 1, height: 1 }}
-            textShadowRadius={1}
-          >
-            {roleLabel}
-          </Text>
-        )}
       </YStack>
     </Card>
   )
