@@ -628,12 +628,12 @@ export function PlayerCard({ player}: PlayerCardProps) {
       {gameInfo && (
         <YStack
           position="absolute"
-          bottom={32}
+          bottom={20}
           left={0}
           right={0}
           backgroundColor="rgba(0, 0, 0, 0.85)"
-          paddingHorizontal={8}
-          paddingVertical={6}
+          paddingHorizontal={4}
+          paddingVertical={1}
           alignItems="center"
           zIndex={9}
           borderTopWidth={1}
@@ -660,7 +660,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
           
           {/* Data o risultato */}
           <Text
-            fontSize={9}
+            fontSize={12}
             fontWeight="600"
             color={gameInfo.type === 'result' ? "#10b981" : "#60a5fa"}
             textAlign="center"
@@ -731,8 +731,8 @@ export function PlayerCard({ player}: PlayerCardProps) {
         left={0}
         right={0}
         backgroundColor={`${getPlayerNameBackgroundColor}E6`} // Aggiunge trasparenza (90%)
-        paddingHorizontal={8}
-        paddingVertical={8}
+        paddingHorizontal={2}
+        paddingVertical={2}
         alignItems="center"
         borderBottomLeftRadius={12}
         borderBottomRightRadius={12}
