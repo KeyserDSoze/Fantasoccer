@@ -1,4 +1,4 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Home from 'screens/home';
 import Details from 'screens/details';
@@ -11,6 +11,12 @@ import SettingsScreen from 'screens/settings';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
+// Props per il componente Navigation
+interface NavigationProps {
+  theme: Theme;
+  onReady?: () => void;
+}
+
 // Definisco i tipi per i parametri delle schermate
 export type RootStackParamList = {
   Home: undefined;
@@ -20,7 +26,12 @@ export type RootStackParamList = {
   Calendar: undefined;
   Players: undefined;
   Live: undefined;
-  Game: { gameId?: string };
+  Game: { 
+    gameId?: string;
+    leagueId?: string;
+    year?: string;
+    groupId?: string;
+  };
   Settings: undefined;
 };
 
@@ -48,15 +59,19 @@ const linking = {
       Calendar: 'calendar',
       Players: 'players',
       Live: 'live',
-      Game: 'game/:gameId?', // supporta parametri
+      Game: 'game/:groupId?/:leagueId?/:year?/:gameId?', // supporta parametri
       Settings: 'settings',
     },
   },
 };
 
-export default function Navigation() {
+export default function Navigation({ theme, onReady }: NavigationProps) {
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer 
+      linking={linking}
+      theme={theme}
+      onReady={onReady}
+    >
       <Stack.Navigator 
         screenOptions={{
           headerShown: false,
