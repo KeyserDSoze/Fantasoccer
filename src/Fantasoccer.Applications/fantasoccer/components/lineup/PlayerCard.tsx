@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
+import { Card, Image, Text, XStack, YStack, Button, useMedia } from 'tamagui'
 import {
   Trophy,
   Target,
@@ -37,12 +37,8 @@ import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 
-export type PlayerCardVariant = 'starter' | 'bench' | 'tribune' | 'field'
-
 export interface PlayerCardProps {
   player: LivePlayer
-  variant?: PlayerCardVariant
-  showTeamName?: boolean
 }
 
 // Mappa completa dei bonus/malus con icone migliori e descrizioni
@@ -216,15 +212,13 @@ function ChanceIcon({
   )
 }
 
-export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
+export function PlayerCard({ player}: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
   const [showGameTooltip, setShowGameTooltip] = useState(false)
   const [showBonusTooltip, setShowBonusTooltip] = useState<string | null>(null)
   const [showChanceTooltip, setShowChanceTooltip] = useState<string | null>(null)
   const [isBlinking, setIsBlinking] = useState(false)
-  const [bonusTooltipIndex, setBonusTooltipIndex] = useState<number | null>(null)
-  const [chanceTooltipType, setChanceTooltipType] = useState<string | null>(null)
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -234,7 +228,6 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
   const name = current?.name ?? 'Giocatore'
   const teamName = current?.team?.name ?? ''
-  const roleLabel = current?.role ?? ''
 
   const { src, fallback } = useMemo(() => getPlayerImageUrlFromName(current?.name), [current?.name])
   const imageUri = useFallbackImage ? fallback : src
@@ -362,7 +355,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         info.push({ 
           type: 'fantagazzetta', 
           value: chance.fantagazzetta,
-          label: chance.fantagazzetta ? 'Titolare F' : 'Panchina F'
+          label: chance.fantagazzetta ? 'Titolare Fantalcacio.it' : 'Panchina Fantacalcio.it'
         })
       }
       
@@ -371,7 +364,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         info.push({ 
           type: 'gazzetta', 
           value: chance.gazzetta,
-          label: chance.gazzetta ? 'Titolare G' : 'Panchina G'
+          label: chance.gazzetta ? 'Titolare Gazzetta' : 'Panchina Gazzetta'
         })
       }
     }
@@ -480,8 +473,12 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
     }
   }, [realGame, teamName])
 
-  const cardWidth = 112  
-  const cardHeight = 150 
+  // Gestione responsive: dimensioni uniformi su desktop, ridotte solo su mobile
+  const media = useMedia()
+  const isMobile = media.sm === false // sm = small screen and up, so false = below sm (mobile)
+  
+  const cardWidth = isMobile ? 90 : 112
+  const cardHeight = isMobile ? 120 : 150 
 
   return (
     <Card
@@ -500,7 +497,6 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         source={{ uri: imageUri }}
         width={cardWidth}
         height={cardHeight}
-        resizeMode="cover"
         onError={() => setUseFallbackImage(true)}
         position="absolute"
         top={0}

@@ -205,9 +205,10 @@ console.log(away?.players)
     awayGroups.DEF,
     awayGroups.GK,
   ]
-  
+  const paddingBottomForRole = 9
+  const gapBetweenCards = 8
   return (
-    <YStack space={16} {...style}>
+    <YStack gap={16} {...style}>
       {/* CAMPO DA CALCIO */}
       <YStack 
         position="relative" 
@@ -237,7 +238,7 @@ console.log(away?.players)
               >
                 <XStack 
                   pointerEvents="auto" 
-                  space={8} 
+                  gap={gapBetweenCards}
                   alignItems="center" 
                   justifyContent="center"
                   style={{
@@ -246,7 +247,7 @@ console.log(away?.players)
                   }}
                 >
                   {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} />
                   ))}
                 </XStack>
               </XStack>
@@ -269,7 +270,7 @@ console.log(away?.players)
               >
                 <YStack 
                   pointerEvents="auto" 
-                  space={8} 
+                  gap={gapBetweenCards}
                   alignItems="center" 
                   justifyContent="center"
                   style={{
@@ -278,7 +279,7 @@ console.log(away?.players)
                   }}
                 >
                   {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} variant="field" />
+                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} />
                   ))}
                 </YStack>
               </YStack>
@@ -286,11 +287,10 @@ console.log(away?.players)
           }
         })}
       </YStack>
-
       {/* PANCHINE ORGANIZZATE PER RUOLO */}
-      <XStack space={16} flex={1} justifyContent="space-between">
+      <XStack gap={16} flex={1} justifyContent="space-between">
         {/* Panchina Casa */}
-        <YStack flex={1} space={12}>
+        <YStack flex={1} gap={12}>
           <YStack 
             backgroundColor="#16a34a" 
             paddingHorizontal={16} 
@@ -305,20 +305,20 @@ console.log(away?.players)
 
           {/* Portieri */}
           {homeBenchGroups.goalkeepers.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#f59e0b">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#f59e0b" paddingBottom={paddingBottomForRole}>
                 🥅 PORTIERI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {homeBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`home-gk-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-gk-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {homeBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`home-gk-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-gk-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -327,20 +327,20 @@ console.log(away?.players)
 
           {/* Difensori */}
           {homeBenchGroups.defenders.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#3b82f6">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#3b82f6" paddingBottom={paddingBottomForRole}>
                 🛡️ DIFENSORI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {homeBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`home-def-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-def-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {homeBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`home-def-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-def-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -349,20 +349,20 @@ console.log(away?.players)
 
           {/* Centrocampisti */}
           {homeBenchGroups.midfielders.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#10b981">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#10b981" paddingBottom={paddingBottomForRole}>
                 ⚽ CENTROCAMPISTI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {homeBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`home-mid-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-mid-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {homeBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`home-mid-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-mid-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -371,20 +371,20 @@ console.log(away?.players)
 
           {/* Attaccanti */}
           {homeBenchGroups.forwards.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#ef4444">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#ef4444" paddingBottom={paddingBottomForRole}>
                 🎯 ATTACCANTI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {homeBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`home-fwd-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-fwd-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {homeBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`home-fwd-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`home-fwd-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -399,7 +399,7 @@ console.log(away?.players)
         </YStack>
 
         {/* Panchina Trasferta */}
-        <YStack flex={1} space={12}>
+        <YStack flex={1} gap={12}>
           <YStack 
             backgroundColor="#dc2626" 
             paddingHorizontal={16} 
@@ -414,20 +414,20 @@ console.log(away?.players)
 
           {/* Portieri */}
           {awayBenchGroups.goalkeepers.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#f59e0b">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#f59e0b" paddingBottom={paddingBottomForRole}>
                 🥅 PORTIERI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {awayBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`away-gk-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-gk-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {awayBenchGroups.goalkeepers.map((player, i) => (
-                    <PlayerCard key={`away-gk-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-gk-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -436,20 +436,20 @@ console.log(away?.players)
 
           {/* Difensori */}
           {awayBenchGroups.defenders.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#3b82f6">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#3b82f6" paddingBottom={paddingBottomForRole}>
                 🛡️ DIFENSORI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {awayBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`away-def-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-def-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {awayBenchGroups.defenders.map((player, i) => (
-                    <PlayerCard key={`away-def-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-def-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -458,20 +458,20 @@ console.log(away?.players)
 
           {/* Centrocampisti */}
           {awayBenchGroups.midfielders.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#10b981">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#10b981" paddingBottom={paddingBottomForRole}>
                 ⚽ CENTROCAMPISTI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {awayBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`away-mid-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-mid-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {awayBenchGroups.midfielders.map((player, i) => (
-                    <PlayerCard key={`away-mid-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-mid-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -480,20 +480,20 @@ console.log(away?.players)
 
           {/* Attaccanti */}
           {awayBenchGroups.forwards.length > 0 && (
-            <YStack space={8}>
-              <Text fontSize={14} fontWeight="600" color="#ef4444">
+            <YStack gap={8}>
+              <Text fontSize={14} fontWeight="600" color="#ef4444" paddingBottom={paddingBottomForRole}>
                 🎯 ATTACCANTI
               </Text>
               {isMobile ? (
-                <YStack space={8}>
+                <YStack gap={8}>
                   {awayBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`away-fwd-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-fwd-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack space={8} flexWrap="wrap">
+                <XStack gap={gapBetweenCards}flexWrap="wrap">
                   {awayBenchGroups.forwards.map((player, i) => (
-                    <PlayerCard key={`away-fwd-${i}`} player={player} variant="bench" />
+                    <PlayerCard key={`away-fwd-${i}`} player={player} />
                   ))}
                 </XStack>
               )}
@@ -510,7 +510,7 @@ console.log(away?.players)
 
       {/* TRIBUNA */}
       {(homeTribune.length > 0 || awayTribune.length > 0) && (
-        <YStack space={12}>
+        <YStack gap={12}>
           <YStack 
             backgroundColor="#6b7280" 
             paddingHorizontal={16} 
@@ -518,21 +518,21 @@ console.log(away?.players)
             borderRadius={8}
             alignItems="center"
           >
-            <Text fontSize={16} fontWeight="700" color="#fff">
+            <Text fontSize={16} fontWeight="700" color="#fff" paddingBottom={paddingBottomForRole}>
               🏟️ TRIBUNA
             </Text>
           </YStack>
           
-          <XStack space={16} flex={1}>
+          <XStack gap={16} flex={1}>
             {/* Tribuna Casa */}
-            <YStack flex={1} space={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center">
+            <YStack flex={1} gap={8}>
+              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
                 {home?.name || 'Casa'}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack space={8} paddingHorizontal={8}>
+                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
                   {homeTribune.map((player, i) => (
-                    <PlayerCard key={`home-tribune-${i}`} player={player} variant="tribune" />
+                    <PlayerCard key={`home-tribune-${i}`} player={player} />
                   ))}
                   {homeTribune.length === 0 && (
                     <Text fontSize={12} color="$gray10" fontStyle="italic">
@@ -544,14 +544,14 @@ console.log(away?.players)
             </YStack>
 
             {/* Tribuna Trasferta */}
-            <YStack flex={1} space={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center">
+            <YStack flex={1} gap={8}>
+              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
                 {away?.name || 'Trasferta'}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack space={8} paddingHorizontal={8}>
+                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
                   {awayTribune.map((player, i) => (
-                    <PlayerCard key={`away-tribune-${i}`} player={player} variant="tribune" />
+                    <PlayerCard key={`away-tribune-${i}`} player={player} />
                   ))}
                   {awayTribune.length === 0 && (
                     <Text fontSize={12} color="$gray10" fontStyle="italic">
