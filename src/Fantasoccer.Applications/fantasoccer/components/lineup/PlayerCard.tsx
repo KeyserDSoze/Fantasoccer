@@ -68,9 +68,9 @@ const BONUS_MALUS_CONFIG: {
   { key: 'penalties', component: () => <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" />, label: 'Rigori', description: 'rigori segnati', order: 2 },
   { key: 'assists', component: () => <AssistSVG color="#000" />, label: 'Assist', description: 'assist forniti', order: 3 },
   { key: 'stoppedPenalties', component: () => <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" />, label: 'Parate', description: 'rigori parati', order: 4 },
-  { key: 'sufferedGoals', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, label: 'Gol Subiti', description: 'gol subiti dal portiere', order: 5 },
+  { key: 'sufferedGoals', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, label: 'Gol Subiti', description: 'gol subiti', order: 5 },
   { key: 'wrongedPenalties', component: () => <SoccerBallSVG primaryColor="#10b981" secondaryColor="#ffffff" />, label: 'Rig. Sbagliati', description: 'rigori sbagliati', order: 6 },
-  { key: 'ownGoals', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, label: 'Autogol', description: 'autogol segnati', order: 7 },
+  { key: 'ownGoals', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, label: 'Autogol', description: 'autogol fatti', order: 7 },
 ]
 
 // Mappa per le informazioni di chance
@@ -234,7 +234,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
     for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
       const count = (vote as any)[bonusConfig.key] ?? 0
       if (count > 0) {
-        const pluralLabel = count === 1 ? bonusConfig.description.slice(0, -1) : bonusConfig.description
+        const pluralLabel = count > 1 ? `${bonusConfig.description.slice(0, -1)}i` : `${bonusConfig.description.slice(0, -1)}o`
         parts.push(`${count} ${pluralLabel}`)
       }
     }
@@ -265,10 +265,10 @@ export function PlayerCard({ player}: PlayerCardProps) {
     if (parts.length === 1) {
       message += parts[0]
     } else if (parts.length === 2) {
-      message += parts.join(' ed ')
+      message += parts.join(' e ')
     } else {
       const lastPart = parts.pop()
-      message += parts.join(', ') + ' ed ' + lastPart
+      message += parts.join(', ') + ' e ' + lastPart
     }
 
     message += '.'
@@ -495,7 +495,6 @@ export function PlayerCard({ player}: PlayerCardProps) {
 
   // Funzione per mostrare il toast con le statistiche del giocatore
   const showPlayerStatsToast = () => {
-    console.log(generatePlayerStatsMessage)
     if (generatePlayerStatsMessage) {
       toast.show('Statistiche Giocatore', {
         message: generatePlayerStatsMessage,
