@@ -134,16 +134,6 @@ export default function GameScreen() {
     return best ? `${best.name} (${best.value})` : null
   }, [gameWrapper])
 
-  // Memoize the options to prevent excessive API calls
-  const playedGameOptions = useMemo(() => ({
-    group: routeGroupId ?? currentGroupId,
-    league: routeLeagueId ?? selectedLeagueId ?? null,
-    year: routeYear ? parseInt(routeYear) : selectedYear ?? null,
-    gameId: routeGameId ?? (game ? getRealGameId(game) : null),
-    refreshInterval: 0
-  }), [routeGroupId, routeLeagueId, routeYear, routeGameId, currentGroupId, selectedLeagueId, selectedYear, game?.home.abbreviation, game?.away.abbreviation])
-
-
   return (
     <View style={{ flex: 1 }}>
       <ScreenContent path="screens/game.tsx" title={title}>

@@ -27,10 +27,10 @@ export type RootStackParamList = {
   Players: undefined;
   Live: undefined;
   Game: { 
-    gameId?: string;
-    leagueId?: string;
-    year?: string;
-    groupId?: string;
+    gameId?: string | null;
+    leagueId?: string | null;
+    year?: string | null;
+    groupId?: string | null;
   };
   Settings: undefined;
 };
