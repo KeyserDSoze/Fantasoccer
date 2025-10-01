@@ -1,91 +1,51 @@
 import React from 'react'
 import { View, Text } from 'react-native'
+import { SoccerBallSVG } from '../lineup/icons/SoccerBallSVG'
 
 interface BonusIconProps {
   size?: number
   color?: string
 }
 
-// Icona per Good Defense (scudo) - versione CSS
+// Icona per Good Defense (muro arancione tipo firewall)
 export const GoodDefenseIcon: React.FC<BonusIconProps> = ({ 
-  size = 20, 
-  color = '#10b981' 
+  size = 24, 
+  color = '#ea580c' 
 }) => (
-  <View
-    style={{
-      width: size,
-      height: size,
-      backgroundColor: color,
-      borderRadius: size * 0.2,
-      justifyContent: 'center',
-      alignItems: 'center',
-      position: 'relative',
-    }}
-  >
-    <Text style={{ 
-      color: 'white', 
-      fontSize: size * 0.6, 
-      fontWeight: 'bold',
-      textAlign: 'center',
-      lineHeight: size * 0.6
-    }}>
-      🛡️
-    </Text>
-  </View>
+  <Text style={{ 
+    fontSize: size, 
+    color: color,
+    textAlign: 'center',
+    lineHeight: size
+  }}>
+    🧱
+  </Text>
 )
 
-// Icona per Good People (gruppo di persone) - versione CSS
+// Icona per Good People (stella)
 export const GoodPeopleIcon: React.FC<BonusIconProps> = ({ 
-  size = 20, 
-  color = '#3b82f6' 
+  size = 24, 
+  color = '#eab308' 
 }) => (
-  <View
-    style={{
-      width: size,
-      height: size,
-      backgroundColor: color,
-      borderRadius: size * 0.2,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}
-  >
-    <Text style={{ 
-      color: 'white', 
-      fontSize: size * 0.6, 
-      fontWeight: 'bold',
-      textAlign: 'center',
-      lineHeight: size * 0.6
-    }}>
-      👥
-    </Text>
-  </View>
+  <Text style={{ 
+    fontSize: size, 
+    color: color,
+    textAlign: 'center',
+    lineHeight: size
+  }}>
+    ⭐
+  </Text>
 )
 
-// Icona per No Own Goal (pallone con check) - versione CSS
-export const NoOwnGoalIcon: React.FC<BonusIconProps> = ({ 
-  size = 20, 
-  color = '#f59e0b' 
+// Icona per Own Goal (pallone rosso e bianco)
+export const OwnGoalIcon: React.FC<BonusIconProps> = ({ 
+  size = 24
 }) => (
-  <View
-    style={{
-      width: size,
-      height: size,
-      backgroundColor: color,
-      borderRadius: size * 0.2,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}
-  >
-    <Text style={{ 
-      color: 'white', 
-      fontSize: size * 0.6, 
-      fontWeight: 'bold',
-      textAlign: 'center',
-      lineHeight: size * 0.6
-    }}>
-      ⚽
-    </Text>
-  </View>
+  <SoccerBallSVG 
+    size={size}
+    primaryColor="#ffffff"
+    secondaryColor="#dc2626"
+  />
 )
 
 // Wrapper component per mostrare tutti i bonus di una squadra
@@ -100,11 +60,11 @@ export const TeamBonuses: React.FC<TeamBonusesProps> = ({
   hasGoodDefense,
   hasGoodPeople,
   hasOwnGoal,
-  iconSize = 18
+  iconSize = 24
 }) => (
-  <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
     {hasGoodDefense && <GoodDefenseIcon size={iconSize} />}
     {hasGoodPeople && <GoodPeopleIcon size={iconSize} />}
-    {hasOwnGoal && <NoOwnGoalIcon size={iconSize} />}
+    {hasOwnGoal && <OwnGoalIcon size={iconSize} />}
   </View>
 )

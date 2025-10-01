@@ -104,58 +104,58 @@ export default function GameScreen() {
                           groupId={routeGroupId || ''} 
                           year={routeYear || ''} 
                           ownerEmail={gameWrapper.game?.homeOwner || ''}
-                          size={40}
+                          size={60}
                         />
                         
                         {/* Nome squadra home */}
-                        <Text fontSize="$3" fontWeight="600" textAlign="center" minWidth={120}>
+                        <Text fontSize="$5" fontWeight="600" textAlign="center" minWidth={140}>
                           {gameWrapper.game?.home}
                         </Text>
                         
                         {/* Punteggio home */}
-                        <Text fontSize="$4" fontWeight="bold" minWidth={60} textAlign="center">
+                        <Text fontSize="$5" fontWeight="bold" minWidth={70} textAlign="center">
                           {gameWrapper.game?.result?.home?.value || 0} pt
                         </Text>
                         
                         {/* Bonus home */}
-                        <View style={{ minWidth: 80, alignItems: 'center' }}>
+                        <View style={{ minWidth: 100, alignItems: 'center' }}>
                           <TeamBonuses 
                             hasGoodDefense={homeHasAGoodDefense}
                             hasGoodPeople={homeHasAGoodPeople}
                             hasOwnGoal={homeHasDoneOwnGoal}
-                            iconSize={16}
+                            iconSize={24}
                           />
                         </View>
                         
                         {/* Goal e data centrale */}
-                        <YStack alignItems="center" gap="$1" minWidth={100}>
-                          <Text fontSize="$6" fontWeight="bold">
+                        <YStack alignItems="center" gap="$1" minWidth={120}>
+                          <Text fontSize="$7" fontWeight="bold">
                             {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
                           </Text>
                           {gameDate && (
-                            <Text fontSize="$2" color="$color11" textAlign="center">
+                            <Text fontSize="$3" color="$color11" textAlign="center">
                               {formatItalianDate(gameDate)}
                             </Text>
                           )}
                         </YStack>
                         
                         {/* Bonus away */}
-                        <View style={{ minWidth: 80, alignItems: 'center' }}>
+                        <View style={{ minWidth: 100, alignItems: 'center' }}>
                           <TeamBonuses 
                             hasGoodDefense={awayHasAGoodDefense}
                             hasGoodPeople={awayHasAGoodPeople}
                             hasOwnGoal={awayHasDoneOwnGoal}
-                            iconSize={16}
+                            iconSize={24}
                           />
                         </View>
                         
                         {/* Punteggio away */}
-                        <Text fontSize="$4" fontWeight="bold" minWidth={60} textAlign="center">
+                        <Text fontSize="$5" fontWeight="bold" minWidth={70} textAlign="center">
                           {gameWrapper.game?.result?.away?.value || 0} pt
                         </Text>
                         
                         {/* Nome squadra away */}
-                        <Text fontSize="$3" fontWeight="600" textAlign="center" minWidth={120}>
+                        <Text fontSize="$5" fontWeight="600" textAlign="center" minWidth={140}>
                           {gameWrapper.game?.away}
                         </Text>
                         
@@ -164,11 +164,11 @@ export default function GameScreen() {
                           groupId={routeGroupId || ''} 
                           year={routeYear || ''} 
                           ownerEmail={gameWrapper.game?.awayOwner || ''}
-                          size={40}
+                          size={60}
                         />
                       </XStack>
                     ) : (
-                      // Mobile Layout - layout esistente (verticale)
+                      // Mobile Layout - layout esistente (verticale) ma con elementi più grandi
                       <XStack justifyContent="space-between" alignItems="center" gap="$4">
                         {/* Squadra di casa */}
                         <YStack alignItems="center" gap="$2" flex={1}>
@@ -176,26 +176,27 @@ export default function GameScreen() {
                             groupId={routeGroupId || ''} 
                             year={routeYear || ''} 
                             ownerEmail={gameWrapper.game?.homeOwner || ''}
-                            size={50}
+                            size={70}
                           />
-                          <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                          <Text fontSize="$3" fontWeight="600" textAlign="center" numberOfLines={2}>
                             {gameWrapper.game?.home}
                           </Text>
-                          <YStack alignItems="center" gap="$1">
-                            <Text fontSize="$5" fontWeight="bold">
+                          <YStack alignItems="center" gap="$2">
+                            <Text fontSize="$6" fontWeight="bold">
                               {gameWrapper.game?.result?.home?.value || 0} pt
                             </Text>
                             <TeamBonuses 
                               hasGoodDefense={homeHasAGoodDefense}
                               hasGoodPeople={homeHasAGoodPeople}
                               hasOwnGoal={homeHasDoneOwnGoal}
+                              iconSize={28}
                             />
                           </YStack>
                         </YStack>
                         
                         {/* VS e punteggio goals */}
                         <YStack alignItems="center" gap="$1">
-                          <Text fontSize="$6" fontWeight="bold">
+                          <Text fontSize="$7" fontWeight="bold">
                             {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
                           </Text>
                           <Text fontSize="$2" color="$color11">
@@ -211,19 +212,20 @@ export default function GameScreen() {
                             groupId={routeGroupId || ''} 
                             year={routeYear || ''} 
                             ownerEmail={gameWrapper.game?.awayOwner || ''}
-                            size={50}
+                            size={70}
                           />
-                          <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                          <Text fontSize="$3" fontWeight="600" textAlign="center" numberOfLines={2}>
                             {gameWrapper.game?.away}
                           </Text>
-                          <YStack alignItems="center" gap="$1">
-                            <Text fontSize="$5" fontWeight="bold">
+                          <YStack alignItems="center" gap="$2">
+                            <Text fontSize="$6" fontWeight="bold">
                               {gameWrapper.game?.result?.away?.value || 0} pt
                             </Text>
                             <TeamBonuses 
                               hasGoodDefense={awayHasAGoodDefense}
                               hasGoodPeople={awayHasAGoodPeople}
                               hasOwnGoal={awayHasDoneOwnGoal}
+                              iconSize={28}
                             />
                           </YStack>
                         </YStack>
