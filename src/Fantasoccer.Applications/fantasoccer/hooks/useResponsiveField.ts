@@ -59,7 +59,17 @@ function calculateFieldDimensions(screenWidth: number, screenHeight: number): Fi
   // Calcola fattore di scala per le card basato sulla larghezza del campo
   // Riferimento: 1400px = scala 1.0
   const baseWidth = 1400
-  const cardScale = Math.min(fieldWidth / baseWidth, 1.2) // max 1.2x, min proporzionale
+  let cardScale: number
+  
+  if (isMobile) {
+    // Su mobile, incrementiamo significativamente il fattore di scala per rendere le card più visibili
+    // Usiamo un minimo di 1.0x su mobile + boost aggiuntivo
+    const baseScale = Math.max(fieldWidth / baseWidth, 1.0)
+    cardScale = Math.min(baseScale * 0.5, 2.0) // boost del 60% per mobile, max 2.0x
+  } else {
+    // Su desktop/tablet, manteniamo la scala normale
+    cardScale = Math.min(fieldWidth / baseWidth, 1.2) // max 1.2x, min proporzionale
+  }
 
   // Determina orientamento
   const orientation = isMobile ? 'vertical' : 'horizontal'
