@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
+import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import {
   Trophy,
@@ -508,19 +508,76 @@ export function PlayerCard({ player}: PlayerCardProps) {
   const cardWidth = 112
   const cardHeight = 150 
 
+  // Controlla se il giocatore è Man of the Match
+  const isManOfTheMatch = useMemo(() => {
+    return vote && (vote as any)?.manOfTheMatch
+  }, [vote])
+
+  // Stato per l'animazione arcobaleno
+  const [rainbowPhase, setRainbowPhase] = useState(0)
+
+  // Effetto per animazione arcobaleno continua
+  useEffect(() => {
+    if (!isManOfTheMatch) return
+
+    const interval = setInterval(() => {
+      setRainbowPhase(prev => (prev + 1) % 6) // 6 colori arcobaleno
+    }, 500) // Cambia colore ogni 500ms
+
+    return () => clearInterval(interval)
+  }, [isManOfTheMatch])
+
+  // Colori arcobaleno
+  const rainbowColors = [
+    '#ff0000', // Rosso
+    '#ff7f00', // Arancione
+    '#ffff00', // Giallo
+    '#00ff00', // Verde
+    '#0000ff', // Blu
+    '#9400d3'  // Violetto
+  ]
+
+  const currentRainbowColor = rainbowColors[rainbowPhase]
+
   return (
-    <Card
-      width={cardWidth}
-      height={cardHeight}
-      padding={0}
-      backgroundColor="#fff"
-      borderRadius={12}
-      borderWidth={2}
-      borderColor="#e5e5e5"
-      position="relative"
-      elevation={4}
-      overflow="hidden"
-    >
+    <YStack position="relative">
+      {/* Overlay arcobaleno animato per Man of the Match - contenuto nel YStack */}
+      {isManOfTheMatch && (
+        <YStack
+          position="absolute"
+          top={-3}
+          left={-3}
+          width={cardWidth + 6}
+          height={cardHeight + 6}
+          borderRadius={15}
+          borderWidth={3}
+          borderColor={currentRainbowColor}
+          zIndex={0}
+          animation="bouncy"
+          animateOnly={['borderColor']}
+          style={{
+            shadowColor: currentRainbowColor,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 6,
+            elevation: 8,
+          }}
+        />
+      )}
+      
+      <Card
+        width={cardWidth}
+        height={cardHeight}
+        padding={0}
+        backgroundColor="#fff"
+        borderRadius={12}
+        borderWidth={2}
+        borderColor={isManOfTheMatch ? "#fff" : "#e5e5e5"}
+        position="relative"
+        elevation={isManOfTheMatch ? 6 : 4}
+        overflow="hidden"
+        zIndex={1}
+      >
       {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card con bordi arrotondati */}
       <Image
         source={{ uri: imageUri }}
@@ -909,6 +966,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </Text>
       </YStack>
     </Card>
+    </YStack>
   )
 }
 
