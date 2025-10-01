@@ -14,12 +14,23 @@ import {
   Calendar,
   Clock,
   Users,
+  Goal,
+  Minus,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  AlertCircle,
+  Info,
+  CheckCircle,
+  XCircle,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
-import type { Chance } from 'types/chance'
+import type { Chance, ChanceType, TrendType } from '../../types/chance'
+import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 
@@ -31,21 +42,165 @@ export interface PlayerCardProps {
   showTeamName?: boolean
 }
 
-// prettier, friendlier icons map
-const BONUS_ICON_MAP: { key: keyof Vote; icon: any; label: string; color?: string }[] = [
-  { key: 'goals', icon: Trophy, label: 'Gol', color: '#f59e0b' },
-  { key: 'assists', icon: Target, label: 'Assist', color: '#06b6d4' },
-  { key: 'penalties', icon: Award, label: 'Rig.', color: '#ef4444' },
-  { key: 'stoppedPenalties', icon: Shield, label: 'Par.', color: '#10b981' },
-  { key: 'ownGoals', icon: Umbrella, label: 'Aut.', color: '#64748b' },
+// Mappa completa dei bonus/malus con icone migliori e descrizioni
+const BONUS_MALUS_MAP: { key: keyof Vote; icon: any; label: string; color: string; description: string }[] = [
+  { key: 'goals', icon: Goal, label: 'Gol', color: '#16a34a', description: 'gol segnati' },
+  { key: 'assists', icon: Target, label: 'Assist', color: '#06b6d4', description: 'assist forniti' },
+  { key: 'penalties', icon: Circle, label: 'Rigori', color: '#8b5cf6', description: 'rigori segnati' },
+  { key: 'stoppedPenalties', icon: Shield, label: 'Parate', color: '#f59e0b', description: 'rigori parati' },
+  { key: 'ownGoals', icon: Minus, label: 'Autogol', color: '#ef4444', description: 'autogol segnati' },
+  { key: 'wrongedPenalties', icon: XCircle, label: 'Rig. Sbagliati', color: '#dc2626', description: 'rigori sbagliati' },
+  { key: 'sufferedGoals', icon: AlertCircle, label: 'Gol Subiti', color: '#991b1b', description: 'gol subiti dal portiere' },
 ]
 
-function BonusBadge({ Icon, count, color, label }: { Icon: any; count: number; color?: string; label?: string }) {
+// Mappa per le informazioni di chance
+const CHANCE_INFO_MAP = {
+  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato' },
+  fantagazzetta: { icon: Plus, color: '#16a34a', label: 'Fantagazzetta' },
+  gazzetta: { icon: CheckCircle, color: '#059669', label: 'Gazzetta' },
+  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset' },
+  sky: { icon: Star, color: '#f59e0b', label: 'Sky' },
+  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma' },
+}
+
+// Componente per bonus/malus con tooltip
+function BonusIcon({ 
+  Icon, 
+  count, 
+  color, 
+  label, 
+  description, 
+  showTooltip, 
+  onToggleTooltip 
+}: { 
+  Icon: any
+  count: number
+  color: string
+  label: string
+  description: string
+  showTooltip: boolean
+  onToggleTooltip: () => void
+}) {
   return (
-    <XStack alignItems="center" gap="$1" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$3" backgroundColor={color ?? '$color3'}>
-      <Icon size={14} color="#fff" />
-      {count > 1 ? <Text color="#fff" fontSize="$1">x{count}</Text> : null}
-    </XStack>
+    <YStack alignItems="center">
+      <YStack
+        width={28}
+        height={28}
+        borderRadius={14}
+        backgroundColor={`${color}E6`}
+        alignItems="center"
+        justifyContent="center"
+        borderWidth={2}
+        borderColor="#fff"
+        elevation={5}
+        position="relative"
+        onPress={onToggleTooltip}
+        onHoverIn={onToggleTooltip}
+        onHoverOut={() => showTooltip && onToggleTooltip()}
+        pressStyle={{ scale: 0.95 }}
+      >
+        <Icon size={14} color="#fff" />
+        {count > 1 && (
+          <YStack
+            position="absolute"
+            top={-8}
+            right={-8}
+            width={16}
+            height={16}
+            borderRadius={8}
+            backgroundColor="#fff"
+            alignItems="center"
+            justifyContent="center"
+            borderWidth={1}
+            borderColor={color}
+            elevation={3}
+          >
+            <Text fontSize={8} color={color} fontWeight="800">
+              {count}
+            </Text>
+          </YStack>
+        )}
+      </YStack>
+      
+      {/* Tooltip */}
+      {showTooltip && (
+        <YStack
+          position="absolute"
+          top={35}
+          right={-20}
+          backgroundColor="rgba(0, 0, 0, 0.95)"
+          padding={6}
+          borderRadius={6}
+          zIndex={35}
+          elevation={15}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+          minWidth={100}
+        >
+          <Text fontSize={10} color="#fff" textAlign="center" fontWeight="600">
+            {count} {description}
+          </Text>
+        </YStack>
+      )}
+    </YStack>
+  )
+}
+
+// Componente per chance information con tooltip
+function ChanceIcon({ 
+  type, 
+  value, 
+  showTooltip, 
+  onToggleTooltip 
+}: { 
+  type: keyof typeof CHANCE_INFO_MAP
+  value: boolean | string | number
+  showTooltip: boolean
+  onToggleTooltip: () => void
+}) {
+  const config = CHANCE_INFO_MAP[type]
+  
+  return (
+    <YStack alignItems="center">
+      <YStack
+        width={28}
+        height={28}
+        borderRadius={14}
+        backgroundColor={`${config.color}E6`}
+        alignItems="center"
+        justifyContent="center"
+        borderWidth={2}
+        borderColor="#fff"
+        elevation={5}
+        onPress={onToggleTooltip}
+        onHoverIn={onToggleTooltip}
+        onHoverOut={() => showTooltip && onToggleTooltip()}
+        pressStyle={{ scale: 0.95 }}
+      >
+        <config.icon size={14} color="#fff" />
+      </YStack>
+      
+      {/* Tooltip */}
+      {showTooltip && (
+        <YStack
+          position="absolute"
+          top={35}
+          right={-20}
+          backgroundColor="rgba(0, 0, 0, 0.95)"
+          padding={6}
+          borderRadius={6}
+          zIndex={35}
+          elevation={15}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+          minWidth={100}
+        >
+          <Text fontSize={10} color="#fff" textAlign="center" fontWeight="600">
+            {config.label}: {typeof value === 'boolean' ? (value ? 'Titolare' : 'Panchina') : value}
+          </Text>
+        </YStack>
+      )}
+    </YStack>
   )
 }
 
@@ -53,7 +208,11 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
   const [showGameTooltip, setShowGameTooltip] = useState(false)
+  const [showBonusTooltip, setShowBonusTooltip] = useState<string | null>(null)
+  const [showChanceTooltip, setShowChanceTooltip] = useState<string | null>(null)
   const [isBlinking, setIsBlinking] = useState(false)
+  const [bonusTooltipIndex, setBonusTooltipIndex] = useState<number | null>(null)
+  const [chanceTooltipType, setChanceTooltipType] = useState<string | null>(null)
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -130,20 +289,87 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
   const bonusIcons = useMemo(() => {
     if (!vote) return []
-    const icons: { Icon: any; count: number; label: string; color?: string }[] = []
-    for (const m of BONUS_ICON_MAP) {
+    const icons: { 
+      Icon: any
+      count: number
+      label: string
+      color: string
+      description: string
+      key: string
+    }[] = []
+    
+    for (const m of BONUS_MALUS_MAP) {
       const count = (vote as any)[m.key] ?? 0
-      if (count && count > 0) icons.push({ Icon: m.icon, count, label: m.label, color: m.color })
+      if (count && count > 0) {
+        icons.push({ 
+          Icon: m.icon, 
+          count, 
+          label: m.label, 
+          color: m.color,
+          description: m.description,
+          key: m.key
+        })
+      }
     }
-    if ((vote as any)?.manOfTheMatch) icons.push({ Icon: Star, count: 1, label: 'MVP', color: '#f97316' })
+    
+    if ((vote as any)?.manOfTheMatch) {
+      icons.push({ 
+        Icon: Star, 
+        count: 1, 
+        label: 'MVP', 
+        color: '#f97316',
+        description: 'migliore in campo',
+        key: 'manOfTheMatch'
+      })
+    }
+    
     return icons
   }, [vote])
 
-  const chanceSummary = useMemo(() => {
-    if (!chance) return null
-    const sources = (chance.fantagazzetta ? ['F'] : []).concat(chance.gazzetta ? ['G'] : [], chance.mediaset ? ['M'] : [], chance.sky ? ['S'] : [])
-    return { status: chance.status, sources, label: chance.description }
-  }, [chance])
+  // Determina se è durante una partita live per mostrare bonus o chance
+  const isGameLive = useMemo(() => {
+    if (!realGame?.date || !vote) return false
+    const now = new Date()
+    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
+    return now >= gameStart && now <= twoHoursAfterStart
+  }, [realGame, vote])
+
+  // Informazioni chance per quando non è live
+  const chanceInfo = useMemo(() => {
+    if (!chance || isGameLive) return []
+    
+    const info: { type: keyof typeof CHANCE_INFO_MAP; value: any; label: string }[] = []
+    
+    // Fantagazzetta
+    if (chance.fantagazzetta !== undefined) {
+      info.push({ 
+        type: 'fantagazzetta', 
+        value: chance.fantagazzetta,
+        label: chance.fantagazzetta ? 'Titolare F' : 'Panchina F'
+      })
+    }
+    
+    // Gazzetta
+    if (chance.gazzetta !== undefined) {
+      info.push({ 
+        type: 'gazzetta', 
+        value: chance.gazzetta,
+        label: chance.gazzetta ? 'Titolare G' : 'Panchina G'
+      })
+    }
+    
+    // Infortunio
+    if (chance.status === ChanceTypeEnum.Injury) {
+      info.push({ 
+        type: 'injury', 
+        value: chance.description || 'Infortunato',
+        label: 'Infortunio'
+      })
+    }
+    
+    return info
+  }, [chance, isGameLive])
 
   // Funzione per determinare il colore di background del nome basato sulla posizione originale
   const getPlayerNameBackgroundColor = useMemo(() => {
@@ -436,7 +662,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       )}
 
       {/* Chance info - lato sinistro basso per field variant senza vote */}
-      {!vote && chanceSummary && (
+      {!vote && chance && (
         <YStack
           position="absolute"
           left={8}
@@ -451,8 +677,57 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           elevation={5}
         >
           <Text fontSize={9} color="#fff" fontWeight="700">
-            {injury ? "INF" : chanceSummary.sources.join(',')}
+            {injury ? "INF" : (
+              chance.fantagazzetta && chance.gazzetta ? "FG" :
+              chance.fantagazzetta ? "F" :
+              chance.gazzetta ? "G" : "?"
+            )}
           </Text>
+        </YStack>
+      )}
+
+      {/* Sistema bonus/malus - in alto a destra */}
+      {vote && bonusIcons.length > 0 && (
+        <YStack
+          position="absolute"
+          top={8}
+          right={-4}
+          gap={3}
+          zIndex={20}
+        >
+          {bonusIcons.map((bonus, index) => (
+            <BonusIcon
+              key={bonus.key}
+              Icon={bonus.Icon}
+              count={bonus.count}
+              label={bonus.label}
+              color={bonus.color}
+              description={bonus.description}
+              showTooltip={showBonusTooltip === bonus.key}
+              onToggleTooltip={() => setShowBonusTooltip(showBonusTooltip === bonus.key ? null : bonus.key)}
+            />
+          ))}
+        </YStack>
+      )}
+
+      {/* Informazioni chance quando non è live */}
+      {!isGameLive && chanceInfo.length > 0 && (
+        <YStack
+          position="absolute"
+          top={8}
+          right={-4}
+          gap={3}
+          zIndex={20}
+        >
+          {chanceInfo.map((info, index) => (
+            <ChanceIcon
+              key={`${info.type}-${index}`}
+              type={info.type}
+              value={info.value}
+              showTooltip={showChanceTooltip === `${info.type}-${index}`}
+              onToggleTooltip={() => setShowChanceTooltip(showChanceTooltip === `${info.type}-${index}` ? null : `${info.type}-${index}`)}
+            />
+          ))}
         </YStack>
       )}
 
