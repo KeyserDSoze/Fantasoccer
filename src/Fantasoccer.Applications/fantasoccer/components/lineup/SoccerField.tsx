@@ -42,31 +42,31 @@ const SoccerFieldSVG = memo(({ orientation }: SoccerFieldSVGProps) => {
     )
   }
 
-  // Mobile: campo verticale nativo (900x1400) - dimensioni invertite e coordinate ricalcolate
+  // Mobile: campo verticale nativo (900x1800) - più alto per maggiore spaziatura
   return (
     <svg 
       width="100%" 
       height="100%" 
-      viewBox="0 0 900 1400" 
+      viewBox="0 0 900 1800" 
       xmlns="http://www.w3.org/2000/svg" 
       aria-label="Campo da calcio - Mobile"
     >
       <g id="campo-verticale">
-        <rect fill="#15803d" x="0" y="0" width="900" height="1400"/>
-        <rect stroke="#ffffff" strokeWidth="8" fill="none" x="40" y="40" width="820" height="1320"/>
-        <line stroke="#ffffff" strokeWidth="6" x1="35" y1="700" x2="865" y2="700"/>
-        <circle stroke="#ffffff" strokeWidth="6" fill="none" cx="450" cy="700" r="90"/>
-        <circle fill="#ffffff" cx="450" cy="700" r="6"/>
+        <rect fill="#15803d" x="0" y="0" width="900" height="1800"/>
+        <rect stroke="#ffffff" strokeWidth="8" fill="none" x="40" y="40" width="820" height="1720"/>
+        <line stroke="#ffffff" strokeWidth="6" x1="35" y1="900" x2="865" y2="900"/>
+        <circle stroke="#ffffff" strokeWidth="6" fill="none" cx="450" cy="900" r="90"/>
+        <circle fill="#ffffff" cx="450" cy="900" r="6"/>
         <rect stroke="#ffffff" strokeWidth="6" fill="none" x="250" y="40" width="400" height="200"/>
         <rect stroke="#ffffff" strokeWidth="6" fill="none" x="340" y="40" width="220" height="80"/>
         <circle fill="#ffffff" cx="450" cy="200" r="6"/>
         <path stroke="#ffffff" strokeWidth="5" fill="none" d="M 380 240 A 60 60 0 0 1 520 240"/>
-        <rect stroke="#ffffff" strokeWidth="6" fill="none" x="250" y="1160" width="400" height="200"/>
-        <rect stroke="#ffffff" strokeWidth="6" fill="none" x="340" y="1280" width="220" height="80"/>
-        <circle fill="#ffffff" cx="450" cy="1200" r="6"/>
-        <path stroke="#ffffff" strokeWidth="5" fill="none" d="M 520 1160 A 60 60 0 0 1 380 1160"/>
+        <rect stroke="#ffffff" strokeWidth="6" fill="none" x="250" y="1560" width="400" height="200"/>
+        <rect stroke="#ffffff" strokeWidth="6" fill="none" x="340" y="1680" width="220" height="80"/>
+        <circle fill="#ffffff" cx="450" cy="1600" r="6"/>
+        <path stroke="#ffffff" strokeWidth="5" fill="none" d="M 520 1560 A 60 60 0 0 1 380 1560"/>
         <rect stroke="#ffffff" strokeWidth="6" fill="rgba(255,255,255,0.05)" x="390" y="0" width="120" height="40"/>
-        <rect stroke="#ffffff" strokeWidth="6" fill="rgba(255,255,255,0.05)" x="390" y="1360" width="120" height="40"/>
+        <rect stroke="#ffffff" strokeWidth="6" fill="rgba(255,255,255,0.05)" x="390" y="1760" width="120" height="40"/>
       </g>
     </svg>
   )
