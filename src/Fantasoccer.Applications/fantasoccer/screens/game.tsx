@@ -4,31 +4,16 @@ import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { SoccerField } from 'components/lineup'
-import { useMedia } from 'tamagui'
-import type { GameWrapper, LiveTeam } from 'types/game'
-import type { RealGame } from 'types/serieA'
+import { type GameWrapper } from 'types/game'
 import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
-import { useCurrentGroup } from 'hooks/useAppData'
-import { useApp } from 'providers/AppProvider'
-import { convertUTCToItalianTimezone } from 'utils/timezoneHelpers'
+import { formatItalianDate } from 'utils/timezoneHelpers'
 import type { RootStackParamList } from '../navigation'
 import type { RouteProp } from '@react-navigation/native'
 
-// Helper function per creare un ID unico da un RealGame
-const getRealGameId = (game: RealGame): string => {
-  return `${game.home.abbreviation}_${game.away.abbreviation}`
-}
-
 export default function GameScreen() {
-  const media = useMedia()
   const {
     calendar,
-    liveDay,
-    nextDay,
-    liveGames,
-    isLive,
-    liveSerieADay,
     isLoading,
     error,
   } = useSerieACalendar({ refreshInterval: 60000, enablePolling: true })
@@ -41,18 +26,7 @@ export default function GameScreen() {
   const routeLeagueId = params?.leagueId ?? null
   const routeYear = params?.year ?? null
   const routeGroupId = params?.groupId ?? null
-
-
-
-
   const navigation = useNavigation()
-
-  // Fetch team/day data for both sides when we have a game
-  // Use the current group context (set by AppProvider) to derive group and year
-  
-
-  // legacy team/day hooks removed — we will prefer server-provided GameWrapper via gameService
-
   // gameService result (live teams + extra info) — prefer this when available
   const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null)
   const [gameLoading, setGameLoading] = useState(false)
@@ -77,11 +51,24 @@ export default function GameScreen() {
     return () => { mounted = false }
   }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
 
-  // field rendering is driven directly by server GameWrapper (gameWrapper state)
-
-  // Compute played score and MVP from gameService wrapper if available
+  // Compute played score and bonuses from gameService wrapper if available
   const title = gameWrapper ? `${gameWrapper.game?.home} vs ${gameWrapper.game?.away}` : 'Partita'
   const playedScore = gameWrapper?.game?.result ? `${gameWrapper.game.result.homeGoals}-${gameWrapper.game.result.awayGoals}` : null
+  
+  // Trova la data della partita dal calendario di Serie A usando serieADay
+  const gameDate = useMemo(() => {
+    if (!gameWrapper?.serieADay || !calendar) return null
+    
+    // Cerca la giornata nel calendario che corrisponde a serieADay
+    const targetDay = calendar.days?.find(day => day.serieADay === gameWrapper.serieADay)
+    
+    if (!targetDay || !targetDay.games || targetDay.games.length === 0) return null
+    
+    // Prende la prima partita in ordine di tempo di quella giornata
+    const sortedGames = [...targetDay.games].sort((a, b) => a.date.getTime() - b.date.getTime())
+    return sortedGames[0]?.date || null
+  }, [gameWrapper?.serieADay, calendar])
+  
   const homeHasAGoodDefense = gameWrapper?.game?.result?.home?.defensiveBonus
   const homeHasAGoodPeople = gameWrapper?.game?.result?.home?.goodPeople
   const homeHasDoneOwnGoal = gameWrapper?.game?.result?.home?.ownGoal
@@ -103,7 +90,9 @@ export default function GameScreen() {
             ) : (
               <YStack gap="$2">
                 <H3>{gameWrapper.game?.home} vs {gameWrapper.game?.away}</H3>
-                <Text>{convertUTCToItalianTimezone(gameWrapper.game?.date.toISOString())}</Text>
+                {gameDate && (
+                  <Text>{formatItalianDate(gameDate)}</Text>
+                )}
                 {playedScore && (
                   <Text fontSize="$4" fontWeight="bold">{playedScore}</Text>
                 )}
