@@ -615,48 +615,144 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Sistema bonus/malus - in alto a destra, spostato leggermente più in basso */}
-      {vote && bonusIcons.length > 0 && (
+      {/* Rettangolo verticale moderno per bonus/malus e chance info - alto a destra */}
+      {((vote && bonusIcons.length > 0) || chanceInfo.length > 0) && (
         <YStack
           position="absolute"
-          top={6}
-          right={-14}
-          gap={3}
-          zIndex={20}
-        >
-          {bonusIcons.map((bonus, index) => (
-            <BonusIcon
-              key={bonus.key}
-              Icon={bonus.Icon}
-              count={bonus.count}
-              label={bonus.label}
-              color={bonus.color}
-              description={bonus.description}
-              showTooltip={showBonusTooltip === bonus.key}
-              onToggleTooltip={() => setShowBonusTooltip(showBonusTooltip === bonus.key ? null : bonus.key)}
-            />
-          ))}
-        </YStack>
-      )}
-
-      {/* Informazioni chance */}
-      {chanceInfo.length > 0 && (
-        <YStack
-          position="absolute"
-          top={8}
+          top={-6}
           right={-4}
+          width={28}
+          minHeight={40}
+          backgroundColor="rgba(0, 0, 0, 0.85)"
+          borderRadius={4}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+          paddingVertical={4}
+          paddingHorizontal={2}
           gap={3}
+          alignItems="center"
           zIndex={20}
+          elevation={6}
         >
-          {chanceInfo.map((info, index) => (
-            <ChanceIcon
-              key={`${info.type}-${index}`}
-              type={info.type}
-              value={info.value}
-              showTooltip={showChanceTooltip === `${info.type}-${index}`}
-              onToggleTooltip={() => setShowChanceTooltip(showChanceTooltip === `${info.type}-${index}` ? null : `${info.type}-${index}`)}
-            />
+          {/* Bonus/Malus Icons - versione compatta */}
+          {vote && bonusIcons.map((bonus, index) => (
+            <YStack
+              key={bonus.key}
+              width={18}
+              height={18}
+              borderRadius={3}
+              backgroundColor={bonus.color}
+              alignItems="center"
+              justifyContent="center"
+              borderWidth={1}
+              borderColor="rgba(255, 255, 255, 0.8)"
+              onPress={() => setShowBonusTooltip(showBonusTooltip === bonus.key ? null : bonus.key)}
+              pressStyle={{ scale: 0.9 }}
+            >
+              <bonus.Icon size={10} color="#fff" />
+              {bonus.count > 1 && (
+                <YStack
+                  position="absolute"
+                  top={0}
+                  right={0}
+                  width={10}
+                  height={10}
+                  borderRadius={5}
+                  backgroundColor="#fff"
+                  alignItems="center"
+                  justifyContent="center"
+                  borderWidth={0.5}
+                  borderColor={bonus.color}
+                >
+                  <Text fontSize={6} color={bonus.color} fontWeight="800">
+                    {bonus.count}
+                  </Text>
+                </YStack>
+              )}
+              
+              {/* Tooltip compatto per bonus */}
+              {showBonusTooltip === bonus.key && (
+                <YStack
+                  position="absolute"
+                  top={0}
+                  left={-80}
+                  backgroundColor="rgba(0, 0, 0, 0.95)"
+                  padding={4}
+                  borderRadius={4}
+                  zIndex={35}
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.3)"
+                  minWidth={70}
+                >
+                  <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
+                    {bonus.count} {bonus.description}
+                  </Text>
+                </YStack>
+              )}
+            </YStack>
           ))}
+          
+          {/* Separatore se ci sono sia bonus che chance */}
+          {vote && bonusIcons.length > 0 && chanceInfo.length > 0 && (
+            <YStack
+              width={14}
+              height={1}
+              backgroundColor="rgba(255, 255, 255, 0.3)"
+              marginVertical={1}
+            />
+          )}
+          
+          {/* Chance Info Icons - versione compatta */}
+          {chanceInfo.map((info, index) => {
+            const config = CHANCE_INFO_MAP[info.type]
+            const IconComponent = config.icon
+            
+            return (
+              <YStack
+                key={`${info.type}-${index}`}
+                width={18}
+                height={18}
+                borderRadius={3}
+                backgroundColor={config.color}
+                alignItems="center"
+                justifyContent="center"
+                borderWidth={1}
+                borderColor="rgba(255, 255, 255, 0.8)"
+                onPress={() => setShowChanceTooltip(showChanceTooltip === `${info.type}-${index}` ? null : `${info.type}-${index}`)}
+                pressStyle={{ scale: 0.9 }}
+              >
+                {IconComponent ? (
+                  <IconComponent size={10} color="#fff" />
+                ) : (
+                  <Text fontSize={8} fontWeight="bold" color="#fff">
+                    {config.text}
+                  </Text>
+                )}
+                
+                {/* Tooltip compatto per chance */}
+                {showChanceTooltip === `${info.type}-${index}` && (
+                  <YStack
+                    position="absolute"
+                    top={0}
+                    left={-80}
+                    backgroundColor="rgba(0, 0, 0, 0.95)"
+                    padding={4}
+                    borderRadius={4}
+                    zIndex={35}
+                    borderWidth={1}
+                    borderColor="rgba(255, 255, 255, 0.3)"
+                    minWidth={70}
+                  >
+                    <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
+                      {info.type === 'fantagazzetta' ? 'Fantagazzetta' : 
+                       info.type === 'gazzetta' ? 'Gazzetta' : 
+                       config.label}: {typeof info.value === 'boolean' ? (info.value ? 'Titolare' : 'Panchina') : info.value}
+                    </Text>
+                  </YStack>
+                )}
+              </YStack>
+            )
+          })}
         </YStack>
       )}
 
