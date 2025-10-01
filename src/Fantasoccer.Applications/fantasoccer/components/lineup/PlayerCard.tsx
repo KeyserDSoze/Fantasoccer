@@ -32,24 +32,280 @@ import {
 import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
+import { Behaviour } from 'types/serieA'
 import type { Chance, ChanceType, TrendType } from '../../types/chance'
 import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 
+// ============================================
+// COMPONENTI SVG PERSONALIZZATI PER BONUS/MALUS
+// ============================================
+
+// Pallone da calcio riutilizzabile con colori personalizzabili
+function SoccerBallSVG({
+  primaryColor = '#ffffff',
+  secondaryColor = '#000000',
+  size = 16
+}: {
+  primaryColor?: string,
+  secondaryColor?: string,
+  size?: number
+}) {
+  const CX = 50, CY = 50;
+  const outerR = 48;    // raggio della palla "base"
+  const seamW = 2.2;    // spessore cuciture
+
+  const poly = (cx: number, cy: number, r: number, sides: number, rotDeg = 0) => {
+    const rot = (Math.PI / 180) * rotDeg;
+    const pts = Array.from({ length: sides }, (_, i) => {
+      const a = rot + (i * 2 * Math.PI) / sides - Math.PI / 2;
+      const x = cx + r * Math.cos(a);
+      const y = cy + r * Math.sin(a);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+    return pts;
+  };
+
+  const centerPentR = 11.5;
+  const ringHexR = 25.5;
+  const hexR = 12.3;
+  const outerPentR = 40.5;
+  const outerPentSize = 10.5;
+
+  const hexCenters = Array.from({ length: 5 }, (_, i) => {
+    const ang = (-90 + i * 72) * Math.PI / 180;
+    return [CX + ringHexR * Math.cos(ang), CY + ringHexR * Math.sin(ang)] as const;
+  });
+
+  const outerPentCenters = Array.from({ length: 5 }, (_, i) => {
+    const ang = (-90 + 36 + i * 72) * Math.PI / 180;
+    return [CX + outerPentR * Math.cos(ang), CY + outerPentR * Math.sin(ang)] as const;
+  });
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <clipPath id="ballClip">
+          <circle cx={CX} cy={CY} r={outerR} />
+        </clipPath>
+      </defs>
+
+      {/* cerchio base */}
+      <circle
+        cx={CX}
+        cy={CY}
+        r={outerR}
+        fill={primaryColor}
+      />
+
+      <g clipPath="url(#ballClip)">
+        {/* pentagono centrale */}
+        <polygon
+          points={poly(CX, CY, centerPentR, 5, 0)}
+          fill={secondaryColor}
+          stroke={secondaryColor}
+          strokeWidth={seamW}
+        />
+
+        {/* esagoni */}
+        {hexCenters.map(([x, y], idx) => (
+          <polygon
+            key={`hex-${idx}`}
+            points={poly(x, y, hexR, 6, 30)}
+            fill={primaryColor}
+            stroke={secondaryColor}
+            strokeWidth={seamW}
+          />
+        ))}
+
+        {/* pentagoni esterni */}
+        {outerPentCenters.map(([x, y], idx) => (
+          <polygon
+            key={`opent-${idx}`}
+            points={poly(x, y, outerPentSize, 5, 18)}
+            fill={secondaryColor}
+            stroke={secondaryColor}
+            strokeWidth={seamW}
+          />
+        ))}
+
+        {/* highlights */}
+        <path d="M76 18c5 3 9 6 12 10" stroke={primaryColor} strokeWidth={seamW} fill="none" />
+        <path d="M18 78c3 4 6 7 10 9" stroke={primaryColor} strokeWidth={seamW} fill="none" />
+      </g>
+
+      {/* ✅ contorno esterno visibile */}
+      <circle
+        cx={CX}
+        cy={CY}
+        r={outerR + seamW / 2}   // leggermente più grande
+        fill="none"
+        stroke={secondaryColor == '#ffffff' ? primaryColor : secondaryColor}
+        strokeWidth={seamW * 1.5}
+      />
+    </svg>
+  );
+}
+
+
+// Piede con scarpa e pallone per assist
+function AssistSVG({
+  color = "#000000",
+  size = 19,
+  strokeWidth = 12, // facoltativo: puoi regolare lo spessore del tratto
+  ...props
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 200 200"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Assist icon"
+      {...props}
+    >
+      {/* Contorno scarpa */}
+      <path
+        d="M18 122c0-38 18-58 48-64l64-14c5 10 17 17 31 17h31v96H18v-35Z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Foro/occhiello superiore */}
+      <circle
+        cx="144"
+        cy="56"
+        r="14"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+
+      {/* Suola */}
+      <line
+        x1="18"
+        y1="150"
+        x2="192"
+        y2="150"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+
+      {/* Tre strisce diagonali */}
+      <line
+        x1="75"
+        y1="68"
+        x2="105"
+        y2="140"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <line
+        x1="96"
+        y1="62"
+        x2="126"
+        y2="140"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <line
+        x1="117"
+        y1="58"
+        x2="147"
+        y2="140"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+
+      {/* “Tasselli” suola */}
+      <rect
+        x="26"
+        y="150"
+        width="34"
+        height="26"
+        rx="4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+      <rect
+        x="78"
+        y="150"
+        width="34"
+        height="26"
+        rx="4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+      <rect
+        x="130"
+        y="150"
+        width="34"
+        height="26"
+        rx="4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+    </svg>
+  );
+}
+
+// Cartellino colorato per comportamenti
+function BehaviourCardSVG({ color, size = 20 }: { color: string, size?: number }) {
+  return (
+    <svg width={size} height={size * 1.4} viewBox="0 0 20 28" fill="none">
+      <rect x="2" y="2" width="16" height="24" rx="2" fill={color} stroke="rgba(0,0,0,0.2)" strokeWidth="1"/>
+      <rect x="4" y="4" width="12" height="2" rx="1" fill="rgba(255,255,255,0.8)"/>
+      <rect x="4" y="8" width="8" height="1" rx="0.5" fill="rgba(255,255,255,0.6)"/>
+      <rect x="4" y="11" width="10" height="1" rx="0.5" fill="rgba(255,255,255,0.6)"/>
+    </svg>
+  )
+}
+
 export interface PlayerCardProps {
   player: LivePlayer
 }
 
-// Mappa completa dei bonus/malus con icone migliori e descrizioni
-const BONUS_MALUS_MAP: { key: keyof Vote; icon: any; label: string; color: string; description: string }[] = [
-  { key: 'goals', icon: Goal, label: 'Gol', color: '#16a34a', description: 'gol segnati' },
-  { key: 'assists', icon: Target, label: 'Assist', color: '#06b6d4', description: 'assist forniti' },
-  { key: 'penalties', icon: Circle, label: 'Rigori', color: '#8b5cf6', description: 'rigori segnati' },
-  { key: 'stoppedPenalties', icon: Shield, label: 'Parate', color: '#f59e0b', description: 'rigori parati' },
-  { key: 'ownGoals', icon: Minus, label: 'Autogol', color: '#ef4444', description: 'autogol segnati' },
-  { key: 'wrongedPenalties', icon: XCircle, label: 'Rig. Sbagliati', color: '#dc2626', description: 'rigori sbagliati' },
-  { key: 'sufferedGoals', icon: AlertCircle, label: 'Gol Subiti', color: '#991b1b', description: 'gol subiti dal portiere' },
+// ============================================
+// CONFIGURAZIONE BONUS/MALUS CON ICONE SVG PERSONALIZZATE
+// ============================================
+
+// Configurazione per i comportamenti (cartellini)
+const BEHAVIOUR_CONFIG = {
+  [Behaviour.YellowCard]: { color: '#fbbf24', label: 'Cartellino Giallo' },
+  [Behaviour.RedCard]: { color: '#ef4444', label: 'Cartellino Rosso' },
+  [Behaviour.Nothing]: null
+}
+
+// Configurazione per i bonus/malus con ordine specifico e icone SVG
+const BONUS_MALUS_CONFIG: {
+  key: keyof Vote
+  component: React.ComponentType<{ size?: number }>
+  label: string
+  description: string
+  order: number
+}[] = [
+  { key: 'goals', component: () => <SoccerBallSVG primaryColor="#ffffff" secondaryColor="#000000" />, label: 'Gol', description: 'gol segnati', order: 1 },
+  { key: 'penalties', component: () => <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" />, label: 'Rigori', description: 'rigori segnati', order: 2 },
+  { key: 'assists', component: () => <AssistSVG color="#000" />, label: 'Assist', description: 'assist forniti', order: 3 },
+  { key: 'stoppedPenalties', component: () => <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" />, label: 'Parate', description: 'rigori parati', order: 4 },
+  { key: 'sufferedGoals', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, label: 'Gol Subiti', description: 'gol subiti dal portiere', order: 5 },
+  { key: 'wrongedPenalties', component: () => <SoccerBallSVG primaryColor="#10b981" secondaryColor="#ffffff" />, label: 'Rig. Sbagliati', description: 'rigori sbagliati', order: 6 },
+  { key: 'ownGoals', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, label: 'Autogol', description: 'autogol segnati', order: 7 },
 ]
 
 // Mappa per le informazioni di chance
@@ -62,155 +318,7 @@ const CHANCE_INFO_MAP = {
   trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma', text: 'T' },
 }
 
-// Componente per bonus/malus con tooltip
-function BonusIcon({ 
-  Icon, 
-  count, 
-  color, 
-  label, 
-  description, 
-  showTooltip, 
-  onToggleTooltip 
-}: { 
-  Icon: any
-  count: number
-  color: string
-  label: string
-  description: string
-  showTooltip: boolean
-  onToggleTooltip: () => void
-}) {
-  return (
-    <YStack alignItems="center">
-      <YStack
-        width={28}
-        height={28}
-        borderRadius={14}
-        backgroundColor={`${color}E6`}
-        alignItems="center"
-        justifyContent="center"
-        borderWidth={2}
-        borderColor="#fff"
-        elevation={5}
-        position="relative"
-        onPress={onToggleTooltip}
-        onHoverIn={onToggleTooltip}
-        onHoverOut={() => showTooltip && onToggleTooltip()}
-        pressStyle={{ scale: 0.95 }}
-      >
-        <Icon size={14} color="#fff" />
-        {count > 1 && (
-          <YStack
-            position="absolute"
-            top={-8}
-            right={-8}
-            width={16}
-            height={16}
-            borderRadius={8}
-            backgroundColor="#fff"
-            alignItems="center"
-            justifyContent="center"
-            borderWidth={1}
-            borderColor={color}
-            elevation={3}
-          >
-            <Text fontSize={8} color={color} fontWeight="800">
-              {count}
-            </Text>
-          </YStack>
-        )}
-      </YStack>
-      
-      {/* Tooltip */}
-      {showTooltip && (
-        <YStack
-          position="absolute"
-          top={35}
-          right={-20}
-          backgroundColor="rgba(0, 0, 0, 0.95)"
-          padding={6}
-          borderRadius={6}
-          zIndex={35}
-          elevation={15}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-          minWidth={100}
-        >
-          <Text fontSize={10} color="#fff" textAlign="center" fontWeight="600">
-            {count} {description}
-          </Text>
-        </YStack>
-      )}
-    </YStack>
-  )
-}
 
-// Componente per chance information con tooltip
-function ChanceIcon({ 
-  type, 
-  value, 
-  showTooltip, 
-  onToggleTooltip 
-}: { 
-  type: keyof typeof CHANCE_INFO_MAP
-  value: boolean | string | number
-  showTooltip: boolean
-  onToggleTooltip: () => void
-}) {
-  const config = CHANCE_INFO_MAP[type]
-  const IconComponent = config.icon
-  
-  return (
-    <YStack alignItems="center">
-      <YStack
-        width={28}
-        height={28}
-        borderRadius={14}
-        backgroundColor={`${config.color}E6`}
-        alignItems="center"
-        justifyContent="center"
-        borderWidth={2}
-        borderColor="#fff"
-        elevation={5}
-        onPress={onToggleTooltip}
-        onHoverIn={onToggleTooltip}
-        onHoverOut={() => showTooltip && onToggleTooltip()}
-        pressStyle={{ scale: 0.95 }}
-      >
-        {IconComponent ? (
-          <IconComponent size={14} color="#fff" />
-        ) : (
-          <Text fontSize={12} fontWeight="bold" color="#fff">
-            {config.text}
-          </Text>
-        )}
-      </YStack>
-      
-      {/* Tooltip */}
-      {showTooltip && (
-        <YStack
-          position="absolute"
-          top={35}
-          right={-20}
-          backgroundColor="rgba(0, 0, 0, 0.95)"
-          padding={6}
-          borderRadius={6}
-          zIndex={35}
-          elevation={15}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-          minWidth={100}
-        >
-          <Text fontSize={10} color="#fff" textAlign="center" fontWeight="600">
-            {type === 'fantagazzetta' ? 'Fantagazzetta' : 
-             type === 'gazzetta' ? 'Gazzetta' : 
-             config.label}: {typeof value === 'boolean' ? (value ? 'Titolare' : 'Panchina') : value}
-          </Text>
-        </YStack>
-      )}
-    </YStack>
-  )
-}
 
 export function PlayerCard({ player}: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
@@ -302,43 +410,50 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
   }, [voteDisplayInfo?.shouldBlink])
 
-  const bonusIcons = useMemo(() => {
-    if (!vote) return []
-    const icons: { 
-      Icon: any
+  // Sistema organizzato per comportamenti e bonus/malus
+  const playerBehaviourAndBonus = useMemo(() => {
+    if (!vote) return { behaviour: null, bonusGroups: [], hasManOfTheMatch: false }
+
+    // Comportamenti (cartellini)
+    const behaviour = vote.status !== Behaviour.Nothing ? {
+      type: vote.status,
+      config: BEHAVIOUR_CONFIG[vote.status]
+    } : null
+
+    // Bonus/Malus raggruppati per tipo
+    const bonusGroups: {
+      config: typeof BONUS_MALUS_CONFIG[0]
       count: number
-      label: string
-      color: string
-      description: string
-      key: string
+      items: React.ReactNode[]
     }[] = []
-    
-    for (const m of BONUS_MALUS_MAP) {
-      const count = (vote as any)[m.key] ?? 0
-      if (count && count > 0) {
-        icons.push({ 
-          Icon: m.icon, 
-          count, 
-          label: m.label, 
-          color: m.color,
-          description: m.description,
-          key: m.key
+
+    for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
+      const count = (vote as any)[bonusConfig.key] ?? 0
+      if (count > 0) {
+        // Crea array di icone per lo stesso tipo (se count > 1, mostra multiple icone)
+        const items: React.ReactNode[] = []
+        for (let i = 0; i < Math.min(count, 4); i++) { // Max 4 icone per tipo per evitare overflow
+          items.push(
+            <bonusConfig.component key={`${bonusConfig.key}-${i}`} size={14} />
+          )
+        }
+        
+        bonusGroups.push({
+          config: bonusConfig,
+          count,
+          items
         })
       }
     }
-    
-    if ((vote as any)?.manOfTheMatch) {
-      icons.push({ 
-        Icon: Star, 
-        count: 1, 
-        label: 'MVP', 
-        color: '#f97316',
-        description: 'migliore in campo',
-        key: 'manOfTheMatch'
-      })
+
+    // Man of the Match
+    const hasManOfTheMatch = (vote as any)?.manOfTheMatch ?? false
+
+    return {
+      behaviour,
+      bonusGroups,
+      hasManOfTheMatch
     }
-    
-    return icons
   }, [vote])
 
   // Informazioni chance 
@@ -615,77 +730,66 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Rettangolo verticale moderno per bonus/malus e chance info - alto a destra */}
-      {((vote && bonusIcons.length > 0) || chanceInfo.length > 0) && (
+      {/* Cartellino comportamentale - sotto il voto a sinistra */}
+      {vote && playerBehaviourAndBonus.behaviour && (
         <YStack
           position="absolute"
-          top={-6}
+          top={36}
+          left={6}
+          zIndex={24}
+        >
+          <BehaviourCardSVG 
+            color={playerBehaviourAndBonus.behaviour.config!.color} 
+            size={16}
+          />
+        </YStack>
+      )}
+
+      {/* Area bonus/malus organizzata - a destra */}
+      {(vote && (playerBehaviourAndBonus.bonusGroups.length > 0 || chanceInfo.length > 0)) && (
+        <YStack
+          position="absolute"
+          top={-4}
           right={-4}
-          width={28}
-          minHeight={40}
-          backgroundColor="rgba(0, 0, 0, 0.85)"
-          borderRadius={4}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-          paddingVertical={4}
-          paddingHorizontal={2}
-          gap={3}
+          maxWidth={48}
+          borderRadius={6}
+          paddingVertical={6}
+          paddingHorizontal={4}
+          gap={4}
           alignItems="center"
           zIndex={20}
-          elevation={6}
         >
-          {/* Bonus/Malus Icons - versione compatta */}
-          {vote && bonusIcons.map((bonus, index) => (
-            <YStack
-              key={bonus.key}
-              width={18}
-              height={18}
-              borderRadius={3}
-              backgroundColor={bonus.color}
-              alignItems="center"
-              justifyContent="center"
-              borderWidth={1}
-              borderColor="rgba(255, 255, 255, 0.8)"
-              onPress={() => setShowBonusTooltip(showBonusTooltip === bonus.key ? null : bonus.key)}
-              pressStyle={{ scale: 0.9 }}
-            >
-              <bonus.Icon size={10} color="#fff" />
-              {bonus.count > 1 && (
-                <YStack
-                  position="absolute"
-                  top={0}
-                  right={0}
-                  width={10}
-                  height={10}
-                  borderRadius={5}
-                  backgroundColor="#fff"
-                  alignItems="center"
-                  justifyContent="center"
-                  borderWidth={0.5}
-                  borderColor={bonus.color}
-                >
-                  <Text fontSize={6} color={bonus.color} fontWeight="800">
-                    {bonus.count}
-                  </Text>
-                </YStack>
+          {/* Bonus/Malus organizzati per tipo */}
+          {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
+            <YStack key={group.config.key} alignItems="center" gap={2}>
+              {/* Riga di icone dello stesso tipo */}
+              <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
+                {group.items}
+              </XStack>
+              
+              {/* Contatore se ci sono più di 4 elementi */}
+              {group.count > 4 && (
+                <Text fontSize={8} color="#fff" fontWeight="600">
+                  +{group.count - 4}
+                </Text>
               )}
               
-              {/* Tooltip compatto per bonus */}
-              {showBonusTooltip === bonus.key && (
+              {/* Tooltip per gruppo */}
+              {showBonusTooltip === group.config.key && (
                 <YStack
                   position="absolute"
                   top={0}
-                  left={-80}
+                  left={-85}
                   backgroundColor="rgba(0, 0, 0, 0.95)"
                   padding={4}
                   borderRadius={4}
                   zIndex={35}
                   borderWidth={1}
                   borderColor="rgba(255, 255, 255, 0.3)"
-                  minWidth={70}
+                  minWidth={75}
                 >
                   <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
-                    {bonus.count} {bonus.description}
+                    {group.count} {group.config.description}
                   </Text>
                 </YStack>
               )}
@@ -693,12 +797,12 @@ export function PlayerCard({ player}: PlayerCardProps) {
           ))}
           
           {/* Separatore se ci sono sia bonus che chance */}
-          {vote && bonusIcons.length > 0 && chanceInfo.length > 0 && (
+          {playerBehaviourAndBonus.bonusGroups.length > 0 && chanceInfo.length > 0 && (
             <YStack
-              width={14}
+              width={30}
               height={1}
               backgroundColor="rgba(255, 255, 255, 0.3)"
-              marginVertical={1}
+              marginVertical={2}
             />
           )}
           
@@ -710,9 +814,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
             return (
               <YStack
                 key={`${info.type}-${index}`}
-                width={18}
-                height={18}
-                borderRadius={3}
+                width={20}
+                height={20}
+                borderRadius={4}
                 backgroundColor={config.color}
                 alignItems="center"
                 justifyContent="center"
@@ -722,9 +826,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
                 pressStyle={{ scale: 0.9 }}
               >
                 {IconComponent ? (
-                  <IconComponent size={10} color="#fff" />
+                  <IconComponent size={12} color="#fff" />
                 ) : (
-                  <Text fontSize={8} fontWeight="bold" color="#fff">
+                  <Text fontSize={10} fontWeight="bold" color="#fff">
                     {config.text}
                   </Text>
                 )}
@@ -734,14 +838,14 @@ export function PlayerCard({ player}: PlayerCardProps) {
                   <YStack
                     position="absolute"
                     top={0}
-                    left={-80}
+                    left={-85}
                     backgroundColor="rgba(0, 0, 0, 0.95)"
                     padding={4}
                     borderRadius={4}
                     zIndex={35}
                     borderWidth={1}
                     borderColor="rgba(255, 255, 255, 0.3)"
-                    minWidth={70}
+                    minWidth={75}
                   >
                     <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
                       {info.type === 'fantagazzetta' ? 'Fantagazzetta' : 
