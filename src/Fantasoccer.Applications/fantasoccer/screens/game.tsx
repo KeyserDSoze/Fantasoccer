@@ -42,42 +42,8 @@ export default function GameScreen() {
   const routeYear = params?.year ?? null
   const routeGroupId = params?.groupId ?? null
 
-  // Ottengo i valori correnti dall'app per il fallback
-  const { selectedLeagueId, selectedYear } = useApp()
-  const { group: currentGroup } = useCurrentGroup()
-  const currentGroupId = typeof currentGroup === 'string' ? currentGroup : currentGroup?.id ?? null
-
-  const game = useMemo(() => {
-    // Se abbiamo un gameId dalla URL, cerchiamo il game corrispondente
-    if (routeGameId) {
-      // Cerca prima nei liveGames
-      if (liveGames) {
-        const found = liveGames.find(g => getRealGameId(g) === routeGameId)
-        if (found) return found
-      }
-      
-      // Cerca in nextDay
-      if (nextDay && nextDay.games) {
-        const found = nextDay.games.find(g => getRealGameId(g) === routeGameId)
-        if (found) return found
-      }
-      
-      // Cerca in liveDay
-      if (liveDay && liveDay.games) {
-        const found = liveDay.games.find(g => getRealGameId(g) === routeGameId)
-        if (found) return found
-      }
-    }
-
-    // fallback: prefer live, then nextDay first game, or last completed
-    if (isLive && liveGames && liveGames.length > 0) return liveGames[0]
-    if (nextDay && nextDay.games && nextDay.games.length > 0) return nextDay.games[0]
-    if (liveDay && liveDay.games && liveDay.games.length > 0) return liveDay.games[0]
-    return null
-  }, [isLive, liveGames, nextDay, liveDay, routeGameId])
 
 
-  const title = game ? `${game.home.name} vs ${game.away.name}` : 'Partita'
 
   const navigation = useNavigation()
 
@@ -93,13 +59,8 @@ export default function GameScreen() {
   const [gameError, setGameError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Usa i parametri dalla URL se disponibili, altrimenti fallback ai valori correnti
-    const gameId = routeGameId ?? (game ? getRealGameId(game) : null)
-    const leagueId = routeLeagueId ?? selectedLeagueId
-    const year = routeYear ? parseInt(routeYear) : selectedYear
-    const groupId = routeGroupId ?? currentGroupId
     
-    if (!gameId || !groupId || !leagueId || !year) {
+    if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
       setGameWrapper(null)
       return
     }
@@ -108,31 +69,25 @@ export default function GameScreen() {
     setGameLoading(true)
     setGameError(null)
 
-    gameService.getGame({ groupId, leagueId, year, gameId })
+    gameService.getGame({ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
       .then(result => { if (mounted) setGameWrapper(result) })
       .catch(err => { if (mounted) setGameError(err?.message ?? String(err)) })
       .finally(() => { if (mounted) setGameLoading(false) })
 
     return () => { mounted = false }
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, selectedLeagueId, selectedYear, currentGroupId, game?.home.abbreviation, game?.away.abbreviation])
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
 
   // field rendering is driven directly by server GameWrapper (gameWrapper state)
 
   // Compute played score and MVP from gameService wrapper if available
+  const title = gameWrapper ? `${gameWrapper.game?.home} vs ${gameWrapper.game?.away}` : 'Partita'
   const playedScore = gameWrapper?.game?.result ? `${gameWrapper.game.result.homeGoals}-${gameWrapper.game.result.awayGoals}` : null
-  const playedMVP = useMemo(() => {
-    if (!gameWrapper?.teams) return null
-    let best: { name: string; value: number } | null = null
-    for (const t of gameWrapper.teams) {
-      for (const p of (t.players || [])) {
-        const val = (p as any).finalValue ?? null
-        if (typeof val === 'number') {
-          if (!best || val > best.value) best = { name: p.current?.name ?? 'Giocatore', value: val }
-        }
-      }
-    }
-    return best ? `${best.name} (${best.value})` : null
-  }, [gameWrapper])
+  const homeHasAGoodDefense = gameWrapper?.game?.result?.home?.defensiveBonus
+  const homeHasAGoodPeople = gameWrapper?.game?.result?.home?.goodPeople
+  const homeHasDoneOwnGoal = gameWrapper?.game?.result?.home?.ownGoal
+  const awayHasAGoodDefense = gameWrapper?.game?.result?.away?.defensiveBonus
+  const awayHasAGoodPeople = gameWrapper?.game?.result?.away?.goodPeople
+  const awayHasDoneOwnGoal = gameWrapper?.game?.result?.away?.ownGoal
 
   return (
     <View style={{ flex: 1 }}>
@@ -143,17 +98,14 @@ export default function GameScreen() {
               <Text>Caricamento calendario...</Text>
             ) : error ? (
               <Text color="$red10">{error}</Text>
-            ) : !game ? (
+            ) : !gameWrapper ? (
               <Text>Nessuna partita disponibile</Text>
             ) : (
               <YStack gap="$2">
-                <H3>{game.home.name} vs {game.away.name}</H3>
-                <Text>{convertUTCToItalianTimezone(game.date.toISOString())}</Text>
+                <H3>{gameWrapper.game?.home} vs {gameWrapper.game?.away}</H3>
+                <Text>{convertUTCToItalianTimezone(gameWrapper.game?.date.toISOString())}</Text>
                 {playedScore && (
                   <Text fontSize="$4" fontWeight="bold">{playedScore}</Text>
-                )}
-                {playedMVP && (
-                  <Text>MVP: {playedMVP}</Text>
                 )}
                 <XStack gap="$2">
                   <Button onPress={() => navigation.navigate('Formation' as never)} >Vai alla formazione</Button>
@@ -163,7 +115,7 @@ export default function GameScreen() {
             )}
           </Card>
 
-          {game && (
+          {gameWrapper && (
             <Card padding="$3" backgroundColor="$color2">
               {gameLoading ? (
                 <Text>Caricamento formazione partita...</Text>
@@ -187,4 +139,3 @@ export default function GameScreen() {
   )
 }
 
-// legacy lineup mappers removed — UI now consumes server GameWrapper directly
