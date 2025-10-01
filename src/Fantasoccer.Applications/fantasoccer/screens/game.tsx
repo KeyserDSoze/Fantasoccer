@@ -4,6 +4,7 @@ import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { SoccerField } from 'components/lineup'
+import { useMedia } from 'tamagui'
 import { type GameWrapper } from 'types/game'
 import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
@@ -14,6 +15,7 @@ import { TeamLogo } from 'components/team/TeamLogo'
 import { TeamBonuses } from 'components/icons/BonusIcons'
 
 export default function GameScreen() {
+  const media = useMedia()
   const {
     calendar,
     isLoading,
@@ -93,66 +95,140 @@ export default function GameScreen() {
               <YStack gap="$2">
                 {playedScore && (
                   <YStack gap="$3">
-                    {/* Risultato dettagliato con scudetti e bonus */}
-                    <XStack justifyContent="space-between" alignItems="center" gap="$4">
-                      {/* Squadra di casa */}
-                      <YStack alignItems="center" gap="$2" flex={1}>
+                    {/* Layout responsive: mobile vs desktop */}
+                    {media.gtSm ? (
+                      // Desktop Layout - tutto su una linea
+                      <XStack alignItems="center" justifyContent="space-between" gap="$3" padding="$2">
+                        {/* Scudetto Home */}
                         <TeamLogo 
                           groupId={routeGroupId || ''} 
                           year={routeYear || ''} 
                           ownerEmail={gameWrapper.game?.homeOwner || ''}
-                          size={50}
+                          size={40}
                         />
-                        <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                        
+                        {/* Nome squadra home */}
+                        <Text fontSize="$3" fontWeight="600" textAlign="center" minWidth={120}>
                           {gameWrapper.game?.home}
                         </Text>
-                        <YStack alignItems="center" gap="$1">
-                          <Text fontSize="$5" fontWeight="bold">
-                            {gameWrapper.game?.result?.home?.value || 0} pt
-                          </Text>
+                        
+                        {/* Punteggio home */}
+                        <Text fontSize="$4" fontWeight="bold" minWidth={60} textAlign="center">
+                          {gameWrapper.game?.result?.home?.value || 0} pt
+                        </Text>
+                        
+                        {/* Bonus home */}
+                        <View style={{ minWidth: 80, alignItems: 'center' }}>
                           <TeamBonuses 
                             hasGoodDefense={homeHasAGoodDefense}
                             hasGoodPeople={homeHasAGoodPeople}
                             hasOwnGoal={homeHasDoneOwnGoal}
+                            iconSize={16}
                           />
-                        </YStack>
-                      </YStack>
-                      
-                      {/* VS e punteggio goals */}
-                      <YStack alignItems="center" gap="$1">
-                        <Text fontSize="$6" fontWeight="bold">
-                          {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
-                        </Text>
-                        <Text fontSize="$2" color="$color11">
-                          {gameDate && (
-                            <Text>{formatItalianDate(gameDate)}</Text>
-                    )}
-                        </Text>
-                      </YStack>
-                      
-                      {/* Squadra ospite */}
-                      <YStack alignItems="center" gap="$2" flex={1}>
-                        <TeamLogo 
-                          groupId={routeGroupId || ''} 
-                          year={routeYear || ''} 
-                          ownerEmail={gameWrapper.game?.awayOwner || ''}
-                          size={50}
-                        />
-                        <Text fontSize="$2" textAlign="center" numberOfLines={2}>
-                          {gameWrapper.game?.away}
-                        </Text>
-                        <YStack alignItems="center" gap="$1">
-                          <Text fontSize="$5" fontWeight="bold">
-                            {gameWrapper.game?.result?.away?.value || 0} pt
+                        </View>
+                        
+                        {/* Goal e data centrale */}
+                        <YStack alignItems="center" gap="$1" minWidth={100}>
+                          <Text fontSize="$6" fontWeight="bold">
+                            {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
                           </Text>
+                          {gameDate && (
+                            <Text fontSize="$2" color="$color11" textAlign="center">
+                              {formatItalianDate(gameDate)}
+                            </Text>
+                          )}
+                        </YStack>
+                        
+                        {/* Bonus away */}
+                        <View style={{ minWidth: 80, alignItems: 'center' }}>
                           <TeamBonuses 
                             hasGoodDefense={awayHasAGoodDefense}
                             hasGoodPeople={awayHasAGoodPeople}
                             hasOwnGoal={awayHasDoneOwnGoal}
+                            iconSize={16}
                           />
+                        </View>
+                        
+                        {/* Punteggio away */}
+                        <Text fontSize="$4" fontWeight="bold" minWidth={60} textAlign="center">
+                          {gameWrapper.game?.result?.away?.value || 0} pt
+                        </Text>
+                        
+                        {/* Nome squadra away */}
+                        <Text fontSize="$3" fontWeight="600" textAlign="center" minWidth={120}>
+                          {gameWrapper.game?.away}
+                        </Text>
+                        
+                        {/* Scudetto Away */}
+                        <TeamLogo 
+                          groupId={routeGroupId || ''} 
+                          year={routeYear || ''} 
+                          ownerEmail={gameWrapper.game?.awayOwner || ''}
+                          size={40}
+                        />
+                      </XStack>
+                    ) : (
+                      // Mobile Layout - layout esistente (verticale)
+                      <XStack justifyContent="space-between" alignItems="center" gap="$4">
+                        {/* Squadra di casa */}
+                        <YStack alignItems="center" gap="$2" flex={1}>
+                          <TeamLogo 
+                            groupId={routeGroupId || ''} 
+                            year={routeYear || ''} 
+                            ownerEmail={gameWrapper.game?.homeOwner || ''}
+                            size={50}
+                          />
+                          <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                            {gameWrapper.game?.home}
+                          </Text>
+                          <YStack alignItems="center" gap="$1">
+                            <Text fontSize="$5" fontWeight="bold">
+                              {gameWrapper.game?.result?.home?.value || 0} pt
+                            </Text>
+                            <TeamBonuses 
+                              hasGoodDefense={homeHasAGoodDefense}
+                              hasGoodPeople={homeHasAGoodPeople}
+                              hasOwnGoal={homeHasDoneOwnGoal}
+                            />
+                          </YStack>
                         </YStack>
-                      </YStack>
-                    </XStack>
+                        
+                        {/* VS e punteggio goals */}
+                        <YStack alignItems="center" gap="$1">
+                          <Text fontSize="$6" fontWeight="bold">
+                            {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
+                          </Text>
+                          <Text fontSize="$2" color="$color11">
+                            {gameDate && (
+                              <Text>{formatItalianDate(gameDate)}</Text>
+                            )}
+                          </Text>
+                        </YStack>
+                        
+                        {/* Squadra ospite */}
+                        <YStack alignItems="center" gap="$2" flex={1}>
+                          <TeamLogo 
+                            groupId={routeGroupId || ''} 
+                            year={routeYear || ''} 
+                            ownerEmail={gameWrapper.game?.awayOwner || ''}
+                            size={50}
+                          />
+                          <Text fontSize="$2" textAlign="center" numberOfLines={2}>
+                            {gameWrapper.game?.away}
+                          </Text>
+                          <YStack alignItems="center" gap="$1">
+                            <Text fontSize="$5" fontWeight="bold">
+                              {gameWrapper.game?.result?.away?.value || 0} pt
+                            </Text>
+                            <TeamBonuses 
+                              hasGoodDefense={awayHasAGoodDefense}
+                              hasGoodPeople={awayHasAGoodPeople}
+                              hasOwnGoal={awayHasDoneOwnGoal}
+                            />
+                          </YStack>
+                        </YStack>
+                      </XStack>
+                    )}
                   </YStack>
                 )}
               </YStack>
