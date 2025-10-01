@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { Card, Image, Text, XStack, YStack, Button, useMedia } from 'tamagui'
+import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
 import {
   Trophy,
   Target,
@@ -473,12 +473,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
   }, [realGame, teamName])
 
-  // Gestione responsive: dimensioni uniformi su desktop, ridotte solo su mobile
-  const media = useMedia()
-  const isMobile = media.sm === false // sm = small screen and up, so false = below sm (mobile)
-  
-  const cardWidth = isMobile ? 90 : 112
-  const cardHeight = isMobile ? 120 : 150 
+  // Dimensioni base fisse - il scaling viene gestito dal contenitore via cardScale
+  const cardWidth = 112
+  const cardHeight = 150 
 
   return (
     <Card

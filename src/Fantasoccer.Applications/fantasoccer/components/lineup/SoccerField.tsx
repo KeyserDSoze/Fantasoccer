@@ -310,13 +310,19 @@ console.log(away?.players)
                 🥅 PORTIERI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.goalkeepers.map((player, i) => (
                     <PlayerCard key={`home-gk-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.goalkeepers.map((player, i) => (
                     <PlayerCard key={`home-gk-${i}`} player={player} />
                   ))}
@@ -332,13 +338,19 @@ console.log(away?.players)
                 🛡️ DIFENSORI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.defenders.map((player, i) => (
                     <PlayerCard key={`home-def-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.defenders.map((player, i) => (
                     <PlayerCard key={`home-def-${i}`} player={player} />
                   ))}
@@ -354,13 +366,19 @@ console.log(away?.players)
                 ⚽ CENTROCAMPISTI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.midfielders.map((player, i) => (
                     <PlayerCard key={`home-mid-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.midfielders.map((player, i) => (
                     <PlayerCard key={`home-mid-${i}`} player={player} />
                   ))}
@@ -376,13 +394,19 @@ console.log(away?.players)
                 🎯 ATTACCANTI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.forwards.map((player, i) => (
                     <PlayerCard key={`home-fwd-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {homeBenchGroups.forwards.map((player, i) => (
                     <PlayerCard key={`home-fwd-${i}`} player={player} />
                   ))}
@@ -419,13 +443,19 @@ console.log(away?.players)
                 🥅 PORTIERI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.goalkeepers.map((player, i) => (
                     <PlayerCard key={`away-gk-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.goalkeepers.map((player, i) => (
                     <PlayerCard key={`away-gk-${i}`} player={player} />
                   ))}
@@ -441,13 +471,19 @@ console.log(away?.players)
                 🛡️ DIFENSORI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.defenders.map((player, i) => (
                     <PlayerCard key={`away-def-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.defenders.map((player, i) => (
                     <PlayerCard key={`away-def-${i}`} player={player} />
                   ))}
@@ -463,13 +499,19 @@ console.log(away?.players)
                 ⚽ CENTROCAMPISTI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.midfielders.map((player, i) => (
                     <PlayerCard key={`away-mid-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.midfielders.map((player, i) => (
                     <PlayerCard key={`away-mid-${i}`} player={player} />
                   ))}
@@ -485,13 +527,19 @@ console.log(away?.players)
                 🎯 ATTACCANTI
               </Text>
               {isMobile ? (
-                <YStack gap={8}>
+                <YStack gap={8} style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.forwards.map((player, i) => (
                     <PlayerCard key={`away-fwd-${i}`} player={player} />
                   ))}
                 </YStack>
               ) : (
-                <XStack gap={gapBetweenCards}flexWrap="wrap">
+                <XStack gap={gapBetweenCards} flexWrap="wrap" style={{
+                  transform: `scale(${cardScale})`,
+                  transformOrigin: 'center center'
+                }}>
                   {awayBenchGroups.forwards.map((player, i) => (
                     <PlayerCard key={`away-fwd-${i}`} player={player} />
                   ))}
