@@ -176,34 +176,6 @@ console.log(away?.players)
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
-    // Layout mobile: colonna tradizionale
-    if (isMobile) {
-      return (
-        <YStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
-          {/* Ruolo orizzontale sopra */}
-          <Text 
-            fontSize={14} 
-            fontWeight="700" 
-            color={backgroundColor}
-            textAlign="center"
-            paddingBottom={4}
-          >
-            {roleIcon} {roleLabel}
-          </Text>
-          
-          {/* Cards giocatori in colonna */}
-          <YStack gap={8} alignItems="center" style={{
-            transform: `scale(${cardScale})`,
-            transformOrigin: 'center top'
-          }}>
-            {players.map((player, i) => (
-              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
-            ))}
-          </YStack>
-        </YStack>
-      )
-    }
-
     // Layout desktop: riga con ruolo verticale a sinistra
     return (
       <XStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
