@@ -39,7 +39,9 @@ import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
 import { calendarService } from '../../services/calendarService'
+import { serieAService } from '../../services/serieAService'
 import type { CalendarGame } from '../../types/calendar'
+import { RealCalendarHelper } from '../../types/serieA'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -98,8 +100,8 @@ const navigationItems: NavigationSection[] = [
   {
     section: 'Lega',
     items: [
-      { type: 'link', path: '/my-team', label: 'My Team', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
-      { type: 'link', path: '/teams', label: 'Teams', icon: Users, description: 'Tutte le squadre della tua lega' },
+      { type: 'link', path: '/my-team', label: 'La mia formazione', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
+      { type: 'link', path: '/teams', label: 'Le squadre', icon: Users, description: 'Tutte le squadre della tua lega' },
     ],
   },
   {
@@ -228,7 +230,33 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     }
 
     try {
-      // Carica il calendario della lega
+      // 1. Carica il calendario della Serie A per determinare la giornata attuale/prossima
+      const serieACalendar = await serieAService.getEnhancedCalendarByYear(selectedYear)
+      
+      if (!serieACalendar) {
+        toast.show('⚠️ Non è stato possibile caricare il calendario della Serie A', {
+          variant: 'error'
+        })
+        setIsOpen(false)
+        return
+      }
+
+      // 2. Determina quale giornata di Serie A è attualmente in corso o prossima
+      const nextDay = serieACalendar.nextDay
+      const lastDay = serieACalendar.lastDay
+      
+      // Usa liveDay se disponibile, altrimenti nextDay, altrimenti lastDay
+      const targetSerieADay = nextDay?.serieADay ?? lastDay?.serieADay
+
+      if (!targetSerieADay) {
+        toast.show('⚠️ Nessuna giornata di Serie A disponibile', {
+          variant: 'error'
+        })
+        setIsOpen(false)
+        return
+      }
+
+      // 3. Carica il calendario della lega
       const calendar = await calendarService.getCalendarByComponents(
         currentGroup.id,
         selectedLeagueId,
@@ -243,12 +271,14 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         return
       }
 
-      // Trova tutte le partite dell'utente (basandosi sull'email come owner)
+      // 4. Trova tutte le partite dell'utente (basandosi sull'email come owner)
       const userEmail = user.email.toLowerCase()
       const allGames: CalendarGame[] = []
       
       for (const roundDays of Object.values(calendar.rounds)) {
         for (const day of roundDays) {
+          if (day.serieADay !== targetSerieADay) 
+            continue;
           for (const game of day.games) {
             if (
               game.homeOwner.toLowerCase() === userEmail ||
@@ -270,28 +300,30 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         return
       }
 
-      // Trova la prossima partita (prima partita senza risultato)
-      const nextGame = allGames.find(game => !game.result)
+      // 5. Trova la partita corrispondente alla giornata di Serie A target
+      // Priorità: partita della giornata target, altrimenti prima partita senza risultato, altrimenti ultima
+      let targetGame = allGames.find(game => game.number === targetSerieADay)
+      
+      if (!targetGame) {
+        // Se non c'è una partita per quella giornata, cerca la prima senza risultato
+        const sortedGames = allGames.sort((a, b) => a.number - b.number)
+        targetGame = sortedGames.find(game => !game.result) ?? sortedGames[sortedGames.length - 1]
+      }
 
-      if (!nextGame) {
-        // Tutte le partite hanno un risultato, vai all'ultima partita
-        const lastGame = allGames[allGames.length - 1]
-        ;(navigation as any).navigate('Game', {
-          groupId: currentGroup.id,
-          leagueId: selectedLeagueId,
-          year: selectedYear.toString(),
-          gameId: lastGame.id
+      if (!targetGame) {
+        toast.show('⚠️ Nessuna partita disponibile', {
+          variant: 'error'
         })
         setIsOpen(false)
         return
       }
 
-      // Naviga alla prossima partita
+      // 6. Naviga alla partita trovata
       ;(navigation as any).navigate('Game', {
         groupId: currentGroup.id,
         leagueId: selectedLeagueId,
         year: selectedYear.toString(),
-        gameId: nextGame.id
+        gameId: targetGame.id
       })
       setIsOpen(false)
     } catch (error: any) {
