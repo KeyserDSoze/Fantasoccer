@@ -10,6 +10,7 @@ namespace Fantasoccer
         public CalendarGame? Game { get; set; }
         [JsonPropertyName("s")]
         public int SerieADay { get; set; }
+        [JsonPropertyName("c")]
+        public bool CanEdit { get; set; }
     }
-
 }

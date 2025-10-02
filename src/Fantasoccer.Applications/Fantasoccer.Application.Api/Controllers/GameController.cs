@@ -1,4 +1,5 @@
-﻿using Fantasoccer.Business;
+﻿using System.Text.RegularExpressions;
+using Fantasoccer.Business;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RepositoryFramework;
@@ -33,6 +34,20 @@ namespace Fantasoccer.Application.Api.Controllers
             _groups = groups;
             _teamRepository = teamRepository;
             _teamDayRepository = teamDayRepository;
+        }
+        [HttpPost]
+        public async ValueTask<int> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
+        {
+            if (team.Owner != User.Identity?.Name)
+                return 400;
+            var group = await _groups.GetAsync(groupId);
+            if (group != null)
+            {
+                var lastYear = group.Baskets.SelectMany(group => group.Years).Max(x => x.Year);
+
+                return 200;
+            }
+            return 300;
         }
         [HttpGet]
         public async Task<GameWrapper?> GetAsync([FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year, [FromQuery] string gameId)
@@ -133,7 +148,8 @@ namespace Fantasoccer.Application.Api.Controllers
                             {
                                 Game = game.Value,
                                 SerieADay = game.SerieADay,
-                                Teams = teams
+                                Teams = teams,
+                                CanEdit = canEdit,
                             };
                         }
                     }
