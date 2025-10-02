@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react'
 import { YStack, XStack, Text, ScrollView } from 'tamagui'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
+import { Role } from 'types/group'
 import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 
@@ -120,12 +121,25 @@ export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
     .sort((a, b) => a.currentPosition - b.currentPosition)
 
   // Tribuna - giocatori non utilizzati
-  const homeTribune: LivePlayer[] = (home?.players ?? []).filter(p => 
-    p.currentPosition === FantaSoccerRole.Tribune
-  )
-  const awayTribune: LivePlayer[] = (away?.players ?? []).filter(p => 
-    p.currentPosition === FantaSoccerRole.Tribune
-  )
+  const homeTribuneRaw: LivePlayer[] = (home?.players ?? []).filter(p => p.currentPosition === FantaSoccerRole.Tribune)
+  const awayTribuneRaw: LivePlayer[] = (away?.players ?? []).filter(p => p.currentPosition === FantaSoccerRole.Tribune)
+
+  // Ordinamento tribuna per ruolo principale e poi per nome
+  const ROLE_SORT_ORDER: Role[] = [Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward, Role.Undefined]
+  const sortTribune = (players: LivePlayer[]) => {
+    return [...players].sort((a, b) => {
+      const roleA = (a.current as any)?.role ?? Role.Undefined
+      const roleB = (b.current as any)?.role ?? Role.Undefined
+      const idxA = ROLE_SORT_ORDER.indexOf(roleA)
+      const idxB = ROLE_SORT_ORDER.indexOf(roleB)
+      if (idxA !== idxB) return idxA - idxB
+      const nameA = (a.current as any)?.name ?? ''
+      const nameB = (b.current as any)?.name ?? ''
+      return nameA.localeCompare(nameB, 'it-IT', { sensitivity: 'base' })
+    })
+  }
+  const homeTribune = sortTribune(homeTribuneRaw)
+  const awayTribune = sortTribune(awayTribuneRaw)
 
   // Funzione per raggruppare giocatori della panchina per ruolo
   const groupBenchByRole = (benchPlayers: LivePlayer[]) => {
@@ -451,10 +465,10 @@ export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
         <YStack gap={24}>
           {/* Tribuna Home */}
           <YStack gap={8}>
-            <YStack 
-              backgroundColor="#6b7280" 
-              paddingHorizontal={16} 
-              paddingVertical={8} 
+            <YStack
+              backgroundColor="#6b7280"
+              paddingHorizontal={16}
+              paddingVertical={8}
               borderRadius={8}
               alignItems="center"
             >
@@ -462,27 +476,38 @@ export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
                 🏟️ TRIBUNA {home?.name?.toUpperCase() || 'CASA'}
               </Text>
             </YStack>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <XStack gap={gapBetweenCards} paddingHorizontal={8}>
-                {homeTribune.map((player, i) => (
-                  <PlayerCard key={`home-tribune-${i}`} player={player} />
-                ))}
-                {homeTribune.length === 0 && (
-                  <Text fontSize={12} color="$gray10" fontStyle="italic">
-                    Nessuno in tribuna
-                  </Text>
-                )}
-              </XStack>
-            </ScrollView>
+            <YStack backgroundColor="rgba(107,114,128,0.15)" borderRadius={8} padding={12}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <XStack
+                  gap={gapBetweenCards}
+                  paddingHorizontal={4}
+                  alignItems="flex-start"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'left top',
+                    height: PLAYER_CARD_HEIGHT * cardScale
+                  }}
+                >
+                  {homeTribune.map((player, i) => (
+                    <PlayerCard key={`home-tribune-${i}`} player={player} />
+                  ))}
+                  {homeTribune.length === 0 && (
+                    <Text fontSize={12} color="$gray10" fontStyle="italic">
+                      Nessuno in tribuna
+                    </Text>
+                  )}
+                </XStack>
+              </ScrollView>
+            </YStack>
           </YStack>
           {/* Separator */}
           <YStack height={1} backgroundColor="#334155" opacity={0.5} />
           {/* Tribuna Away */}
           <YStack gap={8}>
-            <YStack 
-              backgroundColor="#6b7280" 
-              paddingHorizontal={16} 
-              paddingVertical={8} 
+            <YStack
+              backgroundColor="#6b7280"
+              paddingHorizontal={16}
+              paddingVertical={8}
               borderRadius={8}
               alignItems="center"
             >
@@ -490,18 +515,29 @@ export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
                 🏟️ TRIBUNA {away?.name?.toUpperCase() || 'TRASFERTA'}
               </Text>
             </YStack>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <XStack gap={gapBetweenCards} paddingHorizontal={8}>
-                {awayTribune.map((player, i) => (
-                  <PlayerCard key={`away-tribune-${i}`} player={player} />
-                ))}
-                {awayTribune.length === 0 && (
-                  <Text fontSize={12} color="$gray10" fontStyle="italic">
-                    Nessuno in tribuna
-                  </Text>
-                )}
-              </XStack>
-            </ScrollView>
+            <YStack backgroundColor="rgba(107,114,128,0.15)" borderRadius={8} padding={12}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <XStack
+                  gap={gapBetweenCards}
+                  paddingHorizontal={4}
+                  alignItems="flex-start"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'left top',
+                    height: PLAYER_CARD_HEIGHT * cardScale
+                  }}
+                >
+                  {awayTribune.map((player, i) => (
+                    <PlayerCard key={`away-tribune-${i}`} player={player} />
+                  ))}
+                  {awayTribune.length === 0 && (
+                    <Text fontSize={12} color="$gray10" fontStyle="italic">
+                      Nessuno in tribuna
+                    </Text>
+                  )}
+                </XStack>
+              </ScrollView>
+            </YStack>
           </YStack>
         </YStack>
       )}
