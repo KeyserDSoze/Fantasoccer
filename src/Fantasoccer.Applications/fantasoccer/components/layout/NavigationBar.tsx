@@ -270,12 +270,15 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         return
       }
 
-      // Trova la prossima partita (prima partita senza risultato)
-      const nextGame = allGames.find(game => !game.result)
+      // Ordina le partite per numero (giornata)
+      const sortedGames = allGames.sort((a, b) => a.number - b.number)
+
+      // Trova la prossima partita (prima partita senza risultato in ordine di giornata)
+      const nextGame = sortedGames.find(game => !game.result)
 
       if (!nextGame) {
-        // Tutte le partite hanno un risultato, vai all'ultima partita
-        const lastGame = allGames[allGames.length - 1]
+        // Tutte le partite hanno un risultato, vai all'ultima partita (in ordine di giornata)
+        const lastGame = sortedGames[sortedGames.length - 1]
         ;(navigation as any).navigate('Game', {
           groupId: currentGroup.id,
           leagueId: selectedLeagueId,
