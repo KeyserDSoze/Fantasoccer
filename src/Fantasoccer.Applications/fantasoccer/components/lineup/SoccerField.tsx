@@ -82,6 +82,7 @@ const SoccerFieldSVG = memo(({ orientation }: SoccerFieldSVGProps) => {
 export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
   groupId?: string // ID del gruppo per salvare il team
+  onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
   style?: any
 }
 
@@ -103,7 +104,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, groupId, style }: SoccerFieldProps) => {
+export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { user } = useAuth()
   const toast = useToastController()
@@ -364,8 +365,11 @@ export const SoccerField = memo(({ gameWrapper, groupId, style }: SoccerFieldPro
       if (response?.i) {
         toast.show('✅ Formazione salvata con successo!', { variant: 'success' })
         setHasLocalChanges(false)
-        // Resetta i team locali per forzare un re-fetch (opzionale)
-        // In alternativa: ricaricare gameWrapper dal parent
+        
+        // Ricarica i dati dal server per confermare le modifiche
+        if (onRefresh) {
+          await onRefresh()
+        }
       } else {
         toast.show(`Errore: ${response?.m || 'Salvataggio fallito'}`, { variant: 'error' })
       }

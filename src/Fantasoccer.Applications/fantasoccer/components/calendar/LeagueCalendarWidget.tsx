@@ -70,9 +70,6 @@ const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumb
           <Text color="$color12" fontWeight="700" numberOfLines={1}>
             {game.home}
           </Text>
-          <Text color="$color10" fontSize="$2" numberOfLines={1}>
-            Allenatore: {game.homeOwner}
-          </Text>
         </YStack>
 
         <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
@@ -89,9 +86,6 @@ const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumb
         <YStack flex={1} gap="$1" alignItems="flex-end">
           <Text color="$color12" fontWeight="700" numberOfLines={1}>
             {game.away}
-          </Text>
-          <Text color="$color10" fontSize="$2" numberOfLines={1}>
-            Allenatore: {game.awayOwner}
           </Text>
         </YStack>
       </XStack>
