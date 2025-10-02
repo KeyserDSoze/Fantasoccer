@@ -1,5 +1,4 @@
-﻿using System.Text.RegularExpressions;
-using Fantasoccer.Business;
+﻿using Fantasoccer.Business;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RepositoryFramework;
@@ -36,18 +35,33 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamDayRepository = teamDayRepository;
         }
         [HttpPost]
-        public async ValueTask<int> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
+        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
         {
             if (team.Owner != User.Identity?.Name)
-                return 400;
+                return new TeamResponse(false, "Non sei l'owner della squadra.");
+
             var group = await _groups.GetAsync(groupId);
             if (group != null)
             {
-                var lastYear = group.Baskets.SelectMany(group => group.Years).Max(x => x.Year);
-
-                return 200;
+                foreach (var basket in group.Baskets)
+                {
+                    var lastBasketOverYear = basket.Years.OrderByDescending(x => x.Year).First();
+                    if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
+                    {
+                        var teamKey = new TeamKey
+                        {
+                            Year = lastBasketOverYear.Year,
+                            Email = team.Owner,
+                            Group = groupId,
+                            BasketId = basket.Id,
+                        };
+                        var response = await _teamRepository.UpdateAsync(teamKey, team);
+                        return new TeamResponse(response.IsOk, response.Message);
+                    }
+                }
+                return new TeamResponse(true, "Squadra non trovata nel tuo gruppo di appartenenza.");
             }
-            return 300;
+            return new TeamResponse(false, "Gruppo non valido.");
         }
         [HttpGet]
         public async Task<GameWrapper?> GetAsync([FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year, [FromQuery] string gameId)
