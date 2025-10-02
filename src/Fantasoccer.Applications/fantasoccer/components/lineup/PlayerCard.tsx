@@ -3,32 +3,10 @@ import { Pressable } from 'react-native'
 import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import {
-  Trophy,
-  Target,
   Star,
-  Umbrella,
-  Award,
-  Shield,
   AlertTriangle,
-  Heart,
-  Zap,
-  Circle,
-  Calendar,
-  Clock,
-  Users,
-  Goal,
-  Minus,
-  Plus,
   TrendingUp,
-  TrendingDown,
-  Activity,
-  AlertCircle,
   Info,
-  CheckCircle,
-  XCircle,
-  Radio,
-  Satellite,
-  BarChart,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
@@ -36,7 +14,7 @@ import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import { Behaviour } from 'types/serieA'
 import type { Chance } from '../../types/chance'
-import { ChanceType as ChanceTypeEnum, TrendType } from '../../types/chance'
+import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
