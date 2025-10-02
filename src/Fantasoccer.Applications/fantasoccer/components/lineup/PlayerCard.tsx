@@ -34,8 +34,8 @@ import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import { Behaviour } from 'types/serieA'
-import type { Chance, ChanceType, TrendType } from '../../types/chance'
-import { ChanceType as ChanceTypeEnum } from '../../types/chance'
+import type { Chance } from '../../types/chance'
+import { ChanceType as ChanceTypeEnum, TrendType } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
@@ -79,12 +79,12 @@ const BONUS_MALUS_CONFIG: {
 
 // Mappa per le informazioni di chance
 const CHANCE_INFO_MAP = {
-  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato', text: 'INF' },
-  fantagazzetta: { icon: null, color: '#16a34a', label: 'Fantagazzetta', text: 'F' },
-  gazzetta: { icon: null, color: '#059669', label: 'Gazzetta', text: 'G' },
-  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset', text: 'M' },
-  sky: { icon: Star, color: '#f59e0b', label: 'Sky', text: 'S' },
-  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma', text: 'T' },
+  injury: { icon: AlertTriangle, color: '#ef4444', error: '#ef4444', label: 'Infortunato', text: 'INF' },
+  fantagazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Fantagazzetta', text: 'F' },
+  gazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Gazzetta', text: 'G' },
+  mediaset: { icon: Info, color: '#16a34a', error: '#ef4444',label: 'Mediaset', text: 'M' },
+  sky: { icon: Star, color: '#16a34a', error: '#ef4444', label: 'Sky', text: 'S' },
+  trend: { icon: TrendingUp, color: '#8b5cf6', error: '#ef4444', label: 'Forma', text: 'T' },
 }
 
 
@@ -666,6 +666,32 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
+      {/* Vote badge - quadrato in alto a sinistra interno alla card */}
+      {isGameNotStarted && chance && (
+        <YStack
+          position="absolute"
+          top={-4}
+          left={-4}
+          width={36}
+          height={36}
+          borderRadius={6}
+          backgroundColor={'#44f'}
+          alignItems="center"
+          justifyContent="center"
+          zIndex={25}
+          borderWidth={2}
+          borderColor="rgba(255, 255, 255, 0.9)"
+          elevation={8}
+        >
+          <Text fontSize={13} fontWeight="900" color="#fff">
+            {chance.lastGame?.positiveness}
+          </Text>
+          <Text fontSize={13} fontWeight="900" color="#fff">
+            {chance.trend === TrendType.Excellent ? '+' : chance.trend === TrendType.Bad ? '-' : '±'}
+          </Text>
+        </YStack>
+      )}
+
       {/* Injury indicator - angolo bottom-right dell'immagine */}
       {injury && (
         <Button
@@ -724,7 +750,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
       )}
 
       {/* Area bonus/malus organizzata - a destra (cliccabile per toast) */}
-      {(vote && (playerBehaviourAndBonus.bonusGroups.length > 0 || chanceInfo.length > 0)) && (
+      {vote && playerBehaviourAndBonus.bonusGroups.length > 0 && (
         <YStack
           position="absolute"
           top={0}
@@ -773,17 +799,23 @@ export function PlayerCard({ player}: PlayerCardProps) {
               </YStack>
             </Button>
           )}
-          
-          {/* Separatore se ci sono sia bonus che chance */}
-          {playerBehaviourAndBonus.bonusGroups.length > 0 && chanceInfo.length > 0 && (
-            <YStack
-              width={30}
-              height={1}
-              backgroundColor="rgba(255, 255, 255, 0.3)"
-              marginVertical={2}
-            />
-          )}
-          
+        </YStack>
+      )}
+
+      {/* Area chance organizzata - a destra (cliccabile per toast) */}
+      {isGameNotStarted && chance && chanceInfo.length > 0 && (
+        <YStack
+          position="absolute"
+          top={0}
+          right={-4}
+          maxWidth={48}
+          borderRadius={6}
+          paddingVertical={0}
+          paddingHorizontal={4}
+          gap={2}
+          alignItems="center"
+          zIndex={20}
+        >
           {/* Chance Info Icons - versione compatta */}
           {chanceInfo.map((info, index) => {
             const config = CHANCE_INFO_MAP[info.type]
@@ -795,7 +827,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
                 width={20}
                 height={20}
                 borderRadius={4}
-                backgroundColor={config.color}
+                backgroundColor={typeof info.value === 'boolean' ? (info.value ? config.color : config.error) : config.color}
                 alignItems="center"
                 justifyContent="center"
                 borderWidth={1}
