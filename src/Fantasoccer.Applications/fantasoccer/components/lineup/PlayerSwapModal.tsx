@@ -39,12 +39,17 @@ export function PlayerSwapModal({
     if (!selectedPlayer) return []
     
     const selectedRole = (selectedPlayer.current as any)?.role ?? Role.Undefined
+    const selectedPosition = selectedPlayer.currentPosition
     
     return allPlayers.filter(p => {
       // Escludi il giocatore selezionato stesso
       if ((p.current as any)?.name === (selectedPlayer.current as any)?.name) return false
       
-      // Stesso ruolo principale
+      // Escludi giocatori con la stessa posizione esatta (FantaSoccerRole)
+      // Es: se seleziono un Midfielder titolare (pos=2), escludo gli altri Midfielder titolari
+      if (p.currentPosition === selectedPosition) return false
+      
+      // Stesso ruolo principale (per permettere scambi tra titolare/panchina/tribuna dello stesso ruolo)
       const pRole = (p.current as any)?.role ?? Role.Undefined
       return pRole === selectedRole
     })

@@ -3,7 +3,7 @@ import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { Save } from '@tamagui/lucide-icons'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
-import { FantaSoccerRole } from 'types/team'
+import { FantaSoccerRole, Team } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal'
@@ -270,15 +270,16 @@ export const SoccerField = memo(({ gameWrapper, groupId, style }: SoccerFieldPro
 
     setIsSaving(true)
     try {
-      // Converti LiveTeam a Team
-      const teamData: any = {
+      const teamData: Team = {
         name: teamToSave.name,
         owner: teamToSave.owner,
         additionalOwners: teamToSave.additionalOwners,
-        lastUpdate: teamToSave.lastUpdate ? new Date(teamToSave.lastUpdate) : new Date(),
+        lastUpdate: new Date(),
+        revenueMoney: 0,
+        moneyFromRank: 0,
         players: teamToSave.players.map(p => ({
-          ...(p.current as any), // Player completo con name, team, role, status, price
-          currentPosition: p.currentPosition
+          ...(p.current as any),
+          position: p.currentPosition
         }))
       }
 
