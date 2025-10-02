@@ -1,11 +1,13 @@
 import { buildApiUrl, getCommonHeaders } from 'configurations/apiConfig'
 import { mapRawGameWrapperToGameWrapper, GameWrapperRaw } from 'types/game'
+import { Team, mapTeamToRawTeam } from 'types/team'
 import { tokenStorageService } from './tokenStorageService';
 
 export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
     buildApiUrl('/Game/Get', params as any),
-    saveFormation: () => buildApiUrl('/Game/SaveFormation')
+  saveFormation: () => buildApiUrl('/Game/SaveFormation'),
+  saveTeam: (groupId: string) => buildApiUrl('/Game/SaveTeam', { groupId } as any)
 }
 
 export const gameService = {
@@ -45,6 +47,27 @@ export const gameService = {
     }
 
     return await res.json()
+  },
+
+  async saveTeam(groupId: string, team: Team) {
+    const url = gameEndpoints.saveTeam(groupId)
+    const accessToken = await tokenStorageService.getTokenString()
+    if (!accessToken) {
+      console.warn('No valid access token available')
+      return null
+    }
+    const rawTeam = mapTeamToRawTeam(team)
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
+      body: JSON.stringify(rawTeam)
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Failed to save team: ${res.status} ${text}`)
+    }
+    // TeamResponse -> { i: boolean, m: string }
+    return await res.json() as { i: boolean; m?: string }
   }
 }
 

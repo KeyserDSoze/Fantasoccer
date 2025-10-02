@@ -48,14 +48,41 @@ namespace Fantasoccer.Application.Api.Controllers
                     var lastBasketOverYear = basket.Years.OrderByDescending(x => x.Year).First();
                     if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
                     {
-                        var teamKey = new TeamKey
+                        var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
+                        var nextSerieA = realCalendar?.NextDay?.SerieADay;
+                        if (nextSerieA == null)
+                            return new TeamResponse(false, "Campionato terminato.");
+                        var teamDayKey = new TeamDayKey
                         {
                             Year = lastBasketOverYear.Year,
                             Email = team.Owner,
                             Group = groupId,
                             BasketId = basket.Id,
+                            Day = nextSerieA.Value
                         };
-                        var response = await _teamRepository.UpdateAsync(teamKey, team);
+                        var actualTeam = await _teamDayRepository.GetAsync(teamDayKey);
+                        if (actualTeam == null)
+                        {
+                            var teamKey = new TeamKey
+                            {
+                                Year = lastBasketOverYear.Year,
+                                Email = team.Owner,
+                                Group = groupId,
+                                BasketId = basket.Id,
+                            };
+                            actualTeam = await _teamRepository.GetAsync(teamKey);
+                        }
+                        if (actualTeam == null)
+                            return new TeamResponse(false, "Squadra non trovata.");
+                        foreach (var player in actualTeam.ActivePlayers)
+                        {
+                            var playerToSave = team.ActivePlayers.FirstOrDefault(x => x.Key == player.Key);
+                            if (playerToSave != null)
+                            {
+                                player.Position = playerToSave.Position;
+                            }
+                        }
+                        var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
                         return new TeamResponse(response.IsOk, response.Message);
                     }
                 }
