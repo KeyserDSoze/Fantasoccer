@@ -251,7 +251,7 @@ export default function GameScreen() {
               {gameLoading ? (
                 <Text>Caricamento formazione partita...</Text>
               ) : gameWrapper ? (
-                  <SoccerField gameWrapper={gameWrapper} />
+                  <SoccerField gameWrapper={gameWrapper} groupId={routeGroupId ?? undefined} />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
               )}

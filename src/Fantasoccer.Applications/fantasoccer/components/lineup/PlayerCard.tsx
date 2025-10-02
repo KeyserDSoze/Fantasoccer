@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { Pressable } from 'react-native'
 import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import {
@@ -47,6 +48,7 @@ export const PLAYER_CARD_HEIGHT = 150
 
 export interface PlayerCardProps {
   player: LivePlayer
+  onPress?: () => void // Callback opzionale per rendere la card cliccabile
 }
 
 // ============================================
@@ -89,7 +91,7 @@ const CHANCE_INFO_MAP = {
 
 
 
-export function PlayerCard({ player}: PlayerCardProps) {
+export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
   const [showGameTooltip, setShowGameTooltip] = useState(false)
@@ -559,7 +561,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
 
   const currentRainbowColor = rainbowColors[rainbowPhase]
 
-  return (
+  const cardContent = (
     <YStack position="relative">
       {/* Overlay arcobaleno animato per Man of the Match - contenuto nel YStack */}
       {isManOfTheMatch && (
@@ -1023,6 +1025,15 @@ export function PlayerCard({ player}: PlayerCardProps) {
       </YStack>
     </Card>
     </YStack>
+  )
+
+  // Render condizionale: se c'è onPress, wrappa con Pressable
+  return onPress ? (
+    <Pressable onPress={onPress}>
+      {cardContent}
+    </Pressable>
+  ) : (
+    cardContent
   )
 }
 
