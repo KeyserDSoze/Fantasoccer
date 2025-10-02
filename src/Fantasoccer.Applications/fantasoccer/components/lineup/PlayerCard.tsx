@@ -181,6 +181,22 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
   }, [voteDisplayInfo?.shouldBlink])
 
+  // Visual mapping per trend (0..4) -> colore e freccia direzionale
+  const trendVisual = useMemo(() => {
+    const trendValue = typeof (chance as any)?.trend === 'number' ? (chance as any).trend : 2
+    // Clamp di sicurezza
+    const t = Math.min(4, Math.max(0, trendValue))
+    const colorScale = [
+      '#dc2626', // 0 molto negativo
+      '#f97316', // 1 negativo
+      '#facc15', // 2 neutro
+      '#4ade80', // 3 positivo
+      '#16a34a'  // 4 molto positivo (Excellent)
+    ]
+    const arrows = ['↓', '↘', '→', '↗', '↑']
+    return { backgroundColor: colorScale[t], arrow: arrows[t] }
+  }, [chance?.trend])
+
   // Sistema organizzato per comportamenti e bonus/malus
   const playerBehaviourAndBonus = useMemo(() => {
     if (!vote) return { behaviour: null, bonusGroups: [], hasManOfTheMatch: false }
@@ -666,29 +682,33 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Vote badge - quadrato in alto a sinistra interno alla card */}
+      {/* Chance badge (pre-gara): mostra positiveness + freccia trend con scala colori */}
       {isGameNotStarted && chance && (
         <YStack
           position="absolute"
-          top={-4}
+          top={vote ? 34 : -4} /* se c'è già il voto lo spostiamo sotto per non sovrapporre */
           left={-4}
-          width={36}
-          height={36}
-          borderRadius={6}
-          backgroundColor={'#44f'}
+          width={40}
+          height={40}
+          borderRadius={8}
+          backgroundColor={trendVisual.backgroundColor}
           alignItems="center"
           justifyContent="center"
           zIndex={25}
           borderWidth={2}
           borderColor="rgba(255, 255, 255, 0.9)"
           elevation={8}
+          paddingHorizontal={2}
+          gap={2}
         >
-          <Text fontSize={13} fontWeight="900" color="#fff">
-            {chance.lastGame?.positiveness}
-          </Text>
-          <Text fontSize={13} fontWeight="900" color="#fff">
-            {chance.trend === TrendType.Excellent ? '+' : chance.trend === TrendType.Bad ? '-' : '±'}
-          </Text>
+          <XStack alignItems="center" gap={4}>
+            <Text fontSize={14} fontWeight="900" color="#fff">
+              {trendVisual.arrow}
+            </Text>
+            <Text fontSize={13} fontWeight="900" color="#fff">
+              {chance.lastGame?.positiveness ?? '?'}
+            </Text>
+          </XStack>
         </YStack>
       )}
 
