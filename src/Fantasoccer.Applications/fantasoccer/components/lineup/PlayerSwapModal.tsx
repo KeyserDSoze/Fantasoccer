@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react'
 import { Dialog, YStack, XStack, Text, Button, ScrollView, Sheet } from 'tamagui'
-import { X, ArrowLeftRight } from '@tamagui/lucide-icons'
+import { X, ArrowLeftRight, Plus } from '@tamagui/lucide-icons'
 import { Dimensions } from 'react-native'
 import type { LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard } from './PlayerCard'
+import { getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
 
 interface PlayerSwapModalProps {
   isOpen: boolean
@@ -15,6 +16,8 @@ interface PlayerSwapModalProps {
   onSwap: (targetPlayer: LivePlayer) => void
   onRemove?: () => void // Opzione per mandare in tribuna (se permesso)
   canRemove: boolean
+  onAddToField?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna/panchina in campo
+  onAddToBench?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna in panchina
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -32,7 +35,9 @@ export function PlayerSwapModal({
   allPlayers,
   onSwap,
   onRemove,
-  canRemove
+  canRemove,
+  onAddToField,
+  onAddToBench
 }: PlayerSwapModalProps) {
   // Filtra giocatori papabili per ruolo (stesso ruolo principale)
   const eligiblePlayers = useMemo(() => {
@@ -54,6 +59,21 @@ export function PlayerSwapModal({
       return pRole === selectedRole
     })
   }, [selectedPlayer, allPlayers])
+
+  // Determina se il giocatore selezionato è in tribuna o panchina (quindi può essere aggiunto in campo/panchina)
+  const selectedIsInTribune = selectedPlayer?.currentPosition === FantaSoccerRole.Tribune
+  const selectedIsInBench = selectedPlayer && 
+    selectedPlayer.currentPosition >= FantaSoccerRole.BackupGoalKeeper && 
+    selectedPlayer.currentPosition <= FantaSoccerRole.SecondBackupForward
+  
+  // Calcola se ci sono spazi disponibili in campo e panchina per il ruolo del giocatore selezionato
+  const selectedRole = (selectedPlayer?.current as any)?.role ?? Role.Undefined
+  const availableFieldPosition = selectedPlayer ? getAvailableFieldPosition(selectedRole, allPlayers) : undefined
+  const availableBenchPosition = selectedPlayer ? getAvailableBenchPosition(selectedRole, allPlayers) : undefined
+  
+  const canAddToFieldFromTribune = selectedIsInTribune && availableFieldPosition !== undefined
+  const canAddToBenchFromTribune = selectedIsInTribune && availableBenchPosition !== undefined
+  const canAddToFieldFromBench = selectedIsInBench && availableFieldPosition !== undefined
 
   // Raggruppa per categoria (titolari, panchina, tribuna)
   const groupedPlayers = useMemo(() => {
@@ -106,7 +126,7 @@ export function PlayerSwapModal({
             <XStack justifyContent="space-between" alignItems="center">
               <YStack gap={4} flex={1}>
                 <Text fontSize={20} fontWeight="800" color="$color">
-                  Scambia Giocatore
+                  {selectedIsInTribune || selectedIsInBench ? 'Aggiungi Giocatore' : 'Scambia Giocatore'}
                 </Text>
                 <Text fontSize={14} color="$gray11">
                   {selectedPlayerName} • {selectedRoleLabel}
@@ -121,23 +141,80 @@ export function PlayerSwapModal({
               />
             </XStack>
 
-            {/* Opzione rimozione (tribuna) */}
-            {canRemove && onRemove && (
-              <Button
-                backgroundColor="$red10"
-                color="#fff"
-                size="$4"
-                fontWeight="700"
-                onPress={() => {
-                  onRemove()
-                  onClose()
-                }}
-                borderRadius={12}
-                pressStyle={{ opacity: 0.8, scale: 0.98 }}
-              >
-                🏟️ Manda in Tribuna
-              </Button>
-            )}
+            {/* Pulsanti azione diretta per tribuna/panchina */}
+            <YStack gap={8}>
+              {canAddToFieldFromTribune && onAddToField && (
+                <Button
+                  backgroundColor="$green10"
+                  color="#fff"
+                  size="$4"
+                  fontWeight="700"
+                  onPress={() => {
+                    onAddToField(selectedPlayer!)
+                    onClose()
+                  }}
+                  borderRadius={12}
+                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
+                  icon={<Plus size={20} />}
+                >
+                  ⚽ Aggiungi in Campo
+                </Button>
+              )}
+              
+              {canAddToBenchFromTribune && onAddToBench && (
+                <Button
+                  backgroundColor="$orange10"
+                  color="#fff"
+                  size="$4"
+                  fontWeight="700"
+                  onPress={() => {
+                    onAddToBench(selectedPlayer!)
+                    onClose()
+                  }}
+                  borderRadius={12}
+                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
+                  icon={<Plus size={20} />}
+                >
+                  🪑 Aggiungi in Panchina
+                </Button>
+              )}
+              
+              {canAddToFieldFromBench && onAddToField && (
+                <Button
+                  backgroundColor="$green10"
+                  color="#fff"
+                  size="$4"
+                  fontWeight="700"
+                  onPress={() => {
+                    onAddToField(selectedPlayer!)
+                    onClose()
+                  }}
+                  borderRadius={12}
+                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
+                  icon={<Plus size={20} />}
+                >
+                  ⚽ Porta in Campo
+                </Button>
+              )}
+
+              {/* Opzione rimozione (tribuna) */}
+              {canRemove && onRemove && (
+                <Button
+                  backgroundColor="$red10"
+                  color="#fff"
+                  size="$4"
+                  fontWeight="700"
+                  onPress={() => {
+                    onRemove()
+                    onClose()
+                  }}
+                  borderRadius={12}
+                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
+                >
+                  🏟️ Manda in Tribuna
+                </Button>
+              )}
+            </YStack>
           </YStack>
 
           {/* Lista giocatori papabili - Scrollabile */}

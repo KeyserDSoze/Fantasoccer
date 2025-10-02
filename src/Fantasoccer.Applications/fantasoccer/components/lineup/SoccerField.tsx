@@ -9,7 +9,7 @@ import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 import { useAuth } from '../../providers/AuthProvider'
-import { canRemovePlayer } from '../../utils/teamValidation'
+import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
 import gameService from '../../services/gameService'
 
 // SVG field background as a React component with responsive orientation
@@ -245,6 +245,82 @@ export const SoccerField = memo(({ gameWrapper, groupId, style }: SoccerFieldPro
     })
 
     // Aggiorna lo stato locale del team
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Callback modale: aggiungi giocatore in campo (dalla tribuna o panchina)
+  const handleAddToField = (player: LivePlayer) => {
+    if (editingTeamIndex === null) return
+
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Trova posizione disponibile in campo per il ruolo del giocatore
+    const playerRole = (player.current as any)?.role ?? Role.Undefined
+    const targetPosition = getAvailableFieldPosition(playerRole, currentTeam.players)
+    
+    if (targetPosition === undefined) {
+      toast.show('❌ Nessuno spazio disponibile in campo per questo ruolo', { variant: 'error' })
+      return
+    }
+
+    // Aggiorna la posizione del giocatore
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const playerName = (player.current as any)?.name
+      if (pName === playerName) {
+        return { ...p, currentPosition: targetPosition }
+      }
+      return p
+    })
+
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Callback modale: aggiungi giocatore in panchina (dalla tribuna)
+  const handleAddToBench = (player: LivePlayer) => {
+    if (editingTeamIndex === null) return
+
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Trova posizione disponibile in panchina per il ruolo del giocatore
+    const playerRole = (player.current as any)?.role ?? Role.Undefined
+    const targetPosition = getAvailableBenchPosition(playerRole, currentTeam.players)
+    
+    if (targetPosition === undefined) {
+      toast.show('❌ Nessuno spazio disponibile in panchina per questo ruolo', { variant: 'error' })
+      return
+    }
+
+    // Aggiorna la posizione del giocatore
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const playerName = (player.current as any)?.name
+      if (pName === playerName) {
+        return { ...p, currentPosition: targetPosition }
+      }
+      return p
+    })
+
     const updatedTeam = { ...currentTeam, players: updatedPlayers }
     setLocalTeams(prev => ({
       ...prev,
@@ -778,6 +854,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, style }: SoccerFieldPro
         onSwap={handleSwap}
         onRemove={selectedCanRemove ? handleRemove : undefined}
         canRemove={selectedCanRemove}
+        onAddToField={handleAddToField}
+        onAddToBench={handleAddToBench}
       />
     </YStack>
   )

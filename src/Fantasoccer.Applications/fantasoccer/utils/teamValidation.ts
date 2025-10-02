@@ -79,6 +79,61 @@ export function canAddPlayerFromTribune(player: LivePlayer, allPlayers: LivePlay
 }
 
 /**
+ * Trova la prima posizione libera in campo per un dato ruolo
+ * Ritorna undefined se non ci sono posizioni disponibili
+ * NOTA: Tutti i giocatori titolari dello stesso ruolo condividono la stessa posizione (GoalKeeper=0, Defensor=1, Midfielder=2, Forward=3)
+ * La logica conta quanti ce ne sono già e verifica se c'è spazio per aggiungerne altri
+ */
+export function getAvailableFieldPosition(playerRole: Role, allPlayers: LivePlayer[]): FantaSoccerRole | undefined {
+  const currentCount = countPlayersInRole(allPlayers, playerRole)
+
+  switch (playerRole) {
+    case Role.GoalKeeper:
+      return currentCount < 1 ? FantaSoccerRole.GoalKeeper : undefined
+    case Role.Defensor:
+      return currentCount < 5 ? FantaSoccerRole.Defensor : undefined
+    case Role.Midfielder:
+      return currentCount < 5 ? FantaSoccerRole.Midfielder : undefined
+    case Role.Forward:
+      return currentCount < 3 ? FantaSoccerRole.Forward : undefined
+  }
+
+  return undefined
+}
+
+/**
+ * Trova la prima posizione libera in panchina per un dato ruolo
+ * Ritorna undefined se non ci sono posizioni disponibili
+ */
+export function getAvailableBenchPosition(playerRole: Role, allPlayers: LivePlayer[]): FantaSoccerRole | undefined {
+  const occupiedPositions = new Set(
+    allPlayers
+      .filter(p => p.currentPosition >= FantaSoccerRole.BackupGoalKeeper && p.currentPosition <= FantaSoccerRole.SecondBackupForward)
+      .map(p => p.currentPosition)
+  )
+
+  switch (playerRole) {
+    case Role.GoalKeeper:
+      if (!occupiedPositions.has(FantaSoccerRole.BackupGoalKeeper)) return FantaSoccerRole.BackupGoalKeeper
+      break
+    case Role.Defensor:
+      if (!occupiedPositions.has(FantaSoccerRole.FirstBackupDefensor)) return FantaSoccerRole.FirstBackupDefensor
+      if (!occupiedPositions.has(FantaSoccerRole.SecondBackupDefensor)) return FantaSoccerRole.SecondBackupDefensor
+      break
+    case Role.Midfielder:
+      if (!occupiedPositions.has(FantaSoccerRole.FirstBackupMidfielder)) return FantaSoccerRole.FirstBackupMidfielder
+      if (!occupiedPositions.has(FantaSoccerRole.SecondBackupMidfielder)) return FantaSoccerRole.SecondBackupMidfielder
+      break
+    case Role.Forward:
+      if (!occupiedPositions.has(FantaSoccerRole.FirstBackupForward)) return FantaSoccerRole.FirstBackupForward
+      if (!occupiedPositions.has(FantaSoccerRole.SecondBackupForward)) return FantaSoccerRole.SecondBackupForward
+      break
+  }
+
+  return undefined
+}
+
+/**
  * Verifica se uno scambio tra due giocatori è valido
  * Regole:
  * - Stesso ruolo (già garantito dalla UI)
