@@ -1,7 +1,7 @@
 import { useAuth } from '../../providers/AuthProvider'
 import { NavigationBar } from './NavigationBar'
-import { FantasoccerLogoCompact } from './FantasoccerLogo'
 import { ReactNode } from 'react'
+import { Image } from 'react-native'
 import { XStack, YStack } from 'tamagui'
 
 interface LayoutPageProps {
@@ -21,10 +21,10 @@ export const LayoutPage: React.FC<LayoutPageProps> = ({ children }) =>{
         borderBottomColor="$borderColor"
       >
         <XStack alignItems="center" gap="$3">
-          <FantasoccerLogoCompact 
-            width={44}
-            height={44}
-            color="$blue10"
+          <Image 
+            source={require('../../assets/favicon.png')}
+            style={{ width: 44, height: 44 }}
+            resizeMode="contain"
           />
         </XStack>
 
