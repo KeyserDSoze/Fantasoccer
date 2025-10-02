@@ -12,6 +12,7 @@ import {
   ScrollView,
   useMedia,
 } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
 import {
   Menu,
   X,
@@ -37,6 +38,8 @@ import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
+import { calendarService } from '../../services/calendarService'
+import type { CalendarGame } from '../../types/calendar'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -89,7 +92,7 @@ const navigationItems: NavigationSection[] = [
       { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
       { type: 'route', route: 'Ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
       { type: 'route', route: 'Calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
-  { type: 'route', route: 'Live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
+      { type: 'route', route: 'Live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
     ],
   },
   {
@@ -174,6 +177,8 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const media = useMedia()
   const isDesktop = !media.sm
   const navigation = useNavigation()
+  const toast = useToastController()
+  
   // Check user roles for admin sections - find current user's role in current group
   const currentUserInGroup = currentGroup?.users.find(u => u.username === user?.username)
   const isAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
@@ -194,7 +199,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   }
 
   // Handle navigation
-  const handleNavigate = (item: NavigationItem) => {
+  const handleNavigate = async (item: NavigationItem) => {
+    // Gestione speciale per My Team
+    if (item.type === 'link' && item.path === '/my-team') {
+      await handleMyTeamNavigation()
+      return
+    }
+
     if (item.type === 'route') {
       ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
     } else if (onNavigate) {
@@ -203,6 +214,93 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       console.warn(`NavigationBar: no navigation handler provided for path "${item.path}"`)
     }
     setIsOpen(false)
+  }
+
+  // Gestisce la navigazione verso "My Team" trovando la prossima partita dell'utente
+  const handleMyTeamNavigation = async () => {
+    // Verifica prerequisiti
+    if (!currentGroup?.id || !selectedLeagueId || !selectedYear || !user?.email) {
+      toast.show('ℹ️ Seleziona un gruppo, una lega e un anno per visualizzare la tua squadra', {
+        variant: 'warning'
+      })
+      setIsOpen(false)
+      return
+    }
+
+    try {
+      // Carica il calendario della lega
+      const calendar = await calendarService.getCalendarByComponents(
+        currentGroup.id,
+        selectedLeagueId,
+        selectedYear
+      )
+
+      if (!calendar) {
+        toast.show('⚠️ Non è stato possibile caricare il calendario della lega', {
+          variant: 'error'
+        })
+        setIsOpen(false)
+        return
+      }
+
+      // Trova tutte le partite dell'utente (basandosi sull'email come owner)
+      const userEmail = user.email.toLowerCase()
+      const allGames: CalendarGame[] = []
+      
+      for (const roundDays of Object.values(calendar.rounds)) {
+        for (const day of roundDays) {
+          for (const game of day.games) {
+            if (
+              game.homeOwner.toLowerCase() === userEmail ||
+              game.awayOwner.toLowerCase() === userEmail
+            ) {
+              allGames.push(game)
+            }
+          }
+        }
+      }
+
+      if (allGames.length === 0) {
+        const leagueName = getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'questa lega'
+        const season = getSeasonFromYear(selectedYear)
+        toast.show(`🏟️ Non hai una squadra in ${leagueName} per l'anno ${season}`, {
+          variant: 'warning'
+        })
+        setIsOpen(false)
+        return
+      }
+
+      // Trova la prossima partita (prima partita senza risultato)
+      const nextGame = allGames.find(game => !game.result)
+
+      if (!nextGame) {
+        // Tutte le partite hanno un risultato, vai all'ultima partita
+        const lastGame = allGames[allGames.length - 1]
+        ;(navigation as any).navigate('Game', {
+          groupId: currentGroup.id,
+          leagueId: selectedLeagueId,
+          year: selectedYear.toString(),
+          gameId: lastGame.id
+        })
+        setIsOpen(false)
+        return
+      }
+
+      // Naviga alla prossima partita
+      ;(navigation as any).navigate('Game', {
+        groupId: currentGroup.id,
+        leagueId: selectedLeagueId,
+        year: selectedYear.toString(),
+        gameId: nextGame.id
+      })
+      setIsOpen(false)
+    } catch (error: any) {
+      console.error('Error navigating to my team:', error)
+      toast.show(`❌ Impossibile caricare la prossima partita: ${error?.message || 'Errore sconosciuto'}`, {
+        variant: 'error'
+      })
+      setIsOpen(false)
+    }
   }
 
   // Render navigation section

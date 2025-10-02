@@ -19,8 +19,10 @@
             var midfielders = (values.Any(x => x.Status == FantaSoccerRole.Midfielder) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.Midfielder).PlayersByRole.Sum(x => x.Count) : 0);
             var forwards = (values.Any(x => x.Status == FantaSoccerRole.Forward) ? values.FirstOrDefault(x => x.Status == FantaSoccerRole.Forward).PlayersByRole.Sum(x => x.Count) : 0);
             var startingTeamCounter = goalkeepers + defensors + midfielders + forwards;
-            if (startingTeamCounter != 11)
+            if (startingTeamCounter < 11)
                 return new TeamResponse(false, message: "Meno di 11 giocatori titolari schierati.");
+            if (startingTeamCounter > 11)
+                return new TeamResponse(false, message: "Più di 11 giocatori titolari schierati.");
             foreach (var value in values)
             {
                 if (value.Status != FantaSoccerRole.Tribune && value.PlayersByRole.Count() > 1)

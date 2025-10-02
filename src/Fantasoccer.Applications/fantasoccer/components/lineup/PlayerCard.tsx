@@ -1,48 +1,32 @@
 import React, { useMemo, useState, useEffect } from 'react'
+import { Pressable } from 'react-native'
 import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import {
-  Trophy,
-  Target,
   Star,
-  Umbrella,
-  Award,
-  Shield,
   AlertTriangle,
-  Heart,
-  Zap,
-  Circle,
-  Calendar,
-  Clock,
-  Users,
-  Goal,
-  Minus,
-  Plus,
   TrendingUp,
-  TrendingDown,
-  Activity,
-  AlertCircle,
   Info,
-  CheckCircle,
-  XCircle,
-  Radio,
-  Satellite,
-  BarChart,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import { Behaviour } from 'types/serieA'
-import type { Chance, ChanceType, TrendType } from '../../types/chance'
+import type { Chance } from '../../types/chance'
 import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
 
 
+// Dimensioni base esportate della PlayerCard per allineare altri componenti (es. badge ruoli panchina)
+export const PLAYER_CARD_WIDTH = 112
+export const PLAYER_CARD_HEIGHT = 150
+
 export interface PlayerCardProps {
   player: LivePlayer
+  onPress?: () => void // Callback opzionale per rendere la card cliccabile
 }
 
 // ============================================
@@ -75,17 +59,17 @@ const BONUS_MALUS_CONFIG: {
 
 // Mappa per le informazioni di chance
 const CHANCE_INFO_MAP = {
-  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato', text: 'INF' },
-  fantagazzetta: { icon: null, color: '#16a34a', label: 'Fantagazzetta', text: 'F' },
-  gazzetta: { icon: null, color: '#059669', label: 'Gazzetta', text: 'G' },
-  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset', text: 'M' },
-  sky: { icon: Star, color: '#f59e0b', label: 'Sky', text: 'S' },
-  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma', text: 'T' },
+  injury: { icon: AlertTriangle, color: '#ef4444', error: '#ef4444', label: 'Infortunato', text: 'INF' },
+  fantagazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Fantagazzetta', text: 'F' },
+  gazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Gazzetta', text: 'G' },
+  mediaset: { icon: Info, color: '#16a34a', error: '#ef4444',label: 'Mediaset', text: 'M' },
+  sky: { icon: Star, color: '#16a34a', error: '#ef4444', label: 'Sky', text: 'S' },
+  trend: { icon: TrendingUp, color: '#8b5cf6', error: '#ef4444', label: 'Forma', text: 'T' },
 }
 
 
 
-export function PlayerCard({ player}: PlayerCardProps) {
+export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
   const [showGameTooltip, setShowGameTooltip] = useState(false)
@@ -176,6 +160,22 @@ export function PlayerCard({ player}: PlayerCardProps) {
       if (interval) clearInterval(interval)
     }
   }, [voteDisplayInfo?.shouldBlink])
+
+  // Visual mapping per trend (0..4) -> colore e freccia direzionale
+  const trendVisual = useMemo(() => {
+    const trendValue = typeof (chance as any)?.trend === 'number' ? (chance as any).trend : 2
+    // Clamp di sicurezza
+    const t = Math.min(4, Math.max(0, trendValue))
+    const colorScale = [
+      '#dc2626', // 0 molto negativo
+      '#f97316', // 1 negativo
+      '#facc15', // 2 neutro
+      '#4ade80', // 3 positivo
+      '#16a34a'  // 4 molto positivo (Excellent)
+    ]
+    const arrows = ['↓', '↘', '→', '↗', '↑']
+    return { backgroundColor: colorScale[t], arrow: arrows[t] }
+  }, [chance?.trend])
 
   // Sistema organizzato per comportamenti e bonus/malus
   const playerBehaviourAndBonus = useMemo(() => {
@@ -504,9 +504,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
   }
 
-  // Dimensioni base fisse - il scaling viene gestito dal contenitore via cardScale
-  const cardWidth = 112
-  const cardHeight = 150 
+  // Dimensioni base riferite alle costanti esportate
+  const cardWidth = PLAYER_CARD_WIDTH
+  const cardHeight = PLAYER_CARD_HEIGHT 
 
   // Controlla se il giocatore è Man of the Match
   const isManOfTheMatch = useMemo(() => {
@@ -539,7 +539,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
 
   const currentRainbowColor = rainbowColors[rainbowPhase]
 
-  return (
+  const cardContent = (
     <YStack position="relative">
       {/* Overlay arcobaleno animato per Man of the Match - contenuto nel YStack */}
       {isManOfTheMatch && (
@@ -662,6 +662,36 @@ export function PlayerCard({ player}: PlayerCardProps) {
         </YStack>
       )}
 
+      {/* Chance badge (pre-gara): mostra positiveness + freccia trend con scala colori */}
+      {isGameNotStarted && chance && (
+        <YStack
+          position="absolute"
+          top={vote ? 34 : -4} /* se c'è già il voto lo spostiamo sotto per non sovrapporre */
+          left={-4}
+          width={40}
+          height={40}
+          borderRadius={8}
+          backgroundColor={trendVisual.backgroundColor}
+          alignItems="center"
+          justifyContent="center"
+          zIndex={25}
+          borderWidth={2}
+          borderColor="rgba(255, 255, 255, 0.9)"
+          elevation={8}
+          paddingHorizontal={2}
+          gap={2}
+        >
+          <XStack alignItems="center" gap={4}>
+            <Text fontSize={14} fontWeight="900" color="#fff">
+              {trendVisual.arrow}
+            </Text>
+            <Text fontSize={13} fontWeight="900" color="#fff">
+              {chance.lastGame?.positiveness ?? '?'}
+            </Text>
+          </XStack>
+        </YStack>
+      )}
+
       {/* Injury indicator - angolo bottom-right dell'immagine */}
       {injury && (
         <Button
@@ -720,7 +750,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
       )}
 
       {/* Area bonus/malus organizzata - a destra (cliccabile per toast) */}
-      {(vote && (playerBehaviourAndBonus.bonusGroups.length > 0 || chanceInfo.length > 0)) && (
+      {vote && playerBehaviourAndBonus.bonusGroups.length > 0 && (
         <YStack
           position="absolute"
           top={0}
@@ -769,17 +799,23 @@ export function PlayerCard({ player}: PlayerCardProps) {
               </YStack>
             </Button>
           )}
-          
-          {/* Separatore se ci sono sia bonus che chance */}
-          {playerBehaviourAndBonus.bonusGroups.length > 0 && chanceInfo.length > 0 && (
-            <YStack
-              width={30}
-              height={1}
-              backgroundColor="rgba(255, 255, 255, 0.3)"
-              marginVertical={2}
-            />
-          )}
-          
+        </YStack>
+      )}
+
+      {/* Area chance organizzata - a destra (cliccabile per toast) */}
+      {isGameNotStarted && chance && chanceInfo.length > 0 && (
+        <YStack
+          position="absolute"
+          top={0}
+          right={-4}
+          maxWidth={48}
+          borderRadius={6}
+          paddingVertical={0}
+          paddingHorizontal={4}
+          gap={2}
+          alignItems="center"
+          zIndex={20}
+        >
           {/* Chance Info Icons - versione compatta */}
           {chanceInfo.map((info, index) => {
             const config = CHANCE_INFO_MAP[info.type]
@@ -791,7 +827,7 @@ export function PlayerCard({ player}: PlayerCardProps) {
                 width={20}
                 height={20}
                 borderRadius={4}
-                backgroundColor={config.color}
+                backgroundColor={typeof info.value === 'boolean' ? (info.value ? config.color : config.error) : config.color}
                 alignItems="center"
                 justifyContent="center"
                 borderWidth={1}
@@ -967,6 +1003,15 @@ export function PlayerCard({ player}: PlayerCardProps) {
       </YStack>
     </Card>
     </YStack>
+  )
+
+  // Render condizionale: se c'è onPress, wrappa con Pressable
+  return onPress ? (
+    <Pressable onPress={onPress}>
+      {cardContent}
+    </Pressable>
+  ) : (
+    cardContent
   )
 }
 

@@ -36,6 +36,28 @@ export default function GameScreen() {
   const [gameLoading, setGameLoading] = useState(false)
   const [gameError, setGameError] = useState<string | null>(null)
 
+  // Funzione per ricaricare i dati della partita
+  const refreshGame = async () => {
+    if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) return
+    
+    setGameLoading(true)
+    setGameError(null)
+    
+    try {
+      const result = await gameService.getGame({ 
+        groupId: routeGroupId, 
+        leagueId: routeLeagueId, 
+        year: parseInt(routeYear), 
+        gameId: routeGameId 
+      })
+      setGameWrapper(result)
+    } catch (err: any) {
+      setGameError(err?.message ?? String(err))
+    } finally {
+      setGameLoading(false)
+    }
+  }
+
   useEffect(() => {
     
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
@@ -251,7 +273,11 @@ export default function GameScreen() {
               {gameLoading ? (
                 <Text>Caricamento formazione partita...</Text>
               ) : gameWrapper ? (
-                  <SoccerField gameWrapper={gameWrapper} />
+                  <SoccerField 
+                    gameWrapper={gameWrapper} 
+                    groupId={routeGroupId ?? undefined}
+                    onRefresh={refreshGame}
+                  />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
               )}

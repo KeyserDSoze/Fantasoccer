@@ -1,9 +1,16 @@
-import { memo, useMemo } from 'react'
-import { YStack, XStack, Text, ScrollView } from 'tamagui'
+import { memo, useMemo, useState, useEffect } from 'react'
+import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
+import { Save } from '@tamagui/lucide-icons'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
-import { FantaSoccerRole } from 'types/team'
-import { PlayerCard } from './PlayerCard'
+import { FantaSoccerRole, Team } from 'types/team'
+import { Role } from 'types/group'
+import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
+import { PlayerSwapModal } from './PlayerSwapModal'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
+import { useAuth } from '../../providers/AuthProvider'
+import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
+import gameService from '../../services/gameService'
 
 // SVG field background as a React component with responsive orientation
 interface SoccerFieldSVGProps {
@@ -74,6 +81,8 @@ const SoccerFieldSVG = memo(({ orientation }: SoccerFieldSVGProps) => {
 
 export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
+  groupId?: string // ID del gruppo per salvare il team
+  onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
   style?: any
 }
 
@@ -95,10 +104,32 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
+export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
-  const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
-console.log(away?.players)
+  const { user } = useAuth()
+  const toast = useToastController()
+  
+  // Stato editing
+  const [selectedPlayer, setSelectedPlayer] = useState<LivePlayer | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null) // 0 = home, 1 = away
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
+  const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({})
+  const [hasLocalChanges, setHasLocalChanges] = useState(false)
+  
+  const { home: initialHome, away: initialAway } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
+  
+  // Inizializza localTeams quando gameWrapper cambia
+  useEffect(() => {
+    setLocalTeams({ home: initialHome, away: initialAway })
+  }, [initialHome, initialAway])
+  
+  // Usa i team locali (modificati) o quelli iniziali
+  const home = localTeams.home ?? initialHome
+  const away = localTeams.away ?? initialAway
+  // Removed debug log
   const homeStarters: LivePlayer[] = (home?.players ?? []).filter(p => 
     p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
   )
@@ -120,26 +151,262 @@ console.log(away?.players)
     .sort((a, b) => a.currentPosition - b.currentPosition)
 
   // Tribuna - giocatori non utilizzati
-  const homeTribune: LivePlayer[] = (home?.players ?? []).filter(p => 
-    p.currentPosition === FantaSoccerRole.Tribune
-  )
-  const awayTribune: LivePlayer[] = (away?.players ?? []).filter(p => 
-    p.currentPosition === FantaSoccerRole.Tribune
-  )
+  const homeTribuneRaw: LivePlayer[] = (home?.players ?? []).filter(p => p.currentPosition === FantaSoccerRole.Tribune)
+  const awayTribuneRaw: LivePlayer[] = (away?.players ?? []).filter(p => p.currentPosition === FantaSoccerRole.Tribune)
+
+  // Ordinamento tribuna per ruolo principale e poi per nome
+  const ROLE_SORT_ORDER: Role[] = [Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward, Role.Undefined]
+  const sortTribune = (players: LivePlayer[]) => {
+    return [...players].sort((a, b) => {
+      const roleA = (a.current as any)?.role ?? Role.Undefined
+      const roleB = (b.current as any)?.role ?? Role.Undefined
+      const idxA = ROLE_SORT_ORDER.indexOf(roleA)
+      const idxB = ROLE_SORT_ORDER.indexOf(roleB)
+      if (idxA !== idxB) return idxA - idxB
+      const nameA = (a.current as any)?.name ?? ''
+      const nameB = (b.current as any)?.name ?? ''
+      return nameA.localeCompare(nameB, 'it-IT', { sensitivity: 'base' })
+    })
+  }
+  const homeTribune = sortTribune(homeTribuneRaw)
+  const awayTribune = sortTribune(awayTribuneRaw)
+
+  // Determina quale team è modificabile (owner === email)
+  const canEdit = gameWrapper?.canEdit ?? false
+  const userEmail = user?.email ?? ''
+  const homeIsMyTeam = canEdit && (home?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
+  const awayIsMyTeam = canEdit && (away?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
+
+  // Funzione per gestire click su un giocatore
+  const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
+    if (!canEdit) return
+    
+    const isMyTeam = teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam
+    if (!isMyTeam) return
+
+    setSelectedPlayer(player)
+    setEditingTeamIndex(teamIndex)
+    setModalOpen(true)
+  }
+
+  // Callback modale: swap tra giocatori
+  const handleSwap = (targetPlayer: LivePlayer) => {
+    if (!selectedPlayer || editingTeamIndex === null) return
+
+    // Trova il team da modificare
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Crea una copia aggiornata dei giocatori con posizioni scambiate
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const selectedName = (selectedPlayer.current as any)?.name
+      const targetName = (targetPlayer.current as any)?.name
+
+      if (pName === selectedName) {
+        // Scambia posizione con targetPlayer
+        return { ...p, currentPosition: targetPlayer.currentPosition }
+      } else if (pName === targetName) {
+        // Scambia posizione con selectedPlayer
+        return { ...p, currentPosition: selectedPlayer.currentPosition }
+      }
+      return p
+    })
+
+    // Aggiorna lo stato locale del team
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Callback modale: rimuovi in tribuna
+  const handleRemove = () => {
+    if (!selectedPlayer || editingTeamIndex === null) return
+
+    // Trova il team da modificare
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Crea una copia aggiornata dei giocatori con il selezionato in tribuna
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const selectedName = (selectedPlayer.current as any)?.name
+
+      if (pName === selectedName) {
+        return { ...p, currentPosition: FantaSoccerRole.Tribune }
+      }
+      return p
+    })
+
+    // Aggiorna lo stato locale del team
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Callback modale: aggiungi giocatore in campo (dalla tribuna o panchina)
+  const handleAddToField = (player: LivePlayer) => {
+    if (editingTeamIndex === null) return
+
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Trova posizione disponibile in campo per il ruolo del giocatore
+    const playerRole = (player.current as any)?.role ?? Role.Undefined
+    const targetPosition = getAvailableFieldPosition(playerRole, currentTeam.players)
+    
+    if (targetPosition === undefined) {
+      toast.show('❌ Nessuno spazio disponibile in campo per questo ruolo', { variant: 'error' })
+      return
+    }
+
+    // Aggiorna la posizione del giocatore
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const playerName = (player.current as any)?.name
+      if (pName === playerName) {
+        return { ...p, currentPosition: targetPosition }
+      }
+      return p
+    })
+
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Callback modale: aggiungi giocatore in panchina (dalla tribuna)
+  const handleAddToBench = (player: LivePlayer) => {
+    if (editingTeamIndex === null) return
+
+    const currentTeam = editingTeamIndex === 0 ? home : away
+    if (!currentTeam) return
+
+    // Trova posizione disponibile in panchina per il ruolo del giocatore
+    const playerRole = (player.current as any)?.role ?? Role.Undefined
+    const targetPosition = getAvailableBenchPosition(playerRole, currentTeam.players)
+    
+    if (targetPosition === undefined) {
+      toast.show('❌ Nessuno spazio disponibile in panchina per questo ruolo', { variant: 'error' })
+      return
+    }
+
+    // Aggiorna la posizione del giocatore
+    const updatedPlayers = currentTeam.players.map(p => {
+      const pName = (p.current as any)?.name
+      const playerName = (player.current as any)?.name
+      if (pName === playerName) {
+        return { ...p, currentPosition: targetPosition }
+      }
+      return p
+    })
+
+    const updatedTeam = { ...currentTeam, players: updatedPlayers }
+    setLocalTeams(prev => ({
+      ...prev,
+      [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
+    }))
+    setHasLocalChanges(true)
+
+    setModalOpen(false)
+    setSelectedPlayer(null)
+    setEditingTeamIndex(null)
+  }
+
+  // Funzione per salvare il team modificato
+  const handleSave = async () => {
+    if (!groupId || !hasLocalChanges) return
+
+    // Determina quale team è stato modificato
+    const teamToSave = homeIsMyTeam ? home : awayIsMyTeam ? away : null
+    if (!teamToSave) {
+      toast.show('Errore: team non trovato', { variant: 'error' })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const teamData: Team = {
+        name: teamToSave.name,
+        owner: teamToSave.owner,
+        additionalOwners: teamToSave.additionalOwners,
+        lastUpdate: new Date(),
+        revenueMoney: 0,
+        moneyFromRank: 0,
+        players: teamToSave.players.map(p => ({
+          ...(p.current as any),
+          position: p.currentPosition
+        }))
+      }
+
+      const response = await gameService.saveTeam(groupId, teamData)
+      
+      if (response?.i) {
+        toast.show('✅ Formazione salvata con successo!', { variant: 'success' })
+        setHasLocalChanges(false)
+        
+        // Ricarica i dati dal server per confermare le modifiche
+        if (onRefresh) {
+          await onRefresh()
+        }
+      } else {
+        toast.show(`Errore: ${response?.m || 'Salvataggio fallito'}`, { variant: 'error' })
+      }
+    } catch (error: any) {
+      console.error('Errore salvataggio team:', error)
+      toast.show(`❌ Errore: ${error?.message || 'Salvataggio fallito'}`, { variant: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Determina se il giocatore selezionato può essere rimosso
+  const selectedCanRemove = useMemo(() => {
+    if (!selectedPlayer || editingTeamIndex === null) return false
+    const teamPlayers = editingTeamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])
+    return canRemovePlayer(selectedPlayer, teamPlayers)
+  }, [selectedPlayer, editingTeamIndex, home, away])
+
+  // Tutti i giocatori del team in editing per la modale
+  const allPlayersForModal = useMemo(() => {
+    if (editingTeamIndex === null) return []
+    return editingTeamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])
+  }, [editingTeamIndex, home, away])
 
   // Funzione per raggruppare giocatori della panchina per ruolo
   const groupBenchByRole = (benchPlayers: LivePlayer[]) => {
     const groups = {
       goalkeepers: benchPlayers.filter(p => p.currentPosition === FantaSoccerRole.BackupGoalKeeper),
-      defenders: benchPlayers.filter(p => 
+      defenders: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupDefensor ||
         p.currentPosition === FantaSoccerRole.SecondBackupDefensor
       ).sort((a, b) => a.currentPosition - b.currentPosition),
-      midfielders: benchPlayers.filter(p => 
+      midfielders: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupMidfielder ||
         p.currentPosition === FantaSoccerRole.SecondBackupMidfielder
       ).sort((a, b) => a.currentPosition - b.currentPosition),
-      forwards: benchPlayers.filter(p => 
+      forwards: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupForward ||
         p.currentPosition === FantaSoccerRole.SecondBackupForward
       ).sort((a, b) => a.currentPosition - b.currentPosition)
@@ -152,23 +419,18 @@ console.log(away?.players)
 
   /**
    * Componente riutilizzabile per sezioni panchina
-   * @param players - Array di giocatori da mostrare
-   * @param sectionKey - Chiave univoca per le key React (es. 'home-gk', 'away-def')
-   * @param roleLabel - Etichetta del ruolo da mostrare (es. 'PORTIERI', 'DIFENSORI')
-   * @param backgroundColor - Colore hex di sfondo per il badge del ruolo (es. '#f59e0b')
-   * @param roleIcon - Emoji icona del ruolo (es. '🥅', '🛡️')
-   * @returns Layout mobile: YStack con ruolo sopra e cards sotto | Layout desktop: XStack con |ruolo verticale|cards orizzontali| o null se nessun giocatore
    */
   const renderBenchSection = (
     players: LivePlayer[],
     sectionKey: string,
     roleLabel: string,
     backgroundColor: string,
-    roleIcon: string
+    roleIcon: string,
+    teamIndex: number, // 0 = home, 1 = away
+    isMyTeam: boolean // se è il mio team
   ) => {
     if (players.length === 0) return null
 
-    // Converte hex color in rgba con opacità 0.1
     const hexToRgba = (hex: string, alpha: number = 0.1) => {
       const r = parseInt(hex.slice(1, 3), 16)
       const g = parseInt(hex.slice(3, 5), 16)
@@ -176,68 +438,57 @@ console.log(away?.players)
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
-    // Layout mobile: colonna tradizionale
-    if (isMobile) {
-      return (
-        <YStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
-          {/* Ruolo orizzontale sopra */}
-          <Text 
-            fontSize={14} 
-            fontWeight="700" 
-            color={backgroundColor}
-            textAlign="center"
-            paddingBottom={4}
-          >
-            {roleIcon} {roleLabel}
-          </Text>
-          
-          {/* Cards giocatori in colonna */}
-          <YStack gap={8} alignItems="center" style={{
-            transform: `scale(${cardScale})`,
-            transformOrigin: 'center top'
-          }}>
-            {players.map((player, i) => (
-              <PlayerCard key={`${sectionKey}-${i}`} player={player} />
-            ))}
-          </YStack>
-        </YStack>
-      )
-    }
+    const scaledCardHeight = PLAYER_CARD_HEIGHT * cardScale
 
-    // Layout desktop: riga con ruolo verticale a sinistra
     return (
-      <XStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
-        {/* Ruolo in verticale */}
-        <YStack 
-          minWidth={60} 
-          height={180}
-          justifyContent="center" 
+      <XStack
+        gap={8}
+        backgroundColor={hexToRgba(backgroundColor)}
+        borderRadius={8}
+        padding={12}
+        alignItems="stretch"
+      >
+        {/* Badge ruolo verticale con altezza uguale alla card scalata */}
+        <YStack
+          minWidth={60}
+          height={scaledCardHeight}
+          justifyContent="center"
           alignItems="center"
           backgroundColor={backgroundColor}
-          borderRadius={8}
+            borderRadius={8}
           paddingHorizontal={8}
           paddingVertical={2}
         >
-          <Text 
-            fontSize={14} 
-            fontWeight="700" 
+          <Text
+            fontSize={14}
+            fontWeight="700"
             color="#fff"
-            style={{ 
+            style={{
               writingMode: 'vertical-lr',
               textOrientation: 'mixed'
             }}
           >
-            {roleIcon} {roleLabel}
+            {roleIcon} {roleLabel.substring(0, 3)}
           </Text>
         </YStack>
-        
-        {/* Cards giocatori in riga */}
-        <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-          transform: `scale(${cardScale})`,
-          transformOrigin: 'left top'
-        }}>
+        {/* Cards giocatori */}
+        <XStack
+          gap={gapBetweenCards}
+          flexWrap="wrap"
+          flex={1}
+          alignItems="flex-start"
+          style={{
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'left top',
+            height: scaledCardHeight
+          }}
+        >
           {players.map((player, i) => (
-            <PlayerCard key={`${sectionKey}-${i}`} player={player} />
+            <PlayerCard 
+              key={`${sectionKey}-${i}`} 
+              player={player}
+              onPress={canEdit && isMyTeam ? () => handlePlayerClick(player, teamIndex) : undefined}
+            />
           ))}
         </XStack>
       </XStack>
@@ -284,8 +535,31 @@ console.log(away?.players)
   ]
   const paddingBottomForRole = 9
   const gapBetweenCards = 8
+  
+  // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
+  const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges
+
   return (
     <YStack gap={16} width="100%" {...style}>
+      {/* PULSANTE SALVA FORMAZIONE */}
+      {showSaveButton && (
+        <XStack justifyContent="center" paddingHorizontal={16}>
+          <Button
+            backgroundColor="$green10"
+            color="#fff"
+            size="$5"
+            fontWeight="700"
+            icon={<Save size={20} />}
+            onPress={handleSave}
+            disabled={isSaving}
+            opacity={isSaving ? 0.6 : 1}
+            minWidth={200}
+          >
+            {isSaving ? 'Salvataggio...' : '💾 Salva Formazione'}
+          </Button>
+        </XStack>
+      )}
+
       {/* CAMPO DA CALCIO */}
       <YStack 
         position="relative" 
@@ -298,6 +572,11 @@ console.log(away?.players)
 
         {/* 8 equal containers positioned absolutely over the field */}
         {stripes.map((playersInStripe, stripeIndex) => {
+          // Determina se questa stripe appartiene a home (0-3) o away (4-7)
+          const isHomeStripe = stripeIndex < 4
+          const teamIndex = isHomeStripe ? 0 : 1
+          const isMyTeam = isHomeStripe ? homeIsMyTeam : awayIsMyTeam
+          
           if (isMobile) {
             // Mobile: vertical layout with horizontal rows
             const topPercent = stripeIndex * 12.5
@@ -325,7 +604,11 @@ console.log(away?.players)
                   }}
                 >
                   {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} />
+                    <PlayerCard 
+                      key={`${p.current?.name ?? ''}-${i}`} 
+                      player={p}
+                      onPress={canEdit && isMyTeam ? () => handlePlayerClick(p, teamIndex) : undefined}
+                    />
                   ))}
                 </XStack>
               </XStack>
@@ -357,7 +640,11 @@ console.log(away?.players)
                   }}
                 >
                   {playersInStripe.map((p, i) => (
-                    <PlayerCard key={`${p.current?.name ?? ''}-${i}`} player={p} />
+                    <PlayerCard 
+                      key={`${p.current?.name ?? ''}-${i}`} 
+                      player={p}
+                      onPress={canEdit && isMyTeam ? () => handlePlayerClick(p, teamIndex) : undefined}
+                    />
                   ))}
                 </YStack>
               </YStack>
@@ -366,87 +653,142 @@ console.log(away?.players)
         })}
       </YStack>
       {/* PANCHINE ORGANIZZATE PER RUOLO */}
-      <XStack gap={16} flex={1} justifyContent="space-between">
-        {/* Panchina Casa */}
-        <YStack flex={1} gap={12}>
-          <YStack 
-            backgroundColor="#16a34a" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff">
-              🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
-            </Text>
-          </YStack>
-
-          {/* Sezioni ruoli con componente riutilizzabile */}
-          {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅')}
-          {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️')}
-          {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
-          {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
-
-          {homeBench.length === 0 && (
-            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
-              Nessun giocatore in panchina
-            </Text>
-          )}
-        </YStack>
-
-        {/* Panchina Trasferta */}
-        <YStack flex={1} gap={12}>
-          <YStack 
-            backgroundColor="#dc2626" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff">
-              ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
-            </Text>
-          </YStack>
-
-          {/* Sezioni ruoli con componente riutilizzabile */}
-          {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅')}
-          {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️')}
-          {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
-          {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
-
-          {awayBench.length === 0 && (
-            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
-              Nessun giocatore in panchina
-            </Text>
-          )}
-        </YStack>
-      </XStack>
-
-      {/* TRIBUNA */}
-      {(homeTribune.length > 0 || awayTribune.length > 0) && (
-        <YStack gap={12}>
-          <YStack 
-            backgroundColor="#6b7280" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff" paddingBottom={paddingBottomForRole}>
-              🏟️ TRIBUNA
-            </Text>
-          </YStack>
-          
-          <XStack gap={16} flex={1}>
-            {/* Tribuna Casa */}
-            <YStack flex={1} gap={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
-                {home?.name || 'Casa'}
+      {isMobile ? (
+        <YStack gap={32}>
+          {/* Panchina Casa (stacked) */}
+          <YStack gap={12}>
+            <YStack 
+              backgroundColor="#16a34a" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
               </Text>
+            </YStack>
+            {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯', 0, homeIsMyTeam)}
+            {homeBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
+          </YStack>
+          {/* Separator */}
+          <YStack height={1} backgroundColor="#334155" opacity={0.5} />
+          {/* Panchina Trasferta (stacked) */}
+          <YStack gap={12}>
+            <YStack 
+              backgroundColor="#dc2626" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
+              </Text>
+            </YStack>
+            {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅', 1, awayIsMyTeam)}
+            {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️', 1, awayIsMyTeam)}
+            {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽', 1, awayIsMyTeam)}
+            {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯', 1, awayIsMyTeam)}
+            {awayBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
+          </YStack>
+        </YStack>
+      ) : (
+        <XStack gap={16} flex={1} justifyContent="space-between">
+          {/* Panchina Casa (desktop side) */}
+          <YStack flex={1} gap={12}>
+            <YStack 
+              backgroundColor="#16a34a" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
+              </Text>
+            </YStack>
+            {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽', 0, homeIsMyTeam)}
+            {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯', 0, homeIsMyTeam)}
+            {homeBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
+          </YStack>
+          {/* Panchina Trasferta (desktop side) */}
+            <YStack flex={1} gap={12}>
+              <YStack 
+                backgroundColor="#dc2626" 
+                paddingHorizontal={16} 
+                paddingVertical={8} 
+                borderRadius={8}
+                alignItems="center"
+              >
+                <Text fontSize={16} fontWeight="700" color="#fff">
+                  ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
+                </Text>
+              </YStack>
+              {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅', 1, awayIsMyTeam)}
+              {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️', 1, awayIsMyTeam)}
+              {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽', 1, awayIsMyTeam)}
+              {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯', 1, awayIsMyTeam)}
+              {awayBench.length === 0 && (
+                <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                  Nessun giocatore in panchina
+                </Text>
+              )}
+            </YStack>
+        </XStack>
+      )}
+
+      {/* TRIBUNA - sempre due righe separate */}
+      {(homeTribune.length > 0 || awayTribune.length > 0) && (
+        <YStack gap={24}>
+          {/* Tribuna Home */}
+          <YStack gap={8}>
+            <YStack
+              backgroundColor="#6b7280"
+              paddingHorizontal={16}
+              paddingVertical={8}
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏟️ TRIBUNA {home?.name?.toUpperCase() || 'CASA'}
+              </Text>
+            </YStack>
+            <YStack backgroundColor="rgba(107,114,128,0.15)" borderRadius={8} padding={12}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
+                <XStack
+                  gap={gapBetweenCards}
+                  paddingHorizontal={4}
+                  alignItems="flex-start"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'left top',
+                    height: PLAYER_CARD_HEIGHT * cardScale
+                  }}
+                >
                   {homeTribune.map((player, i) => (
-                    <PlayerCard key={`home-tribune-${i}`} player={player} />
+                    <PlayerCard 
+                      key={`home-tribune-${i}`} 
+                      player={player}
+                      onPress={canEdit && homeIsMyTeam ? () => handlePlayerClick(player, 0) : undefined}
+                    />
                   ))}
                   {homeTribune.length === 0 && (
                     <Text fontSize={12} color="$gray10" fontStyle="italic">
@@ -456,16 +798,40 @@ console.log(away?.players)
                 </XStack>
               </ScrollView>
             </YStack>
-
-            {/* Tribuna Trasferta */}
-            <YStack flex={1} gap={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
-                {away?.name || 'Trasferta'}
+          </YStack>
+          {/* Separator */}
+          <YStack height={1} backgroundColor="#334155" opacity={0.5} />
+          {/* Tribuna Away */}
+          <YStack gap={8}>
+            <YStack
+              backgroundColor="#6b7280"
+              paddingHorizontal={16}
+              paddingVertical={8}
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏟️ TRIBUNA {away?.name?.toUpperCase() || 'TRASFERTA'}
               </Text>
+            </YStack>
+            <YStack backgroundColor="rgba(107,114,128,0.15)" borderRadius={8} padding={12}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
+                <XStack
+                  gap={gapBetweenCards}
+                  paddingHorizontal={4}
+                  alignItems="flex-start"
+                  style={{
+                    transform: `scale(${cardScale})`,
+                    transformOrigin: 'left top',
+                    height: PLAYER_CARD_HEIGHT * cardScale
+                  }}
+                >
                   {awayTribune.map((player, i) => (
-                    <PlayerCard key={`away-tribune-${i}`} player={player} />
+                    <PlayerCard 
+                      key={`away-tribune-${i}`} 
+                      player={player}
+                      onPress={canEdit && awayIsMyTeam ? () => handlePlayerClick(player, 1) : undefined}
+                    />
                   ))}
                   {awayTribune.length === 0 && (
                     <Text fontSize={12} color="$gray10" fontStyle="italic">
@@ -475,9 +841,26 @@ console.log(away?.players)
                 </XStack>
               </ScrollView>
             </YStack>
-          </XStack>
+          </YStack>
         </YStack>
       )}
+
+      {/* MODALE PER EDITING */}
+      <PlayerSwapModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          setSelectedPlayer(null)
+          setEditingTeamIndex(null)
+        }}
+        selectedPlayer={selectedPlayer}
+        allPlayers={allPlayersForModal}
+        onSwap={handleSwap}
+        onRemove={selectedCanRemove ? handleRemove : undefined}
+        canRemove={selectedCanRemove}
+        onAddToField={handleAddToField}
+        onAddToBench={handleAddToBench}
+      />
     </YStack>
   )
 })
