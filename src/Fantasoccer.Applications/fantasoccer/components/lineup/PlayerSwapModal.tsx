@@ -160,7 +160,7 @@ export function PlayerSwapModal({
                     </Text>
                   </XStack>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={4}>
+                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
                       {groupedPlayers.starters.map((player, i) => (
                         <Button
                           key={`starter-${i}`}
@@ -172,19 +172,22 @@ export function PlayerSwapModal({
                             onClose()
                           }}
                           pressStyle={{ opacity: 0.7, scale: 0.95 }}
+                          height={200}
                         >
-                          <YStack gap={4} alignItems="center">
+                          <YStack gap={6} alignItems="center" width={120}>
                             <PlayerCard player={player} />
                             <XStack 
                               backgroundColor="$green10" 
-                              paddingHorizontal={8} 
-                              paddingVertical={4} 
-                              borderRadius={6}
+                              paddingHorizontal={10} 
+                              paddingVertical={6} 
+                              borderRadius={8}
                               alignItems="center"
                               gap={4}
+                              width="100%"
+                              justifyContent="center"
                             >
-                              <ArrowLeftRight size={12} color="#fff" />
-                              <Text fontSize={11} fontWeight="700" color="#fff">
+                              <ArrowLeftRight size={14} color="#fff" />
+                              <Text fontSize={12} fontWeight="700" color="#fff">
                                 SCAMBIA
                               </Text>
                             </XStack>
@@ -215,7 +218,7 @@ export function PlayerSwapModal({
                     </Text>
                   </XStack>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={4}>
+                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
                       {groupedPlayers.bench.map((player, i) => (
                         <Button
                           key={`bench-${i}`}
@@ -227,19 +230,22 @@ export function PlayerSwapModal({
                             onClose()
                           }}
                           pressStyle={{ opacity: 0.7, scale: 0.95 }}
+                          height={200}
                         >
-                          <YStack gap={4} alignItems="center">
+                          <YStack gap={6} alignItems="center" width={120}>
                             <PlayerCard player={player} />
                             <XStack 
                               backgroundColor="$orange10" 
-                              paddingHorizontal={8} 
-                              paddingVertical={4} 
-                              borderRadius={6}
+                              paddingHorizontal={10} 
+                              paddingVertical={6} 
+                              borderRadius={8}
                               alignItems="center"
                               gap={4}
+                              width="100%"
+                              justifyContent="center"
                             >
-                              <ArrowLeftRight size={12} color="#fff" />
-                              <Text fontSize={11} fontWeight="700" color="#fff">
+                              <ArrowLeftRight size={14} color="#fff" />
+                              <Text fontSize={12} fontWeight="700" color="#fff">
                                 SCAMBIA
                               </Text>
                             </XStack>
@@ -270,7 +276,7 @@ export function PlayerSwapModal({
                     </Text>
                   </XStack>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={4}>
+                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
                       {groupedPlayers.tribune.map((player, i) => (
                         <Button
                           key={`tribune-${i}`}
@@ -282,19 +288,22 @@ export function PlayerSwapModal({
                             onClose()
                           }}
                           pressStyle={{ opacity: 0.7, scale: 0.95 }}
+                          height={200}
                         >
-                          <YStack gap={4} alignItems="center">
+                          <YStack gap={6} alignItems="center" width={120}>
                             <PlayerCard player={player} />
                             <XStack 
                               backgroundColor="$blue10" 
-                              paddingHorizontal={8} 
-                              paddingVertical={4} 
-                              borderRadius={6}
+                              paddingHorizontal={10} 
+                              paddingVertical={6} 
+                              borderRadius={8}
                               alignItems="center"
                               gap={4}
+                              width="100%"
+                              justifyContent="center"
                             >
-                              <ArrowLeftRight size={12} color="#fff" />
-                              <Text fontSize={11} fontWeight="700" color="#fff">
+                              <ArrowLeftRight size={14} color="#fff" />
+                              <Text fontSize={12} fontWeight="700" color="#fff">
                                 PORTA IN CAMPO
                               </Text>
                             </XStack>
