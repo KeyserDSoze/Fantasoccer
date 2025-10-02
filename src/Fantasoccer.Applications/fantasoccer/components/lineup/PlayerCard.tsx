@@ -41,6 +41,10 @@ import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from
 import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
 
 
+// Dimensioni base esportate della PlayerCard per allineare altri componenti (es. badge ruoli panchina)
+export const PLAYER_CARD_WIDTH = 112
+export const PLAYER_CARD_HEIGHT = 150
+
 export interface PlayerCardProps {
   player: LivePlayer
 }
@@ -504,9 +508,9 @@ export function PlayerCard({ player}: PlayerCardProps) {
     }
   }
 
-  // Dimensioni base fisse - il scaling viene gestito dal contenitore via cardScale
-  const cardWidth = 112
-  const cardHeight = 150 
+  // Dimensioni base riferite alle costanti esportate
+  const cardWidth = PLAYER_CARD_WIDTH
+  const cardHeight = PLAYER_CARD_HEIGHT 
 
   // Controlla se il giocatore è Man of the Match
   const isManOfTheMatch = useMemo(() => {

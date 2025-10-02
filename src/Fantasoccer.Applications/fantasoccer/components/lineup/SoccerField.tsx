@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react'
 import { YStack, XStack, Text, ScrollView } from 'tamagui'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
-import { PlayerCard } from './PlayerCard'
+import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 
 // SVG field background as a React component with responsive orientation
@@ -98,7 +98,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
 export const SoccerField = memo(({ gameWrapper, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
   const { home, away } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
-console.log(away?.players)
+  // Removed debug log
   const homeStarters: LivePlayer[] = (home?.players ?? []).filter(p => 
     p.currentPosition >= FantaSoccerRole.GoalKeeper && p.currentPosition <= FantaSoccerRole.Forward
   )
@@ -131,15 +131,15 @@ console.log(away?.players)
   const groupBenchByRole = (benchPlayers: LivePlayer[]) => {
     const groups = {
       goalkeepers: benchPlayers.filter(p => p.currentPosition === FantaSoccerRole.BackupGoalKeeper),
-      defenders: benchPlayers.filter(p => 
+      defenders: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupDefensor ||
         p.currentPosition === FantaSoccerRole.SecondBackupDefensor
       ).sort((a, b) => a.currentPosition - b.currentPosition),
-      midfielders: benchPlayers.filter(p => 
+      midfielders: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupMidfielder ||
         p.currentPosition === FantaSoccerRole.SecondBackupMidfielder
       ).sort((a, b) => a.currentPosition - b.currentPosition),
-      forwards: benchPlayers.filter(p => 
+      forwards: benchPlayers.filter(p =>
         p.currentPosition === FantaSoccerRole.FirstBackupForward ||
         p.currentPosition === FantaSoccerRole.SecondBackupForward
       ).sort((a, b) => a.currentPosition - b.currentPosition)
@@ -152,12 +152,6 @@ console.log(away?.players)
 
   /**
    * Componente riutilizzabile per sezioni panchina
-   * @param players - Array di giocatori da mostrare
-   * @param sectionKey - Chiave univoca per le key React (es. 'home-gk', 'away-def')
-   * @param roleLabel - Etichetta del ruolo da mostrare (es. 'PORTIERI', 'DIFENSORI')
-   * @param backgroundColor - Colore hex di sfondo per il badge del ruolo (es. '#f59e0b')
-   * @param roleIcon - Emoji icona del ruolo (es. '🥅', '🛡️')
-   * @returns Layout mobile: YStack con ruolo sopra e cards sotto | Layout desktop: XStack con |ruolo verticale|cards orizzontali| o null se nessun giocatore
    */
   const renderBenchSection = (
     players: LivePlayer[],
@@ -168,7 +162,6 @@ console.log(away?.players)
   ) => {
     if (players.length === 0) return null
 
-    // Converte hex color in rgba con opacità 0.1
     const hexToRgba = (hex: string, alpha: number = 0.1) => {
       const r = parseInt(hex.slice(1, 3), 16)
       const g = parseInt(hex.slice(3, 5), 16)
@@ -176,38 +169,51 @@ console.log(away?.players)
       return `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
-    // Layout desktop: riga con ruolo verticale a sinistra
+    const scaledCardHeight = PLAYER_CARD_HEIGHT * cardScale
+
     return (
-      <XStack gap={8} backgroundColor={hexToRgba(backgroundColor)} borderRadius={8} padding={12}>
-        {/* Ruolo in verticale */}
-        <YStack 
-          minWidth={60} 
-          height={180}
-          justifyContent="center" 
+      <XStack
+        gap={8}
+        backgroundColor={hexToRgba(backgroundColor)}
+        borderRadius={8}
+        padding={12}
+        alignItems="stretch"
+      >
+        {/* Badge ruolo verticale con altezza uguale alla card scalata */}
+        <YStack
+          minWidth={60}
+          height={scaledCardHeight}
+          justifyContent="center"
           alignItems="center"
           backgroundColor={backgroundColor}
-          borderRadius={8}
+            borderRadius={8}
           paddingHorizontal={8}
           paddingVertical={2}
         >
-          <Text 
-            fontSize={14} 
-            fontWeight="700" 
+          <Text
+            fontSize={14}
+            fontWeight="700"
             color="#fff"
-            style={{ 
+            style={{
               writingMode: 'vertical-lr',
               textOrientation: 'mixed'
             }}
           >
-            {roleIcon} {roleLabel}
+            {roleIcon} {roleLabel.substring(0, 3)}
           </Text>
         </YStack>
-        
-        {/* Cards giocatori in riga */}
-        <XStack gap={gapBetweenCards} flexWrap="wrap" flex={1} style={{
-          transform: `scale(${cardScale})`,
-          transformOrigin: 'left top'
-        }}>
+        {/* Cards giocatori */}
+        <XStack
+          gap={gapBetweenCards}
+          flexWrap="wrap"
+          flex={1}
+          alignItems="flex-start"
+          style={{
+            transform: `scale(${cardScale})`,
+            transformOrigin: 'left top',
+            height: scaledCardHeight
+          }}
+        >
           {players.map((player, i) => (
             <PlayerCard key={`${sectionKey}-${i}`} player={player} />
           ))}
@@ -338,116 +344,165 @@ console.log(away?.players)
         })}
       </YStack>
       {/* PANCHINE ORGANIZZATE PER RUOLO */}
-      <XStack gap={16} flex={1} justifyContent="space-between">
-        {/* Panchina Casa */}
-        <YStack flex={1} gap={12}>
-          <YStack 
-            backgroundColor="#16a34a" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff">
-              🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
-            </Text>
+      {isMobile ? (
+        <YStack gap={32}>
+          {/* Panchina Casa (stacked) */}
+          <YStack gap={12}>
+            <YStack 
+              backgroundColor="#16a34a" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
+              </Text>
+            </YStack>
+            {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅')}
+            {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+            {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+            {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
+            {homeBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
           </YStack>
-
-          {/* Sezioni ruoli con componente riutilizzabile */}
-          {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅')}
-          {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️')}
-          {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
-          {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
-
-          {homeBench.length === 0 && (
-            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
-              Nessun giocatore in panchina
-            </Text>
-          )}
-        </YStack>
-
-        {/* Panchina Trasferta */}
-        <YStack flex={1} gap={12}>
-          <YStack 
-            backgroundColor="#dc2626" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff">
-              ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
-            </Text>
+          {/* Separator */}
+          <YStack height={1} backgroundColor="#334155" opacity={0.5} />
+          {/* Panchina Trasferta (stacked) */}
+          <YStack gap={12}>
+            <YStack 
+              backgroundColor="#dc2626" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
+              </Text>
+            </YStack>
+            {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅')}
+            {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+            {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+            {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
+            {awayBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
           </YStack>
-
-          {/* Sezioni ruoli con componente riutilizzabile */}
-          {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅')}
-          {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️')}
-          {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
-          {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
-
-          {awayBench.length === 0 && (
-            <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
-              Nessun giocatore in panchina
-            </Text>
-          )}
         </YStack>
-      </XStack>
+      ) : (
+        <XStack gap={16} flex={1} justifyContent="space-between">
+          {/* Panchina Casa (desktop side) */}
+          <YStack flex={1} gap={12}>
+            <YStack 
+              backgroundColor="#16a34a" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏠 PANCHINA {home?.name?.toUpperCase() || 'CASA'}
+              </Text>
+            </YStack>
+            {renderBenchSection(homeBenchGroups.goalkeepers, 'home-gk', 'PORTIERI', '#f59e0b', '🥅')}
+            {renderBenchSection(homeBenchGroups.defenders, 'home-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+            {renderBenchSection(homeBenchGroups.midfielders, 'home-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+            {renderBenchSection(homeBenchGroups.forwards, 'home-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
+            {homeBench.length === 0 && (
+              <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                Nessun giocatore in panchina
+              </Text>
+            )}
+          </YStack>
+          {/* Panchina Trasferta (desktop side) */}
+            <YStack flex={1} gap={12}>
+              <YStack 
+                backgroundColor="#dc2626" 
+                paddingHorizontal={16} 
+                paddingVertical={8} 
+                borderRadius={8}
+                alignItems="center"
+              >
+                <Text fontSize={16} fontWeight="700" color="#fff">
+                  ✈️ PANCHINA {away?.name?.toUpperCase() || 'TRASFERTA'}
+                </Text>
+              </YStack>
+              {renderBenchSection(awayBenchGroups.goalkeepers, 'away-gk', 'PORTIERI', '#f59e0b', '🥅')}
+              {renderBenchSection(awayBenchGroups.defenders, 'away-def', 'DIFENSORI', '#3b82f6', '🛡️')}
+              {renderBenchSection(awayBenchGroups.midfielders, 'away-mid', 'CENTROCAMPISTI', '#10b981', '⚽')}
+              {renderBenchSection(awayBenchGroups.forwards, 'away-fwd', 'ATTACCANTI', '#ef4444', '🎯')}
+              {awayBench.length === 0 && (
+                <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
+                  Nessun giocatore in panchina
+                </Text>
+              )}
+            </YStack>
+        </XStack>
+      )}
 
-      {/* TRIBUNA */}
+      {/* TRIBUNA - sempre due righe separate */}
       {(homeTribune.length > 0 || awayTribune.length > 0) && (
-        <YStack gap={12}>
-          <YStack 
-            backgroundColor="#6b7280" 
-            paddingHorizontal={16} 
-            paddingVertical={8} 
-            borderRadius={8}
-            alignItems="center"
-          >
-            <Text fontSize={16} fontWeight="700" color="#fff" paddingBottom={paddingBottomForRole}>
-              🏟️ TRIBUNA
-            </Text>
+        <YStack gap={24}>
+          {/* Tribuna Home */}
+          <YStack gap={8}>
+            <YStack 
+              backgroundColor="#6b7280" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏟️ TRIBUNA {home?.name?.toUpperCase() || 'CASA'}
+              </Text>
+            </YStack>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <XStack gap={gapBetweenCards} paddingHorizontal={8}>
+                {homeTribune.map((player, i) => (
+                  <PlayerCard key={`home-tribune-${i}`} player={player} />
+                ))}
+                {homeTribune.length === 0 && (
+                  <Text fontSize={12} color="$gray10" fontStyle="italic">
+                    Nessuno in tribuna
+                  </Text>
+                )}
+              </XStack>
+            </ScrollView>
           </YStack>
-          
-          <XStack gap={16} flex={1}>
-            {/* Tribuna Casa */}
-            <YStack flex={1} gap={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
-                {home?.name || 'Casa'}
+          {/* Separator */}
+          <YStack height={1} backgroundColor="#334155" opacity={0.5} />
+          {/* Tribuna Away */}
+          <YStack gap={8}>
+            <YStack 
+              backgroundColor="#6b7280" 
+              paddingHorizontal={16} 
+              paddingVertical={8} 
+              borderRadius={8}
+              alignItems="center"
+            >
+              <Text fontSize={16} fontWeight="700" color="#fff">
+                🏟️ TRIBUNA {away?.name?.toUpperCase() || 'TRASFERTA'}
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
-                  {homeTribune.map((player, i) => (
-                    <PlayerCard key={`home-tribune-${i}`} player={player} />
-                  ))}
-                  {homeTribune.length === 0 && (
-                    <Text fontSize={12} color="$gray10" fontStyle="italic">
-                      Nessuno in tribuna
-                    </Text>
-                  )}
-                </XStack>
-              </ScrollView>
             </YStack>
-
-            {/* Tribuna Trasferta */}
-            <YStack flex={1} gap={8}>
-              <Text fontSize={14} fontWeight="600" color="$color" textAlign="center" paddingBottom={paddingBottomForRole}>
-                {away?.name || 'Trasferta'}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <XStack gap={gapBetweenCards}paddingHorizontal={8}>
-                  {awayTribune.map((player, i) => (
-                    <PlayerCard key={`away-tribune-${i}`} player={player} />
-                  ))}
-                  {awayTribune.length === 0 && (
-                    <Text fontSize={12} color="$gray10" fontStyle="italic">
-                      Nessuno in tribuna
-                    </Text>
-                  )}
-                </XStack>
-              </ScrollView>
-            </YStack>
-          </XStack>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <XStack gap={gapBetweenCards} paddingHorizontal={8}>
+                {awayTribune.map((player, i) => (
+                  <PlayerCard key={`away-tribune-${i}`} player={player} />
+                ))}
+                {awayTribune.length === 0 && (
+                  <Text fontSize={12} color="$gray10" fontStyle="italic">
+                    Nessuno in tribuna
+                  </Text>
+                )}
+              </XStack>
+            </ScrollView>
+          </YStack>
         </YStack>
       )}
     </YStack>
