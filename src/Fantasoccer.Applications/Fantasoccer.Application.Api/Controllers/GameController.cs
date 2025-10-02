@@ -34,6 +34,62 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamRepository = teamRepository;
             _teamDayRepository = teamDayRepository;
         }
+        [HttpPost]
+        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
+        {
+            if (team.Owner != User.Identity?.Name)
+                return new TeamResponse(false, "Non sei l'owner della squadra.");
+
+            var group = await _groups.GetAsync(groupId);
+            if (group != null)
+            {
+                foreach (var basket in group.Baskets)
+                {
+                    var lastBasketOverYear = basket.Years.OrderByDescending(x => x.Year).First();
+                    if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
+                    {
+                        var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
+                        var nextSerieA = realCalendar?.NextDay?.SerieADay;
+                        if (nextSerieA == null)
+                            return new TeamResponse(false, "Campionato terminato.");
+                        var teamDayKey = new TeamDayKey
+                        {
+                            Year = lastBasketOverYear.Year,
+                            Email = team.Owner,
+                            Group = groupId,
+                            BasketId = basket.Id,
+                            Day = nextSerieA.Value
+                        };
+                        var actualTeam = await _teamDayRepository.GetAsync(teamDayKey);
+                        if (actualTeam == null)
+                        {
+                            var teamKey = new TeamKey
+                            {
+                                Year = lastBasketOverYear.Year,
+                                Email = team.Owner,
+                                Group = groupId,
+                                BasketId = basket.Id,
+                            };
+                            actualTeam = await _teamRepository.GetAsync(teamKey);
+                        }
+                        if (actualTeam == null)
+                            return new TeamResponse(false, "Squadra non trovata.");
+                        foreach (var player in actualTeam.ActivePlayers)
+                        {
+                            var playerToSave = team.ActivePlayers.FirstOrDefault(x => x.Key == player.Key);
+                            if (playerToSave != null)
+                            {
+                                player.Position = playerToSave.Position;
+                            }
+                        }
+                        var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
+                        return new TeamResponse(response.IsOk, response.Message);
+                    }
+                }
+                return new TeamResponse(true, "Squadra non trovata nel tuo gruppo di appartenenza.");
+            }
+            return new TeamResponse(false, "Gruppo non valido.");
+        }
         [HttpGet]
         public async Task<GameWrapper?> GetAsync([FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year, [FromQuery] string gameId)
         {
@@ -133,7 +189,8 @@ namespace Fantasoccer.Application.Api.Controllers
                             {
                                 Game = game.Value,
                                 SerieADay = game.SerieADay,
-                                Teams = teams
+                                Teams = teams,
+                                CanEdit = canEdit,
                             };
                         }
                     }

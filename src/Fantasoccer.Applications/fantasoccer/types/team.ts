@@ -134,6 +134,20 @@ export const mapRawPlayerToPlayer = (raw: PlayerRaw): Player => ({
   position: raw.k
 })
 
+// Reverse mapping (client -> raw) for sending data back to the API
+export const mapPlayerToRawPlayer = (player: Player): PlayerRaw => ({
+  // RealPlayerRaw fields
+  n: player.name,
+  t: { n: player.team.name, a: player.team.abbreviation },
+  r: player.role,
+  a: player.isActive,
+  vh: player.visible,
+  // Player specific fields
+  p: player.price,
+  s: player.status,
+  k: player.position
+})
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -261,6 +275,17 @@ export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
   revenueMoney: raw?.r ?? 0,
   moneyFromRank: raw?.m ?? 0,
   lastUpdate: raw?.d ? new Date(raw.d) : null
+})
+
+// Reverse mapping (client -> raw)
+export const mapTeamToRawTeam = (team: Team): TeamRaw => ({
+  n: team.name,
+  o: team.owner,
+  a: team.additionalOwners?.length ? team.additionalOwners : [],
+  p: team.players.map(mapPlayerToRawPlayer),
+  r: team.revenueMoney,
+  m: team.moneyFromRank,
+  d: team.lastUpdate ? team.lastUpdate.toISOString() : undefined
 })
 
 // ============================================

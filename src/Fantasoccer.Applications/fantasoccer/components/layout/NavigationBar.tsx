@@ -36,13 +36,13 @@ import { useApp } from 'providers/AppProvider'
 import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
-import type { RootNavigatorParamList } from 'navigation'
+import type { RootStackParamList } from 'navigation'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
 }
 
-type NavigationRouteName = keyof RootNavigatorParamList
+type NavigationRouteName = keyof RootStackParamList
 
 type IconType = typeof Home
 

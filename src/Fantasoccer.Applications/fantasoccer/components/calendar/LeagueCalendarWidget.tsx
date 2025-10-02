@@ -12,6 +12,8 @@ import {
 } from 'tamagui'
 import type { CalendarDay, CalendarGame } from 'types/calendar'
 import { useNavigation } from '@react-navigation/native'
+import { useCurrentGroup } from 'hooks'
+import { useApp } from 'providers/AppProvider'
 
 export type LeagueCalendarWidgetProps = {
   leagueName?: string | null
@@ -46,12 +48,14 @@ const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumb
     hasResult = false
   }
   const isCancelled = game.result?.isCancelled ?? false
-
+  const { group: currentGroup } = useCurrentGroup()
+  const { selectedYear, selectedLeagueId } = useApp()
+  const group = currentGroup?.id ?? null
+  const year = selectedYear ?? null
   const navigation = useNavigation()
 
   const onPress = () => {
-    // Navigate to Game screen. Pass the whole CalendarGame and the day number so the Game screen can load played-game data
-    ;(navigation as any).navigate('Game', { calendarGame: game, dayNumber })
+    navigation.navigate("Game", { gameId: game.id, leagueId: selectedLeagueId, year: selectedYear?.toString(), groupId: group })
   }
 
   return (

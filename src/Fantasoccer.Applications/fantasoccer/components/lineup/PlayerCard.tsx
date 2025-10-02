@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react'
-import { Card, Image, Text, XStack, YStack, Button } from 'tamagui'
+import React, { useMemo, useState, useEffect } from 'react'
+import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
 import {
   Trophy,
   Target,
@@ -14,42 +15,85 @@ import {
   Calendar,
   Clock,
   Users,
+  Goal,
+  Minus,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  AlertCircle,
+  Info,
+  CheckCircle,
+  XCircle,
+  Radio,
+  Satellite,
+  BarChart,
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
-import type { Chance } from 'types/chance'
+import { Behaviour } from 'types/serieA'
+import type { Chance, ChanceType, TrendType } from '../../types/chance'
+import { ChanceType as ChanceTypeEnum } from '../../types/chance'
+import { FantaSoccerRole } from 'types/team'
+import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
+import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
 
-export type PlayerCardVariant = 'starter' | 'bench' | 'tribune' | 'field'
 
 export interface PlayerCardProps {
   player: LivePlayer
-  variant?: PlayerCardVariant
-  showTeamName?: boolean
 }
 
-// prettier, friendlier icons map
-const BONUS_ICON_MAP: { key: keyof Vote; icon: any; label: string; color?: string }[] = [
-  { key: 'goals', icon: Trophy, label: 'Gol', color: '#f59e0b' },
-  { key: 'assists', icon: Target, label: 'Assist', color: '#06b6d4' },
-  { key: 'penalties', icon: Award, label: 'Rig.', color: '#ef4444' },
-  { key: 'stoppedPenalties', icon: Shield, label: 'Par.', color: '#10b981' },
-  { key: 'ownGoals', icon: Umbrella, label: 'Aut.', color: '#64748b' },
+// ============================================
+// CONFIGURAZIONE BONUS/MALUS CON ICONE SVG PERSONALIZZATE
+// ============================================
+
+// Configurazione per i comportamenti (cartellini)
+const BEHAVIOUR_CONFIG = {
+  [Behaviour.YellowCard]: { color: '#fbbf24', label: 'Cartellino Giallo' },
+  [Behaviour.RedCard]: { color: '#ef4444', label: 'Cartellino Rosso' },
+  [Behaviour.Nothing]: null
+}
+
+// Configurazione per i bonus/malus con ordine specifico e icone SVG
+const BONUS_MALUS_CONFIG: {
+  key: keyof Vote
+  component: React.ComponentType<{ size?: number }>
+  label: string
+  description: string
+  order: number
+}[] = [
+  { key: 'goals', component: () => <SoccerBallSVG primaryColor="#ffffff" secondaryColor="#000000" />, label: 'Gol', description: 'gol segnati', order: 1 },
+  { key: 'penalties', component: () => <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" />, label: 'Rigori', description: 'rigori segnati', order: 2 },
+  { key: 'assists', component: () => <AssistSVG color="#000" />, label: 'Assist', description: 'assist forniti', order: 3 },
+  { key: 'stoppedPenalties', component: () => <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" />, label: 'Parate', description: 'rigori parati', order: 4 },
+  { key: 'sufferedGoals', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, label: 'Gol Subiti', description: 'gol subiti', order: 5 },
+  { key: 'wrongedPenalties', component: () => <SoccerBallSVG primaryColor="#10b981" secondaryColor="#ffffff" />, label: 'Rig. Sbagliati', description: 'rigori sbagliati', order: 6 },
+  { key: 'ownGoals', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, label: 'Autogol', description: 'autogol fatti', order: 7 },
 ]
 
-function BonusBadge({ Icon, count, color, label }: { Icon: any; count: number; color?: string; label?: string }) {
-  return (
-    <XStack alignItems="center" gap="$1" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$3" backgroundColor={color ?? '$color3'}>
-      <Icon size={14} color="#fff" />
-      {count > 1 ? <Text color="#fff" fontSize="$1">x{count}</Text> : null}
-    </XStack>
-  )
+// Mappa per le informazioni di chance
+const CHANCE_INFO_MAP = {
+  injury: { icon: AlertTriangle, color: '#ef4444', label: 'Infortunato', text: 'INF' },
+  fantagazzetta: { icon: null, color: '#16a34a', label: 'Fantagazzetta', text: 'F' },
+  gazzetta: { icon: null, color: '#059669', label: 'Gazzetta', text: 'G' },
+  mediaset: { icon: Info, color: '#0ea5e9', label: 'Mediaset', text: 'M' },
+  sky: { icon: Star, color: '#f59e0b', label: 'Sky', text: 'S' },
+  trend: { icon: TrendingUp, color: '#8b5cf6', label: 'Forma', text: 'T' },
 }
 
-export function PlayerCard({ player, variant = 'starter', showTeamName = true }: PlayerCardProps) {
+
+
+export function PlayerCard({ player}: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
+  const [showGameTooltip, setShowGameTooltip] = useState(false)
+  const [showChanceTooltip, setShowChanceTooltip] = useState<string | null>(null)
+  const [isBlinking, setIsBlinking] = useState(false)
+  
+  // Toast controller per mostrare informazioni bonus/malus
+  const toast = useToastController()
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -59,81 +103,492 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
 
   const name = current?.name ?? 'Giocatore'
   const teamName = current?.team?.name ?? ''
-  const roleLabel = current?.role ?? ''
 
   const { src, fallback } = useMemo(() => getPlayerImageUrlFromName(current?.name), [current?.name])
   const imageUri = useFallbackImage ? fallback : src
 
   const voteLabel = vote ? (typeof vote.value === 'number' ? vote.value.toFixed(1) : String(vote.value)) : null
 
-  const bonusIcons = useMemo(() => {
-    if (!vote) return []
-    const icons: { Icon: any; count: number; label: string; color?: string }[] = []
-    for (const m of BONUS_ICON_MAP) {
-      const count = (vote as any)[m.key] ?? 0
-      if (count && count > 0) icons.push({ Icon: m.icon, count, label: m.label, color: m.color })
+  // Determina se è durante una partita live per lampeggiamento voti
+  const isGameLive = useMemo(() => {
+    if (!realGame?.date || !vote) return false
+    const now = new Date()
+    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
+    return now >= gameStart && now <= twoHoursAfterStart
+  }, [realGame, vote])
+
+  // Determina se la partita non è ancora iniziata per mostrare chance info
+  const isGameNotStarted = useMemo(() => {
+    if (!realGame?.date) return true // Se non c'è data, consideriamo non iniziata
+    const now = new Date()
+    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    return now < gameStart
+  }, [realGame])
+
+  // Logica per determinare il colore del voto e se deve lampeggiare
+  const voteDisplayInfo = useMemo(() => {
+    if (!vote) return null
+
+    const now = new Date()
+    let backgroundColor = '#dc2626' // Rosso di default
+    let shouldBlink = false
+
+    // Determina il colore basato su isFinal e hasVote
+    // VERDE: voto finale confermato (isFinal=true, hasVote=true)
+    // ARANCIONE: voto live ma non finale (isFinal=false, hasVote=true) 
+    // GRIGIO: voto non valido - non ha giocato abbastanza (hasVote=false)
+    // ROSSO: casi edge/errore
+    if (vote.isFinal && vote.hasVote) {
+      backgroundColor = '#16a34a' // Verde - voto finale confermato
+    } else if (!vote.isFinal && vote.hasVote) {
+      backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+    } else if (!vote.hasVote) {
+      backgroundColor = '#6b7280' // Grigio - voto non valido (non ha giocato abbastanza)
     }
-    if ((vote as any)?.manOfTheMatch) icons.push({ Icon: Star, count: 1, label: 'MVP', color: '#f97316' })
-    return icons
+
+    // Determina se deve lampeggiare (solo se la partita è live e il giocatore non è uscito)
+    // Il lampeggiamento si ferma se il giocatore è uscito (isOut=true)
+    if (isGameLive && vote.hasVote && !vote.isOut) {
+      shouldBlink = true
+    }
+
+    return {
+      backgroundColor,
+      shouldBlink,
+      borderColor: vote.isFinal ? '#fff' : 'rgba(255, 255, 255, 0.7)'
+    }
+  }, [vote, isGameLive])
+
+  // Effetto per gestire il lampeggiamento
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    
+    if (voteDisplayInfo?.shouldBlink) {
+      interval = setInterval(() => {
+        setIsBlinking(prev => !prev)
+      }, 800) // Lampeggia ogni 800ms
+    } else {
+      setIsBlinking(false)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [voteDisplayInfo?.shouldBlink])
+
+  // Sistema organizzato per comportamenti e bonus/malus
+  const playerBehaviourAndBonus = useMemo(() => {
+    if (!vote) return { behaviour: null, bonusGroups: [], hasManOfTheMatch: false }
+
+    // Comportamenti (cartellini)
+    const behaviour = vote.status !== Behaviour.Nothing ? {
+      type: vote.status,
+      config: BEHAVIOUR_CONFIG[vote.status]
+    } : null
+
+    // Bonus/Malus raggruppati per tipo
+    const bonusGroups: {
+      config: typeof BONUS_MALUS_CONFIG[0]
+      count: number
+      items: React.ReactNode[]
+    }[] = []
+
+    for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
+      const count = (vote as any)[bonusConfig.key] ?? 0
+      if (count > 0) {
+        // Crea array di icone per lo stesso tipo (se count > 1, mostra multiple icone)
+        const items: React.ReactNode[] = []
+        for (let i = 0; i < Math.min(count, 4); i++) { // Max 4 icone per tipo per evitare overflow
+          items.push(
+            <bonusConfig.component key={`${bonusConfig.key}-${i}`} size={14} />
+          )
+        }
+        
+        bonusGroups.push({
+          config: bonusConfig,
+          count,
+          items
+        })
+      }
+    }
+
+    // Man of the Match
+    const hasManOfTheMatch = (vote as any)?.manOfTheMatch ?? false
+
+    return {
+      behaviour,
+      bonusGroups,
+      hasManOfTheMatch
+    }
   }, [vote])
 
-  const chanceSummary = useMemo(() => {
-    if (!chance) return null
-    const sources = (chance.fantagazzetta ? ['F'] : []).concat(chance.gazzetta ? ['G'] : [], chance.mediaset ? ['M'] : [], chance.sky ? ['S'] : [])
-    return { status: chance.status, sources, label: chance.description }
-  }, [chance])
+  // Funzione per generare messaggio descrittivo completo
+  const generatePlayerSummaryMessage = useMemo(() => {
+    if (!vote) return null
 
-  // Game info helper
+    const parts: string[] = []
+    const playerName = name
+
+    // Raccogli tutti i bonus/malus
+    for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
+      const count = (vote as any)[bonusConfig.key] ?? 0
+      if (count > 0) {
+        const pluralLabel = count > 1 ? `${bonusConfig.description.slice(0, -1)}i` : `${bonusConfig.description.slice(0, -1)}o`
+        parts.push(`${count} ${pluralLabel}`)
+      }
+    }
+
+    // Aggiungi comportamenti
+    if (vote.status !== Behaviour.Nothing) {
+      const behaviourConfig = BEHAVIOUR_CONFIG[vote.status]
+      if (behaviourConfig) {
+        if (vote.status === Behaviour.YellowCard) {
+          parts.push('è stato ammonito')
+        } else if (vote.status === Behaviour.RedCard) {
+          parts.push('è stato espulso')
+        }
+      }
+    }
+
+    // Aggiungi man of the match
+    const hasManOfTheMatch = (vote as any)?.manOfTheMatch ?? false
+    if (hasManOfTheMatch) {
+      parts.push('è stato il miglior giocatore in campo')
+    }
+
+    if (parts.length === 0) return null
+
+    // Costruisci frase
+    let message = `Il giocatore ${playerName} ha `
+    
+    if (parts.length === 1) {
+      message += parts[0]
+    } else if (parts.length === 2) {
+      message += parts.join(' e ')
+    } else {
+      const lastPart = parts.pop()
+      message += parts.join(', ') + ' e ' + lastPart
+    }
+
+    message += '.'
+    return message
+  }, [vote, name])
+
+  // Funzione per mostrare toast con informazioni complete
+  const showPlayerSummaryToast = () => {
+    const message = generatePlayerSummaryMessage
+    if (message) {
+      toast.show('Prestazione del Giocatore', {
+        message,
+        duration: 10000, // 10 secondi
+        native: true // Usa toast nativo su mobile
+      })
+    }
+  }
+
+  // Informazioni chance 
+  const chanceInfo = useMemo(() => {
+    if (!chance) return []
+    
+    const info: { type: keyof typeof CHANCE_INFO_MAP; value: any; label: string }[] = []
+    
+    // Solo se la partita non è ancora iniziata mostriamo F/G
+    if (isGameNotStarted) {
+      // Fantagazzetta
+      if (chance.fantagazzetta !== undefined) {
+        info.push({ 
+          type: 'fantagazzetta', 
+          value: chance.fantagazzetta,
+          label: chance.fantagazzetta ? 'Titolare Fantalcacio.it' : 'Panchina Fantacalcio.it'
+        })
+      }
+      
+      // Gazzetta
+      if (chance.gazzetta !== undefined) {
+        info.push({ 
+          type: 'gazzetta', 
+          value: chance.gazzetta,
+          label: chance.gazzetta ? 'Titolare Gazzetta' : 'Panchina Gazzetta'
+        })
+      }
+    }
+    
+    // Infortunio sempre visibile
+    if (chance.status === ChanceTypeEnum.Injury) {
+      info.push({ 
+        type: 'injury', 
+        value: chance.description || 'Infortunato',
+        label: 'Infortunio'
+      })
+    }
+    
+    return info
+  }, [chance, isGameNotStarted])
+
+  // Funzione per determinare il colore di background del nome basato sulla posizione originale
+  const getPlayerNameBackgroundColor = useMemo(() => {
+    const originalPosition = current?.position ?? player.currentPosition
+
+    // Titolari (0-3) - Verde (come era)
+    if (originalPosition >= FantaSoccerRole.GoalKeeper && originalPosition <= FantaSoccerRole.Forward) {
+      return "#16a34a" // Verde per titolari
+    }
+
+    // Primi panchinari (4, First Backup roles)
+    if (originalPosition === FantaSoccerRole.BackupGoalKeeper ||
+        originalPosition === FantaSoccerRole.FirstBackupDefensor ||
+        originalPosition === FantaSoccerRole.FirstBackupMidfielder ||
+        originalPosition === FantaSoccerRole.FirstBackupForward) {
+      return "#f59e0b" // Arancione per primi panchinari
+    }
+
+    // Secondi panchinari (Second Backup roles)
+    if (originalPosition === FantaSoccerRole.SecondBackupDefensor ||
+        originalPosition === FantaSoccerRole.SecondBackupMidfielder ||
+        originalPosition === FantaSoccerRole.SecondBackupForward) {
+      return "#3b82f6" // Blu per secondi panchinari
+    }
+
+    // Tribuna e altri (11 e < 0)
+    if (originalPosition === FantaSoccerRole.Tribune || 
+        originalPosition < FantaSoccerRole.GoalKeeper) {
+      return "#dc2626" // Rosso per tribuna/altri
+    }
+
+    // Default fallback
+    return "#6b7280" // Grigio per casi non gestiti
+  }, [current?.position, player.currentPosition])
+
+  // Game info helper - informazioni complete della partita
   const gameInfo = useMemo(() => {
     if (!realGame) return null
     const actualDate = new Date()
-    const isPlayed = realGame.date ?? new Date() < actualDate
+    const gameDate = realGame.date ? convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString()) : null
+    const isPlayed = gameDate && gameDate < actualDate
+    
+    const homeTeamName = realGame.home?.name || realGame.home
+    const awayTeamName = realGame.away?.name || realGame.away
+    const playerTeamName = teamName // Squadra del giocatore
+    
+    // Determina quale squadra è quella del giocatore
+    const isPlayerInHomeTeam = String(homeTeamName).toLowerCase().includes(String(playerTeamName).toLowerCase()) ||
+                               String(playerTeamName).toLowerCase().includes(String(homeTeamName).toLowerCase())
+    
+    // Crea versioni con case differenziato
+    const homeTeamDisplay = isPlayerInHomeTeam ? 
+      String(homeTeamName).toUpperCase() : 
+      String(homeTeamName).toLowerCase()
+    const awayTeamDisplay = !isPlayerInHomeTeam ? 
+      String(awayTeamName).toUpperCase() : 
+      String(awayTeamName).toLowerCase()
+    
+    // Versioni abbreviate con case differenziato
+    const homeTeamShort = isPlayerInHomeTeam ? 
+      String(homeTeamName).substring(0, 3).toUpperCase() : 
+      String(homeTeamName).substring(0, 3).toLowerCase()
+    const awayTeamShort = !isPlayerInHomeTeam ? 
+      String(awayTeamName).substring(0, 3).toUpperCase() : 
+      String(awayTeamName).substring(0, 3).toLowerCase()
+    
     if (isPlayed) {
       return {
         type: 'result' as const,
-        text: `${realGame.homeGoals}-${realGame.awayGoals}`,
-        subtitle: `${realGame.home} vs ${realGame.away}`
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeGoals: realGame.homeGoals,
+        awayGoals: realGame.awayGoals,
+        resultText: `${realGame.homeGoals ?? 0}-${realGame.awayGoals ?? 0}`,
+        dateText: formatGameDateTime(gameDate),
+        matchText: `${homeTeamDisplay} vs ${awayTeamDisplay}`,
+        matchTextShort: `${homeTeamShort} vs ${awayTeamShort}`
       }
     } else {
-      const gameDate = realGame.date ? new Date(realGame.date) : null
       return {
         type: 'upcoming' as const,
-        text: gameDate ? gameDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : 'TBD',
-        subtitle: `${realGame.home} vs ${realGame.away}`
+        homeTeam: homeTeamName,
+        awayTeam: awayTeamName,
+        homeGoals: null,
+        awayGoals: null,
+        resultText: null,
+        dateText: formatGameDateTime(gameDate),
+        matchText: `${homeTeamDisplay} vs ${awayTeamDisplay}`,
+        matchTextShort: `${homeTeamShort} vs ${awayTeamShort}`
       }
     }
-  }, [realGame])
+  }, [realGame, teamName])
 
-  // Sizing based on variant
-  const isField = variant === 'field'
-  const cardWidth = isField ? 120 : 150
-  const cardHeight = isField ? 160 : 200
-  const imageSize = isField ? 80 : 110 // Immagine molto più grande!
+  // Funzione per generare il messaggio completo sui bonus/malus
+  const generatePlayerStatsMessage = useMemo(() => {
+    if (!vote) return null
+
+    const parts: string[] = []
+    const playerName = name || 'Il giocatore'
+
+    // Raccoglie tutti i bonus/malus con i loro valori
+    const stats: { [key: string]: number } = {}
+    
+    for (const config of BONUS_MALUS_CONFIG) {
+      const value = (vote as any)[config.key] ?? 0
+      if (value > 0) {
+        stats[config.label] = value
+      }
+    }
+
+    // Costruisce la frase descrittiva
+    if (Object.keys(stats).length === 0 && vote.status === Behaviour.Nothing && !(vote as any)?.manOfTheMatch) {
+      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
+    }
+
+    // Aggiunge le statistiche
+    if (stats['Gol']) {
+      parts.push(`${stats['Gol']} ${stats['Gol'] === 1 ? 'gol' : 'gol'}`)
+    }
+    if (stats['Rigori']) {
+      parts.push(`${stats['Rigori']} ${stats['Rigori'] === 1 ? 'rigore segnato' : 'rigori segnati'}`)
+    }
+    if (stats['Assist']) {
+      parts.push(`${stats['Assist']} ${stats['Assist'] === 1 ? 'assist' : 'assist'}`)
+    }
+    if (stats['Parate']) {
+      parts.push(`${stats['Parate']} ${stats['Parate'] === 1 ? 'rigore parato' : 'rigori parati'}`)
+    }
+    if (stats['Gol Subiti']) {
+      parts.push(`${stats['Gol Subiti']} ${stats['Gol Subiti'] === 1 ? 'gol subito' : 'gol subiti'}`)
+    }
+    if (stats['Rig. Sbagliati']) {
+      parts.push(`${stats['Rig. Sbagliati']} ${stats['Rig. Sbagliati'] === 1 ? 'rigore sbagliato' : 'rigori sbagliati'}`)
+    }
+    if (stats['Autogol']) {
+      parts.push(`${stats['Autogol']} ${stats['Autogol'] === 1 ? 'autogol' : 'autogol'}`)
+    }
+
+    // Aggiunge man of the match
+    if ((vote as any)?.manOfTheMatch) {
+      parts.push('è stato il miglior giocatore in campo')
+    }
+
+    // Aggiunge comportamenti
+    if (vote.status === Behaviour.YellowCard) {
+      parts.push('è stato ammonito')
+    } else if (vote.status === Behaviour.RedCard) {
+      parts.push('è stato espulso')
+    }
+
+    if (parts.length === 0) {
+      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
+    }
+
+    // Costruisce la frase finale
+    let message = `${playerName} ha `
+    if (parts.length === 1) {
+      message += parts[0]
+    } else if (parts.length === 2) {
+      message += parts.join(' e ')
+    } else {
+      message += parts.slice(0, -1).join(', ') + ' ed ' + parts[parts.length - 1]
+    }
+    message += '.'
+
+    return message
+  }, [vote, name])
+
+  // Funzione per mostrare il toast con le statistiche del giocatore
+  const showPlayerStatsToast = () => {
+    if (generatePlayerStatsMessage) {
+      toast.show('Statistiche Giocatore', {
+        message: generatePlayerStatsMessage,
+        duration: 10000, // 10 secondi
+        native: false
+      })
+    }
+  }
+
+  // Dimensioni base fisse - il scaling viene gestito dal contenitore via cardScale
+  const cardWidth = 112
+  const cardHeight = 150 
+
+  // Controlla se il giocatore è Man of the Match
+  const isManOfTheMatch = useMemo(() => {
+    return vote && (vote as any)?.manOfTheMatch
+  }, [vote])
+
+  // Stato per l'animazione arcobaleno
+  const [rainbowPhase, setRainbowPhase] = useState(0)
+
+  // Effetto per animazione arcobaleno continua
+  useEffect(() => {
+    if (!isManOfTheMatch) return
+
+    const interval = setInterval(() => {
+      setRainbowPhase(prev => (prev + 1) % 6) // 6 colori arcobaleno
+    }, 500) // Cambia colore ogni 500ms
+
+    return () => clearInterval(interval)
+  }, [isManOfTheMatch])
+
+  // Colori arcobaleno
+  const rainbowColors = [
+    '#ff0000', // Rosso
+    '#ff7f00', // Arancione
+    '#ffff00', // Giallo
+    '#00ff00', // Verde
+    '#0000ff', // Blu
+    '#9400d3'  // Violetto
+  ]
+
+  const currentRainbowColor = rainbowColors[rainbowPhase]
 
   return (
-    <Card
-      width={cardWidth}
-      height={cardHeight}
-      padding={0}
-      backgroundColor="#fff"
-      borderRadius={12}
-      borderWidth={2}
-      borderColor="#e5e5e5"
-      overflow="hidden"
-      position="relative"
-      elevation={4}
-    >
-      {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card */}
+    <YStack position="relative">
+      {/* Overlay arcobaleno animato per Man of the Match - contenuto nel YStack */}
+      {isManOfTheMatch && (
+        <YStack
+          position="absolute"
+          top={-3}
+          left={-3}
+          width={cardWidth + 6}
+          height={cardHeight + 6}
+          borderRadius={15}
+          borderWidth={3}
+          borderColor={currentRainbowColor}
+          zIndex={0}
+          animation="bouncy"
+          animateOnly={['borderColor']}
+          style={{
+            shadowColor: currentRainbowColor,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 6,
+            elevation: 8,
+          }}
+        />
+      )}
+      
+      <Card
+        width={cardWidth}
+        height={cardHeight}
+        padding={0}
+        backgroundColor="#fff"
+        borderRadius={12}
+        borderWidth={2}
+        borderColor={isManOfTheMatch ? "#fff" : "#e5e5e5"}
+        position="relative"
+        elevation={isManOfTheMatch ? 6 : 4}
+        overflow="hidden"
+        zIndex={1}
+      >
+      {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card con bordi arrotondati */}
       <Image
         source={{ uri: imageUri }}
         width={cardWidth}
         height={cardHeight}
-        resizeMode="cover"
         onError={() => setUseFallbackImage(true)}
         position="absolute"
         top={0}
         left={0}
         zIndex={1}
+        borderRadius={12}
       />
 
       {/* Overlay semitrasparente per migliorare leggibilità */}
@@ -146,83 +601,76 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         backgroundColor="rgba(0,0,0,0.1)"
         zIndex={2}
       />
-      {/* Vote badge - posizionato sopra l'immagine, angolo top-left */}
-      {vote && (
+      {/* Vote badge - quadrato in alto a sinistra interno alla card */}
+      {vote && voteDisplayInfo && (
         <YStack
           position="absolute"
-          top={8}
-          left={8}
-          width={isField ? 32 : 36}
-          height={isField ? 32 : 36}
-          borderRadius={isField ? 16 : 18}
-          backgroundColor="#dc2626"
+          top={-4}
+          left={-4}
+          width={36}
+          height={36}
+          borderRadius={6}
+          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
-          zIndex={15}
-          borderWidth={3}
-          borderColor="#fff"
-          elevation={5}
+          zIndex={25}
+          borderWidth={2}
+          borderColor="rgba(255, 255, 255, 0.9)"
+          elevation={8}
+          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.8 : 1}
+          transform={[
+            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.05 : 1.0 }
+          ]}
         >
-          <Text fontSize={isField ? 10 : 12} fontWeight="800" color="#fff">
+          <Text fontSize={13} fontWeight="900" color="#fff">
             {voteLabel}
           </Text>
+          
+          {/* Indicatori di stato - piccoli pallini nell'angolo in basso a destra del quadrato */}
+          <XStack position="absolute" bottom={2} right={2} gap={1}>
+            {!vote.hasVote && (
+              <YStack
+                width={4}
+                height={4}
+                borderRadius={2}
+                backgroundColor="#ef4444"
+                borderWidth={0.5}
+                borderColor="#fff"
+              />
+            )}
+            {!vote.isFinal && vote.hasVote && (
+              <YStack
+                width={4}
+                height={4}
+                borderRadius={2}
+                backgroundColor="#f59e0b"
+                borderWidth={0.5}
+                borderColor="#fff"
+              />
+            )}
+            {vote.isOut && (
+              <YStack
+                width={4}
+                height={4}
+                borderRadius={2}
+                backgroundColor="#6b7280"
+                borderWidth={0.5}
+                borderColor="#fff"
+              />
+            )}
+          </XStack>
         </YStack>
-      )}
-
-      {/* Team name badge - angolo top-right */}
-      <YStack
-        position="absolute"
-        top={8}
-        right={8}
-        paddingHorizontal={isField ? 6 : 8}
-        paddingVertical={isField ? 3 : 4}
-        backgroundColor="rgba(31, 41, 55, 0.9)"
-        borderRadius={6}
-        zIndex={15}
-        borderWidth={1}
-        borderColor="rgba(255, 255, 255, 0.3)"
-      >
-        <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
-          {teamName.slice(0, 3).toUpperCase()}
-        </Text>
-      </YStack>
-
-      {/* Game info badge - sotto il team name */}
-      {gameInfo && (
-        <XStack
-          position="absolute"
-          top={isField ? 35 : 42}
-          right={8}
-          paddingHorizontal={isField ? 4 : 6}
-          paddingVertical={isField ? 2 : 3}
-          backgroundColor={gameInfo.type === 'result' ? "rgba(5, 150, 105, 0.9)" : "rgba(2, 132, 199, 0.9)"}
-          borderRadius={4}
-          alignItems="center"
-          gap={2}
-          zIndex={15}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-        >
-          {gameInfo.type === 'result' ? (
-            <Trophy size={isField ? 8 : 10} color="#fff" />
-          ) : (
-            <Calendar size={isField ? 8 : 10} color="#fff" />
-          )}
-          <Text fontSize={isField ? 7 : 8} color="#fff" fontWeight="600">
-            {gameInfo.text}
-          </Text>
-        </XStack>
       )}
 
       {/* Injury indicator - angolo bottom-right dell'immagine */}
       {injury && (
         <Button
           position="absolute"
-          bottom={isField ? 45 : 55}
+          bottom={55}
           right={8}
-          width={isField ? 28 : 32}
-          height={isField ? 28 : 32}
-          borderRadius={isField ? 14 : 16}
+          width={32}
+          height={32}
+          borderRadius={16}
           backgroundColor="rgba(220, 38, 38, 0.95)"
           padding={0}
           onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
@@ -231,7 +679,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           borderColor="#fff"
           elevation={5}
         >
-          <AlertTriangle size={isField ? 14 : 16} color="#fff" />
+          <AlertTriangle size={16} color="#fff" />
         </Button>
       )}
 
@@ -239,7 +687,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
       {injury && showInjuryTooltip && (
         <YStack
           position="absolute"
-          bottom={isField ? 80 : 95}
+          bottom={95}
           right={8}
           backgroundColor="rgba(0, 0, 0, 0.9)"
           padding={8}
@@ -250,91 +698,251 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
           borderWidth={1}
           borderColor="rgba(255, 255, 255, 0.3)"
         >
-          <Text fontSize={isField ? 8 : 9} color="#fff" textAlign="center">
+          <Text fontSize={9} color="#fff" textAlign="center">
             {injury.reason || 'Infortunato'}
           </Text>
         </YStack>
       )}
 
-      {/* Rimuoviamo la sezione dell'immagine centrale - ora è lo sfondo */}
-
-      {/* Bonus icons - lato sinistro dell'immagine */}
-      {bonusIcons.length > 0 && (
-        <YStack 
-          position="absolute" 
-          left={4} 
-          top={isField ? 40 : 55} 
-          gap={isField ? 3 : 4}
-          zIndex={12}
+      {/* Cartellino comportamentale - sotto il voto a sinistra */}
+      {vote && playerBehaviourAndBonus.behaviour && (
+        <YStack
+          position="absolute"
+          top={42}
+          left={6}
+          zIndex={24}
         >
-          {bonusIcons.slice(0, isField ? 3 : 4).map((b, i) => (
-            <YStack
-              key={i}
-              width={isField ? 20 : 24}
-              height={isField ? 20 : 24}
-              borderRadius={isField ? 10 : 12}
-              backgroundColor={`${b.color ?? '#111'}E6`}
-              alignItems="center"
-              justifyContent="center"
-              borderWidth={2}
-              borderColor="#fff"
-              elevation={5}
-            >
-              <b.Icon size={isField ? 10 : 12} color="#fff" />
-              {b.count > 1 && (
-                <YStack
-                  position="absolute"
-                  top={-6}
-                  right={-6}
-                  width={14}
-                  height={14}
-                  borderRadius={7}
-                  backgroundColor="#ef4444"
-                  alignItems="center"
-                  justifyContent="center"
-                  borderWidth={1}
-                  borderColor="#fff"
-                >
-                  <Text fontSize={7} color="#fff" fontWeight="700">
-                    {b.count}
-                  </Text>
-                </YStack>
-              )}
-            </YStack>
-          ))}
+          <BehaviourCardSVG 
+            color={playerBehaviourAndBonus.behaviour.config!.color} 
+            size={16}
+          />
         </YStack>
       )}
 
-      {/* Chance info - lato sinistro basso per field variant senza vote */}
-      {isField && !vote && chanceSummary && (
+      {/* Area bonus/malus organizzata - a destra (cliccabile per toast) */}
+      {(vote && (playerBehaviourAndBonus.bonusGroups.length > 0 || chanceInfo.length > 0)) && (
         <YStack
           position="absolute"
-          left={8}
-          bottom={isField ? 45 : 55}
-          paddingHorizontal={6}
-          paddingVertical={4}
-          backgroundColor={injury ? "rgba(220, 38, 38, 0.9)" : "rgba(8, 145, 178, 0.9)"}
+          top={0}
+          right={-4}
+          maxWidth={48}
           borderRadius={6}
-          borderWidth={2}
-          borderColor="#fff"
-          zIndex={15}
-          elevation={5}
+          paddingVertical={0}
+          paddingHorizontal={4}
+          gap={2}
+          alignItems="center"
+          zIndex={20}
         >
-          <Text fontSize={isField ? 8 : 9} color="#fff" fontWeight="700">
-            {injury ? "INF" : chanceSummary.sources.join(',')}
+          {/* Area bonus/malus cliccabile per toast */}
+          {playerBehaviourAndBonus.bonusGroups.length > 0 && (
+            <Button
+              position="relative"
+              padding={0}
+              backgroundColor="transparent"
+              borderWidth={0}
+              onPress={showPlayerSummaryToast}
+              pressStyle={{ backgroundColor: 'transparent' }}
+              hoverStyle={{ backgroundColor: 'transparent' }}
+              focusStyle={{ backgroundColor: 'transparent' }}
+              borderRadius={6}
+              paddingVertical={4}
+              paddingHorizontal={2}
+              unstyled={true}
+            >
+              <YStack alignItems="center" gap={4}>
+                {/* Bonus/Malus organizzati per tipo */}
+                {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
+                  <YStack key={group.config.key} alignItems="center" gap={2}>
+                    {/* Riga di icone dello stesso tipo */}
+                    <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
+                      {group.items}
+                    </XStack>
+                    
+                    {/* Contatore se ci sono più di 4 elementi */}
+                    {group.count > 4 && (
+                      <Text fontSize={8} color="#fff" fontWeight="600">
+                        +{group.count - 4}
+                      </Text>
+                    )}
+                  </YStack>
+                ))}
+              </YStack>
+            </Button>
+          )}
+          
+          {/* Separatore se ci sono sia bonus che chance */}
+          {playerBehaviourAndBonus.bonusGroups.length > 0 && chanceInfo.length > 0 && (
+            <YStack
+              width={30}
+              height={1}
+              backgroundColor="rgba(255, 255, 255, 0.3)"
+              marginVertical={2}
+            />
+          )}
+          
+          {/* Chance Info Icons - versione compatta */}
+          {chanceInfo.map((info, index) => {
+            const config = CHANCE_INFO_MAP[info.type]
+            const IconComponent = config.icon
+            
+            return (
+              <YStack
+                key={`${info.type}-${index}`}
+                width={20}
+                height={20}
+                borderRadius={4}
+                backgroundColor={config.color}
+                alignItems="center"
+                justifyContent="center"
+                borderWidth={1}
+                borderColor="rgba(255, 255, 255, 0.8)"
+                onPress={() => setShowChanceTooltip(showChanceTooltip === `${info.type}-${index}` ? null : `${info.type}-${index}`)}
+                pressStyle={{ scale: 0.9 }}
+              >
+                {IconComponent ? (
+                  <IconComponent size={12} color="#fff" />
+                ) : (
+                  <Text fontSize={10} fontWeight="bold" color="#fff">
+                    {config.text}
+                  </Text>
+                )}
+                
+                {/* Tooltip compatto per chance */}
+                {showChanceTooltip === `${info.type}-${index}` && (
+                  <YStack
+                    position="absolute"
+                    top={0}
+                    left={-85}
+                    backgroundColor="rgba(0, 0, 0, 0.95)"
+                    padding={4}
+                    borderRadius={4}
+                    zIndex={35}
+                    borderWidth={1}
+                    borderColor="rgba(255, 255, 255, 0.3)"
+                    minWidth={75}
+                  >
+                    <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
+                      {info.type === 'fantagazzetta' ? 'Fantagazzetta' : 
+                       info.type === 'gazzetta' ? 'Gazzetta' : 
+                       config.label}: {typeof info.value === 'boolean' ? (info.value ? 'Titolare' : 'Panchina') : info.value}
+                    </Text>
+                  </YStack>
+                )}
+              </YStack>
+            )
+          })}
+        </YStack>
+      )}
+
+      {/* Banda informazioni partita Serie A - sopra il nome */}
+      {gameInfo && (
+        <YStack
+          position="absolute"
+          bottom={20}
+          left={0}
+          right={0}
+          backgroundColor="rgba(0, 0, 0, 0.85)"
+          paddingHorizontal={4}
+          paddingVertical={1}
+          alignItems="center"
+          zIndex={9}
+          borderTopWidth={1}
+          borderBottomWidth={1}
+          borderColor="rgba(255, 255, 255, 0.2)"
+          onPress={() => setShowGameTooltip(!showGameTooltip)}
+          onHoverIn={() => setShowGameTooltip(true)}
+          onHoverOut={() => setShowGameTooltip(false)}
+          pressStyle={{ backgroundColor: "rgba(0, 0, 0, 0.95)" }}
+        >
+          {/* Squadre della partita - versione abbreviata */}
+          <Text
+            fontSize={11}
+            fontWeight="700"
+            color="#fff"
+            textAlign="center"
+            numberOfLines={1}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
+            {gameInfo.matchTextShort}
+          </Text>
+          
+          {/* Data o risultato */}
+          <Text
+            fontSize={12}
+            fontWeight="600"
+            color={gameInfo.type === 'result' ? "#10b981" : "#60a5fa"}
+            textAlign="center"
+            marginTop={1}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+            opacity={isGameLive && gameInfo.type === 'result' && isBlinking ? 0.7 : 1}
+            transform={[
+              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.05 : 1.0 }
+            ]}
+          >
+            {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
           </Text>
         </YStack>
       )}
 
-      {/* Nome giocatore - footer prominente con sfondo semitrasparente */}
+      {/* Tooltip nomi completi partita */}
+      {gameInfo && showGameTooltip && (
+        <YStack
+          position="absolute"
+          bottom={85}
+          left={8}
+          right={8}
+          backgroundColor="rgba(0, 0, 0, 0.95)"
+          padding={8}
+          borderRadius={8}
+          alignItems="center"
+          zIndex={30}
+          elevation={12}
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.3)"
+        >
+          <Text
+            fontSize={12}
+            fontWeight="700"
+            color="#fff"
+            textAlign="center"
+            numberOfLines={2}
+            textShadowColor="rgba(0, 0, 0, 0.8)"
+            textShadowOffset={{ width: 1, height: 1 }}
+            textShadowRadius={1}
+          >
+            {gameInfo.matchText}
+          </Text>
+          {gameInfo.type === 'result' && (
+            <Text
+              fontSize={10}
+              fontWeight="600"
+              color="#10b981"
+              textAlign="center"
+              marginTop={4}
+              opacity={isGameLive && isBlinking ? 0.7 : 1}
+              transform={[
+                { scale: isGameLive && isBlinking ? 1.05 : 1.0 }
+              ]}
+            >
+              {gameInfo.resultText}
+            </Text>
+          )}
+        </YStack>
+      )}
+
+      {/* Nome giocatore - footer prominente con colore dinamico basato su posizione originale */}
       <YStack
         position="absolute"
         bottom={0}
         left={0}
         right={0}
-        backgroundColor="rgba(22, 163, 74, 0.95)"
-        paddingHorizontal={8}
-        paddingVertical={isField ? 6 : 8}
+        backgroundColor={`${getPlayerNameBackgroundColor}E6`} // Aggiunge trasparenza (90%)
+        paddingHorizontal={2}
+        paddingVertical={2}
         alignItems="center"
         borderBottomLeftRadius={12}
         borderBottomRightRadius={12}
@@ -343,7 +951,7 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         borderTopColor="rgba(255, 255, 255, 0.3)"
       >
         <Text
-          fontSize={isField ? 11 : 13}
+          fontSize={13}
           fontWeight="800"
           color="#fff"
           textAlign="center"
@@ -356,21 +964,9 @@ export function PlayerCard({ player, variant = 'starter', showTeamName = true }:
         >
           {name}
         </Text>
-        {!isField && roleLabel && (
-          <Text 
-            fontSize={isField ? 8 : 9} 
-            color="#dcfce7" 
-            marginTop={2} 
-            fontWeight="600"
-            textShadowColor="rgba(0, 0, 0, 0.5)"
-            textShadowOffset={{ width: 1, height: 1 }}
-            textShadowRadius={1}
-          >
-            {roleLabel}
-          </Text>
-        )}
       </YStack>
     </Card>
+    </YStack>
   )
 }
 

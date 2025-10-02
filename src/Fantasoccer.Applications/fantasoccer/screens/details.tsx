@@ -1,18 +1,19 @@
-import type { StaticScreenProps } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ScreenContent } from 'components/layout/ScreenContent';
-
 import { StyleSheet, View } from 'react-native';
 
-type Props = StaticScreenProps<{
-  name: string;
-}>;
+type RootStackParamList = {
+  Details: { name?: string };
+};
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Details'>;
 
 export default function Details({ route }: Props) {
   return (
     <View style={styles.container}>
       <ScreenContent
         path="screens/details.tsx"
-        title={`Showing details for user ${route.params?.name}`}
+        title={`Showing details for user ${route.params?.name || 'unknown'}`}
       />
     </View>
   );
