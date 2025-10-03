@@ -155,12 +155,6 @@ export default function GameScreen() {
       return
     }
 
-    // Se non ci sono partite live, non fare polling
-    if (!isLiveActive) {
-      console.log('⏸️ Polling disattivato - nessuna partita live')
-      return
-    }
-
     // Avvia il polling solo quando ci sono partite live
     const pollingInterval = setInterval(() => {
       console.log('🔄 Auto-refresh partita (live attivo)')
@@ -209,7 +203,7 @@ export default function GameScreen() {
         <YStack gap="$4" width="100%">
           <Card padding="$3" backgroundColor="$color2">
             {isLoading ? (
-              <Text>Caricamento calendario...</Text>
+              <Text>Caricamento...</Text>
             ) : error ? (
               <Text color="$red10">{error}</Text>
             ) : !gameWrapper ? (
