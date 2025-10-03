@@ -97,7 +97,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const isGameLive = useMemo(() => {
     if (!realGame?.date || !vote) return false
     const now = new Date()
-    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const gameStart = realGame.date
     const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
     return now >= gameStart && now <= twoHoursAfterStart
   }, [realGame, vote])
@@ -106,7 +106,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const isGameNotStarted = useMemo(() => {
     if (!realGame?.date) return true // Se non c'è data, consideriamo non iniziata
     const now = new Date()
-    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const gameStart = realGame.date
     return now < gameStart
   }, [realGame])
 
@@ -126,7 +126,12 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     if (vote.isFinal && vote.hasVote) {
       backgroundColor = '#16a34a' // Verde - voto finale confermato
     } else if (!vote.isFinal && vote.hasVote) {
-      backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+      if(!vote.isOut) {
+        backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+      }
+      else {
+        backgroundColor = '#dc2626' // Rosso - voto non valido (giocatore uscito)
+      }
     } else if (!vote.hasVote) {
       backgroundColor = '#6b7280' // Grigio - voto non valido (non ha giocato abbastanza)
     }
@@ -151,7 +156,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     if (voteDisplayInfo?.shouldBlink) {
       interval = setInterval(() => {
         setIsBlinking(prev => !prev)
-      }, 800) // Lampeggia ogni 800ms
+      }, 600) // Lampeggia ogni 600ms (più veloce per essere più visibile)
     } else {
       setIsBlinking(false)
     }
@@ -610,55 +615,26 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           width={36}
           height={36}
           borderRadius={6}
-          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
+          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? '#ffffff' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
           zIndex={25}
           borderWidth={2}
-          borderColor="rgba(255, 255, 255, 0.9)"
+          borderColor={voteDisplayInfo.shouldBlink && isBlinking ? voteDisplayInfo.backgroundColor : 'rgba(255, 255, 255, 0.9)'}
           elevation={8}
-          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.8 : 1}
+          opacity={1}
           transform={[
-            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.05 : 1.0 }
+            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.15 : 1.0 }
           ]}
         >
-          <Text fontSize={13} fontWeight="900" color="#fff">
+          <Text 
+            fontSize={13} 
+            fontWeight="900" 
+            color={voteDisplayInfo.shouldBlink && isBlinking ? voteDisplayInfo.backgroundColor : '#fff'}
+          >
             {voteLabel}
           </Text>
           
-          {/* Indicatori di stato - piccoli pallini nell'angolo in basso a destra del quadrato */}
-          <XStack position="absolute" bottom={2} right={2} gap={1}>
-            {!vote.hasVote && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#ef4444"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-            {!vote.isFinal && vote.hasVote && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#f59e0b"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-            {vote.isOut && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#6b7280"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-          </XStack>
         </YStack>
       )}
 
@@ -908,15 +884,15 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           <Text
             fontSize={12}
             fontWeight="600"
-            color={gameInfo.type === 'result' ? "#10b981" : "#60a5fa"}
+            color={isGameLive && gameInfo.type === 'result' && isBlinking ? "#fff" : (gameInfo.type === 'result' ? "#10b981" : "#60a5fa")}
             textAlign="center"
             marginTop={1}
             textShadowColor="rgba(0, 0, 0, 0.8)"
             textShadowOffset={{ width: 1, height: 1 }}
             textShadowRadius={1}
-            opacity={isGameLive && gameInfo.type === 'result' && isBlinking ? 0.7 : 1}
+            opacity={1}
             transform={[
-              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.05 : 1.0 }
+              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.2 : 1.0 }
             ]}
           >
             {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
@@ -956,12 +932,12 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
             <Text
               fontSize={10}
               fontWeight="600"
-              color="#10b981"
+              color={isGameLive && isBlinking ? "#fff" : "#10b981"}
               textAlign="center"
               marginTop={4}
-              opacity={isGameLive && isBlinking ? 0.7 : 1}
+              opacity={1}
               transform={[
-                { scale: isGameLive && isBlinking ? 1.05 : 1.0 }
+                { scale: isGameLive && isBlinking ? 1.15 : 1.0 }
               ]}
             >
               {gameInfo.resultText}

@@ -35,12 +35,19 @@ export default function GameScreen() {
   const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null)
   const [gameLoading, setGameLoading] = useState(false)
   const [gameError, setGameError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false) // Flag per evitare refresh multipli
 
   // Funzione per ricaricare i dati della partita
-  const refreshGame = async () => {
+  const refreshGame = async (isAutoRefresh = false) => {
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) return
+    if (isRefreshing) return // Evita chiamate multiple simultanee
     
-    setGameLoading(true)
+    setIsRefreshing(true)
+    
+    // Solo mostra loading se non è un auto-refresh
+    if (!isAutoRefresh) {
+      setGameLoading(true)
+    }
     setGameError(null)
     
     try {
@@ -54,10 +61,14 @@ export default function GameScreen() {
     } catch (err: any) {
       setGameError(err?.message ?? String(err))
     } finally {
-      setGameLoading(false)
+      if (!isAutoRefresh) {
+        setGameLoading(false)
+      }
+      setIsRefreshing(false)
     }
   }
 
+  // Caricamento iniziale della partita
   useEffect(() => {
     
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
@@ -69,12 +80,30 @@ export default function GameScreen() {
     setGameLoading(true)
     setGameError(null)
 
-    gameService.getGame({ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
+    gameService.getGame({ groupId: routeGameId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
       .then(result => { if (mounted) setGameWrapper(result) })
       .catch(err => { if (mounted) setGameError(err?.message ?? String(err)) })
       .finally(() => { if (mounted) setGameLoading(false) })
 
     return () => { mounted = false }
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
+
+  // Polling automatico ogni 10 secondi per aggiornare i dati della partita
+  useEffect(() => {
+    if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
+      return
+    }
+
+    // Avvia il polling dopo il caricamento iniziale
+    const pollingInterval = setInterval(() => {
+      console.log('🔄 Auto-refresh partita ogni 10 secondi')
+      refreshGame(true) // true = è un auto-refresh, non mostra loading
+    }, 10000) // 10 secondi
+
+    // Cleanup: ferma il polling quando il componente viene smontato
+    return () => {
+      clearInterval(pollingInterval)
+    }
   }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
 
   // Compute played score and bonuses from gameService wrapper if available
