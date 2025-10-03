@@ -187,10 +187,19 @@ export default function GameScreen() {
   
   const homeHasAGoodDefense = gameWrapper?.game?.result?.home?.defensiveBonus
   const homeHasAGoodPeople = gameWrapper?.game?.result?.home?.goodPeople
-  const homeHasDoneOwnGoal = gameWrapper?.game?.result?.home?.ownGoal
   const awayHasAGoodDefense = gameWrapper?.game?.result?.away?.defensiveBonus
   const awayHasAGoodPeople = gameWrapper?.game?.result?.away?.goodPeople
-  const awayHasDoneOwnGoal = gameWrapper?.game?.result?.away?.ownGoal
+  
+  // Calcola autorete solo se: entrambe < 66 punti E differenza >= 6
+  // E mostra SOLO per la squadra che ha meno punti
+  const homePoints = gameWrapper?.game?.result?.home?.value || 0
+  const awayPoints = gameWrapper?.game?.result?.away?.value || 0
+  const pointsDifference = Math.abs(homePoints - awayPoints)
+  const bothUnder66 = homePoints < 66 && awayPoints < 66
+  const shouldShowOwnGoal = bothUnder66 && pointsDifference >= 6
+  
+  const homeHasDoneOwnGoal = shouldShowOwnGoal && homePoints < awayPoints && gameWrapper?.game?.result?.home?.ownGoal
+  const awayHasDoneOwnGoal = shouldShowOwnGoal && awayPoints < homePoints && gameWrapper?.game?.result?.away?.ownGoal
 
   // Calcola se almeno una squadra ha bonus per determinare l'altezza minima
   const hasAnyBonus = homeHasAGoodDefense || homeHasAGoodPeople || homeHasDoneOwnGoal || 

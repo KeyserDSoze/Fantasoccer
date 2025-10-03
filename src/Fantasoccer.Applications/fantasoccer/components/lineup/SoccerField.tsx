@@ -202,6 +202,13 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
       return
     }
     
+    // Se non è il mio team, mostra sempre il modal di visualizzazione (sola lettura)
+    if (!isMyTeam) {
+      setSelectedPlayer(player)
+      setViewModalOpen(true)
+      return
+    }
+    
     // Altrimenti, se canEdit e isMyTeam, mostra il modal di editing
     if (canEdit && isMyTeam) {
       setSelectedPlayer(player)
