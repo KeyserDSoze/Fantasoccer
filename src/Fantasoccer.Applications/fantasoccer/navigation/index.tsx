@@ -8,6 +8,7 @@ import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
 import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
+import TeamsScreen from 'screens/teams';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   Ranking: undefined;
   Calendar: undefined;
   Players: undefined;
+  Teams: undefined;
   Live: undefined;
   Game: { 
     gameId?: string | null;
@@ -58,6 +60,7 @@ const linking = {
       Ranking: 'ranking',
       Calendar: 'calendar',
       Players: 'players',
+      Teams: 'teams',
       Live: 'live',
       Game: 'game/:groupId?/:leagueId?/:year?/:gameId?', // supporta parametri
       Settings: 'settings',
@@ -90,6 +93,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="Ranking" component={Ranking} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />
         <Stack.Screen name="Players" component={PlayersScreen} />
+        <Stack.Screen name="Teams" component={TeamsScreen} />
         <Stack.Screen name="Live" component={LiveScreen} />
         <Stack.Screen name="Game" component={GameScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />

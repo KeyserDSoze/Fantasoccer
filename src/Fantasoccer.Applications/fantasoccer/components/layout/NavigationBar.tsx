@@ -101,7 +101,7 @@ const navigationItems: NavigationSection[] = [
     section: 'Lega',
     items: [
       { type: 'link', path: '/my-team', label: 'La mia formazione', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
-      { type: 'link', path: '/teams', label: 'Le squadre', icon: Users, description: 'Tutte le squadre della tua lega' },
+      { type: 'route', route: 'Teams', label: 'Le squadre', icon: Users, description: 'Tutte le squadre della tua lega' },
     ],
   },
   {

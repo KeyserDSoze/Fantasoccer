@@ -135,6 +135,26 @@ export class TeamService {
   // UTILITIES
   // ============================================
 
+  async getTeamsByBasket(groupId: string, year: number, basketId: string, owners: string[]): Promise<Team[]> {
+    try {
+      const teams: Team[] = []
+      
+      // Per ogni owner (email), recupera il team
+      for (const owner of owners) {
+        const key = TeamKeyHelper.create(groupId, year, basketId, owner)
+        const team = await this.getTeam(key)
+        if (team) {
+          teams.push(team)
+        }
+      }
+      
+      return teams
+    } catch (error) {
+      console.error('Error fetching teams by basket:', error)
+      return []
+    }
+  }
+
   async getTeamNetCost(key: TeamKey): Promise<number> {
     const team = await this.getTeam(key)
     return team ? TeamHelper.getNetCost(team) : 0
