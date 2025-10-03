@@ -6,8 +6,19 @@ import { Users, DollarSign, TrendingUp, Award, ChevronDown, ChevronUp, User } fr
 import { useApp } from 'providers/AppProvider'
 import { teamService } from 'services/teamService'
 import type { Team, Player } from 'types/team'
+import { PlayerInTeamStatus } from 'types/team'
 import { TeamLogo } from 'components/team/TeamLogo'
 import { Role } from 'types/group'
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
+import type { LeagueOption } from 'components/LeagueSelectorsWidget'
+
+// Helper function to format year
+const formatSeasonFromYear = (yearNumber: number): string => {
+  const baseYear = 2011
+  const startYear = baseYear + yearNumber
+  const endYear = startYear + 1
+  return `${startYear}/${String(endYear).slice(-2)}`
+}
 
 export default function TeamsScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()
@@ -15,13 +26,27 @@ export default function TeamsScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedTeamIndex, setExpandedTeamIndex] = useState<number | null>(null)
+  
+  // Local state for selectors (independent from global context)
+  const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId)
+  const [localYear, setLocalYear] = useState<number | null>(selectedYear)
+
+  // Sync local state with global state when global changes
+  useEffect(() => {
+    setLocalLeagueId(selectedLeagueId ?? null)
+  }, [selectedLeagueId])
 
   useEffect(() => {
+    setLocalYear(selectedYear ?? null)
+  }, [selectedYear])
+
+  // Load teams when local selections change
+  useEffect(() => {
     loadTeams()
-  }, [currentGroup, selectedLeagueId, selectedYear])
+  }, [currentGroup, localLeagueId, localYear])
 
   const loadTeams = async () => {
-    if (!currentGroup || !selectedLeagueId || !selectedYear) {
+    if (!currentGroup || !localLeagueId || !localYear) {
       setError('Configurazione lega non completa')
       setIsLoading(false)
       return
@@ -32,7 +57,7 @@ export default function TeamsScreen() {
 
     try {
       // Trova la lega selezionata
-      const league = currentGroup.leagues?.find(l => l.id === selectedLeagueId)
+      const league = currentGroup.leagues?.find(l => l.id === localLeagueId)
       if (!league || !league.basketsId || league.basketsId.length === 0) {
         setError('Lega non valida o senza basket associato')
         setTeams([])
@@ -53,7 +78,7 @@ export default function TeamsScreen() {
       }
 
       // Trova l'anno nel basket
-      const yearlyBasket = basket.years?.find(y => y.year === selectedYear)
+      const yearlyBasket = basket.years?.find(y => y.year === localYear)
       if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
         setError('Nessuna squadra trovata per questo anno')
         setTeams([])
@@ -67,7 +92,7 @@ export default function TeamsScreen() {
       // Recupera tutti i team usando il teamService
       const fetchedTeams = await teamService.getTeamsByBasket(
         currentGroup.id,
-        selectedYear,
+        localYear,
         basketId,
         owners
       )
@@ -153,6 +178,59 @@ export default function TeamsScreen() {
     setExpandedTeamIndex(expandedTeamIndex === index ? null : index)
   }
 
+  const getPlayerStatusLabel = (status: PlayerInTeamStatus): string => {
+    switch (status) {
+      case PlayerInTeamStatus.Active:
+        return 'In squadra'
+      case PlayerInTeamStatus.SoldForOneHalf:
+        return 'Scartato a gennaio (infortunato)'
+      case PlayerInTeamStatus.SoldWithNoReturnedPrice:
+        return 'Scartato'
+      case PlayerInTeamStatus.Sold:
+        return 'Venduto'
+      case PlayerInTeamStatus.Removed:
+        return 'Rimosso dall\'amministratore'
+      default:
+        return 'Stato sconosciuto'
+    }
+  }
+
+  const getPlayerStatusColor = (status: PlayerInTeamStatus): string => {
+    switch (status) {
+      case PlayerInTeamStatus.Active:
+        return '$green10'
+      case PlayerInTeamStatus.SoldForOneHalf:
+        return '$orange10'
+      case PlayerInTeamStatus.SoldWithNoReturnedPrice:
+        return '$red10'
+      case PlayerInTeamStatus.Sold:
+        return '$blue10'
+      case PlayerInTeamStatus.Removed:
+        return '$gray10'
+      default:
+        return '$gray10'
+    }
+  }
+
+  const isPlayerActive = (status: PlayerInTeamStatus): boolean => {
+    return status === PlayerInTeamStatus.Active
+  }
+
+  // Prepare league options
+  const leagueOptions: LeagueOption[] = (currentGroup?.leagues ?? []).map(league => ({
+    id: league.id,
+    name: league.name,
+    isMain: league.isMain
+  }))
+
+  // Prepare year options from group baskets
+  const availableYears = currentGroup?.baskets
+    ?.flatMap(basket => basket.years?.map(y => y.year) ?? [])
+    .filter((year, index, self) => self.indexOf(year) === index)
+    .sort((a, b) => b - a) ?? []
+
+  const shouldRenderSelectors = leagueOptions.length > 0 && availableYears.length > 0
+
   return (
     <View style={{ flex: 1 }}>
       <ScreenContent path="screens/teams.tsx" title="Squadre">
@@ -168,6 +246,25 @@ export default function TeamsScreen() {
           </YStack>
 
           <Separator />
+
+          {/* League Selectors */}
+          {shouldRenderSelectors && (
+            <LeagueSelectorsWidget
+              leagues={leagueOptions}
+              selectedLeagueId={localLeagueId}
+              onSelectLeague={(leagueId) => {
+                setLocalLeagueId(leagueId)
+              }}
+              years={availableYears}
+              selectedYear={localYear}
+              onSelectYear={(year) => {
+                setLocalYear(year)
+              }}
+              formatYearLabel={formatSeasonFromYear}
+              emptyLeagueLabel={currentGroup?.leagues?.find(l => l.id === selectedLeagueId)?.name ?? 'Nessuna lega'}
+              showRoundSection={false}
+            />
+          )}
 
           {/* Loading State */}
           {isLoading && (
@@ -214,7 +311,7 @@ export default function TeamsScreen() {
                         {/* Team Logo */}
                         <TeamLogo
                           groupId={currentGroup?.id || ''}
-                          year={String(selectedYear || '')}
+                          year={String(localYear || '')}
                           ownerEmail={team.owner}
                           size={60}
                         />
@@ -297,27 +394,38 @@ export default function TeamsScreen() {
                                   {getRoleLabel(role)} ({players.length})
                                 </Text>
                                 <YStack gap="$2" paddingLeft="$3">
-                                  {players.map((player, pIndex) => (
-                                    <XStack
-                                      key={`${player.name}-${pIndex}`}
-                                      gap="$3"
-                                      alignItems="center"
-                                      padding="$2"
-                                      backgroundColor="$color1"
-                                      borderRadius="$2"
-                                    >
-                                      <User size={16} color="$color11" />
-                                      <Text flex={1} fontSize="$3" color="$color12">
-                                        {player.name}
-                                      </Text>
-                                      <Text fontSize="$3" color="$color11">
-                                        {player.team.abbreviation}
-                                      </Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$green10" minWidth={70} textAlign="right">
-                                        {formatCurrency(player.price || 0)}
-                                      </Text>
-                                    </XStack>
-                                  ))}
+                                  {players.map((player, pIndex) => {
+                                    const isActive = isPlayerActive(player.status)
+                                    return (
+                                      <XStack
+                                        key={`${player.name}-${pIndex}`}
+                                        gap="$3"
+                                        alignItems="center"
+                                        padding="$2"
+                                        backgroundColor="$color1"
+                                        borderRadius="$2"
+                                        opacity={isActive ? 1 : 0.5}
+                                      >
+                                        <User size={16} color="$color11" />
+                                        <YStack flex={1} gap="$1">
+                                          <Text fontSize="$3" color="$color12">
+                                            {player.name}
+                                          </Text>
+                                          {!isActive && (
+                                            <Text fontSize="$2" color={getPlayerStatusColor(player.status)} fontStyle="italic">
+                                              {getPlayerStatusLabel(player.status)}
+                                            </Text>
+                                          )}
+                                        </YStack>
+                                        <Text fontSize="$3" color="$color11">
+                                          {player.team.abbreviation}
+                                        </Text>
+                                        <Text fontSize="$3" fontWeight="600" color="$green10" minWidth={70} textAlign="right">
+                                          {formatCurrency(player.price || 0)}
+                                        </Text>
+                                      </XStack>
+                                    )
+                                  })}
                                 </YStack>
                               </YStack>
                             )
@@ -345,10 +453,10 @@ export default function TeamsScreen() {
           )}
 
           {/* Info Card */}
-          {!isLoading && currentGroup && selectedLeagueId && (
+          {!isLoading && currentGroup && localLeagueId && (
             <Card backgroundColor="$blue2" padding="$3" marginTop="$4">
               <Text fontSize="$2" color="$blue11" textAlign="center">
-                💡 Gruppo: {currentGroup.name || 'Sconosciuto'} • Lega: {currentGroup.leagues?.find(l => l.id === selectedLeagueId)?.name || 'N/A'} • Anno: {selectedYear || 'N/A'}
+                💡 Gruppo: {currentGroup.name || 'Sconosciuto'} • Lega: {currentGroup.leagues?.find(l => l.id === localLeagueId)?.name || 'N/A'} • Anno: {localYear || 'N/A'}
               </Text>
             </Card>
           )}
