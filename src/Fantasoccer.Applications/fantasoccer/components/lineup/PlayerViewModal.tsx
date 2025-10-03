@@ -48,10 +48,9 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
 
   if (!player) return null
 
-  const current = (player as any).current ?? (player as any)
-  const vote: Vote | null | undefined = (player as any).vote
-  const chance: Chance | null | undefined = (player as any).chance
-  const injury = (player as any).injury || (current && (current as any).injury)
+  const current = player.current
+  const vote: Vote | null | undefined = player.vote
+  const chance: Chance | null | undefined = player.chance
   const realGame: RealGame | null | undefined = player.realGame
 
   const playerName = current?.name ?? 'Giocatore'
@@ -159,7 +158,7 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
     if (!realGame) return null
 
     const actualDate = new Date()
-    const gameDate = realGame.date ? convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString()) : null
+    const gameDate = realGame.date ? realGame.date : null
     const isPlayed = gameDate && gameDate < actualDate
 
     const homeTeamName = realGame.home?.name || realGame.home
