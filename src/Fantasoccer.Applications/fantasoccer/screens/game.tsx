@@ -312,13 +312,6 @@ export default function GameScreen() {
               )}
             </Card>
           )}
-
-          <Separator />
-
-          <Card padding="$3" backgroundColor="$color2">
-            <Text fontSize="$3">Dettagli partita e statistiche</Text>
-            {/* Placeholder: wire additional details, odds, lineups, events */}
-          </Card>
         </YStack>
       </ScreenContent>
     </View>
