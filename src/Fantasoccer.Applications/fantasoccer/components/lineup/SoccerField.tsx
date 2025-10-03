@@ -7,6 +7,7 @@ import { FantaSoccerRole, Team } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal'
+import { PlayerViewModal } from './PlayerViewModal'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 import { useAuth } from '../../providers/AuthProvider'
 import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
@@ -112,6 +113,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
   // Stato editing
   const [selectedPlayer, setSelectedPlayer] = useState<LivePlayer | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [viewModalOpen, setViewModalOpen] = useState(false) // Modal view-only per info giocatore
   const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null) // 0 = home, 1 = away
   const [isSaving, setIsSaving] = useState(false)
   
@@ -177,16 +179,42 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
   const homeIsMyTeam = canEdit && (home?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
   const awayIsMyTeam = canEdit && (away?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
 
+  // Determina se almeno una partita è iniziata (per mostrare view modal invece di edit modal)
+  const hasGameStarted = useMemo(() => {
+    const players = [...(home?.players ?? []), ...(away?.players ?? [])]
+    // Se almeno un giocatore ha una partita iniziata, mostra il view modal
+    return players.some(p => {
+      const realGame = p.realGame
+      if (!realGame?.date) return false
+      const now = new Date()
+      return now >= realGame.date
+    })
+  }, [home, away])
+
   // Funzione per gestire click su un giocatore
   const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
-    if (!canEdit) return
-    
     const isMyTeam = teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam
-    if (!isMyTeam) return
-
-    setSelectedPlayer(player)
-    setEditingTeamIndex(teamIndex)
-    setModalOpen(true)
+    
+    // Se almeno una partita è iniziata, mostra sempre il modal di visualizzazione
+    if (hasGameStarted) {
+      setSelectedPlayer(player)
+      setViewModalOpen(true)
+      return
+    }
+    
+    // Se non è il mio team, mostra sempre il modal di visualizzazione (sola lettura)
+    if (!isMyTeam) {
+      setSelectedPlayer(player)
+      setViewModalOpen(true)
+      return
+    }
+    
+    // Altrimenti, se canEdit e isMyTeam, mostra il modal di editing
+    if (canEdit && isMyTeam) {
+      setSelectedPlayer(player)
+      setEditingTeamIndex(teamIndex)
+      setModalOpen(true)
+    }
   }
 
   // Callback modale: swap tra giocatori
@@ -487,7 +515,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
             <PlayerCard 
               key={`${sectionKey}-${i}`} 
               player={player}
-              onPress={canEdit && isMyTeam ? () => handlePlayerClick(player, teamIndex) : undefined}
+              onPress={() => handlePlayerClick(player, teamIndex)}
             />
           ))}
         </XStack>
@@ -607,7 +635,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
                     <PlayerCard 
                       key={`${p.current?.name ?? ''}-${i}`} 
                       player={p}
-                      onPress={canEdit && isMyTeam ? () => handlePlayerClick(p, teamIndex) : undefined}
+                      onPress={() => handlePlayerClick(p, teamIndex)}
                     />
                   ))}
                 </XStack>
@@ -643,7 +671,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
                     <PlayerCard 
                       key={`${p.current?.name ?? ''}-${i}`} 
                       player={p}
-                      onPress={canEdit && isMyTeam ? () => handlePlayerClick(p, teamIndex) : undefined}
+                      onPress={() => handlePlayerClick(p, teamIndex)}
                     />
                   ))}
                 </YStack>
@@ -787,7 +815,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
                     <PlayerCard 
                       key={`home-tribune-${i}`} 
                       player={player}
-                      onPress={canEdit && homeIsMyTeam ? () => handlePlayerClick(player, 0) : undefined}
+                      onPress={() => handlePlayerClick(player, 0)}
                     />
                   ))}
                   {homeTribune.length === 0 && (
@@ -830,7 +858,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
                     <PlayerCard 
                       key={`away-tribune-${i}`} 
                       player={player}
-                      onPress={canEdit && awayIsMyTeam ? () => handlePlayerClick(player, 1) : undefined}
+                      onPress={() => handlePlayerClick(player, 1)}
                     />
                   ))}
                   {awayTribune.length === 0 && (
@@ -860,6 +888,16 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
         canRemove={selectedCanRemove}
         onAddToField={handleAddToField}
         onAddToBench={handleAddToBench}
+      />
+
+      {/* MODALE PER VISUALIZZAZIONE INFO GIOCATORE */}
+      <PlayerViewModal
+        isOpen={viewModalOpen}
+        onClose={() => {
+          setViewModalOpen(false)
+          setSelectedPlayer(null)
+        }}
+        player={selectedPlayer}
       />
     </YStack>
   )

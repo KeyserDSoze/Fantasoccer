@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { Pressable } from 'react-native'
-import { Card, Image, Text, XStack, YStack, Button, AnimatePresence } from 'tamagui'
-import { useToastController } from '@tamagui/toast'
+import { Card, Image, Text, XStack, YStack, AnimatePresence } from 'tamagui'
 import {
   Star,
   AlertTriangle,
@@ -71,13 +70,7 @@ const CHANCE_INFO_MAP = {
 
 export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
-  const [showInjuryTooltip, setShowInjuryTooltip] = useState(false)
-  const [showGameTooltip, setShowGameTooltip] = useState(false)
-  const [showChanceTooltip, setShowChanceTooltip] = useState<string | null>(null)
   const [isBlinking, setIsBlinking] = useState(false)
-  
-  // Toast controller per mostrare informazioni bonus/malus
-  const toast = useToastController()
 
   const current = (player as any).current ?? (player as any)
   const vote: Vote | null | undefined = (player as any).vote
@@ -97,7 +90,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const isGameLive = useMemo(() => {
     if (!realGame?.date || !vote) return false
     const now = new Date()
-    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const gameStart = realGame.date
     const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
     return now >= gameStart && now <= twoHoursAfterStart
   }, [realGame, vote])
@@ -106,7 +99,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const isGameNotStarted = useMemo(() => {
     if (!realGame?.date) return true // Se non c'è data, consideriamo non iniziata
     const now = new Date()
-    const gameStart = convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString())
+    const gameStart = realGame.date
     return now < gameStart
   }, [realGame])
 
@@ -126,7 +119,12 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     if (vote.isFinal && vote.hasVote) {
       backgroundColor = '#16a34a' // Verde - voto finale confermato
     } else if (!vote.isFinal && vote.hasVote) {
-      backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+      if(!vote.isOut) {
+        backgroundColor = '#f59e0b' // Arancione - voto live ma non finale
+      }
+      else {
+        backgroundColor = '#dc2626' // Rosso - voto non valido (giocatore uscito)
+      }
     } else if (!vote.hasVote) {
       backgroundColor = '#6b7280' // Grigio - voto non valido (non ha giocato abbastanza)
     }
@@ -151,7 +149,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     if (voteDisplayInfo?.shouldBlink) {
       interval = setInterval(() => {
         setIsBlinking(prev => !prev)
-      }, 800) // Lampeggia ogni 800ms
+      }, 600) // Lampeggia ogni 600ms (più veloce per essere più visibile)
     } else {
       setIsBlinking(false)
     }
@@ -222,70 +220,6 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
       hasManOfTheMatch
     }
   }, [vote])
-
-  // Funzione per generare messaggio descrittivo completo
-  const generatePlayerSummaryMessage = useMemo(() => {
-    if (!vote) return null
-
-    const parts: string[] = []
-    const playerName = name
-
-    // Raccogli tutti i bonus/malus
-    for (const bonusConfig of BONUS_MALUS_CONFIG.sort((a, b) => a.order - b.order)) {
-      const count = (vote as any)[bonusConfig.key] ?? 0
-      if (count > 0) {
-        const pluralLabel = count > 1 ? `${bonusConfig.description.slice(0, -1)}i` : `${bonusConfig.description.slice(0, -1)}o`
-        parts.push(`${count} ${pluralLabel}`)
-      }
-    }
-
-    // Aggiungi comportamenti
-    if (vote.status !== Behaviour.Nothing) {
-      const behaviourConfig = BEHAVIOUR_CONFIG[vote.status]
-      if (behaviourConfig) {
-        if (vote.status === Behaviour.YellowCard) {
-          parts.push('è stato ammonito')
-        } else if (vote.status === Behaviour.RedCard) {
-          parts.push('è stato espulso')
-        }
-      }
-    }
-
-    // Aggiungi man of the match
-    const hasManOfTheMatch = (vote as any)?.manOfTheMatch ?? false
-    if (hasManOfTheMatch) {
-      parts.push('è stato il miglior giocatore in campo')
-    }
-
-    if (parts.length === 0) return null
-
-    // Costruisci frase
-    let message = `Il giocatore ${playerName} ha `
-    
-    if (parts.length === 1) {
-      message += parts[0]
-    } else if (parts.length === 2) {
-      message += parts.join(' e ')
-    } else {
-      const lastPart = parts.pop()
-      message += parts.join(', ') + ' e ' + lastPart
-    }
-
-    message += '.'
-    return message
-  }, [vote, name])
-
-  // Funzione per mostrare toast con informazioni complete
-  const showPlayerSummaryToast = () => {
-    const message = generatePlayerSummaryMessage
-    if (message) {
-      toast.show('Prestazione del Giocatore', {
-        message,
-        duration: 10000, // 10 secondi
-        native: true // Usa toast nativo su mobile
-      })
-    }
-  }
 
   // Informazioni chance 
   const chanceInfo = useMemo(() => {
@@ -418,92 +352,6 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     }
   }, [realGame, teamName])
 
-  // Funzione per generare il messaggio completo sui bonus/malus
-  const generatePlayerStatsMessage = useMemo(() => {
-    if (!vote) return null
-
-    const parts: string[] = []
-    const playerName = name || 'Il giocatore'
-
-    // Raccoglie tutti i bonus/malus con i loro valori
-    const stats: { [key: string]: number } = {}
-    
-    for (const config of BONUS_MALUS_CONFIG) {
-      const value = (vote as any)[config.key] ?? 0
-      if (value > 0) {
-        stats[config.label] = value
-      }
-    }
-
-    // Costruisce la frase descrittiva
-    if (Object.keys(stats).length === 0 && vote.status === Behaviour.Nothing && !(vote as any)?.manOfTheMatch) {
-      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
-    }
-
-    // Aggiunge le statistiche
-    if (stats['Gol']) {
-      parts.push(`${stats['Gol']} ${stats['Gol'] === 1 ? 'gol' : 'gol'}`)
-    }
-    if (stats['Rigori']) {
-      parts.push(`${stats['Rigori']} ${stats['Rigori'] === 1 ? 'rigore segnato' : 'rigori segnati'}`)
-    }
-    if (stats['Assist']) {
-      parts.push(`${stats['Assist']} ${stats['Assist'] === 1 ? 'assist' : 'assist'}`)
-    }
-    if (stats['Parate']) {
-      parts.push(`${stats['Parate']} ${stats['Parate'] === 1 ? 'rigore parato' : 'rigori parati'}`)
-    }
-    if (stats['Gol Subiti']) {
-      parts.push(`${stats['Gol Subiti']} ${stats['Gol Subiti'] === 1 ? 'gol subito' : 'gol subiti'}`)
-    }
-    if (stats['Rig. Sbagliati']) {
-      parts.push(`${stats['Rig. Sbagliati']} ${stats['Rig. Sbagliati'] === 1 ? 'rigore sbagliato' : 'rigori sbagliati'}`)
-    }
-    if (stats['Autogol']) {
-      parts.push(`${stats['Autogol']} ${stats['Autogol'] === 1 ? 'autogol' : 'autogol'}`)
-    }
-
-    // Aggiunge man of the match
-    if ((vote as any)?.manOfTheMatch) {
-      parts.push('è stato il miglior giocatore in campo')
-    }
-
-    // Aggiunge comportamenti
-    if (vote.status === Behaviour.YellowCard) {
-      parts.push('è stato ammonito')
-    } else if (vote.status === Behaviour.RedCard) {
-      parts.push('è stato espulso')
-    }
-
-    if (parts.length === 0) {
-      return `${playerName} non ha registrato particolari prestazioni significative in questa partita.`
-    }
-
-    // Costruisce la frase finale
-    let message = `${playerName} ha `
-    if (parts.length === 1) {
-      message += parts[0]
-    } else if (parts.length === 2) {
-      message += parts.join(' e ')
-    } else {
-      message += parts.slice(0, -1).join(', ') + ' ed ' + parts[parts.length - 1]
-    }
-    message += '.'
-
-    return message
-  }, [vote, name])
-
-  // Funzione per mostrare il toast con le statistiche del giocatore
-  const showPlayerStatsToast = () => {
-    if (generatePlayerStatsMessage) {
-      toast.show('Statistiche Giocatore', {
-        message: generatePlayerStatsMessage,
-        duration: 10000, // 10 secondi
-        native: false
-      })
-    }
-  }
-
   // Dimensioni base riferite alle costanti esportate
   const cardWidth = PLAYER_CARD_WIDTH
   const cardHeight = PLAYER_CARD_HEIGHT 
@@ -610,55 +458,26 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           width={36}
           height={36}
           borderRadius={6}
-          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? 'rgba(255, 255, 255, 0.3)' : voteDisplayInfo.backgroundColor}
+          backgroundColor={voteDisplayInfo.shouldBlink && isBlinking ? '#ffffff' : voteDisplayInfo.backgroundColor}
           alignItems="center"
           justifyContent="center"
           zIndex={25}
           borderWidth={2}
-          borderColor="rgba(255, 255, 255, 0.9)"
+          borderColor={voteDisplayInfo.shouldBlink && isBlinking ? voteDisplayInfo.backgroundColor : 'rgba(255, 255, 255, 0.9)'}
           elevation={8}
-          opacity={voteDisplayInfo.shouldBlink && isBlinking ? 0.8 : 1}
+          opacity={1}
           transform={[
-            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.05 : 1.0 }
+            { scale: voteDisplayInfo.shouldBlink && isBlinking ? 1.15 : 1.0 }
           ]}
         >
-          <Text fontSize={13} fontWeight="900" color="#fff">
+          <Text 
+            fontSize={13} 
+            fontWeight="900" 
+            color={voteDisplayInfo.shouldBlink && isBlinking ? voteDisplayInfo.backgroundColor : '#fff'}
+          >
             {voteLabel}
           </Text>
           
-          {/* Indicatori di stato - piccoli pallini nell'angolo in basso a destra del quadrato */}
-          <XStack position="absolute" bottom={2} right={2} gap={1}>
-            {!vote.hasVote && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#ef4444"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-            {!vote.isFinal && vote.hasVote && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#f59e0b"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-            {vote.isOut && (
-              <YStack
-                width={4}
-                height={4}
-                borderRadius={2}
-                backgroundColor="#6b7280"
-                borderWidth={0.5}
-                borderColor="#fff"
-              />
-            )}
-          </XStack>
         </YStack>
       )}
 
@@ -694,7 +513,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
 
       {/* Injury indicator - angolo bottom-right dell'immagine */}
       {injury && (
-        <Button
+        <YStack
           position="absolute"
           bottom={55}
           right={8}
@@ -702,35 +521,14 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           height={32}
           borderRadius={16}
           backgroundColor="rgba(220, 38, 38, 0.95)"
-          padding={0}
-          onPress={() => setShowInjuryTooltip(!showInjuryTooltip)}
+          alignItems="center"
+          justifyContent="center"
           zIndex={15}
           borderWidth={2}
           borderColor="#fff"
           elevation={5}
         >
           <AlertTriangle size={16} color="#fff" />
-        </Button>
-      )}
-
-      {/* Injury tooltip */}
-      {injury && showInjuryTooltip && (
-        <YStack
-          position="absolute"
-          bottom={95}
-          right={8}
-          backgroundColor="rgba(0, 0, 0, 0.9)"
-          padding={8}
-          borderRadius={6}
-          maxWidth={cardWidth - 16}
-          zIndex={20}
-          elevation={10}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-        >
-          <Text fontSize={9} color="#fff" textAlign="center">
-            {injury.reason || 'Infortunato'}
-          </Text>
         </YStack>
       )}
 
@@ -749,7 +547,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
         </YStack>
       )}
 
-      {/* Area bonus/malus organizzata - a destra (cliccabile per toast) */}
+      {/* Area bonus/malus organizzata - a destra */}
       {vote && playerBehaviourAndBonus.bonusGroups.length > 0 && (
         <YStack
           position="absolute"
@@ -757,52 +555,32 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           right={-4}
           maxWidth={48}
           borderRadius={6}
-          paddingVertical={0}
+          paddingVertical={4}
           paddingHorizontal={4}
-          gap={2}
+          gap={4}
           alignItems="center"
           zIndex={20}
         >
-          {/* Area bonus/malus cliccabile per toast */}
-          {playerBehaviourAndBonus.bonusGroups.length > 0 && (
-            <Button
-              position="relative"
-              padding={0}
-              backgroundColor="transparent"
-              borderWidth={0}
-              onPress={showPlayerSummaryToast}
-              pressStyle={{ backgroundColor: 'transparent' }}
-              hoverStyle={{ backgroundColor: 'transparent' }}
-              focusStyle={{ backgroundColor: 'transparent' }}
-              borderRadius={6}
-              paddingVertical={4}
-              paddingHorizontal={2}
-              unstyled={true}
-            >
-              <YStack alignItems="center" gap={4}>
-                {/* Bonus/Malus organizzati per tipo */}
-                {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
-                  <YStack key={group.config.key} alignItems="center" gap={2}>
-                    {/* Riga di icone dello stesso tipo */}
-                    <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
-                      {group.items}
-                    </XStack>
-                    
-                    {/* Contatore se ci sono più di 4 elementi */}
-                    {group.count > 4 && (
-                      <Text fontSize={8} color="#fff" fontWeight="600">
-                        +{group.count - 4}
-                      </Text>
-                    )}
-                  </YStack>
-                ))}
-              </YStack>
-            </Button>
-          )}
+          {/* Bonus/Malus organizzati per tipo */}
+          {playerBehaviourAndBonus.bonusGroups.map((group, groupIndex) => (
+            <YStack key={group.config.key} alignItems="center" gap={2}>
+              {/* Riga di icone dello stesso tipo */}
+              <XStack gap={2} flexWrap="wrap" justifyContent="center" maxWidth={40}>
+                {group.items}
+              </XStack>
+              
+              {/* Contatore se ci sono più di 4 elementi */}
+              {group.count > 4 && (
+                <Text fontSize={8} color="#fff" fontWeight="600">
+                  +{group.count - 4}
+                </Text>
+              )}
+            </YStack>
+          ))}
         </YStack>
       )}
 
-      {/* Area chance organizzata - a destra (cliccabile per toast) */}
+      {/* Area chance organizzata - a destra */}
       {isGameNotStarted && chance && chanceInfo.length > 0 && (
         <YStack
           position="absolute"
@@ -832,8 +610,6 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
                 justifyContent="center"
                 borderWidth={1}
                 borderColor="rgba(255, 255, 255, 0.8)"
-                onPress={() => setShowChanceTooltip(showChanceTooltip === `${info.type}-${index}` ? null : `${info.type}-${index}`)}
-                pressStyle={{ scale: 0.9 }}
               >
                 {IconComponent ? (
                   <IconComponent size={12} color="#fff" />
@@ -841,28 +617,6 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
                   <Text fontSize={10} fontWeight="bold" color="#fff">
                     {config.text}
                   </Text>
-                )}
-                
-                {/* Tooltip compatto per chance */}
-                {showChanceTooltip === `${info.type}-${index}` && (
-                  <YStack
-                    position="absolute"
-                    top={0}
-                    left={-85}
-                    backgroundColor="rgba(0, 0, 0, 0.95)"
-                    padding={4}
-                    borderRadius={4}
-                    zIndex={35}
-                    borderWidth={1}
-                    borderColor="rgba(255, 255, 255, 0.3)"
-                    minWidth={75}
-                  >
-                    <Text fontSize={8} color="#fff" textAlign="center" fontWeight="600">
-                      {info.type === 'fantagazzetta' ? 'Fantagazzetta' : 
-                       info.type === 'gazzetta' ? 'Gazzetta' : 
-                       config.label}: {typeof info.value === 'boolean' ? (info.value ? 'Titolare' : 'Panchina') : info.value}
-                    </Text>
-                  </YStack>
                 )}
               </YStack>
             )
@@ -885,10 +639,6 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           borderTopWidth={1}
           borderBottomWidth={1}
           borderColor="rgba(255, 255, 255, 0.2)"
-          onPress={() => setShowGameTooltip(!showGameTooltip)}
-          onHoverIn={() => setShowGameTooltip(true)}
-          onHoverOut={() => setShowGameTooltip(false)}
-          pressStyle={{ backgroundColor: "rgba(0, 0, 0, 0.95)" }}
         >
           {/* Squadre della partita - versione abbreviata */}
           <Text
@@ -908,65 +658,19 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           <Text
             fontSize={12}
             fontWeight="600"
-            color={gameInfo.type === 'result' ? "#10b981" : "#60a5fa"}
+            color={isGameLive && gameInfo.type === 'result' && isBlinking ? "#fff" : (gameInfo.type === 'result' ? "#10b981" : "#60a5fa")}
             textAlign="center"
             marginTop={1}
             textShadowColor="rgba(0, 0, 0, 0.8)"
             textShadowOffset={{ width: 1, height: 1 }}
             textShadowRadius={1}
-            opacity={isGameLive && gameInfo.type === 'result' && isBlinking ? 0.7 : 1}
+            opacity={1}
             transform={[
-              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.05 : 1.0 }
+              { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.2 : 1.0 }
             ]}
           >
             {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
           </Text>
-        </YStack>
-      )}
-
-      {/* Tooltip nomi completi partita */}
-      {gameInfo && showGameTooltip && (
-        <YStack
-          position="absolute"
-          bottom={85}
-          left={8}
-          right={8}
-          backgroundColor="rgba(0, 0, 0, 0.95)"
-          padding={8}
-          borderRadius={8}
-          alignItems="center"
-          zIndex={30}
-          elevation={12}
-          borderWidth={1}
-          borderColor="rgba(255, 255, 255, 0.3)"
-        >
-          <Text
-            fontSize={12}
-            fontWeight="700"
-            color="#fff"
-            textAlign="center"
-            numberOfLines={2}
-            textShadowColor="rgba(0, 0, 0, 0.8)"
-            textShadowOffset={{ width: 1, height: 1 }}
-            textShadowRadius={1}
-          >
-            {gameInfo.matchText}
-          </Text>
-          {gameInfo.type === 'result' && (
-            <Text
-              fontSize={10}
-              fontWeight="600"
-              color="#10b981"
-              textAlign="center"
-              marginTop={4}
-              opacity={isGameLive && isBlinking ? 0.7 : 1}
-              transform={[
-                { scale: isGameLive && isBlinking ? 1.05 : 1.0 }
-              ]}
-            >
-              {gameInfo.resultText}
-            </Text>
-          )}
         </YStack>
       )}
 

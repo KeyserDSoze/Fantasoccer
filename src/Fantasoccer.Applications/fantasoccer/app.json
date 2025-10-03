@@ -4,7 +4,7 @@
     "slug": "fantasoccer",
     "version": "1.0.0",
     "web": {
-      "favicon": "./assets/favicon-32x32.png",
+      "favicon": "./assets/icon.png",
       "styles": {
         "body": {
           "overflow": "auto"
