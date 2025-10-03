@@ -90,7 +90,7 @@ const getMsalConfig = () => ({
     authority: 'https://login.microsoftonline.com/consumers',
     redirectUri: Platform.select({
       web: typeof window !== 'undefined' ? window.location.origin + '/' : 'http://localhost:3000',
-      default: 'msauth://com.fantasoccer.app/auth'
+      default: 'msauth://com.keyserdsoze.fantasoccer/auth'
     }),
   },
   cache: {

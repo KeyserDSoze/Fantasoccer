@@ -37,7 +37,7 @@ export function Login() {
           />
           <YStack alignItems="center" gap="$2">
             <H1 color="$blue10" fontWeight="800">
-              Fantasoccer
+              FantaZone
             </H1>
             <Text fontSize="$4" color="#888" textAlign="center">
               La tua lega fantacalcio

@@ -32,7 +32,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         color="$blue10"
         textAlign="center"
       >
-        Fantasoccer
+        FantaZone
       </Text>
       
       {/* Messaggio di caricamento */}
