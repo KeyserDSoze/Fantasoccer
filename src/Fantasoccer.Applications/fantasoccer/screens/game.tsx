@@ -88,23 +88,90 @@ export default function GameScreen() {
     return () => { mounted = false }
   }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
 
-  // Polling automatico ogni 10 secondi per aggiornare i dati della partita
+  // Stato per controllare se ci sono partite live in questo momento
+  const [isLiveActive, setIsLiveActive] = useState(false)
+  
+  // Stato per l'effetto lampeggiante del risultato
+  const [isBlinking, setIsBlinking] = useState(false)
+
+  // Effetto lampeggiante quando ci sono partite live
+  useEffect(() => {
+    if (isLiveActive) {
+      setIsBlinking(false)
+      return
+    }
+
+    // Lampeggia ogni 600ms quando live
+    const blinkInterval = setInterval(() => {
+      setIsBlinking(prev => !prev)
+    }, 600)
+
+    return () => {
+      clearInterval(blinkInterval)
+    }
+  }, [isLiveActive])
+
+  // Job che controlla ogni 10 secondi se ci sono partite live
+  useEffect(() => {
+    if (!gameWrapper?.serieADay || !calendar) return
+
+    const checkLiveStatus = () => {
+      // Trova la giornata di Serie A corrispondente
+      const targetDay = calendar.days?.find(day => day.serieADay === gameWrapper.serieADay)
+      
+      if (!targetDay || !targetDay.games || targetDay.games.length === 0) {
+        setIsLiveActive(false)
+        return
+      }
+
+      // Controlla se almeno una partita della giornata è live in questo momento
+      const now = new Date()
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000 // 2 ore in millisecondi
+      
+      const hasLiveGame = targetDay.games.some(game => {
+        const gameStart = game.date.getTime()
+        const gameEnd = gameStart + TWO_HOURS_MS
+        const nowTime = now.getTime()
+        return nowTime >= gameStart && nowTime <= gameEnd
+      })
+
+      setIsLiveActive(hasLiveGame)
+    }
+
+    // Controlla subito
+    checkLiveStatus()
+
+    // Poi controlla ogni 10 secondi
+    const liveCheckInterval = setInterval(checkLiveStatus, 10000)
+
+    return () => {
+      clearInterval(liveCheckInterval)
+    }
+  }, [gameWrapper?.serieADay, calendar])
+
+  // Polling automatico ogni 10 secondi SOLO se ci sono partite live
   useEffect(() => {
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
       return
     }
 
-    // Avvia il polling dopo il caricamento iniziale
+    // Se non ci sono partite live, non fare polling
+    if (!isLiveActive) {
+      console.log('⏸️ Polling disattivato - nessuna partita live')
+      return
+    }
+
+    // Avvia il polling solo quando ci sono partite live
     const pollingInterval = setInterval(() => {
-      console.log('🔄 Auto-refresh partita ogni 10 secondi')
+      console.log('🔄 Auto-refresh partita (live attivo)')
       refreshGame(true) // true = è un auto-refresh, non mostra loading
     }, 10000) // 10 secondi
 
-    // Cleanup: ferma il polling quando il componente viene smontato
+    // Cleanup: ferma il polling quando il componente viene smontato o isLiveActive cambia
     return () => {
       clearInterval(pollingInterval)
     }
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive])
 
   // Compute played score and bonuses from gameService wrapper if available
   const title = gameWrapper ? `${gameWrapper.game?.home} vs ${gameWrapper.game?.away}` : 'Partita'
@@ -169,7 +236,13 @@ export default function GameScreen() {
                         </Text>
                         
                         {/* Punteggio home */}
-                        <Text fontSize="$5" fontWeight="bold" minWidth={70} textAlign="center">
+                        <Text 
+                          fontSize="$5" 
+                          fontWeight="bold" 
+                          minWidth={70} 
+                          textAlign="center"
+                          color={isLiveActive && isBlinking ? "$green10" : "$color12"}
+                        >
                           {gameWrapper.game?.result?.home?.value || 0} pt
                         </Text>
                         
@@ -185,7 +258,15 @@ export default function GameScreen() {
                         
                         {/* Goal e data centrale */}
                         <YStack alignItems="center" gap="$1" minWidth={120}>
-                          <Text fontSize="$7" fontWeight="bold">
+                          <Text 
+                            fontSize="$7" 
+                            fontWeight="bold"
+                            color={isLiveActive && isBlinking ? "$red10" : "$color12"}
+                            style={{
+                              transform: isLiveActive && isBlinking ? [{ scale: 1.1 }] : [{ scale: 1.0 }],
+                              transition: 'all 0.3s ease'
+                            }}
+                          >
                             {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
                           </Text>
                           {gameDate && (
@@ -206,7 +287,13 @@ export default function GameScreen() {
                         </View>
                         
                         {/* Punteggio away */}
-                        <Text fontSize="$5" fontWeight="bold" minWidth={70} textAlign="center">
+                        <Text 
+                          fontSize="$5" 
+                          fontWeight="bold" 
+                          minWidth={70} 
+                          textAlign="center"
+                          color={isLiveActive && isBlinking ? "$green10" : "$color12"}
+                        >
                           {gameWrapper.game?.result?.away?.value || 0} pt
                         </Text>
                         
@@ -238,7 +325,11 @@ export default function GameScreen() {
                             {gameWrapper.game?.home}
                           </Text>
                           <YStack alignItems="center" gap="$2">
-                            <Text fontSize="$6" fontWeight="bold">
+                            <Text 
+                              fontSize="$6" 
+                              fontWeight="bold"
+                              color={isLiveActive && isBlinking ? "$green10" : "$color12"}
+                            >
                               {gameWrapper.game?.result?.home?.value || 0} pt
                             </Text>
                             <View style={{ minHeight: bonusMinHeight, justifyContent: 'center' }}>
@@ -254,7 +345,15 @@ export default function GameScreen() {
                         
                         {/* VS e punteggio goals */}
                         <YStack alignItems="center" gap="$1">
-                          <Text fontSize="$7" fontWeight="bold">
+                          <Text 
+                            fontSize="$7" 
+                            fontWeight="bold"
+                            color={isLiveActive && isBlinking ? "$red10" : "$color12"}
+                            style={{
+                              transform: isLiveActive && isBlinking ? [{ scale: 1.1 }] : [{ scale: 1.0 }],
+                              transition: 'all 0.3s ease'
+                            }}
+                          >
                             {gameWrapper.game?.result?.homeGoals} - {gameWrapper.game?.result?.awayGoals}
                           </Text>
                           <Text fontSize="$2" color="$color11">
@@ -276,7 +375,11 @@ export default function GameScreen() {
                             {gameWrapper.game?.away}
                           </Text>
                           <YStack alignItems="center" gap="$2">
-                            <Text fontSize="$6" fontWeight="bold">
+                            <Text 
+                              fontSize="$6" 
+                              fontWeight="bold"
+                              color={isLiveActive && isBlinking ? "$green10" : "$color12"}
+                            >
                               {gameWrapper.game?.result?.away?.value || 0} pt
                             </Text>
                             <View style={{ minHeight: bonusMinHeight, justifyContent: 'center' }}>
