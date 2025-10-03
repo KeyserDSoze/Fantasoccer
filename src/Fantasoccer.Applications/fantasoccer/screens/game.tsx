@@ -80,7 +80,7 @@ export default function GameScreen() {
     setGameLoading(true)
     setGameError(null)
 
-    gameService.getGame({ groupId: routeGameId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
+    gameService.getGame({ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
       .then(result => { if (mounted) setGameWrapper(result) })
       .catch(err => { if (mounted) setGameError(err?.message ?? String(err)) })
       .finally(() => { if (mounted) setGameLoading(false) })

@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react'
 import { Dialog, YStack, XStack, Text, Button, ScrollView, Sheet } from 'tamagui'
-import { X, ArrowLeftRight, Plus } from '@tamagui/lucide-icons'
+import { X, ArrowLeftRight, Plus, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus } from '@tamagui/lucide-icons'
 import { Dimensions } from 'react-native'
 import type { LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard } from './PlayerCard'
 import { getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
+import { ChanceType } from '../../types/chance'
 
 interface PlayerSwapModalProps {
   isOpen: boolean
@@ -43,19 +44,19 @@ export function PlayerSwapModal({
   const eligiblePlayers = useMemo(() => {
     if (!selectedPlayer) return []
     
-    const selectedRole = (selectedPlayer.current as any)?.role ?? Role.Undefined
+    const selectedRole = selectedPlayer.current?.role ?? Role.Undefined
     const selectedPosition = selectedPlayer.currentPosition
     
     return allPlayers.filter(p => {
       // Escludi il giocatore selezionato stesso
-      if ((p.current as any)?.name === (selectedPlayer.current as any)?.name) return false
-      
+      if (p.current.name === selectedPlayer.current.name) return false
+
       // Escludi giocatori con la stessa posizione esatta (FantaSoccerRole)
       // Es: se seleziono un Midfielder titolare (pos=2), escludo gli altri Midfielder titolari
       if (p.currentPosition === selectedPosition) return false
       
       // Stesso ruolo principale (per permettere scambi tra titolare/panchina/tribuna dello stesso ruolo)
-      const pRole = (p.current as any)?.role ?? Role.Undefined
+      const pRole = p.current?.role ?? Role.Undefined
       return pRole === selectedRole
     })
   }, [selectedPlayer, allPlayers])
@@ -100,6 +101,53 @@ export function PlayerSwapModal({
   const selectedRoleLabel = ROLE_LABELS[selectedPlayerRole as Role] ?? 'Non definito'
   const screenHeight = Dimensions.get('window').height
 
+  // Estrai informazioni chance del giocatore selezionato
+  const selectedPlayerChance = (selectedPlayer as any)?.chance
+  const selectedPlayerInjury = (selectedPlayer as any)?.injury
+  
+  // Determina le informazioni da mostrare
+  const playerInfo = useMemo(() => {
+    if (!selectedPlayer) return null
+    
+    const chance = selectedPlayerChance
+    const injury = selectedPlayerInjury
+    
+    // Infortunio
+    const hasInjury = chance?.status === ChanceType.Injury || injury
+    const injuryDescription = chance?.description || injury?.reason || 'Infortunato'
+    
+    // Squalifica
+    const isSuspended = chance?.status === ChanceType.Disqualified
+    const suspensionDescription = chance?.description || 'Squalificato'
+    
+    // Probabilità titolare
+    const fantagazzettaStarter = chance?.fantagazzetta
+    const gazzettaStarter = chance?.gazzetta
+    
+    // Trend (forma recente) - scala 0-4
+    const trend = typeof chance?.trend === 'number' ? chance.trend : null
+    const trendLabels = ['Pessima', 'Negativa', 'Neutra', 'Positiva', 'Ottima']
+    const trendLabel = trend !== null ? trendLabels[Math.min(4, Math.max(0, trend))] : null
+    const trendArrows = ['↓↓', '↓', '→', '↑', '↑↑']
+    const trendArrow = trend !== null ? trendArrows[Math.min(4, Math.max(0, trend))] : null
+    
+    // Ultima partita (positiveness)
+    const lastGamePositiveness = chance?.lastGame?.positiveness
+    
+    return {
+      hasInjury,
+      injuryDescription,
+      isSuspended,
+      suspensionDescription,
+      fantagazzettaStarter,
+      gazzettaStarter,
+      trend,
+      trendLabel,
+      trendArrow,
+      lastGamePositiveness
+    }
+  }, [selectedPlayer, selectedPlayerChance, selectedPlayerInjury])
+
   return (
     <Sheet
       modal
@@ -140,6 +188,156 @@ export function PlayerSwapModal({
                 icon={<X size={24} />}
               />
             </XStack>
+
+            {/* Informazioni dettagliate giocatore */}
+            {playerInfo && (
+              <YStack gap={8} backgroundColor="$color2" padding={12} borderRadius={12}>
+                {/* Infortunio */}
+                {playerInfo.hasInjury && (
+                  <XStack gap={8} alignItems="center" backgroundColor="$red2" padding={8} borderRadius={8}>
+                    <AlertTriangle size={18} color="#dc2626" />
+                    <YStack flex={1}>
+                      <Text fontSize={12} fontWeight="700" color="$red11">
+                        INFORTUNATO
+                      </Text>
+                      <Text fontSize={11} color="$red10">
+                        {playerInfo.injuryDescription}
+                      </Text>
+                    </YStack>
+                  </XStack>
+                )}
+
+                {/* Squalifica */}
+                {playerInfo.isSuspended && (
+                  <XStack gap={8} alignItems="center" backgroundColor="$red2" padding={8} borderRadius={8}>
+                    <Ban size={18} color="#dc2626" />
+                    <YStack flex={1}>
+                      <Text fontSize={12} fontWeight="700" color="$red11">
+                        SQUALIFICATO
+                      </Text>
+                      <Text fontSize={11} color="$red10">
+                        {playerInfo.suspensionDescription}
+                      </Text>
+                    </YStack>
+                  </XStack>
+                )}
+
+                {/* Probabilità titolare */}
+                {(playerInfo.fantagazzettaStarter !== undefined || playerInfo.gazzettaStarter !== undefined) && (
+                  <YStack gap={6} backgroundColor="$blue2" padding={8} borderRadius={8}>
+                    <Text fontSize={12} fontWeight="700" color="$blue11">
+                      📊 PROBABILITÀ TITOLARE
+                    </Text>
+                    <XStack gap={12}>
+                      {playerInfo.fantagazzettaStarter !== undefined && (
+                        <XStack gap={4} alignItems="center" flex={1}>
+                          <Text fontSize={11} color="$blue10" fontWeight="600">
+                            Fantacalcio.it:
+                          </Text>
+                          <Text 
+                            fontSize={11} 
+                            fontWeight="700" 
+                            color={playerInfo.fantagazzettaStarter ? "$green11" : "$red11"}
+                          >
+                            {playerInfo.fantagazzettaStarter ? '✓ Titolare' : '✗ Panchina'}
+                          </Text>
+                        </XStack>
+                      )}
+                      {playerInfo.gazzettaStarter !== undefined && (
+                        <XStack gap={4} alignItems="center" flex={1}>
+                          <Text fontSize={11} color="$blue10" fontWeight="600">
+                            Gazzetta:
+                          </Text>
+                          <Text 
+                            fontSize={11} 
+                            fontWeight="700" 
+                            color={playerInfo.gazzettaStarter ? "$green11" : "$red11"}
+                          >
+                            {playerInfo.gazzettaStarter ? '✓ Titolare' : '✗ Panchina'}
+                          </Text>
+                        </XStack>
+                      )}
+                    </XStack>
+                  </YStack>
+                )}
+
+                {/* Forma recente (trend) */}
+                {playerInfo.trend !== null && (
+                  <XStack 
+                    gap={8} 
+                    alignItems="center" 
+                    backgroundColor={
+                      playerInfo.trend >= 3 ? "$green2" : 
+                      playerInfo.trend <= 1 ? "$red2" : 
+                      "$yellow2"
+                    } 
+                    padding={8} 
+                    borderRadius={8}
+                  >
+                    {playerInfo.trend >= 3 ? (
+                      <TrendingUp size={18} color="#16a34a" />
+                    ) : playerInfo.trend <= 1 ? (
+                      <TrendingDown size={18} color="#dc2626" />
+                    ) : (
+                      <Minus size={18} color="#eab308" />
+                    )}
+                    <YStack flex={1}>
+                      <Text fontSize={12} fontWeight="700" color={
+                        playerInfo.trend >= 3 ? "$green11" : 
+                        playerInfo.trend <= 1 ? "$red11" : 
+                        "$yellow11"
+                      }>
+                        {playerInfo.trendArrow} FORMA RECENTE: {playerInfo.trendLabel?.toUpperCase()}
+                      </Text>
+                      <Text fontSize={11} color={
+                        playerInfo.trend >= 3 ? "$green10" : 
+                        playerInfo.trend <= 1 ? "$red10" : 
+                        "$yellow10"
+                      }>
+                        {playerInfo.trend >= 3 ? 'Sta giocando molto bene nelle ultime partite' : 
+                         playerInfo.trend <= 1 ? 'Prestazioni negative nelle ultime partite' : 
+                         'Prestazioni altalenanti nelle ultime partite'}
+                      </Text>
+                    </YStack>
+                  </XStack>
+                )}
+
+                {/* Ultima partita (positiveness) */}
+                {playerInfo.lastGamePositiveness !== undefined && playerInfo.lastGamePositiveness !== null && (
+                  <XStack 
+                    gap={8} 
+                    alignItems="center" 
+                    backgroundColor={
+                      playerInfo.lastGamePositiveness > 0 ? "$green2" : 
+                      playerInfo.lastGamePositiveness < 0 ? "$red2" : 
+                      "$gray2"
+                    } 
+                    padding={8} 
+                    borderRadius={8}
+                  >
+                    <YStack flex={1}>
+                      <Text fontSize={12} fontWeight="700" color={
+                        playerInfo.lastGamePositiveness > 0 ? "$green11" : 
+                        playerInfo.lastGamePositiveness < 0 ? "$red11" : 
+                        "$gray11"
+                      }>
+                        ⚽ ULTIMA PARTITA
+                      </Text>
+                      <Text fontSize={11} color={
+                        playerInfo.lastGamePositiveness > 0 ? "$green10" : 
+                        playerInfo.lastGamePositiveness < 0 ? "$red10" : 
+                        "$gray10"
+                      }>
+                        Valore: {playerInfo.lastGamePositiveness > 0 ? '+' : ''}{playerInfo.lastGamePositiveness} • 
+                        {playerInfo.lastGamePositiveness > 0 ? ' Ha fatto bonus!' : 
+                         playerInfo.lastGamePositiveness < 0 ? ' Ha preso malus' : 
+                         ' Prestazione neutra'}
+                      </Text>
+                    </YStack>
+                  </XStack>
+                )}
+              </YStack>
+            )}
 
             {/* Pulsanti azione diretta per tribuna/panchina */}
             <YStack gap={8}>
