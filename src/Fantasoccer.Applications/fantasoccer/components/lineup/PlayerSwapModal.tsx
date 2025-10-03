@@ -102,19 +102,17 @@ export function PlayerSwapModal({
   const screenHeight = Dimensions.get('window').height
 
   // Estrai informazioni chance del giocatore selezionato
-  const selectedPlayerChance = (selectedPlayer as any)?.chance
-  const selectedPlayerInjury = (selectedPlayer as any)?.injury
+  const selectedPlayerChance = selectedPlayer?.chance
   
   // Determina le informazioni da mostrare
   const playerInfo = useMemo(() => {
     if (!selectedPlayer) return null
     
     const chance = selectedPlayerChance
-    const injury = selectedPlayerInjury
     
     // Infortunio
-    const hasInjury = chance?.status === ChanceType.Injury || injury
-    const injuryDescription = chance?.description || injury?.reason || 'Infortunato'
+    const hasInjury = chance?.status === ChanceType.Injury
+    const injuryDescription = chance?.description || 'Infortunato'
     
     // Squalifica
     const isSuspended = chance?.status === ChanceType.Disqualified
@@ -146,7 +144,7 @@ export function PlayerSwapModal({
       trendArrow,
       lastGamePositiveness
     }
-  }, [selectedPlayer, selectedPlayerChance, selectedPlayerInjury])
+  }, [selectedPlayer, selectedPlayerChance])
 
   return (
     <Sheet
