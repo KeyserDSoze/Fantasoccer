@@ -49,7 +49,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 // Configurazione linking completa per URL sync
 const linking = {
-  prefixes: ['http://localhost:3000', 'https://fanta.zone', 'fantasoccer://'],
+  prefixes: ['http://localhost:3000', 'https://fanta.zone', 'fantazone://'],
   config: {
     screens: {
       Home: '',  // root path

@@ -1,10 +1,18 @@
 {
   "expo": {
-    "name": "fantasoccer",
-    "slug": "fantasoccer",
-    "version": "1.0.0",
+    "name": "FantaZone",
+    "slug": "fantazone",
+    "owner": "Alessandro Rapiti",
+    "version": "1.0.1",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "icon": "./assets/web-app-manifest-512x512.png",
+    "userInterfaceStyle": "dark",
     "web": {
-      "favicon": "./assets/favicon-96x96.png",
+      "favicon": "./assets/web-app-manifest-512x512.png",
       "styles": {
         "body": {
           "overflow": "auto"
@@ -56,12 +64,10 @@
       "expo-font"
     ],
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "resizeMode": "cover",
+      "backgroundColor": "#0b153a"
     },
     "assetBundlePatterns": [
       "**/*"
