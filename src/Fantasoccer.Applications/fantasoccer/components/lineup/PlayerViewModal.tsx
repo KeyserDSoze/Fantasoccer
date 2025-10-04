@@ -33,7 +33,7 @@ const BONUS_MALUS_CONFIG = [
   { key: 'assists', label: 'Assist', description: 'Assist', component: () => <AssistSVG color="#000" />, order: 3, isPositive: true },
   { key: 'stoppedPenalties', label: 'Parate', description: 'Rigori parati', component: () => <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" />, order: 4, isPositive: true },
   { key: 'sufferedGoals', label: 'Gol Subiti', description: 'Gol subiti', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, order: 5, isPositive: false },
-  { key: 'wrongedPenalties', label: 'Rig. Sbagliati', description: 'Rigori sbagliati', component: () => <SoccerBallSVG primaryColor="#10b981" secondaryColor="#ffffff" />, order: 6, isPositive: false },
+  { key: 'wrongedPenalties', label: 'Rig. Sbagliati', description: 'Rigori sbagliati', component: () => <SoccerBallSVG primaryColor="#c113d1ff" secondaryColor="#ffffff" />, order: 6, isPositive: false },
   { key: 'ownGoals', label: 'Autogol', description: 'Autogol', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, order: 7, isPositive: false },
 ]
 
