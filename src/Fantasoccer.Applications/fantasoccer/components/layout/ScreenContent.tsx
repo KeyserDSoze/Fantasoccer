@@ -46,7 +46,7 @@ export const ScreenContent = ({ children }: ScreenContentProps) => {
             borderBottomColor="$color5"
             borderRadius={isWideLayout ? '$0' : '$4'}
           >
-            <FantasoccerBrand width={48} height={48} textSize="medium" showText={false} />
+            <FantasoccerBrand width={40} height={40} textSize="medium" showText={false} />
             {isAuthenticated && <NavigationBar />}
           </XStack>
 

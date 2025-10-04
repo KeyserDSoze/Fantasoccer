@@ -29,7 +29,7 @@ function AuthenticatedContent({ user }: { user: AuthUser | null }) {
 
   return (
     <YStack gap="$6" width="100%">
-      <SerieALiveWidget refreshInterval={60000} enablePolling pollOnlyWhenLive={false} />
+      <SerieALiveWidget refreshInterval={10000} enablePolling pollOnlyWhenLive={false} />
     </YStack>
   );
 }

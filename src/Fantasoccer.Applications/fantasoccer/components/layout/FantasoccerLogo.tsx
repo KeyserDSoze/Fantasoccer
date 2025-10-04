@@ -1,16 +1,36 @@
+import { Image } from 'react-native'
+
 interface FantasoccerLogoProps {
   width?: number | string
   height?: number | string
   color?: string
   className?: string
+  variant?: 'png' | 'svg' // Nuovo parametro per scegliere il tipo
 }
 
 export function FantasoccerLogo({ 
   width = 220, 
   height = 220, 
   color = 'currentColor',
-  className 
+  className,
+  variant = 'png' // Default: usa PNG
 }: FantasoccerLogoProps) {
+  // Se variant è 'png', usa l'immagine PNG
+  if (variant === 'png') {
+    return (
+      <Image 
+        source={require('../../assets/adaptive-icon.png')}
+        style={{ 
+          width: typeof width === 'number' ? width : parseInt(String(width)), 
+          height: typeof height === 'number' ? height : parseInt(String(height))
+        }}
+        resizeMode="contain"
+        accessibilityLabel="Logo FantaZone"
+      />
+    )
+  }
+
+  // Altrimenti usa SVG (backward compatibility)
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -46,7 +66,8 @@ export function FantasoccerLogoCompact({
   width = 40, 
   height = 40, 
   color = 'currentColor',
-  className 
+  className,
+  variant = 'png'
 }: FantasoccerLogoProps) {
   return (
     <FantasoccerLogo 
@@ -54,6 +75,7 @@ export function FantasoccerLogoCompact({
       height={height} 
       color={color} 
       className={className}
+      variant={variant}
     />
   )
 }
@@ -72,7 +94,8 @@ export function FantasoccerBrand({
   showText = true,
   textSize = 'medium',
   orientation = 'horizontal',
-  className 
+  className,
+  variant = 'png'
 }: FantasoccerBrandProps) {
   const textSizes = {
     small: '$4',
@@ -81,7 +104,7 @@ export function FantasoccerBrand({
   } as const
 
   if (!showText) {
-    return <FantasoccerLogo width={width} height={height} color={color} className={className} />
+    return <FantasoccerLogo width={width} height={height} color={color} className={className} variant={variant} />
   }
 
   // Questo import deve essere fatto dinamicamente per evitare problemi di circular dependency
@@ -97,7 +120,7 @@ export function FantasoccerBrand({
       }}
       className={className}
     >
-      <FantasoccerLogo width={width} height={height} color={color} />
+      <FantasoccerLogo width={width} height={height} color={color} variant={variant} />
       <div 
         style={{
           fontWeight: '800',
