@@ -443,7 +443,7 @@ export default function Rules() {
             >
               <XStack alignItems="center" gap="$3" marginBottom="$2">
                 <BookOpen size="$2" color="$blue10" />
-                <H2 color="$blue11">Regolamento Fantasoccer</H2>
+                <H2 color="$blue11">Regolamento FantaZone</H2>
               </XStack>
               {leagueName && (
                 <Text fontSize="$4" color="$blue10" fontWeight="600">
