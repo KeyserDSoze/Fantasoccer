@@ -1,0 +1,502 @@
+import React, { useState, useMemo, useCallback } from 'react'
+import { View } from 'react-native'
+import { ScreenContent } from 'components/layout/ScreenContent'
+import { 
+  YStack, 
+  XStack, 
+  Text, 
+  H3, 
+  H4,
+  Card, 
+  Spinner, 
+  Separator,
+  Button,
+  useMedia
+} from 'tamagui'
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
+import { serieAService } from 'services/serieAService'
+import { RealCalendar, RealDay, RealGame, RealCalendarHelper } from 'types/serieA'
+import { 
+  Calendar as CalendarIcon,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  RefreshCw,
+  Save
+} from '@tamagui/lucide-icons'
+
+export default function SerieAAdminScreen() {
+  const media = useMedia()
+  const containerWidth = media.gtMd ? 960 : '100%'
+
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [calendar, setCalendar] = useState<RealCalendar | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [modifiedGames, setModifiedGames] = useState<Set<string>>(new Set())
+
+  // Available years
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
+  }, [])
+
+  // Load calendar when year changes
+  const loadCalendar = useCallback(async (year: number) => {
+    setLoading(true)
+    setError(null)
+    setModifiedGames(new Set())
+
+    try {
+      const cal = await serieAService.getCalendarByYear(year)
+      if (cal) {
+        setCalendar(cal)
+      } else {
+        setError(`Calendario non disponibile per l'anno ${year}`)
+        setCalendar(null)
+      }
+    } catch (err) {
+      setError(`Errore nel caricamento del calendario: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setCalendar(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load calendar on mount and year change
+  React.useEffect(() => {
+    loadCalendar(selectedYear)
+  }, [selectedYear, loadCalendar])
+
+  // Toggle delayed status
+  const toggleDelayed = useCallback((serieADay: number, gameIndex: number) => {
+    if (!calendar) return
+
+    // Create modified key
+    const key = `${serieADay}-${gameIndex}`
+
+    // Update local calendar
+    const updatedCalendar: RealCalendar = {
+      ...calendar,
+      days: calendar.days.map(day => {
+        if (day.serieADay === serieADay) {
+          return {
+            ...day,
+            games: day.games.map((game, idx) => {
+              if (idx === gameIndex) {
+                return { ...game, delayed: !game.delayed }
+              }
+              return game
+            })
+          }
+        }
+        return day
+      })
+    }
+
+    setCalendar(updatedCalendar)
+
+    // Mark as modified
+    setModifiedGames(prev => {
+      const next = new Set(prev)
+      next.add(key)
+      return next
+    })
+  }, [calendar])
+
+  // Save all changes
+  const saveChanges = useCallback(async () => {
+    if (!calendar || modifiedGames.size === 0) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      // For each modified game, update it
+      for (const key of modifiedGames) {
+        const [serieADayStr, gameIndexStr] = key.split('-')
+        const serieADay = parseInt(serieADayStr)
+        const gameIndex = parseInt(gameIndexStr)
+
+        const day = calendar.days.find(d => d.serieADay === serieADay)
+        if (!day) continue
+
+        const game = day.games[gameIndex]
+        if (!game) continue
+
+        // Update in backend
+        await serieAService.updateGameDelayed(
+          selectedYear,
+          serieADay,
+          gameIndex,
+          game.delayed
+        )
+      }
+
+      // Clear modifications
+      setModifiedGames(new Set())
+
+      // Reload calendar to ensure consistency
+      await loadCalendar(selectedYear)
+    } catch (err) {
+      setError(`Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setSaving(false)
+    }
+  }, [calendar, modifiedGames, selectedYear, loadCalendar])
+
+  // Statistics
+  const statistics = useMemo(() => {
+    if (!calendar) return { totalGames: 0, delayedGames: 0, playedGames: 0, upcomingGames: 0 }
+
+    let totalGames = 0
+    let delayedGames = 0
+    let playedGames = 0
+    let upcomingGames = 0
+
+    calendar.days.forEach(day => {
+      day.games.forEach(game => {
+        totalGames++
+        if (game.delayed) delayedGames++
+        if (RealCalendarHelper.isGamePlayed(game)) playedGames++
+        else if (!game.delayed) upcomingGames++
+      })
+    })
+
+    return { totalGames, delayedGames, playedGames, upcomingGames }
+  }, [calendar])
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScreenContent path="screens/serie-a-admin.tsx" title="Serie A Admin">
+        <YStack
+          width={containerWidth}
+          maxWidth={1200}
+          gap="$4"
+          alignItems="stretch"
+          alignSelf="center"
+        >
+          {/* Header */}
+          <Card
+            padding="$4"
+            backgroundColor="$green3"
+            borderRadius="$4"
+            borderWidth="$0.5"
+            borderColor="$green7"
+          >
+            <XStack alignItems="center" gap="$3" marginBottom="$2">
+              <CalendarIcon size="$2" color="$green10" />
+              <H3 color="$green11">Gestione Calendario Serie A</H3>
+            </XStack>
+            <Text fontSize="$3" color="$green10">
+              Gestisci lo stato delle partite rinviate nel calendario della Serie A.
+            </Text>
+          </Card>
+
+          {/* Year Selector */}
+          <LeagueSelectorsWidget
+            leagues={[]}
+            selectedLeagueId={null}
+            years={availableYears}
+            selectedYear={selectedYear}
+            onSelectYear={setSelectedYear}
+            formatYearLabel={(year) => `${year}/${year + 1}`}
+            yearHint="Seleziona la stagione da gestire"
+            showLeagueSection={false}
+            showRoundSection={false}
+            title="Selettore Stagione"
+            footer={
+              modifiedGames.size > 0 && (
+                <XStack gap="$2" justifyContent="space-between" alignItems="center" marginTop="$2">
+                  <Text fontSize="$2" color="$orange11" fontWeight="600">
+                    ⚠️ {modifiedGames.size} partita/e modificata/e - Salvare le modifiche
+                  </Text>
+                  <Button
+                    size="$3"
+                    backgroundColor="$green9"
+                    onPress={saveChanges}
+                    disabled={saving}
+                    icon={saving ? <Spinner size="small" /> : <Save size="$1" />}
+                  >
+                    {saving ? 'Salvataggio...' : 'Salva Modifiche'}
+                  </Button>
+                </XStack>
+              )
+            }
+          />
+
+          {/* Statistics */}
+          {calendar && (
+            <XStack gap="$3" flexWrap="wrap">
+              <Card padding="$3" backgroundColor="$color2" flex={1} minWidth={140}>
+                <XStack alignItems="center" gap="$2" marginBottom="$1">
+                  <CalendarIcon size="$1" color="$blue10" />
+                  <Text fontSize="$2" color="$color11">Totale Partite</Text>
+                </XStack>
+                <Text fontSize="$7" fontWeight="bold" color="$blue10">
+                  {statistics.totalGames}
+                </Text>
+              </Card>
+
+              <Card padding="$3" backgroundColor="$color2" flex={1} minWidth={140}>
+                <XStack alignItems="center" gap="$2" marginBottom="$1">
+                  <AlertCircle size="$1" color="$orange10" />
+                  <Text fontSize="$2" color="$color11">Rinviate</Text>
+                </XStack>
+                <Text fontSize="$7" fontWeight="bold" color="$orange10">
+                  {statistics.delayedGames}
+                </Text>
+              </Card>
+
+              <Card padding="$3" backgroundColor="$color2" flex={1} minWidth={140}>
+                <XStack alignItems="center" gap="$2" marginBottom="$1">
+                  <CheckCircle size="$1" color="$green10" />
+                  <Text fontSize="$2" color="$color11">Giocate</Text>
+                </XStack>
+                <Text fontSize="$7" fontWeight="bold" color="$green10">
+                  {statistics.playedGames}
+                </Text>
+              </Card>
+
+              <Card padding="$3" backgroundColor="$color2" flex={1} minWidth={140}>
+                <XStack alignItems="center" gap="$2" marginBottom="$1">
+                  <Clock size="$1" color="$purple10" />
+                  <Text fontSize="$2" color="$color11">Da Giocare</Text>
+                </XStack>
+                <Text fontSize="$7" fontWeight="bold" color="$purple10">
+                  {statistics.upcomingGames}
+                </Text>
+              </Card>
+            </XStack>
+          )}
+
+          {/* Actions */}
+          <XStack gap="$2" justifyContent="flex-end">
+            <Button
+              size="$3"
+              variant="outlined"
+              onPress={() => loadCalendar(selectedYear)}
+              disabled={loading}
+              icon={<RefreshCw size="$1" />}
+            >
+              Ricarica
+            </Button>
+          </XStack>
+
+          {/* Calendar Content */}
+          {loading ? (
+            <Card padding="$6" alignItems="center" gap="$3">
+              <Spinner size="large" color="$green10" />
+              <Text color="$color10">Caricamento calendario...</Text>
+            </Card>
+          ) : error ? (
+            <Card padding="$4" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">
+              <Text color="$red11" fontWeight="600">Errore: {error}</Text>
+            </Card>
+          ) : !calendar ? (
+            <Card padding="$6" alignItems="center">
+              <Text color="$color11" fontSize="$4">
+                Nessun calendario disponibile
+              </Text>
+            </Card>
+          ) : (
+            <YStack gap="$3">
+              <Text fontSize="$3" color="$color11">
+                Visualizzate {calendar.days.length} giornate
+              </Text>
+
+              {calendar.days.map(day => (
+                <DayCard
+                  key={day.serieADay}
+                  day={day}
+                  onToggleDelayed={toggleDelayed}
+                  modifiedGames={modifiedGames}
+                />
+              ))}
+            </YStack>
+          )}
+        </YStack>
+      </ScreenContent>
+    </View>
+  )
+}
+
+// ============================================
+// DAY CARD COMPONENT
+// ============================================
+
+interface DayCardProps {
+  day: RealDay
+  onToggleDelayed: (serieADay: number, gameIndex: number) => void
+  modifiedGames: Set<string>
+}
+
+function DayCard({ day, onToggleDelayed, modifiedGames }: DayCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const delayedCount = day.games.filter(g => g.delayed).length
+  const playedCount = day.games.filter(g => RealCalendarHelper.isGamePlayed(g)).length
+
+  return (
+    <Card
+      padding="$0"
+      backgroundColor="$color2"
+      borderRadius="$4"
+      borderWidth="$0.5"
+      borderColor="$borderColor"
+    >
+      {/* Header - Clickable */}
+      <XStack
+        padding="$4"
+        gap="$3"
+        alignItems="center"
+        justifyContent="space-between"
+        onPress={() => setIsExpanded(!isExpanded)}
+        cursor="pointer"
+        hoverStyle={{ backgroundColor: '$color3' }}
+        pressStyle={{ backgroundColor: '$color4' }}
+      >
+        <YStack gap="$1" flex={1}>
+          <Text fontSize="$5" fontWeight="bold" color="$color12">
+            Giornata {day.serieADay}
+          </Text>
+          <XStack gap="$3" flexWrap="wrap">
+            <Text fontSize="$2" color="$color11">
+              {day.games.length} partite
+            </Text>
+            {playedCount > 0 && (
+              <Text fontSize="$2" color="$green10">
+                • {playedCount} giocate
+              </Text>
+            )}
+            {delayedCount > 0 && (
+              <Text fontSize="$2" color="$orange10" fontWeight="600">
+                • {delayedCount} rinviate
+              </Text>
+            )}
+          </XStack>
+        </YStack>
+
+        <Button size="$2" variant="outlined">
+          {isExpanded ? 'Chiudi' : 'Espandi'}
+        </Button>
+      </XStack>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <YStack padding="$4" paddingTop="$0" gap="$2">
+          <Separator marginBottom="$2" />
+
+          {day.games.map((game, idx) => (
+            <GameRow
+              key={idx}
+              game={game}
+              gameIndex={idx}
+              serieADay={day.serieADay}
+              onToggleDelayed={onToggleDelayed}
+              isModified={modifiedGames.has(`${day.serieADay}-${idx}`)}
+            />
+          ))}
+        </YStack>
+      )}
+    </Card>
+  )
+}
+
+// ============================================
+// GAME ROW COMPONENT
+// ============================================
+
+interface GameRowProps {
+  game: RealGame
+  gameIndex: number
+  serieADay: number
+  onToggleDelayed: (serieADay: number, gameIndex: number) => void
+  isModified: boolean
+}
+
+function GameRow({ game, gameIndex, serieADay, onToggleDelayed, isModified }: GameRowProps) {
+  const isPlayed = RealCalendarHelper.isGamePlayed(game)
+
+  const resultText = isPlayed
+    ? `${game.homeGoals} - ${game.awayGoals}`
+    : game.delayed
+    ? 'RINVIATA'
+    : new Date(game.date).toLocaleDateString('it-IT', { 
+        day: '2-digit', 
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+
+  return (
+    <Card
+      padding="$3"
+      backgroundColor={isModified ? '$yellow2' : '$color1'}
+      borderRadius="$3"
+      borderWidth="$0.5"
+      borderColor={isModified ? '$yellow7' : game.delayed ? '$orange7' : '$borderColor'}
+    >
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        {/* Teams */}
+        <YStack flex={1} gap="$1">
+          <XStack alignItems="center" gap="$2">
+            <Text fontSize="$3" fontWeight="600" color="$color12">
+              {game.home.name}
+            </Text>
+            {isPlayed && (
+              <Text fontSize="$3" fontWeight="bold" color="$blue10">
+                {game.homeGoals}
+              </Text>
+            )}
+          </XStack>
+          <XStack alignItems="center" gap="$2">
+            <Text fontSize="$3" fontWeight="600" color="$color12">
+              {game.away.name}
+            </Text>
+            {isPlayed && (
+              <Text fontSize="$3" fontWeight="bold" color="$blue10">
+                {game.awayGoals}
+              </Text>
+            )}
+          </XStack>
+        </YStack>
+
+        {/* Status */}
+        <YStack gap="$1" alignItems="center" minWidth={100}>
+          <Text 
+            fontSize="$2" 
+            color={game.delayed ? '$orange11' : isPlayed ? '$green11' : '$color11'}
+            fontWeight="600"
+          >
+            {resultText}
+          </Text>
+          {isModified && (
+            <Text fontSize="$1" color="$yellow11">
+              ⚠️ Modificata
+            </Text>
+          )}
+        </YStack>
+
+        {/* Toggle Button */}
+        <Button
+          size="$2"
+          variant="outlined"
+          borderColor={game.delayed ? '$orange8' : '$green8'}
+          backgroundColor={game.delayed ? '$orange2' : '$green2'}
+          onPress={() => onToggleDelayed(serieADay, gameIndex)}
+          disabled={isPlayed}
+        >
+          <Text
+            fontSize="$2"
+            color={game.delayed ? '$orange11' : '$green11'}
+            fontWeight="600"
+          >
+            {game.delayed ? 'Non Rinviata' : 'Rinvia'}
+          </Text>
+        </Button>
+      </XStack>
+    </Card>
+  )
+}

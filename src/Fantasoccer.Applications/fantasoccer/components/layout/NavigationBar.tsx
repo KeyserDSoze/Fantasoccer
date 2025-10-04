@@ -145,6 +145,7 @@ const superAdminItems: NavigationSection[] = [
       { type: 'link', path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
       { type: 'route', route: 'Users', label: 'Gestione Utenti', icon: Users, description: 'Visualizza tutti gli utenti e i loro gruppi' },
       { type: 'route', route: 'Logs', label: 'Log di Piattaforma', icon: PlayCircle, description: 'Log e errori delle ultime 24 ore per job' },
+      { type: 'route', route: 'SerieAAdmin', label: 'Gestione Serie A', icon: Calendar, description: 'Gestisci partite rinviate nel calendario Serie A' },
     ],
   },
 ]

@@ -127,6 +127,81 @@ export class SerieAService {
     const currentYear = new Date().getFullYear();
     return [currentYear, currentYear - 1, currentYear - 2];
   }
+
+  /**
+   * Update a game's delayed status in the calendar
+   * @param year - Calendar year
+   * @param serieADay - Day number in Serie A calendar
+   * @param gameIndex - Index of the game in the day's games array
+   * @param delayed - New delayed status
+   * @returns Updated calendar or null if error
+   */
+  async updateGameDelayed(
+    year: number,
+    serieADay: number,
+    gameIndex: number,
+    delayed: boolean
+  ): Promise<RealCalendar | null> {
+    try {
+      // Get current calendar
+      const calendar = await this.getCalendarByYear(year);
+      
+      if (!calendar) {
+        console.error('Calendar not found for year:', year);
+        return null;
+      }
+
+      // Find the day
+      const day = calendar.days.find(d => d.serieADay === serieADay);
+      
+      if (!day) {
+        console.error('Day not found:', serieADay);
+        return null;
+      }
+
+      // Validate game index
+      if (gameIndex < 0 || gameIndex >= day.games.length) {
+        console.error('Invalid game index:', gameIndex);
+        return null;
+      }
+
+      // Update the game's delayed status
+      day.games[gameIndex].delayed = delayed;
+
+      // Convert back to raw format for update
+      const rawCalendar: RealCalendarRaw = {
+        y: calendar.year,
+        d: calendar.days.map(d => ({
+          y: d.year,
+          a: d.serieADay,
+          g: d.games.map(g => ({
+            h: { n: g.home.name, a: g.home.abbreviation },
+            a: { n: g.away.name, a: g.away.abbreviation },
+            d: g.date.toISOString() as any,
+            g: g.homeGoals,
+            y: g.awayGoals,
+            e: g.delayed
+          }))
+        }))
+      };
+
+      // Update the calendar in the repository
+      const repository = RepositoryServices
+        .Repository<RealCalendarRaw, number>("RealCalendar");
+      
+      const updateResult = await repository.update(year, rawCalendar);
+      
+      if (updateResult && 'value' in updateResult) {
+        console.log(`Game updated: ${day.games[gameIndex].home.name} vs ${day.games[gameIndex].away.name} - Delayed: ${delayed}`);
+        return mapRawCalendarToCalendar(updateResult.value as RealCalendarRaw);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error updating game delayed status:', error);
+      return null;
+    }
+  }
 }
 
 // Export singleton instance

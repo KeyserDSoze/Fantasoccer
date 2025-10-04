@@ -16,6 +16,7 @@ import HallOfFameScreen from 'screens/hall-of-fame';
 import RulesScreen from 'screens/rules';
 import UsersScreen from 'screens/users';
 import LogsScreen from 'screens/logs';
+import SerieAAdminScreen from 'screens/serie-a-admin';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -48,6 +49,7 @@ export type RootStackParamList = {
   Rules: undefined;
   Users: undefined;
   Logs: undefined;
+  SerieAAdmin: undefined;
   Settings: undefined;
 };
 
@@ -84,6 +86,7 @@ const linking = {
       Rules: 'rules',
       Users: 'users',
       Logs: 'logs',
+      SerieAAdmin: 'serie-a-admin',
       Settings: 'settings',
     },
   },
@@ -124,6 +127,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="Rules" component={RulesScreen} />
         <Stack.Screen name="Users" component={UsersScreen} />
         <Stack.Screen name="Logs" component={LogsScreen} />
+        <Stack.Screen name="SerieAAdmin" component={SerieAAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
