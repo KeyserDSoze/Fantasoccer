@@ -38,10 +38,6 @@ import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
-import { calendarService } from '../../services/calendarService'
-import { serieAService } from '../../services/serieAService'
-import type { CalendarGame } from '../../types/calendar'
-import { RealCalendarHelper } from '../../types/serieA'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -100,7 +96,7 @@ const navigationItems: NavigationSection[] = [
   {
     section: 'Lega',
     items: [
-      { type: 'link', path: '/my-team', label: 'La mia formazione', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
+      { type: 'route', route: 'Edit', label: 'La mia formazione', icon: Users, description: 'Gestisci la formazione per il turno attuale' },
       { type: 'route', route: 'Teams', label: 'Le squadre', icon: Users, description: 'Tutte le squadre della tua lega' },
     ],
   },
@@ -202,12 +198,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
 
   // Handle navigation
   const handleNavigate = async (item: NavigationItem) => {
-    // Gestione speciale per My Team
-    if (item.type === 'link' && item.path === '/my-team') {
-      await handleMyTeamNavigation()
-      return
-    }
-
     if (item.type === 'route') {
       ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
     } else if (onNavigate) {
@@ -216,123 +206,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       console.warn(`NavigationBar: no navigation handler provided for path "${item.path}"`)
     }
     setIsOpen(false)
-  }
-
-  // Gestisce la navigazione verso "My Team" trovando la prossima partita dell'utente
-  const handleMyTeamNavigation = async () => {
-    // Verifica prerequisiti
-    if (!currentGroup?.id || !selectedLeagueId || !selectedYear || !user?.email) {
-      toast.show('ℹ️ Seleziona un gruppo, una lega e un anno per visualizzare la tua squadra', {
-        variant: 'warning'
-      })
-      setIsOpen(false)
-      return
-    }
-
-    try {
-      // 1. Carica il calendario della Serie A per determinare la giornata attuale/prossima
-      const serieACalendar = await serieAService.getEnhancedCalendarByYear(selectedYear)
-      
-      if (!serieACalendar) {
-        toast.show('⚠️ Non è stato possibile caricare il calendario della Serie A', {
-          variant: 'error'
-        })
-        setIsOpen(false)
-        return
-      }
-
-      // 2. Determina quale giornata di Serie A è attualmente in corso o prossima
-      const nextDay = serieACalendar.nextDay
-      const lastDay = serieACalendar.lastDay
-      
-      // Usa liveDay se disponibile, altrimenti nextDay, altrimenti lastDay
-      const targetSerieADay = nextDay?.serieADay ?? lastDay?.serieADay
-
-      if (!targetSerieADay) {
-        toast.show('⚠️ Nessuna giornata di Serie A disponibile', {
-          variant: 'error'
-        })
-        setIsOpen(false)
-        return
-      }
-
-      // 3. Carica il calendario della lega
-      const calendar = await calendarService.getCalendarByComponents(
-        currentGroup.id,
-        selectedLeagueId,
-        selectedYear
-      )
-
-      if (!calendar) {
-        toast.show('⚠️ Non è stato possibile caricare il calendario della lega', {
-          variant: 'error'
-        })
-        setIsOpen(false)
-        return
-      }
-
-      // 4. Trova tutte le partite dell'utente (basandosi sull'email come owner)
-      const userEmail = user.email.toLowerCase()
-      const allGames: CalendarGame[] = []
-      
-      for (const roundDays of Object.values(calendar.rounds)) {
-        for (const day of roundDays) {
-          if (day.serieADay !== targetSerieADay) 
-            continue;
-          for (const game of day.games) {
-            if (
-              game.homeOwner.toLowerCase() === userEmail ||
-              game.awayOwner.toLowerCase() === userEmail
-            ) {
-              allGames.push(game)
-            }
-          }
-        }
-      }
-
-      if (allGames.length === 0) {
-        const leagueName = getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'questa lega'
-        const season = getSeasonFromYear(selectedYear)
-        toast.show(`🏟️ Non hai una squadra in ${leagueName} per l'anno ${season}`, {
-          variant: 'warning'
-        })
-        setIsOpen(false)
-        return
-      }
-
-      // 5. Trova la partita corrispondente alla giornata di Serie A target
-      // Priorità: partita della giornata target, altrimenti prima partita senza risultato, altrimenti ultima
-      let targetGame = allGames.find(game => game.number === targetSerieADay)
-      
-      if (!targetGame) {
-        // Se non c'è una partita per quella giornata, cerca la prima senza risultato
-        const sortedGames = allGames.sort((a, b) => a.number - b.number)
-        targetGame = sortedGames.find(game => !game.result) ?? sortedGames[sortedGames.length - 1]
-      }
-
-      if (!targetGame) {
-        toast.show('⚠️ Nessuna partita disponibile', {
-          variant: 'error'
-        })
-        setIsOpen(false)
-        return
-      }
-
-      // 6. Naviga alla partita trovata
-      ;(navigation as any).navigate('Game', {
-        groupId: currentGroup.id,
-        leagueId: selectedLeagueId,
-        year: selectedYear.toString(),
-        gameId: targetGame.id
-      })
-      setIsOpen(false)
-    } catch (error: any) {
-      console.error('Error navigating to my team:', error)
-      toast.show(`❌ Impossibile caricare la prossima partita: ${error?.message || 'Errore sconosciuto'}`, {
-        variant: 'error'
-      })
-      setIsOpen(false)
-    }
   }
 
   // Render navigation section
