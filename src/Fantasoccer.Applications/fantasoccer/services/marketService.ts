@@ -188,7 +188,7 @@ export class MarketService {
   // ============================================
 
   /**
-   * Approve a market
+   * Approve a market (or change vote from deny to approve)
    */
   async approveMarket(
     groupId: string, 
@@ -204,14 +204,13 @@ export class MarketService {
         return false
       }
 
-      // Check if user already voted
-      if (MarketHelper.hasUserVoted(market, userEmail)) {
-        console.warn('User has already voted on this market')
-        return false
-      }
+      // Remove from deniers if present (changing vote)
+      market.deniers = market.deniers.filter(d => d.toLowerCase() !== userEmail.toLowerCase())
 
-      // Add user to approvers
-      market.approvers.push(userEmail)
+      // Add to approvers if not already present
+      if (!market.approvers.some(a => a.toLowerCase() === userEmail.toLowerCase())) {
+        market.approvers.push(userEmail)
+      }
 
       // Update market
       return await this.updateMarket(groupId, year, leagueId, market)
@@ -222,7 +221,7 @@ export class MarketService {
   }
 
   /**
-   * Deny a market
+   * Deny a market (or change vote from approve to deny)
    */
   async denyMarket(
     groupId: string, 
@@ -238,14 +237,13 @@ export class MarketService {
         return false
       }
 
-      // Check if user already voted
-      if (MarketHelper.hasUserVoted(market, userEmail)) {
-        console.warn('User has already voted on this market')
-        return false
-      }
+      // Remove from approvers if present (changing vote)
+      market.approvers = market.approvers.filter(a => a.toLowerCase() !== userEmail.toLowerCase())
 
-      // Add user to deniers
-      market.deniers.push(userEmail)
+      // Add to deniers if not already present
+      if (!market.deniers.some(d => d.toLowerCase() === userEmail.toLowerCase())) {
+        market.deniers.push(userEmail)
+      }
 
       // Update market
       return await this.updateMarket(groupId, year, leagueId, market)

@@ -262,4 +262,49 @@ export class MarketHelper {
   static getCompletedMarkets(markets: Market[]): Market[] {
     return markets.filter(m => MarketStatusHelper.isCompleted(m.status))
   }
+
+  /**
+   * Calculate voting quorum for a market
+   * Returns the minimum number of votes needed (50% + 1 of league size)
+   */
+  static calculateQuorum(leagueSize: number): number {
+    return Math.floor(leagueSize / 2) + 1
+  }
+
+  /**
+   * Check if market has reached approval quorum
+   * @param market - The market to check
+   * @param leagueSize - Total number of teams in the league
+   * @returns true if market has enough approvals
+   */
+  static hasReachedApprovalQuorum(market: Market, leagueSize: number): boolean {
+    const quorum = this.calculateQuorum(leagueSize)
+    return market.approvers.length >= quorum
+  }
+
+  /**
+   * Check if market has reached denial quorum
+   * @param market - The market to check
+   * @param leagueSize - Total number of teams in the league
+   * @returns true if market has enough denials
+   */
+  static hasReachedDenialQuorum(market: Market, leagueSize: number): boolean {
+    const quorum = this.calculateQuorum(leagueSize)
+    return market.deniers.length >= quorum
+  }
+
+  /**
+   * Get user's vote on a market
+   * @returns 'approve', 'deny', or null if not voted
+   */
+  static getUserVote(market: Market, userEmail: string): 'approve' | 'deny' | null {
+    const email = userEmail.toLowerCase()
+    if (market.approvers.some(a => a.toLowerCase() === email)) {
+      return 'approve'
+    }
+    if (market.deniers.some(d => d.toLowerCase() === email)) {
+      return 'deny'
+    }
+    return null
+  }
 }
