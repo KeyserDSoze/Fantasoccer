@@ -9,6 +9,9 @@
     <FluentDataGrid TGridItem="UserOfAGroup" Items="State.SelectedGroup.Users.AsQueryable()">
         <PropertyColumn Property="p => p.Email" />
         <PropertyColumn Property="p => p.Username" />
+        <TemplateColumn Title="Super Admin">
+            <FluentCheckbox Value="@context.Role.HasFlag(IdentityRole.SuperAdmin)" ValueChanged="@((x) => _ = ChangeRole(context, x, IdentityRole.SuperAdmin))" />
+        </TemplateColumn>
         <TemplateColumn Title="Admin">
             <FluentCheckbox Value="@context.Role.HasFlag(IdentityRole.Admin)" ValueChanged="@((x) => _ = ChangeRole(context, x, IdentityRole.Admin))" />
         </TemplateColumn>

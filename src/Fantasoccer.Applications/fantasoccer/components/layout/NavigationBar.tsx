@@ -143,7 +143,7 @@ const superAdminItems: NavigationSection[] = [
     section: 'Super Admin',
     items: [
       { type: 'link', path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
-      { type: 'link', path: '/superadmin/users', label: 'Manage Users', icon: Users, description: 'User management' },
+      { type: 'route', route: 'Users', label: 'Gestione Utenti', icon: Users, description: 'Visualizza tutti gli utenti e i loro gruppi' },
       { type: 'link', path: '/superadmin/logs', label: 'Logs', icon: PlayCircle, description: 'System logs' },
       { type: 'link', path: '/superadmin/errors', label: 'Error Reports', icon: X, description: 'Error tracking' },
     ],
@@ -172,9 +172,10 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   
   // Check user roles for admin sections - find current user's role in current group
   const currentUserInGroup = currentGroup?.users.find(u => u.username === user?.username)
-  const isAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
-  // For now, super admin logic would need backend implementation
+  
   const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
+  const isAdmin = isSuperAdmin || currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
+  // For now, super admin logic would need backend implementation
 
   // Responsive sheet settings
   const snapPointsMode = isDesktop ? 'fit' : 'percent'

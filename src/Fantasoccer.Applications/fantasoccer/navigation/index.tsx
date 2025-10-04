@@ -14,6 +14,7 @@ import MarketScreen from 'screens/market';
 import MarketTradesScreen from 'screens/market-trades';
 import HallOfFameScreen from 'screens/hall-of-fame';
 import RulesScreen from 'screens/rules';
+import UsersScreen from 'screens/users';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   MarketTrades: undefined;
   HallOfFame: undefined;
   Rules: undefined;
+  Users: undefined;
   Settings: undefined;
 };
 
@@ -78,6 +80,7 @@ const linking = {
       MarketTrades: 'market/trades',
       HallOfFame: 'hall-of-fame',
       Rules: 'rules',
+      Users: 'users',
       Settings: 'settings',
     },
   },
@@ -116,6 +119,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="MarketTrades" component={MarketTradesScreen} />
         <Stack.Screen name="HallOfFame" component={HallOfFameScreen} />
         <Stack.Screen name="Rules" component={RulesScreen} />
+        <Stack.Screen name="Users" component={UsersScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
