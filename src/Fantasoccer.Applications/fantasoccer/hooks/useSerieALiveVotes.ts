@@ -72,17 +72,17 @@ export function useSerieALiveVotes({
     }
   }, [liveDay])
 
-  // Effetto per fetch iniziale
+  // Effetto per fetch iniziale - sempre quando c'è un liveDay
   useEffect(() => {
-    if (isLive && liveDay) {
+    if (liveDay) {
       void fetchVotes()
     } else {
       setVotes(null)
       setError(null)
     }
-  }, [isLive, liveDay, fetchVotes])
+  }, [liveDay, fetchVotes])
 
-  // Effetto per polling intelligente
+  // Effetto per polling intelligente - solo durante partite live
   useEffect(() => {
     if (!enablePolling || !isLive || !liveDay) {
       if (intervalRef.current) {

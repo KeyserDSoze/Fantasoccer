@@ -63,18 +63,6 @@ export function SerieALiveWidget({
     lastUpdated
   } = state
 
-  // Hook per i voti live
-  const {
-    votes: liveVotes,
-    isLoading: isVotesLoading,
-    error: votesError,
-    lastUpdated: votesLastUpdated
-  } = useSerieALiveVotes({
-    liveDay,
-    isLive,
-    enablePolling: enablePolling ?? true
-  })
-
   const displayDay = liveDay ?? nextDay ?? null
   const displayGames = displayDay?.games ?? []
   const dayNumber = displayDay?.serieADay ?? (liveSerieADay > 0 ? liveSerieADay : null)
@@ -82,6 +70,18 @@ export function SerieALiveWidget({
   const pendingGamesCount = displayDay
     ? displayDay.games.filter(game => !RealCalendarHelper.isGamePlayed(game) && !game.delayed).length
     : 0
+
+  // Hook per i voti live - sempre attivo quando c'è un displayDay
+  const {
+    votes: liveVotes,
+    isLoading: isVotesLoading,
+    error: votesError,
+    lastUpdated: votesLastUpdated
+  } = useSerieALiveVotes({
+    liveDay: displayDay, // Usa displayDay per mostrare eventi anche se non ci sono partite live
+    isLive,
+    enablePolling: enablePolling ?? true
+  })
 
   const liveGameKeys = useMemo(
     () => new Set((liveGames ?? []).map(buildGameKey)),
