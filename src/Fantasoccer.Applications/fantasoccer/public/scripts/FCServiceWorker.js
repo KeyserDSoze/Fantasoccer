@@ -49,18 +49,21 @@ self.addEventListener('push', (event) => {
   const options = {
     body: value.Body,
     data: value.Data,
-    icon: value.Icon ?? 'https://fantacalcio.xyz/shared/fantaicon.jpg',
-    badge: value.Badge ?? 'https://fantacalcio.xyz/shared/favicon-96x96.png',
+    icon: value.Icon ?? 'https://fanta.zone/favicon.ico',
+    badge: value.Badge ?? 'https://fanta.zone/favicon-96x96.png',
     vibrate: value.Vibrate ?? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
     requireInteraction: value.RequireInteraction ?? false
   }
 
-  event.waitUntil(self.registration.showNotification(value.Title ?? 'Fantasoccer', options))
+  event.waitUntil(self.registration.showNotification(value.Title ?? 'FantaZone', options))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = event.notification.data?.Uri ?? event.notification.data?.url
+  if (target.includes("fantacalcio.xyz")){
+    target = target.replace("fantacalcio.xyz", "fanta.zone")
+  }
   if (!target) {
     return
   }

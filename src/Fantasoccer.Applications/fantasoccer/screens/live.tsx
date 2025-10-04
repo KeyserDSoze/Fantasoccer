@@ -165,6 +165,19 @@ export default function LiveScreen() {
     ? `Serie A giornata ${selectedLiveLeague.rank.serieADay}`
     : null
 
+  // Extract the latest year from the group's baskets
+  const liveYear = useMemo(() => {
+    if (!currentGroup?.baskets) {
+      return null
+    }
+
+    const allYears = currentGroup.baskets
+      .flatMap(basket => basket.years?.map(y => y.year) ?? [])
+      .filter(year => year != null)
+
+    return allYears.length > 0 ? Math.max(...allYears) : null
+  }, [currentGroup])
+
   const handleLeagueSelect = useCallback(
     (leagueId: string) => {
       setLocalLeagueId(leagueId)
@@ -324,6 +337,9 @@ export default function LiveScreen() {
                     loadingMessage="Caricamento calendario live..."
                     refreshLabel="Aggiorna live"
                     errorActionLabel="Riprova"
+                    groupId={groupId}
+                    leagueId={localLeagueId}
+                    year={liveYear}
                   />
                 </YStack>
                 <YStack flex={1} minWidth={0} gap="$4">
@@ -366,6 +382,9 @@ export default function LiveScreen() {
                   loadingMessage="Caricamento calendario live..."
                   refreshLabel="Aggiorna live"
                   errorActionLabel="Riprova"
+                  groupId={groupId}
+                  leagueId={localLeagueId}
+                  year={liveYear}
                 />
 
                 <LeagueRankingWidget
