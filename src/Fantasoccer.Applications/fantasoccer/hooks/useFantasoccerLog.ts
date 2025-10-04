@@ -78,17 +78,7 @@ export function useAllLogs(options: UseAllLogsOptions = {}): UseAllLogsResult {
     setError(null)
 
     try {
-      let result: FantasoccerLog[]
-
-      // Fetch based on filter
-      if (filterErrors === true) {
-        result = await fantasoccerLogService.getErrorLogs()
-      } else if (filterErrors === false) {
-        result = await fantasoccerLogService.getInfoLogs()
-      } else {
-        result = await fantasoccerLogService.getAllLogs()
-      }
-
+      let result = await fantasoccerLogService.getAllLogs()
       // Apply limit if specified
       if (limit && limit > 0) {
         result = result.slice(0, limit)

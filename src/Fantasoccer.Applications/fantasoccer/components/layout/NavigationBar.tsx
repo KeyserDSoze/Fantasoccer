@@ -144,8 +144,7 @@ const superAdminItems: NavigationSection[] = [
     items: [
       { type: 'link', path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
       { type: 'route', route: 'Users', label: 'Gestione Utenti', icon: Users, description: 'Visualizza tutti gli utenti e i loro gruppi' },
-      { type: 'link', path: '/superadmin/logs', label: 'Logs', icon: PlayCircle, description: 'System logs' },
-      { type: 'link', path: '/superadmin/errors', label: 'Error Reports', icon: X, description: 'Error tracking' },
+      { type: 'route', route: 'Logs', label: 'Log di Piattaforma', icon: PlayCircle, description: 'Log e errori delle ultime 24 ore per job' },
     ],
   },
 ]

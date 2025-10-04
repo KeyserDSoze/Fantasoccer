@@ -6,11 +6,11 @@
  * Raw interface - matches C# FantasoccerLog structure exactly
  */
 export interface FantasoccerLogRaw {
-  PrimaryKey: string
-  SecondaryKey: string
-  Timestamp: string // ISO date string from backend
-  Message: string
-  Error: string
+  primaryKey?: string
+  secondaryKey?: string
+  timestamp?: string // ISO date string from backend
+  message?: string
+  error?: string | null // Can be null from backend
 }
 
 /**
@@ -34,11 +34,13 @@ export interface FantasoccerLog {
  */
 export const mapFantasoccerLog = (raw: FantasoccerLogRaw): FantasoccerLog => {
   return {
-    primaryKey: raw.PrimaryKey,
-    secondaryKey: raw.SecondaryKey,
-    timestamp: new Date(raw.Timestamp),
-    message: raw.Message,
-    error: raw.Error,
+    primaryKey: raw.primaryKey || '',
+    secondaryKey: raw.secondaryKey || '',
+    timestamp: raw.timestamp && raw.timestamp !== '0001-01-01T00:00:00' 
+      ? new Date(raw.timestamp) 
+      : new Date(),
+    message: raw.message || '',
+    error: raw.error || '',
     raw
   }
 }
@@ -48,11 +50,11 @@ export const mapFantasoccerLog = (raw: FantasoccerLogRaw): FantasoccerLog => {
  */
 export const mapFantasoccerLogToRaw = (log: FantasoccerLog): FantasoccerLogRaw => {
   return {
-    PrimaryKey: log.primaryKey,
-    SecondaryKey: log.secondaryKey,
-    Timestamp: log.timestamp.toISOString(),
-    Message: log.message,
-    Error: log.error
+    primaryKey: log.primaryKey,
+    secondaryKey: log.secondaryKey,
+    timestamp: log.timestamp.toISOString(),
+    message: log.message,
+    error: log.error
   }
 }
 
