@@ -555,6 +555,8 @@ type LiveEventRowProps = {
 
 function LiveEventRow({ player }: LiveEventRowProps) {
   const vote = player.vote
+  const media = useMedia()
+  const isMobile = !media.gtMd
 
   if (!vote) return null
 
@@ -650,6 +652,66 @@ function LiveEventRow({ player }: LiveEventRowProps) {
 
   if (events.length === 0) return null
 
+  // Layout mobile: verticale con nome sopra e eventi sotto
+  if (isMobile) {
+    return (
+      <Card
+        paddingHorizontal="$2"
+        paddingVertical="$2"
+        backgroundColor="$color1"
+        borderRadius="$3"
+        borderWidth="$0.25"
+        borderColor="$color3"
+      >
+        <YStack gap="$2">
+          {/* Nome giocatore */}
+          <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
+            {player.name}
+          </Text>
+
+          {/* Eventi e voto */}
+          <XStack alignItems="center" justifyContent="space-between" gap="$2">
+            {/* Eventi */}
+            <XStack gap="$1.5" flexWrap="wrap" flex={1}>
+              {events.map((event, index) => (
+                <XStack
+                  key={`${player.name}-event-${index}`}
+                  alignItems="center"
+                  gap="$1"
+                  paddingHorizontal="$2"
+                  paddingVertical="$1"
+                  borderRadius="$2"
+                  backgroundColor="$color2"
+                >
+                  {event.icon}
+                  <Text fontSize="$2" fontWeight="600" color={event.color}>
+                    {event.count > 1 ? event.count : ''}
+                  </Text>
+                </XStack>
+              ))}
+            </XStack>
+
+            {/* Vote badge */}
+            <YStack
+              minWidth={44}
+              paddingHorizontal="$2"
+              paddingVertical="$1"
+              borderRadius="$2"
+              backgroundColor={vote.isFinal ? '$green10' : '$orange10'}
+              alignItems="center"
+              flexShrink={0}
+            >
+              <Text fontSize="$4" fontWeight="800" color="#fff">
+                {vote.value.toFixed(1)}
+              </Text>
+            </YStack>
+          </XStack>
+        </YStack>
+      </Card>
+    )
+  }
+
+  // Layout desktop: orizzontale senza nome squadra
   return (
     <Card
       paddingHorizontal="$3"
@@ -660,29 +722,10 @@ function LiveEventRow({ player }: LiveEventRowProps) {
       borderColor="$color3"
     >
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        {/* Player info */}
-        <YStack flex={1} gap="$1">
-          <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
-            {player.name}
-          </Text>
-          <Text fontSize="$2" color="$color10">
-            {player.realTeam.name}
-          </Text>
-        </YStack>
-
-        {/* Vote badge */}
-        <YStack
-          minWidth={48}
-          paddingHorizontal="$2"
-          paddingVertical="$1"
-          borderRadius="$2"
-          backgroundColor={vote.isFinal ? '$green10' : '$orange10'}
-          alignItems="center"
-        >
-          <Text fontSize="$4" fontWeight="800" color="#fff">
-            {vote.value.toFixed(1)}
-          </Text>
-        </YStack>
+        {/* Player name only */}
+        <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1} flex={1}>
+          {player.name}
+        </Text>
 
         {/* Events */}
         <XStack gap="$2" flexWrap="wrap" maxWidth={200} justifyContent="flex-end">
@@ -703,6 +746,21 @@ function LiveEventRow({ player }: LiveEventRowProps) {
             </XStack>
           ))}
         </XStack>
+
+        {/* Vote badge */}
+        <YStack
+          minWidth={48}
+          paddingHorizontal="$2"
+          paddingVertical="$1"
+          borderRadius="$2"
+          backgroundColor={vote.isFinal ? '$green10' : '$orange10'}
+          alignItems="center"
+          flexShrink={0}
+        >
+          <Text fontSize="$4" fontWeight="800" color="#fff">
+            {vote.value.toFixed(1)}
+          </Text>
+        </YStack>
       </XStack>
     </Card>
   )
