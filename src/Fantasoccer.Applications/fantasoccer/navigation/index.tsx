@@ -17,6 +17,7 @@ import RulesScreen from 'screens/rules';
 import UsersScreen from 'screens/users';
 import LogsScreen from 'screens/logs';
 import SerieAAdminScreen from 'screens/serie-a-admin';
+import GroupUsersAdminScreen from 'screens/group-users-admin';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -50,6 +51,7 @@ export type RootStackParamList = {
   Users: undefined;
   Logs: undefined;
   SerieAAdmin: undefined;
+  GroupUsersAdmin: undefined;
   Settings: undefined;
 };
 
@@ -87,6 +89,7 @@ const linking = {
       Users: 'users',
       Logs: 'logs',
       SerieAAdmin: 'serie-a-admin',
+      GroupUsersAdmin: 'group-users-admin',
       Settings: 'settings',
     },
   },
@@ -128,6 +131,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="Users" component={UsersScreen} />
         <Stack.Screen name="Logs" component={LogsScreen} />
         <Stack.Screen name="SerieAAdmin" component={SerieAAdminScreen} />
+        <Stack.Screen name="GroupUsersAdmin" component={GroupUsersAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>

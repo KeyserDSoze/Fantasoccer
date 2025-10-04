@@ -4,7 +4,8 @@ import { tokenStorageService } from './tokenStorageService'
 import { 
   Group, 
   GroupRaw, 
-  mapRawGroupToGroup, 
+  mapRawGroupToGroup,
+  mapGroupToRaw,
   enhanceGroup, 
   EnhancedGroup,
   AnnualLeague,
@@ -56,6 +57,34 @@ export class GroupService {
     }
 
     return enhanceGroup(group)
+  }
+
+  /**
+   * Update a group
+   * @param groupId - Group ID
+   * @param group - Updated group object
+   */
+  async updateGroup(groupId: string, group: Group): Promise<Group | null> {
+    try {
+      const repository = RepositoryServices
+        .Repository<GroupRaw, string>("Group")
+      
+      // Map clean interface back to raw format
+      const rawGroup = mapGroupToRaw(group)
+      
+      // Update the group
+      const result = await repository.update(groupId, rawGroup)
+      
+      if (result && 'value' in result) {
+        // Return the updated group
+        return mapRawGroupToGroup((result as any).value as GroupRaw)
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Error updating group:', error)
+      return null
+    }
   }
 
   /**

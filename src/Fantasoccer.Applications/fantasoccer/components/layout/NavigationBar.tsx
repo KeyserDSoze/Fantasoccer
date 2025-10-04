@@ -22,6 +22,7 @@ import {
   Zap,
   Users,
   UserCheck,
+  UserCog,
   DollarSign,
   Star,
   Settings,
@@ -88,7 +89,7 @@ const navigationItems: NavigationSection[] = [
   {
     section: 'Main',
     items: [
-      { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Serie A matches of current round' },
+      { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Classifica e giornata di Serie A' },
       { type: 'route', route: 'Ranking', label: 'Classifica', icon: Trophy, description: 'Classifica della tua lega' },
       { type: 'route', route: 'Calendar', label: 'Calendario', icon: Calendar, description: 'Calendario della lega' },
       { type: 'route', route: 'Live', label: 'Live', icon: Zap, description: 'Calendario e risultati in tempo reale' },
@@ -139,6 +140,12 @@ const adminItems: NavigationSection[] = [
 
 // Super Admin items (shown only to super admins)
 const superAdminItems: NavigationSection[] = [
+  {
+    section: 'Group Admin',
+    items: [
+      { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti Gruppo', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
+    ],
+  },
   {
     section: 'Super Admin',
     items: [

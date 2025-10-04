@@ -345,6 +345,123 @@ export function mapRawGroupToGroup(raw: GroupRaw): Group {
 }
 
 // ============================================
+// REVERSE MAPPING FUNCTIONS (for updates)
+// ============================================
+
+export function mapUserOfAGroupToRaw(user: UserOfAGroup): UserOfAGroupRaw {
+  return {
+    u: user.username,
+    e: user.email,
+    r: user.role
+  }
+}
+
+export function mapAnnualTeamToRaw(team: AnnualTeam): AnnualTeamRaw {
+  return {
+    n: team.name,
+    o: team.owner,
+    a: team.additionalOwners
+  }
+}
+
+export function mapYearlyBasketToRaw(yearlyBasket: YearlyBasket): YearlyBasketRaw {
+  return {
+    y: yearlyBasket.year,
+    t: yearlyBasket.teams.map(mapAnnualTeamToRaw)
+  }
+}
+
+export function mapBasketToRaw(basket: Basket): BasketRaw {
+  return {
+    i: basket.id,
+    n: basket.name,
+    y: basket.years.map(mapYearlyBasketToRaw)
+  }
+}
+
+export function mapVoteLeagueSettingToRaw(setting: VoteLeagueSetting): VoteLeagueSettingRaw {
+  return {
+    g: setting.goal,
+    p: setting.penalty,
+    s: setting.sufferedGoal,
+    d: setting.stoppedPenalty,
+    w: setting.wrongedPenalty,
+    o: setting.ownGoal,
+    a: setting.assist,
+    y: setting.yellowCard,
+    r: setting.redCard,
+    j: setting.injury,
+    m: setting.manOfTheMatch
+  }
+}
+
+export function mapLeagueSettingToRaw(setting: LeagueSetting): LeagueSettingRaw {
+  const votes: Record<number, VoteLeagueSettingRaw> = {}
+  if (setting.votes) {
+    for (const [roleKey, voteSetting] of Object.entries(setting.votes)) {
+      const role = parseInt(roleKey) as Role
+      if (voteSetting) {
+        votes[role] = mapVoteLeagueSettingToRaw(voteSetting)
+      }
+    }
+  }
+
+  return {
+    v: votes,
+    s: setting.startingMoney,
+    d: setting.delayedDay,
+    c: setting.cancelledDay,
+    g: setting.pointForFirstGoal,
+    t: setting.pointForNextGoal,
+    o: setting.pointForOwnGoal,
+    f: setting.differencePointForOwnGoal,
+    p: setting.pointInHome,
+    a: setting.pointForVictory,
+    b: setting.pointForDefeat,
+    h: setting.pointForDraw,
+    "3": setting.pointForStrongDefense,
+    "4": setting.pointForStrongDefense4,
+    "5": setting.pointForStrongDefense5,
+    gp: setting.pointForGoodPeople,
+    l: setting.pointForCleanSheet,
+    m: setting.moneyForGoal,
+    n: setting.moneyForSufferedGoal,
+    q: setting.randomAuction,
+    vp: setting.rankWithValuePoints,
+    mk: setting.market
+  }
+}
+
+export function mapAnnualLeagueToRaw(annualLeague: AnnualLeague): AnnualLeagueRaw {
+  return {
+    y: annualLeague.year,
+    t: annualLeague.type,
+    s: mapLeagueSettingToRaw(annualLeague.settings)
+  }
+}
+
+export function mapLeagueToRaw(league: League): LeagueRaw {
+  return {
+    i: league.id,
+    n: league.name,
+    m: league.isMain,
+    t: league.type,
+    y: league.years.map(mapAnnualLeagueToRaw),
+    b: league.basketsId
+  }
+}
+
+export function mapGroupToRaw(group: Group): GroupRaw {
+  return {
+    i: group.id,
+    n: group.name,
+    l: group.leagues.map(mapLeagueToRaw),
+    u: group.users.map(mapUserOfAGroupToRaw),
+    b: group.baskets.map(mapBasketToRaw)
+  }
+}
+
+// ============================================
 // HELPER FUNCTIONS (matching C# computed properties)
 // ============================================
 
