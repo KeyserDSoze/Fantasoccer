@@ -4,7 +4,6 @@ using Fantasoccer.Application.Shared.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 await builder.ConfigureServicesAsync();
 
-
 var app = builder.Build();
 await app.ConfigureMiddlewaresAsync();
 app.MapRazorComponents<App>()
