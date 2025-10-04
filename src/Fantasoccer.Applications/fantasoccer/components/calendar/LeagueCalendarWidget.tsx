@@ -30,6 +30,10 @@ export type LeagueCalendarWidgetProps = {
   loadingMessage?: string
   refreshLabel?: string
   errorActionLabel?: string
+  // Navigation parameters (optional, fallback to global context if not provided)
+  groupId?: string | null
+  leagueId?: string | null
+  year?: number | null
 }
 
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare il calendario.'
@@ -38,7 +42,13 @@ const defaultLoadingMessage = 'Caricamento calendario...'
 const defaultRefreshLabel = 'Aggiorna calendario'
 const defaultErrorActionLabel = 'Riprova'
 
-const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumber }) => {
+const GameRow: FC<{ 
+  game: CalendarGame
+  dayNumber?: number
+  groupId?: string | null
+  leagueId?: string | null
+  year?: number | null
+}> = ({ game, dayNumber, groupId: propGroupId, leagueId: propLeagueId, year: propYear }) => {
   let hasResult = Boolean(game.result)
   const homeGoals = game.result?.homeGoals ?? '—'
   const awayGoals = game.result?.awayGoals ?? '—'
@@ -50,12 +60,21 @@ const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumb
   const isCancelled = game.result?.isCancelled ?? false
   const { group: currentGroup } = useCurrentGroup()
   const { selectedYear, selectedLeagueId } = useApp()
-  const group = currentGroup?.id ?? null
-  const year = selectedYear ?? null
+  
+  // Use props if provided, otherwise fallback to global context
+  const group = propGroupId ?? currentGroup?.id ?? null
+  const leagueId = propLeagueId ?? selectedLeagueId ?? null
+  const year = propYear ?? selectedYear ?? null
+  
   const navigation = useNavigation()
 
   const onPress = () => {
-    navigation.navigate("Game", { gameId: game.id, leagueId: selectedLeagueId, year: selectedYear?.toString(), groupId: group })
+    navigation.navigate("Game", { 
+      gameId: game.id, 
+      leagueId: leagueId, 
+      year: year?.toString(), 
+      groupId: group 
+    })
   }
 
   return (
@@ -93,7 +112,12 @@ const GameRow: FC<{ game: CalendarGame, dayNumber?: number }> = ({ game, dayNumb
   )
 }
 
-const DayCard: FC<{ day: CalendarDay }> = ({ day }) => (
+const DayCard: FC<{ 
+  day: CalendarDay
+  groupId?: string | null
+  leagueId?: string | null
+  year?: number | null
+}> = ({ day, groupId, leagueId, year }) => (
   <Card
     padding="$3"
     backgroundColor="$color2"
@@ -131,7 +155,13 @@ const DayCard: FC<{ day: CalendarDay }> = ({ day }) => (
           borderWidth="$0.25"
           borderColor="$color3"
         >
-          <GameRow game={game} dayNumber={day.number} />
+          <GameRow 
+            game={game} 
+            dayNumber={day.number}
+            groupId={groupId}
+            leagueId={leagueId}
+            year={year}
+          />
         </Card>
       ))}
     </YStack>
@@ -153,6 +183,9 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   loadingMessage = defaultLoadingMessage,
   refreshLabel = defaultRefreshLabel,
   errorActionLabel = defaultErrorActionLabel,
+  groupId,
+  leagueId,
+  year,
 }) => {
   const showSelectionIncomplete = Boolean(isSelectionIncomplete)
   const showError = Boolean(error)
@@ -259,7 +292,13 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
               alignItems="stretch"
             >
               {rowDays.map((day) => (
-                <DayCard key={day.number} day={day} />
+                <DayCard 
+                  key={day.number} 
+                  day={day}
+                  groupId={groupId}
+                  leagueId={leagueId}
+                  year={year}
+                />
               ))}
             </XStack>
           ))}
