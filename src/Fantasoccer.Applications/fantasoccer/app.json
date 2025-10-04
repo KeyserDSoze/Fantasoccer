@@ -9,7 +9,7 @@
       "android",
       "web"
     ],
-    "icon": "./assets/android-chrome-512x512.png",
+    "icon": "/android-chrome-512x512.png",
     "userInterfaceStyle": "dark",
     "web": {
       "favicon": "/favicon-32x32.png",

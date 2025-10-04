@@ -5,7 +5,7 @@ Panoramica delle azioni da completare per avere notifiche push funzionanti in tu
 ## 📍 Prerequisiti comuni
 
 - **Endpoint backend**: il servizio REST `PushNotificationSettings` deve accettare le subscription Web Push (endpoint, p256dh, auth) e gestire la rimozione.
-- **Chiave VAPID pubblica**: attualmente è definita nel client (`webPushClient.ts`) e nel service worker (`public/scripts/FCServiceWorker.js`). Portarla in una variabile di configurazione condivisa (es. `EXPO_PUBLIC_WEB_PUSH_KEY`) e propagarla al service worker.
+- **Chiave VAPID pubblica**: attualmente è definita nel client (`webPushClient.ts`) e nel service worker (`public/FCServiceWorker.js`). Portarla in una variabile di configurazione condivisa (es. `EXPO_PUBLIC_WEB_PUSH_KEY`) e propagarla al service worker.
 - **Autenticazione**: il servizio `pushNotificationService` utilizza l'e-mail dell'utente ricavata tramite `tokenStorageService`/`authService`. Assicurarsi che il token contenga il claim `email`.
 
 ## 🌐 Web (desktop + mobile browser)

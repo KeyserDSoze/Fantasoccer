@@ -1,7 +1,7 @@
 import { Platform } from 'react-native'
 import { PushSubscription } from 'types/pushNotification'
 
-const SERVICE_WORKER_PATH = '/scripts/FCServiceWorker.js'
+const SERVICE_WORKER_PATH = '/FCServiceWorker.js'
 const APPLICATION_SERVER_PUBLIC_KEY = 'BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8'
 
 const base64ToUint8Array = (base64String: string): Uint8Array => {
