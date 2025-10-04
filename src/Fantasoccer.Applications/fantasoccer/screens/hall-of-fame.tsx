@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { View, Pressable } from 'react-native'
 import {
   YStack,
@@ -25,6 +25,7 @@ import {
   Target,
 } from '@tamagui/lucide-icons'
 import { ScreenContent } from 'components/layout/ScreenContent'
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { useHallOfFame } from 'hooks/useHallOfFame'
 import { RankedTeam, WinningTeam, WinningPlayer, HallOfFameHelper } from 'types/hallOfFame'
@@ -66,14 +67,33 @@ const getRoleColor = (role: string): string => {
 }
 
 export default function HallOfFameScreen() {
-  const { currentGroup, selectedLeagueId } = useApp()
+  const { currentGroup, selectedLeagueId, getAvailableLeagues } = useApp()
   const navigation = useNavigation<NavigationProp>()
   const media = useMedia()
   const containerWidth = media.gtMd ? 1200 : '100%'
 
+  // Local state for league selection (doesn't affect app state)
+  const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId)
+
+  // Sync with app state when it changes
+  useEffect(() => {
+    setLocalLeagueId(selectedLeagueId ?? null)
+  }, [selectedLeagueId])
+
+  // Get available leagues
+  const availableLeagues = getAvailableLeagues()
+  const selectedLeague = availableLeagues.find((league) => league.id === localLeagueId) ?? null
+  const leagueOptions = useMemo(
+    () => availableLeagues.map((league) => ({ id: league.id, name: league.name, isMain: league.isMain })),
+    [availableLeagues]
+  )
+
+  const hasMultipleLeagues = availableLeagues.length > 1
+  const leagueName = selectedLeague?.name ?? (availableLeagues.length === 1 ? availableLeagues[0]?.name : null)
+
   const { hallOfFame, loading, error, refetch } = useHallOfFame(
     currentGroup?.id ?? null,
-    selectedLeagueId ?? null
+    localLeagueId ?? null
   )
 
   // Sort all-time rankings by points
@@ -122,6 +142,25 @@ export default function HallOfFameScreen() {
           </YStack>
 
           <Separator />
+
+          {/* League Selector */}
+          {hasMultipleLeagues && (
+            <LeagueSelectorsWidget
+              leagues={leagueOptions}
+              selectedLeagueId={localLeagueId}
+              onSelectLeague={(leagueId) => {
+                setLocalLeagueId(leagueId)
+              }}
+              years={[]}
+              selectedYear={null}
+              onSelectYear={() => {}}
+              emptyLeagueLabel={leagueName ?? '—'}
+              rounds={[]}
+              selectedRoundId={null}
+              onSelectRound={() => {}}
+              showRoundSection={false}
+            />
+          )}
 
           {/* Loading */}
           {loading && (
@@ -381,7 +420,7 @@ export default function HallOfFameScreen() {
                           {hallOfFame.recordPlayer.player.name}
                         </Text>
                         <Text fontSize="$3" color="$color10">
-                          {hallOfFame.recordPlayer.player.team}
+                          {hallOfFame.recordPlayer.player.team.name}
                         </Text>
                       </YStack>
                       <YStack alignItems="flex-end">
@@ -414,7 +453,7 @@ export default function HallOfFameScreen() {
                           {hallOfFame.playerWithMostPointsInYear.player.name}
                         </Text>
                         <Text fontSize="$3" color="$color10">
-                          {hallOfFame.playerWithMostPointsInYear.player.team}
+                          {hallOfFame.playerWithMostPointsInYear.player.team.name}
                         </Text>
                         <Text fontSize="$2" color="$blue10" marginTop="$1">
                           Stagione {formatSeasonFromYear(hallOfFame.playerWithMostPointsInYear.year)}
@@ -509,18 +548,24 @@ function WinningTeamRow({ team }: { team: WinningTeam }) {
 
   return (
     <XStack paddingVertical="$2" paddingHorizontal="$3" borderBottomWidth={1} borderBottomColor="$borderColor">
-      <Text fontSize="$3" fontWeight="600" color="$color12" flex={1}>
-        {team.teamName}
-      </Text>
-      <Text fontSize="$3" color="$color11" flex={1}>
-        {team.owner}
-      </Text>
+      <YStack flex={1}>
+        <Text fontSize="$3" fontWeight="600" color="$color12">
+          {team.teamName}
+        </Text>
+      </YStack>
+      <YStack flex={1}>
+        <Text fontSize="$3" color="$color11">
+          {team.owner}
+        </Text>
+      </YStack>
       <Text fontSize="$3" fontWeight="700" color="$green10" width={80} textAlign="center">
         {totalWins}
       </Text>
-      <Text fontSize="$2" color="$color10" flex={2}>
-        {formatYears(allYears)}
-      </Text>
+      <YStack flex={2}>
+        <Text fontSize="$2" color="$color10">
+          {formatYears(allYears)}
+        </Text>
+      </YStack>
     </XStack>
   )
 }
@@ -536,15 +581,19 @@ function WinningPlayerRow({ player }: { player: WinningPlayer }) {
           {player.player.name}
         </Text>
         <Text fontSize="$2" color="$color10">
-          {player.player.team}
+          {player.player.team.name}
         </Text>
       </YStack>
-      <Text fontSize="$3" fontWeight="700" color="$green10" width={80} textAlign="center">
-        {totalWins}
-      </Text>
-      <Text fontSize="$2" color="$color10" flex={2}>
-        {formatYears(allYears)}
-      </Text>
+      <YStack width={80} alignItems="center">
+        <Text fontSize="$3" fontWeight="700" color="$green10" textAlign="center">
+          {totalWins}
+        </Text>
+      </YStack>
+      <YStack flex={2}>
+        <Text fontSize="$2" color="$color10">
+          {formatYears(allYears)}
+        </Text>
+      </YStack>
     </XStack>
   )
 }
