@@ -104,7 +104,6 @@ const navigationItems: NavigationSection[] = [
     section: 'Giocatori',
     items: [
       { type: 'route', route: 'Players', label: 'Tutti i giocatori', icon: UserCheck, description: 'Statistiche complete dei giocatori di Serie A' },
-      { type: 'link', path: '/free-players', label: 'Giocatori liberi', icon: User, description: 'Giocatori disponibili nella tua lega' },
     ],
   },
   {
@@ -113,13 +112,6 @@ const navigationItems: NavigationSection[] = [
       { type: 'link', path: '/market', label: 'Mercato', icon: DollarSign, description: 'Inizia un nuovo scambio' },
       { type: 'link', path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
       { type: 'link', path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
-    ],
-  },
-  {
-    section: 'Serie A',
-    items: [
-      { type: 'link', path: '/seriea/standings', label: 'Classifica Serie A', icon: Trophy, description: 'Classifica ufficiale della Serie A' },
-      { type: 'link', path: '/seriea/calendar', label: 'Calendario Serie A', icon: Calendar, description: 'Calendario ufficiale della Serie A' },
     ],
   },
   {
