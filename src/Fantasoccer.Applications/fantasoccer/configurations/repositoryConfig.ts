@@ -13,6 +13,7 @@ import { GroupRaw } from "types/group";
 import { LiveGroupRaw } from "types/liveGroup";
 import { RankRaw, LeagueKeyRaw, YearDayLeagueRaw } from "types/rank";
 import { TeamRaw, TeamKeyRaw, TeamDayKeyRaw } from "types/team";
+import { HallOfFameRaw, GeneralLeagueKeyRaw } from "types/hallOfFame";
 
 // Repository setup
 export const setupRepositoryServices = () => {
@@ -136,6 +137,13 @@ export const setupRepositoryServices = () => {
     .addRepository<RankRaw, YearDayLeagueRaw>(x => {
       x.name = "Rank/day";
       x.path = "Rank/day";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // HallOfFame (league-wide, all years)
+    .addRepository<HallOfFameRaw, GeneralLeagueKeyRaw>(x => {
+      x.name = "HallOfFame";
+      x.path = "HallOfFame";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     });
