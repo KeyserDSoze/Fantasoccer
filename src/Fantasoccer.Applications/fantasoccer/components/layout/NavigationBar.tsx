@@ -31,6 +31,7 @@ import {
   TrendingUp,
   PlayCircle,
   Gavel,
+  BookOpen,
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
@@ -117,6 +118,7 @@ const navigationItems: NavigationSection[] = [
     section: 'Other',
     items: [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
+      { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'link', path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
       { type: 'route', route: 'Settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
