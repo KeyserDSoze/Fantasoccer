@@ -11,10 +11,9 @@ import { VotedRealPlayerWrapper } from 'types/serieA'
 import { ChancedRealPlayerWrapper } from 'types/chance'
 import { LeagueSetting, LeagueType } from 'types/group'
 import { Point } from 'types/calendar'
+import { VoteValue } from 'types/game'
 
 // Local minimal types to match C# structures used by TeamCalculator
-export interface VoteValue { value: number; special: boolean }
-
 export interface EnrichedPlayerTs {
   current: Player
   vote?: any | null

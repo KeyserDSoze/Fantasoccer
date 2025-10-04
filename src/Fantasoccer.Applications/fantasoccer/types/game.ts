@@ -6,13 +6,20 @@ import { RealGame, RealGameRaw, Vote, VoteRaw, mapRawGameToGame, mapRawVoteToVot
 import { Chance, ChanceRaw, mapRawChanceToChance } from 'types/chance'
 
 // RAW interfaces matching JSON names produced by the C# backend
+
+// Matches C# VoteValue record with [JsonPropertyName] attributes
+export interface VoteValueRaw {
+  v: number   // Value (matches [JsonPropertyName("v")])
+  s: boolean  // Special (matches [JsonPropertyName("s")])
+}
+
 export interface LivePlayerRaw {
   // raw shapes coming from the server
   c: PlayerRaw
   v?: VoteRaw | null
   h?: ChanceRaw | null
   r?: RealGameRaw | null
-  f?: number | null
+  f?: VoteValueRaw | null
   p: FantaSoccerRole
 }
 
@@ -32,12 +39,18 @@ export interface GameWrapperRaw {
 }
 
 // CLEANED interfaces used in the client
+
+export interface VoteValue {
+  value: number
+  special: boolean
+}
+
 export interface LivePlayer {
   current: Player
   vote?: Vote | null
   chance?: Chance | null
   realGame?: RealGame | null
-  finalValue?: number | null
+  finalValue?: VoteValue | null
   currentPosition: FantaSoccerRole
 }
 
@@ -57,12 +70,17 @@ export interface GameWrapper {
 }
 
 // MAPPERS
+export const mapRawVoteValueToVoteValue = (raw: VoteValueRaw): VoteValue => ({
+  value: raw.v,
+  special: raw.s
+})
+
 export const mapRawLivePlayerToLivePlayer = (raw: LivePlayerRaw): LivePlayer => ({
   current: mapRawPlayerToPlayer(raw.c),
   vote: raw.v ? mapRawVoteToVote(raw.v) : undefined,
   chance: raw.h ? mapRawChanceToChance(raw.h) : undefined,
   realGame: raw.r ? mapRawGameToGame(raw.r) : undefined,
-  finalValue: raw.f ?? undefined,
+  finalValue: raw.f ? mapRawVoteValueToVoteValue(raw.f) : undefined,
   currentPosition: raw.p ?? undefined
 })
 

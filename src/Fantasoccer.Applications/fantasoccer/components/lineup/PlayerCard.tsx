@@ -84,7 +84,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const { src, fallback } = useMemo(() => getPlayerImageUrlFromName(current?.name), [current?.name])
   const imageUri = useFallbackImage ? fallback : src
 
-  const voteLabel = vote ? (typeof vote.value === 'number' ? vote.value.toFixed(1) : String(vote.value)) : null
+  const voteLabel = vote ? (typeof vote.value === 'number' ? player.finalValue?.value.toFixed(1) : String(player.finalValue?.value)) : null
 
   // Determina se è durante una partita live per lampeggiamento voti
   const isGameLive = useMemo(() => {
