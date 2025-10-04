@@ -16,6 +16,8 @@ import {
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { serieAService } from 'services/serieAService'
 import { RealCalendar, RealDay, RealGame, RealCalendarHelper } from 'types/serieA'
+import { useApp } from 'providers/AppProvider'
+import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { 
   Calendar as CalendarIcon,
   AlertCircle,
@@ -29,12 +31,26 @@ export default function SerieAAdminScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
 
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-  const [calendar, setCalendar] = useState<RealCalendar | null>(null)
-  const [loading, setLoading] = useState(false)
+  // Use app context for year and calendar
+  const { selectedYear, setSelectedYear } = useApp()
+  const { calendar, isLoading, error: calendarError, refetch } = useSerieACalendar({
+    enablePolling: false // Disable auto-refresh for admin page
+  })
+
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [modifiedGames, setModifiedGames] = useState<Set<string>>(new Set())
+
+  // Local calendar state for modifications (overlay on top of the hook's calendar)
+  const [localCalendar, setLocalCalendar] = useState<RealCalendar | null>(null)
+
+  // Sync local calendar with hook calendar when it changes
+  React.useEffect(() => {
+    if (calendar) {
+      setLocalCalendar(calendar)
+      setModifiedGames(new Set()) // Clear modifications on calendar change
+    }
+  }, [calendar])
 
   // Available years
   const availableYears = useMemo(() => {
@@ -42,44 +58,24 @@ export default function SerieAAdminScreen() {
     return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
   }, [])
 
-  // Load calendar when year changes
-  const loadCalendar = useCallback(async (year: number) => {
-    setLoading(true)
-    setError(null)
-    setModifiedGames(new Set())
-
-    try {
-      const cal = await serieAService.getCalendarByYear(year)
-      if (cal) {
-        setCalendar(cal)
-      } else {
-        setError(`Calendario non disponibile per l'anno ${year}`)
-        setCalendar(null)
-      }
-    } catch (err) {
-      setError(`Errore nel caricamento del calendario: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      setCalendar(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // Load calendar on mount and year change
-  React.useEffect(() => {
-    loadCalendar(selectedYear)
-  }, [selectedYear, loadCalendar])
+  // Handle year change
+  const handleYearChange = useCallback(async (year: number | null) => {
+    if (year === null) return
+    await setSelectedYear(year)
+    // Calendar will auto-reload from hook
+  }, [setSelectedYear])
 
   // Toggle delayed status
   const toggleDelayed = useCallback((serieADay: number, gameIndex: number) => {
-    if (!calendar) return
+    if (!localCalendar) return
 
     // Create modified key
     const key = `${serieADay}-${gameIndex}`
 
     // Update local calendar
     const updatedCalendar: RealCalendar = {
-      ...calendar,
-      days: calendar.days.map(day => {
+      ...localCalendar,
+      days: localCalendar.days.map(day => {
         if (day.serieADay === serieADay) {
           return {
             ...day,
@@ -95,7 +91,7 @@ export default function SerieAAdminScreen() {
       })
     }
 
-    setCalendar(updatedCalendar)
+    setLocalCalendar(updatedCalendar)
 
     // Mark as modified
     setModifiedGames(prev => {
@@ -103,14 +99,14 @@ export default function SerieAAdminScreen() {
       next.add(key)
       return next
     })
-  }, [calendar])
+  }, [localCalendar])
 
   // Save all changes
   const saveChanges = useCallback(async () => {
-    if (!calendar || modifiedGames.size === 0) return
+    if (!localCalendar || !selectedYear || modifiedGames.size === 0) return
 
     setSaving(true)
-    setError(null)
+    setSaveError(null)
 
     try {
       // For each modified game, update it
@@ -119,7 +115,7 @@ export default function SerieAAdminScreen() {
         const serieADay = parseInt(serieADayStr)
         const gameIndex = parseInt(gameIndexStr)
 
-        const day = calendar.days.find(d => d.serieADay === serieADay)
+        const day = localCalendar.days.find(d => d.serieADay === serieADay)
         if (!day) continue
 
         const game = day.games[gameIndex]
@@ -138,24 +134,24 @@ export default function SerieAAdminScreen() {
       setModifiedGames(new Set())
 
       // Reload calendar to ensure consistency
-      await loadCalendar(selectedYear)
+      await refetch()
     } catch (err) {
-      setError(`Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setSaveError(`Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setSaving(false)
     }
-  }, [calendar, modifiedGames, selectedYear, loadCalendar])
+  }, [localCalendar, modifiedGames, selectedYear, refetch])
 
   // Statistics
   const statistics = useMemo(() => {
-    if (!calendar) return { totalGames: 0, delayedGames: 0, playedGames: 0, upcomingGames: 0 }
+    if (!localCalendar) return { totalGames: 0, delayedGames: 0, playedGames: 0, upcomingGames: 0 }
 
     let totalGames = 0
     let delayedGames = 0
     let playedGames = 0
     let upcomingGames = 0
 
-    calendar.days.forEach(day => {
+    localCalendar.days.forEach(day => {
       day.games.forEach(game => {
         totalGames++
         if (game.delayed) delayedGames++
@@ -165,7 +161,7 @@ export default function SerieAAdminScreen() {
     })
 
     return { totalGames, delayedGames, playedGames, upcomingGames }
-  }, [calendar])
+  }, [localCalendar])
 
   return (
     <View style={{ flex: 1 }}>
@@ -199,8 +195,8 @@ export default function SerieAAdminScreen() {
             leagues={[]}
             selectedLeagueId={null}
             years={availableYears}
-            selectedYear={selectedYear}
-            onSelectYear={setSelectedYear}
+            selectedYear={selectedYear ?? new Date().getFullYear()}
+            onSelectYear={handleYearChange}
             formatYearLabel={(year) => `${year}/${year + 1}`}
             yearHint="Seleziona la stagione da gestire"
             showLeagueSection={false}
@@ -226,8 +222,15 @@ export default function SerieAAdminScreen() {
             }
           />
 
+          {/* Save Error */}
+          {saveError && (
+            <Card padding="$3" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">
+              <Text color="$red11" fontWeight="600">Errore di salvataggio: {saveError}</Text>
+            </Card>
+          )}
+
           {/* Statistics */}
-          {calendar && (
+          {localCalendar && (
             <XStack gap="$3" flexWrap="wrap">
               <Card padding="$3" backgroundColor="$color2" flex={1} minWidth={140}>
                 <XStack alignItems="center" gap="$2" marginBottom="$1">
@@ -276,8 +279,8 @@ export default function SerieAAdminScreen() {
             <Button
               size="$3"
               variant="outlined"
-              onPress={() => loadCalendar(selectedYear)}
-              disabled={loading}
+              onPress={() => refetch()}
+              disabled={isLoading}
               icon={<RefreshCw size="$1" />}
             >
               Ricarica
@@ -285,16 +288,16 @@ export default function SerieAAdminScreen() {
           </XStack>
 
           {/* Calendar Content */}
-          {loading ? (
+          {isLoading ? (
             <Card padding="$6" alignItems="center" gap="$3">
               <Spinner size="large" color="$green10" />
               <Text color="$color10">Caricamento calendario...</Text>
             </Card>
-          ) : error ? (
+          ) : calendarError ? (
             <Card padding="$4" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">
-              <Text color="$red11" fontWeight="600">Errore: {error}</Text>
+              <Text color="$red11" fontWeight="600">Errore: {calendarError}</Text>
             </Card>
-          ) : !calendar ? (
+          ) : !localCalendar ? (
             <Card padding="$6" alignItems="center">
               <Text color="$color11" fontSize="$4">
                 Nessun calendario disponibile
@@ -303,10 +306,10 @@ export default function SerieAAdminScreen() {
           ) : (
             <YStack gap="$3">
               <Text fontSize="$3" color="$color11">
-                Visualizzate {calendar.days.length} giornate
+                Visualizzate {localCalendar.days.length} giornate
               </Text>
 
-              {calendar.days.map(day => (
+              {localCalendar.days.map(day => (
                 <DayCard
                   key={day.serieADay}
                   day={day}
