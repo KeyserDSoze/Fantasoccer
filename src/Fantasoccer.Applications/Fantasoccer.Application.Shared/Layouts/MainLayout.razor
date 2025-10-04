@@ -211,7 +211,7 @@
                     var market = await Api.Market.GetAsync(State.LeagueKey);
                     if (market != null)
                     {
-                        activeMarketCounts = market.Markets.Count(x => x.Status == MarketStatus.Pending);
+                        activeMarketCounts = market.Markets?.Count(x => x.Status == MarketStatus.Pending) ?? 0;
                     }
                 }
                 var calendar = await Api.RealCalendar.GetAsync(State.Year);
