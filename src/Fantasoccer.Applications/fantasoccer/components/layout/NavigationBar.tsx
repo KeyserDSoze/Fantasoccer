@@ -109,7 +109,7 @@ const navigationItems: NavigationSection[] = [
   {
     section: 'Mercato',
     items: [
-      { type: 'link', path: '/market', label: 'Mercato', icon: DollarSign, description: 'Inizia un nuovo scambio' },
+      { type: 'route', route: 'Market', label: 'Crea Scambio', icon: DollarSign, description: 'Proponi un nuovo scambio' },
       { type: 'link', path: '/market/trades', label: 'Scambi Attivi', icon: TrendingUp, description: 'Offerte di scambio attive' },
       { type: 'link', path: '/market/trades/history', label: 'Storico Scambi', icon: Calendar, description: 'Scambi passati' },
     ],

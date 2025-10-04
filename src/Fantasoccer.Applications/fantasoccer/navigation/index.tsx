@@ -10,6 +10,7 @@ import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
+import MarketScreen from 'screens/market';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -36,6 +37,7 @@ export type RootStackParamList = {
     year?: string | null;
     groupId?: string | null;
   };
+  Market: undefined;
   Settings: undefined;
 };
 
@@ -66,6 +68,7 @@ const linking = {
       Edit: 'edit',
       Live: 'live',
       Game: 'game/:groupId?/:leagueId?/:year?/:gameId?', // supporta parametri
+      Market: 'market',
       Settings: 'settings',
     },
   },
@@ -100,6 +103,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="Edit" component={EditScreen} />
         <Stack.Screen name="Live" component={LiveScreen} />
         <Stack.Screen name="Game" component={GameScreen} />
+        <Stack.Screen name="Market" component={MarketScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
