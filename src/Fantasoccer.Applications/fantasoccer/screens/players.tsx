@@ -24,10 +24,13 @@ import {
 
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
+import type { LeagueOption } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { useStatPlayers } from 'hooks/useStatPlayers'
 import type { StatPlayer } from 'types/stat'
 import { RoleExtensions } from 'types/group'
+import { teamService } from 'services/teamService'
+import type { Team } from 'types/team'
 
 const formatSeasonFromYear = (yearNumber: number): string => {
   const baseYear = 2011
@@ -57,7 +60,14 @@ type NumericStatKey =
   | 'average'
   | 'fantaAverage'
 
-type ColumnKey = 'name' | 'role' | 'team' | NumericStatKey
+type ColumnKey = 'name' | 'role' | 'team' | 'fantaTeam' | NumericStatKey
+
+type PlayerOwnershipFilter = 'all' | 'owned' | 'free'
+
+type EnhancedStatPlayer = StatPlayer & {
+  fantaTeamOwner?: string
+  fantaTeamName?: string
+}
 
 type SortKey = ColumnKey
 
@@ -71,7 +81,7 @@ type ColumnDefinition = {
   isNumeric?: boolean
 }
 
-const getColumnValue = (player: StatPlayer, columnKey: ColumnKey): string => {
+const getColumnValue = (player: EnhancedStatPlayer, columnKey: ColumnKey): string => {
   switch (columnKey) {
     case 'name':
       return player.name
@@ -79,6 +89,8 @@ const getColumnValue = (player: StatPlayer, columnKey: ColumnKey): string => {
       return player.roleLabel ?? RoleExtensions.asString(player.role)
     case 'team':
       return player.realTeam?.name ?? '—'
+    case 'fantaTeam':
+      return player.fantaTeamName ?? 'Libero'
     case 'summatory':
       return player.summatory.toFixed(2)
     case 'fantaSummatory':
@@ -146,7 +158,8 @@ const numericSortKeys = new Set<NumericStatKey>([
 
 const columnDefinitions: ColumnDefinition[] = [
   { key: 'name', label: 'Giocatore', minWidth: 220 },
-  { key: 'team', label: 'Squadra', minWidth: 160 },
+  { key: 'team', label: 'Squadra Serie A', minWidth: 160 },
+  { key: 'fantaTeam', label: 'Squadra Fantacalcio', minWidth: 200 },
   { key: 'role', label: 'Ruolo', minWidth: 140 },
   { key: 'average', label: 'Media', minWidth: 120, align: 'right', isNumeric: true },
   { key: 'fantaAverage', label: 'FantaMedia', minWidth: 120, align: 'right', isNumeric: true },
@@ -169,7 +182,7 @@ const columnDefinitions: ColumnDefinition[] = [
   { key: 'injured', label: 'Infortuni', minWidth: 120, align: 'right', isNumeric: true },
 ]
 
-const getSortValue = (player: StatPlayer, sortKey: SortKey): number | string => {
+const getSortValue = (player: EnhancedStatPlayer, sortKey: SortKey): number | string => {
   if (numericSortKeys.has(sortKey as NumericStatKey)) {
     const value = (player as unknown as Record<string, number | null | undefined>)[sortKey]
     return value ?? 0
@@ -180,6 +193,8 @@ const getSortValue = (player: StatPlayer, sortKey: SortKey): number | string => 
       return player.name.toLowerCase()
     case 'team':
       return player.realTeam?.name?.toLowerCase() ?? ''
+    case 'fantaTeam':
+      return (player.fantaTeamOwner ?? 'zzz_libero').toLowerCase() // liberi vanno alla fine
     case 'role':
       return (player.roleLabel ?? RoleExtensions.asString(player.role)).toLowerCase()
     default:
@@ -192,6 +207,7 @@ export default function PlayersScreen() {
     currentGroup,
     userGroups,
     selectedYear,
+    selectedLeagueId,
     isGroupsLoading,
     groupsError,
   } = useApp()
@@ -199,13 +215,75 @@ export default function PlayersScreen() {
   const isWideLayout = Boolean(media.gtMd)
 
   const [localYear, setLocalYear] = useState<number | null>(selectedYear ?? null)
+  const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId ?? null)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('fantaAverage')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [ownershipFilter, setOwnershipFilter] = useState<PlayerOwnershipFilter>('all')
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
 
+  // Sync local state with global state
   useEffect(() => {
     setLocalYear(selectedYear ?? null)
   }, [selectedYear])
+
+  useEffect(() => {
+    setLocalLeagueId(selectedLeagueId ?? null)
+  }, [selectedLeagueId])
+
+  // Load teams when league/year changes
+  useEffect(() => {
+    loadTeams()
+  }, [currentGroup, localLeagueId, localYear])
+
+  const loadTeams = async () => {
+    if (!currentGroup || !localLeagueId || !localYear) {
+      setTeams([])
+      return
+    }
+
+    setIsLoadingTeams(true)
+
+    try {
+      const league = currentGroup.leagues?.find(l => l.id === localLeagueId)
+      if (!league || !league.basketsId || league.basketsId.length === 0) {
+        setTeams([])
+        setIsLoadingTeams(false)
+        return
+      }
+
+      const basketId = league.basketsId[0]
+      const basket = currentGroup.baskets?.find(b => b.id === basketId)
+      if (!basket) {
+        setTeams([])
+        setIsLoadingTeams(false)
+        return
+      }
+
+      const yearlyBasket = basket.years?.find(y => y.year === localYear)
+      if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
+        setTeams([])
+        setIsLoadingTeams(false)
+        return
+      }
+
+      const owners = yearlyBasket.teams.map(t => t.owner)
+      const fetchedTeams = await teamService.getTeamsByBasket(
+        currentGroup.id,
+        localYear,
+        basketId,
+        owners
+      )
+
+      setTeams(fetchedTeams)
+    } catch (err: any) {
+      console.error('Error loading teams:', err)
+      setTeams([])
+    } finally {
+      setIsLoadingTeams(false)
+    }
+  }
 
   const availableYears = useMemo(() => {
     const yearsSet = new Set<number>()
@@ -233,11 +311,56 @@ export default function PlayersScreen() {
     }
   }, [availableYears, localYear])
 
+  // Load teams when league or year changes
+  useEffect(() => {
+    if (currentGroup && localLeagueId && localYear) {
+      loadTeams()
+    }
+  }, [currentGroup, localLeagueId, localYear])
+
   const { players, isLoading, error, lastUpdated, refetch } = useStatPlayers({
     year: localYear ?? undefined,
     autoRefresh: true,
     enabled: localYear != null,
   })
+
+  // Prepare league options
+  const leagueOptions: LeagueOption[] = useMemo(() => {
+    return (currentGroup?.leagues ?? []).map(league => ({
+      id: league.id,
+      name: league.name,
+      isMain: league.isMain
+    }))
+  }, [currentGroup])
+
+  // Create a map of player names to their owners
+  const playerOwnershipMap = useMemo(() => {
+    const map = new Map<string, { owner: string; teamName: string }>()
+    
+    teams.forEach(team => {
+      team.players.forEach(player => {
+        // Use player name as key (could also use a combination of name + team if needed)
+        map.set(player.name.toLowerCase(), {
+          owner: team.owner,
+          teamName: team.name
+        })
+      })
+    })
+    
+    return map
+  }, [teams])
+
+  // Enhance players with fantasy team ownership info
+  const enhancedPlayers: EnhancedStatPlayer[] = useMemo(() => {
+    return players.map(player => {
+      const ownership = playerOwnershipMap.get(player.name.toLowerCase())
+      return {
+        ...player,
+        fantaTeamOwner: ownership?.owner,
+        fantaTeamName: ownership?.teamName
+      }
+    })
+  }, [players, playerOwnershipMap])
 
   const handleYearChange = useCallback((year: number) => {
     setLocalYear(year)
@@ -255,22 +378,30 @@ export default function PlayersScreen() {
   }, [])
 
   const filteredPlayers = useMemo(() => {
-    if (!searchTerm) {
-      return players
+    let result = [...enhancedPlayers]
+
+    // Apply ownership filter
+    if (ownershipFilter === 'owned') {
+      result = result.filter(p => p.fantaTeamOwner != null)
+    } else if (ownershipFilter === 'free') {
+      result = result.filter(p => p.fantaTeamOwner == null)
     }
 
-    const normalizedTerm = searchTerm.trim().toLowerCase()
-    if (!normalizedTerm) {
-      return players
+    // Apply search term filter
+    if (searchTerm) {
+      const normalizedTerm = searchTerm.trim().toLowerCase()
+      if (normalizedTerm) {
+        result = result.filter((player) => {
+          const matchesName = player.name.toLowerCase().includes(normalizedTerm)
+          const matchesTeam = player.realTeam?.name?.toLowerCase().includes(normalizedTerm)
+          const matchesRole = (player.roleLabel ?? RoleExtensions.asString(player.role)).toLowerCase().includes(normalizedTerm)
+          return matchesName || matchesTeam || matchesRole
+        })
+      }
     }
 
-    return players.filter((player) => {
-      const matchesName = player.name.toLowerCase().includes(normalizedTerm)
-      const matchesTeam = player.realTeam?.name?.toLowerCase().includes(normalizedTerm)
-      const matchesRole = (player.roleLabel ?? RoleExtensions.asString(player.role)).toLowerCase().includes(normalizedTerm)
-      return matchesName || matchesTeam || matchesRole
-    })
-  }, [players, searchTerm])
+    return result
+  }, [enhancedPlayers, searchTerm, ownershipFilter])
 
   const sortedPlayers = useMemo(() => {
     const sortable = [...filteredPlayers]
@@ -353,17 +484,17 @@ export default function PlayersScreen() {
         ) : (
           <YStack gap="$4">
             <LeagueSelectorsWidget
-              leagues={[]}
-              selectedLeagueId={null}
+              leagues={leagueOptions}
+              selectedLeagueId={localLeagueId}
+              onSelectLeague={setLocalLeagueId}
               years={availableYears}
               selectedYear={localYear}
               onSelectYear={handleYearChange}
               formatYearLabel={formatSeasonFromYear}
-              title="Filtro stagione"
+              title="Filtro lega e stagione"
               yearHint="Seleziona la stagione da analizzare"
-              showLeagueSection={false}
               showRoundSection={false}
-              emptyLeagueLabel="N/A"
+              emptyLeagueLabel="Seleziona una lega"
             />
 
             <Card
@@ -395,6 +526,45 @@ export default function PlayersScreen() {
                   </XStack>
                 </XStack>
 
+                {/* Ownership filter buttons */}
+                <XStack gap="$2" alignItems="center" flexWrap="wrap">
+                  <Text color="$color10" fontSize="$3" fontWeight="600">
+                    Proprietà:
+                  </Text>
+                  <XStack gap="$2">
+                    <Button
+                      size="$2"
+                      backgroundColor={ownershipFilter === 'all' ? '$blue9' : '$color4'}
+                      color={ownershipFilter === 'all' ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setOwnershipFilter('all')}
+                      borderWidth={0}
+                    >
+                      Tutti
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={ownershipFilter === 'owned' ? '$green9' : '$color4'}
+                      color={ownershipFilter === 'owned' ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setOwnershipFilter('owned')}
+                      borderWidth={0}
+                    >
+                      Solo presi
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={ownershipFilter === 'free' ? '$orange9' : '$color4'}
+                      color={ownershipFilter === 'free' ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setOwnershipFilter('free')}
+                      borderWidth={0}
+                    >
+                      Solo liberi
+                    </Button>
+                  </XStack>
+                </XStack>
+
                 <XStack gap="$2" alignItems="center" flexWrap="wrap">
                   <Text color="$color10" fontSize="$2">
                     {hasPlayers ? `${sortedPlayers.length} giocatori` : 'Nessun giocatore disponibile'}
@@ -402,6 +572,11 @@ export default function PlayersScreen() {
                   {lastUpdated && (
                     <Text color="$color9" fontSize="$2">
                       Aggiornato: {lastUpdated.toLocaleString('it-IT')}
+                    </Text>
+                  )}
+                  {isLoadingTeams && (
+                    <Text color="$color9" fontSize="$2">
+                      (Caricamento squadre...)
                     </Text>
                   )}
                   <Button
