@@ -1,6 +1,4 @@
-﻿using System;
-using Org.BouncyCastle.Asn1.Pkcs;
-using RepositoryFramework;
+﻿using RepositoryFramework;
 
 namespace Fantasoccer.Business
 {
@@ -14,9 +12,8 @@ namespace Fantasoccer.Business
         }
         public async Task LogAsync<T>(string message)
         {
-            var timeDifference = DateTime.MaxValue - DateTime.UtcNow;
-            var id = timeDifference.Ticks.ToString("D19");
-            await _repository.InsertAsync(id, new FantasoccerLog
+            var id = $"{typeof(T).Name}_{DateTime.UtcNow.Hour}";
+            await _repository.UpdateAsync(id, new FantasoccerLog
             {
                 PrimaryKey = IFantasoccerLogger.LogPrimaryKey,
                 SecondaryKey = id,
@@ -25,9 +22,8 @@ namespace Fantasoccer.Business
         }
         public async Task LogErrorAsync<T>(Exception exception)
         {
-            var timeDifference = DateTime.MaxValue - DateTime.UtcNow;
-            var id = timeDifference.Ticks.ToString("D19");
-            await _repository.InsertAsync(id, new FantasoccerLog
+            var id = $"{typeof(T).Name}_{DateTime.UtcNow.Hour}";
+            await _repository.UpdateAsync(id, new FantasoccerLog
             {
                 PrimaryKey = IFantasoccerLogger.ErrorPrimaryKey,
                 SecondaryKey = id,

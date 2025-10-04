@@ -87,6 +87,7 @@ namespace Fantasoccer.Infrastructure
                 await builder.WithTableStorageAsync(storageBuilder =>
                 {
                     storageBuilder.Settings.ConnectionString = storageConnectionString;
+                    storageBuilder.Settings.TableName = "logs";
                     storageBuilder
                         .WithPartitionKey(x => x.PrimaryKey, x => x)
                         .WithRowKey(x => x.SecondaryKey)

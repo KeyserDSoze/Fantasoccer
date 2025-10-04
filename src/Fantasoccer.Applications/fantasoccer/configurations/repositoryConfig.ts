@@ -8,6 +8,7 @@ import { StatPlayersWrapperRaw } from "types/stat";
 import { ChancedRealPlayerWrapperRaw } from "types/chance";
 import { PushNotificationSettingsRaw } from "types/pushNotification";
 import { CalendarRaw } from "types/calendar";
+import { FantasoccerLogRaw } from "types/log";
 import { buildApiUrl } from "./apiConfig";
 import { GroupRaw } from "types/group";
 import { LiveGroupRaw } from "types/liveGroup";
@@ -88,6 +89,13 @@ export const setupRepositoryServices = () => {
     .addRepository<PushNotificationSettingsRaw, string>(x => {
       x.name = "PushNotificationSettings";
       x.path = "PushNotificationSettings";
+      x.addHeadersEnricher(() => getAuthHeaders());
+      x.addErrorHandler(handleAuthError);
+    })
+    // FantasoccerLog (Platform logs - super admin only)
+    .addRepository<FantasoccerLogRaw, string>(x => {
+      x.name = "FantasoccerLog";
+      x.path = "FantasoccerLog";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })
