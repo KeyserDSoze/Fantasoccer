@@ -33,6 +33,7 @@ import {
   PlayCircle,
   Gavel,
   BookOpen,
+  Package,
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
@@ -144,6 +145,7 @@ const superAdminItems: NavigationSection[] = [
     section: 'Group Admin',
     items: [
       { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti Gruppo', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
+      { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket Gruppo', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
     ],
   },
   {
