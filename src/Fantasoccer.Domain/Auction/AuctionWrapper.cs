@@ -25,7 +25,7 @@ namespace Fantasoccer.Domain
         public required string Creator { get; set; }
         [JsonPropertyName("t")]
         public required DateTime Created { get; set; }
-        [JsonPropertyName("t")]
+        [JsonPropertyName("tp")]
         public AuctionType Type { get; set; }
         [JsonPropertyName("a")]
         public AuctionWin? Actual { get; set; }
