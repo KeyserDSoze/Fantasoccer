@@ -137,7 +137,7 @@ namespace Fantasoccer.Application.Api.Controllers
                             .ToList();
                         var startIndex = random.Next(0, letters.Length);
                         var orderedList = new List<string>();
-                        for (int i = 0; i < letters.Length; i++)
+                        for (var i = 0; i < letters.Length; i++)
                         {
                             var letter = letters[(startIndex + i) % letters.Length];
                             orderedList.AddRange(listForRole.Where(x => x.Name.StartsWith(letter.ToString(), StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key));

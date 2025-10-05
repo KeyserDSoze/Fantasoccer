@@ -1,8 +1,10 @@
 ﻿using System.Security.Claims;
+using Fantasoccer.Application.Api.Hubs;
 using Fantasoccer.Business;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
@@ -44,21 +46,20 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowCredentials());
 });
-//builder.Services.AddSignalR();
-//builder.Services.AddResponseCompression(opts =>
-//{
-//    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
-//        ["application/octet-stream"]);
-//});
+builder.Services.AddSignalR();
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+        ["application/octet-stream"]);
+});
 if (isInMemory)
 {
     builder.Services.AddDefaultValues(false);
 }
 
-
 var app = builder.Build();
 await app.Services.WarmUpAsync();
-//app.UseResponseCompression();
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
 app.UseRouting();
@@ -70,5 +71,5 @@ app.UseApiFromRepositoryFramework()
     .SetPolicyForAll()
     .With("authenticated")
     .Build();
-//app.UseEndpoints(x => x.MapHub<AuctionHub>("/auctionhub"));
+app.MapHub<AuctionHub>("/auctionhub");
 app.Run();

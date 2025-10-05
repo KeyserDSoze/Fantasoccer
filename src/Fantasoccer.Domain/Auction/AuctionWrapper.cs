@@ -49,7 +49,7 @@ namespace Fantasoccer.Domain
     public sealed class AuctionWin
     {
         [JsonPropertyName("p")]
-        public required string PlayerName { get; set; }
+        public required string PlayerKey { get; set; }
         /// <summary>
         /// Here the email of the owner is used as identifier who gets the player
         /// </summary>
