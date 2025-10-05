@@ -1,6 +1,5 @@
 ﻿using System.Security.Cryptography;
 using Fantasoccer.Domain;
-using Fantasoccer.Domain.Auction;
 using Fantasoccer.Infrastructure.Storage.Logger;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
