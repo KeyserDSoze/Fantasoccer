@@ -20,6 +20,8 @@ import SerieAAdminScreen from 'screens/serie-a-admin';
 import GroupUsersAdminScreen from 'screens/group-users-admin';
 import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
 import GroupLeagueAdminScreen from 'screens/group-league-admin';
+import AuctionCreateScreen from 'screens/auction-create';
+import AuctionLiveScreen from 'screens/auction-live';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -57,6 +59,8 @@ export type RootStackParamList = {
   GroupBasketsAdmin: undefined;
   GroupLeagueAdmin: undefined;
   Settings: undefined;
+  AuctionCreate: undefined;
+  AuctionLive: { auctionId: string };
 };
 
 // Tipo per la navigazione
@@ -97,6 +101,8 @@ const linking = {
       GroupBasketsAdmin: 'group-baskets-admin',
       GroupLeagueAdmin: 'group-league-admin',
       Settings: 'settings',
+      AuctionCreate: 'auction/create',
+      AuctionLive: 'auction/:auctionId',
     },
   },
 };
@@ -141,6 +147,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="GroupBasketsAdmin" component={GroupBasketsAdminScreen} />
         <Stack.Screen name="GroupLeagueAdmin" component={GroupLeagueAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
+        <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

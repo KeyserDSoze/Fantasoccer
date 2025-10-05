@@ -134,7 +134,7 @@ const adminItems: NavigationSection[] = [
     items: [
       { type: 'link', path: '/admin', label: 'Admin Dashboard', icon: Shield, description: 'Admin dashboard' },
       { type: 'link', path: '/admin/groups', label: 'Manage Groups', icon: Users, description: 'Manage groups and leagues' },
-      { type: 'link', path: '/admin/auction', label: 'Auction Control', icon: Gavel, description: 'Auction control panel' },
+      { type: 'route', route: 'AuctionCreate', label: 'Asta', icon: Gavel, description: 'Crea e gestisci aste di fantacalcio' },
     ],
   },
 ]

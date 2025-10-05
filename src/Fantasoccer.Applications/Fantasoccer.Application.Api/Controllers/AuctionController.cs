@@ -1,5 +1,4 @@
-﻿using System.IO;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +7,7 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Controllers
 {
-    [AllowAnonymous]
+    [Authorize(Policy = "authenticated")]
     [ApiController]
     [Route("[controller]/[action]")]
     public class AuctionController : ControllerBase
@@ -18,23 +17,19 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         private readonly IRepository<RealPlayersWrapper, int> _realPlayers;
-        private IRepository<RealPlayersWrapper, LeagueKey> RandomizedRealPlayers { get; }
         private readonly IRepository<Team, TeamKey> _team;
         private IRepository<Group, string> Groups { get; }
-        private IRepository<StatPlayersWrapper, int> StatsPlayers { get; }
         public AuctionController(IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
             IHttpContextAccessor httpContextAccessor,
-            IRepository<RealPlayersWrapper, int> realPlayers, IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
+            IRepository<RealPlayersWrapper, int> realPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups)
         {
             _auctionRepository = auctionRepository;
             _identityRepository = identityRepository;
             _httpContextAccessor = httpContextAccessor;
             _realPlayers = realPlayers;
-            RandomizedRealPlayers = randomizedRealPlayers;
             _team = team;
             Groups = groups;
-            StatsPlayers = statsPlayers;
         }
         [HttpGet]
         public async Task<string> CreateAuctionAsync([FromQuery] AuctionType auctionType)
