@@ -55,7 +55,7 @@ export class AuctionService {
         throw new ApiError('No authentication token available', 401)
       }
 
-      const url = buildApiUrl('/Auction/CreateAuctionAsync', {
+      const url = buildApiUrl('/Auction/CreateAuction', {
         auctionType: auctionType.toString()
       })
 
@@ -77,7 +77,7 @@ export class AuctionService {
       }
 
       const auctionId = await response.text()
-      return auctionId
+      return auctionId.replace(/^"|"$/g, '')
     } catch (error) {
       if (error instanceof ApiError) throw error
       throw new ApiError(
@@ -104,13 +104,18 @@ export class AuctionService {
       throw new Error('No authentication token available')
     }
 
+    console.log('🔑 Token available for SignalR connection')
+
     const apiConfig = await import('../configurations/apiConfig').then(m => m.getApiConfig())
     const hubUrl = `${apiConfig.baseUrl}/auctionhub`
+    
+    console.log('🔌 Connecting to SignalR hub:', hubUrl)
 
     this.hubConnection = new HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: async () => {
           const currentToken = await tokenStorageService.ensureValidToken()
+          console.log('🔑 Token factory called, token exists:', !!currentToken)
           return currentToken || ''
         }
       })
@@ -120,10 +125,23 @@ export class AuctionService {
 
     // Register all event handlers
     this.registerEventHandlers()
+    
+    // Add connection close handler for debugging
+    this.hubConnection.onclose((error) => {
+      console.log('❌ SignalR connection closed', error)
+    })
+
+    this.hubConnection.onreconnecting((error) => {
+      console.log('🔄 SignalR reconnecting...', error)
+    })
+
+    this.hubConnection.onreconnected((connectionId) => {
+      console.log('✅ SignalR reconnected:', connectionId)
+    })
 
     try {
       await this.hubConnection.start()
-      console.log('✅ Connected to auction hub')
+      console.log('✅ Connected to auction hub, connectionId:', this.hubConnection.connectionId)
     } catch (error) {
       console.error('❌ Failed to connect to auction hub:', error)
       throw error
@@ -135,12 +153,20 @@ export class AuctionService {
    */
   async disconnect(): Promise<void> {
     if (this.hubConnection) {
+      const state = this.hubConnection.state
+      console.log('🔌 Disconnecting from auction hub, current state:', state)
+      
       try {
-        await this.hubConnection.stop()
+        // Only stop if not already disconnected
+        if (state === 'Connected' || state === 'Connecting' || state === 'Reconnecting') {
+          await this.hubConnection.stop()
+        }
         this.hubConnection = null
-        console.log('Disconnected from auction hub')
+        console.log('✅ Disconnected from auction hub')
       } catch (error) {
-        console.error('Error disconnecting from auction hub:', error)
+        console.warn('⚠️ Error during disconnect (non-critical):', error)
+        // Set to null anyway to allow reconnection
+        this.hubConnection = null
       }
     }
   }
@@ -274,10 +300,18 @@ export class AuctionService {
    */
   async leaveAuction(auctionId: string): Promise<void> {
     if (!this.hubConnection) return
+    
+    // Only invoke if connected
+    if (this.hubConnection.state !== 'Connected') {
+      console.log('⚠️ Cannot leave auction, connection state:', this.hubConnection.state)
+      return
+    }
+    
     try {
       await this.hubConnection.invoke('LeaveAuctionAsync', auctionId)
+      console.log('✅ Left auction:', auctionId)
     } catch (error) {
-      console.error('Failed to leave auction:', error)
+      console.warn('⚠️ Failed to leave auction (non-critical):', error)
     }
   }
 

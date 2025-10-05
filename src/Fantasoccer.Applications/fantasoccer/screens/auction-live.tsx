@@ -434,8 +434,8 @@ export default function AuctionLiveScreen() {
                           <Select.Content zIndex={200000}>
                             <Select.ScrollUpButton />
                             <Select.Viewport>
-                              {Object.values(Role).filter(v => typeof v === 'number').map((role) => (
-                                <Select.Item key={role} index={role} value={role.toString()}>
+                              {Object.values(Role).filter(v => typeof v === 'number').map((role, idx) => (
+                                <Select.Item key={role} index={idx} value={role.toString()}>
                                   <Select.ItemText>{getRoleLabel(role as Role)}</Select.ItemText>
                                 </Select.Item>
                               ))}
