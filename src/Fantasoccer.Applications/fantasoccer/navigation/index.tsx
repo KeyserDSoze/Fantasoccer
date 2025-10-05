@@ -19,6 +19,7 @@ import LogsScreen from 'screens/logs';
 import SerieAAdminScreen from 'screens/serie-a-admin';
 import GroupUsersAdminScreen from 'screens/group-users-admin';
 import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
+import GroupLeagueAdminScreen from 'screens/group-league-admin';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 
@@ -54,6 +55,7 @@ export type RootStackParamList = {
   SerieAAdmin: undefined;
   GroupUsersAdmin: undefined;
   GroupBasketsAdmin: undefined;
+  GroupLeagueAdmin: undefined;
   Settings: undefined;
 };
 
@@ -93,6 +95,7 @@ const linking = {
       SerieAAdmin: 'serie-a-admin',
       GroupUsersAdmin: 'group-users-admin',
       GroupBasketsAdmin: 'group-baskets-admin',
+      GroupLeagueAdmin: 'group-league-admin',
       Settings: 'settings',
     },
   },
@@ -136,6 +139,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="SerieAAdmin" component={SerieAAdminScreen} />
         <Stack.Screen name="GroupUsersAdmin" component={GroupUsersAdminScreen} />
         <Stack.Screen name="GroupBasketsAdmin" component={GroupBasketsAdminScreen} />
+        <Stack.Screen name="GroupLeagueAdmin" component={GroupLeagueAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>

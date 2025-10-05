@@ -146,6 +146,7 @@ const superAdminItems: NavigationSection[] = [
     items: [
       { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti Gruppo', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
       { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket Gruppo', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
+      { type: 'route', route: 'GroupLeagueAdmin', label: 'Leghe Gruppo', icon: Trophy, description: 'Gestisci leghe, settings e ricalcoli del gruppo' },
     ],
   },
   {
