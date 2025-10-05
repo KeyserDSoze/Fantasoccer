@@ -48,7 +48,7 @@ namespace Fantasoccer.Domain
     }
     public sealed class ActualAuction
     {
-        [JsonPropertyName("p")]
+        [JsonPropertyName("pl")]
         public required StatPlayer Player { get; set; }
         [JsonPropertyName("s")]
         public required DateTime Started { get; set; }
