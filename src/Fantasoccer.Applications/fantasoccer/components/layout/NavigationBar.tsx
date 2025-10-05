@@ -117,10 +117,10 @@ const navigationItems: NavigationSection[] = [
     ],
   },
   {
-    section: 'Other',
+    section: 'Altro',
     items: [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
-      { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
+      { type: 'route', route: 'Rules', label: 'Regolamento e spiegazioni', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'link', path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
       { type: 'route', route: 'Settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
@@ -142,11 +142,11 @@ const adminItems: NavigationSection[] = [
 // Super Admin items (shown only to super admins)
 const superAdminItems: NavigationSection[] = [
   {
-    section: 'Group Admin',
+    section: 'Gestione Gruppo',
     items: [
-      { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti Gruppo', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
-      { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket Gruppo', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
-      { type: 'route', route: 'GroupLeagueAdmin', label: 'Leghe Gruppo', icon: Trophy, description: 'Gestisci leghe, settings e ricalcoli del gruppo' },
+      { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
+      { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
+      { type: 'route', route: 'GroupLeagueAdmin', label: 'Leghe', icon: Trophy, description: 'Gestisci leghe, settings e ricalcoli del gruppo' },
     ],
   },
   {
