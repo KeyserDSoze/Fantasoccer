@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +13,21 @@ namespace Fantasoccer.Application.Api.Hubs
     {
         private sealed class AuctionHubWrapper
         {
+            [JsonPropertyName("w")]
             public required AuctionWrapper Wrapper { get; set; }
+            [JsonPropertyName("u")]
             public DateTime LastUpdate { get; set; }
+            [JsonPropertyName("g")]
             public Group? Group { get; set; }
+            [JsonPropertyName("l")]
             public AnnualLeague? League { get; set; }
+            [JsonPropertyName("ln")]
             public string? LeagueName { get; set; }
+            [JsonPropertyName("t")]
             public Dictionary<TeamKey, Team> Teams { get; set; } = [];
+            [JsonPropertyName("r")]
             public List<StatPlayer>? RealPlayers { get; set; }
+            [JsonIgnore]
             public required string LastJsonSaved { get; set; }
         }
         private AuctionHubWrapper? GetCurrentWrapper(string auctionId)
@@ -352,34 +361,7 @@ namespace Fantasoccer.Application.Api.Hubs
             var wrapper = GetCurrentWrapper(auctionId);
             if (wrapper == null || !CanAccessAuction(wrapper, email)) return;
 
-            var state = new
-            {
-                AuctionId = auctionId,
-                Status = wrapper.Wrapper.Status.ToString(),
-                Type = wrapper.Wrapper.Type.ToString(),
-                LeagueName = wrapper.LeagueName,
-                Creator = wrapper.Wrapper.Creator,
-                IsAuctioneer = IsAuctioneer(wrapper, email),
-                CurrentPlayer = wrapper.Wrapper.Actual,
-                Teams = wrapper.Teams.Select(t => new
-                {
-                    Owner = t.Value.Owner,
-                    Name = t.Value.Name,
-                    Cost = t.Value.Cost,
-                    PlayersCount = t.Value.ActivePlayers.Count(),
-                    Players = t.Value.ActivePlayers.Select(p => new
-                    {
-                        p.Name,
-                        p.Role,
-                        p.Price,
-                        p.RealTeam
-                    }).ToList()
-                }).ToList(),
-                Participants = wrapper.Wrapper.Participants,
-                Winnings = wrapper.Wrapper.Winnings
-            };
-
-            await Clients.Caller.SendAsync("AuctionState", state);
+            await Clients.Caller.SendAsync("AuctionState", wrapper);
         }
 
         /// <summary>
@@ -411,23 +393,18 @@ namespace Fantasoccer.Application.Api.Hubs
             }
 
             // Update auction state
-            wrapper.Wrapper.Actual = new AuctionWin
+            wrapper.Wrapper.Actual = new ActualAuction
             {
-                PlayerKey = nextPlayer.Key,
+                Player = wrapper.RealPlayers.First(x => x.Key == nextPlayer.Key),
                 Owner = null,
-                Price = 0
+                Price = 0,
+                Started = DateTime.UtcNow
             };
             wrapper.Wrapper.LastShow[role] = nextPlayer.Key;
             wrapper.Wrapper.Status = AuctionStatus.InProgress;
 
             // Broadcast to all participants
-            await Clients.Group(auctionId).SendAsync("PlayerShown", new
-            {
-                PlayerName = nextPlayer.Name,
-                Role = nextPlayer.Role.ToString(),
-                RealTeam = nextPlayer.RealTeam,
-                IsActive = nextPlayer.IsActive
-            });
+            await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
         }
 
         /// <summary>
@@ -451,7 +428,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 return;
             }
 
-            var (success, message) = await SetPlayerAsync(auctionId, ownerEmail, wrapper.Wrapper.Actual.PlayerKey, price);
+            var (success, message) = await SetPlayerAsync(auctionId, ownerEmail, wrapper.Wrapper.Actual.Player.Key, price);
 
             if (!success)
             {
@@ -462,7 +439,12 @@ namespace Fantasoccer.Application.Api.Hubs
             // Update winnings
             wrapper.Wrapper.Actual.Owner = ownerEmail;
             wrapper.Wrapper.Actual.Price = price;
-            wrapper.Wrapper.Winnings.Add(wrapper.Wrapper.Actual);
+            wrapper.Wrapper.Winnings.Add(new AuctionWin
+            {
+                PlayerKey = wrapper.Wrapper.Actual.Player.Key,
+                Owner = wrapper.Wrapper.Actual.Owner,
+                Price = wrapper.Wrapper.Actual.Price
+            });
             wrapper.Wrapper.Actual = null;
 
             // Get updated team
@@ -556,24 +538,8 @@ namespace Fantasoccer.Application.Api.Hubs
             var wrapper = GetCurrentWrapper(auctionId);
             if (wrapper == null || !CanAccessAuction(wrapper, email)) return;
 
-            var teams = wrapper.Teams.Select(t => new
-            {
-                Owner = t.Value.Owner,
-                Name = t.Value.Name,
-                Cost = t.Value.Cost,
-                PlayersCount = t.Value.ActivePlayers.Count(),
-                Players = t.Value.ActivePlayers.Select(p => new
-                {
-                    p.Name,
-                    p.Role,
-                    p.Price,
-                    p.RealTeam
-                }).ToList(),
-                RemainingBudget = 1000 - t.Value.Cost,
-                RemainingSlots = 25 - t.Value.ActivePlayers.Count()
-            }).ToList();
 
-            await Clients.Caller.SendAsync("TeamsData", teams);
+            await Clients.Caller.SendAsync("TeamsData", wrapper.Teams);
         }
 
         /// <summary>
@@ -589,7 +555,7 @@ namespace Fantasoccer.Application.Api.Hubs
 
             if (wrapper.Wrapper.Actual != null)
             {
-                var player = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == wrapper.Wrapper.Actual.PlayerKey);
+                var player = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == wrapper.Wrapper.Actual.Player.Key);
                 if (player != null)
                 {
                     await Clients.Caller.SendAsync("CurrentPlayer", player);
@@ -600,44 +566,6 @@ namespace Fantasoccer.Application.Api.Hubs
                 await Clients.Caller.SendAsync("CurrentPlayer", null);
             }
         }
-
-        /// <summary>
-        /// Get available players by role
-        /// </summary>
-        public async Task GetAvailablePlayersByRoleAsync(string auctionId, Role role)
-        {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = GetCurrentWrapper(auctionId);
-            if (wrapper == null || !CanAccessAuction(wrapper, email)) return;
-
-            if (wrapper.Wrapper.ListOfPlayers.TryGetValue(role, out var playerNames))
-            {
-                var availablePlayers = wrapper.RealPlayers?
-                    .Where(p => playerNames.Contains(p.Name))
-                    .Select(p => new
-                    {
-                        p.Name,
-                        p.RealTeam,
-                        p.Role,
-                        p.Average,
-                        p.FantaAverage
-                    })
-                    .ToList();
-
-                await Clients.Caller.SendAsync("AvailablePlayers", new
-                {
-                    Role = role.ToString(),
-                    Count = availablePlayers?.Count ?? 0,
-                    Players = availablePlayers
-                });
-            }
-        }
-
-        // ============================================
-        // CONNECTION LIFECYCLE
-        // ============================================
 
         public override async Task OnConnectedAsync()
         {

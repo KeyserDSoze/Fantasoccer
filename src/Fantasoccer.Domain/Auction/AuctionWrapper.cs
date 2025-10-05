@@ -28,7 +28,7 @@ namespace Fantasoccer.Domain
         [JsonPropertyName("tp")]
         public AuctionType Type { get; set; }
         [JsonPropertyName("a")]
-        public AuctionWin? Actual { get; set; }
+        public ActualAuction? Actual { get; set; }
         [JsonPropertyName("w")]
         public List<AuctionWin> Winnings { get; set; } = [];
         [JsonPropertyName("s")]
@@ -45,6 +45,20 @@ namespace Fantasoccer.Domain
         /// </summary>
         [JsonPropertyName("ls")]
         public required Dictionary<Role, string?> LastShow { get; set; }
+    }
+    public sealed class ActualAuction
+    {
+        [JsonPropertyName("p")]
+        public required StatPlayer Player { get; set; }
+        [JsonPropertyName("s")]
+        public required DateTime Started { get; set; }
+        /// <summary>
+        /// Here the email of the owner is used as identifier who gets the player
+        /// </summary>
+        [JsonPropertyName("o")]
+        public string? Owner { get; set; }
+        [JsonPropertyName("p")]
+        public int Price { get; set; }
     }
     public sealed class AuctionWin
     {
