@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Fantasoccer.Domain;
+using Fantasoccer.Domain.Auction;
 using Fantasoccer.Infrastructure.Storage.Logger;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -82,6 +83,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<AppIdentity, string>(storageConnectionString);
             await services.AddBlobStorage<NewsWrapper, YearDayGroup>(storageConnectionString, "news", "news");
             await services.AddBlobStorage<PushNotificationSettings, string>(storageConnectionString, null, "pushnotification");
+            await services.AddBlobStorage<AuctionWrapper, string>(storageConnectionString, null, "auction");
             await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>

@@ -13,6 +13,7 @@ builder.Services.AddAuthorization(configure =>
         policy.RequireClaim(ClaimTypes.Email);
     });
 });
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationInsightsTelemetry(x =>
 {
     x.ConnectionString = builder.Configuration["ConnectionStrings:AppInsights"];

@@ -1,0 +1,62 @@
+﻿using System.Text.Json.Serialization;
+
+namespace Fantasoccer.Domain
+{
+    public enum AuctionType
+    {
+        Normal,
+        RandomByLetter,
+        RandomList
+    }
+    public enum AuctionStatus
+    {
+        NotStarted,
+        Paused,
+        InProgress,
+        Finished
+    }
+    public sealed class AuctionWrapper
+    {
+        [JsonPropertyName("i")]
+        public required string Id { get; set; }
+        [JsonPropertyName("l")]
+        public required LeagueKey LeagueKey { get; set; }
+        [JsonPropertyName("c")]
+        public required string Creator { get; set; }
+        [JsonPropertyName("t")]
+        public required DateTime Created { get; set; }
+        [JsonPropertyName("t")]
+        public AuctionType Type { get; set; }
+        [JsonPropertyName("a")]
+        public AuctionWin? Actual { get; set; }
+        [JsonPropertyName("w")]
+        public List<AuctionWin> Winnings { get; set; } = [];
+        [JsonPropertyName("s")]
+        public AuctionStatus Status { get; set; }
+        [JsonPropertyName("p")]
+        public Dictionary<Role, List<string>> ListOfPlayers { get; set; } = new();
+        /// <summary>
+        /// Here we put the connected participants use to inform who can bid
+        /// </summary>
+        [JsonPropertyName("c")]
+        public List<AnnualTeam> Participants { get; set; } = [];
+        /// <summary>
+        /// Last player shown to the participants
+        /// </summary>
+        [JsonPropertyName("l")]
+        public required Dictionary<Role, string?> LastShow { get; set; }
+    }
+    public sealed class AuctionWin
+    {
+        [JsonPropertyName("p")]
+        public required string PlayerName { get; set; }
+        /// <summary>
+        /// Here the email of the owner is used as identifier who gets the player
+        /// </summary>
+        [JsonPropertyName("o")]
+        public string? Owner { get; set; }
+        [JsonPropertyName("p")]
+        public int Price { get; set; }
+
+    }
+}
