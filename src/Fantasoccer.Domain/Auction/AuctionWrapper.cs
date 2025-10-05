@@ -38,17 +38,17 @@ namespace Fantasoccer.Domain
         /// <summary>
         /// Here we put the connected participants use to inform who can bid
         /// </summary>
-        [JsonPropertyName("c")]
+        [JsonPropertyName("pr")]
         public List<AnnualTeam> Participants { get; set; } = [];
         /// <summary>
         /// Last player shown to the participants
         /// </summary>
-        [JsonPropertyName("l")]
+        [JsonPropertyName("ls")]
         public required Dictionary<Role, string?> LastShow { get; set; }
     }
     public sealed class AuctionWin
     {
-        [JsonPropertyName("p")]
+        [JsonPropertyName("k")]
         public required string PlayerKey { get; set; }
         /// <summary>
         /// Here the email of the owner is used as identifier who gets the player
