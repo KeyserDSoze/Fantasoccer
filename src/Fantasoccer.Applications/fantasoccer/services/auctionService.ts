@@ -5,11 +5,17 @@ import { tokenStorageService } from './tokenStorageService'
 import type { Role } from '../types/group'
 import type { 
   AuctionType, 
-  AuctionState, 
-  PlayerShown, 
+  AuctionState,
+  AuctionHubWrapperRaw,
+  ActualAuctionRaw,
+  PlayerAssignedData,
   PlayerWithStats,
-  AuctionTeam,
-  AvailablePlayers
+  StatPlayer
+} from '../types/auction'
+import {
+  mapRawAuctionHubWrapper,
+  mapRawActualAuction,
+  statPlayerToPlayerWithStats
 } from '../types/auction'
 
 // SignalR event handlers type
@@ -18,23 +24,14 @@ export interface AuctionEventHandlers {
   onError?: (message: string) => void
   onUserJoined?: (email: string) => void
   onUserLeft?: (email: string) => void
-  onPlayerShown?: (player: PlayerShown) => void
-  onPlayerAssigned?: (data: {
-    owner: string
-    teamName: string
-    price: number
-    playerName: string
-    teamCost: number
-    teamPlayersCount: number
-  }) => void
+  onPlayerShown?: (player: StatPlayer) => void
+  onPlayerAssigned?: (data: PlayerAssignedData) => void
   onAuctionUpdated?: () => void
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
   onAuctionState?: (state: AuctionState) => void
-  onTeamsData?: (teams: AuctionTeam[]) => void
   onCurrentPlayer?: (player: PlayerWithStats | null) => void
-  onAvailablePlayers?: (data: AvailablePlayers) => void
 }
 
 export class AuctionService {
@@ -208,9 +205,10 @@ export class AuctionService {
     })
 
     // Auction events
-    this.hubConnection.on('PlayerShown', (player: PlayerShown) => {
-      console.log('Player shown:', player)
-      this.eventHandlers.onPlayerShown?.(player)
+    this.hubConnection.on('PlayerShown', (actualAuction: ActualAuctionRaw) => {
+      console.log('Player shown (raw):', actualAuction)
+      const mapped = mapRawActualAuction(actualAuction)
+      this.eventHandlers.onPlayerShown?.(mapped.player)
     })
 
     this.hubConnection.on('PlayerAssigned', (data: any) => {
@@ -249,24 +247,17 @@ export class AuctionService {
     })
 
     // State events
-    this.hubConnection.on('AuctionState', (state: AuctionState) => {
-      console.log('Auction state received:', state)
-      this.eventHandlers.onAuctionState?.(state)
-    })
-
-    this.hubConnection.on('TeamsData', (teams: AuctionTeam[]) => {
-      console.log('Teams data received:', teams)
-      this.eventHandlers.onTeamsData?.(teams)
+    this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
+      console.log('Auction state received (raw):', wrapperRaw)
+      // Need to pass userEmail and isAuctioneer from frontend context
+      // For now, pass null - will be set in the screen component
+      const mapped = mapRawAuctionHubWrapper(wrapperRaw, null, false)
+      this.eventHandlers.onAuctionState?.(mapped)
     })
 
     this.hubConnection.on('CurrentPlayer', (player: PlayerWithStats | null) => {
       console.log('Current player:', player)
       this.eventHandlers.onCurrentPlayer?.(player)
-    })
-
-    this.hubConnection.on('AvailablePlayers', (data: AvailablePlayers) => {
-      console.log('Available players:', data)
-      this.eventHandlers.onAvailablePlayers?.(data)
     })
   }
 
@@ -324,27 +315,11 @@ export class AuctionService {
   }
 
   /**
-   * Get all teams
-   */
-  async getAllTeams(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('GetAllTeamsAsync', auctionId)
-  }
-
-  /**
    * Get current player
    */
   async getCurrentPlayer(auctionId: string): Promise<void> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
     await this.hubConnection.invoke('GetCurrentPlayerAsync', auctionId)
-  }
-
-  /**
-   * Get available players by role
-   */
-  async getAvailablePlayersByRole(auctionId: string, role: Role): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('GetAvailablePlayersByRoleAsync', auctionId, role)
   }
 
   // ============================================

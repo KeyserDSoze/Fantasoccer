@@ -7,11 +7,11 @@ import { auctionService } from 'services/auctionService'
 import { 
   AuctionState, 
   AuctionStatus, 
-  AuctionTeam, 
-  PlayerShown, 
-  PlayerWithStats, 
-  AuctionPlayer,
-  AvailablePlayers
+  AuctionTeam,
+  StatPlayer,
+  PlayerWithStats,
+  PlayerAssignedData,
+  statPlayerToPlayerWithStats
 } from 'types/auction'
 import { Role } from 'types/group'
 import { Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown } from '@tamagui/lucide-icons'
@@ -34,7 +34,6 @@ export default function AuctionLiveScreen() {
   const [auctionState, setAuctionState] = useState<AuctionState | null>(null)
   const [currentPlayer, setCurrentPlayer] = useState<PlayerWithStats | null>(null)
   const [teams, setTeams] = useState<AuctionTeam[]>([])
-  const [availablePlayers, setAvailablePlayers] = useState<AvailablePlayers | null>(null)
 
   // User state
   const [isAuctioneer, setIsAuctioneer] = useState(false)
@@ -69,59 +68,28 @@ export default function AuctionLiveScreen() {
           onUserLeft: (email) => {
             console.log('User left:', email)
           },
-          onPlayerShown: (player: PlayerShown) => {
+          onPlayerShown: (player: StatPlayer) => {
             console.log('Player shown:', player)
-            // Will be updated via onCurrentPlayer
+            if (isSubscribed) {
+              setCurrentPlayer(statPlayerToPlayerWithStats(player))
+            }
           },
-          onPlayerAssigned: (data) => {
+          onPlayerAssigned: (data: PlayerAssignedData) => {
             console.log('Player assigned:', data)
-            // Will be updated via onAuctionState and onTeamsData
-          },
-          onAuctionUpdated: () => {
-            console.log('Auction updated')
-            // Refresh state
-            if (auctionId) {
-              auctionService.getAuctionState(auctionId)
-              auctionService.getAllTeams(auctionId)
-            }
-          },
-          onAuctionPaused: () => {
-            console.log('Auction paused')
-            if (isSubscribed && auctionState) {
-              setAuctionState({ ...auctionState, status: AuctionStatus.Paused.toString() })
-            }
-          },
-          onAuctionResumed: () => {
-            console.log('Auction resumed')
-            if (isSubscribed && auctionState) {
-              setAuctionState({ ...auctionState, status: AuctionStatus.InProgress.toString() })
-            }
-          },
-          onAuctionClosed: () => {
-            console.log('Auction closed')
-            if (isSubscribed && auctionState) {
-              setAuctionState({ ...auctionState, status: AuctionStatus.Finished.toString() })
+            if (isSubscribed) {
+              setCurrentPlayer(null)
+              setAssignPrice('')
+              setSelectedTeamOwner('')
             }
           },
           onAuctionState: (state: AuctionState) => {
             console.log('Auction state received:', state)
             if (isSubscribed) {
               setAuctionState(state)
+              setTeams(state.teams)
               setIsAuctioneer(state.isAuctioneer)
               // userEmail is set separately from token
             }
-          },
-          onTeamsData: (teamsData: AuctionTeam[]) => {
-            console.log('Teams data received:', teamsData)
-            if (isSubscribed) setTeams(teamsData)
-          },
-          onCurrentPlayer: (player: PlayerWithStats | null) => {
-            console.log('Current player:', player)
-            if (isSubscribed) setCurrentPlayer(player)
-          },
-          onAvailablePlayers: (players: AvailablePlayers) => {
-            console.log('Available players:', players)
-            if (isSubscribed) setAvailablePlayers(players)
           }
         })
 
@@ -138,7 +106,6 @@ export default function AuctionLiveScreen() {
 
         // Load initial data
         await auctionService.getAuctionState(auctionId)
-        await auctionService.getAllTeams(auctionId)
         await auctionService.getCurrentPlayer(auctionId)
 
       } catch (err) {
@@ -331,8 +298,8 @@ export default function AuctionLiveScreen() {
                       </Text>
                     </XStack>
                     <XStack gap="$2" alignItems="center">
-                      <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.status)}>
-                        {getStatusLabel(auctionState.status)}
+                      <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.wrapper.status)}>
+                        {getStatusLabel(auctionState.wrapper.status)}
                       </Text>
                     </XStack>
                   </XStack>
@@ -359,7 +326,7 @@ export default function AuctionLiveScreen() {
                     
                     <YStack gap="$2">
                       <Text fontSize="$6" fontWeight="700" color="$green11">
-                        {currentPlayer.playerName}
+                        {currentPlayer.name}
                       </Text>
                       <XStack gap="$4" flexWrap="wrap">
                         <Text fontSize="$4" color="$green10">
@@ -398,7 +365,7 @@ export default function AuctionLiveScreen() {
               )}
 
               {/* Banditore Controls */}
-              {isAuctioneer && auctionState && parseStatus(auctionState.status) !== AuctionStatus.Finished && (
+              {isAuctioneer && auctionState && parseStatus(auctionState.wrapper.status) !== AuctionStatus.Finished && (
                 <Card padding="$4" backgroundColor="$orange2" borderRadius="$4" borderWidth="$0.5" borderColor="$orange8">
                   <YStack gap="$4">
                     <XStack gap="$2" alignItems="center">
@@ -446,7 +413,7 @@ export default function AuctionLiveScreen() {
                         <Button
                           icon={TrendingUp}
                           onPress={handleShowNextPlayer}
-                          disabled={loading || parseStatus(auctionState.status) === AuctionStatus.Paused}
+                          disabled={loading || parseStatus(auctionState.wrapper.status) === AuctionStatus.Paused}
                           theme="orange"
                           flex={1}
                         >
@@ -498,7 +465,7 @@ export default function AuctionLiveScreen() {
                         <Button
                           icon={Gavel}
                           onPress={handleAssignPlayer}
-                          disabled={loading || !selectedTeamOwner || !assignPrice || parseStatus(auctionState.status) === AuctionStatus.Paused}
+                          disabled={loading || !selectedTeamOwner || !assignPrice || parseStatus(auctionState.wrapper.status) === AuctionStatus.Paused}
                           theme="green"
                         >
                           Assegna
@@ -514,7 +481,7 @@ export default function AuctionLiveScreen() {
                         Controlli Asta
                       </Text>
                       <XStack gap="$2" flexWrap="wrap">
-                        {parseStatus(auctionState.status) === AuctionStatus.InProgress ? (
+                        {parseStatus(auctionState.wrapper.status) === AuctionStatus.InProgress ? (
                           <Button
                             icon={Pause}
                             onPress={handlePauseAuction}
@@ -524,7 +491,7 @@ export default function AuctionLiveScreen() {
                           >
                             Pausa
                           </Button>
-                        ) : parseStatus(auctionState.status) === AuctionStatus.Paused ? (
+                        ) : parseStatus(auctionState.wrapper.status) === AuctionStatus.Paused ? (
                           <Button
                             icon={Play}
                             onPress={handleResumeAuction}
