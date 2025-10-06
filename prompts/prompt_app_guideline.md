@@ -90,27 +90,104 @@ const players = await realPlayerService.getPlayers(year)
 
 ---
 
+#### 🪝 [prompt_app_hook.md](./prompt_app_hook.md)
+**Cosa contiene:**
+- 80+ custom React hooks documentati
+- Hook per ogni service (useRealPlayers, useTeam, useMarkets, etc.)
+- Pattern di state management (loading, error, refetch)
+- Auto-refresh e polling configurabili
+- Context-based hooks per dati utente corrente
+
+**Quando consultarlo:**
+- ✅ Prima di usare service nei componenti React
+- ✅ Quando implementi data fetching in componenti
+- ✅ Quando hai bisogno di auto-refresh o polling
+- ✅ Quando gestisci loading/error states
+- ✅ Prima di creare hook custom
+
+**Esempio di utilizzo:**
+```typescript
+// ❌ NON fare questo (chiamare service direttamente)
+const [players, setPlayers] = useState([])
+useEffect(() => {
+  realPlayerService.getPlayers(year).then(setPlayers)
+}, [year])
+
+// ✅ Controlla prompt_app_hook.md e usa gli hook esistenti
+import { useRealPlayers } from 'hooks/useRealPlayers'
+const { players, loading, error } = useRealPlayers({ year })
+```
+
+---
+
+#### 🎨 [prompt_app_components.md](./prompt_app_components.md)
+**Cosa contiene:**
+- 20+ componenti UI riutilizzabili con Tamagui
+- Widget completi (LeagueSelectorsWidget, LeagueCalendarWidget, LeagueRankingWidget, SerieALiveWidget)
+- Componenti layout (Container, ScreenContent, BackButton)
+- Componenti specializzati (SoccerField, TeamLogo, PlayerCard)
+- Pattern di design (loading, error, empty states)
+- Best practices Tamagui (token, responsive, dark mode)
+
+**Quando consultarlo:**
+- ✅ Prima di creare nuovi componenti UI
+- ✅ Quando implementi selezione lega/anno/girone
+- ✅ Quando visualizzi calendari o classifiche
+- ✅ Quando lavori con formazioni o campi da calcio
+- ✅ Quando hai bisogno di layout responsive
+- ✅ Prima di creare pattern UI custom
+
+**Esempio di utilizzo:**
+```typescript
+// ❌ NON fare questo (ricreare widget)
+<YStack>
+  <Text>Seleziona lega</Text>
+  {leagues.map(league => <Button>...</Button>)}
+</YStack>
+
+// ✅ Controlla prompt_app_components.md e usa i widget esistenti
+import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
+<LeagueSelectorsWidget
+  leagues={leagues}
+  selectedLeagueId={leagueId}
+  onSelectLeague={setLeagueId}
+/>
+```
+
+**IMPORTANTE:** `LeagueSelectorsWidget` usa **state locale** e NON modifica il context globale dell'utente. Perfetto per filtri temporanei che si resettano con F5!
+
+---
+
 ### 2️⃣ Identifica Riutilizzo vs Nuova Implementazione
 
 Dopo aver consultato la documentazione:
 
 **✅ RIUTILIZZA** se esiste già:
-- Usa i tipi, utility, e service esistenti
+- Usa i tipi, utility, service, **hook**, e **componenti UI** esistenti
 - Non duplicare logica
 - Estendi interfacce esistenti invece di crearne di nuove
 - Componi funzionalità combinando utility esistenti
+- **Usa sempre hook invece di chiamare service direttamente**
+- **Usa sempre componenti UI esistenti invece di ricreare layout**
 
 **✅ CREA NUOVO** solo se:
 - La funzionalità è genuinamente nuova
 - Non esiste nulla di simile nella documentazione
-- I tipi/utility esistenti non soddisfano il caso d'uso
+- I tipi/utility/hook/componenti esistenti non soddisfano il caso d'uso
 - Serve un nuovo endpoint API non coperto dai service
+- Serve un nuovo hook per un service appena creato
+- Serve un nuovo componente UI non coperto dai widget esistenti
 
 ---
 
 ### 3️⃣ Segui i Pattern Consolidati
 
 Quando crei nuova funzionalità, segui i pattern documentati:
+
+> **IMPORTANTE:** 
+> - Quando crei un nuovo service, crea **SEMPRE** anche il corrispondente hook!
+> - I componenti React non devono mai chiamare service direttamente.
+> - **Usa sempre componenti UI esistenti** (LeagueSelectorsWidget, etc.) invece di ricreare layout!
 
 #### Pattern per Tipi di Dominio
 ```typescript
@@ -254,6 +331,117 @@ const { src, fallback } = getPlayerImageUrlFromName(playerName)
 const logo = getTeamLogoUrlWithFallback(groupId, year, email)
 ```
 
+#### Pattern per React Hook
+```typescript
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { myEntityService } from 'services/myEntityService'
+import { MyEntity, EnhancedMyEntity } from 'types/myEntity'
+
+export interface UseMyEntityOptions {
+  refreshInterval?: number
+  autoRefresh?: boolean
+  enabled?: boolean
+}
+
+export interface UseMyEntityResult {
+  entity: MyEntity | null
+  enhancedEntity: EnhancedMyEntity | null
+  loading: boolean
+  error: string | null
+  lastUpdated: Date | null
+  refetch: () => Promise<void>
+  // ... helper methods specifici
+}
+
+export function useMyEntity(
+  id: string | null,
+  options: UseMyEntityOptions = {}
+): UseMyEntityResult {
+  const { refreshInterval = 0, autoRefresh = false, enabled = true } = options
+  
+  const [entity, setEntity] = useState<MyEntity | null>(null)
+  const [enhancedEntity, setEnhancedEntity] = useState<EnhancedMyEntity | null>(null)
+  const [loading, setLoading] = useState<boolean>(enabled)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  
+  const mountedRef = useRef(true)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchEntity = useCallback(async (isRefresh = false) => {
+    if (!enabled || !id) {
+      setEntity(null)
+      setEnhancedEntity(null)
+      setError(null)
+      return
+    }
+
+    try {
+      if (!isRefresh) setLoading(true)
+      setError(null)
+
+      const [data, enhanced] = await Promise.all([
+        myEntityService.get(id),
+        myEntityService.getEnhanced(id)
+      ])
+
+      if (!mountedRef.current) return
+
+      setEntity(data)
+      setEnhancedEntity(enhanced)
+      setLastUpdated(new Date())
+    } catch (err) {
+      if (!mountedRef.current) return
+      
+      const message = err instanceof Error ? err.message : 'Failed to fetch entity'
+      setError(message)
+      console.error('Error fetching entity:', err)
+    } finally {
+      if (mountedRef.current) setLoading(false)
+    }
+  }, [enabled, id])
+
+  // Initial fetch
+  useEffect(() => {
+    void fetchEntity()
+  }, [fetchEntity])
+
+  // Auto-refresh
+  useEffect(() => {
+    if (autoRefresh && refreshInterval > 0 && enabled) {
+      intervalRef.current = setInterval(() => {
+        void fetchEntity(true)
+      }, refreshInterval)
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [autoRefresh, refreshInterval, enabled, fetchEntity])
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const refetch = useCallback(() => fetchEntity(false), [fetchEntity])
+
+  return {
+    entity,
+    enhancedEntity,
+    loading,
+    error,
+    lastUpdated,
+    refetch
+  }
+}
+```
+
 ---
 
 ## 📝 Documentazione - Quando e Come Aggiornarla
@@ -261,6 +449,8 @@ const logo = getTeamLogoUrlWithFallback(groupId, year, email)
 ### Quando Aggiornare la Documentazione
 
 Aggiorna i file di documentazione **IMMEDIATAMENTE** dopo:
+
+> **REGOLA D'ORO:** Se crei un nuovo service, devi aggiornare **DUE** file: `prompt_app_service.md` E `prompt_app_hook.md`!
 
 #### ✏️ Aggiornare prompt_app_domain.md quando:
 - ✅ Crei nuovi file di tipi in `types/`
@@ -350,6 +540,43 @@ export const myNewService = new MyNewService()
 \`\`\`
 ```
 
+#### ✏️ Aggiornare prompt_app_hook.md quando:
+- ✅ Crei nuovi hook in `hooks/`
+- ✅ Aggiungi nuove varianti di hook esistenti
+- ✅ Modifichi options o result types
+- ✅ Aggiungi helper methods agli hook
+- ✅ **Crei un nuovo service (devi sempre creare anche l'hook corrispondente!)**
+
+**Esempio di aggiornamento:**
+```markdown
+## 📁 File: hooks/useMyEntity.ts
+
+**Purpose:** Description of what this hook manages.
+
+### Hook: `useMyEntity`
+
+Brief description.
+
+\`\`\`typescript
+function useMyEntity(
+  id: string | null,
+  options?: UseMyEntityOptions
+): {
+  entity: MyEntity | null
+  enhancedEntity: EnhancedMyEntity | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+\`\`\`
+
+**Features:**
+- ✅ Feature 1
+- ✅ Feature 2
+
+**Use Case:** When to use this hook
+```
+
 ---
 
 ### Come Mantenere la Documentazione Sincronizzata
@@ -404,15 +631,30 @@ Prima di considerare completo il lavoro, verifica:
 - [ ] Ho gestito errori appropriatamente
 - [ ] Ho implementato caching se necessario
 - [ ] Ho esportato singleton instance
+- [ ] **Ho creato il corrispondente React hook in `hooks/`**
 - [ ] Ho aggiornato `prompt_app_service.md` con la nuova documentazione
+- [ ] **Ho aggiornato `prompt_app_hook.md` con la documentazione dell'hook**
+
+### Per Nuovi Hook
+- [ ] Ho controllato `prompt_app_hook.md` per hook esistenti simili
+- [ ] Ho seguito il pattern standard (options, result, loading, error, refetch)
+- [ ] Ho implementato cleanup (useEffect return, mountedRef)
+- [ ] Ho gestito auto-refresh se appropriato
+- [ ] Ho usato useCallback e useMemo per ottimizzazioni
+- [ ] Ho esportato TypeScript interfaces per options e result
+- [ ] Ho aggiornato `prompt_app_hook.md` con la nuova documentazione
 
 ### Per Nuove Pagine/Componenti
-- [ ] Ho riutilizzato componenti esistenti dove possibile
-- [ ] Ho usato service esistenti per data fetching
+- [ ] Ho controllato `prompt_app_components.md` per componenti UI esistenti
+- [ ] Ho usato `LeagueSelectorsWidget` per selezioni lega/anno/girone
+- [ ] Ho riutilizzato widget esistenti (Calendar, Ranking, SerieALive, etc.)
+- [ ] Ho usato hook (non service diretti) per data fetching
 - [ ] Ho usato tipi di dominio corretti
-- [ ] Ho gestito loading e error states
+- [ ] Ho usato token Tamagui (colori, spacing, font sizes)
+- [ ] Ho gestito loading e error states con pattern consistenti
 - [ ] Ho seguito pattern di navigation esistenti
 - [ ] Ho testato su web e mobile (se cross-platform)
+- [ ] Ho verificato supporto dark mode (token di colore)
 
 ---
 
@@ -499,19 +741,30 @@ src/
 3. **Ignorare mapper Raw/Clean** - Backend e frontend hanno rappresentazioni diverse
 4. **Dimenticare timezone** - Usa sempre `timezoneHelpers` per date italiane
 5. **Hardcodare URL immagini** - Usa `playerImage` e `teamLogo` utilities
-6. **Creare chiamate API dirette** - Usa i service esistenti
-7. **Ignorare gestione errori** - Gestisci sempre casi di fallimento
-8. **Dimenticare di aggiornare documentazione** - Aggiorna SEMPRE i prompt file!
+6. **Hardcodare colori/spacing** - Usa token Tamagui (`$color11`, `$4`, etc.)
+7. **Ricreare widget esistenti** - Usa `LeagueSelectorsWidget` e altri widget
+8. **Creare chiamate API dirette** - Usa i service esistenti
+9. **Chiamare service direttamente nei componenti React** - Usa SEMPRE gli hook!
+10. **Creare service senza hook** - Ogni service deve avere il suo hook
+11. **Modificare state globale per filtri temporanei** - Usa state locale
+12. **Ignorare gestione errori** - Gestisci sempre casi di fallimento
+13. **Dimenticare di aggiornare documentazione** - Aggiorna SEMPRE i prompt file!
 
 ### ✅ Fai invece:
-1. **Leggi i prompt file PRIMA di iniziare**
-2. **Riusa tipi, utility, e service esistenti**
-3. **Segui i pattern consolidati**
-4. **Documenta mentre sviluppi**
-5. **Testa su web e mobile (se cross-platform)**
-6. **Gestisci edge cases**
-7. **Scrivi codice auto-documentante**
-8. **Mantieni la documentazione aggiornata**
+1. **Leggi i prompt file PRIMA di iniziare** (domain, utils, service, hook, components)
+2. **Riusa tipi, utility, service, hook, e componenti UI esistenti**
+3. **Usa hook invece di service nei componenti React**
+4. **Usa widget esistenti** (LeagueSelectorsWidget, LeagueCalendarWidget, etc.)
+5. **Usa token Tamagui** per colori, spacing, font sizes
+6. **Usa state locale per filtri** temporanei (non modificare context)
+7. **Segui i pattern consolidati** (layout, loading, error, empty states)
+8. **Documenta mentre sviluppi**
+9. **Testa su web e mobile** (se cross-platform)
+10. **Gestisci edge cases**
+11. **Scrivi codice auto-documentante**
+12. **Mantieni la documentazione aggiornata**
+13. **Service + Hook = Coppia inseparabile!**
+14. **Widget riutilizzabili > Layout custom!**
 
 ---
 
@@ -521,12 +774,19 @@ src/
 |-------------------|-----------------|-------------------|---------------|
 | Creare nuovi tipi | `prompt_app_domain.md` | Raw/Clean/Enhanced + Mapper + Helper | `prompt_app_domain.md` |
 | Creare utility | `prompt_app_utils.md` | Pure function + JSDoc + Examples | `prompt_app_utils.md` |
-| Creare service | `prompt_app_service.md` | RepositoryServiceBase o HTTP client | `prompt_app_service.md` |
+| Creare service | `prompt_app_service.md` | RepositoryServiceBase o HTTP client | `prompt_app_service.md` + `prompt_app_hook.md` |
+| **Creare hook** | `prompt_app_hook.md` | **Options + Result + useCallback/useMemo** | `prompt_app_hook.md` |
+| **Creare componenti UI** | `prompt_app_components.md` | **Token Tamagui + Responsive + Dark mode** | `prompt_app_components.md` |
+| **Nuova pagina** | `prompt_app_components.md` | **Usa widget esistenti + Container/ScreenContent** | - |
+| **Selezione lega/anno** | `prompt_app_components.md` → LeagueSelectorsWidget | **State locale (non context)** | - |
+| **Usare dati in React** | `prompt_app_hook.md` | **Usa hook, NON service diretti** | - |
 | Lavorare con date | `prompt_app_utils.md` → timezoneHelpers | convertUTCToItalianTimezone | - |
 | Lavorare con immagini | `prompt_app_utils.md` → playerImage/teamLogo | getPlayerImageUrlFromName | - |
 | Validare formazioni | `prompt_app_utils.md` → teamValidation | validateFormation | - |
-| Chiamare API | `prompt_app_service.md` | Usa service esistente | `prompt_app_service.md` (se nuovo) |
-| Real-time data | `prompt_app_service.md` → auctionService | SignalR connection + events | `prompt_app_service.md` (se nuovo) |
+| Chiamare API | `prompt_app_hook.md` → useEntity | Usa hook esistente | - |
+| Real-time data | `prompt_app_hook.md` → useLiveEntity | Hook con auto-refresh/polling | - |
+| Visualizzare calendario | `prompt_app_components.md` → LeagueCalendarWidget | Widget con navigation integrata | - |
+| Visualizzare classifica | `prompt_app_components.md` → LeagueRankingWidget | Widget con tabella responsive | - |
 
 ---
 
@@ -779,9 +1039,11 @@ export function BetsScreen() {
 
 ## 📚 Risorse
 
-- **prompt_app_domain.md** - Tutti i tipi di dominio
-- **prompt_app_utils.md** - Tutte le utility functions
-- **prompt_app_service.md** - Tutti i service layer
+- **prompt_app_domain.md** - Tutti i tipi di dominio (150+ types)
+- **prompt_app_utils.md** - Tutte le utility functions (37+ functions)
+- **prompt_app_service.md** - Tutti i service layer (23 services, 200+ methods)
+- **prompt_app_hook.md** - Tutti i React hooks (80+ hooks)
+- **prompt_app_components.md** - Tutti i componenti UI riutilizzabili (20+ components)
 - **prompt_app_guideline.md** - Questo file (linee guida sviluppo)
 
 ---
