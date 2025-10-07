@@ -853,47 +853,36 @@ export default function AuctionLiveScreen() {
                       </Button>
                     </XStack>
 
-                    {/* Sezione 2: Incrementi Medi (Griglia) */}
-                    <YStack gap="$2">
-                      <XStack gap="$2" flexWrap="wrap">
-                        {[2, 4, 5, 6, 7, 8].map(inc => (
-                          <Button
-                            key={inc}
-                            flex={1}
-                            minWidth={80}
-                            size="$3"
-                            fontSize="$4"
-                            theme="blue"
-                            onPress={() => handleIncrementBid(inc)}
-                            disabled={areBidButtonsDisabled()}
-                          >
-                            +{inc}
-                          </Button>
-                        ))}
-                      </XStack>
-                      <XStack gap="$2" flexWrap="wrap">
-                        {[10, 15, 20, 25, 50, 100].map(inc => (
-                          <Button
-                            key={inc}
-                            flex={1}
-                            minWidth={80}
-                            size="$3"
-                            fontSize="$4"
-                            theme="blue"
-                            onPress={() => handleIncrementBid(inc)}
-                            disabled={areBidButtonsDisabled()}
-                          >
-                            +{inc}
-                          </Button>
-                        ))}
-                      </XStack>
-                    </YStack>
+                    <XStack gap="$2">
+                      <Button
+                        flex={1}
+                        size="$6"
+                        fontSize="$7"
+                        fontWeight="700"
+                        theme="blue"
+                        onPress={() => handleIncrementBid(2)}
+                        disabled={areBidButtonsDisabled()}
+                      >
+                        +2
+                      </Button>
+                      <Button
+                        flex={1}
+                        size="$6"
+                        fontSize="$7"
+                        fontWeight="700"
+                        theme="blue"
+                        onPress={() => handleIncrementBid(5)}
+                        disabled={areBidButtonsDisabled()}
+                      >
+                        +5
+                      </Button>
+                    </XStack>
 
                     {/* Sezione 3: Offerte Fisse */}
                     <YStack gap="$2">
                       <Text fontSize="$3" color="$blue10" fontWeight="600">Offerte Fisse</Text>
                       <XStack gap="$2" flexWrap="wrap">
-                        {[50, 100, 150, 200, 250, 300].map(amount => (
+                        {[50, 100, 150, 200].map(amount => (
                           <Button
                             key={amount}
                             flex={1}
