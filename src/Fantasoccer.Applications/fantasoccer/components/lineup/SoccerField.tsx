@@ -635,7 +635,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
               disabled={isSaving}
               opacity={isSaving ? 0.6 : 1}
             >
-              Formazione Ottimale
+              Usa l'AIgoritmo
             </Button>
           )}
           
