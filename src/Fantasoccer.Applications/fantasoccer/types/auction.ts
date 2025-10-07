@@ -73,28 +73,6 @@ export interface AuctionWrapperRaw {
   ls: Record<string, string | null>     // LastShow (Role as string key)
 }
 
-/**
- * Raw Team interface (simplified, only what we need for auction display)
- * Note: Different from team.ts TeamRaw which has full player roster
- */
-export interface AuctionTeamRaw {
-  n: string      // Name
-  o: string      // Owner
-  c: number      // Cost
-  ap: PlayerRaw[] // ActivePlayers
-}
-
-/**
- * Raw Player interface (in team)
- * Note: Simpler than team.ts PlayerRaw (no status, position, etc.)
- */
-export interface PlayerRaw {
-  n: string    // Name
-  r: number    // Role
-  t: string    // RealTeam
-  p: number    // Price
-}
-
 
 
 /**
@@ -152,28 +130,6 @@ export interface AuctionWrapper {
   lastShow: Record<Role, string | null>
 }
 
-/**
- * Clean Team interface for auction display
- */
-export interface AuctionTeam {
-  name: string
-  owner: string
-  cost: number
-  playersCount: number
-  remainingBudget: number
-  remainingSlots: number
-  players: AuctionPlayer[]
-}
-
-/**
- * Clean Player interface (in team roster)
- */
-export interface AuctionPlayer {
-  name: string
-  role: Role
-  realTeam: string
-  price: number
-}
 
 /**
  * Clean AuctionHubWrapper interface (AuctionState)
@@ -280,42 +236,6 @@ export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
   }
 }
 
-/**
- * Map raw Player to clean interface
- */
-export function mapRawPlayer(raw: PlayerRaw): AuctionPlayer {
-  return {
-    name: raw.n,
-    role: raw.r as Role,
-    realTeam: raw.t,
-    price: raw.p
-  }
-}
-
-/**
- * Map raw Team to clean interface
- * Computes playersCount, remainingBudget, remainingSlots from backend Team structure
- */
-export function mapRawAuctionTeam(raw: AuctionTeamRaw): AuctionTeam {
-  // Backend Team has ActivePlayers array
-  console.log('Mapping raw team:', raw)
-  const players: AuctionPlayer[] = (raw.ap || []).map((p: PlayerRaw) => mapRawPlayer(p))
-  console.log(`Mapped players for team ${players}`)
-  const playersCount = players.length
-  const cost = raw.c || 0
-  const remainingBudget = 1000 - cost - (25 - playersCount) // Must keep 1€ per remaining slot
-  const remainingSlots = 25 - playersCount
-
-  return {
-    name: raw.n,
-    owner: raw.o,
-    cost,
-    playersCount,
-    remainingBudget,
-    remainingSlots,
-    players
-  }
-}
 
 /**
  * Map raw AuctionHubWrapper to clean AuctionState

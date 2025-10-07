@@ -11,25 +11,6 @@ namespace Fantasoccer.Application.Api.Hubs
     [Authorize(Policy = "authenticated")]
     public sealed class AuctionHub : Hub
     {
-        private sealed class AuctionHubWrapper
-        {
-            [JsonPropertyName("w")]
-            public required AuctionWrapper Wrapper { get; set; }
-            [JsonPropertyName("u")]
-            public DateTime LastUpdate { get; set; }
-            [JsonPropertyName("g")]
-            public Group? Group { get; set; }
-            [JsonPropertyName("l")]
-            public AnnualLeague? League { get; set; }
-            [JsonPropertyName("ln")]
-            public string? LeagueName { get; set; }
-            [JsonPropertyName("t")]
-            public List<Entity<Team, TeamKey>> Teams { get; set; } = [];
-            [JsonPropertyName("r")]
-            public List<StatPlayer>? RealPlayers { get; set; }
-            [JsonIgnore]
-            public string LastJsonSaved { get; set; }
-        }
         private AuctionHubWrapper? GetCurrentWrapper(string auctionId)
         {
             var added = false;
