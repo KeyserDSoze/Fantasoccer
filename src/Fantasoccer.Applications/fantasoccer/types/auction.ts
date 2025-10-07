@@ -1,5 +1,6 @@
 // Auction types for real-time auction management with raw interfaces
 // Follows the pattern from rank.ts with JsonPropertyName mapping
+import { Entity } from 'rystem.repository.client'
 import type { Role } from './group'
 import type { AnnualTeamRaw, AnnualTeam } from './group'
 import { mapRawAnnualTeamToAnnualTeam } from './group'
@@ -7,6 +8,8 @@ import type { LeagueKeyRaw, LeagueKey } from './rank'
 import { mapRawLeagueKeyToLeagueKey } from './rank'
 import type { StatPlayerRaw, StatPlayer } from './stat'
 import { mapRawStatPlayerToStatPlayer } from './stat'
+import { mapRawTeamKeyToTeamKey, mapRawTeamToTeam, Team, TeamKey, type TeamKeyRaw, type TeamRaw } from './team'
+import { EntityRaw, mapRawEntityToEntity } from './default'
 
 // Re-export for convenience
 export type { StatPlayerRaw, StatPlayer }
@@ -92,9 +95,12 @@ export interface PlayerRaw {
   p: number    // Price
 }
 
+
+
 /**
  * Raw AuctionHubWrapper interface (what comes in AuctionState event)
  * Matching C# class with JsonPropertyName
+ * NOTE: Teams changed from Dictionary to List<Entity<Team, TeamKey>>
  */
 export interface AuctionHubWrapperRaw {
   w: AuctionWrapperRaw                          // Wrapper
@@ -102,7 +108,7 @@ export interface AuctionHubWrapperRaw {
   g: any | null                                  // Group (not used in frontend)
   l: any | null                                  // League (not used in frontend)
   ln: string | null                              // LeagueName
-  t: Record<string, AuctionTeamRaw>             // Teams (TeamKey serialized as string -> Team)
+  t: EntityRaw<TeamRaw, TeamKeyRaw>[]    // Teams (List<Entity<Team, TeamKey>>)
   r: StatPlayerRaw[] | null                     // RealPlayers
 }
 
@@ -176,7 +182,7 @@ export interface AuctionState {
   wrapper: AuctionWrapper
   lastUpdate: Date
   leagueName: string | null
-  teams: AuctionTeam[]
+  teams: Entity<Team, TeamKey>[]
   realPlayers: StatPlayer[]
   // Computed on frontend
   isAuctioneer: boolean
@@ -290,7 +296,7 @@ export function mapRawPlayer(raw: PlayerRaw): AuctionPlayer {
  * Map raw Team to clean interface
  * Computes playersCount, remainingBudget, remainingSlots from backend Team structure
  */
-export function mapRawTeam(raw: AuctionTeamRaw): AuctionTeam {
+export function mapRawAuctionTeam(raw: AuctionTeamRaw): AuctionTeam {
   // Backend Team has ActivePlayers array
   console.log('Mapping raw team:', raw)
   const players: AuctionPlayer[] = (raw.ap || []).map((p: PlayerRaw) => mapRawPlayer(p))
@@ -319,36 +325,18 @@ export function mapRawAuctionHubWrapperToAuctionState(
   raw: AuctionHubWrapperRaw,
   userEmail: string | null
 ): AuctionState {
-  const teams: AuctionTeam[] = Object.values(raw.t || {}).map(mapRawTeam)
+  // Map teams from List<Entity<Team, TeamKey>> to AuctionTeam[]
+  // Filter out entities without value (HasValue = false)
+  const teams: Entity<Team, TeamKey>[] = (raw.t || [])
+    .filter(entity => entity.v !== null && entity.v !== undefined)
+    .map(entity => mapRawEntityToEntity(entity, mapRawTeamToTeam, mapRawTeamKeyToTeamKey))
+  
   const realPlayers: StatPlayer[] = (raw.r || []).map(mapRawStatPlayerToStatPlayer)
   
   // Compute isAuctioneer by comparing creator email with current user email (case-insensitive)
   const isAuctioneer = userEmail 
     ? raw.w.c.toLowerCase() === userEmail.toLowerCase() 
     : false
-
-  return {
-    wrapper: mapRawAuctionWrapper(raw.w),
-    lastUpdate: new Date(raw.u),
-    leagueName: raw.ln,
-    teams,
-    realPlayers,
-    isAuctioneer,
-    userEmail
-  }
-}
-
-/**
- * @deprecated Use mapRawAuctionHubWrapperToAuctionState instead
- * Kept for backward compatibility
- */
-export function mapRawAuctionHubWrapper(
-  raw: AuctionHubWrapperRaw,
-  userEmail: string | null,
-  isAuctioneer: boolean
-): AuctionState {
-  const teams: AuctionTeam[] = Object.values(raw.t).map(mapRawTeam)
-  const realPlayers: StatPlayer[] = (raw.r || []).map(mapRawStatPlayerToStatPlayer)
 
   return {
     wrapper: mapRawAuctionWrapper(raw.w),

@@ -13,7 +13,6 @@ import type {
   StatPlayer
 } from '../types/auction'
 import {
-  mapRawAuctionHubWrapper,
   mapRawActualAuction,
   statPlayerToPlayerWithStats,
   mapRawAuctionHubWrapperToAuctionState
