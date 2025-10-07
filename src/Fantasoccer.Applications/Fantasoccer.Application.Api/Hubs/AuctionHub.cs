@@ -24,11 +24,11 @@ namespace Fantasoccer.Application.Api.Hubs
             [JsonPropertyName("ln")]
             public string? LeagueName { get; set; }
             [JsonPropertyName("t")]
-            public Dictionary<TeamKey, Team> Teams { get; set; } = [];
+            public List<Entity<Team, TeamKey>> Teams { get; set; } = [];
             [JsonPropertyName("r")]
             public List<StatPlayer>? RealPlayers { get; set; }
             [JsonIgnore]
-            public required string LastJsonSaved { get; set; }
+            public string LastJsonSaved { get; set; }
         }
         private AuctionHubWrapper? GetCurrentWrapper(string auctionId)
         {
@@ -50,7 +50,7 @@ namespace Fantasoccer.Application.Api.Hubs
                             if (league != null && leagueWrapper != null)
                             {
                                 var statPlayers = _statsPlayers.GetAsync(auction.LeagueKey.Year).ToResult();
-                                var teams = new Dictionary<TeamKey, Team>();
+                                var teams = new List<Entity<Team, TeamKey>>();
                                 foreach (var basketId in leagueWrapper.BasketsId)
                                 {
                                     var basket = group.Baskets.First(x => x.Id == basketId);
@@ -70,7 +70,7 @@ namespace Fantasoccer.Application.Api.Hubs
                                             team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
                                             _team.UpdateAsync(teamKey, team).ToResult();
                                         }
-                                        teams.Add(teamKey, team);
+                                        teams.Add(new(team, teamKey));
                                     }
                                 }
                                 added = _auctions.TryAdd(auctionId, new AuctionHubWrapper

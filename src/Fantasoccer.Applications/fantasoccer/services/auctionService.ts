@@ -30,7 +30,7 @@ export interface AuctionEventHandlers {
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
-  onAuctionState?: (state: AuctionState) => void
+  onAuctionState?: (wrapperRaw: AuctionHubWrapperRaw) => void  // ✅ Changed from AuctionState to AuctionHubWrapperRaw
   onCurrentPlayer?: (player: PlayerWithStats | null) => void
 }
 
@@ -249,10 +249,8 @@ export class AuctionService {
     // State events
     this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
       console.log('Auction state received (raw):', wrapperRaw)
-      // Need to pass userEmail and isAuctioneer from frontend context
-      // For now, pass null - will be set in the screen component
-      const mapped = mapRawAuctionHubWrapper(wrapperRaw, null, false)
-      this.eventHandlers.onAuctionState?.(mapped)
+      // Pass raw data to handler - component will handle mapping with correct user context
+      this.eventHandlers.onAuctionState?.(wrapperRaw)
     })
 
     this.hubConnection.on('CurrentPlayer', (player: PlayerWithStats | null) => {

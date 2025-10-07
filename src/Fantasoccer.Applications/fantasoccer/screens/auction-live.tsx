@@ -11,12 +11,17 @@ import {
   StatPlayer,
   PlayerWithStats,
   PlayerAssignedData,
-  statPlayerToPlayerWithStats
+  statPlayerToPlayerWithStats,
+  AuctionHubWrapperRaw,
+  mapRawAuctionWrapper,
+  mapRawTeam
 } from 'types/auction'
+import { mapRawStatPlayerToStatPlayer } from 'types/stat'
 import { Role } from 'types/group'
 import { Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown } from '@tamagui/lucide-icons'
 import { useRoute, RouteProp } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
+import { useAuth } from 'providers/AuthProvider'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
 
@@ -25,6 +30,7 @@ export default function AuctionLiveScreen() {
   const { auctionId } = route.params
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
+  const { user } = useAuth()
 
   // Connection state
   const [connected, setConnected] = useState(false)
@@ -37,7 +43,6 @@ export default function AuctionLiveScreen() {
 
   // User state
   const [isAuctioneer, setIsAuctioneer] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   // Banditore controls
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
@@ -82,13 +87,25 @@ export default function AuctionLiveScreen() {
               setSelectedTeamOwner('')
             }
           },
-          onAuctionState: (state: AuctionState) => {
-            console.log('Auction state received:', state)
-            if (isSubscribed) {
-              setAuctionState(state)
-              setTeams(state.teams)
-              setIsAuctioneer(state.isAuctioneer)
-              // userEmail is set separately from token
+          onAuctionState: (wrapperRaw: AuctionHubWrapperRaw) => {
+            console.log('Auction state received (raw):', wrapperRaw)
+            if (isSubscribed && user?.email) {
+              // Map manualmente con userEmail e isAuctioneer corretti
+              const teams: AuctionTeam[] = Object.values(wrapperRaw.t || {}).map(mapRawTeam)
+              const realPlayers: StatPlayer[] = (wrapperRaw.r || []).map(mapRawStatPlayerToStatPlayer)
+              
+              const mapped: AuctionState = {
+                wrapper: mapRawAuctionWrapper(wrapperRaw.w),
+                lastUpdate: new Date(wrapperRaw.u),
+                leagueName: wrapperRaw.ln,
+                teams,
+                realPlayers,
+                isAuctioneer: wrapperRaw.w.c.toLowerCase() === user.email.toLowerCase(),
+                userEmail: user.email
+              }
+              setAuctionState(mapped)
+              setTeams(mapped.teams)
+              setIsAuctioneer(mapped.isAuctioneer)
             }
           }
         })
@@ -529,7 +546,7 @@ export default function AuctionLiveScreen() {
                     </XStack>
 
                     {teams.map((team) => {
-                      const isMyTeam = team.owner === userEmail
+                      const isMyTeam = user?.email && team.owner.toLowerCase() === user.email.toLowerCase()
                       const hasLowBudget = team.remainingBudget < 50
                       const hasLowSlots = team.remainingSlots < 5
                       
