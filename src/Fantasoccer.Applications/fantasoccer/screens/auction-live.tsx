@@ -8,15 +8,11 @@ import {
   AuctionState, 
   AuctionStatus, 
   AuctionTeam,
-  StatPlayer,
-  PlayerWithStats,
   PlayerAssignedData,
-  statPlayerToPlayerWithStats,
-  AuctionHubWrapperRaw,
-  mapRawAuctionWrapper,
-  mapRawTeam
+  PlayerWithStats,
+  StatPlayer,
+  statPlayerToPlayerWithStats
 } from 'types/auction'
-import { mapRawStatPlayerToStatPlayer } from 'types/stat'
 import { Role } from 'types/group'
 import { Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown } from '@tamagui/lucide-icons'
 import { useRoute, RouteProp } from '@react-navigation/native'
@@ -53,10 +49,21 @@ export default function AuctionLiveScreen() {
 
   // Connect to SignalR on mount
   useEffect(() => {
+    // Wait for user to be loaded
+    if (!user?.email) {
+      console.log('⏳ Waiting for user to be loaded...')
+      return
+    }
+
     let isSubscribed = true
 
     const connectAndJoin = async () => {
       try {
+        console.log('👤 User loaded:', user.email)
+        
+        // Set user email in service for mapping
+        auctionService.setUserEmail(user.email)
+
         // Set event handlers
         auctionService.setEventHandlers({
           onConnected: () => {
@@ -87,25 +94,12 @@ export default function AuctionLiveScreen() {
               setSelectedTeamOwner('')
             }
           },
-          onAuctionState: (wrapperRaw: AuctionHubWrapperRaw) => {
-            console.log('Auction state received (raw):', wrapperRaw)
-            if (isSubscribed && user?.email) {
-              // Map manualmente con userEmail e isAuctioneer corretti
-              const teams: AuctionTeam[] = Object.values(wrapperRaw.t || {}).map(mapRawTeam)
-              const realPlayers: StatPlayer[] = (wrapperRaw.r || []).map(mapRawStatPlayerToStatPlayer)
-              
-              const mapped: AuctionState = {
-                wrapper: mapRawAuctionWrapper(wrapperRaw.w),
-                lastUpdate: new Date(wrapperRaw.u),
-                leagueName: wrapperRaw.ln,
-                teams,
-                realPlayers,
-                isAuctioneer: wrapperRaw.w.c.toLowerCase() === user.email.toLowerCase(),
-                userEmail: user.email
-              }
-              setAuctionState(mapped)
-              setTeams(mapped.teams)
-              setIsAuctioneer(mapped.isAuctioneer)
+          onAuctionState: (state: AuctionState) => {
+            console.log('Auction state received (mapped):', state)
+            if (isSubscribed) {
+              setAuctionState(state)
+              setTeams(state.teams)
+              setIsAuctioneer(state.isAuctioneer)
             }
           }
         })
@@ -139,7 +133,7 @@ export default function AuctionLiveScreen() {
       auctionService.leaveAuction(auctionId).catch(console.error)
       auctionService.disconnect().catch(console.error)
     }
-  }, [auctionId])
+  }, [auctionId, user?.email])
 
   // Banditore Actions
   const handleShowNextPlayer = useCallback(async () => {
@@ -224,9 +218,37 @@ export default function AuctionLiveScreen() {
         <ScreenContent path="screens/auction-live.tsx" title="Asta Live">
           <YStack padding="$4" gap="$4" alignItems="center" justifyContent="center" minHeight={400}>
             {connectionError ? (
-              <Card padding="$4" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
-                <Text color="$red11" fontSize="$4">{connectionError}</Text>
-              </Card>
+              <YStack gap="$3" alignItems="center" maxWidth={600}>
+                <Card padding="$4" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
+                  <YStack gap="$2">
+                    <Text color="$red11" fontSize="$5" fontWeight="700">Errore di Connessione</Text>
+                    <Text color="$red11" fontSize="$4">{connectionError}</Text>
+                    <Text color="$red10" fontSize="$3" marginTop="$2">
+                      Possibili cause:
+                    </Text>
+                    <Text color="$red10" fontSize="$3">
+                      • Il server non è raggiungibile
+                    </Text>
+                    <Text color="$red10" fontSize="$3">
+                      • Problemi di autenticazione
+                    </Text>
+                    <Text color="$red10" fontSize="$3">
+                      • Timeout di connessione
+                    </Text>
+                  </YStack>
+                </Card>
+                <Button
+                  onPress={() => {
+                    setConnectionError(null)
+                    setConnected(false)
+                    // Force re-run of useEffect by changing a dependency
+                    window.location.reload()
+                  }}
+                  theme="blue"
+                >
+                  Riprova Connessione
+                </Button>
+              </YStack>
             ) : (
               <>
                 <Spinner size="large" color="$blue10" />
@@ -546,7 +568,7 @@ export default function AuctionLiveScreen() {
                     </XStack>
 
                     {teams.map((team) => {
-                      const isMyTeam = user?.email && team.owner.toLowerCase() === user.email.toLowerCase()
+                      const isMyTeam = user?.email && team?.owner?.toLowerCase() === user.email.toLowerCase()
                       const hasLowBudget = team.remainingBudget < 50
                       const hasLowSlots = team.remainingSlots < 5
                       

@@ -15,7 +15,8 @@ import type {
 import {
   mapRawAuctionHubWrapper,
   mapRawActualAuction,
-  statPlayerToPlayerWithStats
+  statPlayerToPlayerWithStats,
+  mapRawAuctionHubWrapperToAuctionState
 } from '../types/auction'
 
 // SignalR event handlers type
@@ -30,13 +31,14 @@ export interface AuctionEventHandlers {
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
-  onAuctionState?: (wrapperRaw: AuctionHubWrapperRaw) => void  // ✅ Changed from AuctionState to AuctionHubWrapperRaw
+  onAuctionState?: (state: AuctionState) => void  // ✅ Now returns clean AuctionState
   onCurrentPlayer?: (player: PlayerWithStats | null) => void
 }
 
 export class AuctionService {
   private hubConnection: HubConnection | null = null
   private eventHandlers: AuctionEventHandlers = {}
+  private userEmail: string | null = null  // Store current user email for mapping
 
   // ============================================
   // HTTP METHODS (Auction Creation)
@@ -108,39 +110,46 @@ export class AuctionService {
     
     console.log('🔌 Connecting to SignalR hub:', hubUrl)
 
-    this.hubConnection = new HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: async () => {
-          const currentToken = await tokenStorageService.ensureValidToken()
-          console.log('🔑 Token factory called, token exists:', !!currentToken)
-          return currentToken || ''
-        }
-      })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Information)
-      .build()
-
-    // Register all event handlers
-    this.registerEventHandlers()
-    
-    // Add connection close handler for debugging
-    this.hubConnection.onclose((error) => {
-      console.log('❌ SignalR connection closed', error)
-    })
-
-    this.hubConnection.onreconnecting((error) => {
-      console.log('🔄 SignalR reconnecting...', error)
-    })
-
-    this.hubConnection.onreconnected((connectionId) => {
-      console.log('✅ SignalR reconnected:', connectionId)
-    })
-
     try {
+      this.hubConnection = new HubConnectionBuilder()
+        .withUrl(hubUrl, {
+          accessTokenFactory: async () => {
+            const currentToken = await tokenStorageService.ensureValidToken()
+            console.log('🔑 Token factory called, token exists:', !!currentToken)
+            return currentToken || ''
+          }
+        })
+        .withAutomaticReconnect()
+        .configureLogging(LogLevel.Information)
+        .build()
+
+      // Register all event handlers BEFORE starting
+      this.registerEventHandlers()
+      
+      // Add connection close handler for debugging
+      this.hubConnection.onclose((error) => {
+        console.log('❌ SignalR connection closed', error)
+      })
+
+      this.hubConnection.onreconnecting((error) => {
+        console.log('🔄 SignalR reconnecting...', error)
+      })
+
+      this.hubConnection.onreconnected((connectionId) => {
+        console.log('✅ SignalR reconnected:', connectionId)
+      })
+
       await this.hubConnection.start()
-      console.log('✅ Connected to auction hub, connectionId:', this.hubConnection.connectionId)
+      console.log('✅ Connected to auction hub, connectionId:', this.hubConnection?.connectionId)
     } catch (error) {
       console.error('❌ Failed to connect to auction hub:', error)
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        hubConnectionState: this.hubConnection?.state
+      })
+      // Reset connection on failure
+      this.hubConnection = null
       throw error
     }
   }
@@ -248,9 +257,24 @@ export class AuctionService {
 
     // State events
     this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
-      console.log('Auction state received (raw):', wrapperRaw)
-      // Pass raw data to handler - component will handle mapping with correct user context
-      this.eventHandlers.onAuctionState?.(wrapperRaw)
+      console.log('📦 Auction state received (raw):', wrapperRaw)
+      console.log('📧 Current userEmail for mapping:', this.userEmail)
+      
+      try {
+        console.log('✅ Auction state mapped successfully:', wrapperRaw)
+        // Map raw data to clean AuctionState with current user context
+        const mapped = mapRawAuctionHubWrapperToAuctionState(wrapperRaw, this.userEmail)
+        console.log('✅ Auction state mapped successfully:', mapped)
+        
+        if (this.eventHandlers.onAuctionState) {
+          console.log('🔔 Calling onAuctionState handler')
+          this.eventHandlers.onAuctionState(mapped)
+        } else {
+          console.warn('⚠️ No onAuctionState handler registered')
+        }
+      } catch (error) {
+        console.error('❌ Error mapping auction state:', error)
+      }
     })
 
     this.hubConnection.on('CurrentPlayer', (player: PlayerWithStats | null) => {
@@ -264,6 +288,18 @@ export class AuctionService {
    */
   setEventHandlers(handlers: AuctionEventHandlers): void {
     this.eventHandlers = { ...this.eventHandlers, ...handlers }
+  }
+
+  /**
+   * Set current user email for mapping auction state
+   * Must be called before connecting to ensure correct isAuctioneer detection
+   */
+  setUserEmail(email: string | null): void {
+    console.log('📧 Setting user email:', email)
+    this.userEmail = email
+    if (!email) {
+      console.warn('⚠️ User email is null or undefined - isAuctioneer will always be false')
+    }
   }
 
   // ============================================
@@ -309,7 +345,9 @@ export class AuctionService {
    */
   async getAuctionState(auctionId: string): Promise<void> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
+    console.log('📨 Requesting auction state for:', auctionId)
     await this.hubConnection.invoke('SendAuctionStateAsync', auctionId)
+    console.log('✅ Auction state request sent')
   }
 
   /**

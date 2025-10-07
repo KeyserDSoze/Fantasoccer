@@ -292,7 +292,9 @@ export function mapRawPlayer(raw: PlayerRaw): AuctionPlayer {
  */
 export function mapRawTeam(raw: AuctionTeamRaw): AuctionTeam {
   // Backend Team has ActivePlayers array
+  console.log('Mapping raw team:', raw)
   const players: AuctionPlayer[] = (raw.ap || []).map((p: PlayerRaw) => mapRawPlayer(p))
+  console.log(`Mapped players for team ${players}`)
   const playersCount = players.length
   const cost = raw.c || 0
   const remainingBudget = 1000 - cost - (25 - playersCount) // Must keep 1€ per remaining slot
@@ -311,6 +313,34 @@ export function mapRawTeam(raw: AuctionTeamRaw): AuctionTeam {
 
 /**
  * Map raw AuctionHubWrapper to clean AuctionState
+ * This is the main mapper to be used in the service layer
+ */
+export function mapRawAuctionHubWrapperToAuctionState(
+  raw: AuctionHubWrapperRaw,
+  userEmail: string | null
+): AuctionState {
+  const teams: AuctionTeam[] = Object.values(raw.t || {}).map(mapRawTeam)
+  const realPlayers: StatPlayer[] = (raw.r || []).map(mapRawStatPlayerToStatPlayer)
+  
+  // Compute isAuctioneer by comparing creator email with current user email (case-insensitive)
+  const isAuctioneer = userEmail 
+    ? raw.w.c.toLowerCase() === userEmail.toLowerCase() 
+    : false
+
+  return {
+    wrapper: mapRawAuctionWrapper(raw.w),
+    lastUpdate: new Date(raw.u),
+    leagueName: raw.ln,
+    teams,
+    realPlayers,
+    isAuctioneer,
+    userEmail
+  }
+}
+
+/**
+ * @deprecated Use mapRawAuctionHubWrapperToAuctionState instead
+ * Kept for backward compatibility
  */
 export function mapRawAuctionHubWrapper(
   raw: AuctionHubWrapperRaw,
