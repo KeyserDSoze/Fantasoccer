@@ -441,6 +441,134 @@ export const gameService = { getGame, saveFormation, saveTeam }
 
 ---
 
+## 📁 File: services/formationService.ts
+
+**Purpose:** Calculate optimal player formations using an intelligent scoring algorithm.
+
+### Algorithm Overview
+
+The formation service uses a weighted scoring system to evaluate players based on:
+
+1. **Fantagazzetta** (+5 if true, -5 if false)
+2. **Status** (Normal +1, Injury/Disqualified -99, Warned/Maybe -5)
+3. **Trend** (adds numeric enum value 0-4)
+4. **Last Game Positiveness** (adds positiveness score)
+5. **Home/Away Factor**:
+   - Playing at home vs normal team: **+2**
+   - Playing at home vs top team (Inter/Milan/Juve/Napoli): **-1**
+   - Playing away vs normal team: **0**
+   - Playing away vs top team: **-2**
+
+**Top Serie A Teams** (never relegated): Inter, Milan, Juventus, Napoli
+
+### Types
+
+#### `PlayerScore`
+```typescript
+interface PlayerScore {
+  player: LivePlayer
+  score: number
+  role: Role
+}
+```
+
+#### `FormationLimits`
+```typescript
+interface FormationLimits {
+  minDefenders: number
+  maxDefenders: number
+  minMidfielders: number
+  maxMidfielders: number
+  minForwards: number
+  maxForwards: number
+}
+```
+
+### Constants
+
+#### `VALID_FORMATIONS: FormationLimits[]`
+Array of valid tactical formations:
+- 3-4-3
+- 3-5-2
+- 4-5-1
+- 5-4-1
+- 5-3-2
+- 4-4-2
+- 4-3-3
+
+### Functions
+
+##### `formationService.calculatePlayerScore(player: LivePlayer): number`
+Calculate score for a single player using the algorithm.
+- **Parameters:** LivePlayer with chance data and realGame info
+- **Returns:** Numeric score (higher = better)
+- **Algorithm Factors:**
+  1. Fantagazzetta (±5)
+  2. Player status (±1 to -99)
+  3. Trend (0-4)
+  4. Last game positiveness
+  5. Home/away advantage (±2)
+- **Use Case:** Evaluate player quality before lineup selection
+
+##### `formationService.calculateOptimalFormation(team: LiveTeam): LivePlayer[]`
+Calculate the optimal formation for a team.
+- **Algorithm:**
+  1. Score all players
+  2. Select goalkeepers (1st starter, 2nd bench, rest tribune)
+  3. Build minimum formation (3-3-1)
+  4. Complete with best remaining players (respecting role limits)
+  5. Assign bench players (2 per role)
+  6. Send remaining to tribune
+- **Returns:** Array of LivePlayer with updated currentPosition
+- **Use Case:** Auto-generate best lineup
+
+##### `formationService.applyOptimalFormation(team: LiveTeam): LiveTeam`
+Apply optimal formation to a team and return updated copy.
+- **Returns:** New LiveTeam with optimized player positions
+- **Use Case:** One-click optimal lineup
+
+### Formation Rules
+
+**Starters:**
+- 1 Goalkeeper
+- 3-5 Defenders
+- 3-5 Midfielders
+- 1-3 Forwards
+- Total: 11 players
+
+**Bench:**
+- 1 Backup Goalkeeper
+- 2 Backup Defenders
+- 2 Backup Midfielders
+- 2 Backup Forwards
+
+**Tribune:**
+- All remaining players
+
+### Exported Object
+```typescript
+const formationService = {
+  calculatePlayerScore,
+  calculateOptimalFormation,
+  applyOptimalFormation,
+}
+export default formationService
+```
+
+### Usage Example
+```typescript
+import formationService from 'services/formationService'
+
+// Calculate optimal formation
+const optimizedTeam = formationService.applyOptimalFormation(myTeam)
+
+// Or get individual player scores
+const playerScore = formationService.calculatePlayerScore(player)
+console.log(`Player score: ${playerScore}`)
+```
+
+---
+
 ## 📁 File: services/groupService.ts
 
 **Purpose:** Manage groups, leagues, baskets, and users using Repository Framework.

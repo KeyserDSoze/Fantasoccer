@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, useEffect } from 'react'
 import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
-import { Save } from '@tamagui/lucide-icons'
+import { Save, Sparkles, Undo2 } from '@tamagui/lucide-icons'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import { FantaSoccerRole, Team } from 'types/team'
 import { Role } from 'types/group'
@@ -12,6 +12,7 @@ import { useResponsiveField } from '../../hooks/useResponsiveField'
 import { useAuth } from '../../providers/AuthProvider'
 import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
 import gameService from '../../services/gameService'
+import formationService from '../../services/formationService'
 
 // SVG field background as a React component with responsive orientation
 interface SoccerFieldSVGProps {
@@ -120,6 +121,9 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
   // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
   const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({})
   const [hasLocalChanges, setHasLocalChanges] = useState(false)
+  
+  // Backup per restore della formazione ottimale
+  const [formationBackup, setFormationBackup] = useState<{ home?: LiveTeam; away?: LiveTeam } | null>(null)
   
   const { home: initialHome, away: initialAway } = useMemo(() => pickHomeAwayTeams(gameWrapper), [gameWrapper])
   
@@ -362,6 +366,48 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
     setEditingTeamIndex(null)
   }
 
+  // Funzione per calcolare e applicare la formazione ottimale
+  const handleOptimalFormation = () => {
+    // Determina quale team è modificabile
+    const teamToOptimize = homeIsMyTeam ? home : awayIsMyTeam ? away : null
+    const isHome = homeIsMyTeam
+    
+    if (!teamToOptimize) {
+      toast.show('❌ Nessun team modificabile trovato', { variant: 'error' })
+      return
+    }
+
+    // Salva il backup della formazione corrente
+    setFormationBackup({ home, away })
+
+    // Calcola la formazione ottimale
+    const optimizedTeam = formationService.applyOptimalFormation(teamToOptimize)
+
+    // Aggiorna lo stato locale
+    setLocalTeams(prev => ({
+      ...prev,
+      [isHome ? 'home' : 'away']: optimizedTeam
+    }))
+    setHasLocalChanges(true)
+
+    toast.show('✨ Formazione ottimale calcolata!', { variant: 'success' })
+  }
+
+  // Funzione per ripristinare la formazione precedente
+  const handleRestoreFormation = () => {
+    if (!formationBackup) {
+      toast.show('⚠️ Nessun backup disponibile', { variant: 'warning' })
+      return
+    }
+
+    // Ripristina la formazione dal backup
+    setLocalTeams(formationBackup)
+    setFormationBackup(null)
+    setHasLocalChanges(true)
+
+    toast.show('↩️ Formazione ripristinata', { variant: 'info' })
+  }
+
   // Funzione per salvare il team modificato
   const handleSave = async () => {
     if (!groupId || !hasLocalChanges) return
@@ -393,6 +439,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
       if (response?.i) {
         toast.show('✅ Formazione salvata con successo!', { variant: 'success' })
         setHasLocalChanges(false)
+        setFormationBackup(null) // Pulisce il backup dopo il salvataggio
         
         // Ricarica i dati dal server per confermare le modifiche
         if (onRefresh) {
@@ -566,25 +613,63 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
   
   // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
   const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges
+  // Mostra pulsante formazione ottimale solo se il team è modificabile e non ci sono partite iniziate
+  const showOptimalButton = (homeIsMyTeam || awayIsMyTeam) && !hasGameStarted
+  // Mostra la toolbar se c'è almeno un pulsante da visualizzare
+  const showToolbar = showOptimalButton || showSaveButton || formationBackup !== null
 
   return (
     <YStack gap={16} width="100%" {...style}>
-      {/* PULSANTE SALVA FORMAZIONE */}
-      {showSaveButton && (
-        <XStack justifyContent="center" paddingHorizontal={16}>
-          <Button
-            backgroundColor="$green10"
-            color="#fff"
-            size="$5"
-            fontWeight="700"
-            icon={<Save size={20} />}
-            onPress={handleSave}
-            disabled={isSaving}
-            opacity={isSaving ? 0.6 : 1}
-            minWidth={200}
-          >
-            {isSaving ? 'Salvataggio...' : '💾 Salva Formazione'}
-          </Button>
+      {/* PULSANTI AZIONE FORMAZIONE */}
+      {showToolbar && (
+        <XStack justifyContent="center" paddingHorizontal={16} gap={12} flexWrap="wrap">
+          {/* Pulsante Formazione Ottimale */}
+          {showOptimalButton && (
+            <Button
+              backgroundColor="$purple10"
+              color="#fff"
+              size="$5"
+              fontWeight="700"
+              icon={<Sparkles size={20} />}
+              onPress={handleOptimalFormation}
+              disabled={isSaving}
+              opacity={isSaving ? 0.6 : 1}
+            >
+              Formazione Ottimale
+            </Button>
+          )}
+          
+          {/* Pulsante Restore (visibile solo se c'è un backup) */}
+          {formationBackup && (
+            <Button
+              backgroundColor="$orange10"
+              color="#fff"
+              size="$5"
+              fontWeight="700"
+              icon={<Undo2 size={20} />}
+              onPress={handleRestoreFormation}
+              disabled={isSaving}
+              opacity={isSaving ? 0.6 : 1}
+            >
+              Ripristina
+            </Button>
+          )}
+          
+          {/* Pulsante Salva */}
+          {showSaveButton && (
+            <Button
+              backgroundColor="$green10"
+              color="#fff"
+              size="$5"
+              fontWeight="700"
+              icon={<Save size={20} />}
+              onPress={handleSave}
+              disabled={isSaving}
+              opacity={isSaving ? 0.6 : 1}
+            >
+              {isSaving ? 'Salvataggio...' : 'Salva Formazione'}
+            </Button>
+          )}
         </XStack>
       )}
 

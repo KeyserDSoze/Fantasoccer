@@ -1363,6 +1363,102 @@ function useBreakpoints(): {
 
 ---
 
+## 📁 File: hooks/useFormation.ts
+
+**Purpose:** Manage optimal team formations with backup/restore capabilities.
+
+### Hook: `useFormation`
+
+Gestisce la formazione ottimale di un team con funzionalità di backup e ripristino.
+
+```typescript
+function useFormation(team?: LiveTeam | null): UseFormationResult
+```
+
+**Return Type:**
+```typescript
+interface UseFormationResult {
+  applyOptimal: () => LiveTeam | null    // Calcola formazione ottimale (salva backup)
+  restore: () => LiveTeam | null         // Ripristina formazione da backup
+  hasBackup: boolean                     // True se c'è un backup disponibile
+  clearBackup: () => void                // Pulisce il backup salvato
+}
+```
+
+**Features:**
+- ✅ Calcola formazione ottimale basata su algoritmo di scoring
+- ✅ Salva automaticamente backup prima di modificare
+- ✅ Permette ripristino della formazione precedente
+- ✅ Gestione sicura dello stato con cleanup
+
+**Algorithm:**
+Il hook utilizza `formationService.applyOptimalFormation()` che valuta:
+1. **Fantagazzetta** (+5 se true, -5 se false)
+2. **Status** (Normal +1, Injury/Disqualified -99, Warned/Maybe -5)
+3. **Trend** (0-4 dall'enum)
+4. **Last Game Positiveness** (score partita precedente)
+5. **Home/Away Factor**:
+   - Casa vs normale: +2
+   - Casa vs top (Inter/Milan/Juve/Napoli): -1
+   - Trasferta vs normale: 0
+   - Trasferta vs top: -2
+
+**Use Case:** 
+- Schieramento automatico formazione
+- One-click optimal lineup
+- Undo/Redo formazioni
+
+**Example:**
+```typescript
+import { useFormation } from 'hooks/useFormation'
+
+function FormationManager({ team }: { team: LiveTeam }) {
+  const { applyOptimal, restore, hasBackup } = useFormation(team)
+  
+  const handleOptimize = () => {
+    const optimizedTeam = applyOptimal()
+    if (optimizedTeam) {
+      console.log('Formazione ottimizzata!', optimizedTeam)
+    }
+  }
+  
+  const handleUndo = () => {
+    if (hasBackup) {
+      const previousTeam = restore()
+      console.log('Formazione ripristinata!', previousTeam)
+    }
+  }
+  
+  return (
+    <>
+      <Button onPress={handleOptimize}>✨ Formazione Ottimale</Button>
+      {hasBackup && (
+        <Button onPress={handleUndo}>↩️ Ripristina</Button>
+      )}
+    </>
+  )
+}
+```
+
+**Integration with SoccerField:**
+```typescript
+// In SoccerField.tsx
+const handleOptimalFormation = () => {
+  const teamToOptimize = homeIsMyTeam ? home : away
+  if (!teamToOptimize) return
+  
+  // Salva backup
+  setFormationBackup({ home, away })
+  
+  // Applica formazione ottimale
+  const optimizedTeam = formationService.applyOptimalFormation(teamToOptimize)
+  setLocalTeams(prev => ({ ...prev, [homeIsMyTeam ? 'home' : 'away']: optimizedTeam }))
+  setHasLocalChanges(true)
+}
+```
+
+---
+
 ## 📁 File: hooks/useTimeAgo.ts
 
 **Purpose:** Display elapsed time since last update.
