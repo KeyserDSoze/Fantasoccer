@@ -124,21 +124,26 @@ namespace Fantasoccer.Application.Api.Hubs
         {
             await Clients.All.SendAsync("ReceiveMessage", user, message);
         }
-        private async Task<(bool Correct, string Message)> SetPlayerAsync(string auctionId, string owner, string playerKey, int price)
+        private async Task<(bool Correct, string Message)> SetPlayerAsync(string auctionId)
         {
             var auctionWrapper = GetCurrentWrapper(auctionId);
             if (auctionWrapper?.RealPlayers == null)
                 return (false, "Auction data not available");
 
-            var thePlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == playerKey);
+            var current = auctionWrapper.Wrapper.Actual;
+
+            if (current == null)
+                return (false, "No player is currently being auctioned");
+
+            var thePlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == current.Player.Key);
             if (thePlayer == null)
                 return (false, "Player not found");
 
-            var team = auctionWrapper.Teams.FirstOrDefault(x => x.Key.Email == owner);
+            var team = auctionWrapper.Teams.FirstOrDefault(x => x.Key.Email == current.Owner);
             if (team.Value == null)
                 return (false, "Team not found");
 
-            var check = Check(thePlayer, team.Value, price);
+            var check = Check(thePlayer, team.Value, current.Price);
             if (string.IsNullOrWhiteSpace(check))
             {
                 team.Value.Players.Add(new Player
@@ -146,7 +151,7 @@ namespace Fantasoccer.Application.Api.Hubs
                     IsActive = true,
                     Name = thePlayer.Name,
                     RealTeam = thePlayer.RealTeam,
-                    Price = price,
+                    Price = current.Price,
                     Role = thePlayer.Role,
                     Status = PlayerInTeamStatus.Active,
                     Position = FantaSoccerRole.Tribune
@@ -200,11 +205,15 @@ namespace Fantasoccer.Application.Api.Hubs
                 return Task.FromResult<RealPlayer?>(null);
 
             var lastNameFound = auctionWrapper.Wrapper.LastShow[role];
-            var foundPrevious = false;
+            var foundPrevious = lastNameFound == null;
             foreach (var player in auctionWrapper.Wrapper.ListOfPlayers[role])
             {
                 if (foundPrevious)
-                    return Task.FromResult<RealPlayer?>(auctionWrapper.RealPlayers.First(x => x.Key == player));
+                {
+                    var realPlayer = auctionWrapper.RealPlayers.First(x => x.Key == player);
+                    auctionWrapper.Wrapper.LastShow[role] = player;
+                    return Task.FromResult<RealPlayer?>(realPlayer);
+                }
                 if (player == lastNameFound)
                 {
                     foundPrevious = true;
@@ -346,6 +355,103 @@ namespace Fantasoccer.Application.Api.Hubs
         }
 
         /// <summary>
+        /// Place a bid on current player (both participants and auctioneer)
+        /// </summary>
+        public async Task PlaceBidAsync(string auctionId, int amount, string? bidderEmail = null)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var wrapper = GetCurrentWrapper(auctionId);
+            if (wrapper == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Auction not found");
+                return;
+            }
+
+            // Check if auction is active
+            if (wrapper.Wrapper.Status == AuctionStatus.Finished)
+            {
+                await Clients.Caller.SendAsync("Error", "Auction is already finished");
+                return;
+            }
+
+            if (wrapper.Wrapper.Status == AuctionStatus.Paused && !IsAuctioneer(wrapper, email))
+            {
+                await Clients.Caller.SendAsync("Error", "Auction is paused");
+                return;
+            }
+
+            // Check if there's a player being auctioned
+            if (wrapper.Wrapper.Actual == null)
+            {
+                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
+                return;
+            }
+
+            // Determine who is bidding
+            string actualBidder;
+            if (IsAuctioneer(wrapper, email) && !string.IsNullOrEmpty(bidderEmail))
+            {
+                // Auctioneer bidding on behalf of someone
+                actualBidder = bidderEmail;
+            }
+            else
+            {
+                // Regular participant bidding for themselves
+                actualBidder = email;
+            }
+
+            // Find bidder's team
+            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actualBidder);
+            if (teamEntity.Key == null || teamEntity.Value == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Team not found");
+                return;
+            }
+            var team = teamEntity.Value;
+
+            // Validate bid amount
+            if (amount <= wrapper.Wrapper.Actual.Price)
+            {
+                await Clients.Caller.SendAsync("Error", $"Bid must be higher than current bid (€{wrapper.Wrapper.Actual.Price})");
+                return;
+            }
+
+            // Check if same bidder is already highest
+            if (!IsAuctioneer(wrapper, email) && wrapper.Wrapper.Actual.Owner == actualBidder)
+            {
+                await Clients.Caller.SendAsync("Error", "You are already the highest bidder");
+                return;
+            }
+
+            // Validate against team constraints
+            var validationError = Check(wrapper.Wrapper.Actual.Player, team, amount);
+            if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                await Clients.Caller.SendAsync("Error", validationError);
+                return;
+            }
+
+            // Update bid
+            wrapper.Wrapper.Actual.Price = amount;
+            wrapper.Wrapper.Actual.Owner = actualBidder;
+            wrapper.LastUpdate = DateTime.UtcNow;
+
+            // Broadcast to all participants
+            await Clients.Group(auctionId).SendAsync("BidPlaced", new
+            {
+                Amount = amount,
+                BidderEmail = actualBidder,
+                BidderName = team.Name,
+                PlayerName = wrapper.Wrapper.Actual.Player.Name
+            });
+
+            // Send updated auction state to all
+            await Clients.Group(auctionId).SendAsync("AuctionState", wrapper);
+        }
+
+        /// <summary>
         /// AUCTIONEER: Show next player for bidding
         /// </summary>
         public async Task ShowNextPlayerAsync(string auctionId, Role role)
@@ -376,7 +482,7 @@ namespace Fantasoccer.Application.Api.Hubs
             // Update auction state
             wrapper.Wrapper.Actual = new ActualAuction
             {
-                Player = wrapper.RealPlayers.First(x => x.Key == nextPlayer.Key),
+                Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
                 Owner = null,
                 Price = 0,
                 Started = DateTime.UtcNow
@@ -391,7 +497,7 @@ namespace Fantasoccer.Application.Api.Hubs
         /// <summary>
         /// AUCTIONEER: Assign current player to a team
         /// </summary>
-        public async Task AssignPlayerToTeamAsync(string auctionId, string ownerEmail, int price)
+        public async Task AssignPlayerToTeamAsync(string auctionId)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
@@ -409,7 +515,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 return;
             }
 
-            var (success, message) = await SetPlayerAsync(auctionId, ownerEmail, wrapper.Wrapper.Actual.Player.Key, price);
+            var (success, message) = await SetPlayerAsync(auctionId);
 
             if (!success)
             {
@@ -417,27 +523,26 @@ namespace Fantasoccer.Application.Api.Hubs
                 return;
             }
 
-            // Update winnings
-            wrapper.Wrapper.Actual.Owner = ownerEmail;
-            wrapper.Wrapper.Actual.Price = price;
             wrapper.Wrapper.Winnings.Add(new AuctionWin
             {
                 PlayerKey = wrapper.Wrapper.Actual.Player.Key,
                 Owner = wrapper.Wrapper.Actual.Owner,
                 Price = wrapper.Wrapper.Actual.Price
             });
+            var actual = wrapper.Wrapper.Actual;
             wrapper.Wrapper.Actual = null;
 
             // Get updated team
-            var team = wrapper.Teams.FirstOrDefault(x => x.Key.Email == ownerEmail).Value;
+            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actual?.Owner);
+            var team = teamEntity.Key != null ? teamEntity.Value : null;
 
             // Broadcast to all participants
             await Clients.Group(auctionId).SendAsync("PlayerAssigned", new
             {
-                Owner = ownerEmail,
+                Owner = actual?.Owner,
                 TeamName = team?.Name,
-                Price = price,
-                PlayerName = wrapper.RealPlayers.First(x => x.Key == wrapper.Wrapper.Winnings.Last().PlayerKey).Name,
+                Price = actual?.Price ?? 0,
+                PlayerName = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == actual?.Player.Key)?.Name ?? "Unknown",
                 TeamCost = team?.Cost,
                 TeamPlayersCount = team?.ActivePlayers.Count()
             });

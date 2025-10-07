@@ -311,32 +311,20 @@ export default function AuctionLiveScreen() {
     setActionError(null)
 
     try {
-      // TODO: Call SignalR method to place bid
-      // await auctionService.placeBid(auctionId, amount, biddingTeam.value.name, biddingTeam.value.owner)
+      // Call SignalR method to place bid
+      // If auctioneer, pass the team email, otherwise undefined (will use current user)
+      const bidderEmail = isAuctioneer ? biddingTeam.value.owner : undefined
+      await auctionService.placeBid(auctionId, amount, bidderEmail)
       
-      // Temporary: Update local state
-      setCurrentBid(amount)
-      setCurrentBidder(biddingTeam.value.owner)
-      
-      // Play sound and vibrate
-      playBidSound()
-      vibrateOnBid()
-
-      // Start or restart timer
-      if (!firstOfferHappened) {
-        startTimer()
-      } else {
-        // Reset timer to full duration
-        startTimer()
-      }
-
       console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name}`)
     } catch (err) {
       setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setTempBlockButtons(false) // Unlock on error
     } finally {
       setLoading(false)
     }
   }, [
+    auctionId,
     currentPlayer, 
     isLocked, 
     isAuctioneer, 
@@ -347,11 +335,7 @@ export default function AuctionLiveScreen() {
     teams, 
     myTeam, 
     hasReachedRoleLimit, 
-    calculateBudgetRemaining, 
-    playBidSound, 
-    vibrateOnBid, 
-    firstOfferHappened, 
-    startTimer,
+    calculateBudgetRemaining,
     getRoleLabel
   ])
 
@@ -457,6 +441,26 @@ export default function AuctionLiveScreen() {
               setAssignPrice('')
               setSelectedTeamForBid('')
               resetTimer()
+            }
+          },
+          onBidPlaced: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string }) => {
+            console.log('💰 Bid placed:', data)
+            if (isSubscribed) {
+              // Update current bid state
+              setCurrentBid(data.Amount)
+              setCurrentBidder(data.BidderEmail)
+
+              // Play sound and vibrate if not my bid
+              if (data.BidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
+                playBidSound()
+                vibrateOnBid()
+              }
+
+              // Start or restart timer
+              startTimer()
+
+              // Refresh auction state to get updated teams
+              auctionService.getAuctionState(auctionId).catch(console.error)
             }
           },
           onAuctionState: (state: AuctionState) => {

@@ -26,6 +26,7 @@ export interface AuctionEventHandlers {
   onUserLeft?: (email: string) => void
   onPlayerShown?: (player: StatPlayer) => void
   onPlayerAssigned?: (data: PlayerAssignedData) => void
+  onBidPlaced?: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string }) => void
   onAuctionUpdated?: () => void
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
@@ -226,6 +227,13 @@ export class AuctionService {
       }
     })
 
+    this.hubConnection.on('BidPlaced', (data: any) => {
+      console.log('Bid placed:', data)
+      if (this.eventHandlers.onBidPlaced) {
+        this.eventHandlers.onBidPlaced(data)
+      }
+    })
+
     this.hubConnection.on('AuctionUpdated', () => {
       console.log('Auction updated')
       if (this.eventHandlers.onAuctionUpdated) {
@@ -360,6 +368,17 @@ export class AuctionService {
   // ============================================
   // AUCTIONEER METHODS (Admin/SuperAdmin only)
   // ============================================
+
+  /**
+   * Place a bid on current player
+   * @param auctionId - The auction ID
+   * @param amount - Bid amount
+   * @param bidderEmail - Optional: email of team to bid for (auctioneer only)
+   */
+  async placeBid(auctionId: string, amount: number, bidderEmail?: string): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('PlaceBidAsync', auctionId, amount, bidderEmail)
+  }
 
   /**
    * Show next player for bidding
