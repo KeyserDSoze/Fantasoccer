@@ -4,7 +4,8 @@ import { buildApiUrl, getCommonHeaders, ApiError } from '../configurations/apiCo
 import { tokenStorageService } from './tokenStorageService'
 import type { Role } from '../types/group'
 import type { 
-  AuctionType, 
+  AuctionType,
+  AuctionKind,
   AuctionState,
   AuctionHubWrapperRaw,
   ActualAuctionRaw,
@@ -47,7 +48,7 @@ export class AuctionService {
   /**
    * Create a new auction (HTTP call)
    */
-  async createAuction(auctionType: AuctionType): Promise<string> {
+  async createAuction(auctionType: AuctionType, auctionKind: AuctionKind): Promise<string> {
     try {
       const token = await tokenStorageService.ensureValidToken()
       if (!token) {
@@ -55,7 +56,8 @@ export class AuctionService {
       }
 
       const url = buildApiUrl('/Auction/CreateAuction', {
-        auctionType: auctionType.toString()
+        auctionType: auctionType.toString(),
+        auctionKind: auctionKind.toString()
       })
 
       const response = await fetch(url, {
@@ -318,6 +320,9 @@ export class AuctionService {
    */
   async joinAuction(auctionId: string): Promise<boolean> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
+    if (this.hubConnection.state !== 'Connected') {
+      throw new Error(`Cannot join auction: connection state is ${this.hubConnection.state}`)
+    }
     try {
       const result = await this.hubConnection.invoke<boolean>('JoinAuctionAsync', auctionId)
       return result

@@ -13,7 +13,11 @@ import {
   AuctionStatus, 
   PlayerAssignedData,
   StatPlayer,
-  AuctionWin
+  AuctionWin,
+  AuctionType,
+  AuctionKind,
+  AuctionTypeLabels,
+  AuctionKindLabels
 } from 'types/auction'
 import { Role } from 'types/group'
 import { 
@@ -316,9 +320,19 @@ export default function AuctionLiveScreen() {
       console.log('⏳ Waiting for user to be loaded...')
       return
     }
+    
     let isSubscribed = true
+    let connectionAttempted = false
+    
     setConnectionState('Connecting')
+    
     const connectAndJoin = async () => {
+      // Prevent multiple connection attempts
+      if (connectionAttempted) {
+        return
+      }
+      connectionAttempted = true
+      
       try {
         console.log('👤 User loaded:', user.email)
         auctionService.setUserEmail(user.email)
@@ -413,7 +427,19 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) setConnectionError('L\'asta è stata chiusa')
           }
         })
+        
         await auctionService.connect()
+        
+        // Wait a bit for connection to stabilize
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Verify connection state before joining
+        if (!isSubscribed) return
+        
+        if (!auctionService.isConnected()) {
+          throw new Error('Connection not established after connect()')
+        }
+        
         const joined = await auctionService.joinAuction(auctionId)
         if (!joined) {
           if (isSubscribed) {
@@ -430,7 +456,12 @@ export default function AuctionLiveScreen() {
           setConnectionError(`Errore: ${err instanceof Error ? err.message : 'Unknown error'}`)
           setConnectionState('Disconnected')
           if (reconnectAttempts < 3) {
-            setTimeout(() => setReconnectAttempts(prev => prev + 1), 3000)
+            setTimeout(() => {
+              if (isSubscribed) {
+                connectionAttempted = false
+                setReconnectAttempts(prev => prev + 1)
+              }
+            }, 3000)
           }
         }
       }
@@ -450,22 +481,54 @@ export default function AuctionLiveScreen() {
   // Header Component
   const renderHeader = () => {
     if (!auctionState) return null
+    
+    const auctionTypeLabel = AuctionTypeLabels[auctionState.wrapper.type] || 'Sconosciuto'
+    const auctionKindLabel = AuctionKindLabels[auctionState.wrapper.king] || 'Sconosciuto'
+    
     return (
       <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8">
-        <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-          <XStack gap="$2" alignItems="center">
-            <Gavel size={24} color="$blue11" />
-            <Text fontSize="$5" fontWeight="700" color="$blue11">
-              Asta {isAuctioneer ? '(Banditore)' : ''} - {auctionState.leagueName || 'Lega'}
-            </Text>
+        <YStack gap="$2">
+          <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
+            <XStack gap="$2" alignItems="center">
+              <Gavel size={24} color="$blue11" />
+              <Text fontSize="$5" fontWeight="700" color="$blue11">
+                Asta {isAuctioneer ? '(Banditore)' : ''} - {auctionState.leagueName || 'Lega'}
+              </Text>
+            </XStack>
+            <XStack gap="$2" alignItems="center">
+              <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.wrapper.status)}>
+                {getStatusLabel(auctionState.wrapper.status)}
+              </Text>
+              {isLocked && <Lock size={20} color="$orange10" />}
+            </XStack>
           </XStack>
-          <XStack gap="$2" alignItems="center">
-            <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.wrapper.status)}>
-              {getStatusLabel(auctionState.wrapper.status)}
-            </Text>
-            {isLocked && <Lock size={20} color="$orange10" />}
+          <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
+             <XStack gap="$2" alignItems="center">
+              <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                <Text fontSize="$3" color="$blue11" fontWeight="600">{auctionKindLabel}</Text>
+              </Card>
+              <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                <Text fontSize="$3" color="$blue11" fontWeight="600">Lista giocatori: {auctionTypeLabel}</Text>
+              </Card>
+            </XStack>
+             <XStack gap="$2" alignItems="center">
+               {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
+              <Text fontSize="$3" color="$color11">Audio</Text>
+              <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
+                <Switch.Thumb animation="quick" />
+              </Switch>
+              {Platform.OS !== 'web' && (
+              <XStack gap="$2" alignItems="center">
+                <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
+                <Text fontSize="$3" color="$color11">Vibrazione</Text>
+                <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
+                  <Switch.Thumb animation="quick" />
+                </Switch>
+              </XStack>
+            )}
+            </XStack>
           </XStack>
-        </XStack>
+        </YStack>
       </Card>
     )
   }
@@ -474,24 +537,6 @@ export default function AuctionLiveScreen() {
   const renderSettings = () => (
     <Card padding="$3" backgroundColor="$color2" borderRadius="$4">
       <XStack gap="$4" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-        <XStack gap="$3" alignItems="center">
-          <XStack gap="$2" alignItems="center">
-            {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
-            <Text fontSize="$3" color="$color11">Audio</Text>
-            <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
-              <Switch.Thumb animation="quick" />
-            </Switch>
-          </XStack>
-          {Platform.OS !== 'web' && (
-            <XStack gap="$2" alignItems="center">
-              <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
-              <Text fontSize="$3" color="$color11">Vibrazione</Text>
-              <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                <Switch.Thumb animation="quick" />
-              </Switch>
-            </XStack>
-          )}
-        </XStack>
         {isAuctioneer && (
           <XStack gap="$2" alignItems="center">
             <Clock size={18} color="$color11" />
@@ -813,8 +858,17 @@ export default function AuctionLiveScreen() {
     if (teams.length === 0) return null
     
     // Responsive grid: 5 teams per row on desktop, 2 on mobile
+    // Width dinamica con massimo per mantenere 5 colonne su desktop
     const teamsPerRow = media.gtMd ? 5 : 2
-    const teamWidth = `${100 / teamsPerRow - 2}%`
+    const gapSize = 12 // $3 = 12px
+    const maxCardWidth = media.gtMd ? 240 : 180
+    
+    // Sort teams by budget (descending - from highest to lowest)
+    const sortedTeams = [...teams].sort((a, b) => {
+      const budgetA = calculateBudgetRemaining(a)
+      const budgetB = calculateBudgetRemaining(b)
+      return budgetB - budgetA // Descending order
+    })
     
     return (
       <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
@@ -823,16 +877,14 @@ export default function AuctionLiveScreen() {
             <Users size={20} color="$color11" />
             <Text fontSize="$5" fontWeight="700" color="$color11">Squadre Partecipanti ({teams.length})</Text>
           </XStack>
-          <XStack gap="$3" flexWrap="wrap">
-            {teams.map((team) => {
+          <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
+            {sortedTeams.map((team) => {
               const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
               const budget = calculateBudgetRemaining(team)
-              const spent = 1000 - budget
               const hasLowBudget = budget < 100
               
               // Count only active players (status === 0)
               const activePlayers = TeamHelper.getActivePlayers(team.value)
-              const slotsRemaining = 25 - activePlayers.length
               const roleCount = {
                 [Role.GoalKeeper]: activePlayers.filter(p => p.role === Role.GoalKeeper).length,
                 [Role.Defensor]: activePlayers.filter(p => p.role === Role.Defensor).length,
@@ -841,9 +893,10 @@ export default function AuctionLiveScreen() {
               }
               return (
                 <Card 
-                  key={team.value.owner} 
-                  width={teamWidth}
+                  key={team.value.owner}
+                  flex={1}
                   minWidth={media.gtMd ? 180 : 150}
+                  maxWidth={maxCardWidth}
                   padding="$3" 
                   backgroundColor={isMyTeam ? '$blue2' : '$color1'} 
                   borderRadius="$3" 
@@ -857,14 +910,16 @@ export default function AuctionLiveScreen() {
                   }}
                 >
                   <YStack gap="$2">
-                    <YStack gap="$1">
-                      <Text fontSize="$4" fontWeight="700" color="$color11" numberOfLines={1}>{team.value.name}</Text>
+                    <XStack gap="$2" alignItems="center" justifyContent="space-between">
+                      <Text fontSize="$4" fontWeight="700" color="$color11" numberOfLines={1} flex={1}>
+                        {team.value.name}
+                      </Text>
                       {isMyTeam && (
-                        <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2" alignSelf="flex-start">
+                        <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2">
                           <Text fontSize="$1" color="$blue1" fontWeight="700">TUA</Text>
                         </Card>
                       )}
-                    </YStack>
+                    </XStack>
                     <XStack gap="$2" flexWrap="wrap">
                       <YStack gap="$0.5" flex={1}>
                         <Text fontSize="$1" color="$color10">Budget</Text>
@@ -902,7 +957,7 @@ export default function AuctionLiveScreen() {
                         </XStack>
                         <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
                           <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Vendite 1 Girone</Text>
+                            <Text fontSize="$1" color="$green10">Infortunati/Ceduti</Text>
                             <Text fontSize="$2" fontWeight="600" color="$green11">+€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}</Text>
                           </YStack>
                         </XStack>

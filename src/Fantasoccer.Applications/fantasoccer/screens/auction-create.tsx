@@ -4,7 +4,14 @@ import { View, ScrollView, Share, Linking, Platform } from 'react-native'
 import { Button, Card, Input, Separator, Text, XStack, YStack, useMedia, RadioGroup, Label } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { auctionService } from 'services/auctionService'
-import { AuctionType, AuctionTypeLabels, AuctionTypeDescriptions } from 'types/auction'
+import { 
+  AuctionType, 
+  AuctionKind, 
+  AuctionTypeLabels, 
+  AuctionTypeDescriptions,
+  AuctionKindLabels,
+  AuctionKindDescriptions
+} from 'types/auction'
 import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons'
 
 export default function AuctionCreateScreen() {
@@ -12,6 +19,7 @@ export default function AuctionCreateScreen() {
   const containerWidth = media.gtMd ? 960 : '100%'
 
   const [selectedType, setSelectedType] = useState<AuctionType>(AuctionType.Normal)
+  const [selectedKind, setSelectedKind] = useState<AuctionKind>(AuctionKind.Starting)
   const [auctionId, setAuctionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +34,7 @@ export default function AuctionCreateScreen() {
     setAuctionId(null)
 
     try {
-      const id = await auctionService.createAuction(selectedType)
+      const id = await auctionService.createAuction(selectedType, selectedKind)
       
       if (!id || id.trim() === '') {
         setError('Non sei autorizzato a creare l\'asta. Solo gli admin/super admin possono crearla per la lega principale del gruppo corrente.')
@@ -40,7 +48,7 @@ export default function AuctionCreateScreen() {
     } finally {
       setLoading(false)
     }
-  }, [selectedType])
+  }, [selectedType, selectedKind])
 
   // Generate auction URL
   const getAuctionUrl = useCallback((id: string): string => {
@@ -158,33 +166,70 @@ export default function AuctionCreateScreen() {
               {!auctionId && (
                 <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
                   <YStack gap="$4">
-                    <Text fontSize="$5" fontWeight="700" color="$color11">
-                      Tipo di Asta
-                    </Text>
+                    
+                    {/* Auction Kind Selection */}
+                    <YStack gap="$3">
+                      <Text fontSize="$5" fontWeight="700" color="$color11">
+                        Tipologia Asta
+                      </Text>
 
-                    <RadioGroup
-                      value={selectedType.toString()}
-                      onValueChange={(val) => setSelectedType(Number(val) as AuctionType)}
-                      gap="$3"
-                    >
-                      {Object.values(AuctionType)
-                        .filter(v => typeof v === 'number')
-                        .map((type) => (
-                          <XStack key={type} gap="$3" alignItems="flex-start">
-                            <RadioGroup.Item value={type.toString()} id={`type-${type}`} size="$4">
-                              <RadioGroup.Indicator />
-                            </RadioGroup.Item>
-                            <YStack flex={1} gap="$1">
-                              <Label htmlFor={`type-${type}`} fontSize="$4" fontWeight="600" color="$color11">
-                                {AuctionTypeLabels[type as AuctionType]}
-                              </Label>
-                              <Text fontSize="$2" color="$color10">
-                                {AuctionTypeDescriptions[type as AuctionType]}
-                              </Text>
-                            </YStack>
-                          </XStack>
-                        ))}
-                    </RadioGroup>
+                      <RadioGroup
+                        value={selectedKind.toString()}
+                        onValueChange={(val) => setSelectedKind(Number(val) as AuctionKind)}
+                        gap="$3"
+                      >
+                        {Object.values(AuctionKind)
+                          .filter(v => typeof v === 'number')
+                          .map((kind) => (
+                            <XStack key={kind} gap="$3" alignItems="flex-start">
+                              <RadioGroup.Item value={kind.toString()} id={`kind-${kind}`} size="$4">
+                                <RadioGroup.Indicator />
+                              </RadioGroup.Item>
+                              <YStack flex={1} gap="$1">
+                                <Label htmlFor={`kind-${kind}`} fontSize="$4" fontWeight="600" color="$color11">
+                                  {AuctionKindLabels[kind as AuctionKind]}
+                                </Label>
+                                <Text fontSize="$2" color="$color10">
+                                  {AuctionKindDescriptions[kind as AuctionKind]}
+                                </Text>
+                              </YStack>
+                            </XStack>
+                          ))}
+                      </RadioGroup>
+                    </YStack>
+
+                    <Separator />
+
+                    {/* Auction Type Selection */}
+                    <YStack gap="$3">
+                      <Text fontSize="$5" fontWeight="700" color="$color11">
+                        Modalità di Ordinamento
+                      </Text>
+
+                      <RadioGroup
+                        value={selectedType.toString()}
+                        onValueChange={(val) => setSelectedType(Number(val) as AuctionType)}
+                        gap="$3"
+                      >
+                        {Object.values(AuctionType)
+                          .filter(v => typeof v === 'number')
+                          .map((type) => (
+                            <XStack key={type} gap="$3" alignItems="flex-start">
+                              <RadioGroup.Item value={type.toString()} id={`type-${type}`} size="$4">
+                                <RadioGroup.Indicator />
+                              </RadioGroup.Item>
+                              <YStack flex={1} gap="$1">
+                                <Label htmlFor={`type-${type}`} fontSize="$4" fontWeight="600" color="$color11">
+                                  {AuctionTypeLabels[type as AuctionType]}
+                                </Label>
+                                <Text fontSize="$2" color="$color10">
+                                  {AuctionTypeDescriptions[type as AuctionType]}
+                                </Text>
+                              </YStack>
+                            </XStack>
+                          ))}
+                      </RadioGroup>
+                    </YStack>
 
                     <Button
                       icon={Gavel}

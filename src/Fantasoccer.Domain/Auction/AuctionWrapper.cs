@@ -72,6 +72,8 @@ namespace Fantasoccer.Domain
         /// </summary>
         [JsonPropertyName("ls")]
         public required Dictionary<Role, string?> LastShow { get; set; }
+        [JsonPropertyName("sec")]
+        public int SecondsPerAuction { get; set; } = 10;
     }
     public sealed class ActualAuction
     {

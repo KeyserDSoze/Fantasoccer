@@ -604,6 +604,24 @@ namespace Fantasoccer.Application.Api.Hubs
             await Clients.Group(auctionId).SendAsync("AuctionUpdated");
         }
 
+        public async Task ChangeTimerAysnc(string auctionId, int timer)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            {
+                await Clients.Caller.SendAsync("Error", "Only auctioneers can edit timer");
+                return;
+            }
+
+            wrapper.Wrapper.SecondsPerAuction = timer;
+
+            // Send updated state
+            await Clients.Group(auctionId).SendAsync("AuctionUpdated");
+        }
+
         /// <summary>
         /// AUCTIONEER: Pause auction
         /// </summary>

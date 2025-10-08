@@ -77,6 +77,7 @@ export interface AuctionWrapperRaw {
   p: Record<string, string[]>           // ListOfPlayers (Role as string key)
   pr: AnnualTeamRaw[]                   // Participants
   ls: Record<string, string | null>     // LastShow (Role as string key)
+  sec: number                            // SecondsPerAuction
 }
 
 
@@ -312,4 +313,20 @@ export const AuctionTypeDescriptions: Record<AuctionType, string> = {
   [AuctionType.Normal]: 'Giocatori in ordine alfabetico per ruolo',
   [AuctionType.RandomByLetter]: 'Ordine casuale partendo da una lettera random per ogni ruolo',
   [AuctionType.RandomList]: 'Lista completamente randomizzata per ogni ruolo'
+}
+
+/**
+ * Auction kind labels
+ */
+export const AuctionKindLabels: Record<AuctionKind, string> = {
+  [AuctionKind.Starting]: 'Asta Iniziale',
+  [AuctionKind.Repairing]: 'Asta di Riparazione'
+}
+
+/**
+ * Auction kind descriptions
+ */
+export const AuctionKindDescriptions: Record<AuctionKind, string> = {
+  [AuctionKind.Starting]: 'Asta iniziale per formare la rosa completa',
+  [AuctionKind.Repairing]: 'Asta di riparazione per sostituire giocatori infortunati o venduti'
 }
