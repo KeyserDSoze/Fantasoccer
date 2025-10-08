@@ -51,7 +51,7 @@ export const usePostLoginRedirect = () => {
         // Navigate to the saved route
         // Small delay to ensure auth state is fully updated
         setTimeout(() => {
-          navigation.navigate(routeInfo.routeName as never, routeInfo.params as never)
+          navigation.navigate(routeInfo.routeName, routeInfo.params)
         }, 300)
 
       } catch (error) {

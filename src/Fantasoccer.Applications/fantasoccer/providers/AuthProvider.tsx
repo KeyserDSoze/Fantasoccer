@@ -5,6 +5,7 @@ import { AppIdentity } from '../types/identity'
 import { tokenStorageService } from '../services/tokenStorageService'
 import { PKCEHelper } from '../utils/pkceHelper'
 import { useGlobalLoading } from '../providers/LoadingProvider'
+import { useToastController } from '@tamagui/toast'
 
 // Helper function to convert backend user data to AuthUser
 const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {
@@ -103,6 +104,7 @@ const getMsalConfig = () => ({
 // Provider Component
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { showLoading, hideLoading } = useGlobalLoading()
+  const toast = useToastController()
 
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
@@ -141,11 +143,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.debug('[AuthProvider] initializeMsal done')
       hideLoading()
     } catch (error) {
+      const errorMessage = `MSAL initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       setState(prev => ({ 
         ...prev, 
-        error: `MSAL initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
         isLoading: false 
       }))
+      // Show error toast
+      toast.show(errorMessage, { 
+        variant: 'error',
+        duration: 5000,
+      })
       hideLoading()
     }
   }
@@ -245,17 +253,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const state = urlParams.get('state')
 
       if (error) {
+        const errorMessage = `OAuth error: ${error}`
         setState(prev => ({ 
           ...prev, 
-          error: `OAuth error: ${error}`,
+          error: errorMessage,
           isLoading: false 
         }))
+        // Show error toast
+        toast.show(errorMessage, { 
+          variant: 'error',
+          duration: 5000,
+        })
         // Ensure global loader is hidden when an OAuth error occurs
         hideLoading()
         return
       }
 
       if (authCode) {
+        // Show loading indicator during token exchange
+        showLoading('Autenticazione in corso...')
+        
         // Clear URL parameters
         window.history.replaceState({}, document.title, window.location.pathname)
         
@@ -293,12 +310,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const returnUrl = await returnUrlService.consumeReturnUrl()
           
           if (returnUrl) {
-            console.log('🔄 Redirecting to saved URL:', returnUrl)
+            console.log('🔄 Navigating to saved URL:', returnUrl)
             
             // Use setTimeout to ensure state is updated before navigation
             setTimeout(() => {
               if (Platform.OS === 'web') {
-                window.location.href = returnUrl
+                // Use history API to change URL without full page reload
+                // This allows React Navigation to handle the routing properly
+                window.history.replaceState({}, '', returnUrl)
+                // Dispatch a popstate event to trigger React Navigation's listener
+                window.dispatchEvent(new PopStateEvent('popstate'))
               } else {
                 // For React Native, parse the URL and navigate
                 // Example: /auction-live/123 -> navigate to AuctionLive with auctionId: 123
@@ -314,19 +335,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
 
         } catch (exchangeError) {
+          const errorMessage = `Token exchange failed: ${exchangeError instanceof Error ? exchangeError.message : 'Unknown error'}`
           setState(prev => ({
             ...prev,
             isLoading: false,
-            error: `Token exchange failed: ${exchangeError instanceof Error ? exchangeError.message : 'Unknown error'}`,
+            error: errorMessage,
           }))
+          // Show error toast
+          toast.show(errorMessage, { 
+            variant: 'error',
+            duration: 5000,
+          })
+          hideLoading()
         }
       }
     } catch (error) {
+      const errorMessage = `Callback handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       setState(prev => ({ 
         ...prev, 
-        error: `Callback handling failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
         isLoading: false 
       }))
+      // Show error toast
+      toast.show(errorMessage, { 
+        variant: 'error',
+        duration: 5000,
+      })
       // Ensure global loader is hidden on errors
       hideLoading()
     }
@@ -341,11 +375,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return await loginWithPKCE()
 
     } catch (error) {
+      const errorMessage = `Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: `Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
       }))
+      // Show error toast
+      toast.show(errorMessage, { 
+        variant: 'error',
+        duration: 5000,
+      })
       throw error
     }
   }
@@ -380,11 +420,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
     } catch (error) {
+      const errorMessage = `PKCE login failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: `PKCE login failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
       }))
+      // Show error toast
+      toast.show(errorMessage, { 
+        variant: 'error',
+        duration: 5000,
+      })
       throw error
     }
   }
@@ -406,11 +452,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       })
 
     } catch (error) {
+      const errorMessage = `Logout failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: `Logout failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
       }))
+      // Show error toast
+      toast.show(errorMessage, { 
+        variant: 'error',
+        duration: 5000,
+      })
     }
   }
 
