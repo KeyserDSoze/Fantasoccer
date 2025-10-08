@@ -5,6 +5,7 @@ import {
   Button, Card, Input, Select, Separator, Text, XStack, YStack, 
   useMedia, Spinner, Sheet, Label, Switch, Dialog
 } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { auctionService } from 'services/auctionService'
 import { 
@@ -41,8 +42,8 @@ export default function AuctionLiveScreen() {
   const route = useRoute<AuctionLiveRouteProp>()
   const { auctionId } = route.params
   const media = useMedia()
-  const containerWidth = media.gtMd ? 1200 : '100%'
   const { user } = useAuth()
+  const toast = useToastController()
 
   // ============================================
   // CONNECTION STATE
@@ -94,7 +95,6 @@ export default function AuctionLiveScreen() {
   // UI STATE
   // ============================================
   const [loading, setLoading] = useState(false)
-  const [actionError, setActionError] = useState<string | null>(null)
   const [tempBlockButtons, setTempBlockButtons] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [vibrationEnabled, setVibrationEnabled] = useState(true)
@@ -257,23 +257,23 @@ export default function AuctionLiveScreen() {
   const placeBid = useCallback(async (amount: number) => {
     // Validations
     if (!currentPlayer) {
-      setActionError('Nessun giocatore in asta')
+      toast.show('❌ Nessun giocatore in asta', { variant: 'error' })
       return
     }
 
     if (isLocked && !isAuctioneer) {
-      setActionError('L\'asta è bloccata')
+      toast.show('❌ L\'asta è bloccata', { variant: 'error' })
       return
     }
 
     if (amount <= currentBid) {
-      setActionError(`L'offerta deve essere superiore a €${currentBid}`)
+      toast.show(`❌ L'offerta deve essere superiore a €${currentBid}`, { variant: 'error' })
       return
     }
 
     // Check if I'm already the highest bidder (for participants)
     if (!isAuctioneer && currentBidder?.toLowerCase() === user?.email?.toLowerCase()) {
-      setActionError('Sei già il miglior offerente')
+      toast.show('❌ Sei già il miglior offerente', { variant: 'error' })
       return
     }
 
@@ -283,13 +283,13 @@ export default function AuctionLiveScreen() {
       : myTeam
 
     if (!biddingTeam) {
-      setActionError('Nessuna squadra selezionata')
+      toast.show('❌ Nessuna squadra selezionata', { variant: 'error' })
       return
     }
 
     // Check role limits
     if (currentPlayer.role && hasReachedRoleLimit(currentPlayer.role)) {
-      setActionError(`Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)}`)
+      toast.show(`❌ Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)}`, { variant: 'error' })
       return
     }
 
@@ -299,7 +299,7 @@ export default function AuctionLiveScreen() {
     const minimumBudgetNeeded = slotsRemaining > 1 ? slotsRemaining - 1 : 0 // Reserve 1€ per slot
 
     if (amount > teamBudget - minimumBudgetNeeded) {
-      setActionError(`Budget insufficiente (disponibile: €${teamBudget - minimumBudgetNeeded})`)
+      toast.show(`❌ Budget insufficiente (disponibile: €${teamBudget - minimumBudgetNeeded})`, { variant: 'error' })
       return
     }
 
@@ -308,7 +308,6 @@ export default function AuctionLiveScreen() {
     setTimeout(() => setTempBlockButtons(false), 500)
 
     setLoading(true)
-    setActionError(null)
 
     try {
       // Call SignalR method to place bid
@@ -318,7 +317,7 @@ export default function AuctionLiveScreen() {
       
       console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name}`)
     } catch (err) {
-      setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false) // Unlock on error
     } finally {
       setLoading(false)
@@ -336,7 +335,8 @@ export default function AuctionLiveScreen() {
     myTeam, 
     hasReachedRoleLimit, 
     calculateBudgetRemaining,
-    getRoleLabel
+    getRoleLabel,
+    toast
   ])
 
   /**
@@ -411,8 +411,11 @@ export default function AuctionLiveScreen() {
           onError: (error) => {
             console.error('❌ SignalR error:', error)
             if (isSubscribed) {
-              setConnectionError(error || 'Errore di connessione')
-              setConnectionState('Disconnected')
+              // Mostra solo un toast per errori del backend (non disconnetti)
+              toast.show(`❌ ${error || 'Errore del server'}`, { 
+                variant: 'error',
+                duration: 4000 
+              })
             }
           },
           onUserJoined: (email) => {
@@ -624,8 +627,8 @@ export default function AuctionLiveScreen() {
     <View style={{ flex: 1 }}>
       <ScreenContent path="screens/auction-live.tsx" title="Asta Live">
         <ScrollView>
-          <YStack padding="$4" gap="$6" alignItems="center">
-            <YStack width={containerWidth} gap="$4">
+          <YStack padding="$4" gap="$6">
+            <YStack width="100%" gap="$4">
               
               {/* Header - Auction Status */}
               {auctionState && (
@@ -643,16 +646,6 @@ export default function AuctionLiveScreen() {
                       </Text>
                       {isLocked && <Lock size={20} color="$orange10" />}
                     </XStack>
-                  </XStack>
-                </Card>
-              )}
-
-              {/* Action Error */}
-              {actionError && (
-                <Card padding="$3" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
-                  <XStack gap="$2" alignItems="center">
-                    <AlertCircle size={16} color="$red11" />
-                    <Text color="$red11" fontSize="$3">{actionError}</Text>
                   </XStack>
                 </Card>
               )}
@@ -802,7 +795,566 @@ export default function AuctionLiveScreen() {
                 </Card>
               )}
 
-              {/* PULSANTIERA - Bidding Buttons */}
+              {/* PULSANTIERE - Doppia pulsantiera se Banditore + Owner di squadra */}
+              {isAuctioneer && myTeam && currentPlayer && (
+                <>
+                  {/* Layout Desktop: affiancate */}
+                  {media.gtMd ? (
+                    <XStack gap="$4" alignItems="flex-start">
+                      {/* Pulsantiera Mio Team (sinistra) */}
+                      <YStack flex={1}>
+                        <Card 
+                          padding="$4" 
+                          backgroundColor="$blue2" 
+                          borderRadius="$4" 
+                          borderWidth="$0.5" 
+                          borderColor="$blue8"
+                          opacity={tempBlockButtons ? 0.6 : 1}
+                        >
+                          <YStack gap="$3">
+                            <XStack gap="$2" alignItems="center">
+                              <DollarSign size={20} color="$blue11" />
+                              <Text fontSize="$5" fontWeight="700" color="$blue11">
+                                Mia Squadra
+                              </Text>
+                            </XStack>
+
+                            <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                              <Text fontSize="$3" color="$blue11">
+                                {myTeam.value.name} • Budget: €{myTeamBudget}
+                              </Text>
+                            </Card>
+
+                            <XStack gap="$2">
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="blue"
+                                onPress={() => handleIncrementBid(1)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                Incremento
+                              </Button>
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="blue"
+                                onPress={() => handleIncrementBid(3)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                +3
+                              </Button>
+                            </XStack>
+
+                            <XStack gap="$2">
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="blue"
+                                onPress={() => handleIncrementBid(2)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                +2
+                              </Button>
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="blue"
+                                onPress={() => handleIncrementBid(5)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                +5
+                              </Button>
+                            </XStack>
+
+                            <YStack gap="$2">
+                              <Text fontSize="$3" color="$blue10" fontWeight="600">Offerte Fisse</Text>
+                              <XStack gap="$2" flexWrap="wrap">
+                                {[50, 100, 150, 200].map(amount => (
+                                  <Button
+                                    key={amount}
+                                    flex={1}
+                                    minWidth={80}
+                                    size="$3"
+                                    fontSize="$4"
+                                    theme="blue"
+                                    variant="outlined"
+                                    onPress={() => handleFixedBid(amount)}
+                                    disabled={areBidButtonsDisabled()}
+                                  >
+                                    {amount}
+                                  </Button>
+                                ))}
+                              </XStack>
+                            </YStack>
+
+                            <Button
+                              icon={DollarSign}
+                              theme="blue"
+                              variant="outlined"
+                              onPress={() => setShowCustomBidDialog(true)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              Offerta Personalizzata
+                            </Button>
+
+                            {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && (
+                              <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
+                                <Text fontSize="$3" color="$green11">
+                                  ✅ Sei il miglior offerente
+                                </Text>
+                              </Card>
+                            )}
+                          </YStack>
+                        </Card>
+                      </YStack>
+
+                      {/* Pulsantiera Banditore (destra) */}
+                      <YStack flex={1}>
+                        <Card 
+                          padding="$4" 
+                          backgroundColor="$orange2" 
+                          borderRadius="$4" 
+                          borderWidth="$0.5" 
+                          borderColor="$orange8"
+                          opacity={tempBlockButtons ? 0.6 : 1}
+                        >
+                          <YStack gap="$3">
+                            <XStack gap="$2" alignItems="center">
+                              <Gavel size={20} color="$orange11" />
+                              <Text fontSize="$5" fontWeight="700" color="$orange11">
+                                Pulsantiera Banditore
+                              </Text>
+                            </XStack>
+
+                            <YStack gap="$2">
+                              <Label htmlFor="team-select" fontSize="$4" color="$orange11">
+                                Fai offerta per squadra:
+                              </Label>
+                              <Select 
+                                id="team-select"
+                                value={selectedTeamForBid} 
+                                onValueChange={setSelectedTeamForBid}
+                              >
+                                <Select.Trigger iconAfter={ChevronDown}>
+                                  <Select.Value placeholder="Seleziona Squadra" />
+                                </Select.Trigger>
+                                <Select.Adapt when="sm" platform="touch">
+                                  <Select.Sheet modal dismissOnSnapToBottom>
+                                    <Select.Sheet.Frame>
+                                      <Select.Sheet.ScrollView>
+                                        <Select.Adapt.Contents />
+                                      </Select.Sheet.ScrollView>
+                                    </Select.Sheet.Frame>
+                                    <Select.Sheet.Overlay />
+                                  </Select.Sheet>
+                                </Select.Adapt>
+                                <Select.Content zIndex={200000}>
+                                  <Select.ScrollUpButton />
+                                  <Select.Viewport>
+                                    {teams.map((team, idx) => (
+                                      <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                                        <Select.ItemText>
+                                          {team.value.name} (€{calculateBudgetRemaining(team)})
+                                        </Select.ItemText>
+                                      </Select.Item>
+                                    ))}
+                                  </Select.Viewport>
+                                  <Select.ScrollDownButton />
+                                </Select.Content>
+                              </Select>
+                              {selectedTeamForBid && (
+                                <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
+                                  <Text fontSize="$3" color="$orange11">
+                                    Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}
+                                  </Text>
+                                </Card>
+                              )}
+                            </YStack>
+
+                            <Separator />
+
+                            <XStack gap="$2">
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="orange"
+                                onPress={() => handleIncrementBid(1)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                Incremento
+                              </Button>
+                              <Button
+                                flex={1}
+                                size="$6"
+                                fontSize="$7"
+                                fontWeight="700"
+                                theme="orange"
+                                onPress={() => handleIncrementBid(3)}
+                                disabled={areBidButtonsDisabled()}
+                              >
+                                +3
+                              </Button>
+                            </XStack>
+
+                            <YStack gap="$2">
+                              <XStack gap="$2" flexWrap="wrap">
+                                {[2, 4, 5, 6, 7, 8].map(inc => (
+                                  <Button
+                                    key={inc}
+                                    flex={1}
+                                    minWidth={80}
+                                    size="$3"
+                                    fontSize="$4"
+                                    theme="orange"
+                                    onPress={() => handleIncrementBid(inc)}
+                                    disabled={areBidButtonsDisabled()}
+                                  >
+                                    +{inc}
+                                  </Button>
+                                ))}
+                              </XStack>
+                              <XStack gap="$2" flexWrap="wrap">
+                                {[10, 15, 20, 25, 50, 100].map(inc => (
+                                  <Button
+                                    key={inc}
+                                    flex={1}
+                                    minWidth={80}
+                                    size="$3"
+                                    fontSize="$4"
+                                    theme="orange"
+                                    onPress={() => handleIncrementBid(inc)}
+                                    disabled={areBidButtonsDisabled()}
+                                  >
+                                    +{inc}
+                                  </Button>
+                                ))}
+                              </XStack>
+                            </YStack>
+
+                            <YStack gap="$2">
+                              <Text fontSize="$3" color="$orange10" fontWeight="600">Offerte Fisse</Text>
+                              <XStack gap="$2" flexWrap="wrap">
+                                {[50, 100, 150, 200, 250, 300].map(amount => (
+                                  <Button
+                                    key={amount}
+                                    flex={1}
+                                    minWidth={80}
+                                    size="$3"
+                                    fontSize="$4"
+                                    theme="orange"
+                                    variant="outlined"
+                                    onPress={() => handleFixedBid(amount)}
+                                    disabled={areBidButtonsDisabled()}
+                                  >
+                                    {amount}
+                                  </Button>
+                                ))}
+                              </XStack>
+                            </YStack>
+
+                            <Button
+                              icon={DollarSign}
+                              theme="orange"
+                              variant="outlined"
+                              onPress={() => setShowCustomBidDialog(true)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              Offerta Personalizzata
+                            </Button>
+                          </YStack>
+                        </Card>
+                      </YStack>
+                    </XStack>
+                  ) : (
+                    /* Layout Mobile: una sopra l'altra */
+                    <YStack gap="$4">
+                      {/* Pulsantiera Mio Team (prima) */}
+                      <Card 
+                        padding="$4" 
+                        backgroundColor="$blue2" 
+                        borderRadius="$4" 
+                        borderWidth="$0.5" 
+                        borderColor="$blue8"
+                        opacity={tempBlockButtons ? 0.6 : 1}
+                      >
+                        <YStack gap="$3">
+                          <XStack gap="$2" alignItems="center">
+                            <DollarSign size={20} color="$blue11" />
+                            <Text fontSize="$5" fontWeight="700" color="$blue11">
+                              Mia Squadra
+                            </Text>
+                          </XStack>
+
+                          <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                            <Text fontSize="$3" color="$blue11">
+                              {myTeam.value.name} • Budget: €{myTeamBudget}
+                            </Text>
+                          </Card>
+
+                          <XStack gap="$2">
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="blue"
+                              onPress={() => handleIncrementBid(1)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              Incremento
+                            </Button>
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="blue"
+                              onPress={() => handleIncrementBid(3)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              +3
+                            </Button>
+                          </XStack>
+
+                          <XStack gap="$2">
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="blue"
+                              onPress={() => handleIncrementBid(2)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              +2
+                            </Button>
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="blue"
+                              onPress={() => handleIncrementBid(5)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              +5
+                            </Button>
+                          </XStack>
+
+                          <YStack gap="$2">
+                            <Text fontSize="$3" color="$blue10" fontWeight="600">Offerte Fisse</Text>
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[50, 100, 150, 200].map(amount => (
+                                <Button
+                                  key={amount}
+                                  flex={1}
+                                  minWidth={80}
+                                  size="$3"
+                                  fontSize="$4"
+                                  theme="blue"
+                                  variant="outlined"
+                                  onPress={() => handleFixedBid(amount)}
+                                  disabled={areBidButtonsDisabled()}
+                                >
+                                  {amount}
+                                </Button>
+                              ))}
+                            </XStack>
+                          </YStack>
+
+                          <Button
+                            icon={DollarSign}
+                            theme="blue"
+                            variant="outlined"
+                            onPress={() => setShowCustomBidDialog(true)}
+                            disabled={areBidButtonsDisabled()}
+                          >
+                            Offerta Personalizzata
+                          </Button>
+
+                          {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && (
+                            <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
+                              <Text fontSize="$3" color="$green11">
+                                ✅ Sei il miglior offerente
+                              </Text>
+                            </Card>
+                          )}
+                        </YStack>
+                      </Card>
+
+                      {/* Pulsantiera Banditore (seconda) */}
+                      <Card 
+                        padding="$4" 
+                        backgroundColor="$orange2" 
+                        borderRadius="$4" 
+                        borderWidth="$0.5" 
+                        borderColor="$orange8"
+                        opacity={tempBlockButtons ? 0.6 : 1}
+                      >
+                        <YStack gap="$3">
+                          <XStack gap="$2" alignItems="center">
+                            <Gavel size={20} color="$orange11" />
+                            <Text fontSize="$5" fontWeight="700" color="$orange11">
+                              Pulsantiera Banditore
+                            </Text>
+                          </XStack>
+
+                          <YStack gap="$2">
+                            <Label htmlFor="team-select-mobile" fontSize="$4" color="$orange11">
+                              Fai offerta per squadra:
+                            </Label>
+                            <Select 
+                              id="team-select-mobile"
+                              value={selectedTeamForBid} 
+                              onValueChange={setSelectedTeamForBid}
+                            >
+                              <Select.Trigger iconAfter={ChevronDown}>
+                                <Select.Value placeholder="Seleziona Squadra" />
+                              </Select.Trigger>
+                              <Select.Adapt when="sm" platform="touch">
+                                <Select.Sheet modal dismissOnSnapToBottom>
+                                  <Select.Sheet.Frame>
+                                    <Select.Sheet.ScrollView>
+                                      <Select.Adapt.Contents />
+                                    </Select.Sheet.ScrollView>
+                                  </Select.Sheet.Frame>
+                                  <Select.Sheet.Overlay />
+                                </Select.Sheet>
+                              </Select.Adapt>
+                              <Select.Content zIndex={200000}>
+                                <Select.ScrollUpButton />
+                                <Select.Viewport>
+                                  {teams.map((team, idx) => (
+                                    <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                                      <Select.ItemText>
+                                        {team.value.name} (€{calculateBudgetRemaining(team)})
+                                      </Select.ItemText>
+                                    </Select.Item>
+                                  ))}
+                                </Select.Viewport>
+                                <Select.ScrollDownButton />
+                              </Select.Content>
+                            </Select>
+                            {selectedTeamForBid && (
+                              <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
+                                <Text fontSize="$3" color="$orange11">
+                                  Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}
+                                </Text>
+                              </Card>
+                            )}
+                          </YStack>
+
+                          <Separator />
+
+                          <XStack gap="$2">
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="orange"
+                              onPress={() => handleIncrementBid(1)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              Incremento
+                            </Button>
+                            <Button
+                              flex={1}
+                              size="$6"
+                              fontSize="$7"
+                              fontWeight="700"
+                              theme="orange"
+                              onPress={() => handleIncrementBid(3)}
+                              disabled={areBidButtonsDisabled()}
+                            >
+                              +3
+                            </Button>
+                          </XStack>
+
+                          <YStack gap="$2">
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[2, 4, 5, 6, 7, 8].map(inc => (
+                                <Button
+                                  key={inc}
+                                  flex={1}
+                                  minWidth={80}
+                                  size="$3"
+                                  fontSize="$4"
+                                  theme="orange"
+                                  onPress={() => handleIncrementBid(inc)}
+                                  disabled={areBidButtonsDisabled()}
+                                >
+                                  +{inc}
+                                </Button>
+                              ))}
+                            </XStack>
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[10, 15, 20, 25, 50, 100].map(inc => (
+                                <Button
+                                  key={inc}
+                                  flex={1}
+                                  minWidth={80}
+                                  size="$3"
+                                  fontSize="$4"
+                                  theme="orange"
+                                  onPress={() => handleIncrementBid(inc)}
+                                  disabled={areBidButtonsDisabled()}
+                                >
+                                  +{inc}
+                                </Button>
+                              ))}
+                            </XStack>
+                          </YStack>
+
+                          <YStack gap="$2">
+                            <Text fontSize="$3" color="$orange10" fontWeight="600">Offerte Fisse</Text>
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[50, 100, 150, 200, 250, 300].map(amount => (
+                                <Button
+                                  key={amount}
+                                  flex={1}
+                                  minWidth={80}
+                                  size="$3"
+                                  fontSize="$4"
+                                  theme="orange"
+                                  variant="outlined"
+                                  onPress={() => handleFixedBid(amount)}
+                                  disabled={areBidButtonsDisabled()}
+                                >
+                                  {amount}
+                                </Button>
+                              ))}
+                            </XStack>
+                          </YStack>
+
+                          <Button
+                            icon={DollarSign}
+                            theme="orange"
+                            variant="outlined"
+                            onPress={() => setShowCustomBidDialog(true)}
+                            disabled={areBidButtonsDisabled()}
+                          >
+                            Offerta Personalizzata
+                          </Button>
+                        </YStack>
+                      </Card>
+                    </YStack>
+                  )}
+                </>
+              )}
+
+              {/* PULSANTIERA - Solo partecipante (non banditore) */}
               {!isAuctioneer && currentPlayer && myTeam && (
                 <Card 
                   padding="$4" 
@@ -926,170 +1478,6 @@ export default function AuctionLiveScreen() {
                         </Text>
                       </Card>
                     )}
-                  </YStack>
-                </Card>
-              )}
-
-              {/* PULSANTIERA BANDITORE */}
-              {isAuctioneer && currentPlayer && (
-                <Card 
-                  padding="$4" 
-                  backgroundColor="$orange2" 
-                  borderRadius="$4" 
-                  borderWidth="$0.5" 
-                  borderColor="$orange8"
-                  opacity={tempBlockButtons ? 0.6 : 1}
-                >
-                  <YStack gap="$3">
-                    <XStack gap="$2" alignItems="center">
-                      <Gavel size={20} color="$orange11" />
-                      <Text fontSize="$5" fontWeight="700" color="$orange11">
-                        Pulsantiera Banditore
-                      </Text>
-                    </XStack>
-
-                    {/* Selezione Squadra per Offerte */}
-                    <YStack gap="$2">
-                      <Label htmlFor="team-select" fontSize="$4" color="$orange11">
-                        Fai offerta per squadra:
-                      </Label>
-                      <Select 
-                        id="team-select"
-                        value={selectedTeamForBid} 
-                        onValueChange={setSelectedTeamForBid}
-                      >
-                        <Select.Trigger iconAfter={ChevronDown}>
-                          <Select.Value placeholder="Seleziona Squadra" />
-                        </Select.Trigger>
-                        <Select.Adapt when="sm" platform="touch">
-                          <Select.Sheet modal dismissOnSnapToBottom>
-                            <Select.Sheet.Frame>
-                              <Select.Sheet.ScrollView>
-                                <Select.Adapt.Contents />
-                              </Select.Sheet.ScrollView>
-                            </Select.Sheet.Frame>
-                            <Select.Sheet.Overlay />
-                          </Select.Sheet>
-                        </Select.Adapt>
-                        <Select.Content zIndex={200000}>
-                          <Select.ScrollUpButton />
-                          <Select.Viewport>
-                            {teams.map((team, idx) => (
-                              <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
-                                <Select.ItemText>
-                                  {team.value.name} (€{calculateBudgetRemaining(team)})
-                                </Select.ItemText>
-                              </Select.Item>
-                            ))}
-                          </Select.Viewport>
-                          <Select.ScrollDownButton />
-                        </Select.Content>
-                      </Select>
-                      {selectedTeamForBid && (
-                        <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-                          <Text fontSize="$3" color="$orange11">
-                            Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}
-                          </Text>
-                        </Card>
-                      )}
-                    </YStack>
-
-                    <Separator />
-
-                    {/* Incrementi Rapidi */}
-                    <XStack gap="$2">
-                      <Button
-                        flex={1}
-                        size="$6"
-                        fontSize="$7"
-                        fontWeight="700"
-                        theme="orange"
-                        onPress={() => handleIncrementBid(1)}
-                        disabled={areBidButtonsDisabled()}
-                      >
-                        Incremento
-                      </Button>
-                      <Button
-                        flex={1}
-                        size="$6"
-                        fontSize="$7"
-                        fontWeight="700"
-                        theme="orange"
-                        onPress={() => handleIncrementBid(3)}
-                        disabled={areBidButtonsDisabled()}
-                      >
-                        +3
-                      </Button>
-                    </XStack>
-
-                    {/* Incrementi Medi */}
-                    <YStack gap="$2">
-                      <XStack gap="$2" flexWrap="wrap">
-                        {[2, 4, 5, 6, 7, 8].map(inc => (
-                          <Button
-                            key={inc}
-                            flex={1}
-                            minWidth={80}
-                            size="$3"
-                            fontSize="$4"
-                            theme="orange"
-                            onPress={() => handleIncrementBid(inc)}
-                            disabled={areBidButtonsDisabled()}
-                          >
-                            +{inc}
-                          </Button>
-                        ))}
-                      </XStack>
-                      <XStack gap="$2" flexWrap="wrap">
-                        {[10, 15, 20, 25, 50, 100].map(inc => (
-                          <Button
-                            key={inc}
-                            flex={1}
-                            minWidth={80}
-                            size="$3"
-                            fontSize="$4"
-                            theme="orange"
-                            onPress={() => handleIncrementBid(inc)}
-                            disabled={areBidButtonsDisabled()}
-                          >
-                            +{inc}
-                          </Button>
-                        ))}
-                      </XStack>
-                    </YStack>
-
-                    {/* Offerte Fisse */}
-                    <YStack gap="$2">
-                      <Text fontSize="$3" color="$orange10" fontWeight="600">Offerte Fisse</Text>
-                      <XStack gap="$2" flexWrap="wrap">
-                        {[50, 100, 150, 200, 250, 300].map(amount => (
-                          <Button
-                            key={amount}
-                            flex={1}
-                            minWidth={80}
-                            size="$3"
-                            fontSize="$4"
-                            theme="orange"
-                            variant="outlined"
-                            onPress={() => handleFixedBid(amount)}
-                            disabled={areBidButtonsDisabled()}
-                          >
-                            {amount}
-                          </Button>
-                        ))}
-                      </XStack>
-                    </YStack>
-
-                    {/* Offerta Personalizzata */}
-                    <Button
-                      icon={DollarSign}
-                      theme="orange"
-                      variant="outlined"
-                      onPress={() => setShowCustomBidDialog(true)}
-                      disabled={areBidButtonsDisabled()}
-                    >
-                      Offerta Personalizzata
-                    </Button>
                   </YStack>
                 </Card>
               )}
@@ -1281,7 +1669,7 @@ export default function AuctionLiveScreen() {
                             try {
                               await auctionService.showNextPlayer(auctionId, selectedRole)
                             } catch (err) {
-                              setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown'}`)
+                              toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                             } finally {
                               setLoading(false)
                             }
@@ -1322,8 +1710,9 @@ export default function AuctionLiveScreen() {
                             setLoading(true)
                             try {
                               await auctionService.assignPlayerToTeam(auctionId, currentBidder, currentBid)
+                              toast.show('✅ Giocatore aggiudicato!', { variant: 'success' })
                             } catch (err) {
-                              setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown'}`)
+                              toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                             } finally {
                               setLoading(false)
                             }
@@ -1352,8 +1741,9 @@ export default function AuctionLiveScreen() {
                               setLoading(true)
                               try {
                                 await auctionService.pauseAuction(auctionId)
+                                toast.show('⏸️ Asta in pausa', { variant: 'info' })
                               } catch (err) {
-                                setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown'}`)
+                                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                               } finally {
                                 setLoading(false)
                               }
@@ -1371,8 +1761,9 @@ export default function AuctionLiveScreen() {
                               setLoading(true)
                               try {
                                 await auctionService.resumeAuction(auctionId)
+                                toast.show('▶️ Asta ripresa', { variant: 'success' })
                               } catch (err) {
-                                setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown'}`)
+                                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                               } finally {
                                 setLoading(false)
                               }
@@ -1406,8 +1797,9 @@ export default function AuctionLiveScreen() {
                           setLoading(true)
                           try {
                             await auctionService.closeAuction(auctionId)
+                            toast.show('🏁 Asta chiusa', { variant: 'success' })
                           } catch (err) {
-                            setActionError(`Errore: ${err instanceof Error ? err.message : 'Unknown'}`)
+                            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                           } finally {
                             setLoading(false)
                           }
@@ -1509,7 +1901,7 @@ export default function AuctionLiveScreen() {
                         setCustomBidAmount('')
                         setShowCustomBidDialog(false)
                       } else {
-                        setActionError('Inserisci un importo valido')
+                        toast.show('❌ Inserisci un importo valido', { variant: 'error' })
                       }
                     }}
                   >

@@ -47,14 +47,14 @@ namespace Fantasoccer.Engine
                  {
                      options.Cron = "0 6 * * *";
                  })
-                .AddBackgroundJob<NewsJob>(options =>
-                {
-                    options.Cron = "0 0 12 * * *";
-                })
-                .AddBackgroundJob<TeamHelperJob>(options =>
-                {
-                    options.Cron = "0 0 21 * * *";
-                })
+                //.AddBackgroundJob<NewsJob>(options =>
+                //{
+                //    options.Cron = "0 0 12 * * *";
+                //})
+                //.AddBackgroundJob<TeamHelperJob>(options =>
+                //{
+                //    options.Cron = "0 0 21 * * *";
+                //})
                 .AddBackgroundJob<PushNotificationJob>(options =>
                 {
                     options.Cron = "0 */1 * * * *";
