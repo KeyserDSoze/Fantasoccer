@@ -371,6 +371,31 @@ export default function AuctionLiveScreen() {
   // ============================================
   // SIGNALR CONNECTION
   // ============================================
+  
+  // Check if user authentication fails/times out
+  useEffect(() => {
+    // If we're still waiting for user after 5 seconds, redirect to login
+    const authCheckTimeout = setTimeout(async () => {
+      if (!user?.email) {
+        console.log('⚠️ User not loaded after 5 seconds - authentication may have failed')
+        setConnectionError('Autenticazione necessaria. Reindirizzamento alla pagina di login...')
+        
+        // Save return URL
+        const returnUrl = `/auction-live/${auctionId}`
+        
+        setTimeout(async () => {
+          const { returnUrlService } = await import('../services/returnUrlService')
+          await returnUrlService.saveReturnUrl(returnUrl)
+          
+          console.log('🔐 Redirecting to login due to missing user authentication')
+          navigation.navigate('Login' as any)
+        }, 2000)
+      }
+    }, 5000) // Wait 5 seconds for auth to complete
+    
+    return () => clearTimeout(authCheckTimeout)
+  }, [user?.email, auctionId, navigation])
+  
   useEffect(() => {
     if (!user?.email) {
       console.log('⏳ Waiting for user to be loaded...')
