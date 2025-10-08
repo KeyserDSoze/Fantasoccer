@@ -25,7 +25,7 @@ import {
   Clock, Lock, RotateCcw, Search, DollarSign, 
   AlertCircle, Volume2, VolumeX, Vibrate
 } from '@tamagui/lucide-icons'
-import { useRoute, RouteProp } from '@react-navigation/native'
+import { useRoute, RouteProp, useNavigation } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
 import { Team, TeamKey, TeamHelper } from 'types/team'
@@ -49,6 +49,7 @@ export default function AuctionLiveScreen() {
   const media = useMedia()
   const { user } = useAuth()
   const toast = useToastController()
+  const navigation = useNavigation()
 
   // ============================================
   // STATE
@@ -531,9 +532,32 @@ export default function AuctionLiveScreen() {
           const errorMessage = err instanceof Error ? err.message : 'Unknown error'
           
           // Check if it's an authentication error
-          if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
-            setConnectionError('Sessione scaduta. Ricarica la pagina per effettuare nuovamente il login.')
+          if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication') || errorMessage.includes('refresh token') || errorMessage.includes('Failed to refresh')) {
+            console.log('🔐 Authentication error detected, redirecting to login...')
+            setConnectionError('Sessione scaduta. Reindirizzamento alla pagina di login...')
+            
+            // Save current location for redirect after login
+            const returnUrl = `/auction-live/${auctionId}`
+            
+            // Redirect to login after a short delay to show the message
+            setTimeout(async () => {
+              // Save return URL to storage (cross-platform)
+              const { returnUrlService } = await import('../services/returnUrlService')
+              await returnUrlService.saveReturnUrl(returnUrl)
+              
+              // Clear token to force fresh login
+              const { tokenStorageService } = await import('../services/tokenStorageService')
+              await tokenStorageService.removeToken()
+              
+              console.log('🔐 Token cleared, navigating to login')
+              // Navigate to login (will redirect back after successful login)
+              navigation.navigate('Login' as any)
+            }, 2000)
+            
             // Don't retry on auth errors
+          } else if (errorMessage.includes('Connection timeout')) {
+            setConnectionError('Timeout di connessione. Verifica che il backend sia in esecuzione.')
+            // Don't retry on timeout
           } else {
             setConnectionError(`Errore: ${errorMessage}`)
             
