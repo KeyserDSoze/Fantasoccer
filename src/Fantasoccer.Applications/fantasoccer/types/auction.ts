@@ -25,6 +25,11 @@ export enum AuctionType {
   RandomList = 2
 }
 
+export enum AuctionKind {
+  Starting = 0,
+  Repairing = 1
+}
+
 // Auction status
 export enum AuctionStatus {
   NotStarted = 0,
@@ -65,6 +70,7 @@ export interface AuctionWrapperRaw {
   c: string                              // Creator
   t: string                              // Created (DateTime as ISO string)
   tp: number                             // Type (AuctionType enum)
+  knd: number                            // Kind (AuctionKind enum)
   a: ActualAuctionRaw | null            // Actual
   w: AuctionWinRaw[]                    // Winnings
   s: number                              // Status (AuctionStatus enum)
@@ -122,6 +128,7 @@ export interface AuctionWrapper {
   creator: string
   created: Date
   type: AuctionType
+  king: AuctionKind
   actual: ActualAuction | null
   winnings: AuctionWin[]
   status: AuctionStatus
@@ -228,6 +235,7 @@ export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
     creator: raw.c,
     created: new Date(raw.t),
     type: raw.tp as AuctionType,
+    king: raw.knd as AuctionKind,
     actual: raw.a ? mapRawActualAuction(raw.a) : null,
     winnings: raw.w.map(mapRawAuctionWin),
     status: raw.s as AuctionStatus,

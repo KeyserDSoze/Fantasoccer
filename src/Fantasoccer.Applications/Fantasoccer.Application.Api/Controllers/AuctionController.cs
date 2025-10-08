@@ -32,7 +32,7 @@ namespace Fantasoccer.Application.Api.Controllers
             Groups = groups;
         }
         [HttpGet]
-        public async Task<string> CreateAuctionAsync([FromQuery] AuctionType auctionType)
+        public async Task<string> CreateAuctionAsync([FromQuery] AuctionType auctionType, [FromQuery] AuctionKind auctionKind)
         {
             var name = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             if (name != null)
@@ -55,6 +55,7 @@ namespace Fantasoccer.Application.Api.Controllers
                                     Creator = identity.Email,
                                     Created = DateTime.UtcNow,
                                     Type = auctionType,
+                                    Kind = auctionKind,
                                     LeagueKey = new LeagueKey
                                     {
                                         Group = group.Id,

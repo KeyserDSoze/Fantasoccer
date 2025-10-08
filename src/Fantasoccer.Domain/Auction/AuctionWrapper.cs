@@ -28,6 +28,11 @@ namespace Fantasoccer.Domain
         RandomByLetter,
         RandomList
     }
+    public enum AuctionKind
+    {
+        Starting,
+        Repairing
+    }
     public enum AuctionStatus
     {
         NotStarted,
@@ -47,6 +52,8 @@ namespace Fantasoccer.Domain
         public required DateTime Created { get; set; }
         [JsonPropertyName("tp")]
         public AuctionType Type { get; set; }
+        [JsonPropertyName("knd")]
+        public AuctionKind Kind { get; set; }
         [JsonPropertyName("a")]
         public ActualAuction? Actual { get; set; }
         [JsonPropertyName("w")]
