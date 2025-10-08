@@ -565,22 +565,18 @@ export default function AuctionLiveScreen() {
                 <Text fontSize="$3" color="$blue11" fontWeight="600">Lista giocatori: {auctionTypeLabel}</Text>
               </Card>
             </XStack>
-            <XStack gap="$2" alignItems="center">
-              {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
+            <XStack gap="$2" alignItems="center">{audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
               <Text fontSize="$3" color="$color11">Audio</Text>
               <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
                 <Switch.Thumb animation="quick" />
-              </Switch>
-              {Platform.OS !== 'web' && (
-                <XStack gap="$2" alignItems="center">
-                  <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
+              </Switch>{Platform.OS !== 'web' && (
+                <XStack gap="$2" alignItems="center"><Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
                   <Text fontSize="$3" color="$color11">Vibrazione</Text>
                   <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
                     <Switch.Thumb animation="quick" />
                   </Switch>
                 </XStack>
-              )}
-            </XStack>
+              )}            </XStack>
           </XStack>
         </YStack>
       </Card>

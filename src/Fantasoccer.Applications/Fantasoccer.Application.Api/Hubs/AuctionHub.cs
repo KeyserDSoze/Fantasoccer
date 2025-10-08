@@ -604,7 +604,7 @@ namespace Fantasoccer.Application.Api.Hubs
             await Clients.Group(auctionId).SendAsync("AuctionUpdated");
         }
 
-        public async Task ChangeTimerAysnc(string auctionId, int timer)
+        public async Task ChangeTimerAsync(string auctionId, int timer)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
