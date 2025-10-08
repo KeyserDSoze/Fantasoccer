@@ -79,6 +79,7 @@ export default function AuctionLiveScreen() {
   const [assignPrice, setAssignPrice] = useState<string>('')
   const [customBidAmount, setCustomBidAmount] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)
+  const [isCustomBidFromAuctioneer, setIsCustomBidFromAuctioneer] = useState(false) // Track if custom bid is from auctioneer panel
   const [showPlayerSearchDialog, setShowPlayerSearchDialog] = useState(false)
   const [showTeamDetailDialog, setShowTeamDetailDialog] = useState(false)
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<Entity<Team, TeamKey> | null>(null)
@@ -256,7 +257,7 @@ export default function AuctionLiveScreen() {
   // ============================================
   // BID LOGIC
   // ============================================
-  const placeBid = useCallback(async (amount: number) => {
+  const placeBid = useCallback(async (amount: number, isAuctioneerBid: boolean = false) => {
     if (!currentPlayer) {
       toast.show('❌ Nessun giocatore in asta', { variant: 'error' })
       return
@@ -273,9 +274,14 @@ export default function AuctionLiveScreen() {
       toast.show('❌ Sei già il miglior offerente', { variant: 'error' })
       return
     }
-    const biddingTeam = isAuctioneer && selectedTeamForBid 
+    
+    // Determine which team is bidding based on context:
+    // - If isAuctioneerBid=true, use selectedTeamForBid (auctioneer panel)
+    // - Otherwise, use myTeam (personal panel)
+    const biddingTeam = isAuctioneerBid && selectedTeamForBid
       ? teams.find(t => t.value.owner === selectedTeamForBid)
       : myTeam
+      
     if (!biddingTeam) {
       toast.show('❌ Nessuna squadra selezionata', { variant: 'error' })
       return
@@ -296,9 +302,10 @@ export default function AuctionLiveScreen() {
     setTimeout(() => setTempBlockButtons(false), 500)
     setLoading(true)
     try {
-      const bidderEmail = isAuctioneer ? biddingTeam.value.owner : undefined
+      // Only pass bidderEmail if it's an auctioneer bid (for someone else's team)
+      const bidderEmail = isAuctioneerBid ? biddingTeam.value.owner : undefined
       await auctionService.placeBid(auctionId, amount, bidderEmail)
-      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name}`)
+      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid})`)
     } catch (err) {
       toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false)
@@ -307,18 +314,17 @@ export default function AuctionLiveScreen() {
     }
   }, [auctionId, currentPlayer, isLocked, isAuctioneer, currentBid, currentBidder, user?.email, selectedTeamForBid, teams, myTeam, hasReachedRoleLimit, calculateBudgetRemaining, getRoleLabel, toast])
 
-  const handleIncrementBid = useCallback((increment: number) => {
-    placeBid(currentBid + increment)
+  const handleIncrementBid = useCallback((increment: number, isAuctioneerBid: boolean = false) => {
+    placeBid(currentBid + increment, isAuctioneerBid)
   }, [currentBid, placeBid])
 
-  const handleFixedBid = useCallback((amount: number) => {
-    placeBid(amount)
+  const handleFixedBid = useCallback((amount: number, isAuctioneerBid: boolean = false) => {
+    placeBid(amount, isAuctioneerBid)
   }, [placeBid])
 
   // Check if personal bidding buttons should be disabled (for myTeam)
   const arePersonalBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
     if (!currentPlayer) return { disabled: true, reason: 'Nessun giocatore in asta' }
-    if (loading) return { disabled: true, reason: 'Caricamento in corso...' }
     if (tempBlockButtons) return { disabled: true, reason: null }
     if (isLocked && !isAuctioneer) return { disabled: true, reason: 'Asta in pausa' }
     if (timerExpired && !isAuctioneer) return { disabled: true, reason: 'Tempo scaduto - Solo il banditore può agire' }
@@ -337,13 +343,11 @@ export default function AuctionLiveScreen() {
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, loading, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel])
+  }, [currentPlayer, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel])
 
   // Check if auctioneer bidding buttons should be disabled (for selectedTeamForBid)
   const areAuctioneerBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
-    console.log('Checking auctioneer bid buttons disabled state:', { currentPlayer, loading, tempBlockButtons, selectedTeamForBid, teams })
     if (!currentPlayer) return { disabled: true, reason: 'Nessun giocatore in asta' }
-    if (loading) return { disabled: true, reason: 'Caricamento in corso...' }
     if (tempBlockButtons) return { disabled: true, reason: null }
     if (!selectedTeamForBid) return { disabled: true, reason: 'Seleziona una squadra per fare un\'offerta' }
     
@@ -361,7 +365,7 @@ export default function AuctionLiveScreen() {
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, loading, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel])
+  }, [currentPlayer, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel])
 
   // ============================================
   // SIGNALR CONNECTION
@@ -655,16 +659,34 @@ export default function AuctionLiveScreen() {
           </YStack>
           <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
             <XStack gap="$4" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-              <YStack gap="$1">
+              <YStack gap="$1" flex={1}>
                 <Text fontSize="$2" color="$color10">Offerta Corrente</Text>
                 <Text fontSize="$6" fontWeight="700" color="$color11">€{currentBid}</Text>
               </YStack>
               {currentBidder && (
-                <YStack gap="$1" alignItems="flex-end">
+                <YStack gap="$1" flex={1}>
                   <Text fontSize="$2" color="$color10">Offerente</Text>
                   <Text fontSize="$4" fontWeight="600" color="$color11">
                     {teams.find(t => t.value.owner === currentBidder)?.value.name || currentBidder}
                   </Text>
+                </YStack>
+              )}
+              {(timerRunning || timerExpired) && (
+                <YStack gap="$1" alignItems="center" justifyContent="center" minWidth={100}>
+                  <Text fontSize="$2" color="$color10">Timer</Text>
+                  <Card 
+                    padding="$2" 
+                    paddingHorizontal="$3" 
+                    backgroundColor={timerExpired ? '$red8' : timerSecondsLeft <= 3 ? '$orange8' : '$blue8'} 
+                    borderRadius="$4"
+                  >
+                    <XStack gap="$2" alignItems="center">
+                      <Clock size={20} color="white" />
+                      <Text fontSize="$6" fontWeight="700" color="white">
+                        {timerExpired ? 'SCADUTO' : `${timerSecondsLeft}s`}
+                      </Text>
+                    </XStack>
+                  </Card>
                 </YStack>
               )}
             </XStack>
@@ -741,7 +763,10 @@ export default function AuctionLiveScreen() {
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={isDisabled}>150</Button>
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={isDisabled}>200</Button>
           </XStack>
-          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => setShowCustomBidDialog(true)} disabled={isDisabled}>Offerta Personalizzata</Button>
+          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => {
+            setIsCustomBidFromAuctioneer(false)
+            setShowCustomBidDialog(true)
+          }} disabled={isDisabled}>Offerta Personalizzata</Button>
           {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && !isDisabled && (
             <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
               <Text fontSize="$3" color="$green11">✅ Sei il miglior offerente</Text>
@@ -805,13 +830,17 @@ export default function AuctionLiveScreen() {
               <Separator />
               <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
                 <XStack gap="$2">
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>Incremento</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1, true)} disabled={isDisabled}>Incremento</Button>
                 </XStack>
                 <XStack gap="$2">
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>+2</Button>
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>+3</Button>
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>+5</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2, true)} disabled={isDisabled}>+2</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3, true)} disabled={isDisabled}>+3</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5, true)} disabled={isDisabled}>+5</Button>
                 </XStack>
+                <Button icon={DollarSign} size="$5" theme="orange" variant="outlined" onPress={() => {
+                  setIsCustomBidFromAuctioneer(true)
+                  setShowCustomBidDialog(true)
+                }} disabled={isDisabled}>Offerta Personalizzata</Button>
               </YStack>
               {bidStatus.reason && (
                 <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
@@ -931,11 +960,26 @@ export default function AuctionLiveScreen() {
               }
             }}>Riprendi</Button>
           )}
+          <Button 
+            icon={Clock} 
+            theme="blue" 
+            variant="outlined" 
+            flex={1} 
+            minWidth={90} 
+            size="$3" 
+            disabled={!currentPlayer}
+            onPress={() => {
+              startTimer()
+              toast.show('⏱️ Timer riavviato', { variant: 'info' })
+            }}
+          >
+            Riavvia Timer
+          </Button>
           <Button icon={RotateCcw} theme="orange" variant="outlined" flex={1} minWidth={90} size="$3" onPress={() => {
             resetTimer()
             setCurrentBid(0)
             setCurrentBidder(null)
-          }}>Reset</Button>
+          }}>Reset Completo</Button>
           <Button icon={XCircle} theme="red" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
             if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
             setLoading(true)
@@ -1117,21 +1161,6 @@ export default function AuctionLiveScreen() {
   }
 
   // Timer Component
-  const renderTimer = () => {
-    if (!timerRunning && !timerExpired) return null
-    if (!currentPlayer) return null
-    return (
-      <YStack position="absolute" bottom="$4" right="$4" zIndex={1000}>
-        <Card padding="$3" backgroundColor={timerExpired ? '$red8' : timerSecondsLeft <= 3 ? '$orange8' : '$blue8'} borderRadius="$6" shadowColor="$shadowColor" shadowOffset={{ width: 0, height: 2 }} shadowOpacity={0.25} shadowRadius={4}>
-          <XStack gap="$2" alignItems="center">
-            <Clock size={20} color="white" />
-            <Text fontSize="$6" fontWeight="700" color="white">{timerExpired ? 'SCADUTO' : `${timerSecondsLeft}s`}</Text>
-          </XStack>
-        </Card>
-      </YStack>
-    )
-  }
-
   // Custom Bid Dialog Component
   const renderCustomBidDialog = () => (
     <Dialog modal open={showCustomBidDialog} onOpenChange={setShowCustomBidDialog}>
@@ -1149,7 +1178,7 @@ export default function AuctionLiveScreen() {
               <Button theme="blue" onPress={() => {
                 const amount = parseInt(customBidAmount, 10)
                 if (!isNaN(amount) && amount > 0) {
-                  placeBid(amount)
+                  placeBid(amount, isCustomBidFromAuctioneer)
                   setCustomBidAmount('')
                   setShowCustomBidDialog(false)
                 } else {
@@ -1451,7 +1480,6 @@ export default function AuctionLiveScreen() {
             </YStack>
           </YStack>
         </ScrollView>
-        {renderTimer()}
         {renderCustomBidDialog()}
         {renderTeamDetailDialog()}
         {renderChangeStatusDialog()}
