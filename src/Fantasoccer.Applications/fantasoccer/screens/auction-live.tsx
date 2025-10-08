@@ -434,8 +434,8 @@ export default function AuctionLiveScreen() {
         
         await auctionService.connect()
         
-        // Wait a bit for connection to stabilize
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Wait for connection to stabilize before proceeding
+        await new Promise(resolve => setTimeout(resolve, 300))
         
         // Verify connection state before joining
         if (!isSubscribed) return
@@ -507,7 +507,7 @@ export default function AuctionLiveScreen() {
             </XStack>
           </XStack>
           <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-             <XStack gap="$2" alignItems="center">
+            <XStack gap="$2" alignItems="center">
               <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
                 <Text fontSize="$3" color="$blue11" fontWeight="600">{auctionKindLabel}</Text>
               </Card>
@@ -515,21 +515,21 @@ export default function AuctionLiveScreen() {
                 <Text fontSize="$3" color="$blue11" fontWeight="600">Lista giocatori: {auctionTypeLabel}</Text>
               </Card>
             </XStack>
-             <XStack gap="$2" alignItems="center">
-               {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
+            <XStack gap="$2" alignItems="center">
+              {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
               <Text fontSize="$3" color="$color11">Audio</Text>
               <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
                 <Switch.Thumb animation="quick" />
               </Switch>
               {Platform.OS !== 'web' && (
-              <XStack gap="$2" alignItems="center">
-                <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
-                <Text fontSize="$3" color="$color11">Vibrazione</Text>
-                <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                  <Switch.Thumb animation="quick" />
-                </Switch>
-              </XStack>
-            )}
+                <XStack gap="$2" alignItems="center">
+                  <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
+                  <Text fontSize="$3" color="$color11">Vibrazione</Text>
+                  <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
+                    <Switch.Thumb animation="quick" />
+                  </Switch>
+                </XStack>
+              )}
             </XStack>
           </XStack>
         </YStack>
@@ -712,39 +712,6 @@ export default function AuctionLiveScreen() {
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
         <Separator />
-        <Text fontSize="$4" fontWeight="600" color="$orange11">Impostazioni Asta</Text>
-        <XStack gap="$2" alignItems="center">
-          <Clock size={18} color="$orange11" />
-          <Text fontSize="$3" color="$orange11">Timer per offerta:</Text>
-          <Select 
-            value={offerTimeoutSeconds.toString()} 
-            onValueChange={async (val) => {
-              const newSeconds = Number(val)
-              setLoading(true)
-              try {
-                await auctionService.changeTimer(auctionId, newSeconds)
-                setOfferTimeoutSeconds(newSeconds)
-                toast.show(`⏱️ Timer aggiornato a ${newSeconds}s`, { variant: 'success' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}
-          >
-            <Select.Trigger width={80}><Select.Value /></Select.Trigger>
-            <Select.Content zIndex={200000}>
-              <Select.Viewport>
-                {[5, 10, 15, 20, 30, 45, 60].map((secs, idx) => (
-                  <Select.Item key={secs} index={idx} value={secs.toString()}>
-                    <Select.ItemText>{secs}s</Select.ItemText>
-                  </Select.Item>
-                ))}
-              </Select.Viewport>
-            </Select.Content>
-          </Select>
-        </XStack>
-        <Separator />
         <Text fontSize="$4" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
           <YStack flex={1}>
@@ -795,9 +762,39 @@ export default function AuctionLiveScreen() {
           </>
         )}
         <Text fontSize="$4" fontWeight="600" color="$orange11">Controlli Asta</Text>
-        <XStack gap="$2" flexWrap="wrap">
+        <XStack gap="$2" flexWrap="wrap" alignItems="center">
+          <YStack gap="$1">
+            <Text fontSize="$2" color="$orange10">Timer</Text>
+            <Select 
+              value={offerTimeoutSeconds.toString()} 
+              onValueChange={async (val) => {
+                const newSeconds = Number(val)
+                setLoading(true)
+                try {
+                  await auctionService.changeTimer(auctionId, newSeconds)
+                  // Don't set locally - will be updated via AuctionState event
+                  toast.show(`⏱️ Timer aggiornato a ${newSeconds}s`, { variant: 'success' })
+                } catch (err) {
+                  toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+                } finally {
+                  setLoading(false)
+                }
+              }}
+            >
+              <Select.Trigger width={70} size="$3"><Select.Value /></Select.Trigger>
+              <Select.Content zIndex={200000}>
+                <Select.Viewport>
+                  {[5, 10, 15, 20, 30, 45, 60].map((secs, idx) => (
+                    <Select.Item key={secs} index={idx} value={secs.toString()}>
+                      <Select.ItemText>{secs}s</Select.ItemText>
+                    </Select.Item>
+                  ))}
+                </Select.Viewport>
+              </Select.Content>
+            </Select>
+          </YStack>
           {auctionState && auctionState.wrapper.status === AuctionStatus.InProgress ? (
-            <Button icon={Pause} theme="orange" flex={1} disabled={loading} onPress={async () => {
+            <Button icon={Pause} theme="orange" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
               setLoading(true)
               try {
                 await auctionService.pauseAuction(auctionId)
@@ -809,7 +806,7 @@ export default function AuctionLiveScreen() {
               }
             }}>Pausa</Button>
           ) : (
-            <Button icon={Play} theme="green" flex={1} disabled={loading} onPress={async () => {
+            <Button icon={Play} theme="green" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
               setLoading(true)
               try {
                 await auctionService.resumeAuction(auctionId)
@@ -821,24 +818,24 @@ export default function AuctionLiveScreen() {
               }
             }}>Riprendi</Button>
           )}
-          <Button icon={RotateCcw} theme="orange" variant="outlined" flex={1} onPress={() => {
+          <Button icon={RotateCcw} theme="orange" variant="outlined" flex={1} minWidth={90} size="$3" onPress={() => {
             resetTimer()
             setCurrentBid(0)
             setCurrentBidder(null)
-          }}>Reset Offerte</Button>
+          }}>Reset</Button>
+          <Button icon={XCircle} theme="red" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
+            if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
+            setLoading(true)
+            try {
+              await auctionService.closeAuction(auctionId)
+              toast.show('🏁 Asta chiusa', { variant: 'success' })
+            } catch (err) {
+              toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+            } finally {
+              setLoading(false)
+            }
+          }}>Chiudi</Button>
         </XStack>
-        <Button icon={XCircle} theme="red" disabled={loading} onPress={async () => {
-          if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
-          setLoading(true)
-          try {
-            await auctionService.closeAuction(auctionId)
-            toast.show('🏁 Asta chiusa', { variant: 'success' })
-          } catch (err) {
-            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-          } finally {
-            setLoading(false)
-          }
-        }}>Chiudi Asta</Button>
       </YStack>
     )
 

@@ -617,6 +617,7 @@ namespace Fantasoccer.Application.Api.Hubs
             }
 
             wrapper.Wrapper.SecondsPerAuction = timer;
+            _ = UpdateAsync(auctionId);
 
             // Send updated state
             await Clients.Group(auctionId).SendAsync("AuctionUpdated");
