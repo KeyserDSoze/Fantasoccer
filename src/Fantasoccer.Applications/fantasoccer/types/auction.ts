@@ -2,8 +2,8 @@
 // Follows the pattern from rank.ts with JsonPropertyName mapping
 import { Entity } from 'rystem.repository.client'
 import type { Role } from './group'
-import type { AnnualTeamRaw, AnnualTeam } from './group'
-import { mapRawAnnualTeamToAnnualTeam } from './group'
+import type { AnnualTeamRaw, AnnualTeam, AnnualLeagueRaw, AnnualLeague } from './group'
+import { mapRawAnnualTeamToAnnualTeam, mapRawAnnualLeagueToAnnualLeague } from './group'
 import type { LeagueKeyRaw, LeagueKey } from './rank'
 import { mapRawLeagueKeyToLeagueKey } from './rank'
 import type { StatPlayerRaw, StatPlayer } from './stat'
@@ -84,7 +84,7 @@ export interface AuctionHubWrapperRaw {
   w: AuctionWrapperRaw                          // Wrapper
   u: string                                      // LastUpdate (DateTime)
   g: any | null                                  // Group (not used in frontend)
-  l: any | null                                  // League (not used in frontend)
+  l: AnnualLeagueRaw | null                      // League
   ln: string | null                              // LeagueName
   t: EntityRaw<TeamRaw, TeamKeyRaw>[]    // Teams (List<Entity<Team, TeamKey>>)
   r: StatPlayerRaw[] | null                     // RealPlayers
@@ -137,6 +137,7 @@ export interface AuctionWrapper {
 export interface AuctionState {
   wrapper: AuctionWrapper
   lastUpdate: Date
+  league: AnnualLeague | null
   leagueName: string | null
   teams: Entity<Team, TeamKey>[]
   realPlayers: StatPlayer[]
@@ -261,6 +262,7 @@ export function mapRawAuctionHubWrapperToAuctionState(
   return {
     wrapper: mapRawAuctionWrapper(raw.w),
     lastUpdate: new Date(raw.u),
+    league: raw.l ? mapRawAnnualLeagueToAnnualLeague(raw.l) : null,
     leagueName: raw.ln,
     teams,
     realPlayers,

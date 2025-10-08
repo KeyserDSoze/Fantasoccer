@@ -60,6 +60,7 @@ export default function AuctionLiveScreen() {
   const [salesHistory, setSalesHistory] = useState<AuctionWin[]>([])
   const [isAuctioneer, setIsAuctioneer] = useState(false)
   const [myTeam, setMyTeam] = useState<Entity<Team, TeamKey> | null>(null)
+  const [startingMoney, setStartingMoney] = useState<number>(1000) // League's starting budget
   const [myTeamBudget, setMyTeamBudget] = useState<number>(1000)
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(0)
   const [timerRunning, setTimerRunning] = useState<boolean>(false)
@@ -167,10 +168,10 @@ export default function AuctionLiveScreen() {
   }, [myTeam, currentPlayer])
 
   const calculateBudgetRemaining = useCallback((team: Entity<Team, TeamKey>): number => {
-    // Budget = 1000 - Cost (where Cost includes revenue adjustments)
+    // Budget = StartingMoney - Cost (where Cost includes revenue adjustments)
     const cost = TeamHelper.getCost(team.value)
-    return 1000 - cost
-  }, [])
+    return startingMoney - cost
+  }, [startingMoney])
 
   // Helper: Get player status label
   const getPlayerStatusLabel = (status: number): string => {
@@ -375,6 +376,11 @@ export default function AuctionLiveScreen() {
               setIsAuctioneer(state.isAuctioneer)
               setSalesHistory(state.wrapper.winnings)
               setIsLocked(state.wrapper.status === AuctionStatus.Paused)
+              
+              // Update starting money from league settings (default to 1000 if not available)
+              const leagueStartingMoney = state.league?.settings?.startingMoney ?? 1000
+              setStartingMoney(leagueStartingMoney)
+              
               const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user.email?.toLowerCase())
               if (myTeamEntity) {
                 setMyTeam(myTeamEntity)
