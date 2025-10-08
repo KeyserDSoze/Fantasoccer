@@ -12,14 +12,14 @@ namespace Fantasoccer
         public List<string> AdditionalOwners { get; set; }
         [JsonPropertyName("p")]
         public List<Player> Players { get; set; }
-        [JsonIgnore]
-        public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
-        [JsonPropertyName("r")]
-        public int RevenueMoney { get; set; }
         [JsonPropertyName("m")]
         public int MoneyFromRank { get; set; }
         [JsonPropertyName("d")]
         public DateTime LastUpdate { get; set; }
+        [JsonIgnore]
+        public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
+        [JsonIgnore]
+        public int RevenueMoney => Players.Where(x => x.Status == PlayerInTeamStatus.Sold).Sum(x => x.Revenue - x.Price);
         [JsonIgnore]
         public int MoneyFromSoldWithNoReturnedPrice => Players.Where(x => x.Status == PlayerInTeamStatus.SoldWithNoReturnedPrice).Sum(x => x.Price);
         [JsonIgnore]

@@ -1,9 +1,9 @@
 // Auction Live Screen - Real-time auction management with bidding interface (Pulsantiera)
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { View, ScrollView, Platform, Vibration } from 'react-native'
+import { View, Platform, Vibration } from 'react-native'
 import { 
   Button, Card, Input, Select, Separator, Text, XStack, YStack, 
-  useMedia, Spinner, Label, Switch, Dialog
+  useMedia, Spinner, Label, Switch, Dialog, ScrollView
 } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
@@ -24,7 +24,7 @@ import {
 import { useRoute, RouteProp } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
-import { Team, TeamKey } from 'types/team'
+import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Entity } from 'types/default'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
@@ -73,6 +73,12 @@ export default function AuctionLiveScreen() {
   const [customBidAmount, setCustomBidAmount] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)
   const [showPlayerSearchDialog, setShowPlayerSearchDialog] = useState(false)
+  const [showTeamDetailDialog, setShowTeamDetailDialog] = useState(false)
+  const [selectedTeamDetail, setSelectedTeamDetail] = useState<Entity<Team, TeamKey> | null>(null)
+  const [showChangeStatusDialog, setShowChangeStatusDialog] = useState(false)
+  const [changeStatusPlayer, setChangeStatusPlayer] = useState<{ playerKey: string; playerName: string; owner: string } | null>(null)
+  const [changeStatusType, setChangeStatusType] = useState<number>(0) // PlayerInTeamStatus enum
+  const [changeStatusRevenue, setChangeStatusRevenue] = useState<string>('')
   const [playerSearchQuery, setPlayerSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [tempBlockButtons, setTempBlockButtons] = useState(false)
@@ -161,9 +167,34 @@ export default function AuctionLiveScreen() {
   }, [myTeam, currentPlayer])
 
   const calculateBudgetRemaining = useCallback((team: Entity<Team, TeamKey>): number => {
-    const spent = team.value.players.reduce((sum, player) => sum + player.price, 0)
-    return 1000 - spent
+    // Budget = 1000 - Cost (where Cost includes revenue adjustments)
+    const cost = TeamHelper.getCost(team.value)
+    return 1000 - cost
   }, [])
+
+  // Helper: Get player status label
+  const getPlayerStatusLabel = (status: number): string => {
+    const labels: Record<number, string> = {
+      0: 'Attivo', // Active
+      1: 'Venduto 1 girone', // SoldForOneHalf
+      2: 'Venduto senza rimborso', // SoldWithNoReturnedPrice
+      3: 'Venduto', // Sold
+      4: 'Rimosso' // Removed
+    }
+    return labels[status] || 'Sconosciuto'
+  }
+
+  // Helper: Get player status color
+  const getPlayerStatusColor = (status: number): string => {
+    const colors: Record<number, string> = {
+      0: '$green11', // Active
+      1: '$orange11', // SoldForOneHalf
+      2: '$red11', // SoldWithNoReturnedPrice
+      3: '$blue11', // Sold
+      4: '$gray11' // Removed
+    }
+    return colors[status] || '$gray11'
+  }
 
   // ============================================
   // TIMER LOGIC
@@ -758,6 +789,11 @@ export default function AuctionLiveScreen() {
   // Teams Panel Component  
   const renderTeams = () => {
     if (teams.length === 0) return null
+    
+    // Responsive grid: 5 teams per row on desktop, 2 on mobile
+    const teamsPerRow = media.gtMd ? 5 : 2
+    const teamWidth = `${100 / teamsPerRow - 2}%`
+    
     return (
       <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
         <YStack gap="$4">
@@ -765,87 +801,80 @@ export default function AuctionLiveScreen() {
             <Users size={20} color="$color11" />
             <Text fontSize="$5" fontWeight="700" color="$color11">Squadre Partecipanti ({teams.length})</Text>
           </XStack>
-          {teams.map((team) => {
-            const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
-            const budget = calculateBudgetRemaining(team)
-            const spent = 1000 - budget
-            const hasLowBudget = budget < 100
-            const slotsRemaining = 25 - team.value.players.length
-            const roleCount = {
-              [Role.GoalKeeper]: team.value.players.filter(p => p.role === Role.GoalKeeper).length,
-              [Role.Defensor]: team.value.players.filter(p => p.role === Role.Defensor).length,
-              [Role.Midfielder]: team.value.players.filter(p => p.role === Role.Midfielder).length,
-              [Role.Forward]: team.value.players.filter(p => p.role === Role.Forward).length,
-            }
-            return (
-              <Card key={team.value.owner} padding="$3" backgroundColor={isMyTeam ? '$blue2' : '$color1'} borderRadius="$3" borderWidth="$0.5" borderColor={isMyTeam ? '$blue8' : '$borderColor'}>
-                <YStack gap="$2">
-                  <XStack gap="$2" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-                    <Text fontSize="$5" fontWeight="700" color="$color11">{team.value.name}</Text>
-                    {isMyTeam && (
-                      <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue8" borderRadius="$2">
-                        <Text fontSize="$2" color="$blue1" fontWeight="700">TUA SQUADRA</Text>
-                      </Card>
-                    )}
-                  </XStack>
-                  <Text fontSize="$3" color="$color10">{team.value.owner}</Text>
-                  <XStack gap="$3" flexWrap="wrap">
+          <XStack gap="$3" flexWrap="wrap">
+            {teams.map((team) => {
+              const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
+              const budget = calculateBudgetRemaining(team)
+              const spent = 1000 - budget
+              const hasLowBudget = budget < 100
+              const slotsRemaining = 25 - team.value.players.length
+              const roleCount = {
+                [Role.GoalKeeper]: team.value.players.filter(p => p.role === Role.GoalKeeper).length,
+                [Role.Defensor]: team.value.players.filter(p => p.role === Role.Defensor).length,
+                [Role.Midfielder]: team.value.players.filter(p => p.role === Role.Midfielder).length,
+                [Role.Forward]: team.value.players.filter(p => p.role === Role.Forward).length,
+              }
+              return (
+                <Card 
+                  key={team.value.owner} 
+                  width={teamWidth}
+                  minWidth={media.gtMd ? 180 : 150}
+                  padding="$3" 
+                  backgroundColor={isMyTeam ? '$blue2' : '$color1'} 
+                  borderRadius="$3" 
+                  borderWidth="$0.5" 
+                  borderColor={isMyTeam ? '$blue8' : '$borderColor'}
+                  pressStyle={{ scale: 0.98, opacity: 0.9 }}
+                  cursor="pointer"
+                  onPress={() => {
+                    setSelectedTeamDetail(team)
+                    setShowTeamDetailDialog(true)
+                  }}
+                >
+                  <YStack gap="$2">
                     <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Speso</Text>
-                      <Text fontSize="$4" fontWeight="600" color="$color11">€{spent}</Text>
+                      <Text fontSize="$4" fontWeight="700" color="$color11" numberOfLines={1}>{team.value.name}</Text>
+                      {isMyTeam && (
+                        <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2" alignSelf="flex-start">
+                          <Text fontSize="$1" color="$blue1" fontWeight="700">TUA</Text>
+                        </Card>
+                      )}
                     </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Budget</Text>
-                      <Text fontSize="$4" fontWeight="600" color={hasLowBudget ? '$red11' : '$color11'}>€{budget}</Text>
-                    </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Giocatori</Text>
-                      <Text fontSize="$4" fontWeight="600" color="$color11">{team.value.players.length}/25</Text>
-                    </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Slot</Text>
-                      <Text fontSize="$4" fontWeight="600" color="$color11">{slotsRemaining}</Text>
-                    </YStack>
-                  </XStack>
-                  <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
-                    <XStack gap="$3" flexWrap="wrap">
-                      <YStack gap="$0.5">
-                        <Text fontSize="$2" color="$color10">P</Text>
-                        <Text fontSize="$3" fontWeight="600" color={roleCount[Role.GoalKeeper] >= ROLE_LIMITS[Role.GoalKeeper] ? '$red11' : '$color11'}>{roleCount[Role.GoalKeeper]}/{ROLE_LIMITS[Role.GoalKeeper]}</Text>
+                    <XStack gap="$2" flexWrap="wrap">
+                      <YStack gap="$0.5" flex={1}>
+                        <Text fontSize="$1" color="$color10">Budget</Text>
+                        <Text fontSize="$3" fontWeight="600" color={hasLowBudget ? '$red11' : '$color11'}>€{budget}</Text>
                       </YStack>
-                      <YStack gap="$0.5">
-                        <Text fontSize="$2" color="$color10">D</Text>
-                        <Text fontSize="$3" fontWeight="600" color={roleCount[Role.Defensor] >= ROLE_LIMITS[Role.Defensor] ? '$red11' : '$color11'}>{roleCount[Role.Defensor]}/{ROLE_LIMITS[Role.Defensor]}</Text>
-                      </YStack>
-                      <YStack gap="$0.5">
-                        <Text fontSize="$2" color="$color10">C</Text>
-                        <Text fontSize="$3" fontWeight="600" color={roleCount[Role.Midfielder] >= ROLE_LIMITS[Role.Midfielder] ? '$red11' : '$color11'}>{roleCount[Role.Midfielder]}/{ROLE_LIMITS[Role.Midfielder]}</Text>
-                      </YStack>
-                      <YStack gap="$0.5">
-                        <Text fontSize="$2" color="$color10">A</Text>
-                        <Text fontSize="$3" fontWeight="600" color={roleCount[Role.Forward] >= ROLE_LIMITS[Role.Forward] ? '$red11' : '$color11'}>{roleCount[Role.Forward]}/{ROLE_LIMITS[Role.Forward]}</Text>
+                      <YStack gap="$0.5" flex={1}>
+                        <Text fontSize="$1" color="$color10">Gioc.</Text>
+                        <Text fontSize="$3" fontWeight="600" color="$color11">{team.value.players.length}/25</Text>
                       </YStack>
                     </XStack>
-                  </Card>
-                  {team.value.players.length > 0 && (
-                    <YStack gap="$1" marginTop="$2">
-                      <Text fontSize="$3" fontWeight="600" color="$color10">Rosa ({team.value.players.length}):</Text>
-                      <YStack maxHeight={150} overflow="scroll">
-                        <YStack gap="$0.5">
-                          {team.value.players.map((player) => (
-                            <XStack key={player.name} gap="$2" justifyContent="space-between">
-                              <Text fontSize="$2" color="$color11" flex={1}>{player.name} ({getRoleLabel(player.role)}) - {player.team.name}</Text>
-                              <Text fontSize="$2" color="$color10" fontWeight="600">€{player.price}</Text>
-                            </XStack>
-                          ))}
+                    <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
+                      <XStack gap="$2" justifyContent="space-between">
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$color10">P</Text>
+                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.GoalKeeper] >= ROLE_LIMITS[Role.GoalKeeper] ? '$red11' : '$color11'}>{roleCount[Role.GoalKeeper]}/{ROLE_LIMITS[Role.GoalKeeper]}</Text>
                         </YStack>
-                      </YStack>
-                    </YStack>
-                  )}
-                </YStack>
-              </Card>
-            )
-          })}
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$color10">D</Text>
+                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Defensor] >= ROLE_LIMITS[Role.Defensor] ? '$red11' : '$color11'}>{roleCount[Role.Defensor]}/{ROLE_LIMITS[Role.Defensor]}</Text>
+                        </YStack>
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$color10">C</Text>
+                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Midfielder] >= ROLE_LIMITS[Role.Midfielder] ? '$red11' : '$color11'}>{roleCount[Role.Midfielder]}/{ROLE_LIMITS[Role.Midfielder]}</Text>
+                        </YStack>
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$color10">A</Text>
+                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Forward] >= ROLE_LIMITS[Role.Forward] ? '$red11' : '$color11'}>{roleCount[Role.Forward]}/{ROLE_LIMITS[Role.Forward]}</Text>
+                        </YStack>
+                      </XStack>
+                    </Card>
+                  </YStack>
+                </Card>
+              )
+            })}
+          </XStack>
         </YStack>
       </Card>
     )
@@ -897,6 +926,202 @@ export default function AuctionLiveScreen() {
       </Dialog.Portal>
     </Dialog>
   )
+
+  // Team Detail Dialog Component
+  const renderTeamDetailDialog = () => {
+    if (!selectedTeamDetail) return null
+    const team = selectedTeamDetail
+    const budget = calculateBudgetRemaining(team)
+    const spent = 1000 - budget
+    const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
+    
+    // Sort players: orderBy status, thenBy role
+    const sortedPlayers = [...team.value.players].sort((a, b) => {
+      if (a.status !== b.status) return (a.status || 0) - (b.status || 0)
+      return (a.role || 0) - (b.role || 0)
+    })
+
+    return (
+      <Dialog modal open={showTeamDetailDialog} onOpenChange={setShowTeamDetailDialog}>
+        <Dialog.Portal>
+          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={700} maxWidth="95%" maxHeight="90%">
+            <Dialog.Title fontSize="$6" fontWeight="700">{team.value.name}</Dialog.Title>
+            <Dialog.Description>Dettaglio squadra - {team.value.owner}</Dialog.Description>
+            <YStack maxHeight={600} overflow="scroll">
+              <YStack gap="$4" padding="$2">
+                <Card padding="$3" backgroundColor={isMyTeam ? '$blue2' : '$color2'} borderRadius="$3">
+                  <XStack gap="$4" flexWrap="wrap">
+                    <YStack gap="$1">
+                      <Text fontSize="$2" color="$color10">Speso</Text>
+                      <Text fontSize="$5" fontWeight="700" color="$color11">€{spent}</Text>
+                    </YStack>
+                    <YStack gap="$1">
+                      <Text fontSize="$2" color="$color10">Budget Rimasto</Text>
+                      <Text fontSize="$5" fontWeight="700" color={budget < 100 ? '$red11' : '$color11'}>€{budget}</Text>
+                    </YStack>
+                    <YStack gap="$1">
+                      <Text fontSize="$2" color="$color10">Giocatori</Text>
+                      <Text fontSize="$5" fontWeight="700" color="$color11">{team.value.players.length}/25</Text>
+                    </YStack>
+                    <YStack gap="$1">
+                      <Text fontSize="$2" color="$color10">Slot Rimasti</Text>
+                      <Text fontSize="$5" fontWeight="700" color="$color11">{25 - team.value.players.length}</Text>
+                    </YStack>
+                  </XStack>
+                </Card>
+                <YStack gap="$2">
+                  <Text fontSize="$4" fontWeight="700" color="$color11">Rosa ({sortedPlayers.length})</Text>
+                  {sortedPlayers.length === 0 ? (
+                    <Card padding="$3" backgroundColor="$color2">
+                      <Text fontSize="$3" color="$color10" textAlign="center">Nessun giocatore ancora</Text>
+                    </Card>
+                  ) : (
+                    <YStack gap="$2">
+                      {sortedPlayers.map((player) => (
+                        <Card key={player.name} padding="$3" backgroundColor="$color1" borderRadius="$3">
+                          <XStack gap="$2" alignItems="center" justifyContent="space-between" flexWrap="wrap">
+                            <YStack gap="$1" flex={1}>
+                              <Text fontSize="$4" fontWeight="600" color="$color11">{player.name}</Text>
+                              <XStack gap="$2" flexWrap="wrap">
+                                <Text fontSize="$2" color="$color10">{getRoleLabel(player.role)} • {player.team.name}</Text>
+                                <Text fontSize="$2" fontWeight="600" color={getPlayerStatusColor(player.status || 0)}>
+                                  {getPlayerStatusLabel(player.status || 0)}
+                                </Text>
+                                {(player.status === 3 || player.status === 1) && player.revenue !== undefined && player.revenue !== 0 && (
+                                  <Text fontSize="$2" fontWeight="600" color={player.revenue > 0 ? '$green11' : '$red11'}>
+                                    ({player.revenue > 0 ? '+' : ''}{player.revenue}€)
+                                  </Text>
+                                )}
+                              </XStack>
+                            </YStack>
+                            <XStack gap="$2" alignItems="center">
+                              <Text fontSize="$4" fontWeight="700" color="$color11">€{player.price}</Text>
+                              {isAuctioneer && (
+                                <Button 
+                                  size="$2" 
+                                  theme="orange" 
+                                  variant="outlined"
+                                  onPress={() => {
+                                    setChangeStatusPlayer({ playerKey: player.name, playerName: player.name, owner: team.value.owner })
+                                    setChangeStatusType(player.status || 0)
+                                    setChangeStatusRevenue(player.revenue?.toString() || '')
+                                    setShowChangeStatusDialog(true)
+                                  }}
+                                >
+                                  Modifica
+                                </Button>
+                              )}
+                            </XStack>
+                          </XStack>
+                        </Card>
+                      ))}
+                    </YStack>
+                  )}
+                </YStack>
+              </YStack>
+            </YStack>
+            <XStack justifyContent="flex-end">
+              <Dialog.Close asChild>
+                <Button>Chiudi</Button>
+              </Dialog.Close>
+            </XStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+    )
+  }
+
+  // Change Player Status Dialog Component
+  const renderChangeStatusDialog = () => {
+    if (!changeStatusPlayer) return null
+    const needsRevenue = changeStatusType === 3 // Sold status
+    
+    return (
+      <Dialog modal open={showChangeStatusDialog} onOpenChange={setShowChangeStatusDialog}>
+        <Dialog.Portal>
+          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={500} maxWidth="95%">
+            <Dialog.Title fontSize="$6" fontWeight="700">Cambia Stato Giocatore</Dialog.Title>
+            <Dialog.Description>{changeStatusPlayer.playerName}</Dialog.Description>
+            <YStack gap="$3">
+              <YStack gap="$2">
+                <Label htmlFor="status-select" fontSize="$4">Motivo cambio stato:</Label>
+                <Select id="status-select" value={changeStatusType.toString()} onValueChange={(val) => setChangeStatusType(Number(val))}>
+                  <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
+                  <Select.Content zIndex={200000}>
+                    <Select.Viewport>
+                      <Select.Item index={0} value="0"><Select.ItemText>Attivo (ripristina)</Select.ItemText></Select.Item>
+                      <Select.Item index={1} value="1"><Select.ItemText>Errore di caricamento (rimosso)</Select.ItemText></Select.Item>
+                      <Select.Item index={2} value="2"><Select.ItemText>Infortunato/Estero (1 girone)</Select.ItemText></Select.Item>
+                      <Select.Item index={3} value="3"><Select.ItemText>Venduto ad altro giocatore</Select.ItemText></Select.Item>
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select>
+              </YStack>
+              {needsRevenue && (
+                <YStack gap="$2">
+                  <Label htmlFor="revenue-input" fontSize="$4">Importo vendita (+ guadagno / - perdita):</Label>
+                  <Input 
+                    id="revenue-input"
+                    placeholder="Es: 50 o -30" 
+                    value={changeStatusRevenue} 
+                    onChangeText={setChangeStatusRevenue} 
+                    keyboardType="numeric" 
+                    size="$4" 
+                  />
+                  <Text fontSize="$2" color="$color10">Lascia vuoto o 0 se nessun importo da registrare</Text>
+                </YStack>
+              )}
+              <Card padding="$3" backgroundColor="$blue2" borderRadius="$3">
+                <YStack gap="$2">
+                  <Text fontSize="$3" fontWeight="600" color="$blue11">Spiegazione stati:</Text>
+                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Errore di caricamento:</Text> Giocatore rimosso definitivamente</Text>
+                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)</Text>
+                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)</Text>
+                </YStack>
+              </Card>
+              <XStack gap="$2" justifyContent="flex-end">
+                <Dialog.Close asChild>
+                  <Button variant="outlined" onPress={() => {
+                    setChangeStatusPlayer(null)
+                    setChangeStatusRevenue('')
+                  }}>Annulla</Button>
+                </Dialog.Close>
+                <Button theme="orange" disabled={loading} onPress={async () => {
+                  setLoading(true)
+                  try {
+                    let revenue: number | null = null
+                    if (needsRevenue && changeStatusRevenue) {
+                      const parsed = parseInt(changeStatusRevenue, 10)
+                      if (!isNaN(parsed)) revenue = parsed
+                    }
+                    
+                    await auctionService.changePlayerStatus(
+                      auctionId, 
+                      changeStatusPlayer.owner, 
+                      changeStatusPlayer.playerKey, 
+                      changeStatusType, 
+                      revenue
+                    )
+                    
+                    toast.show('✅ Stato giocatore aggiornato!', { variant: 'success' })
+                    setShowChangeStatusDialog(false)
+                    setChangeStatusPlayer(null)
+                    setChangeStatusRevenue('')
+                  } catch (err) {
+                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+                  } finally {
+                    setLoading(false)
+                  }
+                }}>Conferma</Button>
+              </XStack>
+            </YStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+    )
+  }
 
   // ============================================
   // MAIN RENDER
@@ -953,6 +1178,8 @@ export default function AuctionLiveScreen() {
         </ScrollView>
         {renderTimer()}
         {renderCustomBidDialog()}
+        {renderTeamDetailDialog()}
+        {renderChangeStatusDialog()}
       </ScreenContent>
     </View>
   )

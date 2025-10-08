@@ -419,6 +419,20 @@ export class AuctionService {
     if (!this.hubConnection) throw new Error('Not connected to hub')
     await this.hubConnection.invoke('CloseAuctionAsync', auctionId)
   }
+
+  /**
+   * Change player status in team (Auctioneer only)
+   */
+  async changePlayerStatus(
+    auctionId: string, 
+    owner: string, 
+    playerKey: string, 
+    status: number, 
+    revenue: number | null
+  ): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('ChangePlayerStatusAsync', auctionId, owner, playerKey, status, revenue)
+  }
 }
 
 // Export singleton instance

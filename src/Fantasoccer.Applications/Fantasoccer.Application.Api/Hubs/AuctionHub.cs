@@ -15,17 +15,20 @@ namespace Fantasoccer.Application.Api.Hubs
         private readonly ILock _lock;
         private readonly IRepository<AuctionWrapper, string> _auctionRepository;
         private readonly IRepository<AppIdentity, string> _identityRepository;
+        private readonly IRepository<Rank, LeagueKey> _rankRepository;
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
         private static readonly Dictionary<string, AuctionHubWrapper> _auctions = [];
         public AuctionHub(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
+            IRepository<Rank, LeagueKey> rankRepository,
            IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
         {
             _lock = @lock;
             _auctionRepository = auctionRepository;
             _identityRepository = identityRepository;
+            _rankRepository = rankRepository;
             _team = team;
             _groups = groups;
             _statsPlayers = statsPlayers;
@@ -49,6 +52,7 @@ namespace Fantasoccer.Application.Api.Hubs
                              var leagueWrapper = group.Leagues.FirstOrDefault(x => x.Id == auction.LeagueKey.League);
                              if (league != null && leagueWrapper != null)
                              {
+                                 var rank = await _rankRepository.GetAsync(auction.LeagueKey);
                                  var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
                                  var teams = new List<Entity<Team, TeamKey>>();
                                  foreach (var basketId in leagueWrapper.BasketsId)
@@ -69,6 +73,11 @@ namespace Fantasoccer.Application.Api.Hubs
                                          {
                                              team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
                                              _team.UpdateAsync(teamKey, team).ToResult();
+                                         }
+                                         var teamInRank = rank?.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == teamInYear.Owner);
+                                         if (teamInRank != null && (league.Settings.MoneyForGoal > 0 || league.Settings.MoneyForSufferedGoal > 0))
+                                         {
+                                             team.MoneyFromRank = teamInRank.Goal * league.Settings.MoneyForGoal + teamInRank.SufferedGoal * league.Settings.MoneyForSufferedGoal;
                                          }
                                          teams.Add(new(team, teamKey));
                                      }

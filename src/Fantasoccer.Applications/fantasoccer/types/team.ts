@@ -93,6 +93,7 @@ export interface RealPlayerRaw {
 
 export interface PlayerRaw extends RealPlayerRaw {
   p: number
+  r: number
   s: PlayerInTeamStatus
   k: FantaSoccerRole
 }
@@ -111,6 +112,7 @@ export interface RealPlayer {
 
 export interface Player extends RealPlayer {
   price: number
+  revenue: number
   status: PlayerInTeamStatus
   position: FantaSoccerRole
 }
@@ -130,6 +132,7 @@ export const mapRawRealPlayerToRealPlayer = (raw: RealPlayerRaw): RealPlayer => 
 export const mapRawPlayerToPlayer = (raw: PlayerRaw): Player => ({
   ...mapRawRealPlayerToRealPlayer(raw),
   price: raw.p,
+  revenue: raw.r,
   status: raw.s,
   position: raw.k
 })
@@ -243,7 +246,6 @@ export interface TeamRaw {
   o: string
   a?: string[] | null
   p: PlayerRaw[]
-  r: number
   m: number
   d?: string | null
 }
@@ -253,7 +255,6 @@ export interface Team {
   owner: string
   additionalOwners: string[]
   players: Player[]
-  revenueMoney: number
   moneyFromRank: number
   lastUpdate: Date | null
 }
@@ -262,9 +263,11 @@ export interface EnhancedTeam extends Team {
   totalPlayers: number
   activePlayers: Player[]
   totalCost: number
+  revenueMoney: number
   moneyFromSoldWithNoReturnedPrice: number
   moneyFromSoldWithOneHalfReturnedPrice: number
-  netCost: number
+  cost: number
+  netCost: number // Alias for cost
 }
 
 export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
@@ -272,7 +275,6 @@ export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
   owner: raw?.o ?? '',
   additionalOwners: raw?.a ?? [],
   players: raw?.p?.map(mapRawPlayerToPlayer) ?? [],
-  revenueMoney: raw?.r ?? 0,
   moneyFromRank: raw?.m ?? 0,
   lastUpdate: raw?.d ? new Date(raw.d) : null
 })
@@ -283,7 +285,6 @@ export const mapTeamToRawTeam = (team: Team): TeamRaw => ({
   o: team.owner,
   a: team.additionalOwners?.length ? team.additionalOwners : [],
   p: team.players.map(mapPlayerToRawPlayer),
-  r: team.revenueMoney,
   m: team.moneyFromRank,
   d: team.lastUpdate ? team.lastUpdate.toISOString() : undefined
 })
@@ -301,8 +302,19 @@ export class TeamHelper {
     return PlayerHelper.filterByMainRole(team.players, role)
   }
 
-  static getTotalCost(team: Team): number {
+  static getTotalCostForPlayers(team: Team): number {
     return team.players.reduce((sum, player) => sum + (player.price ?? 0), 0)
+  }
+
+  // Alias for consistency with C# naming
+  static getTotalCost(team: Team): number {
+    return TeamHelper.getTotalCostForPlayers(team)
+  }
+
+  static getRevenueMoney(team: Team): number {
+    return team.players
+      .filter(player => player.status === PlayerInTeamStatus.Sold)
+      .reduce((sum, player) => sum + ((player.revenue ?? 0) - player.price), 0)
   }
 
   static getMoneyFromSoldWithNoReturnedPrice(team: Team): number {
@@ -317,27 +329,35 @@ export class TeamHelper {
       .reduce((sum, player) => sum + player.price / 2, 0)
   }
 
-  static getNetCost(team: Team): number {
-    return TeamHelper.getTotalCost(team)
-      - team.revenueMoney
+  static getCost(team: Team): number {
+    return TeamHelper.getTotalCostForPlayers(team)
+      - TeamHelper.getRevenueMoney(team)
       - team.moneyFromRank
       - TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
   }
 
+  // Alias for backward compatibility
+  static getNetCost(team: Team): number {
+    return TeamHelper.getCost(team)
+  }
+
   static enhance(team: Team): EnhancedTeam {
-    const totalCost = TeamHelper.getTotalCost(team)
+    const totalCost = TeamHelper.getTotalCostForPlayers(team)
+    const revenueMoney = TeamHelper.getRevenueMoney(team)
     const moneyNoReturn = TeamHelper.getMoneyFromSoldWithNoReturnedPrice(team)
     const moneyHalfReturn = TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
-    const netCost = TeamHelper.getNetCost(team)
+    const cost = TeamHelper.getCost(team)
 
     return {
       ...team,
       totalPlayers: team.players.length,
       activePlayers: TeamHelper.getActivePlayers(team),
       totalCost,
+      revenueMoney,
       moneyFromSoldWithNoReturnedPrice: moneyNoReturn,
       moneyFromSoldWithOneHalfReturnedPrice: moneyHalfReturn,
-      netCost
+      cost,
+      netCost: cost // Alias
     }
   }
 }
