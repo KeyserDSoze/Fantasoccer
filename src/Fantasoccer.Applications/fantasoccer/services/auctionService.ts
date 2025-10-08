@@ -100,12 +100,14 @@ export class AuctionService {
       return
     }
 
-    const token = await tokenStorageService.ensureValidToken()
+    // ALWAYS force refresh token before connecting to ensure maximum validity
+    console.log('🔄 Force refreshing token before SignalR connection...')
+    const token = await tokenStorageService.forceRefreshToken()
     if (!token) {
-      throw new Error('No authentication token available')
+      throw new Error('Failed to refresh authentication token before connection')
     }
 
-    console.log('🔑 Token available for SignalR connection')
+    console.log('✅ Fresh token obtained for SignalR connection')
 
     const apiConfig = await import('../configurations/apiConfig').then(m => m.getApiConfig())
     const hubUrl = `${apiConfig.baseUrl}/auctionhub`

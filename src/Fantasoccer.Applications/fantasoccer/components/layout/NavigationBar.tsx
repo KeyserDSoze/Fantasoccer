@@ -121,7 +121,6 @@ const navigationItems: NavigationSection[] = [
     items: [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
       { type: 'route', route: 'Rules', label: 'Regolamento e spiegazioni', icon: BookOpen, description: 'Regole e impostazioni della lega' },
-      { type: 'link', path: '/auction', label: 'Auction', icon: Gavel, description: 'Asta live' },
       { type: 'route', route: 'Settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
     ],
   },
@@ -130,10 +129,8 @@ const navigationItems: NavigationSection[] = [
 // Admin items (shown only to admins)
 const adminItems: NavigationSection[] = [
   {
-    section: 'Admin',
+    section: 'Gestione Gruppo (Admin)',
     items: [
-      { type: 'link', path: '/admin', label: 'Admin Dashboard', icon: Shield, description: 'Admin dashboard' },
-      { type: 'link', path: '/admin/groups', label: 'Manage Groups', icon: Users, description: 'Manage groups and leagues' },
       { type: 'route', route: 'AuctionCreate', label: 'Asta', icon: Gavel, description: 'Crea e gestisci aste di fantacalcio' },
     ],
   },
@@ -142,7 +139,7 @@ const adminItems: NavigationSection[] = [
 // Super Admin items (shown only to super admins)
 const superAdminItems: NavigationSection[] = [
   {
-    section: 'Gestione Gruppo',
+    section: 'Gestione Gruppo (Super Admin)',
     items: [
       { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
       { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },

@@ -52,6 +52,7 @@ interface TokenStoreState {
   isTokenNearExpiry: (minutesBeforeExpiry?: number) => Promise<boolean>
   getTokenExpirationInfo: () => Promise<{ expiresAt: number | null; isExpired: boolean; minutesUntilExpiry: number | null }>
   ensureValidToken: () => Promise<string | null>
+  forceRefreshToken: () => Promise<string | null>
 
   saveUserInfo: (user: any) => Promise<void>
   loadUserInfo: () => Promise<any | null>
@@ -272,6 +273,38 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
       return null
     }
   },
+
+  // Force token refresh - always refreshes regardless of expiration status
+  // Use this before critical operations like SignalR connections
+  forceRefreshToken: async (): Promise<string | null> => {
+    console.log('🔄 Force refreshing token...')
+    const tokenData = await get().loadTokenSilent()
+    
+    if (!tokenData || !tokenData.refreshToken) {
+      console.error('❌ No token or refresh token available for force refresh')
+      return null
+    }
+    
+    try {
+      const { authService } = await import('./authService')
+      const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+      const expiresAt = Date.now() + newTokenData.expiresIn * 1000
+      const updated: StoredTokenData = {
+        tokenType: newTokenData.tokenType,
+        accessToken: newTokenData.accessToken,
+        refreshToken: newTokenData.refreshToken,
+        expiresAt,
+        user: tokenData.user,
+      }
+      await get().saveToken(updated)
+      console.log('✅ Token force refreshed successfully')
+      return updated.accessToken
+    } catch (error) {
+      console.error('❌ Force token refresh failed:', error)
+      await get().removeToken()
+      return null
+    }
+  },
 }))
 
 // Backwards-compatible default export that delegates to the zustand store
@@ -287,6 +320,7 @@ export const tokenStorageService = {
   isTokenNearExpiry: (m?: number) => useTokenStore.getState().isTokenNearExpiry(m),
   getTokenExpirationInfo: () => useTokenStore.getState().getTokenExpirationInfo(),
   ensureValidToken: () => useTokenStore.getState().ensureValidToken(),
+  forceRefreshToken: () => useTokenStore.getState().forceRefreshToken(),
   saveUserInfo: (u: any) => useTokenStore.getState().saveUserInfo(u),
   loadUserInfo: () => useTokenStore.getState().loadUserInfo(),
 }

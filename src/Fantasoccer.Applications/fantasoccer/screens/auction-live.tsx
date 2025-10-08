@@ -399,21 +399,7 @@ export default function AuctionLiveScreen() {
       try {
         console.log('👤 User loaded:', user.email)
         
-        // Ensure we have a valid token BEFORE attempting to connect
-        const tokenService = await import('../services/tokenStorageService').then(m => m.tokenStorageService)
-        const hasToken = await tokenService.hasValidToken()
-        
-        if (!hasToken) {
-          console.log('⚠️ No valid token available, waiting for authentication...')
-          if (isSubscribed) {
-            setConnectionError('Token non valido. Effettua nuovamente il login.')
-            setConnectionState('Disconnected')
-          }
-          isConnectingRef.current = false
-          return
-        }
-        
-        console.log('✅ Valid token available, proceeding with connection')
+        // Set user email for auction service
         auctionService.setUserEmail(user.email)
         auctionService.setEventHandlers({
           onConnected: () => {
@@ -792,10 +778,6 @@ export default function AuctionLiveScreen() {
       
       return (
         <YStack gap="$3">
-          <XStack gap="$2" alignItems="center">
-            <Gavel size={20} color="$orange11" />
-            <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
-          </XStack>
           
           {!currentPlayer && (
             <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
@@ -855,6 +837,10 @@ export default function AuctionLiveScreen() {
 
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
+        <XStack gap="$2" alignItems="center">
+          <Gavel size={20} color="$orange11" />
+          <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
+        </XStack>
         <Text fontSize="$4" marginTop="$2" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
           <YStack flex={1}>
@@ -998,8 +984,8 @@ export default function AuctionLiveScreen() {
 
     const auctioneerCard = (
       <Card padding="$4" backgroundColor="$orange2" borderRadius="$4" borderWidth="$0.5" borderColor="$orange8" opacity={tempBlockButtons ? 0.6 : 1}>
-        {renderAuctioneerBidding()}
         {renderAuctioneerControls()}
+        {renderAuctioneerBidding()}
       </Card>
     )
 

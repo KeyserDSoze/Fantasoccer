@@ -146,7 +146,7 @@ namespace Fantasoccer.Application.Api.Hubs
             if (team.Value == null)
                 return (false, "Team not found");
 
-            var check = Check(thePlayer, team.Value, current.Price);
+            var check = Check(auctionWrapper.League.Settings, thePlayer, team.Value, current.Price);
             if (string.IsNullOrWhiteSpace(check))
             {
                 team.Value.Players.Add(new Player
@@ -166,7 +166,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 return (false, check);
             }
         }
-        private string Check(RealPlayer realPlayer, Team team, int price)
+        private string Check(LeagueSetting settings, RealPlayer realPlayer, Team team, int price)
         {
             switch (realPlayer.Role)
             {
@@ -195,7 +195,7 @@ namespace Fantasoccer.Application.Api.Hubs
                     }
                     break;
             }
-            if (1000 - (team.Cost + price + (25 - 1 - team.ActivePlayers.Count())) < 0)
+            if (settings.StartingMoney - (team.Cost + price + (25 - 1 - team.ActivePlayers.Count())) < 0)
             {
                 return "Stai spendendo troppi soldi";
             }
@@ -423,7 +423,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 }
 
                 // Validate against team constraints
-                var validationError = Check(wrapper.Wrapper.Actual.Player, team, amount);
+                var validationError = Check(wrapper.League.Settings, wrapper.Wrapper.Actual.Player, team, amount);
                 if (!string.IsNullOrWhiteSpace(validationError))
                 {
                     await Clients.Caller.SendAsync("Error", validationError);
