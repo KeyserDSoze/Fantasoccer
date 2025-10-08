@@ -51,7 +51,9 @@ export const usePostLoginRedirect = () => {
         // Navigate to the saved route
         // Small delay to ensure auth state is fully updated
         setTimeout(() => {
-          navigation.navigate(routeInfo.routeName, routeInfo.params)
+          // Type assertion needed because routeName comes from string parsing
+          // but navigation.navigate expects specific route names from RootStackParamList
+          navigation.navigate(routeInfo.routeName as any, routeInfo.params)
         }, 300)
 
       } catch (error) {
