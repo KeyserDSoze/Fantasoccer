@@ -30,6 +30,7 @@ import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Entity } from 'types/default'
+import { getPlayerKey } from 'utils'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
 
@@ -526,7 +527,8 @@ export default function AuctionLiveScreen() {
       auctionService.leaveAuction(auctionId).catch(console.error)
       auctionService.disconnect().catch(console.error)
     }
-  }, [auctionId, user?.email, connectionTrigger, playBidSound, vibrateOnBid, resetTimer, calculateBudgetRemaining, toast, startTimer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auctionId, user?.email, connectionTrigger])
 
   // ============================================
   // RENDER COMPONENTS
@@ -565,18 +567,22 @@ export default function AuctionLiveScreen() {
                 <Text fontSize="$3" color="$blue11" fontWeight="600">Lista: {auctionTypeLabel}</Text>
               </Card>
             </XStack>
-            <XStack gap="$2" alignItems="center">{audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
+            <XStack gap="$2" alignItems="center">
+              {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
               <Text fontSize="$3" color="$color11">Audio</Text>
               <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
                 <Switch.Thumb animation="quick" />
-              </Switch>{Platform.OS !== 'web' && (
-                <XStack gap="$2" alignItems="center"><Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
+              </Switch>
+              {Platform.OS !== 'web' && (
+                <XStack gap="$2" alignItems="center">
+                  <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
                   <Text fontSize="$3" color="$color11">Vibrazione</Text>
                   <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
                     <Switch.Thumb animation="quick" />
                   </Switch>
                 </XStack>
-              )}            </XStack>
+              )}
+            </XStack>
           </XStack>
         </YStack>
       </Card>
@@ -1201,7 +1207,7 @@ export default function AuctionLiveScreen() {
                                   theme="orange" 
                                   variant="outlined"
                                   onPress={() => {
-                                    setChangeStatusPlayer({ playerKey: player.name, playerName: player.name, owner: team.value.owner })
+                                    setChangeStatusPlayer({ playerKey: getPlayerKey(player.name), playerName: player.name, owner: team.value.owner })
                                     setChangeStatusType(player.status || 0)
                                     setChangeStatusRevenue(player.revenue?.toString() || '')
                                     setShowChangeStatusDialog(true)
@@ -1253,6 +1259,7 @@ export default function AuctionLiveScreen() {
                       <Select.Item index={1} value="1"><Select.ItemText>Errore di caricamento (rimosso)</Select.ItemText></Select.Item>
                       <Select.Item index={2} value="2"><Select.ItemText>Infortunato/Estero (1 girone)</Select.ItemText></Select.Item>
                       <Select.Item index={3} value="3"><Select.ItemText>Venduto ad altro giocatore</Select.ItemText></Select.Item>
+                      <Select.Item index={4} value="4"><Select.ItemText>Rimuovi giocatore</Select.ItemText></Select.Item>
                     </Select.Viewport>
                   </Select.Content>
                 </Select>
@@ -1277,6 +1284,7 @@ export default function AuctionLiveScreen() {
                   <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Errore di caricamento:</Text> Giocatore rimosso definitivamente</Text>
                   <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)</Text>
                   <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)</Text>
+                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Rimosso:</Text> Giocatore rimosso definitivamente</Text>
                 </YStack>
               </Card>
               <XStack gap="$2" justifyContent="flex-end">
@@ -1303,7 +1311,6 @@ export default function AuctionLiveScreen() {
                       revenue
                     )
                     
-                    toast.show('✅ Stato giocatore aggiornato!', { variant: 'success' })
                     setShowChangeStatusDialog(false)
                     setChangeStatusPlayer(null)
                     setChangeStatusRevenue('')

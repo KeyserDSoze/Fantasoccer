@@ -527,7 +527,11 @@ namespace Fantasoccer.Application.Api.Hubs
             }
 
             player.Status = status;
-            if (status == PlayerInTeamStatus.Sold && revenue != null)
+            if (status == PlayerInTeamStatus.Removed)
+            {
+                team.Players.Remove(player);
+            }
+            else if (status == PlayerInTeamStatus.Sold && revenue != null)
             {
                 player.Revenue = revenue.Value;
             }
