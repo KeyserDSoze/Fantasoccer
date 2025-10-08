@@ -398,6 +398,10 @@ export default function AuctionLiveScreen() {
               const leagueStartingMoney = state.league?.settings?.startingMoney ?? 1000
               setStartingMoney(leagueStartingMoney)
               
+              // Sync timer with auction state
+              const auctionTimer = state.wrapper.secondsPerAuction ?? 10
+              setOfferTimeoutSeconds(auctionTimer)
+              
               const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user.email?.toLowerCase())
               if (myTeamEntity) {
                 setMyTeam(myTeamEntity)
@@ -532,32 +536,6 @@ export default function AuctionLiveScreen() {
       </Card>
     )
   }
-
-  // Settings Panel Component
-  const renderSettings = () => (
-    <Card padding="$3" backgroundColor="$color2" borderRadius="$4">
-      <XStack gap="$4" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-        {isAuctioneer && (
-          <XStack gap="$2" alignItems="center">
-            <Clock size={18} color="$color11" />
-            <Text fontSize="$3" color="$color11">Timer:</Text>
-            <Select value={offerTimeoutSeconds.toString()} onValueChange={(val) => setOfferTimeoutSeconds(Number(val))}>
-              <Select.Trigger width={80}><Select.Value /></Select.Trigger>
-              <Select.Content zIndex={200000}>
-                <Select.Viewport>
-                  {[5, 10, 15, 20, 30].map((secs, idx) => (
-                    <Select.Item key={secs} index={idx} value={secs.toString()}>
-                      <Select.ItemText>{secs}s</Select.ItemText>
-                    </Select.Item>
-                  ))}
-                </Select.Viewport>
-              </Select.Content>
-            </Select>
-          </XStack>
-        )}
-      </XStack>
-    </Card>
-  )
 
   // Current Player Card Component
   const renderCurrentPlayer = () => {
@@ -733,6 +711,39 @@ export default function AuctionLiveScreen() {
 
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
+        <Separator />
+        <Text fontSize="$4" fontWeight="600" color="$orange11">Impostazioni Asta</Text>
+        <XStack gap="$2" alignItems="center">
+          <Clock size={18} color="$orange11" />
+          <Text fontSize="$3" color="$orange11">Timer per offerta:</Text>
+          <Select 
+            value={offerTimeoutSeconds.toString()} 
+            onValueChange={async (val) => {
+              const newSeconds = Number(val)
+              setLoading(true)
+              try {
+                await auctionService.changeTimer(auctionId, newSeconds)
+                setOfferTimeoutSeconds(newSeconds)
+                toast.show(`⏱️ Timer aggiornato a ${newSeconds}s`, { variant: 'success' })
+              } catch (err) {
+                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+              } finally {
+                setLoading(false)
+              }
+            }}
+          >
+            <Select.Trigger width={80}><Select.Value /></Select.Trigger>
+            <Select.Content zIndex={200000}>
+              <Select.Viewport>
+                {[5, 10, 15, 20, 30, 45, 60].map((secs, idx) => (
+                  <Select.Item key={secs} index={idx} value={secs.toString()}>
+                    <Select.ItemText>{secs}s</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select>
+        </XStack>
         <Separator />
         <Text fontSize="$4" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
@@ -1285,7 +1296,6 @@ export default function AuctionLiveScreen() {
           <YStack padding="$4" gap="$6">
             <YStack width="100%" gap="$4">
               {renderHeader()}
-              {renderSettings()}
               {renderCurrentPlayer()}
               {renderParticipantBidding()}
               {renderAuctioneerPanel()}

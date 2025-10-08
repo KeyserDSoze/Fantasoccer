@@ -136,6 +136,7 @@ export interface AuctionWrapper {
   listOfPlayers: Record<Role, string[]>
   participants: AnnualTeam[]
   lastShow: Record<Role, string | null>
+  secondsPerAuction: number
 }
 
 
@@ -242,7 +243,8 @@ export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
     status: raw.s as AuctionStatus,
     listOfPlayers,
     participants: raw.pr.map(mapRawAnnualTeamToAnnualTeam),
-    lastShow
+    lastShow,
+    secondsPerAuction: raw.sec ?? 10
   }
 }
 

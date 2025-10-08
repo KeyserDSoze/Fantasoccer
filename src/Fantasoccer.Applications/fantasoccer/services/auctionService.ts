@@ -426,6 +426,14 @@ export class AuctionService {
   }
 
   /**
+   * Change timer duration (Auctioneer only)
+   */
+  async changeTimer(auctionId: string, seconds: number): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('ChangeTimerAsync', auctionId, seconds)
+  }
+
+  /**
    * Change player status in team (Auctioneer only)
    */
   async changePlayerStatus(
