@@ -856,6 +856,40 @@ export default function AuctionLiveScreen() {
                         <Text fontSize="$3" fontWeight="600" color="$color11">{team.value.players.length}/25</Text>
                       </YStack>
                     </XStack>
+                    
+                    {/* Budget Breakdown */}
+                    <Card padding="$2" backgroundColor="$color3" borderRadius="$2">
+                      <YStack gap="$1">
+                        <Text fontSize="$1" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Budget Iniziale</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{startingMoney}</Text>
+                          </YStack>
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$red10">Costo Totale</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$red11">-€{TeamHelper.getTotalCostForPlayers(team.value)}</Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Ricavi Vendite</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{TeamHelper.getRevenueMoney(team.value)}</Text>
+                          </YStack>
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Da Classifica</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{team.value.moneyFromRank}</Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Vendite 1 Girone</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}</Text>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                    
                     <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
                       <XStack gap="$2" justifyContent="space-between">
                         <YStack gap="$0.5" alignItems="center">
