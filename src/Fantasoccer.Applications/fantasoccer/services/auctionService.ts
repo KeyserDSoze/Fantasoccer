@@ -118,10 +118,27 @@ export class AuctionService {
           accessTokenFactory: async () => {
             const currentToken = await tokenStorageService.ensureValidToken()
             console.log('🔑 Token factory called, token exists:', !!currentToken)
-            return currentToken || ''
+            if (!currentToken) {
+              throw new Error('Token not available in factory')
+            }
+            return currentToken
+          },
+          skipNegotiation: false,
+          transport: undefined, // Let SignalR choose the best transport
+        })
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: (retryContext) => {
+            // Don't retry on auth errors
+            if (retryContext.elapsedMilliseconds > 60000) {
+              console.log('❌ Max reconnection time exceeded')
+              return null // Stop retrying
+            }
+            // Exponential backoff: 2s, 4s, 8s, 16s, 30s
+            const delay = Math.min(2000 * Math.pow(2, retryContext.previousRetryCount), 30000)
+            console.log(`🔄 Retry attempt ${retryContext.previousRetryCount + 1}, waiting ${delay}ms`)
+            return delay
           }
         })
-        .withAutomaticReconnect()
         .configureLogging(LogLevel.Information)
         .build()
 
@@ -131,6 +148,13 @@ export class AuctionService {
       // Add connection close handler for debugging
       this.hubConnection.onclose((error) => {
         console.log('❌ SignalR connection closed', error)
+        if (error) {
+          // Check if it's an auth error
+          const errorMsg = error.message || error.toString()
+          if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+            console.error('🔐 Authentication error - token may be invalid')
+          }
+        }
       })
 
       this.hubConnection.onreconnecting((error) => {
@@ -145,11 +169,23 @@ export class AuctionService {
       console.log('✅ Connected to auction hub, connectionId:', this.hubConnection?.connectionId)
     } catch (error) {
       console.error('❌ Failed to connect to auction hub:', error)
+      
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      
+      // Check for authentication errors
+      if (errorMsg.includes('401') || errorMsg.includes('Unauthorized') || errorMsg.includes('EventSource failed to connect')) {
+        console.error('🔐 Authentication error detected')
+        // Reset connection on auth failure
+        this.hubConnection = null
+        throw new Error('401 Unauthorized - Token invalido o scaduto')
+      }
+      
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         hubConnectionState: this.hubConnection?.state
       })
+      
       // Reset connection on failure
       this.hubConnection = null
       throw error

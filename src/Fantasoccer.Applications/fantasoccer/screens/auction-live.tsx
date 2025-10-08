@@ -54,7 +54,8 @@ export default function AuctionLiveScreen() {
   // ============================================
   const [connectionState, setConnectionState] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected')
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [reconnectAttempts, setReconnectAttempts] = useState(0)
+  const reconnectAttemptsRef = useRef(0)
+  const [connectionTrigger, setConnectionTrigger] = useState(0) // Used to trigger reconnection
   const [auctionState, setAuctionState] = useState<AuctionState | null>(null)
   const [currentPlayer, setCurrentPlayer] = useState<StatPlayer | null>(null)
   const [teams, setTeams] = useState<Entity<Team, TeamKey>[]>([])
@@ -90,6 +91,8 @@ export default function AuctionLiveScreen() {
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [vibrationEnabled, setVibrationEnabled] = useState(true)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const connectionAttemptedRef = useRef<boolean>(false)
+  const isConnectingRef = useRef<boolean>(false)
 
   // Initialize audio context
   useEffect(() => {
@@ -321,27 +324,51 @@ export default function AuctionLiveScreen() {
       return
     }
     
+    // Prevent multiple simultaneous connection attempts
+    if (connectionAttemptedRef.current || isConnectingRef.current) {
+      console.log('⚠️ Connection already attempted or in progress, skipping...')
+      return
+    }
+    
     let isSubscribed = true
-    let connectionAttempted = false
     
     setConnectionState('Connecting')
     
     const connectAndJoin = async () => {
-      // Prevent multiple connection attempts
-      if (connectionAttempted) {
+      // Double-check to prevent race conditions
+      if (isConnectingRef.current) {
+        console.log('⚠️ Already connecting, aborting duplicate attempt')
         return
       }
-      connectionAttempted = true
+      
+      isConnectingRef.current = true
+      connectionAttemptedRef.current = true
       
       try {
         console.log('👤 User loaded:', user.email)
+        
+        // Ensure we have a valid token BEFORE attempting to connect
+        const tokenService = await import('../services/tokenStorageService').then(m => m.tokenStorageService)
+        const hasToken = await tokenService.hasValidToken()
+        
+        if (!hasToken) {
+          console.log('⚠️ No valid token available, waiting for authentication...')
+          if (isSubscribed) {
+            setConnectionError('Token non valido. Effettua nuovamente il login.')
+            setConnectionState('Disconnected')
+          }
+          isConnectingRef.current = false
+          return
+        }
+        
+        console.log('✅ Valid token available, proceeding with connection')
         auctionService.setUserEmail(user.email)
         auctionService.setEventHandlers({
           onConnected: () => {
             console.log('✅ Connected to auction hub')
             if (isSubscribed) {
               setConnectionState('Connected')
-              setReconnectAttempts(0)
+              reconnectAttemptsRef.current = 0
             }
           },
           onError: (error) => {
@@ -435,7 +462,7 @@ export default function AuctionLiveScreen() {
         await auctionService.connect()
         
         // Wait for connection to stabilize before proceeding
-        await new Promise(resolve => setTimeout(resolve, 300))
+        await new Promise(resolve => setTimeout(resolve, 500))
         
         // Verify connection state before joining
         if (!isSubscribed) return
@@ -454,29 +481,52 @@ export default function AuctionLiveScreen() {
         }
         await auctionService.getAuctionState(auctionId)
         await auctionService.getCurrentPlayer(auctionId)
+        
+        // Mark connection as successful
+        isConnectingRef.current = false
+        console.log('✅ Connection setup completed successfully')
       } catch (err) {
         console.error('❌ Error connecting to auction:', err)
+        isConnectingRef.current = false
+        
         if (isSubscribed) {
-          setConnectionError(`Errore: ${err instanceof Error ? err.message : 'Unknown error'}`)
-          setConnectionState('Disconnected')
-          if (reconnectAttempts < 3) {
-            setTimeout(() => {
-              if (isSubscribed) {
-                connectionAttempted = false
-                setReconnectAttempts(prev => prev + 1)
-              }
-            }, 3000)
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+          
+          // Check if it's an authentication error
+          if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication')) {
+            setConnectionError('Sessione scaduta. Ricarica la pagina per effettuare nuovamente il login.')
+            // Don't retry on auth errors
+          } else {
+            setConnectionError(`Errore: ${errorMessage}`)
+            
+            // Only retry if not an auth error and we haven't exceeded max attempts
+            if (reconnectAttemptsRef.current < 3) {
+              console.log(`⏰ Scheduling reconnect attempt ${reconnectAttemptsRef.current + 1}/3 in 3 seconds...`)
+              setTimeout(() => {
+                reconnectAttemptsRef.current++
+                connectionAttemptedRef.current = false
+                isConnectingRef.current = false
+                setConnectionTrigger(prev => prev + 1) // Trigger reconnection
+              }, 3000)
+            } else {
+              console.log('❌ Max reconnect attempts reached')
+            }
           }
+          
+          setConnectionState('Disconnected')
         }
       }
     }
     connectAndJoin()
     return () => {
+      console.log('🧹 Cleaning up connection...')
       isSubscribed = false
+      connectionAttemptedRef.current = false
+      isConnectingRef.current = false
       auctionService.leaveAuction(auctionId).catch(console.error)
       auctionService.disconnect().catch(console.error)
     }
-  }, [auctionId, user?.email, reconnectAttempts, playBidSound, vibrateOnBid, resetTimer, calculateBudgetRemaining, toast, startTimer])
+  }, [auctionId, user?.email, connectionTrigger, playBidSound, vibrateOnBid, resetTimer, calculateBudgetRemaining, toast, startTimer])
 
   // ============================================
   // RENDER COMPONENTS
@@ -1271,13 +1321,19 @@ export default function AuctionLiveScreen() {
                     <Text color="$red10" fontSize="$3">• Timeout di connessione</Text>
                   </YStack>
                 </Card>
-                <Button onPress={() => { setConnectionError(null); setReconnectAttempts(0) }} theme="blue" icon={RotateCcw}>Riprova Connessione</Button>
+                <Button onPress={() => { 
+                  setConnectionError(null)
+                  reconnectAttemptsRef.current = 0
+                  connectionAttemptedRef.current = false
+                  isConnectingRef.current = false
+                  setConnectionTrigger(prev => prev + 1) // Trigger reconnection
+                }} theme="blue" icon={RotateCcw}>Riprova Connessione</Button>
               </YStack>
             ) : (
               <>
                 <Spinner size="large" color="$blue10" />
                 <Text fontSize="$4" color="$color11">{connectionState === 'Connecting' ? 'Connessione all\'asta...' : 'Disconnesso'}</Text>
-                {reconnectAttempts > 0 && <Text fontSize="$3" color="$color10">Tentativo {reconnectAttempts} di 3...</Text>}
+                {reconnectAttemptsRef.current > 0 && <Text fontSize="$3" color="$color10">Tentativo {reconnectAttemptsRef.current} di 3...</Text>}
               </>
             )}
           </YStack>

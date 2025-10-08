@@ -192,10 +192,46 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
 
   ensureValidToken: async () => {
     const tokenData = await get().loadToken()
-    if (!tokenData) return null
+    if (!tokenData) {
+      console.log('⚠️ No token data found')
+      return null
+    }
+    
+    // Check if token is expired
+    const now = Date.now()
+    if (tokenData.expiresAt && tokenData.expiresAt <= now) {
+      console.log('⚠️ Token expired, attempting refresh...')
+      // Token is expired, try to refresh
+      try {
+        const { authService } = await import('./authService')
+        const newTokenData = await authService.refreshToken(tokenData.refreshToken)
+        const expiresAt = Date.now() + newTokenData.expiresIn * 1000
+        const updated: StoredTokenData = {
+          tokenType: newTokenData.tokenType,
+          accessToken: newTokenData.accessToken,
+          refreshToken: newTokenData.refreshToken,
+          expiresAt,
+          user: tokenData.user,
+        }
+        await get().saveToken(updated)
+        console.log('✅ Token refreshed successfully')
+        return updated.accessToken
+      } catch (error) {
+        console.error('❌ Token refresh failed:', error)
+        await get().removeToken()
+        return null
+      }
+    }
+    
+    // Check if token is near expiry (within 5 minutes)
     const isNear = await get().isTokenNearExpiry(5)
-    if (!isNear) return tokenData.accessToken
-
+    if (!isNear) {
+      console.log('✅ Token is valid and not near expiry')
+      return tokenData.accessToken
+    }
+    
+    // Token is near expiry, try to refresh proactively
+    console.log('⏰ Token near expiry, attempting proactive refresh...')
     try {
       const { authService } = await import('./authService')
       const newTokenData = await authService.refreshToken(tokenData.refreshToken)
@@ -208,11 +244,12 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
         user: tokenData.user,
       }
       await get().saveToken(updated)
+      console.log('✅ Token proactively refreshed')
       return updated.accessToken
     } catch (error) {
-      console.error('❌ Auto token refresh failed:', error)
-      await get().removeToken()
-      return null
+      console.error('❌ Proactive token refresh failed, using current token:', error)
+      // If refresh fails but token is still valid, return current token
+      return tokenData.accessToken
     }
   },
 
