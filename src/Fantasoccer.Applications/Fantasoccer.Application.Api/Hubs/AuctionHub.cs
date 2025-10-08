@@ -18,7 +18,7 @@ namespace Fantasoccer.Application.Api.Hubs
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
-        private readonly Dictionary<string, AuctionHubWrapper> _auctions = [];
+        private static readonly Dictionary<string, AuctionHubWrapper> _auctions = [];
         public AuctionHub(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
            IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
@@ -481,6 +481,61 @@ namespace Fantasoccer.Application.Api.Hubs
 
             // Broadcast to all participants
             await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
+        }
+
+        public async Task ChangePlayerStatusAsync(string auctionId, string owner, string playerKey, PlayerInTeamStatus status, int? revenue)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            {
+                await Clients.Caller.SendAsync("Error", "Only auctioneers can show next player");
+                return;
+            }
+
+            if (status == PlayerInTeamStatus.Sold && revenue == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Player sold with no price");
+                return;
+            }
+
+            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == owner);
+            if (teamEntity?.Key == null || teamEntity.Value == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Team not found");
+                return;
+            }
+
+            var team = teamEntity.Value;
+            var player = team.Players.FirstOrDefault(x => x.Key == playerKey);
+
+            if (player == null)
+            {
+                await Clients.Caller.SendAsync("Error", "Player not found in team");
+                return;
+            }
+
+            player.Status = status;
+            if (status == PlayerInTeamStatus.Sold && revenue != null)
+            {
+                player.Revenue = revenue.Value;
+            }
+            else
+            {
+                player.Revenue = 0;
+            }
+            var updated = await _team.UpdateAsync(teamEntity.Key, team);
+            if (updated)
+            {
+                await Clients.Group(auctionId).SendAsync("AuctionUpdated");
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", "Failed to update team");
+            }
+
         }
 
         /// <summary>
