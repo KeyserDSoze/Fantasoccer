@@ -629,35 +629,66 @@ export default function AuctionLiveScreen() {
 
   // Pulsantiera Banditore con Controlli Component
   const renderAuctioneerPanel = () => {
-    if (!isAuctioneer || !currentPlayer) return null
+    if (!isAuctioneer) return null
 
-    const renderAuctioneerBidding = () => (
-      <YStack gap="$3">
-        <XStack gap="$2" alignItems="center">
-          <Gavel size={20} color="$orange11" />
-          <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
+    const renderAuctioneerBidding = () => {
+      // Show bidding section only if there's a current player
+      if (!currentPlayer) {
+        return (
+          <YStack gap="$3">
+            <XStack gap="$2" alignItems="center">
+              <Gavel size={20} color="$orange11" />
+              <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
+            </XStack>
+            <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
+              <Text fontSize="$3" color="$orange11" textAlign="center">
+                Nessun giocatore in asta - Seleziona il prossimo giocatore
+              </Text>
+            </Card>
+            <Separator />
+          </YStack>
+        )
+      }
+
+      return (
+        <YStack gap="$3">
+          <XStack gap="$2" alignItems="center">
+            <Gavel size={20} color="$orange11" />
+            <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
+          </XStack>
+          <YStack gap="$2">
+            <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
+            <Select id="team-select" value={selectedTeamForBid} onValueChange={setSelectedTeamForBid}>
+              <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
+              <Select.Content zIndex={200000}>
+                <Select.Viewport>
+                  {teams.map((team, idx) => (
+                    <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                      <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
+                    </Select.Item>
+                  ))}
+                </Select.Viewport>
+              </Select.Content>
+            </Select>
+            {selectedTeamForBid && (
+              <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
+                <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
+              </Card>
+            )}
+          </YStack>
+          <Separator />
+        <XStack gap="$2">
+          <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
+          <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
         </XStack>
         <YStack gap="$2">
-          <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
-          <Select id="team-select" value={selectedTeamForBid} onValueChange={setSelectedTeamForBid}>
-            <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
-            <Select.Content zIndex={200000}>
-              <Select.Viewport>
-                {teams.map((team, idx) => (
-                  <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
-                    <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
-                  </Select.Item>
-                ))}
-              </Select.Viewport>
-            </Select.Content>
-          </Select>
-          {selectedTeamForBid && (
-            <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-              <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
-            </Card>
-          )}
+          <Text fontSize="$3" color="$orange10" fontWeight="600">Offerte Fisse</Text>
+          <XStack gap="$2" flexWrap="wrap">
+            {[50, 100].map(amount => (
+              <Button key={amount} flex={1} minWidth={80} size="$3" fontSize="$4" theme="orange" variant="outlined" onPress={() => handleFixedBid(amount)} disabled={areBidButtonsDisabled()}>{amount}</Button>
+            ))}
+          </XStack>
         </YStack>
-        <Separator />
         <XStack gap="$2">
           <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
           <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
@@ -672,6 +703,7 @@ export default function AuctionLiveScreen() {
         </YStack>
       </YStack>
     )
+    }
 
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
@@ -705,7 +737,7 @@ export default function AuctionLiveScreen() {
         </XStack>
         <Button icon={Search} theme="orange" variant="outlined" onPress={() => setShowPlayerSearchDialog(true)}>Cerca Giocatore</Button>
         <Separator />
-        {currentBidder && (
+        {currentBidder && currentPlayer && (
           <>
             <Text fontSize="$4" fontWeight="600" color="$orange11">Aggiudica Giocatore</Text>
             <Card padding="$3" backgroundColor="$orange1">

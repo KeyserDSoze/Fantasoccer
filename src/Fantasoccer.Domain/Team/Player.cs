@@ -6,7 +6,7 @@ namespace Fantasoccer
     {
         [JsonPropertyName("p")]
         public int Price { get; set; }
-        [JsonPropertyName("r")]
+        [JsonPropertyName("rv")]
         public int Revenue { get; set; }
         [JsonPropertyName("s")]
         public PlayerInTeamStatus Status { get; set; }

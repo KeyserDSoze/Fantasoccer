@@ -275,7 +275,6 @@ namespace Fantasoccer.InMemory
                                 {
                                     Name = identity.Email == "alessandro.rapiti44@gmail.com" ? "Soze Heaven" : $"{identity.Username} Team",
                                     Owner = identity.Email,
-                                    RevenueMoney = 230,
                                     MoneyFromRank = 345,
                                     Players = new List<Player>()
                                 };

@@ -19,7 +19,7 @@ namespace Fantasoccer.Application.Api.Hubs
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
-        private static readonly Dictionary<string, AuctionHubWrapper> _auctions = [];
+        private static readonly Dictionary<string, AuctionHubWrapper> s_auctions = [];
         public AuctionHub(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
             IRepository<Rank, LeagueKey> rankRepository,
@@ -36,11 +36,11 @@ namespace Fantasoccer.Application.Api.Hubs
         private async Task<AuctionHubWrapper?> GetCurrentWrapperAsync(string auctionId)
         {
             var added = false;
-            if (!_auctions.ContainsKey(auctionId))
+            if (!s_auctions.ContainsKey(auctionId))
             {
                 await _lock.ExecuteAsync(async () =>
                  {
-                     if (!_auctions.ContainsKey(auctionId))
+                     if (!s_auctions.ContainsKey(auctionId))
                      {
                          var auction = await _auctionRepository.GetAsync(auctionId);
                          if (auction == null)
@@ -82,7 +82,7 @@ namespace Fantasoccer.Application.Api.Hubs
                                          teams.Add(new(team, teamKey));
                                      }
                                  }
-                                 added = _auctions.TryAdd(auctionId, new AuctionHubWrapper
+                                 added = s_auctions.TryAdd(auctionId, new AuctionHubWrapper
                                  {
                                      Wrapper = auction,
                                      LastUpdate = DateTime.UtcNow,
@@ -98,7 +98,7 @@ namespace Fantasoccer.Application.Api.Hubs
                      }
                  });
             }
-            _auctions.TryGetValue(auctionId, out var wrapper);
+            s_auctions.TryGetValue(auctionId, out var wrapper);
             if (added && wrapper != null)
             {
                 _ = UpdateAsync(auctionId);
@@ -108,7 +108,7 @@ namespace Fantasoccer.Application.Api.Hubs
         private async ValueTask UpdateAsync(string auctionId)
         {
             await Task.Delay(TimeSpan.FromSeconds(10));
-            if (_auctions.TryGetValue(auctionId, out var wrapper))
+            if (s_auctions.TryGetValue(auctionId, out var wrapper))
             {
                 var json = wrapper.Wrapper.ToJson();
                 if (json != wrapper.LastJsonSaved)
@@ -661,7 +661,7 @@ namespace Fantasoccer.Application.Api.Hubs
             await _auctionRepository.UpdateAsync(auctionId, wrapper.Wrapper);
 
             // Remove from memory
-            _auctions.Remove(auctionId);
+            s_auctions.Remove(auctionId);
 
             await Clients.Group(auctionId).SendAsync("AuctionClosed");
         }

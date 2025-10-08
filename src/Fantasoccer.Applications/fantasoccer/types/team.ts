@@ -94,6 +94,7 @@ export interface RealPlayerRaw {
 export interface PlayerRaw extends RealPlayerRaw {
   p: number
   r: number
+  rv: number
   s: PlayerInTeamStatus
   k: FantaSoccerRole
 }
@@ -132,7 +133,7 @@ export const mapRawRealPlayerToRealPlayer = (raw: RealPlayerRaw): RealPlayer => 
 export const mapRawPlayerToPlayer = (raw: PlayerRaw): Player => ({
   ...mapRawRealPlayerToRealPlayer(raw),
   price: raw.p,
-  revenue: raw.r,
+  revenue: raw.rv,
   status: raw.s,
   position: raw.k
 })
@@ -148,7 +149,8 @@ export const mapPlayerToRawPlayer = (player: Player): PlayerRaw => ({
   // Player specific fields
   p: player.price,
   s: player.status,
-  k: player.position
+  k: player.position,
+  rv: player.revenue
 })
 
 // ============================================
