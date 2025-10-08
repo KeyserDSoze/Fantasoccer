@@ -677,15 +677,16 @@ export default function AuctionLiveScreen() {
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
           </XStack>
-          <YStack gap="$2">
-            <Text fontSize="$3" color="$blue10" fontWeight="600">Offerte Fisse</Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {[50, 100, 150, 200].map(amount => (
-                <Button key={amount} flex={1} minWidth={80} size="$3" fontSize="$4" theme="blue" variant="outlined" onPress={() => handleFixedBid(amount)} disabled={areBidButtonsDisabled()}>{amount}</Button>
-              ))}
-            </XStack>
-          </YStack>
-          <Button icon={DollarSign} theme="blue" variant="outlined" onPress={() => setShowCustomBidDialog(true)} disabled={areBidButtonsDisabled()}>Offerta Personalizzata</Button>
+          <Separator />
+          <XStack gap="$2">
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(50)} disabled={areBidButtonsDisabled()}>50</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(100)} disabled={areBidButtonsDisabled()}>100</Button>
+          </XStack>
+          <XStack gap="$2">
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={areBidButtonsDisabled()}>150</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={areBidButtonsDisabled()}>200</Button>
+          </XStack>
+          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => setShowCustomBidDialog(true)} disabled={areBidButtonsDisabled()}>Offerta Personalizzata</Button>
           {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && (
             <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
               <Text fontSize="$3" color="$green11">✅ Sei il miglior offerente</Text>
@@ -742,22 +743,18 @@ export default function AuctionLiveScreen() {
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
             </XStack>
-            <YStack gap="$2">
-              <Text fontSize="$3" color="$orange10" fontWeight="600">Offerte Fisse</Text>
-              <XStack gap="$2" flexWrap="wrap">
-                {[50, 100].map(amount => (
-                  <Button key={amount} flex={1} minWidth={80} size="$3" fontSize="$4" theme="orange" variant="outlined" onPress={() => handleFixedBid(amount)} disabled={areBidButtonsDisabled()}>{amount}</Button>
-                ))}
-              </XStack>
-            </YStack>
+            <XStack gap="$2">
+              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
+              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
+            </XStack>
+            <Separator />
           </>
         )}
       </YStack>
     )
 
     const renderAuctioneerControls = () => (
-      <YStack gap="$3">
-        <Separator />
+      <YStack gap="$3" marginTop="$4">
         <Text fontSize="$4" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
           <YStack flex={1}>
@@ -810,7 +807,6 @@ export default function AuctionLiveScreen() {
         <Text fontSize="$4" fontWeight="600" color="$orange11">Controlli Asta</Text>
         <XStack gap="$2" flexWrap="wrap" alignItems="center">
           <YStack gap="$1">
-            <Text fontSize="$2" color="$orange10">Timer</Text>
             <Select 
               value={offerTimeoutSeconds.toString()} 
               onValueChange={async (val) => {
