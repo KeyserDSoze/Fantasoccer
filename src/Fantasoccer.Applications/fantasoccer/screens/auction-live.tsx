@@ -315,16 +315,53 @@ export default function AuctionLiveScreen() {
     placeBid(amount)
   }, [placeBid])
 
-  const areBidButtonsDisabled = useCallback((): boolean => {
-    if (!currentPlayer) return true
-    if (loading) return true
-    if (tempBlockButtons) return true
-    if (isLocked && !isAuctioneer) return true
-    if (timerExpired && !isAuctioneer) return true
-    if (!isAuctioneer && currentBidder?.toLowerCase() === user?.email?.toLowerCase()) return true
-    if (isAuctioneer && !selectedTeamForBid) return true
-    return false
-  }, [currentPlayer, loading, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, selectedTeamForBid])
+  // Check if personal bidding buttons should be disabled (for myTeam)
+  const arePersonalBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
+    if (!currentPlayer) return { disabled: true, reason: 'Nessun giocatore in asta' }
+    if (loading) return { disabled: true, reason: 'Caricamento in corso...' }
+    if (tempBlockButtons) return { disabled: true, reason: null }
+    if (isLocked && !isAuctioneer) return { disabled: true, reason: 'Asta in pausa' }
+    if (timerExpired && !isAuctioneer) return { disabled: true, reason: 'Tempo scaduto - Solo il banditore può agire' }
+    if (!isAuctioneer && currentBidder?.toLowerCase() === user?.email?.toLowerCase()) {
+      return { disabled: true, reason: 'Sei già il miglior offerente' }
+    }
+    
+    // Check role limits for myTeam
+    if (myTeam && currentPlayer.role >= 0) {
+      const limit = ROLE_LIMITS[currentPlayer.role] || 0
+      const activePlayers = TeamHelper.getActivePlayers(myTeam.value)
+      const currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+      if (currentCount >= limit) {
+        return { disabled: true, reason: `Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)} (${currentCount}/${limit})` }
+      }
+    }
+    
+    return { disabled: false, reason: null }
+  }, [currentPlayer, loading, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel])
+
+  // Check if auctioneer bidding buttons should be disabled (for selectedTeamForBid)
+  const areAuctioneerBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
+    console.log('Checking auctioneer bid buttons disabled state:', { currentPlayer, loading, tempBlockButtons, selectedTeamForBid, teams })
+    if (!currentPlayer) return { disabled: true, reason: 'Nessun giocatore in asta' }
+    if (loading) return { disabled: true, reason: 'Caricamento in corso...' }
+    if (tempBlockButtons) return { disabled: true, reason: null }
+    if (!selectedTeamForBid) return { disabled: true, reason: 'Seleziona una squadra per fare un\'offerta' }
+    
+    // Check role limits for selectedTeamForBid
+    if (currentPlayer.role >= 0) {
+      const selectedTeam = teams.find(t => t.value.owner === selectedTeamForBid)
+      if (selectedTeam) {
+        const limit = ROLE_LIMITS[currentPlayer.role] || 0
+        const activePlayers = TeamHelper.getActivePlayers(selectedTeam.value)
+        const currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+        if (currentCount >= limit) {
+          return { disabled: true, reason: `${selectedTeam.value.name}: Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)} (${currentCount}/${limit})` }
+        }
+      }
+    }
+    
+    return { disabled: false, reason: null }
+  }, [currentPlayer, loading, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel])
 
   // ============================================
   // SIGNALR CONNECTION
@@ -675,8 +712,11 @@ export default function AuctionLiveScreen() {
   // Helper: Pulsantiera Personale (usata sia da partecipanti che banditore con squadra)
   const renderPersonalBidding = () => {
     if (!myTeam) return null
+    const bidStatus = arePersonalBidButtonsDisabled()
+    const isDisabled = bidStatus.disabled
+    
     return (
-      <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8" opacity={tempBlockButtons ? 0.6 : 1}>
+      <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8" opacity={isDisabled ? 0.5 : 1}>
         <YStack gap="$3">
           <XStack gap="$2" alignItems="center">
             <DollarSign size={20} color="$blue11" />
@@ -686,25 +726,30 @@ export default function AuctionLiveScreen() {
             <Text fontSize="$3" color="$blue11">{myTeam.value.name} • Budget: €{myTeamBudget}</Text>
           </Card>
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>Incremento</Button>
           </XStack>
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(7)} disabled={areBidButtonsDisabled()}>+7</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>+2</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>+3</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>+5</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(7)} disabled={isDisabled}>+7</Button>
           </XStack>
           <Separator />
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(50)} disabled={areBidButtonsDisabled()}>50</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(100)} disabled={areBidButtonsDisabled()}>100</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={areBidButtonsDisabled()}>150</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={areBidButtonsDisabled()}>200</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(50)} disabled={isDisabled}>50</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(100)} disabled={isDisabled}>100</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={isDisabled}>150</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={isDisabled}>200</Button>
           </XStack>
-          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => setShowCustomBidDialog(true)} disabled={areBidButtonsDisabled()}>Offerta Personalizzata</Button>
-          {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && (
+          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => setShowCustomBidDialog(true)} disabled={isDisabled}>Offerta Personalizzata</Button>
+          {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && !isDisabled && (
             <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
               <Text fontSize="$3" color="$green11">✅ Sei il miglior offerente</Text>
+            </Card>
+          )}
+          {bidStatus.reason && (
+            <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
+              <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
             </Card>
           )}
         </YStack>
@@ -716,56 +761,68 @@ export default function AuctionLiveScreen() {
   const renderAuctioneerPanel = () => {
     if (!isAuctioneer) return null
 
-    const renderAuctioneerBidding = () => (
-      <YStack gap="$3">
-        <XStack gap="$2" alignItems="center">
-          <Gavel size={20} color="$orange11" />
-          <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
-        </XStack>
-        
-        {!currentPlayer && (
-          <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
-            <Text fontSize="$3" color="$orange11" textAlign="center">
-              Nessun giocatore in asta - Seleziona il prossimo giocatore
-            </Text>
-          </Card>
-        )}
-        
-        {currentPlayer && (
-          <>
-            <YStack gap="$2">
-              <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
-              <Select id="team-select" value={selectedTeamForBid} onValueChange={setSelectedTeamForBid}>
-                <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
-                <Select.Content zIndex={200000}>
-                  <Select.Viewport>
-                    {teams.map((team, idx) => (
-                      <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
-                        <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
-                      </Select.Item>
-                    ))}
-                  </Select.Viewport>
-                </Select.Content>
-              </Select>
-              {selectedTeamForBid && (
-                <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-                  <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
+    const renderAuctioneerBidding = () => {
+      const bidStatus = areAuctioneerBidButtonsDisabled()
+      const isDisabled = bidStatus.disabled
+      
+      return (
+        <YStack gap="$3">
+          <XStack gap="$2" alignItems="center">
+            <Gavel size={20} color="$orange11" />
+            <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
+          </XStack>
+          
+          {!currentPlayer && (
+            <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
+              <Text fontSize="$3" color="$orange11" textAlign="center">
+                Nessun giocatore in asta - Seleziona il prossimo giocatore
+              </Text>
+            </Card>
+          )}
+          
+          {currentPlayer && (
+            <>
+              <YStack gap="$2">
+                <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
+                <Select id="team-select" value={selectedTeamForBid} onValueChange={setSelectedTeamForBid}>
+                  <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
+                  <Select.Content zIndex={200000}>
+                    <Select.Viewport>
+                      {teams.map((team, idx) => (
+                        <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                          <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select>
+                {selectedTeamForBid && (
+                  <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
+                    <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
+                  </Card>
+                )}
+              </YStack>
+              <Separator />
+              <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
+                <XStack gap="$2">
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>Incremento</Button>
+                </XStack>
+                <XStack gap="$2">
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>+2</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>+3</Button>
+                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>+5</Button>
+                </XStack>
+              </YStack>
+              {bidStatus.reason && (
+                <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
+                  <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
                 </Card>
               )}
-            </YStack>
-            <Separator />
-            <XStack gap="$2">
-              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
-            </XStack>
-            <XStack gap="$2">
-              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
-              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
-              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
-            </XStack>
-          </>
-        )}
-      </YStack>
-    )
+            </>
+          )}
+        </YStack>
+      )
+    }
 
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
