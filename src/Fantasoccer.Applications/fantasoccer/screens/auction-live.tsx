@@ -243,6 +243,16 @@ export default function AuctionLiveScreen() {
     }
   }, [])
 
+  // Update selectedTeamDetail when teams change (after AuctionUpdated event)
+  useEffect(() => {
+    if (selectedTeamDetail && teams.length > 0) {
+      const updatedTeam = teams.find(t => t.value.owner === selectedTeamDetail.value.owner)
+      if (updatedTeam) {
+        setSelectedTeamDetail(updatedTeam)
+      }
+    }
+  }, [teams, selectedTeamDetail])
+
   // ============================================
   // BID LOGIC
   // ============================================
@@ -677,18 +687,17 @@ export default function AuctionLiveScreen() {
           </Card>
           <XStack gap="$2">
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
           </XStack>
           <XStack gap="$2">
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
+            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(7)} disabled={areBidButtonsDisabled()}>+7</Button>
           </XStack>
           <Separator />
           <XStack gap="$2">
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(50)} disabled={areBidButtonsDisabled()}>50</Button>
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(100)} disabled={areBidButtonsDisabled()}>100</Button>
-          </XStack>
-          <XStack gap="$2">
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={areBidButtonsDisabled()}>150</Button>
             <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={areBidButtonsDisabled()}>200</Button>
           </XStack>
@@ -747,10 +756,10 @@ export default function AuctionLiveScreen() {
             <Separator />
             <XStack gap="$2">
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1)} disabled={areBidButtonsDisabled()}>Incremento</Button>
-              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
             </XStack>
             <XStack gap="$2">
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
+              <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3)} disabled={areBidButtonsDisabled()}>+3</Button>
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
             </XStack>
           </>
@@ -760,8 +769,7 @@ export default function AuctionLiveScreen() {
 
     const renderAuctioneerControls = () => (
       <YStack gap="$3">
-        <Separator />
-        <Text fontSize="$4" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
+        <Text fontSize="$4" marginTop="$2" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
           <YStack flex={1}>
             <Select value={selectedRole.toString()} onValueChange={(val) => setSelectedRole(Number(val) as Role)}>
