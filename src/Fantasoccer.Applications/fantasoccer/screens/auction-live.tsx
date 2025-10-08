@@ -562,7 +562,7 @@ export default function AuctionLiveScreen() {
                 <Text fontSize="$3" color="$blue11" fontWeight="600">{auctionKindLabel}</Text>
               </Card>
               <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
-                <Text fontSize="$3" color="$blue11" fontWeight="600">Lista giocatori: {auctionTypeLabel}</Text>
+                <Text fontSize="$3" color="$blue11" fontWeight="600">Lista: {auctionTypeLabel}</Text>
               </Card>
             </XStack>
             <XStack gap="$2" alignItems="center">{audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
@@ -747,14 +747,14 @@ export default function AuctionLiveScreen() {
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2)} disabled={areBidButtonsDisabled()}>+2</Button>
               <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5)} disabled={areBidButtonsDisabled()}>+5</Button>
             </XStack>
-            <Separator />
           </>
         )}
       </YStack>
     )
 
     const renderAuctioneerControls = () => (
-      <YStack gap="$3" marginTop="$4">
+      <YStack gap="$3">
+        <Separator />
         <Text fontSize="$4" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
         <XStack gap="$2">
           <YStack flex={1}>
@@ -892,15 +892,15 @@ export default function AuctionLiveScreen() {
     if (myTeam) {
       const StackComponent = media.gtMd ? XStack : YStack
       return (
-        <StackComponent gap="$4" alignItems="flex-start">
-          <YStack flex={1}>{renderPersonalBidding()}</YStack>
-          <YStack flex={1}>{auctioneerCard}</YStack>
+        <StackComponent gap="$3" alignItems="stretch">
+          <YStack flex={media.gtMd ? 1 : undefined} width="100%">{renderPersonalBidding()}</YStack>
+          <YStack flex={media.gtMd ? 1 : undefined} width="100%" marginTop={media.gtMd ? 0 : "$3"}>{auctioneerCard}</YStack>
         </StackComponent>
       )
     }
 
-    // Se banditore senza squadra, mostra solo pannello banditore
-    return auctioneerCard
+    // Se banditore senza squadra, mostra solo pannello banditore (wrapped in YStack for consistency)
+    return <YStack width="100%">{auctioneerCard}</YStack>
   }
 
   // Teams Panel Component  
@@ -944,9 +944,10 @@ export default function AuctionLiveScreen() {
               return (
                 <Card 
                   key={team.value.owner}
-                  flex={1}
-                  minWidth={media.gtMd ? 180 : 150}
-                  maxWidth={maxCardWidth}
+                  flex={media.gtMd ? 1 : 0}
+                  flexBasis={media.gtMd ? undefined : "47.5%"}
+                  minWidth={media.gtMd ? 180 : undefined}
+                  maxWidth={media.gtMd ? maxCardWidth : "47.5%"}
                   padding="$3" 
                   backgroundColor={isMyTeam ? '$blue2' : '$color1'} 
                   borderRadius="$3" 
@@ -1115,27 +1116,57 @@ export default function AuctionLiveScreen() {
           <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={700} maxWidth="95%" maxHeight="90%">
             <Dialog.Title fontSize="$6" fontWeight="700">{team.value.name}</Dialog.Title>
             <Dialog.Description>Dettaglio squadra - {team.value.owner}</Dialog.Description>
-            <YStack maxHeight={600} overflow="scroll">
+            <ScrollView maxHeight={600} showsHorizontalScrollIndicator={false}>
               <YStack gap="$4" padding="$2">
                 <Card padding="$3" backgroundColor={isMyTeam ? '$blue2' : '$color2'} borderRadius="$3">
-                  <XStack gap="$4" flexWrap="wrap">
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Speso</Text>
-                      <Text fontSize="$5" fontWeight="700" color="$color11">€{spent}</Text>
-                    </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Budget Rimasto</Text>
-                      <Text fontSize="$5" fontWeight="700" color={budget < 100 ? '$red11' : '$color11'}>€{budget}</Text>
-                    </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Giocatori</Text>
-                      <Text fontSize="$5" fontWeight="700" color="$color11">{activePlayers.length}/25</Text>
-                    </YStack>
-                    <YStack gap="$1">
-                      <Text fontSize="$2" color="$color10">Slot Rimasti</Text>
-                      <Text fontSize="$5" fontWeight="700" color="$color11">{25 - activePlayers.length}</Text>
-                    </YStack>
-                  </XStack>
+                  <YStack gap="$3">
+                    <XStack gap="$4" flexWrap="wrap">
+                      <YStack gap="$1">
+                        <Text fontSize="$2" color="$color10">Budget Rimasto</Text>
+                        <Text fontSize="$5" fontWeight="700" color={budget < 100 ? '$red11' : '$color11'}>€{budget}</Text>
+                      </YStack>
+                      <YStack gap="$1">
+                        <Text fontSize="$2" color="$color10">Giocatori</Text>
+                        <Text fontSize="$5" fontWeight="700" color="$color11">{activePlayers.length}/25</Text>
+                      </YStack>
+                      <YStack gap="$1">
+                        <Text fontSize="$2" color="$color10">Slot Rimasti</Text>
+                        <Text fontSize="$5" fontWeight="700" color="$color11">{25 - activePlayers.length}</Text>
+                      </YStack>
+                    </XStack>
+                    
+                    <Card padding="$3" backgroundColor={isMyTeam ? '$blue1' : '$color3'} borderRadius="$3">
+                      <YStack gap="$2">
+                        <Text fontSize="$3" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
+                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$1" flex={1} minWidth={120}>
+                            <Text fontSize="$2" color="$green10">Budget Iniziale</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{startingMoney}</Text>
+                          </YStack>
+                          <YStack gap="$1" flex={1} minWidth={120}>
+                            <Text fontSize="$2" color="$red10">Costo Totale</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$red11">-€{TeamHelper.getTotalCostForPlayers(team.value)}</Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$1" flex={1} minWidth={120}>
+                            <Text fontSize="$2" color="$green10">Ricavi Vendite</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{TeamHelper.getRevenueMoney(team.value)}</Text>
+                          </YStack>
+                          <YStack gap="$1" flex={1} minWidth={120}>
+                            <Text fontSize="$2" color="$green10">Da Classifica</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{team.value.moneyFromRank}</Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$1" flex={1} minWidth={120}>
+                            <Text fontSize="$2" color="$green10">Infortunati/Ceduti</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}</Text>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                  </YStack>
                 </Card>
                 <YStack gap="$2">
                   <Text fontSize="$4" fontWeight="700" color="$color11">Rosa ({sortedPlayers.length})</Text>
@@ -1187,7 +1218,7 @@ export default function AuctionLiveScreen() {
                   )}
                 </YStack>
               </YStack>
-            </YStack>
+            </ScrollView>
             <XStack justifyContent="flex-end">
               <Dialog.Close asChild>
                 <Button>Chiudi</Button>
