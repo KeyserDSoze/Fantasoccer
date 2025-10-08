@@ -163,7 +163,9 @@ export default function AuctionLiveScreen() {
   const hasReachedRoleLimit = useCallback((role: Role): boolean => {
     if (!myTeam || !currentPlayer) return false
     const limit = ROLE_LIMITS[role] || 0
-    const currentCount = myTeam.value.players.filter(p => p.role === role).length
+    // Count only active players (status === 0)
+    const activePlayers = TeamHelper.getActivePlayers(myTeam.value)
+    const currentCount = activePlayers.filter(p => p.role === role).length
     return currentCount >= limit
   }, [myTeam, currentPlayer])
 
@@ -265,7 +267,8 @@ export default function AuctionLiveScreen() {
       return
     }
     const teamBudget = calculateBudgetRemaining(biddingTeam)
-    const slotsRemaining = 25 - biddingTeam.value.players.length
+    const activePlayers = TeamHelper.getActivePlayers(biddingTeam.value)
+    const slotsRemaining = 25 - activePlayers.length
     const minimumBudgetNeeded = slotsRemaining > 1 ? slotsRemaining - 1 : 0
     if (amount > teamBudget - minimumBudgetNeeded) {
       toast.show(`❌ Budget insufficiente (disponibile: €${teamBudget - minimumBudgetNeeded})`, { variant: 'error' })
@@ -813,12 +816,15 @@ export default function AuctionLiveScreen() {
               const budget = calculateBudgetRemaining(team)
               const spent = 1000 - budget
               const hasLowBudget = budget < 100
-              const slotsRemaining = 25 - team.value.players.length
+              
+              // Count only active players (status === 0)
+              const activePlayers = TeamHelper.getActivePlayers(team.value)
+              const slotsRemaining = 25 - activePlayers.length
               const roleCount = {
-                [Role.GoalKeeper]: team.value.players.filter(p => p.role === Role.GoalKeeper).length,
-                [Role.Defensor]: team.value.players.filter(p => p.role === Role.Defensor).length,
-                [Role.Midfielder]: team.value.players.filter(p => p.role === Role.Midfielder).length,
-                [Role.Forward]: team.value.players.filter(p => p.role === Role.Forward).length,
+                [Role.GoalKeeper]: activePlayers.filter(p => p.role === Role.GoalKeeper).length,
+                [Role.Defensor]: activePlayers.filter(p => p.role === Role.Defensor).length,
+                [Role.Midfielder]: activePlayers.filter(p => p.role === Role.Midfielder).length,
+                [Role.Forward]: activePlayers.filter(p => p.role === Role.Forward).length,
               }
               return (
                 <Card 
@@ -853,7 +859,7 @@ export default function AuctionLiveScreen() {
                       </YStack>
                       <YStack gap="$0.5" flex={1}>
                         <Text fontSize="$1" color="$color10">Gioc.</Text>
-                        <Text fontSize="$3" fontWeight="600" color="$color11">{team.value.players.length}/25</Text>
+                        <Text fontSize="$3" fontWeight="600" color="$color11">{activePlayers.length}/25</Text>
                       </YStack>
                     </XStack>
                     
@@ -975,6 +981,9 @@ export default function AuctionLiveScreen() {
     const spent = 1000 - budget
     const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
     
+    // Count only active players
+    const activePlayers = TeamHelper.getActivePlayers(team.value)
+    
     // Sort players: orderBy status, thenBy role
     const sortedPlayers = [...team.value.players].sort((a, b) => {
       if (a.status !== b.status) return (a.status || 0) - (b.status || 0)
@@ -1002,11 +1011,11 @@ export default function AuctionLiveScreen() {
                     </YStack>
                     <YStack gap="$1">
                       <Text fontSize="$2" color="$color10">Giocatori</Text>
-                      <Text fontSize="$5" fontWeight="700" color="$color11">{team.value.players.length}/25</Text>
+                      <Text fontSize="$5" fontWeight="700" color="$color11">{activePlayers.length}/25</Text>
                     </YStack>
                     <YStack gap="$1">
                       <Text fontSize="$2" color="$color10">Slot Rimasti</Text>
-                      <Text fontSize="$5" fontWeight="700" color="$color11">{25 - team.value.players.length}</Text>
+                      <Text fontSize="$5" fontWeight="700" color="$color11">{25 - activePlayers.length}</Text>
                     </YStack>
                   </XStack>
                 </Card>
