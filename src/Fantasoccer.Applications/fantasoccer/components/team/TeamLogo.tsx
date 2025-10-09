@@ -8,6 +8,7 @@ interface TeamLogoProps {
   ownerEmail: string
   size?: number
   fallbackColor?: string
+  cacheBuster?: number // Optional timestamp to force cache refresh
 }
 
 const BASE_URL = 'https://fasostorage.blob.core.windows.net/logos'
@@ -53,11 +54,14 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   year,
   ownerEmail,
   size = 40,
-  fallbackColor = '#2563eb'
+  fallbackColor = '#2563eb',
+  cacheBuster
 }) => {
   const [imageError, setImageError] = useState(false)
   
-  const logoUrl = `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png`
+  const logoUrl = cacheBuster 
+    ? `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png?t=${cacheBuster}`
+    : `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png`
   
   if (imageError) {
     return <FallbackLogo size={size} color={fallbackColor} />

@@ -92,6 +92,9 @@ export default function SettingsScreen() {
   // Local state for updated username (to avoid full page refresh)
   const [updatedUsername, setUpdatedUsername] = useState<string | null>(null)
   
+  // Cache buster for team logo (timestamp when logo was last updated)
+  const [logoCacheBuster, setLogoCacheBuster] = useState<number | undefined>(undefined)
+  
   // Display team name: use updated name if available, otherwise original
   const displayTeamName = updatedTeamName ?? userTeamInfo?.teamName ?? ''
   
@@ -104,6 +107,20 @@ export default function SettingsScreen() {
       setMessagesOpen(true)
     }
   }, [changingTeamName])
+
+  // Debug: Log when messages change
+  useEffect(() => {
+    if (changeTeamNameMessages.length > 0) {
+      console.log('🔄 Messages updated in UI:', changeTeamNameMessages)
+    }
+  }, [changeTeamNameMessages])
+
+  // Debug: Log when progress changes
+  useEffect(() => {
+    if (changeTeamNameProgress) {
+      console.log('📊 Progress updated in UI:', changeTeamNameProgress)
+    }
+  }, [changeTeamNameProgress])
 
   // Handle logo upload
   const handleLogoUpload = useCallback(async () => {
@@ -156,6 +173,8 @@ export default function SettingsScreen() {
       })
 
       if (success) {
+        // Update cache buster to force logo refresh
+        setLogoCacheBuster(Date.now())
         setLogoSuccess(true)
         setTimeout(() => setLogoSuccess(false), 3000)
       }
@@ -282,6 +301,7 @@ export default function SettingsScreen() {
                       year={userTeamInfo.year.toString()}
                       ownerEmail={userTeamInfo.owner}
                       size={media.gtSm ? 120 : 96}
+                      cacheBuster={logoCacheBuster}
                     />
                   )}
 

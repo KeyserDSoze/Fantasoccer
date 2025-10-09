@@ -71,8 +71,13 @@ export function useSettings(): UseSettingsResult {
       const stream = settingsService.changeTeamNameStream(params)
       for await (const line of stream) {
         // push message into messages
+        console.log('Received line:', line)
         setChangeTeamNameMessages((prev) => [...prev, line])
         setChangeTeamNameProgress(line)
+        
+        // Force React to process this update immediately before next iteration
+        // This ensures UI updates in real-time as messages arrive
+        await new Promise(resolve => setTimeout(resolve, 0))
 
         // if server prefixes with error: treat as error and stop
         if (line.toLowerCase().startsWith('error:')) {
