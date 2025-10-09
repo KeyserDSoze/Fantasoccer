@@ -430,10 +430,11 @@ export class AuctionService {
    * @param auctionId - The auction ID
    * @param amount - Bid amount
    * @param bidderEmail - Optional: email of team to bid for (auctioneer only)
+   * @param substituted - Optional: playerKey of player to substitute (repair auction only)
    */
-  async placeBid(auctionId: string, amount: number, bidderEmail?: string): Promise<void> {
+  async placeBid(auctionId: string, amount: number, bidderEmail?: string, substituted?: string): Promise<void> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('PlaceBidAsync', auctionId, amount, bidderEmail)
+    await this.hubConnection.invoke('PlaceBidAsync', auctionId, amount, bidderEmail, substituted)
   }
 
   /**

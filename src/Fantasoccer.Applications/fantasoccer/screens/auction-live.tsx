@@ -64,6 +64,10 @@ export default function AuctionLiveScreen() {
   const [currentBid, setCurrentBid] = useState<number>(0)
   const [currentBidder, setCurrentBidder] = useState<string | null>(null)
   const [currentSubstitute, setCurrentSubstitute] = useState<string | null>(null)
+  const [mySelectedSubstitute, setMySelectedSubstitute] = useState<string | null>(null) // Player to substitute for personal bids
+  const [auctioneerSelectedSubstitute, setAuctioneerSelectedSubstitute] = useState<string | null>(null) // Player to substitute for auctioneer bids
+  const [showSubstituteSelectionDialog, setShowSubstituteSelectionDialog] = useState(false)
+  const [isSubstituteSelectionForAuctioneer, setIsSubstituteSelectionForAuctioneer] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [salesHistory, setSalesHistory] = useState<AuctionWin[]>([])
   const [isAuctioneer, setIsAuctioneer] = useState(false)
@@ -210,6 +214,11 @@ export default function AuctionLiveScreen() {
     return colors[status] || '$gray11'
   }
 
+  // Helper: Check if auction is repair auction (requires substitution)
+  const isRepairAuction = useCallback((): boolean => {
+    return auctionState?.wrapper.king === 1 // 1 = Repair auction (based on AuctionKind enum)
+  }, [auctionState])
+
   // ============================================
   // TIMER LOGIC
   // ============================================
@@ -257,6 +266,26 @@ export default function AuctionLiveScreen() {
     }
   }, [teams, selectedTeamDetail])
 
+  // Reset substitute selection when player role changes or new player shown
+  useEffect(() => {
+    if (currentPlayer) {
+      // Check if selected substitute is still valid (same role)
+      if (mySelectedSubstitute && myTeam) {
+        const player = myTeam.value.players.find(p => p.name === mySelectedSubstitute)
+        if (!player || player.role !== currentPlayer.role) {
+          setMySelectedSubstitute(null)
+        }
+      }
+      if (auctioneerSelectedSubstitute && selectedTeamForBid) {
+        const team = teams.find(t => t.value.owner === selectedTeamForBid)
+        const player = team?.value.players.find(p => p.name === auctioneerSelectedSubstitute)
+        if (!player || player.role !== currentPlayer.role) {
+          setAuctioneerSelectedSubstitute(null)
+        }
+      }
+    }
+  }, [currentPlayer, mySelectedSubstitute, auctioneerSelectedSubstitute, myTeam, selectedTeamForBid, teams])
+
   // ============================================
   // BID LOGIC
   // ============================================
@@ -289,6 +318,16 @@ export default function AuctionLiveScreen() {
       toast.show('❌ Nessuna squadra selezionata', { variant: 'error' })
       return
     }
+    
+    // Check if repair auction requires a substitute player
+    if (isRepairAuction()) {
+      const selectedSubstitute = isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute
+      if (!selectedSubstitute) {
+        toast.show('❌ Seleziona un giocatore da sostituire', { variant: 'error' })
+        return
+      }
+    }
+    
     if (currentPlayer.role && hasReachedRoleLimit(currentPlayer.role)) {
       toast.show(`❌ Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)}`, { variant: 'error' })
       return
@@ -307,15 +346,20 @@ export default function AuctionLiveScreen() {
     try {
       // Only pass bidderEmail if it's an auctioneer bid (for someone else's team)
       const bidderEmail = isAuctioneerBid ? biddingTeam.value.owner : undefined
-      await auctionService.placeBid(auctionId, amount, bidderEmail)
-      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid})`)
+      // Get selected substitute for repair auctions
+      const substituted = isRepairAuction() 
+        ? (isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute) 
+        : undefined
+      
+      await auctionService.placeBid(auctionId, amount, bidderEmail, substituted || undefined)
+      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid}, substitute: ${substituted || 'none'})`)
     } catch (err) {
       toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false)
     } finally {
       setLoading(false)
     }
-  }, [auctionId, currentPlayer, isLocked, isAuctioneer, currentBid, currentBidder, user?.email, selectedTeamForBid, teams, myTeam, hasReachedRoleLimit, calculateBudgetRemaining, getRoleLabel, toast])
+  }, [auctionId, currentPlayer, isLocked, isAuctioneer, currentBid, currentBidder, user?.email, selectedTeamForBid, teams, myTeam, hasReachedRoleLimit, calculateBudgetRemaining, getRoleLabel, toast, isRepairAuction, mySelectedSubstitute, auctioneerSelectedSubstitute])
 
   const handleIncrementBid = useCallback((increment: number, isAuctioneerBid: boolean = false) => {
     placeBid(currentBid + increment, isAuctioneerBid)
@@ -455,6 +499,8 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
+              setMySelectedSubstitute(null)
+              setAuctioneerSelectedSubstitute(null)
               resetTimer()
             }
           },
@@ -467,6 +513,8 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
+              setMySelectedSubstitute(null)
+              setAuctioneerSelectedSubstitute(null)
               setAssignPrice('')
               setSelectedTeamForBid('')
               resetTimer()
@@ -538,6 +586,8 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
+              setMySelectedSubstitute(null)
+              setAuctioneerSelectedSubstitute(null)
               resetTimer()
               toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info' })
             }
@@ -732,6 +782,15 @@ export default function AuctionLiveScreen() {
                   <Text fontSize="$4" fontWeight="600" color="$color11">
                     {teams.find(t => t.value.owner === currentBidder)?.value.name || currentBidder}
                   </Text>
+                  {currentSubstitute && (
+                    <Text fontSize="$3" color="$orange11" marginTop="$1">
+                      Sostituisce: {(() => {
+                        const team = teams.find(t => t.value.owner === currentBidder)
+                        const player = team?.value.players.find(p => p.name === currentSubstitute)
+                        return player?.name || currentSubstitute
+                      })()}
+                    </Text>
+                  )}
                 </YStack>
               )}
               {(timerRunning || timerExpired) && (
@@ -895,6 +954,22 @@ export default function AuctionLiveScreen() {
             setIsCustomBidFromAuctioneer(false)
             setShowCustomBidDialog(true)
           }} disabled={isDisabled}>Offerta Personalizzata</Button>
+          {isRepairAuction() && currentPlayer && (
+            <Button 
+              icon={Users} 
+              size="$5" 
+              theme={mySelectedSubstitute ? "green" : "orange"} 
+              variant="outlined" 
+              onPress={() => {
+                setIsSubstituteSelectionForAuctioneer(false)
+                setShowSubstituteSelectionDialog(true)
+              }}
+            >
+              {mySelectedSubstitute 
+                ? `Sostituisce: ${myTeam?.value.players.find(p => p.name === mySelectedSubstitute)?.name || mySelectedSubstitute}` 
+                : 'Seleziona giocatore da sostituire'}
+            </Button>
+          )}
           {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && !isDisabled && (
             <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
               <Text fontSize="$3" color="$green11">✅ Sei il miglior offerente</Text>
@@ -951,6 +1026,23 @@ export default function AuctionLiveScreen() {
                   </Card>
                 )}
               </YStack>
+              <Separator />
+              {isRepairAuction() && selectedTeamForBid && (
+                <Button 
+                  icon={Users} 
+                  size="$5" 
+                  theme={auctioneerSelectedSubstitute ? "green" : "orange"} 
+                  variant="outlined" 
+                  onPress={() => {
+                    setIsSubstituteSelectionForAuctioneer(true)
+                    setShowSubstituteSelectionDialog(true)
+                  }}
+                >
+                  {auctioneerSelectedSubstitute 
+                    ? `Sostituisce: ${teams.find(t => t.value.owner === selectedTeamForBid)?.value.players.find(p => p.name === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}` 
+                    : 'Seleziona giocatore da sostituire'}
+                </Button>
+              )}
               <Separator />
               <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
                 <XStack gap="$2">
@@ -1578,6 +1670,112 @@ export default function AuctionLiveScreen() {
     )
   }
 
+  // Substitute Selection Dialog Component
+  const renderSubstituteSelectionDialog = () => {
+    if (!currentPlayer) return null
+    
+    const team = isSubstituteSelectionForAuctioneer && selectedTeamForBid
+      ? teams.find(t => t.value.owner === selectedTeamForBid)
+      : myTeam
+    
+    if (!team) return null
+    
+    // Filter players by same role as current player
+    const eligiblePlayers = team.value.players.filter(p => 
+      p.role === currentPlayer.role && 
+      p.status === 0 // Only active players
+    )
+    
+    const currentSelection = isSubstituteSelectionForAuctioneer ? auctioneerSelectedSubstitute : mySelectedSubstitute
+    
+    return (
+      <Dialog modal open={showSubstituteSelectionDialog} onOpenChange={setShowSubstituteSelectionDialog}>
+        <Dialog.Portal>
+          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={800} maxWidth="95%" maxHeight="90%">
+            <Dialog.Title fontSize="$6" fontWeight="700">Seleziona Giocatore da Sostituire</Dialog.Title>
+            <Dialog.Description>
+              Scegli un {getRoleLabel(currentPlayer.role)} da sostituire con {currentPlayer.name}
+            </Dialog.Description>
+            <ScrollView maxHeight={500}>
+              <YStack gap="$3" padding="$2">
+                {eligiblePlayers.length === 0 ? (
+                  <Card padding="$4" backgroundColor="$orange2" borderRadius="$3">
+                    <Text fontSize="$4" color="$orange11" textAlign="center">
+                      Nessun {getRoleLabel(currentPlayer.role)} disponibile per la sostituzione
+                    </Text>
+                  </Card>
+                ) : (
+                  <XStack gap="$3" flexWrap="wrap">
+                    {eligiblePlayers.map((player) => (
+                      <Card
+                        key={player.name}
+                        padding="$3"
+                        backgroundColor={currentSelection === player.name ? '$blue2' : '$color1'}
+                        borderRadius="$3"
+                        borderWidth="$0.5"
+                        borderColor={currentSelection === player.name ? '$blue8' : '$borderColor'}
+                        pressStyle={{ scale: 0.98, opacity: 0.9 }}
+                        cursor="pointer"
+                        onPress={() => {
+                          if (isSubstituteSelectionForAuctioneer) {
+                            setAuctioneerSelectedSubstitute(player.name)
+                          } else {
+                            setMySelectedSubstitute(player.name)
+                          }
+                          setShowSubstituteSelectionDialog(false)
+                        }}
+                        flex={1}
+                        minWidth={250}
+                        maxWidth={350}
+                      >
+                        <YStack gap="$2">
+                          <XStack gap="$2" alignItems="center" justifyContent="space-between">
+                            <Text fontSize="$5" fontWeight="700" color="$color11">{player.name}</Text>
+                            {currentSelection === player.name && (
+                              <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2">
+                                <Text fontSize="$2" color="white" fontWeight="700">✓ SELEZIONATO</Text>
+                              </Card>
+                            )}
+                          </XStack>
+                          <Text fontSize="$3" color="$color10">{player.team.name}</Text>
+                          <XStack gap="$3" flexWrap="wrap">
+                            <YStack gap="$1">
+                              <Text fontSize="$2" color="$color10">Ruolo</Text>
+                              <Text fontSize="$3" fontWeight="600" color="$color11">{getRoleLabel(player.role)}</Text>
+                            </YStack>
+                            <YStack gap="$1">
+                              <Text fontSize="$2" color="$color10">Prezzo</Text>
+                              <Text fontSize="$3" fontWeight="600" color="$color11">€{player.price}</Text>
+                            </YStack>
+                          </XStack>
+                        </YStack>
+                      </Card>
+                    ))}
+                  </XStack>
+                )}
+              </YStack>
+            </ScrollView>
+            <XStack justifyContent="flex-end" gap="$2">
+              {currentSelection && (
+                <Button variant="outlined" theme="orange" onPress={() => {
+                  if (isSubstituteSelectionForAuctioneer) {
+                    setAuctioneerSelectedSubstitute(null)
+                  } else {
+                    setMySelectedSubstitute(null)
+                  }
+                }}>Rimuovi Selezione</Button>
+              )}
+              <Dialog.Close asChild>
+                <Button>Chiudi</Button>
+              </Dialog.Close>
+            </XStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+    )
+  }
+
   // ============================================
   // MAIN RENDER
   // ============================================
@@ -1639,6 +1837,7 @@ export default function AuctionLiveScreen() {
         {renderCustomBidDialog()}
         {renderTeamDetailDialog()}
         {renderChangeStatusDialog()}
+        {renderSubstituteSelectionDialog()}
       </ScreenContent>
     </View>
   )
