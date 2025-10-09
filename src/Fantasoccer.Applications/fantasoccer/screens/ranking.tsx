@@ -15,6 +15,7 @@ import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'
 import { useRankByComponents } from 'hooks/useRank'
+import { useGroupLeagues } from 'hooks/useGroup'
 
 const formatSeasonFromYear = (yearNumber: number): string => {
   const baseYear = 2011
@@ -93,6 +94,28 @@ export default function Ranking() {
       refreshInterval: 120000,
       skip: shouldSkipRank
     }
+  )
+
+  // Fetch annual leagues to get settings
+  const { getAnnualLeague } = useGroupLeagues(currentGroup?.id ?? null, localYear ?? undefined)
+
+  // Get the annual league to access settings
+  const selectedAnnualLeague = useMemo(() => {
+    if (!localLeagueId || !localYear) {
+      return null
+    }
+    return getAnnualLeague(localLeagueId, localYear)
+  }, [getAnnualLeague, localLeagueId, localYear])
+
+  // Extract money settings from annual league
+  const moneyForGoal = useMemo(
+    () => selectedAnnualLeague?.settings?.moneyForGoal ?? 0,
+    [selectedAnnualLeague]
+  )
+
+  const moneyForSufferedGoal = useMemo(
+    () => selectedAnnualLeague?.settings?.moneyForSufferedGoal ?? 0,
+    [selectedAnnualLeague]
   )
 
   useEffect(() => {
@@ -275,6 +298,10 @@ export default function Ranking() {
               roundLabel={selectedRoundLabel}
               teamCount={roundTeamCount}
               rankedTeams={rankedTeams}
+              groupId={currentGroup?.id}
+              year={localYear}
+              moneyForGoal={moneyForGoal}
+              moneyForSufferedGoal={moneyForSufferedGoal}
               loading={loading}
               error={error}
               isSelectionIncomplete={shouldSkipRank || isRoundSelectionIncomplete}

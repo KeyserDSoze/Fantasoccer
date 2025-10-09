@@ -116,7 +116,7 @@ const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyFo
     },
     {
       key: 'goalMoney',
-      label: '€',
+      label: '+$',
       width: isCompact ? 64 : 72,
       render: (team) => {
         const goalsMade = team.goal ?? 0
@@ -124,7 +124,7 @@ const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyFo
         const totalMoney = (goalsMade * moneyForGoal) + (goalsSuffered * moneyForSufferedGoal)
         
         return {
-          value: `€${totalMoney}`,
+          value: `$${totalMoney}`,
           color: totalMoney >= 0 ? '$green10' : '$red10',
         }
       },

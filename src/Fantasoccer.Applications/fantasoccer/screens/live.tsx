@@ -8,6 +8,7 @@ import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'
 import { useLiveGroup } from 'hooks/useLiveGroup'
+import { useGroupLeagues } from 'hooks/useGroup'
 import { enhanceRankWithTeamPositions } from 'types/rank'
 import type { EnhancedRankedTeam } from 'types/rank'
 import type { CalendarDay } from 'types/calendar'
@@ -65,6 +66,22 @@ export default function LiveScreen() {
 
   const liveLeagues = useMemo(() => enhancedLiveGroup?.leaguesWithRounds ?? [], [enhancedLiveGroup])
 
+  // Extract the latest year from the group's baskets
+  const liveYear = useMemo(() => {
+    if (!currentGroup?.baskets) {
+      return null
+    }
+
+    const allYears = currentGroup.baskets
+      .flatMap(basket => basket.years?.map(y => y.year) ?? [])
+      .filter(year => year != null)
+
+    return allYears.length > 0 ? Math.max(...allYears) : null
+  }, [currentGroup])
+
+  // Fetch annual leagues to get settings
+  const { getAnnualLeague } = useGroupLeagues(groupId, liveYear ?? undefined)
+
   useEffect(() => {
     if (liveLeagues.length === 0) {
       return
@@ -104,6 +121,25 @@ export default function LiveScreen() {
   const selectedLiveLeague = useMemo(
     () => liveLeagues.find((league) => league.id === localLeagueId) ?? null,
     [liveLeagues, localLeagueId]
+  )
+
+  // Get the annual league to access settings
+  const selectedAnnualLeague = useMemo(() => {
+    if (!localLeagueId || !liveYear) {
+      return null
+    }
+    return getAnnualLeague(localLeagueId, liveYear)
+  }, [getAnnualLeague, localLeagueId, liveYear])
+
+  // Extract money settings from annual league
+  const moneyForGoal = useMemo(
+    () => selectedAnnualLeague?.settings?.moneyForGoal ?? 0,
+    [selectedAnnualLeague]
+  )
+
+  const moneyForSufferedGoal = useMemo(
+    () => selectedAnnualLeague?.settings?.moneyForSufferedGoal ?? 0,
+    [selectedAnnualLeague]
   )
 
   const liveDays = useMemo(() => {
@@ -164,19 +200,6 @@ export default function LiveScreen() {
   const serieADayLabel = selectedLiveLeague?.rank?.serieADay
     ? `Serie A giornata ${selectedLiveLeague.rank.serieADay}`
     : null
-
-  // Extract the latest year from the group's baskets
-  const liveYear = useMemo(() => {
-    if (!currentGroup?.baskets) {
-      return null
-    }
-
-    const allYears = currentGroup.baskets
-      .flatMap(basket => basket.years?.map(y => y.year) ?? [])
-      .filter(year => year != null)
-
-    return allYears.length > 0 ? Math.max(...allYears) : null
-  }, [currentGroup])
 
   const handleLeagueSelect = useCallback(
     (leagueId: string) => {
@@ -351,8 +374,8 @@ export default function LiveScreen() {
                     rankedTeams={rankedTeams}
                     groupId={groupId}
                     year={liveYear}
-                    moneyForGoal={liveLeagues}
-                    moneyForSufferedGoal={}
+                    moneyForGoal={moneyForGoal}
+                    moneyForSufferedGoal={moneyForSufferedGoal}
                     loading={liveLoading && rankedTeams.length === 0}
                     error={liveError}
                     isSelectionIncomplete={!localLeagueId}
