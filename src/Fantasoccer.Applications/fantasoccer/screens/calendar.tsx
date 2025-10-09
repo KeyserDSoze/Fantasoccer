@@ -282,6 +282,7 @@ export default function CalendarScreen() {
               roundLabel={selectedRoundLabel}
               pendingGamesCount={pendingGames.length}
               days={selectedRoundDays}
+              year={localYear}
               loading={loading}
               error={error}
               isSelectionIncomplete={shouldSkipCalendar || isSelectionIncomplete}
