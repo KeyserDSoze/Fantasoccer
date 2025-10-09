@@ -408,11 +408,17 @@ export default function SettingsScreen() {
                           maxHeight={160}
                           overflow="scroll"
                         >
-                          {changeTeamNameMessages.map((msg, idx) => (
+                          {/* Mostra solo i primi N-1 messaggi, l'ultimo è già visibile nel titolo sopra */}
+                          {changeTeamNameMessages.slice(0, -1).map((msg, idx) => (
                             <Text key={idx} color="$blue11" fontSize="$2">
                               • {msg}
                             </Text>
                           ))}
+                          {changeTeamNameMessages.length <= 1 && (
+                            <Text color="$blue10" fontSize="$2" fontStyle="italic">
+                              Nessun messaggio precedente
+                            </Text>
+                          )}
                         </YStack>
                       )}
                     </>
