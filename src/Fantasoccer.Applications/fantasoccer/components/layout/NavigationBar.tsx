@@ -34,6 +34,8 @@ import {
   Gavel,
   BookOpen,
   Package,
+  HelpCircle,
+  Bell,
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
@@ -121,9 +123,9 @@ const navigationItems: NavigationSection[] = [
     items: [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
       { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
-      { type: 'route', route: 'Info', label: 'Guida', icon: BookOpen, description: 'Guida al sito' },
+      { type: 'route', route: 'Info', label: 'Guida', icon: HelpCircle, description: 'Guida al sito' },
       { type: 'route', route: 'Settings', label: 'Impostazioni', icon: Settings, description: 'Impostazioni utente' },
-      { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Settings, description: 'Gestisci le notifiche push' },
+      { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Bell, description: 'Gestisci le notifiche push' },
     ],
   },
 ]

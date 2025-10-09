@@ -157,19 +157,15 @@ export default function GameScreen() {
 
     // ⚠️ IMPORTANTE: Avvia il polling SOLO quando ci sono partite live
     if (!isLiveActive) {
-      console.log('⏸️ Polling disabilitato: nessuna partita live in corso')
       return
     }
 
-    console.log('▶️ Polling abilitato: partite live in corso, auto-refresh ogni 10 secondi')
     const pollingInterval = setInterval(() => {
-      console.log('🔄 Auto-refresh partita (live attivo)')
       refreshGame(true) // true = è un auto-refresh, non mostra loading
     }, 10000) // 10 secondi
 
     // Cleanup: ferma il polling quando il componente viene smontato o isLiveActive cambia
     return () => {
-      console.log('⏹️ Polling fermato')
       clearInterval(pollingInterval)
     }
   }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive])

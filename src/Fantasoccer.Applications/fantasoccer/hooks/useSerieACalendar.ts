@@ -107,7 +107,6 @@ export function useSerieACalendar(options: UseSerieACalendarOptions = {}) {
       // Se pollOnlyWhenLive è true, aggiorna solo quando ci sono partite live
       // oppure sempre se è false
       if (!pollOnlyWhenLive || state.isLive) {
-        console.log('🔄 Auto-refresh Serie A calendar')
         fetchCalendar(true) // true = è un refresh, non mostra loading
       }
     }, refreshInterval)

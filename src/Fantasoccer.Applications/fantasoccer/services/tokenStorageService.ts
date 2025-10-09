@@ -210,12 +210,10 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
     // Check if token is near expiry (within 5 minutes)
     const isNear = await get().isTokenNearExpiry(5)
     if (!isNear) {
-      console.log('✅ Token is valid and not near expiry')
       return tokenData.accessToken
     }
     
     // Token is near expiry, try to refresh proactively
-    console.log('⏰ Token near expiry, attempting proactive refresh...')
     try {
       const { authService } = await import('./authService')
       const newTokenData = await authService.refreshToken(tokenData.refreshToken)
