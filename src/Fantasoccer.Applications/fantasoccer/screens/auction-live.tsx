@@ -727,24 +727,71 @@ export default function AuctionLiveScreen() {
             </XStack>
           </Card>
           <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
-            <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
-              <YStack gap="$1">
-                <Text fontSize="$2" color="$color10">Media Voto</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.average?.toFixed(2) || 'N/A'}</Text>
-              </YStack>
-              <YStack gap="$1">
-                <Text fontSize="$2" color="$color10">Fantamedia</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.fantaAverage?.toFixed(2) || 'N/A'}</Text>
-              </YStack>
-              <YStack gap="$1">
-                <Text fontSize="$2" color="$color10">Goal</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.goals || 0}</Text>
-              </YStack>
-              <YStack gap="$1">
-                <Text fontSize="$2" color="$color10">Assist</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.assists || 0}</Text>
-              </YStack>
-            </XStack>
+            <YStack gap="$3">
+              <Text fontSize="$3" fontWeight="700" color="$color11">Statistiche Stagione</Text>
+              <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
+                <YStack gap="$1" minWidth={80}>
+                  <Text fontSize="$2" color="$color10">Media Voto</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.average?.toFixed(2) || 'N/A'}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={80}>
+                  <Text fontSize="$2" color="$color10">Fantamedia</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.fantaAverage?.toFixed(2) || 'N/A'}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={80}>
+                  <Text fontSize="$2" color="$color10">Partite</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withVote || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={80}>
+                  <Text fontSize="$2" color="$color10">Senza Voto</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withoutVote || 0}</Text>
+                </YStack>
+              </XStack>
+              <Separator />
+              <Text fontSize="$3" fontWeight="700" color="$color11">Eventi</Text>
+              <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Gol</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.goals || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Rigori</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.penalties || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Assist</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.assists || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Rig. Parati</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.stoppedPenalties || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Gol Subiti</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.sufferedGoals || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Rig. Sbagliati</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.wrongedPenalties || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Autogol</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.ownGoals || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Ammonizioni</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.yellowCards || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">Espulsioni</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.redCards || 0}</Text>
+                </YStack>
+                <YStack gap="$1" minWidth={70}>
+                  <Text fontSize="$2" color="$color10">MVP</Text>
+                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.manOfTheMatch || 0}</Text>
+                </YStack>
+              </XStack>
+            </YStack>
           </Card>
         </YStack>
       </Card>
@@ -868,10 +915,6 @@ export default function AuctionLiveScreen() {
                   <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3, true)} disabled={isDisabled}>+3</Button>
                   <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5, true)} disabled={isDisabled}>+5</Button>
                 </XStack>
-                <Button icon={DollarSign} size="$5" theme="orange" variant="outlined" onPress={() => {
-                  setIsCustomBidFromAuctioneer(true)
-                  setShowCustomBidDialog(true)
-                }} disabled={isDisabled}>Offerta Personalizzata</Button>
               </YStack>
               {bidStatus.reason && (
                 <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">

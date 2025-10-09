@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Platform } from 'react-native'
 import {
   Button,
   Sheet,
@@ -12,7 +11,6 @@ import {
   ScrollView,
   useMedia,
 } from 'tamagui'
-import { useToastController } from '@tamagui/toast'
 import {
   Menu,
   X,
@@ -26,9 +24,7 @@ import {
   DollarSign,
   Star,
   Settings,
-  Shield,
   ShieldCheck,
-  User,
   TrendingUp,
   PlayCircle,
   Gavel,
@@ -179,10 +175,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const media = useMedia()
   const isDesktop = !media.sm
   const navigation = useNavigation()
-  const toast = useToastController()
   
   // Check user roles for admin sections - find current user's role in current group
-  const currentUserInGroup = currentGroup?.users.find(u => u.username === user?.username)
+  const currentUserInGroup = currentGroup?.users.find(u => u.email === user?.email)
   
   const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
   const isAdmin = isSuperAdmin || currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
