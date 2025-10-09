@@ -83,6 +83,11 @@ namespace Fantasoccer.Application.Api.Controllers
         [HttpGet]
         public async IAsyncEnumerable<string> ChangeTeamNameAsync([FromQuery] string groupId, [FromQuery] string owner, [FromQuery] string newName, [FromQuery] string basketId)
         {
+            if (string.IsNullOrWhiteSpace(newName) || newName.Length < 3 || newName.Length > 30)
+            {
+                yield return "Nome non valido.";
+                yield break;
+            }
             var group = await _groups.GetAsync(groupId);
             var year = FantacalcioTime.ActualYear;
             if (!CheckIsOwner(group!, year, owner, basketId))
@@ -91,9 +96,25 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             else
             {
+                yield return "Aggiornamento gruppo";
                 var realCalendar = await _realCalendarRepository.GetAsync(year);
                 var actualDay = realCalendar?.NextDay?.SerieADay ?? 0;
                 var allLeagues = group!.Leagues.Where(x => x.BasketsId.Contains(basketId)).ToList();
+                var theBasket = group.Baskets.First(x => x.Id == basketId);
+                var yearlyBasket = theBasket.Years.First(x => x.Year == year);
+                var theTeamFromBasket = yearlyBasket.Teams.First(x => x.Owner == owner);
+                if (string.Equals(theTeamFromBasket.Name, newName, StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return "Il nome è lo stesso.";
+                    yield break;
+                }
+                if (yearlyBasket.Teams.Any(x => string.Equals(x.Name, newName, StringComparison.OrdinalIgnoreCase)))
+                {
+                    yield return "Nome già usato.";
+                    yield break;
+                }
+                theTeamFromBasket.Name = newName;
+                await _groups.UpdateAsync(groupId, group);
                 yield return "Aggiornamento squadra";
                 // Update team
                 var teamKey = new TeamKey

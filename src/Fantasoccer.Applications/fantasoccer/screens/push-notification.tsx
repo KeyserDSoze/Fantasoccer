@@ -102,7 +102,7 @@ const formatTimestamp = (date: Date | null): string => {
   }
 }
 
-const SettingsScreen = () => {
+const PushNotificationScreen = () => {
   const {
     settings,
     summary,
@@ -406,4 +406,4 @@ const SettingsScreen = () => {
   )
 }
 
-export default SettingsScreen
+export default PushNotificationScreen

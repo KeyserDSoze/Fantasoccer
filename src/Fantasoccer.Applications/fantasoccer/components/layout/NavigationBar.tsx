@@ -122,6 +122,7 @@ const navigationItems: NavigationSection[] = [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
       { type: 'route', route: 'Rules', label: 'Regolamento e spiegazioni', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'route', route: 'Settings', label: 'Settings', icon: Settings, description: 'Impostazioni utente' },
+      { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Settings, description: 'Gestisci le notifiche push' },
     ],
   },
 ]

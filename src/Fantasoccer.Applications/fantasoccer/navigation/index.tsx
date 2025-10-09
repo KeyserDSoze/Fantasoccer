@@ -7,7 +7,7 @@ import CalendarScreen from 'screens/calendar';
 import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
 import GameScreen from 'screens/game';
-import SettingsScreen from 'screens/settings';
+import SettingsScreen from 'screens/push-notification';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
 import MarketScreen from 'screens/market';
@@ -24,6 +24,7 @@ import AuctionCreateScreen from 'screens/auction-create';
 import AuctionLiveScreen from 'screens/auction-live';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
+import PushNotificationScreen from 'screens/push-notification';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -59,6 +60,7 @@ export type RootStackParamList = {
   GroupBasketsAdmin: undefined;
   GroupLeagueAdmin: undefined;
   Settings: undefined;
+  PushNotification: undefined;
   AuctionCreate: undefined;
   AuctionLive: { auctionId: string };
 };
@@ -101,6 +103,7 @@ const linking = {
       GroupBasketsAdmin: 'group-baskets-admin',
       GroupLeagueAdmin: 'group-league-admin',
       Settings: 'settings',
+      PushNotification: 'push-notification',
       AuctionCreate: 'auction/create',
       AuctionLive: 'auction/:auctionId',
     },
@@ -147,6 +150,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="GroupBasketsAdmin" component={GroupBasketsAdminScreen} />
         <Stack.Screen name="GroupLeagueAdmin" component={GroupLeagueAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="PushNotification" component={PushNotificationScreen} />
         <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
         <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
       </Stack.Navigator>
