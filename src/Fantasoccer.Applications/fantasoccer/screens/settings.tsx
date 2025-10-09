@@ -85,6 +85,18 @@ export default function SettingsScreen() {
   const [usernameSuccess, setUsernameSuccess] = useState(false)
   const [logoSuccess, setLogoSuccess] = useState(false)
   const [messagesOpen, setMessagesOpen] = useState(false)
+  
+  // Local state for updated team name (to avoid full page refresh)
+  const [updatedTeamName, setUpdatedTeamName] = useState<string | null>(null)
+  
+  // Local state for updated username (to avoid full page refresh)
+  const [updatedUsername, setUpdatedUsername] = useState<string | null>(null)
+  
+  // Display team name: use updated name if available, otherwise original
+  const displayTeamName = updatedTeamName ?? userTeamInfo?.teamName ?? ''
+  
+  // Display username: use updated username if available, otherwise original
+  const displayUsername = updatedUsername ?? user?.username ?? 'Non impostato'
 
   // Open messages accordion automatically when a changeTeamName operation starts
   useEffect(() => {
@@ -164,17 +176,13 @@ export default function SettingsScreen() {
     })
 
     if (success) {
-      // Refresh group so userTeamInfo picks up the new name
-      try {
-        await refetchGroup()
-      } catch (e) {
-        // ignore refetch errors
-      }
+      // Update local state instead of refetching the entire group
+      setUpdatedTeamName(newTeamName.trim())
       setTeamNameSuccess(true)
       setNewTeamName('')
       setTimeout(() => setTeamNameSuccess(false), 3000)
     }
-  }, [groupId, userTeamInfo, newTeamName, changeTeamName, refetchGroup])
+  }, [groupId, userTeamInfo, newTeamName, changeTeamName])
 
   // Handle username update
   const handleUpdateUsername = useCallback(async () => {
@@ -183,6 +191,8 @@ export default function SettingsScreen() {
     const success = await updateUsername(newUsername.trim())
 
     if (success) {
+      // Update local state instead of modifying user object directly
+      setUpdatedUsername(newUsername.trim())
       setUsernameSuccess(true)
       setNewUsername('')
       setTimeout(() => setUsernameSuccess(false), 3000)
@@ -276,7 +286,7 @@ export default function SettingsScreen() {
                   )}
 
                   <Text fontSize="$5" color="$color11" textAlign="center">
-                    {userTeamInfo.teamName}
+                    {displayTeamName}
                   </Text>
 
                   <Button
@@ -341,7 +351,7 @@ export default function SettingsScreen() {
                 <YStack gap="$3">
                   <YStack gap="$2">
                     <Text fontSize="$3" color="$color11">
-                      Nome attuale: <Text fontWeight="600">{userTeamInfo.teamName}</Text>
+                      Nome attuale: <Text fontWeight="600">{displayTeamName}</Text>
                     </Text>
                     <Text fontSize="$2" color="$color10">
                       Il nome deve essere tra 3 e 30 caratteri e unico nel gruppo.
@@ -379,10 +389,17 @@ export default function SettingsScreen() {
                         <XStack alignItems="center" gap="$2" flex={1}>
                           {changingTeamName ? (
                             <Spinner size="small" color="$blue10" />
+                          ) : changeTeamNameError ? (
+                            <AlertTriangle size="$1" color="$red10" />
                           ) : (
-                            <Check size="$1" color={teamNameSuccess ? '$green10' : '$color8'} />
+                            <Check size="$1" color="$green10" />
                           )}
-                          <Text color="$color11" numberOfLines={1} ellipsizeMode="tail">
+                          <Text 
+                            color={changeTeamNameError ? "$red11" : (teamNameSuccess ? "$green11" : "$color11")} 
+                            numberOfLines={1} 
+                            ellipsizeMode="tail"
+                            fontWeight="500"
+                          >
                             {changingTeamName
                               ? (changeTeamNameProgress ?? 'Avviando...')
                               : (changeTeamNameMessages.length > 0
@@ -391,14 +408,16 @@ export default function SettingsScreen() {
                           </Text>
                         </XStack>
 
-                        <Button
-                          size="$3"
-                          onPress={() => setMessagesOpen((s) => !s)}
-                          icon={messagesOpen ? ChevronUp : ChevronDown}
-                        />
+                        {changeTeamNameMessages.length > 1 && (
+                          <Button
+                            size="$3"
+                            onPress={() => setMessagesOpen((s) => !s)}
+                            icon={messagesOpen ? ChevronUp : ChevronDown}
+                          />
+                        )}
                       </XStack>
 
-                      {messagesOpen && (
+                      {messagesOpen && changeTeamNameMessages.length > 1 && (
                         <YStack
                           padding="$3"
                           backgroundColor="$blue3"
@@ -414,59 +433,9 @@ export default function SettingsScreen() {
                               • {msg}
                             </Text>
                           ))}
-                          {changeTeamNameMessages.length <= 1 && (
-                            <Text color="$blue10" fontSize="$2" fontStyle="italic">
-                              Nessun messaggio precedente
-                            </Text>
-                          )}
                         </YStack>
                       )}
                     </>
-                  )}
-
-                  {changeTeamNameError && (
-                    <XStack
-                      padding="$2"
-                      backgroundColor="$red3"
-                      borderRadius="$2"
-                      gap="$2"
-                      alignItems="center"
-                    >
-                      <AlertTriangle size="$1" color="$red10" />
-                      <Text color="$red11" fontSize="$2">
-                        {changeTeamNameError}
-                      </Text>
-                    </XStack>
-                  )}
-
-                  {teamNameSuccess && (
-                    <XStack
-                      padding="$2"
-                      backgroundColor="$green3"
-                      borderRadius="$2"
-                      gap="$2"
-                      alignItems="center"
-                    >
-                      <Check size="$1" color="$green10" />
-                      <Text color="$green11" fontSize="$2">
-                        Nome squadra aggiornato con successo!
-                      </Text>
-                    </XStack>
-                  )}
-
-                  {/* Durante l'operazione mostriamo solo l'ultimo messaggio di progresso (gestito da changeTeamNameProgress)
-                      Dopo il completamento possiamo mostrare l'ultimo messaggio ricevuto se necessario. */}
-                  {!changingTeamName && changeTeamNameMessages.length > 0 && !changeTeamNameError && (
-                    <YStack
-                      padding="$3"
-                      backgroundColor="$blue3"
-                      borderRadius="$3"
-                      gap="$1"
-                    >
-                      <Text color="$blue11" fontSize="$2">
-                        {changeTeamNameMessages[changeTeamNameMessages.length - 1]}
-                      </Text>
-                    </YStack>
                   )}
                 </YStack>
               </YStack>
@@ -489,10 +458,15 @@ export default function SettingsScreen() {
                 <Separator />
 
                 <YStack gap="$3">
-                  <Text fontSize="$2" color="$color10">
-                    Lo username deve essere tra 3 e 20 caratteri e può contenere solo lettere, numeri e
-                    underscore (_).
-                  </Text>
+                  <YStack gap="$2">
+                    <Text fontSize="$3" color="$color11">
+                      Username attuale: <Text fontWeight="600">{displayUsername}</Text>
+                    </Text>
+                    <Text fontSize="$2" color="$color10">
+                      Lo username deve essere tra 3 e 20 caratteri e può contenere solo lettere, numeri e
+                      underscore (_).
+                    </Text>
+                  </YStack>
 
                   <XStack gap="$2" flexWrap="wrap">
                     <Input

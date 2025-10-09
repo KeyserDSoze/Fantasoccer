@@ -83,6 +83,11 @@ namespace Fantasoccer.Application.Api.Controllers
         [HttpGet]
         public async IAsyncEnumerable<string> ChangeTeamNameAsync([FromQuery] string groupId, [FromQuery] string owner, [FromQuery] string newName, [FromQuery] string basketId)
         {
+            // Enable response buffering to allow streaming
+            Response.Headers["Content-Type"] = "text/plain; charset=utf-8";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            
             if (string.IsNullOrWhiteSpace(newName) || newName.Length < 3 || newName.Length > 30)
             {
                 yield return "error: Nome non valido.";
