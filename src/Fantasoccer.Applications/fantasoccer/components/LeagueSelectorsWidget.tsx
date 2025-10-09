@@ -1,5 +1,6 @@
-import { type FC, type ReactNode, useMemo } from 'react'
+import { type FC, type ReactNode, useMemo, useState } from 'react'
 import { Button, Card, Text, XStack, YStack } from 'tamagui'
+import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
 
 type LeagueOption = {
   id: string
@@ -35,6 +36,7 @@ type LeagueSelectorsWidgetProps = {
   showYearSection?: boolean
   showRoundSection?: boolean
   footer?: ReactNode
+  defaultExpanded?: boolean // Se true, parte aperto invece che chiuso
 }
 
 const defaultFormatYear: FormatYearLabel = (year) => String(year)
@@ -58,16 +60,37 @@ export const LeagueSelectorsWidget: FC<LeagueSelectorsWidgetProps> = ({
   showLeagueSection = true,
   showYearSection = true,
   showRoundSection = true,
-  footer
+  footer,
+  defaultExpanded = false
 }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
   const selectedLeague = useMemo(
     () => leagues.find((league) => league.id === selectedLeagueId) ?? null,
     [leagues, selectedLeagueId]
   )
 
+  const selectedRound = useMemo(
+    () => rounds.find((round) => round.id === selectedRoundId) ?? null,
+    [rounds, selectedRoundId]
+  )
+
   const canSelectLeague = showLeagueSection && Boolean(onSelectLeague) && leagues.length > 1
   const canSelectYear = showYearSection && Boolean(onSelectYear) && years.length > 1
   const canSelectRound = showRoundSection && Boolean(onSelectRound) && rounds.length > 1
+
+  // Build summary text when collapsed
+  const summaryParts: string[] = []
+  if (showLeagueSection && selectedLeague) {
+    summaryParts.push(selectedLeague.name)
+  }
+  if (showYearSection && selectedYear != null) {
+    summaryParts.push(formatYearLabel(selectedYear))
+  }
+  if (showRoundSection && selectedRound) {
+    summaryParts.push(selectedRound.label)
+  }
+  const summaryText = summaryParts.length > 0 ? summaryParts.join(' • ') : emptyLeagueLabel
 
   return (
     <Card
@@ -78,126 +101,155 @@ export const LeagueSelectorsWidget: FC<LeagueSelectorsWidgetProps> = ({
       borderColor="$borderColor"
       gap="$3"
     >
-      <Text fontSize="$4" fontWeight="700" color="$color11">
-        {title}
-      </Text>
-
-      {showLeagueSection && (
-        canSelectLeague ? (
-          <YStack gap="$2">
-            <Text fontSize="$3" color="$color10">
-              {leagueHint}
-            </Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {leagues.map((league) => {
-                const isSelected = league.id === selectedLeagueId
-                return (
-                  <Button
-                    key={league.id}
-                    size="$2"
-                    variant="outlined"
-                    borderColor={isSelected ? '$blue8' : '$color6'}
-                    backgroundColor={isSelected ? '$blue2' : 'transparent'}
-                    onPress={() => {
-                      if (!isSelected) {
-                        onSelectLeague?.(league.id)
-                      }
-                    }}
-                  >
-                    <Text color={isSelected ? '$blue11' : '$color11'} fontSize="$3" fontWeight="600">
-                      {league.name}
-                      {league.isMain ? ' • Principale' : ''}
-                    </Text>
-                  </Button>
-                )
-              })}
-            </XStack>
-          </YStack>
-        ) : (
-          <Text color="$color10" fontSize="$3">
-            Lega corrente: {selectedLeague?.name ?? emptyLeagueLabel}
+      {/* Header - Always visible, clickable to toggle */}
+      <XStack
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+        pressStyle={{ opacity: 0.8 }}
+        cursor="pointer"
+        onPress={() => setIsExpanded(!isExpanded)}
+      >
+        <YStack flex={1} gap="$1">
+          <Text fontSize="$4" fontWeight="700" color="$color11">
+            {title}
           </Text>
-        )
-      )}
-
-      {showYearSection && (
-        canSelectYear ? (
-          <YStack gap="$2">
-            <Text fontSize="$3" color="$color10">
-              {yearHint}
+          {!isExpanded && (
+            <Text fontSize="$3" color="$color10" numberOfLines={1}>
+              {summaryText}
             </Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {years.map((year) => {
-                const isSelected = year === selectedYear
-                return (
-                  <Button
-                    key={year}
-                    size="$2"
-                    variant="outlined"
-                    borderColor={isSelected ? '$green8' : '$color6'}
-                    backgroundColor={isSelected ? '$green2' : 'transparent'}
-                    onPress={() => {
-                      if (!isSelected) {
-                        onSelectYear?.(year)
-                      }
-                    }}
-                  >
-                    <Text color={isSelected ? '$green11' : '$color11'} fontSize="$3" fontWeight="600">
-                      {formatYearLabel(year)}
-                    </Text>
-                  </Button>
-                )
-              })}
-            </XStack>
-          </YStack>
-        ) : (
-          <Text color="$color10" fontSize="$3">
-            {selectedYear != null ? `Stagione ${formatYearLabel(selectedYear)}` : 'Nessuna stagione disponibile'}
-          </Text>
-        )
-      )}
+          )}
+        </YStack>
+        <Button
+          size="$3"
+          circular
+          chromeless
+          icon={isExpanded ? ChevronUp : ChevronDown}
+          onPress={() => setIsExpanded(!isExpanded)}
+        />
+      </XStack>
 
-      {showRoundSection && (
-        canSelectRound ? (
-          <YStack gap="$2">
-            <Text fontSize="$3" color="$color10">
-              {roundHint}
-            </Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {rounds.map((round) => {
-                const isSelected = round.id === selectedRoundId
-                return (
-                  <Button
-                    key={round.id}
-                    size="$2"
-                    variant="outlined"
-                    borderColor={isSelected ? '$purple8' : '$color6'}
-                    backgroundColor={isSelected ? '$purple2' : 'transparent'}
-                    onPress={() => {
-                      if (!isSelected) {
-                        onSelectRound?.(round.id)
-                      }
-                    }}
-                  >
-                    <Text color={isSelected ? '$purple11' : '$color11'} fontSize="$3" fontWeight="600">
-                      {round.label}
-                      {round.isDefault ? ' • Default' : ''}
-                    </Text>
-                  </Button>
-                )
-              })}
-            </XStack>
-          </YStack>
-        ) : rounds.length > 0 ? (
-          <Text color="$color10" fontSize="$3">
-            {selectedRoundId != null
-              ? `Girone selezionato: ${rounds.find((round) => round.id === selectedRoundId)?.label ?? selectedRoundId}`
-              : 'Nessun girone selezionato'}
-          </Text>
-        ) : null
-      )}
+      {/* Expanded content - Show selection controls */}
+      {isExpanded && (
+        <YStack gap="$3">
+          {showLeagueSection && (
+            canSelectLeague ? (
+              <YStack gap="$2">
+                <Text fontSize="$3" color="$color10">
+                  {leagueHint}
+                </Text>
+                <XStack gap="$2" flexWrap="wrap">
+                  {leagues.map((league) => {
+                    const isSelected = league.id === selectedLeagueId
+                    return (
+                      <Button
+                        key={league.id}
+                        size="$2"
+                        variant="outlined"
+                        borderColor={isSelected ? '$blue8' : '$color6'}
+                        backgroundColor={isSelected ? '$blue2' : 'transparent'}
+                        onPress={() => {
+                          if (!isSelected) {
+                            onSelectLeague?.(league.id)
+                          }
+                        }}
+                      >
+                        <Text color={isSelected ? '$blue11' : '$color11'} fontSize="$3" fontWeight="600">
+                          {league.name}
+                          {league.isMain ? ' • Principale' : ''}
+                        </Text>
+                      </Button>
+                    )
+                  })}
+                </XStack>
+              </YStack>
+            ) : (
+              <Text color="$color10" fontSize="$3">
+                Lega corrente: {selectedLeague?.name ?? emptyLeagueLabel}
+              </Text>
+            )
+          )}
 
-      {footer}
+          {showYearSection && (
+            canSelectYear ? (
+              <YStack gap="$2">
+                <Text fontSize="$3" color="$color10">
+                  {yearHint}
+                </Text>
+                <XStack gap="$2" flexWrap="wrap">
+                  {years.map((year) => {
+                    const isSelected = year === selectedYear
+                    return (
+                      <Button
+                        key={year}
+                        size="$2"
+                        variant="outlined"
+                        borderColor={isSelected ? '$green8' : '$color6'}
+                        backgroundColor={isSelected ? '$green2' : 'transparent'}
+                        onPress={() => {
+                          if (!isSelected) {
+                            onSelectYear?.(year)
+                          }
+                        }}
+                      >
+                        <Text color={isSelected ? '$green11' : '$color11'} fontSize="$3" fontWeight="600">
+                          {formatYearLabel(year)}
+                        </Text>
+                      </Button>
+                    )
+                  })}
+                </XStack>
+              </YStack>
+            ) : (
+              <Text color="$color10" fontSize="$3">
+                {selectedYear != null ? `Stagione ${formatYearLabel(selectedYear)}` : 'Nessuna stagione disponibile'}
+              </Text>
+            )
+          )}
+
+          {showRoundSection && (
+            canSelectRound ? (
+              <YStack gap="$2">
+                <Text fontSize="$3" color="$color10">
+                  {roundHint}
+                </Text>
+                <XStack gap="$2" flexWrap="wrap">
+                  {rounds.map((round) => {
+                    const isSelected = round.id === selectedRoundId
+                    return (
+                      <Button
+                        key={round.id}
+                        size="$2"
+                        variant="outlined"
+                        borderColor={isSelected ? '$purple8' : '$color6'}
+                        backgroundColor={isSelected ? '$purple2' : 'transparent'}
+                        onPress={() => {
+                          if (!isSelected) {
+                            onSelectRound?.(round.id)
+                          }
+                        }}
+                      >
+                        <Text color={isSelected ? '$purple11' : '$color11'} fontSize="$3" fontWeight="600">
+                          {round.label}
+                          {round.isDefault ? ' • Default' : ''}
+                        </Text>
+                      </Button>
+                    )
+                  })}
+                </XStack>
+              </YStack>
+            ) : rounds.length > 0 ? (
+              <Text color="$color10" fontSize="$3">
+                {selectedRoundId != null
+                  ? `Girone selezionato: ${rounds.find((round) => round.id === selectedRoundId)?.label ?? selectedRoundId}`
+                  : 'Nessun girone selezionato'}
+              </Text>
+            ) : null
+          )}
+
+          {footer}
+        </YStack>
+      )}
     </Card>
   )
 }
