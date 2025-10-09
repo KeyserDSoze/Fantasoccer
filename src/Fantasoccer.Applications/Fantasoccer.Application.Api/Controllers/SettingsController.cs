@@ -107,7 +107,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 await WriteMessageAsync("error: Non sei owner.");
                 return;
             }
-            await WriteMessageAsync("Aggiornamento gruppo");
+            await WriteMessageAsync("Agg. gruppo");
             var realCalendar = await _realCalendarRepository.GetAsync(year);
             var actualDay = realCalendar?.NextDay?.SerieADay ?? 0;
             var allLeagues = group!.Leagues.Where(x => x.BasketsId.Contains(basketId)).ToList();
@@ -126,7 +126,7 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             theTeamFromBasket.Name = newName;
             await _groups.UpdateAsync(groupId, group);
-            await WriteMessageAsync("Aggiornamento squadra");
+            await WriteMessageAsync("Agg. squadra");
             // Update team
             var teamKey = new TeamKey
             {
@@ -144,7 +144,7 @@ namespace Fantasoccer.Application.Api.Controllers
             // Update rank and calendar for each league where the team is in the basket
             foreach (var league in allLeagues)
             {
-                await WriteMessageAsync($"Aggiornamento classifica {league.Name}");
+                await WriteMessageAsync($"Agg. classifica {league.Name}");
                 var leagueKey = new LeagueKey
                 {
                     Group = groupId,
@@ -167,7 +167,7 @@ namespace Fantasoccer.Application.Api.Controllers
                             }
                         }
                     }
-                await WriteMessageAsync($"Aggiornamento calendario {league.Name}");
+                await WriteMessageAsync($"Agg. calendario {league.Name}");
                 var rank = await _rankRepository.GetAsync(leagueKey);
                 if (rank == null)
                     continue;
@@ -191,7 +191,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 // Update daily rank for each league where the team is in the basket
                 foreach (var league in allLeagues)
                 {
-                    await WriteMessageAsync($"Aggiornamento classifica incrementale giornata {i} - {league.Name}");
+                    await WriteMessageAsync($"Agg. classifica giornata {i} - {league.Name}");
                     var yearDayLeague = new YearDayLeague
                     {
                         Year = year,
@@ -216,7 +216,7 @@ namespace Fantasoccer.Application.Api.Controllers
                     if (checkIfNeedsUpdate)
                         await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
                 }
-                await WriteMessageAsync($"Aggiornamento squadra giornata {i}");
+                await WriteMessageAsync($"Agg. squadra giornata {i}");
                 // Update daily team
                 var teamDayKey = new TeamDayKey
                 {

@@ -71,7 +71,6 @@ export function useSettings(): UseSettingsResult {
       const stream = settingsService.changeTeamNameStream(params)
       for await (const line of stream) {
         // push message into messages
-        console.log('Received line:', line)
         setChangeTeamNameMessages((prev) => [...prev, line])
         setChangeTeamNameProgress(line)
         

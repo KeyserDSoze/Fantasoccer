@@ -101,27 +101,6 @@ export default function SettingsScreen() {
   // Display username: use updated username if available, otherwise original
   const displayUsername = updatedUsername ?? user?.username ?? 'Non impostato'
 
-  // Open messages accordion automatically when a changeTeamName operation starts
-  useEffect(() => {
-    if (changingTeamName) {
-      setMessagesOpen(true)
-    }
-  }, [changingTeamName])
-
-  // Debug: Log when messages change
-  useEffect(() => {
-    if (changeTeamNameMessages.length > 0) {
-      console.log('🔄 Messages updated in UI:', changeTeamNameMessages)
-    }
-  }, [changeTeamNameMessages])
-
-  // Debug: Log when progress changes
-  useEffect(() => {
-    if (changeTeamNameProgress) {
-      console.log('📊 Progress updated in UI:', changeTeamNameProgress)
-    }
-  }, [changeTeamNameProgress])
-
   // Handle logo upload
   const handleLogoUpload = useCallback(async () => {
     if (!groupId || !userTeamInfo) return
