@@ -830,20 +830,38 @@ export default function AuctionLiveScreen() {
             <Text fontSize="$3" color="$blue11">{myTeam.value.name} • Budget: €{myTeamBudget}</Text>
           </Card>
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>Incremento</Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
+            </Button>
           </XStack>
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>+2</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>+3</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>+5</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleIncrementBid(7)} disabled={isDisabled}>+7</Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(7)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+7</Text>
+            </Button>
           </XStack>
           <Separator />
           <XStack gap="$2">
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(50)} disabled={isDisabled}>50</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(100)} disabled={isDisabled}>100</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(150)} disabled={isDisabled}>150</Button>
-            <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="blue" onPress={() => handleFixedBid(200)} disabled={isDisabled}>200</Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(50)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">50</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(100)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">100</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(150)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">150</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(200)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">200</Text>
+            </Button>
           </XStack>
           <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => {
             setIsCustomBidFromAuctioneer(false)
@@ -908,12 +926,20 @@ export default function AuctionLiveScreen() {
               <Separator />
               <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
                 <XStack gap="$2">
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(1, true)} disabled={isDisabled}>Incremento</Button>
+                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(1, true)} disabled={isDisabled}>
+                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
+                  </Button>
                 </XStack>
                 <XStack gap="$2">
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(2, true)} disabled={isDisabled}>+2</Button>
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(3, true)} disabled={isDisabled}>+3</Button>
-                  <Button flex={1} size="$6" fontSize="$7" fontWeight="700" theme="orange" onPress={() => handleIncrementBid(5, true)} disabled={isDisabled}>+5</Button>
+                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(2, true)} disabled={isDisabled}>
+                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
+                  </Button>
+                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(3, true)} disabled={isDisabled}>
+                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
+                  </Button>
+                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(5, true)} disabled={isDisabled}>
+                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
+                  </Button>
                 </XStack>
               </YStack>
               {bidStatus.reason && (
