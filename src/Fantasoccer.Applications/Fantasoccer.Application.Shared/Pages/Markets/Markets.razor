@@ -111,8 +111,6 @@ else
                 actualPlayer.Status = PlayerInTeamStatus.Sold;
                 buyerTeam.Players.Add(player);
             }
-            buyerTeam.RevenueMoney += exchange.MoneyFromSeller;
-            sellerTeam.RevenueMoney += exchange.MoneyFromBuyer;
             await Api.Team.UpdateAsync(buyerTeamKey, buyerTeam);
             await Api.Team.UpdateAsync(sellerTeamKey, sellerTeam);
         }
