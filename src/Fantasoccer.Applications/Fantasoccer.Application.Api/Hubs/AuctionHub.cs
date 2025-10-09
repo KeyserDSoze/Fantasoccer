@@ -5,6 +5,7 @@ using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Org.BouncyCastle.Crypto;
 using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Hubs
@@ -146,7 +147,7 @@ namespace Fantasoccer.Application.Api.Hubs
             if (team.Value == null)
                 return (false, "Team not found");
 
-            var substitutedPlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == current.Substituted);
+            var substitutedPlayer = auctionWrapper.Wrapper.Kind == AuctionKind.Repairing ? auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == current.Substituted) : null;
 
             var check = Check(auctionWrapper.League.Settings, thePlayer, team.Value, current.Price, substitutedPlayer);
             if (string.IsNullOrWhiteSpace(check))
@@ -436,12 +437,24 @@ namespace Fantasoccer.Application.Api.Hubs
                     await Clients.Caller.SendAsync("Error", "You are already the highest bidder");
                     return;
                 }
-                var substitutedPlayer = wrapper.RealPlayers.FirstOrDefault(x => x.Key == substituted);
+                var substitutedPlayer = wrapper.Wrapper.Kind == AuctionKind.Repairing ? wrapper.RealPlayers.FirstOrDefault(x => x.Key == substituted) : null;
                 // Validate against team constraints
                 var validationError = Check(wrapper.League.Settings, wrapper.Wrapper.Actual.Player, team, amount, substitutedPlayer);
                 if (!string.IsNullOrWhiteSpace(validationError))
                 {
                     await Clients.Caller.SendAsync("Error", validationError);
+                    return;
+                }
+
+                if (substitutedPlayer != null && wrapper.Wrapper.Kind != AuctionKind.Repairing)
+                {
+                    await Clients.Caller.SendAsync("Error", "You can only substitute a player in repairing auctions");
+                    return;
+                }
+
+                if (substitutedPlayer != null && substitutedPlayer.Role != wrapper.Wrapper.Actual.Player.Role)
+                {
+                    await Clients.Caller.SendAsync("Error", "You can only substitute a player with another of the same role");
                     return;
                 }
 
