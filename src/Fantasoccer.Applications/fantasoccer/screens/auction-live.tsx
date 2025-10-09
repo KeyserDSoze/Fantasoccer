@@ -213,6 +213,7 @@ export default function AuctionLiveScreen() {
   // TIMER LOGIC
   // ============================================
   const startTimer = useCallback(() => {
+    console.log('⏱️ Starting timer with timeout:', offerTimeoutSeconds)
     setTimerSecondsLeft(offerTimeoutSeconds)
     setTimerRunning(true)
     setTimerExpired(false)
@@ -352,6 +353,11 @@ export default function AuctionLiveScreen() {
     if (tempBlockButtons) return { disabled: true, reason: null }
     if (!selectedTeamForBid) return { disabled: true, reason: 'Seleziona una squadra per fare un\'offerta' }
     
+    // Check if selectedTeamForBid is already the current bidder
+    if (currentBidder && selectedTeamForBid.toLowerCase() === currentBidder.toLowerCase()) {
+      return { disabled: true, reason: 'Questa squadra è già il miglior offerente' }
+    }
+    
     // Check role limits for selectedTeamForBid
     if (currentPlayer.role >= 0) {
       const selectedTeam = teams.find(t => t.value.owner === selectedTeamForBid)
@@ -366,7 +372,7 @@ export default function AuctionLiveScreen() {
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel])
+  }, [currentPlayer, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel, currentBidder])
 
   // ============================================
   // SIGNALR CONNECTION
