@@ -12,22 +12,14 @@ import {
   useMedia
 } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { useApp } from 'providers/AppProvider'
-import { Role, GroupHelper } from 'types/group'
+import { Role } from 'types/group'
 import { PlayerCard } from 'components/lineup/PlayerCard'
 import { GoodDefenseIcon, GoodPeopleIcon, OwnGoalIcon } from 'components/icons/BonusIcons'
-import { SoccerBallSVG, AssistSVG, BehaviourCardSVG } from 'components/lineup/icons'
+import { IconFactory } from 'components/lineup/icons'
 import { type LivePlayer } from 'types/game'
 import { Behaviour } from 'types/serieA'
 import { ChanceType as ChanceTypeEnum } from 'types/chance'
 import { FantaSoccerRole, PlayerInTeamStatus } from 'types/team'
-
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
 
 // Dati di esempio per PlayerCard con voto (post-partita)
 const createExamplePlayerWithVote = (): LivePlayer => ({
@@ -91,7 +83,7 @@ const createExamplePlayerWithChance = (): LivePlayer => ({
   realGame: {
     home: { name: 'Roma', abbreviation: 'ROM' },
     away: { name: 'Juventus', abbreviation: 'JUV' },
-    date: new Date('2025-10-06T20:45:00'),
+    date: new Date('2095-10-06T20:45:00'),
     homeGoals: null,
     awayGoals: null,
     delayed: false
@@ -177,39 +169,39 @@ export default function InfoScreen() {
                   <H4 fontSize="$3" color="$color11" marginTop="$2">⚡ Icone Eventi (lato destro):</H4>
                   <YStack gap="$1" paddingLeft="$3">
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#ffffff" secondaryColor="#000000" size={16} />
+                      <IconFactory type="goal" size={16} />
                       <Text fontSize="$2" color="$color10">Gol segnato</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" size={16} />
+                      <IconFactory type="penalty" size={16} />
                       <Text fontSize="$2" color="$color10">Rigore segnato</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <AssistSVG color="#000" size={16} />
+                      <IconFactory type="assist" size={16} />
                       <Text fontSize="$2" color="$color10">Assist fornito</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" size={16} />
+                      <IconFactory type="stoppedPenalty" size={16} />
                       <Text fontSize="$2" color="$color10">Rigore parato (portieri)</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" size={16} />
+                      <IconFactory type="sufferedGoal" size={16} />
                       <Text fontSize="$2" color="$color10">Gol subito (portieri/chi sta in porta)</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#c113d1ff" secondaryColor="#ffffff" size={16} />
+                      <IconFactory type="wrongedPenalty" size={16} />
                       <Text fontSize="$2" color="$color10">Rigore sbagliato</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" size={16} />
+                      <IconFactory type="ownGoal" size={16} />
                       <Text fontSize="$2" color="$color10">Autogol</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <BehaviourCardSVG color="#fbbf24" size={16} />
+                      <IconFactory type="yellowCard" size={16} />
                       <Text fontSize="$2" color="$color10">Cartellino giallo</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <BehaviourCardSVG color="#ef4444" size={16} />
+                      <IconFactory type="redCard" size={16} />
                       <Text fontSize="$2" color="$color10">Cartellino rosso (espulsione)</Text>
                     </XStack>
                   </YStack>

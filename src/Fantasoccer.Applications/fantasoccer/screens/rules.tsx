@@ -17,6 +17,7 @@ import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { Role, RoleExtensions, GroupHelper, type LeagueSetting, type VoteLeagueSetting } from 'types/group'
+import { IconFactory, useIconLabel } from 'components/lineup/icons'
 
 const formatSeasonFromYear = (yearNumber: number): string => {
   const baseYear = 2011
@@ -119,68 +120,101 @@ export default function Rules() {
         </Text>
         <YStack gap="$1">
           {settings.goal !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">⚽ Gol</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="goal" size={16} />
+                <Text fontSize="$3" color="$color11">Gol</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.goal > 0 ? '+' : ''}{settings.goal}</Text>
             </XStack>
           )}
           {settings.assist !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🎯 Assist</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="assist" size={16} />
+                <Text fontSize="$3" color="$color11">Assist</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.assist > 0 ? '+' : ''}{settings.assist}</Text>
             </XStack>
           )}
           {settings.penalty !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">⚡ Rigore segnato</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="penalty" size={16} />
+                <Text fontSize="$3" color="$color11">Rigore segnato</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.penalty > 0 ? '+' : ''}{settings.penalty}</Text>
             </XStack>
           )}
           {settings.stoppedPenalty !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🧤 Rigore parato</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="stoppedPenalty" size={16} />
+                <Text fontSize="$3" color="$color11">Rigore parato</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.stoppedPenalty > 0 ? '+' : ''}{settings.stoppedPenalty}</Text>
             </XStack>
           )}
           {settings.wrongedPenalty !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">❌ Rigore sbagliato</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="wrongedPenalty" size={16} />
+                <Text fontSize="$3" color="$color11">Rigore sbagliato</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.wrongedPenalty > 0 ? '+' : ''}{settings.wrongedPenalty}</Text>
             </XStack>
           )}
           {settings.ownGoal !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🔴 Autogol</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="ownGoal" size={16} />
+                <Text fontSize="$3" color="$color11">Autogol</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.ownGoal > 0 ? '+' : ''}{settings.ownGoal}</Text>
             </XStack>
           )}
           {settings.sufferedGoal !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🥅 Gol subito</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="sufferedGoal" size={16} />
+                <Text fontSize="$3" color="$color11">Gol subito</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.sufferedGoal > 0 ? '+' : ''}{settings.sufferedGoal}</Text>
             </XStack>
           )}
           {settings.yellowCard !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🟨 Ammonizione</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="yellowCard" size={16} />
+                <Text fontSize="$3" color="$color11">Ammonizione</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.yellowCard > 0 ? '+' : ''}{settings.yellowCard}</Text>
             </XStack>
           )}
           {settings.redCard !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🟥 Espulsione</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="redCard" size={16} />
+                <Text fontSize="$3" color="$color11">Espulsione</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.redCard > 0 ? '+' : ''}{settings.redCard}</Text>
             </XStack>
           )}
           {settings.injury !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">🩹 Infortunio</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="injury" size={16} />
+                <Text fontSize="$3" color="$color11">Infortunio</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.injury > 0 ? '+' : ''}{settings.injury}</Text>
             </XStack>
           )}
           {settings.manOfTheMatch !== 0 && (
-            <XStack justifyContent="space-between">
-              <Text fontSize="$3" color="$color11">⭐ Migliore in campo</Text>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2">
+                <IconFactory type="manOfTheMatch" size={16} />
+                <Text fontSize="$3" color="$color11">Migliore in campo</Text>
+              </XStack>
               <Text fontSize="$3" fontWeight="600" color="$color12">{settings.manOfTheMatch > 0 ? '+' : ''}{settings.manOfTheMatch}</Text>
             </XStack>
           )}
