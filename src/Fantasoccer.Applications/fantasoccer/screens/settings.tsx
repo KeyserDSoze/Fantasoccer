@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Upload, User, Users } from '@tamagui/lucide-icons'
+import { useCallback, useMemo, useState, useEffect } from 'react'
+import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
 import {
   Button,
   Card,
@@ -84,6 +84,14 @@ export default function SettingsScreen() {
   const [teamNameSuccess, setTeamNameSuccess] = useState(false)
   const [usernameSuccess, setUsernameSuccess] = useState(false)
   const [logoSuccess, setLogoSuccess] = useState(false)
+  const [messagesOpen, setMessagesOpen] = useState(false)
+
+  // Open messages accordion automatically when a changeTeamName operation starts
+  useEffect(() => {
+    if (changingTeamName) {
+      setMessagesOpen(true)
+    }
+  }, [changingTeamName])
 
   // Handle logo upload
   const handleLogoUpload = useCallback(async () => {
@@ -359,11 +367,55 @@ export default function SettingsScreen() {
                     </Button>
                   </XStack>
 
-                  {changingTeamName && changeTeamNameProgress && (
-                    <XStack alignItems="center" gap="$2" marginTop="$2">
-                      <Spinner size="small" color="$blue10" />
-                      <Text color="$color11">{changeTeamNameProgress}</Text>
-                    </XStack>
+                  {(changingTeamName || changeTeamNameMessages.length > 0) && (
+                    <>
+                      {/* Status bar: mostra l'ultimo evento e permette di aprire lo storico */}
+                      <XStack
+                        alignItems="center"
+                        justifyContent="space-between"
+                        paddingTop="$2"
+                        marginTop="$2"
+                      >
+                        <XStack alignItems="center" gap="$2" flex={1}>
+                          {changingTeamName ? (
+                            <Spinner size="small" color="$blue10" />
+                          ) : (
+                            <Check size="$1" color={teamNameSuccess ? '$green10' : '$color8'} />
+                          )}
+                          <Text color="$color11" numberOfLines={1} ellipsizeMode="tail">
+                            {changingTeamName
+                              ? (changeTeamNameProgress ?? 'Avviando...')
+                              : (changeTeamNameMessages.length > 0
+                                  ? changeTeamNameMessages[changeTeamNameMessages.length - 1]
+                                  : '')}
+                          </Text>
+                        </XStack>
+
+                        <Button
+                          size="$3"
+                          onPress={() => setMessagesOpen((s) => !s)}
+                          icon={messagesOpen ? ChevronUp : ChevronDown}
+                        />
+                      </XStack>
+
+                      {messagesOpen && (
+                        <YStack
+                          padding="$3"
+                          backgroundColor="$blue3"
+                          borderRadius="$3"
+                          gap="$1"
+                          marginTop="$2"
+                          maxHeight={160}
+                          overflow="scroll"
+                        >
+                          {changeTeamNameMessages.map((msg, idx) => (
+                            <Text key={idx} color="$blue11" fontSize="$2">
+                              • {msg}
+                            </Text>
+                          ))}
+                        </YStack>
+                      )}
+                    </>
                   )}
 
                   {changeTeamNameError && (

@@ -131,11 +131,30 @@ class SettingsService {
     }
 
     if (!response.body) {
-      // no body to stream
+      // no body to stream — fallback to reading whole text
       const text = await response.text()
       if (text) {
-        for (const line of text.split('\n').map(l => l.trim()).filter(Boolean)) {
-          yield line
+        const trimmed = text.trim()
+        // If server returned a JSON array of messages, parse and yield each element
+        if (trimmed.startsWith('[')) {
+          try {
+            const arr = JSON.parse(trimmed)
+            if (Array.isArray(arr)) {
+              for (const item of arr) {
+                const s = String(item).trim()
+                if (s) yield s
+              }
+            }
+          } catch (e) {
+            // fallback: split by newline
+            for (const line of trimmed.split('\n').map((l) => l.trim()).filter(Boolean)) {
+              yield line
+            }
+          }
+        } else {
+          for (const line of trimmed.split('\n').map((l) => l.trim()).filter(Boolean)) {
+            yield line
+          }
         }
       }
       return
@@ -165,8 +184,27 @@ class SettingsService {
     }
 
     // flush remaining buffer
-    if (buffer.trim().length > 0) {
-      yield buffer.trim()
+    const finalBuffer = buffer.trim()
+    if (finalBuffer.length > 0) {
+      // If buffer looks like a JSON array, parse it and yield elements separately
+      if (finalBuffer.startsWith('[')) {
+        try {
+          const arr = JSON.parse(finalBuffer)
+          if (Array.isArray(arr)) {
+            for (const item of arr) {
+              const s = String(item).trim()
+              if (s) yield s
+            }
+          } else {
+            yield finalBuffer
+          }
+        } catch (e) {
+          // parsing failed, yield raw
+          yield finalBuffer
+        }
+      } else {
+        yield finalBuffer
+      }
     }
   }
 
