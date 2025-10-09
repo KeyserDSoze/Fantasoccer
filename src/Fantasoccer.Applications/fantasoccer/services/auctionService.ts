@@ -27,13 +27,15 @@ export interface AuctionEventHandlers {
   onUserLeft?: (email: string) => void
   onPlayerShown?: (player: StatPlayer) => void
   onPlayerAssigned?: (data: PlayerAssignedData) => void
-  onBidPlaced?: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string }) => void
+  onBidPlaced?: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string; Substituted: string | null }) => void
   onAuctionUpdated?: () => void
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
   onAuctionState?: (state: AuctionState) => void  // ✅ Now returns clean AuctionState
   onCurrentPlayer?: (player: PlayerWithStats | null) => void
+  onCurrentAuctionReset?: () => void  // Reset all bids for current player
+  onTimerReset?: () => void  // Restart timer and unlock bidding buttons
 }
 
 export class AuctionService {
@@ -328,6 +330,17 @@ export class AuctionService {
       console.log('Current player:', player)
       this.eventHandlers.onCurrentPlayer?.(player)
     })
+
+    // Reset events
+    this.hubConnection.on('CurrentAuctionReset', () => {
+      console.log('🔄 Current auction reset (all bids cleared)')
+      this.eventHandlers.onCurrentAuctionReset?.()
+    })
+
+    this.hubConnection.on('TimerReset', () => {
+      console.log('⏱️ Timer reset (countdown restarted)')
+      this.eventHandlers.onTimerReset?.()
+    })
   }
 
   /**
@@ -469,6 +482,22 @@ export class AuctionService {
   async changeTimer(auctionId: string, seconds: number): Promise<void> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
     await this.hubConnection.invoke('ChangeTimerAsync', auctionId, seconds)
+  }
+
+  /**
+   * Reset timer - restart countdown and unlock bidding (Auctioneer only)
+   */
+  async resetTimer(auctionId: string): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('TimerResetAsync', auctionId)
+  }
+
+  /**
+   * Complete reset - clear all bids for current player (Auctioneer only)
+   */
+  async completeReset(auctionId: string): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('CompleteResetAsync', auctionId)
   }
 
   /**

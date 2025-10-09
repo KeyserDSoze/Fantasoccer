@@ -63,6 +63,7 @@ export default function AuctionLiveScreen() {
   const [teams, setTeams] = useState<Entity<Team, TeamKey>[]>([])
   const [currentBid, setCurrentBid] = useState<number>(0)
   const [currentBidder, setCurrentBidder] = useState<string | null>(null)
+  const [currentSubstitute, setCurrentSubstitute] = useState<string | null>(null)
   const [isLocked, setIsLocked] = useState(false)
   const [salesHistory, setSalesHistory] = useState<AuctionWin[]>([])
   const [isAuctioneer, setIsAuctioneer] = useState(false)
@@ -453,6 +454,7 @@ export default function AuctionLiveScreen() {
               setCurrentPlayer(player)
               setCurrentBid(0)
               setCurrentBidder(null)
+              setCurrentSubstitute(null)
               resetTimer()
             }
           },
@@ -464,20 +466,22 @@ export default function AuctionLiveScreen() {
               setCurrentPlayer(null)
               setCurrentBid(0)
               setCurrentBidder(null)
+              setCurrentSubstitute(null)
               setAssignPrice('')
               setSelectedTeamForBid('')
               resetTimer()
             }
           },
-          onBidPlaced: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string }) => {
+          onBidPlaced: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string; Substituted: string | null }) => {
             console.log('💰 Bid placed:', data)
             if (isSubscribed) {
               setCurrentBid(data.Amount)
               setCurrentBidder(data.BidderEmail)
-              if (data.BidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
+              setCurrentSubstitute(data.Substituted)
+              // if (data.BidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
                 playBidSound()
                 vibrateOnBid()
-              }
+              // }
               startTimer()
               auctionService.getAuctionState(auctionId).catch(console.error)
             }
@@ -508,6 +512,7 @@ export default function AuctionLiveScreen() {
                 setCurrentPlayer(state.wrapper.actual.player)
                 setCurrentBid(state.wrapper.actual.price)
                 setCurrentBidder(state.wrapper.actual.owner)
+                setCurrentSubstitute(state.wrapper.actual.substituted)
               }
             }
           },
@@ -526,6 +531,23 @@ export default function AuctionLiveScreen() {
           onAuctionClosed: () => {
             console.log('🏁 Auction closed')
             if (isSubscribed) setConnectionError('L\'asta è stata chiusa')
+          },
+          onCurrentAuctionReset: () => {
+            console.log('🔄 Current auction reset - clearing all bids')
+            if (isSubscribed) {
+              setCurrentBid(0)
+              setCurrentBidder(null)
+              setCurrentSubstitute(null)
+              resetTimer()
+              toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info' })
+            }
+          },
+          onTimerReset: () => {
+            console.log('⏱️ Timer reset - restarting countdown')
+            if (isSubscribed) {
+              startTimer()
+              toast.show('⏱️ Timer riavviato', { variant: 'info' })
+            }
           }
         })
         
@@ -1077,19 +1099,43 @@ export default function AuctionLiveScreen() {
             flex={1} 
             minWidth={90} 
             size="$3" 
-            disabled={!currentPlayer}
-            onPress={() => {
-              startTimer()
-              toast.show('⏱️ Timer riavviato', { variant: 'info' })
+            disabled={!currentPlayer || loading}
+            onPress={async () => {
+              setLoading(true)
+              try {
+                await auctionService.resetTimer(auctionId)
+                toast.show('⏱️ Timer riavviato per tutti', { variant: 'success' })
+              } catch (err) {
+                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+              } finally {
+                setLoading(false)
+              }
             }}
           >
             Riavvia Timer
           </Button>
-          <Button icon={RotateCcw} theme="orange" variant="outlined" flex={1} minWidth={90} size="$3" onPress={() => {
-            resetTimer()
-            setCurrentBid(0)
-            setCurrentBidder(null)
-          }}>Reset Completo</Button>
+          <Button 
+            icon={RotateCcw} 
+            theme="orange" 
+            variant="outlined" 
+            flex={1} 
+            minWidth={90} 
+            size="$3" 
+            disabled={!currentPlayer || loading}
+            onPress={async () => {
+              setLoading(true)
+              try {
+                await auctionService.completeReset(auctionId)
+                toast.show('🔄 Asta resettata per tutti', { variant: 'success' })
+              } catch (err) {
+                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+              } finally {
+                setLoading(false)
+              }
+            }}
+          >
+            Reset Completo
+          </Button>
           <Button icon={XCircle} theme="red" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
             if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
             setLoading(true)

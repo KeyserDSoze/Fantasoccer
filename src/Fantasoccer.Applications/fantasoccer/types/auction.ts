@@ -58,6 +58,7 @@ export interface ActualAuctionRaw {
   pl: StatPlayerRaw  // Player (uses StatPlayerRaw from stat.ts)
   s: string          // Started (DateTime as ISO string)
   o: string | null   // Owner
+  sb: string | null  // Substituted (new owner if player was substituted)
   p: number          // Price
 }
 
@@ -117,6 +118,7 @@ export interface ActualAuction {
   player: StatPlayer
   started: Date
   owner: string | null
+  substituted: string | null
   price: number
 }
 
@@ -212,7 +214,8 @@ export function mapRawActualAuction(raw: ActualAuctionRaw): ActualAuction {
     player: mapRawStatPlayerToStatPlayer(raw.pl),
     started: new Date(raw.s),
     owner: raw.o,
-    price: raw.p
+    price: raw.p,
+    substituted: raw.sb
   }
 }
 

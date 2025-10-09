@@ -86,6 +86,8 @@ namespace Fantasoccer.Domain
         /// </summary>
         [JsonPropertyName("o")]
         public string? Owner { get; set; }
+        [JsonPropertyName("sb")]
+        public string? Substituted { get; set; }
         [JsonPropertyName("p")]
         public int Price { get; set; }
     }

@@ -146,7 +146,9 @@ namespace Fantasoccer.Application.Api.Hubs
             if (team.Value == null)
                 return (false, "Team not found");
 
-            var check = Check(auctionWrapper.League.Settings, thePlayer, team.Value, current.Price);
+            var substitutedPlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == current.Substituted);
+
+            var check = Check(auctionWrapper.League.Settings, thePlayer, team.Value, current.Price, substitutedPlayer);
             if (string.IsNullOrWhiteSpace(check))
             {
                 team.Value.Players.Add(new Player
@@ -159,6 +161,14 @@ namespace Fantasoccer.Application.Api.Hubs
                     Status = PlayerInTeamStatus.Active,
                     Position = FantaSoccerRole.Tribune
                 });
+                if (substitutedPlayer != null)
+                {
+                    var toRemove = team.Value.Players.FirstOrDefault(x => x.Key == substitutedPlayer.Key && x.IsActive);
+                    if (toRemove != null)
+                    {
+                        toRemove.Status = PlayerInTeamStatus.SoldWithNoReturnedPrice;
+                    }
+                }
                 return (await _team.UpdateAsync(team.Key, team.Value), string.Empty);
             }
             else
@@ -166,30 +176,30 @@ namespace Fantasoccer.Application.Api.Hubs
                 return (false, check);
             }
         }
-        private string Check(LeagueSetting settings, RealPlayer realPlayer, Team team, int price)
+        private string Check(LeagueSetting settings, RealPlayer realPlayer, Team team, int price, RealPlayer? substitution)
         {
             switch (realPlayer.Role)
             {
                 case Role.GoalKeeper:
-                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 3)
+                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 3 + (substitution?.Role == Role.GoalKeeper ? 1 : 0))
                     {
                         return "Troppi portieri";
                     }
                     break;
                 case Role.Defensor:
-                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8)
+                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8 + (substitution?.Role == Role.Defensor ? 1 : 0))
                     {
                         return "Troppi difensori";
                     }
                     break;
                 case Role.Midfielder:
-                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8)
+                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 8 + (substitution?.Role == Role.Midfielder ? 1 : 0))
                     {
                         return "Troppi centrocampisti";
                     }
                     break;
                 case Role.Forward:
-                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 6)
+                    if (team.ActivePlayers.Count(x => x.Role == realPlayer.Role) >= 6 + (substitution?.Role == Role.Forward ? 1 : 0))
                     {
                         return "Troppi attaccanti";
                     }
@@ -348,11 +358,10 @@ namespace Fantasoccer.Application.Api.Hubs
 
             await Clients.Caller.SendAsync("AuctionState", wrapper);
         }
-        private static object s_saveLock = new();
         /// <summary>
         /// Place a bid on current player (both participants and auctioneer)
         /// </summary>
-        public async Task PlaceBidAsync(string auctionId, int amount, string? bidderEmail = null)
+        public async Task PlaceBidAsync(string auctionId, int amount, string? bidderEmail = null, string? substituted = null)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
@@ -427,9 +436,9 @@ namespace Fantasoccer.Application.Api.Hubs
                     await Clients.Caller.SendAsync("Error", "You are already the highest bidder");
                     return;
                 }
-
+                var substitutedPlayer = wrapper.RealPlayers.FirstOrDefault(x => x.Key == substituted);
                 // Validate against team constraints
-                var validationError = Check(wrapper.League.Settings, wrapper.Wrapper.Actual.Player, team, amount);
+                var validationError = Check(wrapper.League.Settings, wrapper.Wrapper.Actual.Player, team, amount, substitutedPlayer);
                 if (!string.IsNullOrWhiteSpace(validationError))
                 {
                     await Clients.Caller.SendAsync("Error", validationError);
@@ -439,6 +448,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 // Update bid
                 wrapper.Wrapper.Actual.Price = amount;
                 wrapper.Wrapper.Actual.Owner = actualBidder;
+                wrapper.Wrapper.Actual.Substituted = substituted;
                 wrapper.LastUpdate = DateTime.UtcNow;
 
                 // Broadcast to all participants
@@ -447,7 +457,8 @@ namespace Fantasoccer.Application.Api.Hubs
                     Amount = amount,
                     BidderEmail = actualBidder,
                     BidderName = team.Name,
-                    PlayerName = wrapper.Wrapper.Actual.Player.Name
+                    PlayerName = wrapper.Wrapper.Actual.Player.Name,
+                    Substituted = wrapper.Wrapper.Actual.Substituted
                 });
 
                 // Send updated auction state to all
@@ -734,6 +745,30 @@ namespace Fantasoccer.Application.Api.Hubs
         {
             // User will be automatically removed from all groups
             await base.OnDisconnectedAsync(exception);
+        }
+
+        public async Task CompleteResetAsync(string auctionId)
+        {
+            var email = GetUserEmail();
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper == null || !IsAuctioneer(wrapper, email!))
+            {
+                await Clients.Caller.SendAsync("Error", "Only auctioneers can reset the auction");
+                return;
+            }
+            if (wrapper.Wrapper.Actual == null)
+            {
+                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
+                return;
+            }
+            wrapper.Wrapper.Actual.Owner = null;
+            wrapper.Wrapper.Actual.Price = 0;
+            wrapper.Wrapper.Actual.Substituted = null;
+            await Clients.Group(auctionId).SendAsync("CurrentAuctionReset");
+        }
+        public async Task TimerResetAsync(string auctionId)
+        {
+            await Clients.Group(auctionId).SendAsync("TimerReset");
         }
     }
 }
