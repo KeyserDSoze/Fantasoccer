@@ -349,6 +349,10 @@ export default function LiveScreen() {
                     roundLabel={rankingRoundLabel}
                     teamCount={rankingTeamCount}
                     rankedTeams={rankedTeams}
+                    groupId={groupId}
+                    year={liveYear}
+                    moneyForGoal={liveLeagues}
+                    moneyForSufferedGoal={}
                     loading={liveLoading && rankedTeams.length === 0}
                     error={liveError}
                     isSelectionIncomplete={!localLeagueId}

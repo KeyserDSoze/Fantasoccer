@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons'
 import { Button, Card, ScrollView, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { useWindowDimensions } from 'react-native'
 import type { EnhancedRankedTeam } from 'types/rank'
+import { TeamLogo } from '../team/TeamLogo'
 
 export type LeagueRankingWidgetProps = {
   leagueName?: string | null
@@ -19,6 +20,10 @@ export type LeagueRankingWidgetProps = {
   loadingMessage?: string
   refreshLabel?: string
   errorActionLabel?: string
+  groupId?: string | null // Per il logo della squadra
+  year?: number | null // Per il logo della squadra
+  moneyForGoal?: number // Soldi per goal fatto
+  moneyForSufferedGoal?: number // Soldi per goal subito
 }
 
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare la classifica.'
@@ -40,7 +45,7 @@ type StatColumnDefinition = {
   render: (team: EnhancedRankedTeam) => StatCellValue
 }
 
-const createStatColumns = (isCompact: boolean) => {
+const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyForSufferedGoal: number = 0) => {
   const columns: StatColumnDefinition[] = [
     {
       key: 'points',
@@ -77,6 +82,24 @@ const createStatColumns = (isCompact: boolean) => {
       }),
     },
     {
+      key: 'goalsFor',
+      label: 'GF',
+      width: 40,
+      render: (team) => ({
+        value: `${team.goal ?? 0}`,
+        color: '$green10',
+      }),
+    },
+    {
+      key: 'goalsAgainst',
+      label: 'GS',
+      width: 40,
+      render: (team) => ({
+        value: `${team.sufferedGoal ?? 0}`,
+        color: '$red10',
+      }),
+    },
+    {
       key: 'goalDifference',
       label: 'Diff',
       width: isCompact ? 52 : 56,
@@ -88,6 +111,21 @@ const createStatColumns = (isCompact: boolean) => {
         return {
           value: formatted,
           color: goalDiff >= 0 ? '$color10' : '$red10',
+        }
+      },
+    },
+    {
+      key: 'goalMoney',
+      label: '€',
+      width: isCompact ? 64 : 72,
+      render: (team) => {
+        const goalsMade = team.goal ?? 0
+        const goalsSuffered = team.sufferedGoal ?? 0
+        const totalMoney = (goalsMade * moneyForGoal) + (goalsSuffered * moneyForSufferedGoal)
+        
+        return {
+          value: `€${totalMoney}`,
+          color: totalMoney >= 0 ? '$green10' : '$red10',
         }
       },
     },
@@ -133,6 +171,10 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   loadingMessage = defaultLoadingMessage,
   refreshLabel = defaultRefreshLabel,
   errorActionLabel = defaultErrorActionLabel,
+  groupId,
+  year,
+  moneyForGoal = 0,
+  moneyForSufferedGoal = 0,
 }) => {
   const { width } = useWindowDimensions()
   const isCompact = width < 600
@@ -143,11 +185,13 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   const showEmpty =
     !showSelectionIncomplete && !showError && !showLoading && rankedTeams.length === 0
 
-  const { columns: statColumns, minWidth: statsMinWidth } = createStatColumns(isCompact)
+  const { columns: statColumns, minWidth: statsMinWidth } = createStatColumns(isCompact, moneyForGoal, moneyForSufferedGoal)
 
-  const positionColumnWidth = 40
-  const teamColumnWidth = isCompact ? 170 : 240
-  const leftColumnWidth = positionColumnWidth + teamColumnWidth + (isCompact ? 12 : 16)
+  // Dimensioni aggiornate per fare spazio al logo
+  const logoSize = isCompact ? 32 : 36
+  const positionColumnWidth = isCompact ? 0 : 40 // Nascosto su mobile
+  const teamColumnWidth = isCompact ? 140 : 200 // Ridotto per fare spazio
+  const leftColumnWidth = positionColumnWidth + logoSize + teamColumnWidth + (isCompact ? 8 : 16) + 8 // +8 per gap tra logo e testo
   const rowMinHeight = isCompact ? 68 : 72
 
   return (
@@ -222,14 +266,25 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
                 paddingHorizontal="$2"
                 paddingBottom="$1"
               >
+                {!isCompact && (
+                  <Text
+                    fontSize="$3"
+                    fontWeight="700"
+                    color="$color10"
+                    width={positionColumnWidth}
+                    textAlign="center"
+                  >
+                    Pos
+                  </Text>
+                )}
                 <Text
                   fontSize="$3"
                   fontWeight="700"
                   color="$color10"
-                  width={positionColumnWidth}
+                  width={logoSize}
                   textAlign="center"
                 >
-                  Pos
+                  {/* Spazio per logo */}
                 </Text>
                 <Text
                   fontSize="$3"
@@ -258,21 +313,28 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
                       borderRadius="$2"
                       minHeight={rowMinHeight}
                     >
-                      <Text
-                        fontSize="$3"
-                        fontWeight="700"
-                        color="$color9"
-                        width={positionColumnWidth}
-                        textAlign="center"
-                      >
-                        {position}
-                      </Text>
+                      {!isCompact && (
+                        <Text
+                          fontSize="$3"
+                          fontWeight="700"
+                          color="$color9"
+                          width={positionColumnWidth}
+                          textAlign="center"
+                        >
+                          {position}
+                        </Text>
+                      )}
+                      {groupId && year && (
+                        <TeamLogo
+                          groupId={groupId}
+                          year={year}
+                          ownerEmail={team.owner}
+                          size={logoSize}
+                        />
+                      )}
                       <YStack width={teamColumnWidth} gap="$1">
                         <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
                           {team.name}
-                        </Text>
-                        <Text fontSize="$2" color="$color10" numberOfLines={1}>
-                          {team.owner}
                         </Text>
                       </YStack>
                     </XStack>

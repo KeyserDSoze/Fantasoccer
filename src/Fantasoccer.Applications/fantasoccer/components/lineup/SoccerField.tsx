@@ -426,7 +426,6 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
         owner: teamToSave.owner,
         additionalOwners: teamToSave.additionalOwners,
         lastUpdate: new Date(),
-        revenueMoney: 0,
         moneyFromRank: 0,
         players: teamToSave.players.map(p => ({
           ...(p.current as any),
