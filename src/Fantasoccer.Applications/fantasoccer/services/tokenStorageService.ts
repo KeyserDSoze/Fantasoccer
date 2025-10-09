@@ -1,27 +1,10 @@
 // Token storage service for managing backend JWT tokens
-import { Platform } from 'react-native'
 import { AppIdentity } from 'types/identity'
 import { create } from 'zustand';
+import { storage } from '../utils/storage'
 
 const TOKEN_KEY = 'fantasoccer_backend_token'
 const USER_KEY = 'fantasoccer_user_info'
-
-// Simple storage adapter used by the store
-const nativeMemoryStore = new Map<string, string>()
-const storageApi = {
-  getItem: async (key: string): Promise<string | null> => {
-    if (Platform.OS === 'web') return localStorage.getItem(key)
-    return nativeMemoryStore.get(key) ?? null
-  },
-  setItem: async (key: string, value: string): Promise<void> => {
-    if (Platform.OS === 'web') return localStorage.setItem(key, value)
-    nativeMemoryStore.set(key, value)
-  },
-  removeItem: async (key: string): Promise<void> => {
-    if (Platform.OS === 'web') return localStorage.removeItem(key)
-    nativeMemoryStore.delete(key)
-  },
-}
 
 export interface StoredTokenData {
   tokenType: string      // "Bearer"
@@ -64,13 +47,13 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
   saveToken: async (tokenData: StoredTokenData) => {
     try {
       const serialized = JSON.stringify(tokenData)
-      await storageApi.setItem(TOKEN_KEY, serialized)
+      await storage.setItem(TOKEN_KEY, serialized)
       set({ tokenData })
       // persist user if present
       if (tokenData.user) {
         try {
           const userSerialized = JSON.stringify(tokenData.user)
-          await storageApi.setItem(USER_KEY, userSerialized)
+          await storage.setItem(USER_KEY, userSerialized)
         } catch {}
       }
     } catch (error) {
@@ -91,7 +74,7 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
 
     loadToken: async () => {
     try {
-      const stored = await storageApi.getItem(TOKEN_KEY)
+      const stored = await storage.getItem(TOKEN_KEY)
       if (!stored) return null
       const tokenData = JSON.parse(stored) as StoredTokenData
 
@@ -134,7 +117,7 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
 
     loadTokenSilent: async () => {
     try {
-      const stored = await storageApi.getItem(TOKEN_KEY)
+      const stored = await storage.getItem(TOKEN_KEY)
       if (!stored) return null
       const tokenData = JSON.parse(stored) as StoredTokenData
       set({ tokenData })
@@ -147,8 +130,8 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
 
   removeToken: async () => {
     try {
-      await storageApi.removeItem(TOKEN_KEY)
-      await storageApi.removeItem(USER_KEY)
+      await storage.removeItem(TOKEN_KEY)
+      await storage.removeItem(USER_KEY)
       set({ tokenData: null })
     } catch (error) {
       console.error('❌ Failed to remove token:', error)
@@ -257,7 +240,7 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
   saveUserInfo: async (user : AppIdentity) => {
     try {
       const s = JSON.stringify(user)
-      await storageApi.setItem(USER_KEY, s)
+      await storage.setItem(USER_KEY, s)
     } catch (error) {
       console.error('❌ Failed to save user info:', error)
     }
@@ -265,7 +248,7 @@ export const useTokenStore = create<TokenStoreState>((set, get) => ({
 
   loadUserInfo: async () => {
     try {
-      const stored = await storageApi.getItem(USER_KEY)
+      const stored = await storage.getItem(USER_KEY)
       if (!stored) return null
       return JSON.parse(stored)
     } catch (error) {
