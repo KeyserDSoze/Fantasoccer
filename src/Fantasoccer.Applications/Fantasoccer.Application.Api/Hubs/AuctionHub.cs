@@ -397,6 +397,12 @@ namespace Fantasoccer.Application.Api.Hubs
                 actualBidder = email;
             }
 
+            if (wrapper.Wrapper.Actual.Owner == actualBidder)
+            {
+                await Clients.Caller.SendAsync("Error", "Sei già il miglior offerente.");
+                return;
+            }
+
             // Find bidder's team
             var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actualBidder);
             if (teamEntity.Key == null || teamEntity.Value == null)
