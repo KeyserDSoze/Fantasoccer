@@ -11,6 +11,7 @@ export interface UseSettingsResult {
   changingTeamName: boolean
   changeTeamNameError: string | null
   changeTeamNameMessages: string[]
+  changeTeamNameProgress: string | null
   changeTeamName: (params: ChangeTeamNameParams) => Promise<boolean>
 
   // Username
@@ -28,6 +29,7 @@ export function useSettings(): UseSettingsResult {
   const [changingTeamName, setChangingTeamName] = useState(false)
   const [changeTeamNameError, setChangeTeamNameError] = useState<string | null>(null)
   const [changeTeamNameMessages, setChangeTeamNameMessages] = useState<string[]>([])
+  const [changeTeamNameProgress, setChangeTeamNameProgress] = useState<string | null>(null)
 
   // Username state
   const [updatingUsername, setUpdatingUsername] = useState(false)
@@ -61,24 +63,39 @@ export function useSettings(): UseSettingsResult {
     setChangingTeamName(true)
     setChangeTeamNameError(null)
     setChangeTeamNameMessages([])
+    setChangeTeamNameProgress(null)
 
     try {
-      const response = await settingsService.changeTeamName(params)
-      setChangeTeamNameMessages(response.messages)
+      // Iterate over streaming messages from the server
+      // settingsService.changeTeamNameStream yields lines as they arrive
+      const stream = settingsService.changeTeamNameStream(params)
+      for await (const line of stream) {
+        // push message into messages
+        setChangeTeamNameMessages((prev) => [...prev, line])
+        setChangeTeamNameProgress(line)
 
-      if (!response.success) {
-        setChangeTeamNameError(response.messages.join(', '))
+        // if server prefixes with error: treat as error and stop
+        if (line.toLowerCase().startsWith('error:')) {
+          const msg = line.substring('error:'.length).trim() || line
+          setChangeTeamNameError(msg)
+          // stop iteration early
+          // Note: generator will continue until server finishes but we can return false now
+          setChangingTeamName(false)
+          return false
+        }
       }
 
-      return response.success
+      // If we have messages but none prefixed with error, success
+      return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto durante il cambio del nome'
       setChangeTeamNameError(errorMessage)
-      setChangeTeamNameMessages([errorMessage])
-      console.error('Error changing team name:', error)
+      setChangeTeamNameMessages((prev) => [...prev, errorMessage])
+      console.error('Error changing team name (stream):', error)
       return false
     } finally {
       setChangingTeamName(false)
+      setChangeTeamNameProgress(null)
     }
   }, [])
 
@@ -115,6 +132,7 @@ export function useSettings(): UseSettingsResult {
     changingTeamName,
     changeTeamNameError,
     changeTeamNameMessages,
+    changeTeamNameProgress,
     changeTeamName,
 
     // Username

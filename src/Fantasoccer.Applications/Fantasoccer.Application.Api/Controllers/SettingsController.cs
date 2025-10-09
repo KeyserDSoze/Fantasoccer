@@ -177,21 +177,6 @@ namespace Fantasoccer.Application.Api.Controllers
                 }
                 for (var i = 1; i <= actualDay; i++)
                 {
-                    yield return $"Aggiornamento squadra giornata {i}";
-                    // Update daily team
-                    var teamDayKey = new TeamDayKey
-                    {
-                        Group = groupId,
-                        BasketId = basketId,
-                        Email = owner,
-                        Year = year,
-                        Day = i,
-                    };
-                    var teamDay = await _teamDayRepository.GetAsync(teamDayKey);
-                    if (teamDay == null)
-                        continue;
-                    teamDay.Name = newName;
-                    await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
                     // Update daily rank for each league where the team is in the basket
                     foreach (var league in allLeagues)
                     {
@@ -220,8 +205,24 @@ namespace Fantasoccer.Application.Api.Controllers
                         if (checkIfNeedsUpdate)
                             await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
                     }
+                    yield return $"Aggiornamento squadra giornata {i}";
+                    // Update daily team
+                    var teamDayKey = new TeamDayKey
+                    {
+                        Group = groupId,
+                        BasketId = basketId,
+                        Email = owner,
+                        Year = year,
+                        Day = i,
+                    };
+                    var teamDay = await _teamDayRepository.GetAsync(teamDayKey);
+                    if (teamDay == null)
+                        continue;
+                    teamDay.Name = newName;
+                    await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
                 }
             }
+            yield return "ok";
         }
         [HttpGet]
         public async ValueTask<bool> UpdateUsernameAsync([FromQuery] string newUsername)

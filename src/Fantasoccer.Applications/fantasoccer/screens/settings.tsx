@@ -36,7 +36,7 @@ export default function SettingsScreen() {
   const currentYear = getActualFantacalcioYear()
 
   // Get user's team info from the group
-  const { group, loading: groupLoading } = useGroup(groupId)
+  const { group, loading: groupLoading, refetch: refetchGroup } = useGroup(groupId)
 
   // Find user's team in the current year's baskets
   const userTeamInfo = useMemo(() => {
@@ -71,6 +71,7 @@ export default function SettingsScreen() {
     changingTeamName,
     changeTeamNameError,
     changeTeamNameMessages,
+    changeTeamNameProgress,
     changeTeamName,
     updatingUsername,
     updateUsernameError,
@@ -155,11 +156,17 @@ export default function SettingsScreen() {
     })
 
     if (success) {
+      // Refresh group so userTeamInfo picks up the new name
+      try {
+        await refetchGroup()
+      } catch (e) {
+        // ignore refetch errors
+      }
       setTeamNameSuccess(true)
       setNewTeamName('')
       setTimeout(() => setTeamNameSuccess(false), 3000)
     }
-  }, [groupId, userTeamInfo, newTeamName, changeTeamName])
+  }, [groupId, userTeamInfo, newTeamName, changeTeamName, refetchGroup])
 
   // Handle username update
   const handleUpdateUsername = useCallback(async () => {
@@ -352,6 +359,13 @@ export default function SettingsScreen() {
                     </Button>
                   </XStack>
 
+                  {changingTeamName && changeTeamNameProgress && (
+                    <XStack alignItems="center" gap="$2" marginTop="$2">
+                      <Spinner size="small" color="$blue10" />
+                      <Text color="$color11">{changeTeamNameProgress}</Text>
+                    </XStack>
+                  )}
+
                   {changeTeamNameError && (
                     <XStack
                       padding="$2"
@@ -382,18 +396,18 @@ export default function SettingsScreen() {
                     </XStack>
                   )}
 
-                  {changeTeamNameMessages.length > 0 && !changeTeamNameError && (
+                  {/* Durante l'operazione mostriamo solo l'ultimo messaggio di progresso (gestito da changeTeamNameProgress)
+                      Dopo il completamento possiamo mostrare l'ultimo messaggio ricevuto se necessario. */}
+                  {!changingTeamName && changeTeamNameMessages.length > 0 && !changeTeamNameError && (
                     <YStack
                       padding="$3"
                       backgroundColor="$blue3"
                       borderRadius="$3"
                       gap="$1"
                     >
-                      {changeTeamNameMessages.map((msg, idx) => (
-                        <Text key={idx} color="$blue11" fontSize="$2">
-                          • {msg}
-                        </Text>
-                      ))}
+                      <Text color="$blue11" fontSize="$2">
+                        {changeTeamNameMessages[changeTeamNameMessages.length - 1]}
+                      </Text>
                     </YStack>
                   )}
                 </YStack>

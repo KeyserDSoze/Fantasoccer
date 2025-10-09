@@ -105,6 +105,72 @@ class SettingsService {
   }
 
   /**
+   * Stream the change team name operation, yielding messages as they arrive from the server.
+   * The server returns newline separated text messages (IAsyncEnumerable on server side).
+   */
+  async *changeTeamNameStream(params: ChangeTeamNameParams): AsyncGenerator<string, void, unknown> {
+    const url = buildApiUrl('/Settings/ChangeTeamName', {
+      groupId: params.groupId,
+      owner: params.owner,
+      newName: params.newName,
+      basketId: params.basketId,
+    })
+
+    const token = await tokenStorageService.getTokenString()
+    const headers = getCommonHeaders(true, token ?? undefined)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    })
+
+    if (!response.ok) {
+      // yield a single error line and return
+      yield `error: ${response.status} ${response.statusText}`
+      return
+    }
+
+    if (!response.body) {
+      // no body to stream
+      const text = await response.text()
+      if (text) {
+        for (const line of text.split('\n').map(l => l.trim()).filter(Boolean)) {
+          yield line
+        }
+      }
+      return
+    }
+
+    const reader = response.body.getReader()
+    const utf8Decoder = new TextDecoder('utf-8')
+    let { value: chunk, done } = await reader.read()
+    let buffer = ''
+
+    while (!done) {
+      buffer += utf8Decoder.decode(chunk, { stream: true })
+      let lines = buffer.split('\n')
+      // keep last partial line in buffer
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.length > 0) {
+          yield trimmed
+        }
+      }
+
+      const readResult = await reader.read()
+      chunk = readResult.value
+      done = readResult.done ?? false
+    }
+
+    // flush remaining buffer
+    if (buffer.trim().length > 0) {
+      yield buffer.trim()
+    }
+  }
+
+  /**
    * Aggiorna lo username dell'utente
    */
   async updateUsername(newUsername: string): Promise<boolean> {
