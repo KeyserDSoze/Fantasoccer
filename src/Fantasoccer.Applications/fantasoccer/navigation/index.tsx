@@ -7,7 +7,7 @@ import CalendarScreen from 'screens/calendar';
 import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
 import GameScreen from 'screens/game';
-import SettingsScreen from 'screens/push-notification';
+import SettingsScreen from 'screens/settings';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
 import MarketScreen from 'screens/market';

@@ -3,6 +3,26 @@
 // in date con il timezone italiano appropriato (UTC+1 o UTC+2)
 
 /**
+ * Calcola l'anno corrente del fantacalcio
+ * L'anno fantacalcio inizia il 10 agosto e finisce il 9 agosto dell'anno successivo
+ * @returns Anno fantacalcio corrente (0 = 2011/2012, 1 = 2012/2013, ecc.)
+ */
+export function getActualFantacalcioYear(): number {
+  const now = new Date();
+  let actualYear = now.getFullYear() - 2011;
+  
+  // Se siamo prima del 10 agosto, siamo ancora nell'anno precedente
+  const month = now.getMonth(); // 0-indexed (0 = gennaio, 7 = agosto)
+  const day = now.getDate();
+  
+  if (month < 7 || (month === 7 && day < 10)) {
+    actualYear--;
+  }
+  
+  return actualYear;
+}
+
+/**
  * Converte una data UTC+0 che contiene già l'orario italiano corretto
  * in una data con il timezone italiano appropriato (UTC+1 o UTC+2)
  * @param utcDateString - Data in formato ISO string UTC+0 che contiene già l'orario italiano
