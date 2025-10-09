@@ -21,6 +21,56 @@ export interface ChangeTeamNameParams {
   basketId: string
 }
 
+/**
+ * JSON Stream Decoder for processing JSON objects as they arrive in chunks
+ */
+class JsonStreamDecoder {
+  private level = 0
+  private partialItem = ''
+  private static JTOKEN_START_OBJECT = '{'
+  private static JTOKEN_END_OBJECT = '}'
+  private static JTOKEN_START_ARRAY = '['
+  private static JTOKEN_END_ARRAY = ']'
+  private decoder = new TextDecoder()
+
+  public decodeChunk<T>(value: Uint8Array, decodedItemCallback: (item: T) => void): void {
+    const chunk = this.decoder.decode(value, { stream: true })
+    let itemStart = 0
+
+    for (let i = 0; i < chunk.length; i++) {
+      const char = chunk[i]
+      
+      if (char === JsonStreamDecoder.JTOKEN_START_OBJECT || char === JsonStreamDecoder.JTOKEN_START_ARRAY) {
+        if (this.level === 0) {
+          itemStart = i
+        }
+        this.level++
+      }
+      
+      if (char === JsonStreamDecoder.JTOKEN_END_OBJECT || char === JsonStreamDecoder.JTOKEN_END_ARRAY) {
+        this.level--
+        if (this.level === 0) {
+          let item = chunk.substring(itemStart, i + 1)
+          if (this.partialItem) {
+            item = this.partialItem + item
+            this.partialItem = ''
+          }
+          try {
+            decodedItemCallback(JSON.parse(item))
+          } catch (e) {
+            // Skip invalid JSON
+            console.warn('Invalid JSON item:', item, e)
+          }
+        }
+      }
+    }
+    
+    if (this.level !== 0) {
+      this.partialItem += chunk.substring(itemStart)
+    }
+  }
+}
+
 class SettingsService {
   /**
    * Carica il logo di una squadra
@@ -106,7 +156,7 @@ class SettingsService {
 
   /**
    * Stream the change team name operation, yielding messages as they arrive from the server.
-   * The server returns newline separated text messages (IAsyncEnumerable on server side).
+   * The server returns JSON objects or newline-separated text messages.
    */
   async *changeTeamNameStream(params: ChangeTeamNameParams): AsyncGenerator<string, void, unknown> {
     const url = buildApiUrl('/Settings/ChangeTeamName', {
@@ -125,86 +175,85 @@ class SettingsService {
     })
 
     if (!response.ok) {
-      // yield a single error line and return
       yield `error: ${response.status} ${response.statusText}`
       return
     }
 
     if (!response.body) {
-      // no body to stream — fallback to reading whole text
+      // Fallback: read entire response as text
       const text = await response.text()
       if (text) {
         const trimmed = text.trim()
-        // If server returned a JSON array of messages, parse and yield each element
-        if (trimmed.startsWith('[')) {
-          try {
-            const arr = JSON.parse(trimmed)
-            if (Array.isArray(arr)) {
-              for (const item of arr) {
-                const s = String(item).trim()
-                if (s) yield s
-              }
-            }
-          } catch (e) {
-            // fallback: split by newline
-            for (const line of trimmed.split('\n').map((l) => l.trim()).filter(Boolean)) {
-              yield line
-            }
-          }
-        } else {
-          for (const line of trimmed.split('\n').map((l) => l.trim()).filter(Boolean)) {
-            yield line
-          }
+        for (const line of trimmed.split('\n').map((l) => l.trim()).filter(Boolean)) {
+          yield line
         }
       }
       return
     }
 
-    const reader = response.body.getReader()
-    const utf8Decoder = new TextDecoder('utf-8')
-    let { value: chunk, done } = await reader.read()
-    let buffer = ''
+    const contentType = response.headers.get('content-type') || ''
+    
+    // Check if response is JSON stream (application/json or text/json)
+    if (contentType.includes('application/json') || contentType.includes('text/json')) {
+      // Use JSON stream decoder for structured JSON objects
+      const reader = response.body.getReader()
+      const decoder = new JsonStreamDecoder()
+      const messages: string[] = []
 
-    while (!done) {
-      buffer += utf8Decoder.decode(chunk, { stream: true })
-      let lines = buffer.split('\n')
-      // keep last partial line in buffer
-      buffer = lines.pop() ?? ''
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if (!value) continue
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed.length > 0) {
-          yield trimmed
+          decoder.decodeChunk<string>(value, (message) => {
+            messages.push(message)
+            // Yield immediately when decoded
+          })
         }
+      } finally {
+        reader.releaseLock()
       }
 
-      const readResult = await reader.read()
-      chunk = readResult.value
-      done = readResult.done ?? false
+      // Yield all decoded messages
+      for (const msg of messages) {
+        yield msg
+      }
+      return
     }
 
-    // flush remaining buffer
-    const finalBuffer = buffer.trim()
-    if (finalBuffer.length > 0) {
-      // If buffer looks like a JSON array, parse it and yield elements separately
-      if (finalBuffer.startsWith('[')) {
-        try {
-          const arr = JSON.parse(finalBuffer)
-          if (Array.isArray(arr)) {
-            for (const item of arr) {
-              const s = String(item).trim()
-              if (s) yield s
-            }
-          } else {
-            yield finalBuffer
+    // Default: treat as text/plain stream (newline-separated)
+    const reader = response.body.getReader()
+    const utf8Decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+
+        buffer += utf8Decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        
+        // Keep last partial line in buffer
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (trimmed.length > 0) {
+            yield trimmed
           }
-        } catch (e) {
-          // parsing failed, yield raw
-          yield finalBuffer
         }
-      } else {
+      }
+
+      // Flush remaining buffer
+      const finalBuffer = buffer.trim()
+      if (finalBuffer.length > 0) {
         yield finalBuffer
       }
+    } finally {
+      reader.releaseLock()
     }
   }
 

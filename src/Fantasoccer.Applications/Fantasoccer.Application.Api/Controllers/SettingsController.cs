@@ -81,88 +81,124 @@ namespace Fantasoccer.Application.Api.Controllers
             return false;
         }
         [HttpGet]
-        public async IAsyncEnumerable<string> ChangeTeamNameAsync([FromQuery] string groupId, [FromQuery] string owner, [FromQuery] string newName, [FromQuery] string basketId)
+        public async Task ChangeTeamNameAsync([FromQuery] string groupId, [FromQuery] string owner, [FromQuery] string newName, [FromQuery] string basketId)
         {
-            // Enable response buffering to allow streaming
+            // Enable response streaming
             Response.Headers["Content-Type"] = "text/plain; charset=utf-8";
             Response.Headers["Cache-Control"] = "no-cache";
             Response.Headers["X-Accel-Buffering"] = "no";
-            
+
+            // Helper method to write and flush a message
+            async Task WriteMessageAsync(string message)
+            {
+                await Response.WriteAsync(message + "\n");
+                await Response.Body.FlushAsync();
+            }
+
             if (string.IsNullOrWhiteSpace(newName) || newName.Length < 3 || newName.Length > 30)
             {
-                yield return "error: Nome non valido.";
-                yield break;
+                await WriteMessageAsync("error: Nome non valido.");
+                return;
             }
             var group = await _groups.GetAsync(groupId);
             var year = FantacalcioTime.ActualYear;
             if (!CheckIsOwner(group!, year, owner, basketId))
             {
-                yield return "error: Non sei owner.";
+                await WriteMessageAsync("error: Non sei owner.");
+                return;
             }
-            else
+            await WriteMessageAsync("Aggiornamento gruppo");
+            var realCalendar = await _realCalendarRepository.GetAsync(year);
+            var actualDay = realCalendar?.NextDay?.SerieADay ?? 0;
+            var allLeagues = group!.Leagues.Where(x => x.BasketsId.Contains(basketId)).ToList();
+            var theBasket = group.Baskets.First(x => x.Id == basketId);
+            var yearlyBasket = theBasket.Years.First(x => x.Year == year);
+            var theTeamFromBasket = yearlyBasket.Teams.First(x => x.Owner == owner);
+            if (string.Equals(theTeamFromBasket.Name, newName, StringComparison.OrdinalIgnoreCase))
             {
-                yield return "Aggiornamento gruppo";
-                var realCalendar = await _realCalendarRepository.GetAsync(year);
-                var actualDay = realCalendar?.NextDay?.SerieADay ?? 0;
-                var allLeagues = group!.Leagues.Where(x => x.BasketsId.Contains(basketId)).ToList();
-                var theBasket = group.Baskets.First(x => x.Id == basketId);
-                var yearlyBasket = theBasket.Years.First(x => x.Year == year);
-                var theTeamFromBasket = yearlyBasket.Teams.First(x => x.Owner == owner);
-                if (string.Equals(theTeamFromBasket.Name, newName, StringComparison.OrdinalIgnoreCase))
-                {
-                    yield return "error: Il nome è lo stesso.";
-                    yield break;
-                }
-                if (yearlyBasket.Teams.Any(x => string.Equals(x.Name, newName, StringComparison.OrdinalIgnoreCase)))
-                {
-                    yield return "error: Nome già usato.";
-                    yield break;
-                }
-                theTeamFromBasket.Name = newName;
-                await _groups.UpdateAsync(groupId, group);
-                yield return "Aggiornamento squadra";
-                // Update team
-                var teamKey = new TeamKey
+                await WriteMessageAsync("error: Il nome è lo stesso.");
+                return;
+            }
+            if (yearlyBasket.Teams.Any(x => string.Equals(x.Name, newName, StringComparison.OrdinalIgnoreCase)))
+            {
+                await WriteMessageAsync("error: Nome già usato.");
+                return;
+            }
+            theTeamFromBasket.Name = newName;
+            await _groups.UpdateAsync(groupId, group);
+            await WriteMessageAsync("Aggiornamento squadra");
+            // Update team
+            var teamKey = new TeamKey
+            {
+                Group = groupId,
+                BasketId = basketId,
+                Email = owner,
+                Year = year
+            };
+            var theTeam = await _teamRepository.GetAsync(teamKey);
+            if (theTeam != null)
+            {
+                theTeam.Name = newName;
+                await _teamRepository.UpdateAsync(teamKey, theTeam);
+            }
+            // Update rank and calendar for each league where the team is in the basket
+            foreach (var league in allLeagues)
+            {
+                await WriteMessageAsync($"Aggiornamento classifica {league.Name}");
+                var leagueKey = new LeagueKey
                 {
                     Group = groupId,
-                    BasketId = basketId,
-                    Email = owner,
-                    Year = year
+                    Year = year,
+                    League = league.Id
                 };
-                var theTeam = await _teamRepository.GetAsync(teamKey);
-                if (theTeam != null)
-                {
-                    theTeam.Name = newName;
-                    await _teamRepository.UpdateAsync(teamKey, theTeam);
-                }
-                // Update rank and calendar for each league where the team is in the basket
-                foreach (var league in allLeagues)
-                {
-                    yield return $"Aggiornamento classifica {league.Name}";
-                    var leagueKey = new LeagueKey
+                var calendar = await _calendarRepository.GetAsync(leagueKey);
+                if (calendar != null)
+                    foreach (var day in calendar.Rounds.SelectMany(x => x.Value))
                     {
-                        Group = groupId,
-                        Year = year,
-                        League = league.Id
-                    };
-                    var calendar = await _calendarRepository.GetAsync(leagueKey);
-                    if (calendar != null)
-                        foreach (var day in calendar.Rounds.SelectMany(x => x.Value))
+                        foreach (var game in day.Games)
                         {
-                            foreach (var game in day.Games)
+                            if (game.HomeOwner == owner)
                             {
-                                if (game.HomeOwner == owner)
-                                {
-                                    game.Home = newName;
-                                }
-                                else if (game.AwayOwner == owner)
-                                {
-                                    game.Away = newName;
-                                }
+                                game.Home = newName;
+                            }
+                            else if (game.AwayOwner == owner)
+                            {
+                                game.Away = newName;
                             }
                         }
-                    yield return $"Aggiornamento calendario {league.Name}";
-                    var rank = await _rankRepository.GetAsync(leagueKey);
+                    }
+                await WriteMessageAsync($"Aggiornamento calendario {league.Name}");
+                var rank = await _rankRepository.GetAsync(leagueKey);
+                if (rank == null)
+                    continue;
+                var checkIfNeedsUpdate = false;
+                foreach (var rankedTeams in rank.RankedTeams)
+                {
+                    foreach (var team in rankedTeams.Value)
+                    {
+                        if (team.Owner == owner)
+                        {
+                            team.Name = newName;
+                            checkIfNeedsUpdate = true;
+                        }
+                    }
+                }
+                if (checkIfNeedsUpdate)
+                    await _rankRepository.UpdateAsync(leagueKey, rank);
+            }
+            for (var i = 1; i <= actualDay; i++)
+            {
+                // Update daily rank for each league where the team is in the basket
+                foreach (var league in allLeagues)
+                {
+                    await WriteMessageAsync($"Aggiornamento classifica incrementale giornata {i} - {league.Name}");
+                    var yearDayLeague = new YearDayLeague
+                    {
+                        Year = year,
+                        Day = i,
+                        League = league.Id
+                    };
+                    var rank = await _dailyRankRepository.GetAsync(yearDayLeague);
                     if (rank == null)
                         continue;
                     var checkIfNeedsUpdate = false;
@@ -178,56 +214,25 @@ namespace Fantasoccer.Application.Api.Controllers
                         }
                     }
                     if (checkIfNeedsUpdate)
-                        await _rankRepository.UpdateAsync(leagueKey, rank);
+                        await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
                 }
-                for (var i = 1; i <= actualDay; i++)
+                await WriteMessageAsync($"Aggiornamento squadra giornata {i}");
+                // Update daily team
+                var teamDayKey = new TeamDayKey
                 {
-                    // Update daily rank for each league where the team is in the basket
-                    foreach (var league in allLeagues)
-                    {
-                        yield return $"Aggiornamento classifica incrementale giornata {i} - {league.Name}";
-                        var yearDayLeague = new YearDayLeague
-                        {
-                            Year = year,
-                            Day = i,
-                            League = league.Id
-                        };
-                        var rank = await _dailyRankRepository.GetAsync(yearDayLeague);
-                        if (rank == null)
-                            continue;
-                        var checkIfNeedsUpdate = false;
-                        foreach (var rankedTeams in rank.RankedTeams)
-                        {
-                            foreach (var team in rankedTeams.Value)
-                            {
-                                if (team.Owner == owner)
-                                {
-                                    team.Name = newName;
-                                    checkIfNeedsUpdate = true;
-                                }
-                            }
-                        }
-                        if (checkIfNeedsUpdate)
-                            await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
-                    }
-                    yield return $"Aggiornamento squadra giornata {i}";
-                    // Update daily team
-                    var teamDayKey = new TeamDayKey
-                    {
-                        Group = groupId,
-                        BasketId = basketId,
-                        Email = owner,
-                        Year = year,
-                        Day = i,
-                    };
-                    var teamDay = await _teamDayRepository.GetAsync(teamDayKey);
-                    if (teamDay == null)
-                        continue;
-                    teamDay.Name = newName;
-                    await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
-                }
+                    Group = groupId,
+                    BasketId = basketId,
+                    Email = owner,
+                    Year = year,
+                    Day = i,
+                };
+                var teamDay = await _teamDayRepository.GetAsync(teamDayKey);
+                if (teamDay == null)
+                    continue;
+                teamDay.Name = newName;
+                await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
             }
-            yield return "ok";
+            await WriteMessageAsync("ok");
         }
         [HttpGet]
         public async ValueTask<bool> UpdateUsernameAsync([FromQuery] string newUsername)
