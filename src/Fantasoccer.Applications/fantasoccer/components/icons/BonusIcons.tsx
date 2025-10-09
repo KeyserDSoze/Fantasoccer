@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text } from 'react-native'
 import { SoccerBallSVG } from '../lineup/icons/SoccerBallSVG'
+import { IconFactory } from 'components/lineup/icons'
 
 interface BonusIconProps {
   size?: number
@@ -65,6 +66,6 @@ export const TeamBonuses: React.FC<TeamBonusesProps> = ({
   <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
     {hasGoodDefense && <GoodDefenseIcon size={iconSize} />}
     {hasGoodPeople && <GoodPeopleIcon size={iconSize} />}
-    {hasOwnGoal && <OwnGoalIcon size={iconSize} />}
+    {hasOwnGoal && <IconFactory type="ownGoal" size={iconSize} /> }
   </View>
 )

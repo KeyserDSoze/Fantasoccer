@@ -16,7 +16,7 @@ import type { Chance } from '../../types/chance'
 import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
-import { AssistSVG, BehaviourCardSVG, SoccerBallSVG } from './icons'
+import { IconFactory } from './icons'
 
 
 // Dimensioni base esportate della PlayerCard per allineare altri componenti (es. badge ruoli panchina)
@@ -29,36 +29,36 @@ export interface PlayerCardProps {
 }
 
 // ============================================
-// CONFIGURAZIONE BONUS/MALUS CON ICONE SVG PERSONALIZZATE
+// CONFIGURAZIONE BONUS/MALUS CON ICONE FACTORY
 // ============================================
 
 // Configurazione per i comportamenti (cartellini)
 const BEHAVIOUR_CONFIG = {
-  [Behaviour.YellowCard]: { color: '#fbbf24', label: 'Cartellino Giallo' },
-  [Behaviour.RedCard]: { color: '#ef4444', label: 'Cartellino Rosso' },
+  [Behaviour.YellowCard]: { type: 'yellowCard' as const, label: 'Cartellino Giallo' },
+  [Behaviour.RedCard]: { type: 'redCard' as const, label: 'Cartellino Rosso' },
   [Behaviour.Nothing]: null
 }
 
-// Configurazione per i bonus/malus con ordine specifico e icone SVG
+// Configurazione per i bonus/malus con ordine specifico usando IconFactory
 const BONUS_MALUS_CONFIG: {
   key: keyof Vote
-  component: React.ComponentType<{ size?: number }>
+  iconType: 'goal' | 'penalty' | 'assist' | 'stoppedPenalty' | 'sufferedGoal' | 'wrongedPenalty' | 'ownGoal'
   label: string
   description: string
   order: number
 }[] = [
-  { key: 'goals', component: () => <SoccerBallSVG primaryColor="#ffffff" secondaryColor="#000000" />, label: 'Gol', description: 'gol segnati', order: 1 },
-  { key: 'penalties', component: () => <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" />, label: 'Rigori', description: 'rigori segnati', order: 2 },
-  { key: 'assists', component: () => <AssistSVG color="#000" />, label: 'Assist', description: 'assist forniti', order: 3 },
-  { key: 'stoppedPenalties', component: () => <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" />, label: 'Parate', description: 'rigori parati', order: 4 },
-  { key: 'sufferedGoals', component: () => <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" />, label: 'Gol Subiti', description: 'gol subiti', order: 5 },
-  { key: 'wrongedPenalties', component: () => <SoccerBallSVG primaryColor="#c113d1ff" secondaryColor="#ffffff" />, label: 'Rig. Sbagliati', description: 'rigori sbagliati', order: 6 },
-  { key: 'ownGoals', component: () => <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" />, label: 'Autogol', description: 'autogol fatti', order: 7 },
+  { key: 'goals', iconType: 'goal', label: 'Gol', description: 'gol segnati', order: 1 },
+  { key: 'penalties', iconType: 'penalty', label: 'Rigori', description: 'rigori segnati', order: 2 },
+  { key: 'assists', iconType: 'assist', label: 'Assist', description: 'assist forniti', order: 3 },
+  { key: 'stoppedPenalties', iconType: 'stoppedPenalty', label: 'Parate', description: 'rigori parati', order: 4 },
+  { key: 'sufferedGoals', iconType: 'sufferedGoal', label: 'Gol Subiti', description: 'gol subiti', order: 5 },
+  { key: 'wrongedPenalties', iconType: 'wrongedPenalty', label: 'Rig. Sbagliati', description: 'rigori sbagliati', order: 6 },
+  { key: 'ownGoals', iconType: 'ownGoal', label: 'Autogol', description: 'autogol fatti', order: 7 },
 ]
 
 // Mappa per le informazioni di chance
 const CHANCE_INFO_MAP = {
-  injury: { icon: AlertTriangle, color: '#ef4444', error: '#ef4444', label: 'Infortunato', text: 'INF' },
+  injury: { icon: AlertTriangle, color: '#c21ed8ff', error: '#c21ed8ff', label: 'Infortunato', text: 'INF' },
   fantagazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Fantagazzetta', text: 'F' },
   gazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Gazzetta', text: 'G' },
   mediaset: { icon: Info, color: '#16a34a', error: '#ef4444',label: 'Mediaset', text: 'M' },
@@ -199,7 +199,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
         const items: React.ReactNode[] = []
         for (let i = 0; i < Math.min(count, 4); i++) { // Max 4 icone per tipo per evitare overflow
           items.push(
-            <bonusConfig.component key={`${bonusConfig.key}-${i}`} size={14} />
+            <IconFactory key={`${bonusConfig.key}-${i}`} type={bonusConfig.iconType} size={14} />
           )
         }
         
@@ -528,7 +528,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           borderColor="#fff"
           elevation={5}
         >
-          <AlertTriangle size={16} color="#fff" />
+          <IconFactory type="injury" size={20} />
         </YStack>
       )}
 
@@ -540,8 +540,8 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           left={6}
           zIndex={24}
         >
-          <BehaviourCardSVG 
-            color={playerBehaviourAndBonus.behaviour.config!.color} 
+          <IconFactory 
+            type={playerBehaviourAndBonus.behaviour.config!.type} 
             size={16}
           />
         </YStack>

@@ -18,7 +18,7 @@ import { GoodDefenseIcon, GoodPeopleIcon, OwnGoalIcon } from 'components/icons/B
 import { IconFactory } from 'components/lineup/icons'
 import { type LivePlayer } from 'types/game'
 import { Behaviour } from 'types/serieA'
-import { ChanceType as ChanceTypeEnum } from 'types/chance'
+import { Chance, ChanceType as ChanceTypeEnum } from 'types/chance'
 import { FantaSoccerRole, PlayerInTeamStatus } from 'types/team'
 
 // Dati di esempio per PlayerCard con voto (post-partita)
@@ -93,12 +93,12 @@ const createExamplePlayerWithChance = (): LivePlayer => ({
     gazzetta: false,
     mediaset: true,
     sky: false,
-    status: ChanceTypeEnum.Normal,
+    status: ChanceTypeEnum.Injury,
+    description: 'Troppo forte per giocare',
     positiveness: 75,
     trend: 4, // Excellent
-    description: null,
     lastGame: null
-  }
+  } as Chance
 } as unknown as LivePlayer)
 
 export default function InfoScreen() {
@@ -252,9 +252,9 @@ export default function InfoScreen() {
                 </XStack>
 
                 <YStack gap="$2" paddingLeft="$2">
-                  <H4 fontSize="$3" color="$color11">📈 Badge Forma (in alto a sinistra, sotto il voto se presente):</H4>
+                  <H4 fontSize="$3" color="$color11">📈 Badge Forma (in alto a sinistra):</H4>
                   <Text fontSize="$2" color="$color10" paddingLeft="$3">
-                    Mostra la forma del giocatore con un numero percentuale (0-100) e una freccia direzionale:
+                    Mostra la forma del giocatore con un numero che può andare da -5 a +25 (in base ai bonus dell'ultima partita) e una freccia direzionale che rappresenta le ultime 5 partite che ha giocato il giocatore:
                   </Text>
                   <YStack gap="$1" paddingLeft="$3">
                     <XStack alignItems="center" gap="$2">
@@ -308,8 +308,8 @@ export default function InfoScreen() {
                       <Text fontSize="$2" color="$color10">Rosso: probabile panchinaro secondo Gazzetta dello Sport</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
-                      <AlertTriangle size={14} color="#ef4444" />
-                      <Text fontSize="$2" color="$color10">Triangolo rosso: giocatore infortunato</Text>
+                      <IconFactory type="injury" size={10} />
+                      <Text fontSize="$2" color="$color10">Triangolo viola: giocatore infortunato</Text>
                     </XStack>
                   </YStack>
                 </YStack>
@@ -338,7 +338,7 @@ export default function InfoScreen() {
                     </Text>
                   </XStack>
                   <XStack alignItems="center" gap="$2">
-                    <OwnGoalIcon size={20} />
+                    <IconFactory type="ownGoal" size={20} />
                     <Text fontSize="$2" color="$color10">
                       <Text fontWeight="600">Autogol</Text>: malus per squadra che ha segnato un autogol decisivo (pallone rosso e bianco)
                     </Text>
@@ -346,7 +346,7 @@ export default function InfoScreen() {
                 </YStack>
 
                 <Text fontSize="$2" color="$color11" fontStyle="italic" paddingLeft="$3">
-                  Nota: l'autogol viene mostrato solo se entrambe le squadre hanno meno di 66 punti e la differenza è di almeno 6 punti.
+                  Nota: l'autogol viene mostrato solo se entrambe le squadre hanno meno di 66 punti e la differenza è di almeno 6 punti. Questa regola può variare in base alla lega e alle opzioni di lega che sono state impostate, puoi vedere la sezione regole per capire come funziona la tua lega.
                 </Text>
               </YStack>
             </Card>

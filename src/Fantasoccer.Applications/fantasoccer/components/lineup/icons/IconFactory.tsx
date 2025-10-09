@@ -2,6 +2,7 @@ import React from 'react'
 import { SoccerBallSVG } from './SoccerBallSVG'
 import { AssistSVG } from './AssistSVG'
 import { BehaviourCardSVG } from './BehaviourCardSVG'
+import { AlertTriangle } from '@tamagui/lucide-icons'
 
 export type IconType =
   | 'goal'
@@ -61,16 +62,16 @@ export const IconFactory: React.FC<IconFactoryProps> = ({ type, size = 16 }) => 
       return <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" size={size} />
 
     case 'yellowCard':
-      // Cartellino giallo - emoji quadrato giallo
-      return <span style={{ fontSize: size }}>🟨</span>
+      // Cartellino giallo - SVG cartellino giallo
+      return <BehaviourCardSVG color="#fbbf24" size={size} />
 
     case 'redCard':
-      // Cartellino rosso - emoji quadrato rosso
-      return <span style={{ fontSize: size }}>🟥</span>
+      // Cartellino rosso - SVG cartellino rosso
+      return <BehaviourCardSVG color="#ef4444" size={size} />
 
     case 'injury':
       // Infortunio - emoji cerotto
-      return <span style={{ fontSize: size }}>🩹</span>
+      return <AlertTriangle size={size} color="#c21ed8ff" />
 
     case 'manOfTheMatch':
       // Migliore in campo - emoji stella
