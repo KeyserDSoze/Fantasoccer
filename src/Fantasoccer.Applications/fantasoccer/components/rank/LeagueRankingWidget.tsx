@@ -272,7 +272,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
                           {team.name}
                         </Text>
                         <Text fontSize="$2" color="$color10" numberOfLines={1}>
-                          Allenatore: {team.owner}
+                          {team.owner}
                         </Text>
                       </YStack>
                     </XStack>
