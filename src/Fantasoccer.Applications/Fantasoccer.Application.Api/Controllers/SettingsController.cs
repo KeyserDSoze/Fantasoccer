@@ -85,14 +85,14 @@ namespace Fantasoccer.Application.Api.Controllers
         {
             if (string.IsNullOrWhiteSpace(newName) || newName.Length < 3 || newName.Length > 30)
             {
-                yield return "Nome non valido.";
+                yield return "error: Nome non valido.";
                 yield break;
             }
             var group = await _groups.GetAsync(groupId);
             var year = FantacalcioTime.ActualYear;
             if (!CheckIsOwner(group!, year, owner, basketId))
             {
-                yield return "Non sei owner.";
+                yield return "error: Non sei owner.";
             }
             else
             {
@@ -105,12 +105,12 @@ namespace Fantasoccer.Application.Api.Controllers
                 var theTeamFromBasket = yearlyBasket.Teams.First(x => x.Owner == owner);
                 if (string.Equals(theTeamFromBasket.Name, newName, StringComparison.OrdinalIgnoreCase))
                 {
-                    yield return "Il nome è lo stesso.";
+                    yield return "error: Il nome è lo stesso.";
                     yield break;
                 }
                 if (yearlyBasket.Teams.Any(x => string.Equals(x.Name, newName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    yield return "Nome già usato.";
+                    yield return "error: Nome già usato.";
                     yield break;
                 }
                 theTeamFromBasket.Name = newName;
@@ -177,7 +177,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 }
                 for (var i = 1; i <= actualDay; i++)
                 {
-                    yield return $"Aggiornamento giornata {i}";
+                    yield return $"Aggiornamento squadra giornata {i}";
                     // Update daily team
                     var teamDayKey = new TeamDayKey
                     {
@@ -195,6 +195,7 @@ namespace Fantasoccer.Application.Api.Controllers
                     // Update daily rank for each league where the team is in the basket
                     foreach (var league in allLeagues)
                     {
+                        yield return $"Aggiornamento classifica incrementale giornata {i} - {league.Name}";
                         var yearDayLeague = new YearDayLeague
                         {
                             Year = year,
