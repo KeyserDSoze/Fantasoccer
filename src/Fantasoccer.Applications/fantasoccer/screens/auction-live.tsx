@@ -805,9 +805,8 @@ export default function AuctionLiveScreen() {
                   {currentSubstitute && (
                     <Text fontSize="$3" color="$orange11" marginTop="$1">
                       Sostituisce: {(() => {
-                        const team = teams.find(t => t.value.owner === currentBidder)
-                        const player = team?.value.players.find(p => p.name === currentSubstitute)
-                        return player?.name || currentSubstitute
+                        const substitutePlayer = auctionState?.realPlayers.find(p => p.key === currentSubstitute)
+                        return substitutePlayer?.name || currentSubstitute
                       })()}
                     </Text>
                   )}
@@ -1138,7 +1137,10 @@ export default function AuctionLiveScreen() {
                 </Text>
                 {currentSubstitute && (
                   <Text fontSize="$2" color="$orange10" fontStyle="italic">
-                    in sostituzione di {currentSubstitute}
+                    in sostituzione di {(() => {
+                      const substitutePlayer = auctionState?.realPlayers.find(p => p.key === currentSubstitute)
+                      return substitutePlayer?.name || currentSubstitute
+                    })()}
                   </Text>
                 )}
               </YStack>
