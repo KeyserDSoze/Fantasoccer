@@ -528,6 +528,46 @@ namespace Fantasoccer.Application.Api.Hubs
             await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
         }
 
+        public async Task ForceNextPlayerAsync(string auctionId, string playerKey)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            {
+                await Clients.Caller.SendAsync("Error", "Only auctioneers can show next player");
+                return;
+            }
+
+            if (wrapper.Wrapper.Status == AuctionStatus.Finished)
+            {
+                await Clients.Caller.SendAsync("Error", "Auction is already finished");
+                return;
+            }
+
+            var nextPlayer = wrapper.RealPlayers!.FirstOrDefault(x => x.Key == playerKey);
+            if (nextPlayer == null)
+            {
+                await Clients.Group(auctionId).SendAsync("Error", $"No player with key {playerKey}");
+                return;
+            }
+
+            // Update auction state
+            wrapper.Wrapper.Actual = new ActualAuction
+            {
+                Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
+                Owner = null,
+                Price = 0,
+                Started = DateTime.UtcNow,
+            };
+            wrapper.Wrapper.LastShow[nextPlayer.Role] = nextPlayer.Key;
+            wrapper.Wrapper.Status = AuctionStatus.InProgress;
+
+            // Broadcast to all participants
+            await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
+        }
+
         public async Task ChangePlayerStatusAsync(string auctionId, string owner, string playerKey, PlayerInTeamStatus status, int? revenue)
         {
             var email = GetUserEmail();
