@@ -94,6 +94,7 @@ export default function AuctionLiveScreen() {
   const [changeStatusType, setChangeStatusType] = useState<number>(0) // PlayerInTeamStatus enum
   const [changeStatusRevenue, setChangeStatusRevenue] = useState<string>('')
   const [playerSearchQuery, setPlayerSearchQuery] = useState('')
+  const [selectedPlayerForForce, setSelectedPlayerForForce] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [tempBlockButtons, setTempBlockButtons] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
@@ -539,6 +540,10 @@ export default function AuctionLiveScreen() {
                 setMySelectedSubstitute(null)
                 setAuctioneerSelectedSubstitute(null)
               }
+              
+              // Reset player search dialog state
+              setPlayerSearchQuery('')
+              setSelectedPlayerForForce('')
               
               resetTimer()
             }
@@ -1943,6 +1948,144 @@ export default function AuctionLiveScreen() {
     )
   }
 
+  // Player Search Dialog Component (Force Next Player)
+  const renderPlayerSearchDialog = () => {
+    if (!auctionState) return null
+    
+    // Filter players by selected role and search query
+    const filteredPlayers = auctionState.realPlayers
+      .filter(p => p.role === selectedRole)
+      .filter(p => {
+        if (!playerSearchQuery) return true
+        const query = playerSearchQuery.toLowerCase()
+        return p.name.toLowerCase().includes(query) || 
+               p.realTeam.name.toLowerCase().includes(query)
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+    
+    return (
+      <Dialog modal open={showPlayerSearchDialog} onOpenChange={setShowPlayerSearchDialog}>
+        <Dialog.Portal>
+          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={600} maxWidth="95%" maxHeight="90%">
+            <Dialog.Title fontSize="$6" fontWeight="700">Cerca Giocatore</Dialog.Title>
+            <Dialog.Description>
+              Seleziona un giocatore specifico per il ruolo: {getRoleLabel(selectedRole)}
+            </Dialog.Description>
+            
+            <YStack gap="$3">
+              <YStack gap="$2">
+                <Label htmlFor="role-select-search" fontSize="$4">Ruolo:</Label>
+                <Select id="role-select-search" value={selectedRole.toString()} onValueChange={(val) => {
+                  setSelectedRole(Number(val) as Role)
+                  setPlayerSearchQuery('')
+                  setSelectedPlayerForForce('')
+                }}>
+                  <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
+                  <Select.Content zIndex={200000}>
+                    <Select.Viewport>
+                      <Select.Item index={0} value={Role.GoalKeeper.toString()}><Select.ItemText>Portiere</Select.ItemText></Select.Item>
+                      <Select.Item index={1} value={Role.Defensor.toString()}><Select.ItemText>Difensore</Select.ItemText></Select.Item>
+                      <Select.Item index={2} value={Role.Midfielder.toString()}><Select.ItemText>Centrocampista</Select.ItemText></Select.Item>
+                      <Select.Item index={3} value={Role.Forward.toString()}><Select.ItemText>Attaccante</Select.ItemText></Select.Item>
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select>
+              </YStack>
+              
+              <YStack gap="$2">
+                <Label htmlFor="player-search-input" fontSize="$4">Cerca per nome:</Label>
+                <Input 
+                  id="player-search-input"
+                  placeholder="Scrivi per cercare..." 
+                  value={playerSearchQuery} 
+                  onChangeText={setPlayerSearchQuery}
+                  size="$4"
+                  autoFocus
+                />
+                <Text fontSize="$2" color="$color10">{filteredPlayers.length} giocatori trovati</Text>
+              </YStack>
+              
+              <ScrollView maxHeight={400}>
+                <YStack gap="$2">
+                  {filteredPlayers.map((player) => (
+                    <Card
+                      key={player.key}
+                      padding="$3"
+                      backgroundColor={selectedPlayerForForce === player.name ? '$blue2' : '$color1'}
+                      borderRadius="$3"
+                      borderWidth="$0.5"
+                      borderColor={selectedPlayerForForce === player.name ? '$blue8' : '$borderColor'}
+                      pressStyle={{ scale: 0.98, opacity: 0.9 }}
+                      cursor="pointer"
+                      onPress={() => setSelectedPlayerForForce(player.name)}
+                    >
+                      <XStack gap="$3" alignItems="center" justifyContent="space-between">
+                        <YStack flex={1}>
+                          <Text fontSize="$4" fontWeight="600" color="$color11">{player.name}</Text>
+                          <Text fontSize="$3" color="$color10">{player.realTeam.name}</Text>
+                        </YStack>
+                        <YStack alignItems="flex-end" gap="$1">
+                          <XStack gap="$2" alignItems="center">
+                            <Text fontSize="$2" color="$color10">Media:</Text>
+                            <Text fontSize="$3" fontWeight="600" color="$color11">{player.average.toFixed(1)}</Text>
+                          </XStack>
+                          <XStack gap="$2" alignItems="center">
+                            <Text fontSize="$2" color="$color10">FM:</Text>
+                            <Text fontSize="$3" fontWeight="600" color="$color11">{player.fantaAverage.toFixed(1)}</Text>
+                          </XStack>
+                        </YStack>
+                      </XStack>
+                    </Card>
+                  ))}
+                  {filteredPlayers.length === 0 && (
+                    <Card padding="$4" backgroundColor="$color2">
+                      <Text fontSize="$3" color="$color10" textAlign="center">
+                        Nessun giocatore trovato
+                      </Text>
+                    </Card>
+                  )}
+                </YStack>
+              </ScrollView>
+            </YStack>
+            
+            <XStack justifyContent="flex-end" gap="$2">
+              <Dialog.Close asChild>
+                <Button variant="outlined" onPress={() => {
+                  setPlayerSearchQuery('')
+                  setSelectedPlayerForForce('')
+                }}>Annulla</Button>
+              </Dialog.Close>
+              <Button 
+                theme="orange" 
+                disabled={!selectedPlayerForForce || loading}
+                onPress={async () => {
+                  if (!selectedPlayerForForce) return
+                  
+                  setLoading(true)
+                  try {
+                    const playerKey = getPlayerKey(selectedPlayerForForce)
+                    await auctionService.forceNextPlayer(auctionId, playerKey)
+                    setShowPlayerSearchDialog(false)
+                    setPlayerSearchQuery('')
+                    setSelectedPlayerForForce('')
+                    toast.show(`✅ ${selectedPlayerForForce} selezionato!`, { variant: 'success' })
+                  } catch (err) {
+                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+              >
+                Seleziona Giocatore
+              </Button>
+            </XStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+    )
+  }
+
   // ============================================
   // MAIN RENDER
   // ============================================
@@ -2005,6 +2148,7 @@ export default function AuctionLiveScreen() {
         {renderTeamDetailDialog()}
         {renderChangeStatusDialog()}
         {renderSubstituteSelectionDialog()}
+        {renderPlayerSearchDialog()}
       </ScreenContent>
     </View>
   )

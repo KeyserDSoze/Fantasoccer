@@ -445,6 +445,11 @@ export class AuctionService {
     await this.hubConnection.invoke('ShowNextPlayerAsync', auctionId, role)
   }
 
+  async forceNextPlayer(auctionId: string, playerKey: string): Promise<void> {
+    if (!this.hubConnection) throw new Error('Not connected to hub')
+    await this.hubConnection.invoke('ForceNextPlayerAsync', auctionId, playerKey)
+  }
+
   /**
    * Assign current player to a team (uses current bid data from backend)
    */
