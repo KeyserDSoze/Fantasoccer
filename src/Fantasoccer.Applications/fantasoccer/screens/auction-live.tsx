@@ -1132,7 +1132,16 @@ export default function AuctionLiveScreen() {
           <>
             <Text fontSize="$4" fontWeight="600" color="$orange11">Aggiudica Giocatore</Text>
             <Card padding="$3" backgroundColor="$orange1">
-              <Text fontSize="$3" color="$orange11">{currentPlayer.name} a {teams.find(t => t.value.owner === currentBidder)?.value.name} per €{currentBid}</Text>
+              <YStack gap="$1">
+                <Text fontSize="$3" color="$orange11">
+                  {currentPlayer.name} a {teams.find(t => t.value.owner === currentBidder)?.value.name} per €{currentBid}
+                </Text>
+                {currentSubstitute && (
+                  <Text fontSize="$2" color="$orange10" fontStyle="italic">
+                    in sostituzione di {currentSubstitute}
+                  </Text>
+                )}
+              </YStack>
             </Card>
             <Button icon={Gavel} theme="green" disabled={loading} onPress={async () => {
               setLoading(true)
