@@ -394,6 +394,12 @@ namespace Fantasoccer.Application.Api.Hubs
                 return;
             }
 
+            if (wrapper.Wrapper.Actual.StartingTime != null && DateTime.UtcNow.Subtract(wrapper.Wrapper.Actual.StartingTime.Value) > TimeSpan.FromSeconds(wrapper.Wrapper.SecondsPerAuction + 2)) //+2 is a window for slow client
+            {
+                await Clients.Caller.SendAsync("Error", "Bidding time for this player has expired");
+                return;
+            }
+
             // Determine who is bidding
             string actualBidder;
             if (IsAuctioneer(wrapper, email) && !string.IsNullOrEmpty(bidderEmail))
@@ -463,7 +469,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 wrapper.Wrapper.Actual.Owner = actualBidder;
                 wrapper.Wrapper.Actual.Substituted = substituted;
                 wrapper.LastUpdate = DateTime.UtcNow;
-
+                wrapper.Wrapper.Actual.StartingTime = DateTime.UtcNow;
                 // Broadcast to all participants
                 await Clients.Group(auctionId).SendAsync("BidPlaced", new
                 {
@@ -777,10 +783,24 @@ namespace Fantasoccer.Application.Api.Hubs
             wrapper.Wrapper.Actual.Owner = null;
             wrapper.Wrapper.Actual.Price = 0;
             wrapper.Wrapper.Actual.Substituted = null;
+            wrapper.Wrapper.Actual.StartingTime = null;
             await Clients.Group(auctionId).SendAsync("CurrentAuctionReset");
         }
         public async Task TimerResetAsync(string auctionId)
         {
+            var email = GetUserEmail();
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper == null || !IsAuctioneer(wrapper, email!))
+            {
+                await Clients.Caller.SendAsync("Error", "Only auctioneers can reset the auction");
+                return;
+            }
+            if (wrapper.Wrapper.Actual == null)
+            {
+                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
+                return;
+            }
+            wrapper.Wrapper.Actual.StartingTime = DateTime.UtcNow;
             await Clients.Group(auctionId).SendAsync("TimerReset");
         }
     }

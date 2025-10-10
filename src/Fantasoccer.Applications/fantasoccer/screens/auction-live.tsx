@@ -383,14 +383,21 @@ export default function AuctionLiveScreen() {
     if (myTeam && currentPlayer.role >= 0) {
       const limit = ROLE_LIMITS[currentPlayer.role] || 0
       const activePlayers = TeamHelper.getActivePlayers(myTeam.value)
-      const currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+      // If there's a selected substitute, exclude it from the count (it will be removed)
+      let currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+      if (mySelectedSubstitute && isRepairAuction()) {
+        const substitutePlayer = activePlayers.find(p => p.name === mySelectedSubstitute && p.role === currentPlayer.role)
+        if (substitutePlayer) {
+          currentCount -= 1 // Exclude the substitute from the count
+        }
+      }
       if (currentCount >= limit) {
         return { disabled: true, reason: `Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)} (${currentCount}/${limit})` }
       }
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel])
+  }, [currentPlayer, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel, mySelectedSubstitute, isRepairAuction])
 
   // Check if auctioneer bidding buttons should be disabled (for selectedTeamForBid)
   const areAuctioneerBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
@@ -409,7 +416,14 @@ export default function AuctionLiveScreen() {
       if (selectedTeam) {
         const limit = ROLE_LIMITS[currentPlayer.role] || 0
         const activePlayers = TeamHelper.getActivePlayers(selectedTeam.value)
-        const currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+        // If there's a selected substitute for auctioneer, exclude it from the count (it will be removed)
+        let currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+        if (auctioneerSelectedSubstitute && isRepairAuction()) {
+          const substitutePlayer = activePlayers.find(p => p.name === auctioneerSelectedSubstitute && p.role === currentPlayer.role)
+          if (substitutePlayer) {
+            currentCount -= 1 // Exclude the substitute from the count
+          }
+        }
         if (currentCount >= limit) {
           return { disabled: true, reason: `${selectedTeam.value.name}: Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)} (${currentCount}/${limit})` }
         }
@@ -417,7 +431,7 @@ export default function AuctionLiveScreen() {
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel, currentBidder])
+  }, [currentPlayer, tempBlockButtons, selectedTeamForBid, teams, getRoleLabel, currentBidder, auctioneerSelectedSubstitute, isRepairAuction])
 
   // ============================================
   // SIGNALR CONNECTION
@@ -1706,53 +1720,158 @@ export default function AuctionLiveScreen() {
                     </Text>
                   </Card>
                 ) : (
-                  <XStack gap="$3" flexWrap="wrap">
-                    {eligiblePlayers.map((player) => (
-                      <Card
-                        key={player.name}
-                        padding="$3"
-                        backgroundColor={currentSelection === player.name ? '$blue2' : '$color1'}
-                        borderRadius="$3"
-                        borderWidth="$0.5"
-                        borderColor={currentSelection === player.name ? '$blue8' : '$borderColor'}
-                        pressStyle={{ scale: 0.98, opacity: 0.9 }}
-                        cursor="pointer"
-                        onPress={() => {
-                          if (isSubstituteSelectionForAuctioneer) {
-                            setAuctioneerSelectedSubstitute(player.name)
-                          } else {
-                            setMySelectedSubstitute(player.name)
-                          }
-                          setShowSubstituteSelectionDialog(false)
-                        }}
-                        flex={1}
-                        minWidth={250}
-                        maxWidth={350}
-                      >
-                        <YStack gap="$2">
-                          <XStack gap="$2" alignItems="center" justifyContent="space-between">
-                            <Text fontSize="$5" fontWeight="700" color="$color11">{player.name}</Text>
-                            {currentSelection === player.name && (
-                              <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2">
-                                <Text fontSize="$2" color="white" fontWeight="700">✓ SELEZIONATO</Text>
+                  <YStack gap="$3">
+                    {eligiblePlayers.map((player) => {
+                      // Get stats from realPlayers using playerKey
+                      const playerKey = getPlayerKey(player.name)
+                      const playerStats = auctionState?.realPlayers.find(p => p.key === playerKey)
+                      
+                      return (
+                        <Card
+                          key={player.name}
+                          padding="$4"
+                          backgroundColor={currentSelection === player.name ? '$blue2' : '$color1'}
+                          borderRadius="$4"
+                          borderWidth="$0.5"
+                          borderColor={currentSelection === player.name ? '$blue8' : '$borderColor'}
+                          pressStyle={{ scale: 0.98, opacity: 0.9 }}
+                          cursor="pointer"
+                          onPress={() => {
+                            if (isSubstituteSelectionForAuctioneer) {
+                              setAuctioneerSelectedSubstitute(player.name)
+                            } else {
+                              setMySelectedSubstitute(player.name)
+                            }
+                            setShowSubstituteSelectionDialog(false)
+                          }}
+                        >
+                          <YStack gap="$3">
+                            <XStack gap="$2" alignItems="center" justifyContent="space-between">
+                              <YStack gap="$1" flex={1}>
+                                <Text fontSize="$6" fontWeight="700" color="$color11">{player.name}</Text>
+                                <Text fontSize="$3" color="$color10">{player.team.name}</Text>
+                              </YStack>
+                              {currentSelection === player.name && (
+                                <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue8" borderRadius="$3">
+                                  <Text fontSize="$3" color="white" fontWeight="700">✓ SELEZIONATO</Text>
+                                </Card>
+                              )}
+                            </XStack>
+                            
+                            <XStack gap="$4" flexWrap="wrap">
+                              <YStack gap="$1">
+                                <Text fontSize="$2" color="$color10">Ruolo</Text>
+                                <Text fontSize="$4" fontWeight="600" color="$color11">{getRoleLabel(player.role)}</Text>
+                              </YStack>
+                              <YStack gap="$1">
+                                <Text fontSize="$2" color="$color10">Prezzo Acquisto</Text>
+                                <Text fontSize="$4" fontWeight="600" color="$color11">€{player.price}</Text>
+                              </YStack>
+                              {player.revenue !== 0 && (
+                                <YStack gap="$1">
+                                  <Text fontSize="$2" color="$color10">Revenue</Text>
+                                  <Text fontSize="$4" fontWeight="600" color={player.revenue > 0 ? '$green11' : '$red11'}>
+                                    {player.revenue > 0 ? '+' : ''}€{player.revenue}
+                                  </Text>
+                                </YStack>
+                              )}
+                              <YStack gap="$1">
+                                <Text fontSize="$2" color="$color10">Costo Effettivo</Text>
+                                <Text fontSize="$4" fontWeight="600" color="$color11">€{player.price + player.revenue}</Text>
+                              </YStack>
+                            </XStack>
+
+                            {playerStats && (
+                              <>
+                                <Separator />
+                                <YStack gap="$2">
+                                  <Text fontSize="$3" fontWeight="600" color="$color11">Statistiche Stagione</Text>
+                                  <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
+                                    <YStack gap="$1" minWidth={80}>
+                                      <Text fontSize="$2" color="$color10">Media Voto</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">
+                                        {playerStats.average?.toFixed(2) || 'N/A'}
+                                      </Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={80}>
+                                      <Text fontSize="$2" color="$color10">Fantamedia</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">
+                                        {playerStats.fantaAverage?.toFixed(2) || 'N/A'}
+                                      </Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={80}>
+                                      <Text fontSize="$2" color="$color10">Partite</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.withVote || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={80}>
+                                      <Text fontSize="$2" color="$color10">Senza Voto</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.withoutVote || 0}</Text>
+                                    </YStack>
+                                  </XStack>
+                                </YStack>
+
+                                <Separator />
+
+                                <YStack gap="$2">
+                                  <Text fontSize="$3" fontWeight="600" color="$color11">Eventi</Text>
+                                  <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Gol</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.goals || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Rigori</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.penalties || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Assist</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.assists || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Rig. Parati</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.stoppedPenalties || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Gol Subiti</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.sufferedGoals || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Rig. Sbag.</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.wrongedPenalties || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Autogol</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.ownGoals || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Ammon.</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.yellowCards || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">Espuls.</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.redCards || 0}</Text>
+                                    </YStack>
+                                    <YStack gap="$1" minWidth={60}>
+                                      <Text fontSize="$2" color="$color10">MVP</Text>
+                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.manOfTheMatch || 0}</Text>
+                                    </YStack>
+                                  </XStack>
+                                </YStack>
+                              </>
+                            )}
+
+                            {!playerStats && (
+                              <Card padding="$2" backgroundColor="$orange1" marginTop="$2">
+                                <Text fontSize="$2" color="$orange11" textAlign="center">
+                                  ℹ️ Statistiche non disponibili per questo giocatore
+                                </Text>
                               </Card>
                             )}
-                          </XStack>
-                          <Text fontSize="$3" color="$color10">{player.team.name}</Text>
-                          <XStack gap="$3" flexWrap="wrap">
-                            <YStack gap="$1">
-                              <Text fontSize="$2" color="$color10">Ruolo</Text>
-                              <Text fontSize="$3" fontWeight="600" color="$color11">{getRoleLabel(player.role)}</Text>
-                            </YStack>
-                            <YStack gap="$1">
-                              <Text fontSize="$2" color="$color10">Prezzo</Text>
-                              <Text fontSize="$3" fontWeight="600" color="$color11">€{player.price}</Text>
-                            </YStack>
-                          </XStack>
-                        </YStack>
-                      </Card>
-                    ))}
-                  </XStack>
+                          </YStack>
+                        </Card>
+                      )
+                    })}
+                  </YStack>
                 )}
               </YStack>
             </ScrollView>

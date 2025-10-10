@@ -90,6 +90,8 @@ namespace Fantasoccer.Domain
         public string? Substituted { get; set; }
         [JsonPropertyName("p")]
         public int Price { get; set; }
+        [JsonPropertyName("t")]
+        public DateTime? StartingTime { get; set; }
     }
     public sealed class AuctionWin
     {
