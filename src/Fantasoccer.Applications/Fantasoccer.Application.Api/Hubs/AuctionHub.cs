@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Threading.Concurrent;
 using Fantasoccer.Business;
+using Fantasoccer.Business.Services;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -14,13 +15,16 @@ namespace Fantasoccer.Application.Api.Hubs
     {
         private readonly AuctionHubService _auctionHubService;
         private readonly IRepository<AppIdentity, string> _identityRepository;
+        private readonly EncryptionService _encryptionService;
         private readonly IRepository<Team, TeamKey> _team;
         public AuctionHub(AuctionHubService auctionHubService,
             IRepository<AppIdentity, string> identityRepository,
+            EncryptionService encryptionService,
             IRepository<Team, TeamKey> team)
         {
             _auctionHubService = auctionHubService;
             _identityRepository = identityRepository;
+            _encryptionService = encryptionService;
             _team = team;
         }
         private sealed class ConcurrencyResponse
@@ -126,22 +130,16 @@ namespace Fantasoccer.Application.Api.Hubs
         }
         private StatPlayer? GetNextPlayer(AuctionHubWrapper auctionWrapper, Role role)
         {
-            if (auctionWrapper?.Wrapper?.LastShow == null || auctionWrapper.RealPlayers == null)
+            if (auctionWrapper.RealPlayers == null)
                 return null;
 
-            var lastNameFound = auctionWrapper.Wrapper.LastShow[role];
-            var foundPrevious = lastNameFound == null;
             foreach (var player in auctionWrapper.Wrapper.ListOfPlayers[role])
             {
-                if (foundPrevious)
+                if (!player.IsShowed)
                 {
-                    var realPlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == player);
-                    auctionWrapper.Wrapper.LastShow[role] = player;
-                    return realPlayer;
-                }
-                if (player == lastNameFound)
-                {
-                    foundPrevious = true;
+                    player.IsShowed = true;
+                    var playerKey = _encryptionService.Decrypt(player.EncryptedKey);
+                    return auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == playerKey);
                 }
             }
             return null;
@@ -209,9 +207,6 @@ namespace Fantasoccer.Application.Api.Hubs
                     if (!canAccessResult.CanAccess)
                         return new ConcurrencyResponse(false, "You don't have access to this auction");
 
-                    // Add user to SignalR group
-                    await Groups.AddToGroupAsync(Context.ConnectionId, auctionId);
-
                     // Add to participants if not already there
                     if (!canAccessResult.IsViewer && !wrapper.Wrapper.Participants.Any(x => x.Owner == email))
                     {
@@ -236,7 +231,10 @@ namespace Fantasoccer.Application.Api.Hubs
             // Notify others (fire-and-forget to avoid blocking)
             var check = concurrencyResponse?.IsOk == true;
             if (check)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, auctionId);
                 _ = Clients.OthersInGroup(auctionId).SendAsync("UserJoined", email);
+            }
             else
                 await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
             return check;
@@ -416,33 +414,33 @@ namespace Fantasoccer.Application.Api.Hubs
         /// <summary>
         /// AUCTIONEER: Show next player for bidding
         /// </summary>
-        public async Task ShowNextPlayerAsync(string auctionId, Role role)
+        public async Task ShowNextPlayerAsync(string auctionId, Role role, string? forcedPlayerKey = null)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
             {
                 if (wrapper == null || !IsAuctioneer(wrapper, email))
                 {
-                    return new ConcurrencyResponse(false, "Only auctioneers can show next player");
+                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneers can show next player"));
                 }
 
                 if (wrapper.Wrapper.Status == AuctionStatus.Finished)
                 {
-                    return new ConcurrencyResponse(false, "Auction is already finished");
+                    return Task.FromResult(new ConcurrencyResponse(false, "Auction is already finished"));
                 }
 
-                var nextPlayer = GetNextPlayer(wrapper, role);
+                var nextPlayer = forcedPlayerKey != null ? wrapper.RealPlayers!.FirstOrDefault(x => x.Key == forcedPlayerKey) : GetNextPlayer(wrapper, role);
                 if (nextPlayer == null)
                 {
-                    return new ConcurrencyResponse(false, $"No more players for role {role}");
+                    return Task.FromResult(new ConcurrencyResponse(false, $"No more players for role {role}"));
                 }
 
                 // Update auction state
                 wrapper.Wrapper.Actual = new ActualAuction
                 {
-                    Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
+                    Player = nextPlayer ?? throw new InvalidOperationException("Player not found"),
                     Owner = null,
                     Price = 0,
                     Started = DateTime.UtcNow
@@ -450,7 +448,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 wrapper.Wrapper.LastShow[role] = nextPlayer.Key;
                 wrapper.Wrapper.Status = AuctionStatus.InProgress;
 
-                return new ConcurrencyResponse(true, wrapper.Wrapper.Actual);
+                return Task.FromResult(new ConcurrencyResponse(true, wrapper.Wrapper.Actual));
             });
             // Broadcast to all participants
             if (concurrencyResponse?.IsOk == true)

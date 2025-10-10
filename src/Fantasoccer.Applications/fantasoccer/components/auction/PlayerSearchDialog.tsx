@@ -125,13 +125,13 @@ export function PlayerSearchDialog({
                   <Card
                     key={player.key}
                     padding="$3"
-                    backgroundColor={selectedPlayerForForce === player.name ? '$blue2' : '$color1'}
+                    backgroundColor={selectedPlayerForForce === player.key ? '$blue2' : '$color1'}
                     borderRadius="$3"
                     borderWidth="$0.5"
-                    borderColor={selectedPlayerForForce === player.name ? '$blue8' : '$borderColor'}
+                    borderColor={selectedPlayerForForce === player.key ? '$blue8' : '$borderColor'}
                     pressStyle={{ scale: 0.98, opacity: 0.9 }}
                     cursor="pointer"
-                    onPress={() => onSelectedPlayerForForceChange(player.name)}
+                    onPress={() => onSelectedPlayerForForceChange(player.key)}
                   >
                     <XStack gap="$3" alignItems="center" justifyContent="space-between">
                       <YStack flex={1}>

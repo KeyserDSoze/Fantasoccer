@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Fantasoccer.Business;
+using Fantasoccer.Business.Services;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,19 +17,21 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<AuctionWrapper, string> _auctionRepository;
         private readonly IRepository<AppIdentity, string> _identityRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
-
+        private readonly EncryptionService _encryptionService;
         private readonly IRepository<RealPlayersWrapper, int> _realPlayers;
         private readonly IRepository<Team, TeamKey> _team;
         private IRepository<Group, string> Groups { get; }
         public AuctionController(AuctionHubService auctionHubService, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
             IHttpContextAccessor httpContextAccessor,
+            EncryptionService encryptionService,
             IRepository<RealPlayersWrapper, int> realPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups)
         {
             _auctionHubService = auctionHubService;
             _auctionRepository = auctionRepository;
             _identityRepository = identityRepository;
             _httpContextAccessor = httpContextAccessor;
+            _encryptionService = encryptionService;
             _realPlayers = realPlayers;
             _team = team;
             Groups = groups;
@@ -82,9 +85,9 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             return string.Empty;
         }
-        private async Task<Dictionary<Role, List<string>>> GetListOfPlayers(AuctionType auctionType, Group group, string leagueKey)
+        private async Task<Dictionary<Role, List<PlayerForAuction>>> GetListOfPlayers(AuctionType auctionType, Group group, string leagueKey)
         {
-            Dictionary<Role, List<string>> players = [];
+            Dictionary<Role, List<PlayerForAuction>> players = [];
             var league = group.GetAnnualLeague(leagueKey, FantacalcioTime.ActualYear);
             var leagueWrapper = group.Leagues.FirstOrDefault(x => x.Id == leagueKey);
             if (league != null && leagueWrapper != null)
@@ -118,7 +121,9 @@ namespace Fantasoccer.Application.Api.Controllers
                     players = allPlayers.Players
                         .Where(x => x.Role != Role.Undefined)
                         .GroupBy(x => x.Role)
-                        .ToDictionary(x => x.Key, x => x.Select(t => t.Key).Where(x => !teams.SelectMany(t => t.Players).Any(q => q.Key == x)).ToList());
+                        .ToDictionary(x => x.Key, x => x.Select(t => t.Key)
+                        .Where(x => !teams.SelectMany(t => t.Players).Any(q => q.Key == x))
+                        .Select(x => new PlayerForAuction { EncryptedKey = _encryptionService.Encrypt(x), IsShowed = false }).ToList());
                 }
                 else if (auctionType == AuctionType.RandomByLetter)
                 {
@@ -140,7 +145,7 @@ namespace Fantasoccer.Application.Api.Controllers
                             var letter = letters[(startIndex + i) % letters.Length];
                             orderedList.AddRange(listForRole.Where(x => x.Name.StartsWith(letter.ToString(), StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key));
                         }
-                        players.Add(role, orderedList);
+                        players.Add(role, orderedList.Select(x => new PlayerForAuction { EncryptedKey = _encryptionService.Encrypt(x), IsShowed = false }).ToList());
                     }
                 }
                 else if (auctionType == AuctionType.RandomList)
@@ -154,7 +159,9 @@ namespace Fantasoccer.Application.Api.Controllers
                         .ThenBy(x => RandomNumberGenerator.GetInt32(0, int.MaxValue))
                         .ToList();
                     players = randomizedPlayers.GroupBy(x => x.Role)
-                        .ToDictionary(x => x.Key, x => x.Select(t => t.Key).Where(x => !teams.SelectMany(t => t.Players).Any(q => q.Key == x)).ToList());
+                        .ToDictionary(x => x.Key, x => x.Select(t => t.Key).Where(x => !teams.SelectMany(t => t.Players).Any(q => q.Key == x))
+                        .Select(x => new PlayerForAuction { EncryptedKey = _encryptionService.Encrypt(x), IsShowed = false })
+                        .ToList());
                 }
             }
             return players;

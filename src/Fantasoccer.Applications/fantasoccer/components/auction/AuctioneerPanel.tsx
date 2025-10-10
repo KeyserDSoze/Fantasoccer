@@ -94,10 +94,10 @@ export function AuctioneerPanel({
   
   const renderAuctioneerBidding = () => {
     const bidStatus = areAuctioneerBidButtonsDisabled()
-    const isDisabled = bidStatus.disabled
+    const isDisabled = !currentPlayer || bidStatus.disabled
     
     return (
-      <YStack gap="$3">
+      <YStack gap="$3" opacity={!currentPlayer ? 0.5 : 1}>
         {!currentPlayer && (
           <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
             <Text fontSize="$3" color="$orange11" textAlign="center">
@@ -106,67 +106,64 @@ export function AuctioneerPanel({
           </Card>
         )}
         
-        {currentPlayer && (
-          <>
-            <YStack gap="$2">
-              <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
-              <Select id="team-select" value={selectedTeamForBid} onValueChange={onSelectedTeamForBidChange}>
-                <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
-                <Select.Content zIndex={200000}>
-                  <Select.Viewport>
-                    {teams.map((team, idx) => (
-                      <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
-                        <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
-                      </Select.Item>
-                    ))}
-                  </Select.Viewport>
-                </Select.Content>
-              </Select>
-              {selectedTeamForBid && (
-                <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-                  <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
-                </Card>
-              )}
-            </YStack>
-            <Separator />
-            {isRepairAuction && selectedTeamForBid && (
-              <Button 
-                icon={Users} 
-                size="$5" 
-                theme={auctioneerSelectedSubstitute ? "green" : "orange"} 
-                variant="outlined" 
-                onPress={onSelectSubstitute}
-              >
-                {auctioneerSelectedSubstitute 
-                  ? `Sostituisce: ${teams.find(t => t.value.owner === selectedTeamForBid)?.value.players.find(p => p.name === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}` 
-                  : 'Seleziona giocatore da sostituire'}
-              </Button>
-            )}
-            <Separator />
-            <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
-              <XStack gap="$2">
-                <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(1, true)} disabled={isDisabled}>
-                  <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
-                </Button>
-              </XStack>
-              <XStack gap="$2">
-                <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(2, true)} disabled={isDisabled}>
-                  <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
-                </Button>
-                <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(3, true)} disabled={isDisabled}>
-                  <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
-                </Button>
-                <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(5, true)} disabled={isDisabled}>
-                  <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
-                </Button>
-              </XStack>
-            </YStack>
-            {bidStatus.reason && (
-              <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
-                <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
-              </Card>
-            )}
-          </>
+        <YStack gap="$2">
+          <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
+          <Select id="team-select" value={selectedTeamForBid} onValueChange={onSelectedTeamForBidChange}>
+            <Select.Trigger iconAfter={ChevronDown} disabled={!currentPlayer}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
+            <Select.Content zIndex={200000}>
+              <Select.Viewport>
+                {teams.map((team, idx) => (
+                  <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                    <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select>
+          {selectedTeamForBid && (
+            <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
+              <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
+            </Card>
+          )}
+        </YStack>
+        <Separator />
+        {isRepairAuction && selectedTeamForBid && (
+          <Button 
+            icon={Users} 
+            size="$5" 
+            theme={auctioneerSelectedSubstitute ? "green" : "orange"} 
+            variant="outlined" 
+            onPress={onSelectSubstitute}
+            disabled={!currentPlayer}
+          >
+            {auctioneerSelectedSubstitute 
+              ? `Sostituisce: ${teams.find(t => t.value.owner === selectedTeamForBid)?.value.players.find(p => p.name === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}` 
+              : 'Seleziona giocatore da sostituire'}
+          </Button>
+        )}
+        <Separator />
+        <YStack gap="$2">
+          <XStack gap="$2">
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(1, true)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
+            </Button>
+          </XStack>
+          <XStack gap="$2">
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(2, true)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(3, true)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
+            </Button>
+            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => onIncrementBid(5, true)} disabled={isDisabled}>
+              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
+            </Button>
+          </XStack>
+        </YStack>
+        {currentPlayer && bidStatus.reason && (
+          <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
+            <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
+          </Card>
         )}
       </YStack>
     )

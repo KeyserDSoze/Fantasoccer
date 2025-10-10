@@ -192,12 +192,6 @@ export class AuctionService {
       await this.cleanup()
     }
 
-    // Get fresh token
-    const token = await tokenStorageService.forceRefreshToken()
-    if (!token) {
-      throw new Error('Failed to obtain authentication token')
-    }
-
     // Build hub URL
     const apiConfig = await import('../configurations/apiConfig').then(m => m.getApiConfig())
     const hubUrl = `${apiConfig.baseUrl}/auctionhub`
@@ -209,13 +203,14 @@ export class AuctionService {
       .withUrl(hubUrl, {
         accessTokenFactory: async () => {
           // This is called on EVERY connection attempt (initial + reconnections)
-          console.log('🔑 accessTokenFactory called - refreshing token...')
-          const freshToken = await tokenStorageService.forceRefreshToken()
-          if (!freshToken) {
-            console.error('❌ Token refresh failed in accessTokenFactory')
+          // Use ensureValidToken to avoid unnecessary refreshes
+          console.log('🔑 accessTokenFactory called - ensuring valid token...')
+          const token = await tokenStorageService.ensureValidToken()
+          if (!token) {
+            console.error('❌ Token not available in accessTokenFactory')
             throw new Error('Authentication token not available')
           }
-          return freshToken
+          return token
         },
       })
       .withAutomaticReconnect({
@@ -601,13 +596,13 @@ export class AuctionService {
   /**
    * Show next player for the given role
    */
-  async showNextPlayer(auctionId: string, role: Role): Promise<void> {
+  async showNextPlayer(auctionId: string, role: Role, forcedPlayerKey?: string | null): Promise<void> {
     this.ensureConnected()
-    
-    console.log('📨 Invoking ShowNextPlayerAsync:', { auctionId, role })
-    
+
+    console.log('📨 Invoking ShowNextPlayerAsync:', { auctionId, role, forcedPlayerKey })
+
     try {
-      await this.hubConnection!.invoke('ShowNextPlayerAsync', auctionId, role)
+      await this.hubConnection!.invoke('ShowNextPlayerAsync', auctionId, role, forcedPlayerKey)
       console.log('✅ ShowNextPlayerAsync invoked')
     } catch (error) {
       console.error('❌ ShowNextPlayerAsync failed:', error)

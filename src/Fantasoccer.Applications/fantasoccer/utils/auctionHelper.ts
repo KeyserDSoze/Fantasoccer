@@ -83,3 +83,35 @@ export const getPlayerStatusColor = (status: number): string => {
   }
   return colors[status] || '$gray11'
 }
+
+/**
+ * Riproduce un suono di notifica per le offerte (solo web)
+ * Utilizza Web Audio API per generare un suono a due toni
+ */
+export const playBidSound = (audioContext: AudioContext | null, enabled: boolean): void => {
+  if (!enabled || !audioContext) return
+  
+  const now = audioContext.currentTime
+  
+  // Primo tono (800 Hz)
+  const oscillator1 = audioContext.createOscillator()
+  const gainNode1 = audioContext.createGain()
+  oscillator1.connect(gainNode1)
+  gainNode1.connect(audioContext.destination)
+  oscillator1.frequency.value = 800
+  gainNode1.gain.setValueAtTime(0.3, now)
+  gainNode1.gain.exponentialRampToValueAtTime(0.01, now + 0.1)
+  oscillator1.start(now)
+  oscillator1.stop(now + 0.1)
+  
+  // Secondo tono (1000 Hz)
+  const oscillator2 = audioContext.createOscillator()
+  const gainNode2 = audioContext.createGain()
+  oscillator2.connect(gainNode2)
+  gainNode2.connect(audioContext.destination)
+  oscillator2.frequency.value = 1000
+  gainNode2.gain.setValueAtTime(0.3, now + 0.1)
+  gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
+  oscillator2.start(now + 0.1)
+  oscillator2.stop(now + 0.2)
+}

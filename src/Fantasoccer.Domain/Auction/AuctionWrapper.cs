@@ -84,6 +84,13 @@ namespace Fantasoccer.Domain
         InProgress,
         Finished
     }
+    public sealed class PlayerForAuction
+    {
+        [JsonPropertyName("k")]
+        public required string EncryptedKey { get; set; }
+        [JsonPropertyName("i")]
+        public required bool IsShowed { get; set; }
+    }
     public sealed class AuctionWrapper
     {
         [JsonPropertyName("i")]
@@ -105,7 +112,7 @@ namespace Fantasoccer.Domain
         [JsonPropertyName("s")]
         public AuctionStatus Status { get; set; }
         [JsonPropertyName("p")]
-        public Dictionary<Role, List<string>> ListOfPlayers { get; set; } = new();
+        public Dictionary<Role, List<PlayerForAuction>> ListOfPlayers { get; set; } = [];
         /// <summary>
         /// Here we put the connected participants use to inform who can bid
         /// </summary>

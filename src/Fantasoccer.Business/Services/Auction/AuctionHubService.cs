@@ -32,7 +32,8 @@ namespace Fantasoccer.Business
         }
         public async ValueTask ExecuteOperationAsync(string auctionId, Action<AuctionHubWrapper> concurrentAction)
         {
-            if (_auctions.TryGetValue(auctionId, out var wrapper))
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper != null)
             {
                 await _lock.ExecuteAsync(() =>
                 {
@@ -44,7 +45,8 @@ namespace Fantasoccer.Business
         public async Task<TResult?> ExecuteOperationAsync<TResult>(string auctionId, Func<AuctionHubWrapper, Task<TResult>> concurrentFunc)
         {
             TResult? result = default;
-            if (_auctions.TryGetValue(auctionId, out var wrapper))
+            var wrapper = await GetCurrentWrapperAsync(auctionId);
+            if (wrapper != null)
             {
                 await _lock.ExecuteAsync(async () =>
                 {

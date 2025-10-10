@@ -1,5 +1,6 @@
 ﻿using Fantasoccer.Business.Authorization;
 using Fantasoccer.Business.IngestionData;
+using Fantasoccer.Business.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,6 +28,7 @@ namespace Fantasoccer.Business
                 x.RefreshTokenExpiration = TimeSpan.FromDays(100);
             });
             services.AddSingleton<AuctionHubService>();
+            services.AddSingleton<EncryptionService>();
             services.AddFactory<IFormationParser, Fantagazzetta>(nameof(Fantagazzetta));
             services.AddFactory<IFormationParser, Gazzetta>(nameof(Gazzetta));
             services.AddFactory<IFormationParser, Injury>(nameof(Injury));

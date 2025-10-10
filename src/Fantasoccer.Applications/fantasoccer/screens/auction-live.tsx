@@ -37,8 +37,7 @@ import {
   getRoleLabel, 
   getAuctionStatusLabel as getStatusLabel, 
   getAuctionStatusColor as getStatusColor,
-  getPlayerStatusLabel,
-  getPlayerStatusColor
+  playBidSound as playBidSoundUtil
 } from 'utils/auctionHelper'
 import { 
   AuctioneerPanel, 
@@ -102,7 +101,6 @@ export default function AuctionLiveScreen() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
   const [selectedTeamForBid, setSelectedTeamForBid] = useState<string>('')
-  const [assignPrice, setAssignPrice] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)
   const [isCustomBidFromAuctioneer, setIsCustomBidFromAuctioneer] = useState(false) // Track if custom bid is from auctioneer panel
   const [showPlayerSearchDialog, setShowPlayerSearchDialog] = useState(false)
@@ -130,29 +128,9 @@ export default function AuctionLiveScreen() {
     }
   }, [])
 
-
   const playBidSound = useCallback(() => {
-    if (!audioEnabled || Platform.OS !== 'web' || !audioContextRef.current) return
-    const audioContext = audioContextRef.current
-    const now = audioContext.currentTime
-    const oscillator1 = audioContext.createOscillator()
-    const gainNode1 = audioContext.createGain()
-    oscillator1.connect(gainNode1)
-    gainNode1.connect(audioContext.destination)
-    oscillator1.frequency.value = 800
-    gainNode1.gain.setValueAtTime(0.3, now)
-    gainNode1.gain.exponentialRampToValueAtTime(0.01, now + 0.1)
-    oscillator1.start(now)
-    oscillator1.stop(now + 0.1)
-    const oscillator2 = audioContext.createOscillator()
-    const gainNode2 = audioContext.createGain()
-    oscillator2.connect(gainNode2)
-    gainNode2.connect(audioContext.destination)
-    oscillator2.frequency.value = 1000
-    gainNode2.gain.setValueAtTime(0.3, now + 0.1)
-    gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
-    oscillator2.start(now + 0.1)
-    oscillator2.stop(now + 0.2)
+    if (Platform.OS !== 'web') return
+    playBidSoundUtil(audioContextRef.current, audioEnabled)
   }, [audioEnabled])
 
   const vibrateOnBid = useCallback(() => {
@@ -466,13 +444,25 @@ export default function AuctionLiveScreen() {
   
   useEffect(() => {
     if (!user?.email) {
+      console.log('⏸️ Connection useEffect skipped - no user email')
       return
     }
     
-    // Prevent multiple simultaneous connection attempts
-    if (connectionAttemptedRef.current || isConnectingRef.current) {
-      return
+    // Reset refs at the start of each effect run to allow reconnection
+    // This fixes hot reload issues where refs persist between module reloads
+    const wasAttempted = connectionAttemptedRef.current
+    const wasConnecting = isConnectingRef.current
+    
+    if (wasAttempted || wasConnecting) {
+      console.log('🔄 Resetting connection refs for new attempt', {
+        wasAttempted,
+        wasConnecting
+      })
+      connectionAttemptedRef.current = false
+      isConnectingRef.current = false
     }
+    
+    console.log('🚀 Connection useEffect starting...', { auctionId, userEmail: user.email })
     
     let isSubscribed = true
     
@@ -481,6 +471,7 @@ export default function AuctionLiveScreen() {
     const connectAndJoin = async () => {
       // Double-check to prevent race conditions
       if (isConnectingRef.current) {
+        console.log('⏸️ Already connecting, skipping...')
         return
       }
       
@@ -488,6 +479,15 @@ export default function AuctionLiveScreen() {
       connectionAttemptedRef.current = true
       
       try {
+        // CRITICAL: Disconnect any existing connection before attempting new one
+        // This fixes hot reload issues where old connection lingers
+        if (auctionService.isConnected()) {
+          console.log('🔌 Disconnecting existing connection before reconnecting...')
+          await auctionService.disconnect()
+          // Small delay to ensure cleanup
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        
         // Setup event handlers BEFORE connecting
         auctionService.setEventHandlers({
           onConnected: (connectionId) => {
@@ -585,7 +585,6 @@ export default function AuctionLiveScreen() {
               setCurrentBidder(null)
               setCurrentSubstitute(null)
               // Don't reset selectedTeamForBid - auctioneer keeps working with same team
-              setAssignPrice('')
               resetTimer()
             }
           },
@@ -731,11 +730,11 @@ export default function AuctionLiveScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auctionId, user?.email, connectionTrigger])
 
+
+
   // ============================================
   // RENDER COMPONENTS
   // ============================================
-
- 
 
   // Current Player Card Component
   const renderCurrentPlayer = () => {
@@ -1065,11 +1064,10 @@ export default function AuctionLiveScreen() {
           
           setLoading(true)
           try {
-            await auctionService.showNextPlayer(auctionId, selectedRole)
+            await auctionService.showNextPlayer(auctionId, selectedRole, selectedPlayerForForce)
             setShowPlayerSearchDialog(false)
             setPlayerSearchQuery('')
             setSelectedPlayerForForce('')
-            toast.show(`✅ Prossimo giocatore mostrato!`, { variant: 'success' })
           } catch (err) {
             toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
           } finally {
