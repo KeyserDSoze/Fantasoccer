@@ -266,20 +266,23 @@ export default function AuctionLiveScreen() {
     }
   }, [teams, selectedTeamDetail])
 
-  // Reset substitute selection when player role changes or new player shown
+  // Reset substitute selection ONLY when player role changes (not when player doesn't exist)
   useEffect(() => {
     if (currentPlayer) {
-      // Check if selected substitute is still valid (same role)
+      // Check if selected substitute has different role than current player
+      // Keep substitute even if player doesn't exist in team (was just sold)
       if (mySelectedSubstitute && myTeam) {
         const player = myTeam.value.players.find(p => p.name === mySelectedSubstitute)
-        if (!player || player.role !== currentPlayer.role) {
+        // Only reset if player exists AND has different role
+        if (player && player.role !== currentPlayer.role) {
           setMySelectedSubstitute(null)
         }
       }
       if (auctioneerSelectedSubstitute && selectedTeamForBid) {
         const team = teams.find(t => t.value.owner === selectedTeamForBid)
         const player = team?.value.players.find(p => p.name === auctioneerSelectedSubstitute)
-        if (!player || player.role !== currentPlayer.role) {
+        // Only reset if player exists AND has different role
+        if (player && player.role !== currentPlayer.role) {
           setAuctioneerSelectedSubstitute(null)
         }
       }
@@ -515,12 +518,20 @@ export default function AuctionLiveScreen() {
           onPlayerShown: (player: StatPlayer) => {
             console.log('🎯 Player shown:', player)
             if (isSubscribed) {
+              // Check if role changed - if so, reset substitutes
+              const roleChanged = currentPlayer && currentPlayer.role !== player.role
+              
               setCurrentPlayer(player)
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
-              setMySelectedSubstitute(null)
-              setAuctioneerSelectedSubstitute(null)
+              
+              // Reset selected substitutes only if role changed
+              if (roleChanged) {
+                setMySelectedSubstitute(null)
+                setAuctioneerSelectedSubstitute(null)
+              }
+              
               resetTimer()
             }
           },
@@ -533,10 +544,9 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
-              setMySelectedSubstitute(null)
-              setAuctioneerSelectedSubstitute(null)
+              // Don't reset selected substitutes - they persist for next player if same role
+              // Don't reset selectedTeamForBid - auctioneer keeps working with same team
               setAssignPrice('')
-              setSelectedTeamForBid('')
               resetTimer()
             }
           },
@@ -606,8 +616,8 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
-              setMySelectedSubstitute(null)
-              setAuctioneerSelectedSubstitute(null)
+              // Don't reset selected substitutes - they persist for retry
+              // Don't reset selectedTeamForBid - auctioneer keeps working with same team
               resetTimer()
               toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info' })
             }
