@@ -1,5 +1,5 @@
 // Auction Service - SignalR real-time connection and HTTP API
-import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
+import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { buildApiUrl, getCommonHeaders, ApiError } from '../configurations/apiConfig'
 import { tokenStorageService } from './tokenStorageService'
 import type { Role } from '../types/group'
@@ -9,13 +9,22 @@ import type {
   AuctionState,
   AuctionHubWrapperRaw,
   ActualAuctionRaw,
-  PlayerAssignedData,
-  PlayerWithStats,
-  StatPlayer
+  PlayerAssignedMessageRaw,
+  StatPlayer,
+  TeamEntityRaw,
+  ActualAuction,
+  PlayerAssignedMessage,
+  BidPlaced,
+  BidPlacedRaw
 } from '../types/auction'
+import type { Entity } from '../types/default'
+import type { Team, TeamKey } from '../types/team'
 import {
   mapRawActualAuction,
-  mapRawAuctionHubWrapperToAuctionState
+  mapRawAuctionHubWrapperToAuctionState,
+  mapRawBidPlaced,
+  mapRawPlayerAssignedMessage,
+  mapRawTeamEntity
 } from '../types/auction'
 
 // ============================================
@@ -38,28 +47,19 @@ export interface AuctionEventHandlers {
   onUserJoined?: (email: string) => void
   onUserLeft?: (email: string) => void
   
-  // Auction events
-  onPlayerShown?: (player: StatPlayer) => void
-  onPlayerAssigned?: (data: PlayerAssignedData) => void
-  onBidPlaced?: (data: BidPlacedData) => void
-  onAuctionState?: (state: AuctionState) => void
-  onCurrentPlayer?: (player: PlayerWithStats | null) => void
+  // Auction events - UPDATED
+  onPlayerShown?: (actualAuction: ActualAuction) => void  // Now receives full ActualAuction
+  onPlayerAssigned?: (data: PlayerAssignedMessage) => void  // Now receives PlayerAssignedMessageInAuction
+  onBidPlaced?: (data: BidPlaced) => void
+  onTeamUpdated?: (team: Entity<Team, TeamKey>) => void  // NEW - Single team update
+  onTimerUpdate?: (seconds: number) => void  // NEW - Timer value changed
   
   // Auction control events
-  onAuctionUpdated?: () => void
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
   onCurrentAuctionReset?: () => void
   onTimerReset?: () => void
-}
-
-export interface BidPlacedData {
-  amount: number
-  bidderEmail: string
-  bidderName: string
-  playerName: string
-  substituted: string | null
 }
 
 /**
@@ -122,13 +122,56 @@ export class AuctionService {
     return auctionId.replace(/^"|"$/g, '')
   }
 
+  /**
+   * Get auction state via HTTP (called once at startup)
+   * This replaces the old SendAuctionStateAsync SignalR method
+   */
+  async getAuction(auctionId: string): Promise<AuctionState> {
+    const token = await tokenStorageService.ensureValidToken()
+    if (!token) {
+      throw new ApiError('No authentication token available', 401)
+    }
+
+    const url = buildApiUrl('/Auction/GetAuction', {
+      auctionId: auctionId
+    })
+
+    console.log('📨 HTTP GET /Auction/GetAuction:', auctionId)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...getCommonHeaders(),
+        'Authorization': `Bearer ${token}`
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new ApiError(
+        `Get auction failed: ${response.status} ${response.statusText}`,
+        response.status,
+        errorText
+      )
+    }
+
+    const wrapperRaw: AuctionHubWrapperRaw = await response.json()
+    console.log('✅ Auction data received:', wrapperRaw)
+
+    // Map to AuctionState
+    const mapped = mapRawAuctionHubWrapperToAuctionState(wrapperRaw, this.userEmail)
+    console.log('✅ Auction state mapped:', mapped)
+
+    return mapped
+  }
+
   // ============================================
   // CONNECTION LIFECYCLE
   // ============================================
 
   /**
    * Initialize and connect to SignalR hub
-   * This should be called once when entering the auction screen
+   * This should be called AFTER getting initial state via HTTP
    */
   async connect(auctionId: string, userEmail: string): Promise<void> {
     console.log('🔌 AuctionService.connect() called', { auctionId, userEmail, currentState: this.getConnectionState() })
@@ -166,7 +209,6 @@ export class AuctionService {
       .withUrl(hubUrl, {
         accessTokenFactory: async () => {
           // This is called on EVERY connection attempt (initial + reconnections)
-          // Always get the freshest token possible
           console.log('🔑 accessTokenFactory called - refreshing token...')
           const freshToken = await tokenStorageService.forceRefreshToken()
           if (!freshToken) {
@@ -261,12 +303,10 @@ export class AuctionService {
       console.log('✅ SignalR reconnected, new connectionId:', connectionId)
       
       // CRITICAL: Re-register event handlers
-      // SignalR's automatic reconnection doesn't preserve event registrations
       console.log('🔄 Re-registering event handlers after reconnection...')
       this.registerEventHandlers()
       
       // CRITICAL: Rejoin the auction room
-      // After reconnection, we need to rejoin the SignalR group
       if (this.currentAuctionId) {
         console.log('🔄 Rejoining auction after reconnection...')
         try {
@@ -277,14 +317,13 @@ export class AuctionService {
         }
       }
       
-      // Notify component so it can reload state
+      // Notify component
       this.eventHandlers.onReconnected?.(connectionId || '')
     })
   }
 
   /**
    * Cleanup connection (used internally, not exposed)
-   * This is called automatically when needed, NOT manually by components
    */
   private async cleanup(): Promise<void> {
     if (!this.hubConnection) return
@@ -310,7 +349,6 @@ export class AuctionService {
 
   /**
    * Disconnect from hub (should only be called when leaving the app entirely)
-   * For navigation between screens, let SignalR handle it automatically
    */
   async disconnect(): Promise<void> {
     console.log('🔌 Explicit disconnect requested')
@@ -372,9 +410,8 @@ export class AuctionService {
     this.hubConnection.off('PlayerShown')
     this.hubConnection.off('PlayerAssigned')
     this.hubConnection.off('BidPlaced')
-    this.hubConnection.off('AuctionState')
-    this.hubConnection.off('CurrentPlayer')
-    this.hubConnection.off('AuctionUpdated')
+    this.hubConnection.off('TeamUpdated')
+    this.hubConnection.off('TimerUpdate')
     this.hubConnection.off('AuctionPaused')
     this.hubConnection.off('AuctionResumed')
     this.hubConnection.off('AuctionClosed')
@@ -384,7 +421,6 @@ export class AuctionService {
     // Register fresh handlers
     this.hubConnection.on('Connected', (message: string) => {
       console.log('📨 Hub.Connected:', message)
-      // Note: onConnected is already called in connect(), this is just for logging
     })
 
     this.hubConnection.on('Error', (message: string) => {
@@ -402,45 +438,53 @@ export class AuctionService {
       this.eventHandlers.onUserLeft?.(email)
     })
 
-    this.hubConnection.on('PlayerShown', (actualAuction: ActualAuctionRaw) => {
-      console.log('📨 Hub.PlayerShown:', actualAuction)
+    // PlayerShown - Now receives full ActualAuction object
+    this.hubConnection.on('PlayerShown', (actualAuctionRaw: ActualAuctionRaw) => {
+      console.log('📨 Hub.PlayerShown (ActualAuction):', actualAuctionRaw)
       try {
-        const mapped = mapRawActualAuction(actualAuction)
-        this.eventHandlers.onPlayerShown?.(mapped.player)
+        // Map and call handler
+        this.eventHandlers.onPlayerShown?.(mapRawActualAuction(actualAuctionRaw))
       } catch (error) {
-        console.error('❌ Error mapping PlayerShown:', error)
+        console.error('❌ Error processing PlayerShown:', error)
       }
     })
 
-    this.hubConnection.on('PlayerAssigned', (data: PlayerAssignedData) => {
-      console.log('📨 Hub.PlayerAssigned:', data)
-      this.eventHandlers.onPlayerAssigned?.(data)
-    })
-
-    this.hubConnection.on('BidPlaced', (data: BidPlacedData) => {
-      console.log('📨 Hub.BidPlaced:', data)
-      this.eventHandlers.onBidPlaced?.(data)
-    })
-
-    this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
-      console.log('📨 Hub.AuctionState received (raw):', wrapperRaw)
+    // PlayerAssigned - Now receives PlayerAssignedMessageInAuction
+    this.hubConnection.on('PlayerAssigned', (dataRaw: PlayerAssignedMessageRaw) => {
+      console.log('📨 Hub.PlayerAssigned (PlayerAssignedMessageInAuction):', dataRaw)
       try {
-        const mapped = mapRawAuctionHubWrapperToAuctionState(wrapperRaw, this.userEmail)
-        console.log('✅ AuctionState mapped:', { teams: mapped.teams.length, isAuctioneer: mapped.isAuctioneer })
-        this.eventHandlers.onAuctionState?.(mapped)
+        // Map and call handler
+        this.eventHandlers.onPlayerAssigned?.(mapRawPlayerAssignedMessage(dataRaw))
       } catch (error) {
-        console.error('❌ Error mapping AuctionState:', error)
+        console.error('❌ Error processing PlayerAssigned:', error)
       }
     })
 
-    this.hubConnection.on('CurrentPlayer', (player: PlayerWithStats | null) => {
-      console.log('📨 Hub.CurrentPlayer:', player)
-      this.eventHandlers.onCurrentPlayer?.(player)
+    this.hubConnection.on('BidPlaced', (dataRaw: BidPlacedRaw) => {
+      console.log('📨 Hub.BidPlaced:', dataRaw)
+      try {
+        // Map and call handler
+        this.eventHandlers.onBidPlaced?.(mapRawBidPlaced(dataRaw))
+      } catch (error) {
+        console.error('❌ Error processing BidPlaced:', error)
+      }
     })
 
-    this.hubConnection.on('AuctionUpdated', () => {
-      console.log('📨 Hub.AuctionUpdated')
-      this.eventHandlers.onAuctionUpdated?.()
+    // NEW: TeamUpdated - Single team update
+    this.hubConnection.on('TeamUpdated', (teamRaw: TeamEntityRaw) => {
+      console.log('📨 Hub.TeamUpdated:', teamRaw)
+      try {
+        const mapped = mapRawTeamEntity(teamRaw)
+        this.eventHandlers.onTeamUpdated?.(mapped)
+      } catch (error) {
+        console.error('❌ Error mapping TeamUpdated:', error)
+      }
+    })
+
+    // NEW: TimerUpdate - Timer value changed
+    this.hubConnection.on('TimerUpdate', (seconds: number) => {
+      console.log('📨 Hub.TimerUpdate:', seconds)
+      this.eventHandlers.onTimerUpdate?.(seconds)
     })
 
     this.hubConnection.on('AuctionPaused', () => {
@@ -529,42 +573,6 @@ export class AuctionService {
   }
 
   /**
-   * Request current auction state
-   * The response comes via the AuctionState event handler
-   */
-  async getAuctionState(auctionId: string): Promise<void> {
-    this.ensureConnected()
-    
-    console.log('📨 Invoking SendAuctionStateAsync:', auctionId)
-    
-    try {
-      await this.hubConnection!.invoke('SendAuctionStateAsync', auctionId)
-      console.log('✅ SendAuctionStateAsync invoked (waiting for AuctionState event...)')
-    } catch (error) {
-      console.error('❌ SendAuctionStateAsync failed:', error)
-      throw this.handleInvokeError(error, 'get auction state')
-    }
-  }
-
-  /**
-   * Request current player being auctioned
-   * The response comes via the CurrentPlayer event handler
-   */
-  async getCurrentPlayer(auctionId: string): Promise<void> {
-    this.ensureConnected()
-    
-    console.log('📨 Invoking GetCurrentPlayerAsync:', auctionId)
-    
-    try {
-      await this.hubConnection!.invoke('GetCurrentPlayerAsync', auctionId)
-      console.log('✅ GetCurrentPlayerAsync invoked')
-    } catch (error) {
-      console.error('❌ GetCurrentPlayerAsync failed:', error)
-      throw this.handleInvokeError(error, 'get current player')
-    }
-  }
-
-  /**
    * Place a bid on the current player
    */
   async placeBid(
@@ -604,23 +612,6 @@ export class AuctionService {
     } catch (error) {
       console.error('❌ ShowNextPlayerAsync failed:', error)
       throw this.handleInvokeError(error, 'show next player')
-    }
-  }
-
-  /**
-   * Force show a specific player by key
-   */
-  async forceNextPlayer(auctionId: string, playerKey: string): Promise<void> {
-    this.ensureConnected()
-    
-    console.log('📨 Invoking ForceNextPlayerAsync:', { auctionId, playerKey })
-    
-    try {
-      await this.hubConnection!.invoke('ForceNextPlayerAsync', auctionId, playerKey)
-      console.log('✅ ForceNextPlayerAsync invoked')
-    } catch (error) {
-      console.error('❌ ForceNextPlayerAsync failed:', error)
-      throw this.handleInvokeError(error, 'force next player')
     }
   }
 

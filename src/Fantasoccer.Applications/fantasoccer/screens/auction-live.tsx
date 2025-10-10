@@ -7,17 +7,19 @@ import {
 } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { auctionService, BidPlacedData } from 'services/auctionService'
+import { auctionService } from 'services/auctionService'
 import { 
   AuctionState, 
   AuctionStatus, 
-  PlayerAssignedData,
   StatPlayer,
   AuctionWin,
   AuctionType,
   AuctionKind,
   AuctionTypeLabels,
-  AuctionKindLabels
+  AuctionKindLabels,
+  ActualAuction,
+  PlayerAssignedMessage,
+  BidPlaced
 } from 'types/auction'
 import { Role } from 'types/group'
 import { 
@@ -516,13 +518,9 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) {
               setConnectionState('Connected')
               toast.show('✅ Riconnesso - caricamento stato asta...', { variant: 'success', duration: 3000 })
-              
-              // Il service ha già chiamato joinAuction automaticamente
-              // Richiediamo solo lo stato aggiornato
+             
               try {
-                await auctionService.getAuctionState(auctionId)
-                await auctionService.getCurrentPlayer(auctionId)
-                toast.show('✅ Stato asta aggiornato', { variant: 'success', duration: 2000 })
+                await auctionService.getAuction(auctionId)
               } catch (error) {
                 console.error('❌ Failed to reload state after reconnect:', error)
                 toast.show('⚠️ Errore ricaricamento stato', { variant: 'error', duration: 3000 })
@@ -550,12 +548,12 @@ export default function AuctionLiveScreen() {
           },
           onUserJoined: (email) => toast.show(`👋 Utente connesso: ${email}`, { variant: 'info', duration: 4000 }),
           onUserLeft: (email) => toast.show(`👋 L'utente ${email} si è disconnesso`, { variant: 'info', duration: 4000 }),
-          onPlayerShown: (player: StatPlayer) => {
+          onPlayerShown: (actualAuction: ActualAuction) => {
             if (isSubscribed) {
               // Check if role changed - if so, reset substitutes
-              const roleChanged = currentPlayer && currentPlayer.role !== player.role
-              console.log(currentPlayer, player, 'roleChanged:', roleChanged)
-              setCurrentPlayer(player)
+              const roleChanged = currentPlayer && currentPlayer.role !== actualAuction.player.role
+              console.log(currentPlayer, actualAuction, 'roleChanged:', roleChanged)
+              setCurrentPlayer(actualAuction.player)
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
@@ -573,19 +571,19 @@ export default function AuctionLiveScreen() {
               resetTimer()
             }
           },
-          onPlayerAssigned: (data: PlayerAssignedData) => {
+          onPlayerAssigned: (data: PlayerAssignedMessage) => {
             if (isSubscribed) {
               playBidSound()
               vibrateOnBid()
-              toast.show(`✅ Giocatore assegnato: ${data.playerName} a ${data.teamName} per €${data.price}. Ha preso ${data.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 5000 })
+              toast.show(`✅ Giocatore assegnato: ${data.playerAssignedInAuction?.playerName} a ${data.playerAssignedInAuction?.teamName} per €${data.playerAssignedInAuction?.price}. Ha preso ${data.playerAssignedInAuction?.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 5000 })
               // Reset substitute for the winner (player is no longer available - was removed/substituted)
               // Check if winner is myTeam or selectedTeamForBid
               // If I won the auction, reset my substitute
-              if (user?.email && data.owner.toLowerCase() === user.email.toLowerCase()) {
+              if (user?.email && data.playerAssignedInAuction?.owner.toLowerCase() === user.email.toLowerCase()) {
                 setMySelectedSubstitute(null)
               }
               // If auctioneer's selected team won, reset auctioneer substitute
-              if (selectedTeamForBid && data.owner.toLowerCase() === selectedTeamForBid.toLowerCase()) {
+              if (selectedTeamForBid && data.playerAssignedInAuction?.owner.toLowerCase() === selectedTeamForBid.toLowerCase()) {
                 setAuctioneerSelectedSubstitute(null)
               }
               console.log('📦 onPlayerAssigned data:', data)
@@ -598,7 +596,7 @@ export default function AuctionLiveScreen() {
               resetTimer()
             }
           },
-          onBidPlaced: (data: BidPlacedData) => {
+          onBidPlaced: (data: BidPlaced) => {
             if (isSubscribed) {
               setCurrentBid(data.amount)
               setCurrentBidder(data.bidderEmail)
@@ -609,45 +607,6 @@ export default function AuctionLiveScreen() {
               // }
               startTimer()
             }
-          },
-          onAuctionState: (state: AuctionState) => {
-            console.log('📦 onAuctionState callback received, state:', state)
-            console.log('📦 isSubscribed:', isSubscribed)
-            
-            if (isSubscribed) {
-              console.log('📦 Updating state...')
-              setAuctionState(state)
-              setTeams(state.teams)
-              setIsAuctioneer(state.isAuctioneer)
-              setSalesHistory(state.wrapper.winnings)
-              setIsLocked(state.wrapper.status === AuctionStatus.Paused)
-              
-              // Update starting money from league settings (default to 1000 if not available)
-              const leagueStartingMoney = state.league?.settings?.startingMoney ?? 1000
-              setStartingMoney(leagueStartingMoney)
-              
-              // Sync timer with auction state
-              const auctionTimer = state.wrapper.secondsPerAuction ?? 10
-              setOfferTimeoutSeconds(auctionTimer)
-              
-              const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user.email?.toLowerCase())
-              if (myTeamEntity) {
-                setMyTeam(myTeamEntity)
-                setMyTeamBudget(calculateBudgetRemaining(myTeamEntity))
-              }
-              if (state.wrapper.actual) {
-                setCurrentPlayer(state.wrapper.actual.player)
-                setCurrentBid(state.wrapper.actual.price)
-                setCurrentBidder(state.wrapper.actual.owner)
-                setCurrentSubstitute(state.wrapper.actual.substituted)
-              }
-              console.log('✅ State updated successfully')
-            } else {
-              console.log('⚠️ onAuctionState called but isSubscribed is false')
-            }
-          },
-          onAuctionUpdated: () => {
-            auctionService.getAuctionState(auctionId).catch(console.error)
           },
           onAuctionPaused: () => {
             toast.show('⏸️ Asta in pausa', { variant: 'info', duration: 4000 })
@@ -666,8 +625,6 @@ export default function AuctionLiveScreen() {
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
-              // Don't reset selected substitutes - they persist for retry
-              // Don't reset selectedTeamForBid - auctioneer keeps working with same team
               resetTimer()
               toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info' })
             }
@@ -707,10 +664,7 @@ export default function AuctionLiveScreen() {
         // Request initial state
         // Request initial state
         console.log('📨 Requesting initial auction state...')
-        await auctionService.getAuctionState(auctionId)
-        
-        console.log('📨 Requesting current player...')
-        await auctionService.getCurrentPlayer(auctionId)
+        var auction = await auctionService.getAuction(auctionId)
         
         console.log('✅ Initial setup complete - waiting for state events...')
         
@@ -2096,11 +2050,12 @@ export default function AuctionLiveScreen() {
                   setLoading(true)
                   try {
                     const playerKey = getPlayerKey(selectedPlayerForForce)
-                    await auctionService.forceNextPlayer(auctionId, playerKey)
+                    // Backend removed forceNextPlayer - just show next for the role
+                    await auctionService.showNextPlayer(auctionId, selectedRole)
                     setShowPlayerSearchDialog(false)
                     setPlayerSearchQuery('')
                     setSelectedPlayerForForce('')
-                    toast.show(`✅ ${selectedPlayerForForce} selezionato!`, { variant: 'success' })
+                    toast.show(`✅ Prossimo giocatore mostrato!`, { variant: 'success' })
                   } catch (err) {
                     toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
                   } finally {
@@ -2108,7 +2063,7 @@ export default function AuctionLiveScreen() {
                   }
                 }}
               >
-                Seleziona Giocatore
+                Mostra Prossimo
               </Button>
             </XStack>
           </Dialog.Content>

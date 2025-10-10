@@ -175,21 +175,81 @@ export interface PlayerWithStats {
   }
 }
 
+export interface BidPlaced {
+  amount: number
+  bidderEmail: string
+  bidderName: string
+  playerName: string
+  substituted: string | null
+}
+
 // ============================================
 // VOLATILE INTERFACES (custom events)
 // ============================================
 
 /**
- * PlayerAssigned event data (volatile, not stored)
+ * PlayerAssignedInAuction (RAW from C#)
+ * Matching C# JsonPropertyName
  */
-export interface PlayerAssignedData {
+export interface PlayerAssignedInAuctionRaw {
+  o: string          // Owner (email)
+  t: string          // TeamName
+  p: number          // Price
+  n: string          // PlayerName
+  c: number          // TeamCost
+  pc: number         // TeamPlayersCount
+}
+
+/**
+ * PlayerAssignedMessageInAuction (RAW from C#)
+ * This is what comes in the PlayerAssigned event
+ */
+export interface PlayerAssignedMessageRaw {
+  p: PlayerAssignedInAuctionRaw | null  // PlayerAssignedInAuction
+  t: EntityRaw<TeamRaw, TeamKeyRaw> | null  // Team (updated team)
+}
+
+/**
+ * Clean PlayerAssignedInAuction interface
+ */
+export interface PlayerAssignedInAuction {
   owner: string
-  teamName: string | null
+  teamName: string
   price: number
   playerName: string
-  tamCost: number | null
-  teamPlayersCount: number | null
+  teamCost: number
+  teamPlayersCount: number
 }
+
+/**
+ * Clean PlayerAssignedMessage interface
+ */
+export interface PlayerAssignedMessage {
+  playerAssignedInAuction: PlayerAssignedInAuction | null
+  team: Entity<Team, TeamKey> | null
+}
+
+export interface BidPlacedRaw {
+  a: number
+  e: string
+  n: string
+  p: string
+  s: string | null
+}
+
+export function mapRawBidPlaced(raw: BidPlacedRaw): BidPlaced {
+  return {
+    amount: raw.a,
+    bidderEmail: raw.e,
+    bidderName: raw.n,
+    playerName: raw.p,
+    substituted: raw.s
+  }
+}
+/**
+ * Alias for Entity<Team, TeamKey> with raw version
+ */
+export type TeamEntityRaw = EntityRaw<TeamRaw, TeamKeyRaw>
 
 // ============================================
 // MAPPING FUNCTIONS
@@ -295,6 +355,37 @@ export function statPlayerToPlayerWithStats(player: StatPlayer): PlayerWithStats
     realTeam: player.realTeam.name  // StatPlayer extends RealPlayer which has realTeam: RealTeam
     // stats are not available in StatPlayer, would need separate API call
   }
+}
+
+/**
+ * Map raw PlayerAssignedInAuction to clean interface
+ */
+export function mapRawPlayerAssignedInAuction(raw: PlayerAssignedInAuctionRaw): PlayerAssignedInAuction {
+  return {
+    owner: raw.o,
+    teamName: raw.t,
+    price: raw.p,
+    playerName: raw.n,
+    teamCost: raw.c,
+    teamPlayersCount: raw.pc
+  }
+}
+
+/**
+ * Map raw PlayerAssignedMessageInAuction to clean interface
+ */
+export function mapRawPlayerAssignedMessage(raw: PlayerAssignedMessageRaw): PlayerAssignedMessage {
+  return {
+    playerAssignedInAuction: raw.p ? mapRawPlayerAssignedInAuction(raw.p) : null,
+    team: raw.t ? mapRawEntityToEntity(raw.t, mapRawTeamToTeam, mapRawTeamKeyToTeamKey) : null
+  }
+}
+
+/**
+ * Map raw TeamEntityRaw to Entity<Team, TeamKey>
+ */
+export function mapRawTeamEntity(raw: TeamEntityRaw): Entity<Team, TeamKey> {
+  return mapRawEntityToEntity(raw, mapRawTeamToTeam, mapRawTeamKeyToTeamKey)
 }
 
 // ============================================
