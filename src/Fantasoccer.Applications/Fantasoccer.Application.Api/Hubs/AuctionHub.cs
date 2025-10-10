@@ -1,9 +1,8 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿using System.Text;
 using System.Threading.Concurrent;
+using Fantasoccer.Business;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Org.BouncyCastle.Crypto;
 using RepositoryFramework;
@@ -13,124 +12,37 @@ namespace Fantasoccer.Application.Api.Hubs
     [Authorize(Policy = "authenticated")]
     public sealed class AuctionHub : Hub
     {
-        private readonly ILock _lock;
-        private readonly IRepository<AuctionWrapper, string> _auctionRepository;
+        private readonly AuctionHubService _auctionHubService;
         private readonly IRepository<AppIdentity, string> _identityRepository;
-        private readonly IRepository<Rank, LeagueKey> _rankRepository;
         private readonly IRepository<Team, TeamKey> _team;
-        private readonly IRepository<Group, string> _groups;
-        private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
-        private static readonly Dictionary<string, AuctionHubWrapper> s_auctions = [];
-        public AuctionHub(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
+        public AuctionHub(AuctionHubService auctionHubService,
             IRepository<AppIdentity, string> identityRepository,
-            IRepository<Rank, LeagueKey> rankRepository,
-           IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
+            IRepository<Team, TeamKey> team)
         {
-            _lock = @lock;
-            _auctionRepository = auctionRepository;
+            _auctionHubService = auctionHubService;
             _identityRepository = identityRepository;
-            _rankRepository = rankRepository;
             _team = team;
-            _groups = groups;
-            _statsPlayers = statsPlayers;
         }
-        private async Task<AuctionHubWrapper?> GetCurrentWrapperAsync(string auctionId)
+        private sealed class ConcurrencyResponse
         {
-            var added = false;
-            if (!s_auctions.ContainsKey(auctionId))
+            public bool IsOk { get; }
+            public string? Message { get; }
+            public object? Data { get; }
+            public ConcurrencyResponse(bool isOk, AnyOf<string, object>? data = null)
             {
-                await _lock.ExecuteAsync(async () =>
-                 {
-                     if (!s_auctions.ContainsKey(auctionId))
-                     {
-                         var auction = await _auctionRepository.GetAsync(auctionId);
-                         if (auction == null)
-                             throw new InvalidOperationException("Auction not found");
-                         var group = await _groups.GetAsync(auction.LeagueKey.Group);
-                         if (group != null)
-                         {
-                             var league = group.GetAnnualLeague(auction.LeagueKey.League, auction.LeagueKey.Year);
-                             var leagueWrapper = group.Leagues.FirstOrDefault(x => x.Id == auction.LeagueKey.League);
-                             if (league != null && leagueWrapper != null)
-                             {
-                                 var rank = await _rankRepository.GetAsync(auction.LeagueKey);
-                                 var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
-                                 var teams = new List<Entity<Team, TeamKey>>();
-                                 foreach (var basketId in leagueWrapper.BasketsId)
-                                 {
-                                     var basket = group.Baskets.First(x => x.Id == basketId);
-                                     var theYear = basket.Years.First(x => x.Year == auction.LeagueKey.Year);
-                                     foreach (var teamInYear in theYear.Teams)
-                                     {
-                                         var teamKey = new TeamKey
-                                         {
-                                             Group = auction.LeagueKey.Group,
-                                             BasketId = basketId,
-                                             Year = auction.LeagueKey.Year,
-                                             Email = teamInYear.Owner
-                                         };
-                                         var team = _team.GetAsync(teamKey).ToResult();
-                                         if (team == null)
-                                         {
-                                             team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
-                                             _team.UpdateAsync(teamKey, team).ToResult();
-                                         }
-                                         var teamInRank = rank?.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == teamInYear.Owner);
-                                         if (teamInRank != null && (league.Settings.MoneyForGoal > 0 || league.Settings.MoneyForSufferedGoal > 0))
-                                         {
-                                             team.MoneyFromRank = teamInRank.Goal * league.Settings.MoneyForGoal + teamInRank.SufferedGoal * league.Settings.MoneyForSufferedGoal;
-                                         }
-                                         teams.Add(new(team, teamKey));
-                                     }
-                                 }
-                                 added = s_auctions.TryAdd(auctionId, new AuctionHubWrapper
-                                 {
-                                     Wrapper = auction,
-                                     LastUpdate = DateTime.UtcNow,
-                                     Group = group,
-                                     League = league,
-                                     LeagueName = leagueWrapper?.Name ?? auction.LeagueKey.League,
-                                     RealPlayers = statPlayers?.Players ?? [],
-                                     Teams = teams,
-                                     LastJsonSaved = auction.ToJson()
-                                 });
-                             }
-                         }
-                     }
-                 });
-            }
-            s_auctions.TryGetValue(auctionId, out var wrapper);
-            if (added && wrapper != null)
-            {
-                _ = UpdateAsync(auctionId);
-            }
-            return wrapper;
-        }
-        private async ValueTask UpdateAsync(string auctionId)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(10));
-            if (s_auctions.TryGetValue(auctionId, out var wrapper))
-            {
-                var json = wrapper.Wrapper.ToJson();
-                if (json != wrapper.LastJsonSaved)
+                IsOk = isOk;
+                if (data?.IsT0 == true)
                 {
-                    wrapper.LastJsonSaved = json;
-                    await _auctionRepository.UpdateAsync(auctionId, wrapper.Wrapper);
+                    Message = data.CastT0;
                 }
-                if (DateTime.UtcNow.AddDays(-2) > wrapper.Wrapper.Created)
+                else if (data?.IsT1 == true)
                 {
-                    wrapper.Wrapper.Status = AuctionStatus.Finished;
-                    await _auctionRepository.UpdateAsync(auctionId, wrapper.Wrapper);
-                }
-                if (wrapper.Wrapper.Status != AuctionStatus.Finished)
-                {
-                    _ = UpdateAsync(auctionId);
+                    Data = data.CastT1;
                 }
             }
         }
-        private async Task<(bool Correct, string Message)> SetPlayerAsync(string auctionId)
+        private async Task<(bool Correct, string Message)> SetPlayerAsync(AuctionHubWrapper auctionWrapper)
         {
-            var auctionWrapper = await GetCurrentWrapperAsync(auctionId);
             if (auctionWrapper?.RealPlayers == null)
                 return (false, "Auction data not available");
 
@@ -143,13 +55,13 @@ namespace Fantasoccer.Application.Api.Hubs
             if (thePlayer == null)
                 return (false, "Player not found");
 
-            var team = auctionWrapper.Teams.FirstOrDefault(x => x.Key.Email == current.Owner);
-            if (team.Value == null)
+            var team = auctionWrapper.Teams.FirstOrDefault(x => x.Key?.Email == current.Owner);
+            if (team?.Value == null)
                 return (false, "Team not found");
 
             var substitutedPlayer = auctionWrapper.Wrapper.Kind == AuctionKind.Repairing ? auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == current.Substituted) : null;
 
-            var check = Check(auctionWrapper.League.Settings, thePlayer, team.Value, current.Price, substitutedPlayer);
+            var check = Check(auctionWrapper.League!.Settings, thePlayer, team.Value, current.Price, substitutedPlayer);
             if (string.IsNullOrWhiteSpace(check))
             {
                 team.Value.Players.Add(new Player
@@ -212,9 +124,8 @@ namespace Fantasoccer.Application.Api.Hubs
             }
             return string.Empty;
         }
-        private async Task<RealPlayer?> GetNextPlayerAsync(string auctionId, Role role)
+        private StatPlayer? GetNextPlayer(AuctionHubWrapper auctionWrapper, Role role)
         {
-            var auctionWrapper = await GetCurrentWrapperAsync(auctionId);
             if (auctionWrapper?.Wrapper?.LastShow == null || auctionWrapper.RealPlayers == null)
                 return null;
 
@@ -224,7 +135,7 @@ namespace Fantasoccer.Application.Api.Hubs
             {
                 if (foundPrevious)
                 {
-                    var realPlayer = auctionWrapper.RealPlayers.First(x => x.Key == player);
+                    var realPlayer = auctionWrapper.RealPlayers.FirstOrDefault(x => x.Key == player);
                     auctionWrapper.Wrapper.LastShow[role] = player;
                     return realPlayer;
                 }
@@ -235,15 +146,10 @@ namespace Fantasoccer.Application.Api.Hubs
             }
             return null;
         }
-
-        /// <summary>
-        /// Get user email from authentication context
-        /// </summary>
         private string? GetUserEmail()
         {
             return Context.User?.Identity?.Name;
         }
-
         /// <summary>
         /// Check if user is auctioneer (admin or super admin of the group)
         /// </summary>
@@ -257,7 +163,6 @@ namespace Fantasoccer.Application.Api.Hubs
             return participant.Role.HasFlag(IdentityRole.Admin) ||
                    participant.Role.HasFlag(IdentityRole.SuperAdmin);
         }
-
         /// <summary>
         /// Check if user is a participant (has a team in this auction)
         /// </summary>
@@ -265,13 +170,20 @@ namespace Fantasoccer.Application.Api.Hubs
         {
             return wrapper.Teams.Any(x => x.Key.Email == userEmail);
         }
-
+        private async ValueTask<bool> IsViewer(AuctionHubWrapper wrapper, string userEmail)
+        {
+            var identity = await _identityRepository.GetAsync(userEmail);
+            return identity?.Groups.Any(t => t.Id == wrapper.Group?.Id) == true;
+        }
         /// <summary>
         /// Check if user can access this auction (either auctioneer or participant)
         /// </summary>
-        private bool CanAccessAuction(AuctionHubWrapper wrapper, string userEmail)
+        private async ValueTask<(bool CanAccess, bool IsViewer)> CanAccessAuctionAsync(AuctionHubWrapper wrapper, string userEmail)
         {
-            return IsAuctioneer(wrapper, userEmail) || IsParticipant(wrapper, userEmail);
+            if (IsAuctioneer(wrapper, userEmail) || IsParticipant(wrapper, userEmail))
+                return (true, false);
+            var isViewer = await IsViewer(wrapper, userEmail);
+            return (isViewer, isViewer);
         }
 
         /// <summary>
@@ -286,52 +198,48 @@ namespace Fantasoccer.Application.Api.Hubs
                 return false;
             }
 
-            try
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
             {
-                var wrapper = await GetCurrentWrapperAsync(auctionId);
-                if (wrapper == null)
+                try
                 {
-                    await Clients.Caller.SendAsync("Error", "Auction not found");
-                    return false;
-                }
+                    if (wrapper == null)
+                        return new ConcurrencyResponse(false, "Auction not found");
 
-                if (!CanAccessAuction(wrapper, email))
-                {
-                    await Clients.Caller.SendAsync("Error", "You don't have access to this auction");
-                    return false;
-                }
+                    var canAccessResult = await CanAccessAuctionAsync(wrapper, email);
+                    if (!canAccessResult.CanAccess)
+                        return new ConcurrencyResponse(false, "You don't have access to this auction");
 
-                // Add user to SignalR group
-                await Groups.AddToGroupAsync(Context.ConnectionId, auctionId);
+                    // Add user to SignalR group
+                    await Groups.AddToGroupAsync(Context.ConnectionId, auctionId);
 
-                // Add to participants if not already there
-                if (!wrapper.Wrapper.Participants.Any(x => x.Owner == email))
-                {
-                    var team = wrapper.Teams.FirstOrDefault(x => x.Key.Email == email);
-                    if (team.Value != null)
+                    // Add to participants if not already there
+                    if (!canAccessResult.IsViewer && !wrapper.Wrapper.Participants.Any(x => x.Owner == email))
                     {
-                        wrapper.Wrapper.Participants.Add(new AnnualTeam
+                        var team = wrapper.Teams.FirstOrDefault(x => x.Key.Email == email);
+                        if (team?.Value != null)
                         {
-                            Name = team.Value.Name,
-                            Owner = email,
-                            AdditionalOwners = []
-                        });
+                            wrapper.Wrapper.Participants.Add(new AnnualTeam
+                            {
+                                Name = team.Value.Name,
+                                Owner = email,
+                                AdditionalOwners = []
+                            });
+                        }
                     }
+                    return new ConcurrencyResponse(true);
                 }
-
-                // Notify others
-                await Clients.OthersInGroup(auctionId).SendAsync("UserJoined", email);
-
-                // Send current state to caller
-                await SendAuctionStateAsync(auctionId);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await Clients.Caller.SendAsync("Error", $"Failed to join auction: {ex.Message}");
-                return false;
-            }
+                catch (Exception ex)
+                {
+                    return new ConcurrencyResponse(false, $"Failed to join auction: {ex.Message}");
+                }
+            });
+            // Notify others (fire-and-forget to avoid blocking)
+            var check = concurrencyResponse?.IsOk == true;
+            if (check)
+                _ = Clients.OthersInGroup(auctionId).SendAsync("UserJoined", email);
+            else
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            return check;
         }
 
         /// <summary>
@@ -342,23 +250,50 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, auctionId);
-            await Clients.OthersInGroup(auctionId).SendAsync("UserLeft", email);
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            {
+                try
+                {
+                    if (wrapper == null)
+                    {
+                        return new ConcurrencyResponse(false, "Auction not found");
+                    }
+
+                    var canAccessResult = await CanAccessAuctionAsync(wrapper, email);
+                    if (!canAccessResult.CanAccess)
+                    {
+                        return new ConcurrencyResponse(false, "You don't have access to this auction");
+                    }
+
+                    // Add to participants if not already there
+                    if (!canAccessResult.IsViewer)
+                    {
+                        var annualTeam = wrapper.Wrapper.Participants.FirstOrDefault(x => x.Owner == email);
+                        if (annualTeam != null)
+                        {
+                            wrapper.Wrapper.Participants.Remove(annualTeam);
+                        }
+                    }
+
+                    return new ConcurrencyResponse(true);
+                }
+                catch (Exception ex)
+                {
+                    return new ConcurrencyResponse(false, $"Failed to join auction: {ex.Message}");
+                }
+            });
+            if (concurrencyResponse?.IsOk == true)
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, auctionId);
+                // Notify others (fire-and-forget to avoid blocking)
+                _ = Clients.OthersInGroup(auctionId).SendAsync("UserLeft", email);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
 
-        /// <summary>
-        /// Get current auction state (teams, players, current player, etc.)
-        /// </summary>
-        public async Task SendAuctionStateAsync(string auctionId)
-        {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !CanAccessAuction(wrapper, email)) return;
-
-            await Clients.Caller.SendAsync("AuctionState", wrapper);
-        }
         /// <summary>
         /// Place a bid on current player (both participants and auctioneer)
         /// </summary>
@@ -367,101 +302,89 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null)
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Auction not found");
-                return;
-            }
+                if (wrapper == null)
+                {
+                    return new ConcurrencyResponse(false, "Auction not found");
+                }
 
-            // Check if auction is active
-            if (wrapper.Wrapper.Status == AuctionStatus.Finished)
-            {
-                await Clients.Caller.SendAsync("Error", "Auction is already finished");
-                return;
-            }
+                // Check if auction is active
+                if (wrapper.Wrapper.Status == AuctionStatus.Finished)
+                {
+                    return new ConcurrencyResponse(false, "Auction is already finished");
+                }
 
-            if (wrapper.Wrapper.Status == AuctionStatus.Paused && !IsAuctioneer(wrapper, email))
-            {
-                await Clients.Caller.SendAsync("Error", "Auction is paused");
-                return;
-            }
+                if (wrapper.Wrapper.Status == AuctionStatus.Paused && !IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Auction is paused");
+                }
 
-            // Check if there's a player being auctioned
-            if (wrapper.Wrapper.Actual == null)
-            {
-                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
-                return;
-            }
+                // Check if there's a player being auctioned
+                if (wrapper.Wrapper.Actual == null)
+                {
+                    return new ConcurrencyResponse(false, "No player is currently being auctioned");
+                }
 
-            if (wrapper.Wrapper.Actual.StartingTime != null && DateTime.UtcNow.Subtract(wrapper.Wrapper.Actual.StartingTime.Value) > TimeSpan.FromSeconds(wrapper.Wrapper.SecondsPerAuction + 2)) //+2 is a window for slow client
-            {
-                await Clients.Caller.SendAsync("Error", "Bidding time for this player has expired");
-                return;
-            }
+                if (wrapper.Wrapper.Actual.StartingTime != null && DateTime.UtcNow.Subtract(wrapper.Wrapper.Actual.StartingTime.Value) > TimeSpan.FromSeconds(wrapper.Wrapper.SecondsPerAuction + 2)) //+2 is a window for slow client
+                {
+                    return new ConcurrencyResponse(false, "Bidding time for this player has expired");
+                }
 
-            // Determine who is bidding
-            string actualBidder;
-            if (IsAuctioneer(wrapper, email) && !string.IsNullOrEmpty(bidderEmail))
-            {
-                // Auctioneer bidding on behalf of someone
-                actualBidder = bidderEmail;
-            }
-            else
-            {
-                // Regular participant bidding for themselves
-                actualBidder = email;
-            }
+                // Determine who is bidding
+                string actualBidder;
+                if (IsAuctioneer(wrapper, email) && !string.IsNullOrEmpty(bidderEmail))
+                {
+                    // Auctioneer bidding on behalf of someone
+                    actualBidder = bidderEmail;
+                }
+                else
+                {
+                    // Regular participant bidding for themselves
+                    actualBidder = email;
+                }
 
-            if (wrapper.Wrapper.Actual.Owner == actualBidder)
-            {
-                await Clients.Caller.SendAsync("Error", "Sei già il miglior offerente.");
-                return;
-            }
+                if (wrapper.Wrapper.Actual.Owner == actualBidder)
+                {
+                    return new ConcurrencyResponse(false, "Sei già il miglior offerente.");
+                }
 
-            // Find bidder's team
-            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actualBidder);
-            if (teamEntity.Key == null || teamEntity.Value == null)
-            {
-                await Clients.Caller.SendAsync("Error", "Team not found");
-                return;
-            }
-            var team = teamEntity.Value;
+                // Find bidder's team
+                var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actualBidder);
+                if (teamEntity?.Key == null || teamEntity.Value == null)
+                {
+                    return new ConcurrencyResponse(false, "Team not found");
+                }
+                var team = teamEntity.Value;
 
-            await _lock.ExecuteAsync(async () =>
-            {
+
                 // Validate bid amount
                 if (amount <= wrapper.Wrapper.Actual.Price)
                 {
-                    await Clients.Caller.SendAsync("Error", $"Bid must be higher than current bid (€{wrapper.Wrapper.Actual.Price})");
-                    return;
+                    return new ConcurrencyResponse(false, $"Bid must be higher than current bid (${wrapper.Wrapper.Actual.Price})");
                 }
 
                 // Check if same bidder is already highest
                 if (!IsAuctioneer(wrapper, email) && wrapper.Wrapper.Actual.Owner == actualBidder)
                 {
-                    await Clients.Caller.SendAsync("Error", "You are already the highest bidder");
-                    return;
+                    return new ConcurrencyResponse(false, "You are already the highest bidder");
                 }
                 var substitutedPlayer = wrapper.Wrapper.Kind == AuctionKind.Repairing ? wrapper.RealPlayers.FirstOrDefault(x => x.Key == substituted) : null;
                 // Validate against team constraints
                 var validationError = Check(wrapper.League.Settings, wrapper.Wrapper.Actual.Player, team, amount, substitutedPlayer);
                 if (!string.IsNullOrWhiteSpace(validationError))
                 {
-                    await Clients.Caller.SendAsync("Error", validationError);
-                    return;
+                    return new ConcurrencyResponse(false, validationError);
                 }
 
                 if (substitutedPlayer != null && wrapper.Wrapper.Kind != AuctionKind.Repairing)
                 {
-                    await Clients.Caller.SendAsync("Error", "You can only substitute a player in repairing auctions");
-                    return;
+                    return new ConcurrencyResponse(false, "You can only substitute a player in repairing auctions");
                 }
 
                 if (substitutedPlayer != null && substitutedPlayer.Role != wrapper.Wrapper.Actual.Player.Role)
                 {
-                    await Clients.Caller.SendAsync("Error", "You can only substitute a player with another of the same role");
-                    return;
+                    return new ConcurrencyResponse(false, "You can only substitute a player with another of the same role");
                 }
 
                 // Update bid
@@ -470,8 +393,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 wrapper.Wrapper.Actual.Substituted = substituted;
                 wrapper.LastUpdate = DateTime.UtcNow;
                 wrapper.Wrapper.Actual.StartingTime = DateTime.UtcNow;
-                // Broadcast to all participants
-                await Clients.Group(auctionId).SendAsync("BidPlaced", new
+                return new ConcurrencyResponse(true, new AuctionBid()
                 {
                     Amount = amount,
                     BidderEmail = actualBidder,
@@ -479,10 +401,16 @@ namespace Fantasoccer.Application.Api.Hubs
                     PlayerName = wrapper.Wrapper.Actual.Player.Name,
                     Substituted = wrapper.Wrapper.Actual.Substituted
                 });
-
-                // Send updated auction state to all
-                await Clients.Group(auctionId).SendAsync("AuctionState", wrapper);
             });
+            if (concurrencyResponse?.IsOk == true)
+            {
+                // Broadcast to all participants
+                await Clients.Group(auctionId).SendAsync("BidPlaced", concurrencyResponse.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
 
         /// <summary>
@@ -493,138 +421,102 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can show next player");
-                return;
-            }
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Only auctioneers can show next player");
+                }
 
-            if (wrapper.Wrapper.Status == AuctionStatus.Finished)
-            {
-                await Clients.Caller.SendAsync("Error", "Auction is already finished");
-                return;
-            }
+                if (wrapper.Wrapper.Status == AuctionStatus.Finished)
+                {
+                    return new ConcurrencyResponse(false, "Auction is already finished");
+                }
 
-            var nextPlayer = await GetNextPlayerAsync(auctionId, role);
-            if (nextPlayer == null)
-            {
-                await Clients.Group(auctionId).SendAsync("Error", $"No more players for role {role}");
-                return;
-            }
+                var nextPlayer = GetNextPlayer(wrapper, role);
+                if (nextPlayer == null)
+                {
+                    return new ConcurrencyResponse(false, $"No more players for role {role}");
+                }
 
-            // Update auction state
-            wrapper.Wrapper.Actual = new ActualAuction
-            {
-                Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
-                Owner = null,
-                Price = 0,
-                Started = DateTime.UtcNow
-            };
-            wrapper.Wrapper.LastShow[role] = nextPlayer.Key;
-            wrapper.Wrapper.Status = AuctionStatus.InProgress;
+                // Update auction state
+                wrapper.Wrapper.Actual = new ActualAuction
+                {
+                    Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
+                    Owner = null,
+                    Price = 0,
+                    Started = DateTime.UtcNow
+                };
+                wrapper.Wrapper.LastShow[role] = nextPlayer.Key;
+                wrapper.Wrapper.Status = AuctionStatus.InProgress;
 
+                return new ConcurrencyResponse(true, wrapper.Wrapper.Actual);
+            });
             // Broadcast to all participants
-            await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
-        }
-
-        public async Task ForceNextPlayerAsync(string auctionId, string playerKey)
-        {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            if (concurrencyResponse?.IsOk == true)
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can show next player");
-                return;
+                await Clients.Group(auctionId).SendAsync("PlayerShown", concurrencyResponse?.Data);
             }
-
-            if (wrapper.Wrapper.Status == AuctionStatus.Finished)
+            else
             {
-                await Clients.Caller.SendAsync("Error", "Auction is already finished");
-                return;
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
             }
-
-            var nextPlayer = wrapper.RealPlayers!.FirstOrDefault(x => x.Key == playerKey);
-            if (nextPlayer == null)
-            {
-                await Clients.Group(auctionId).SendAsync("Error", $"No player with key {playerKey}");
-                return;
-            }
-
-            // Update auction state
-            wrapper.Wrapper.Actual = new ActualAuction
-            {
-                Player = wrapper.RealPlayers?.First(x => x.Key == nextPlayer.Key) ?? throw new InvalidOperationException("Player not found"),
-                Owner = null,
-                Price = 0,
-                Started = DateTime.UtcNow,
-            };
-            wrapper.Wrapper.LastShow[nextPlayer.Role] = nextPlayer.Key;
-            wrapper.Wrapper.Status = AuctionStatus.InProgress;
-
-            // Broadcast to all participants
-            await Clients.Group(auctionId).SendAsync("PlayerShown", wrapper.Wrapper.Actual);
         }
 
         public async Task ChangePlayerStatusAsync(string auctionId, string owner, string playerKey, PlayerInTeamStatus status, int? revenue)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
+            var concurrentResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            {
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Only auctioneers can change player status");
+                }
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
-            {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can show next player");
-                return;
-            }
+                if (status == PlayerInTeamStatus.Sold && revenue == null)
+                {
+                    return new ConcurrencyResponse(false, "Player sold with no price");
+                }
 
-            if (status == PlayerInTeamStatus.Sold && revenue == null)
-            {
-                await Clients.Caller.SendAsync("Error", "Player sold with no price");
-                return;
-            }
+                var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == owner);
+                if (teamEntity?.Key == null || teamEntity.Value == null)
+                {
+                    return new ConcurrencyResponse(false, "Team not found");
+                }
 
-            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == owner);
-            if (teamEntity?.Key == null || teamEntity.Value == null)
-            {
-                await Clients.Caller.SendAsync("Error", "Team not found");
-                return;
-            }
+                var team = teamEntity.Value;
+                var player = team.Players.FirstOrDefault(x => x.Key == playerKey);
 
-            var team = teamEntity.Value;
-            var player = team.Players.FirstOrDefault(x => x.Key == playerKey);
+                if (player == null)
+                {
+                    return new ConcurrencyResponse(false, "Player not found in team");
+                }
 
-            if (player == null)
+                player.Status = status;
+                if (status == PlayerInTeamStatus.Removed)
+                {
+                    team.Players.Remove(player);
+                }
+                else if (status == PlayerInTeamStatus.Sold && revenue != null)
+                {
+                    player.Revenue = revenue.Value;
+                }
+                else
+                {
+                    player.Revenue = 0;
+                }
+                var updated = await _team.UpdateAsync(teamEntity.Key, team);
+                return new ConcurrencyResponse(true, teamEntity);
+            });
+            if (concurrentResponse?.IsOk == true)
             {
-                await Clients.Caller.SendAsync("Error", "Player not found in team");
-                return;
-            }
-
-            player.Status = status;
-            if (status == PlayerInTeamStatus.Removed)
-            {
-                team.Players.Remove(player);
-            }
-            else if (status == PlayerInTeamStatus.Sold && revenue != null)
-            {
-                player.Revenue = revenue.Value;
-            }
-            else
-            {
-                player.Revenue = 0;
-            }
-            var updated = await _team.UpdateAsync(teamEntity.Key, team);
-            if (updated)
-            {
-                await Clients.Group(auctionId).SendAsync("AuctionUpdated");
+                await Clients.Group(auctionId).SendAsync("TeamUpdated", concurrentResponse.Data);
             }
             else
             {
                 await Clients.Caller.SendAsync("Error", "Failed to update team");
             }
-
         }
 
         /// <summary>
@@ -635,53 +527,60 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can assign players");
-                return;
-            }
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Only auctioneers can assign players");
+                }
 
-            if (wrapper.Wrapper.Actual == null)
-            {
-                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
-                return;
-            }
+                if (wrapper.Wrapper.Actual == null)
+                {
+                    return new ConcurrencyResponse(false, "No player is currently being auctioned");
+                }
 
-            var (success, message) = await SetPlayerAsync(auctionId);
+                var (success, message) = await SetPlayerAsync(wrapper);
 
-            if (!success)
-            {
-                await Clients.Caller.SendAsync("Error", message);
-                return;
-            }
+                if (!success)
+                {
+                    return new ConcurrencyResponse(false, message);
+                }
 
-            wrapper.Wrapper.Winnings.Add(new AuctionWin
-            {
-                PlayerKey = wrapper.Wrapper.Actual.Player.Key,
-                Owner = wrapper.Wrapper.Actual.Owner,
-                Price = wrapper.Wrapper.Actual.Price
+                wrapper.Wrapper.Winnings.Add(new AuctionWin
+                {
+                    PlayerKey = wrapper.Wrapper.Actual.Player.Key,
+                    Owner = wrapper.Wrapper.Actual.Owner,
+                    Price = wrapper.Wrapper.Actual.Price
+                });
+                var actual = wrapper.Wrapper.Actual;
+                wrapper.Wrapper.Actual = null;
+
+                // Get updated team
+                var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actual?.Owner);
+                var team = teamEntity?.Key != null ? teamEntity.Value : null;
+                return new ConcurrencyResponse(true, new PlayerAssignedMessageInAuction
+                {
+                    PlayerAssignedInAuction = new()
+                    {
+                        Owner = actual?.Owner,
+                        TeamName = team?.Name,
+                        Price = actual?.Price ?? 0,
+                        PlayerName = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == actual?.Player.Key)?.Name ?? "Unknown",
+                        TeamCost = team?.Cost ?? 0,
+                        TeamPlayersCount = team?.ActivePlayers.Count() ?? 0
+                    },
+                    Team = teamEntity
+                });
             });
-            var actual = wrapper.Wrapper.Actual;
-            wrapper.Wrapper.Actual = null;
-
-            // Get updated team
-            var teamEntity = wrapper.Teams.FirstOrDefault(x => x.Key.Email == actual?.Owner);
-            var team = teamEntity.Key != null ? teamEntity.Value : null;
-
-            // Broadcast to all participants
-            await Clients.Group(auctionId).SendAsync("PlayerAssigned", new
+            if (concurrencyResponse?.IsOk == true)
             {
-                Owner = actual?.Owner,
-                TeamName = team?.Name,
-                Price = actual?.Price ?? 0,
-                PlayerName = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == actual?.Player.Key)?.Name ?? "Unknown",
-                TeamCost = team?.Cost,
-                TeamPlayersCount = team?.ActivePlayers.Count()
-            });
-
-            // Send updated state
-            await Clients.Group(auctionId).SendAsync("AuctionUpdated");
+                // Broadcast to all participants
+                await Clients.Group(auctionId).SendAsync("PlayerAssigned", concurrencyResponse.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
 
         public async Task ChangeTimerAsync(string auctionId, int timer)
@@ -689,107 +588,76 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can edit timer");
-                return;
-            }
-
-            wrapper.Wrapper.SecondsPerAuction = timer;
-            _ = UpdateAsync(auctionId);
-
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneer can edit timer"));
+                }
+                wrapper.Wrapper.SecondsPerAuction = timer;
+                return Task.FromResult(new ConcurrencyResponse(true));
+            });
             // Send updated state
-            await Clients.Group(auctionId).SendAsync("AuctionUpdated");
+            if (concurrencyResponse?.IsOk == true)
+            {
+                await Clients.Group(auctionId).SendAsync("TimerUpdate", timer);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
 
         /// <summary>
         /// AUCTIONEER: Pause auction
         /// </summary>
-        public async Task PauseAuctionAsync(string auctionId)
+        public Task PauseAuctionAsync(string auctionId)
         {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
-            {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can pause the auction");
-                return;
-            }
-
-            wrapper.Wrapper.Status = AuctionStatus.Paused;
-            await Clients.Group(auctionId).SendAsync("AuctionPaused");
+            return ChangeAuctionStateAsync(auctionId, AuctionStatus.Paused, "pause");
         }
 
         /// <summary>
         /// AUCTIONEER: Resume auction
         /// </summary>
-        public async Task ResumeAuctionAsync(string auctionId)
+        public Task ResumeAuctionAsync(string auctionId)
         {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
-            {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can resume the auction");
-                return;
-            }
-
-            wrapper.Wrapper.Status = AuctionStatus.InProgress;
-            await Clients.Group(auctionId).SendAsync("AuctionResumed");
+            return ChangeAuctionStateAsync(auctionId, AuctionStatus.InProgress, "resume");
         }
 
         /// <summary>
         /// AUCTIONEER: Close auction permanently
         /// </summary>
-        public async Task CloseAuctionAsync(string auctionId)
+        public Task CloseAuctionAsync(string auctionId)
         {
-            var email = GetUserEmail();
-            if (string.IsNullOrEmpty(email)) return;
-
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email))
-            {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can close the auction");
-                return;
-            }
-
-            wrapper.Wrapper.Status = AuctionStatus.Finished;
-            await _auctionRepository.UpdateAsync(auctionId, wrapper.Wrapper);
-
-            // Remove from memory
-            s_auctions.Remove(auctionId);
-
-            await Clients.Group(auctionId).SendAsync("AuctionClosed");
+            return ChangeAuctionStateAsync(auctionId, AuctionStatus.Finished, "close");
         }
 
-        /// <summary>
-        /// Get current player being auctioned
-        /// </summary>
-        public async Task GetCurrentPlayerAsync(string auctionId)
+        private async Task ChangeAuctionStateAsync(string auctionId, AuctionStatus status, string eventName)
         {
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !CanAccessAuction(wrapper, email)) return;
-
-            if (wrapper.Wrapper.Actual != null)
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
             {
-                var player = wrapper.RealPlayers?.FirstOrDefault(x => x.Key == wrapper.Wrapper.Actual.Player.Key);
-                if (player != null)
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
                 {
-                    await Clients.Caller.SendAsync("CurrentPlayer", player);
+                    return Task.FromResult(new ConcurrencyResponse(false, $"Only auctioneer can {eventName} the auction"));
                 }
+                wrapper.Wrapper.Status = status;
+
+                return Task.FromResult(new ConcurrencyResponse(true));
+
+            });
+            // Send updated state
+            if (concurrencyResponse?.IsOk == true)
+            {
+                _ = Clients.Group(auctionId).SendAsync($"Auction{eventName.ToUpperCaseFirst()}d");
             }
             else
             {
-                await Clients.Caller.SendAsync("CurrentPlayer", null);
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
             }
         }
-
         public override async Task OnConnectedAsync()
         {
             var email = GetUserEmail();
@@ -799,49 +667,63 @@ namespace Fantasoccer.Application.Api.Hubs
             }
             await base.OnConnectedAsync();
         }
-
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             // User will be automatically removed from all groups
             await base.OnDisconnectedAsync(exception);
         }
-
         public async Task CompleteResetAsync(string auctionId)
         {
             var email = GetUserEmail();
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email!))
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can reset the auction");
-                return;
-            }
-            if (wrapper.Wrapper.Actual == null)
+                if (wrapper == null || !IsAuctioneer(wrapper, email!))
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneers can reset the auction"));
+                }
+                if (wrapper.Wrapper.Actual == null)
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "No player is currently being auctioned"));
+                }
+                wrapper.Wrapper.Actual.Owner = null;
+                wrapper.Wrapper.Actual.Price = 0;
+                wrapper.Wrapper.Actual.Substituted = null;
+                wrapper.Wrapper.Actual.StartingTime = null;
+                return Task.FromResult(new ConcurrencyResponse(true));
+            });
+            if (concurrencyResponse?.IsOk == true)
             {
-                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
-                return;
+                _ = Clients.Group(auctionId).SendAsync("CurrentAuctionReset");
             }
-            wrapper.Wrapper.Actual.Owner = null;
-            wrapper.Wrapper.Actual.Price = 0;
-            wrapper.Wrapper.Actual.Substituted = null;
-            wrapper.Wrapper.Actual.StartingTime = null;
-            await Clients.Group(auctionId).SendAsync("CurrentAuctionReset");
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
         public async Task TimerResetAsync(string auctionId)
         {
             var email = GetUserEmail();
-            var wrapper = await GetCurrentWrapperAsync(auctionId);
-            if (wrapper == null || !IsAuctioneer(wrapper, email!))
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
             {
-                await Clients.Caller.SendAsync("Error", "Only auctioneers can reset the auction");
-                return;
-            }
-            if (wrapper.Wrapper.Actual == null)
+                if (wrapper == null || !IsAuctioneer(wrapper, email!))
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneers can reset the auction"));
+                }
+                if (wrapper.Wrapper.Actual == null)
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "No player is currently being auctioned"));
+                }
+                wrapper.Wrapper.Actual.StartingTime = DateTime.UtcNow;
+                return Task.FromResult(new ConcurrencyResponse(true));
+            });
+            if (concurrencyResponse?.IsOk == true)
             {
-                await Clients.Caller.SendAsync("Error", "No player is currently being auctioned");
-                return;
+                _ = Clients.Group(auctionId).SendAsync("TimerReset");
             }
-            wrapper.Wrapper.Actual.StartingTime = DateTime.UtcNow;
-            await Clients.Group(auctionId).SendAsync("TimerReset");
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
         }
     }
 }

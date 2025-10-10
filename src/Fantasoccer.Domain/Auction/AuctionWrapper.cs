@@ -3,6 +3,50 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Domain
 {
+    public sealed class AuctionBid
+    {
+        [JsonPropertyName("a")]
+        public decimal Amount { get; set; }
+
+        [JsonPropertyName("e")]
+        public string BidderEmail { get; set; }
+
+        [JsonPropertyName("n")]
+        public string BidderName { get; set; }
+
+        [JsonPropertyName("p")]
+        public string PlayerName { get; set; }
+
+        [JsonPropertyName("s")]
+        public string Substituted { get; set; }
+    }
+    public sealed class PlayerAssignedInAuction
+    {
+        [JsonPropertyName("o")]
+        public string Owner { get; set; }
+
+        [JsonPropertyName("t")]
+        public string TeamName { get; set; }
+
+        [JsonPropertyName("p")]
+        public decimal Price { get; set; }
+
+        [JsonPropertyName("n")]
+        public string PlayerName { get; set; }
+
+        [JsonPropertyName("c")]
+        public int TeamCost { get; set; }
+
+        [JsonPropertyName("pc")]
+        public int TeamPlayersCount { get; set; }
+    }
+    public sealed class PlayerAssignedMessageInAuction
+    {
+        [JsonPropertyName("p")]
+        public PlayerAssignedInAuction? PlayerAssignedInAuction { get; set; }
+        [JsonPropertyName("t")]
+        public Entity<Team, TeamKey>? Team { get; set; }
+    }
     public sealed class AuctionHubWrapper
     {
         [JsonPropertyName("w")]

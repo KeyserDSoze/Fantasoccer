@@ -190,7 +190,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     open: isOpen,
     onOpenChange: setIsOpen,
     snapPointsMode: snapPointsMode as 'fit' | 'percent',
-    snapPoints: isDesktop ? [800] : [90],
+    snapPoints: isDesktop ? undefined : [90],
     moveOnKeyboardChange: false,
     dismissOnSnapToBottom: !isDesktop,
     disableDrag: isDesktop,

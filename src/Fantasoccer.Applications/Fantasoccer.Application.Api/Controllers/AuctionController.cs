@@ -1,5 +1,5 @@
 ﻿using System.Security.Cryptography;
-using System.Text.Json.Serialization;
+using Fantasoccer.Business;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +12,7 @@ namespace Fantasoccer.Application.Api.Controllers
     [Route("[controller]/[action]")]
     public class AuctionController : ControllerBase
     {
+        private readonly AuctionHubService _auctionHubService;
         private readonly IRepository<AuctionWrapper, string> _auctionRepository;
         private readonly IRepository<AppIdentity, string> _identityRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -19,11 +20,12 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<RealPlayersWrapper, int> _realPlayers;
         private readonly IRepository<Team, TeamKey> _team;
         private IRepository<Group, string> Groups { get; }
-        public AuctionController(IRepository<AuctionWrapper, string> auctionRepository,
+        public AuctionController(AuctionHubService auctionHubService, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
             IHttpContextAccessor httpContextAccessor,
             IRepository<RealPlayersWrapper, int> realPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups)
         {
+            _auctionHubService = auctionHubService;
             _auctionRepository = auctionRepository;
             _identityRepository = identityRepository;
             _httpContextAccessor = httpContextAccessor;
@@ -157,66 +159,15 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             return players;
         }
-
         [HttpGet]
-        public async Task<string> GetTeamNameAsync([FromQuery] string email, [FromQuery] string group, [FromQuery] string basket, [FromQuery] int year)
+        public async Task<AuctionHubWrapper?> GetAuctionAsync([FromQuery] string auctionId)
         {
-            var teamKey = new TeamKey { Year = year, Email = email, Group = group, BasketId = basket };
-            var team = await _team.GetAsync(teamKey);
-            if (team == null)
+            var name = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
+            if (name != null)
             {
-                var theGroup = await Groups.GetAsync(group);
-                var theBasket = theGroup.Baskets.First(x => x.Id == basket);
-                var theYear = theBasket.Years.First(x => x.Year == year);
-                var theTeam = theYear.Teams.First(x => x.Owner == email);
-                team = new() { Name = theTeam.Name, Owner = theTeam.Owner, Players = [] };
-                await _team.UpdateAsync(teamKey, team);
+                return await _auctionHubService.GetCurrentWrapperAsync(auctionId);
             }
-            return team.Name;
+            return null;
         }
-        public sealed class ShowingTeam
-        {
-            [JsonPropertyName("name")]
-            public string Name { get; set; }
-            [JsonPropertyName("owner")]
-            public string Owner { get; set; }
-            [JsonPropertyName("cost")]
-            public int Cost { get; set; }
-            [JsonPropertyName("players")]
-            public List<Player> Players { get; set; }
-        }
-        [HttpGet]
-        public async IAsyncEnumerable<ShowingTeam> GetTeamsAsync([FromQuery] string group, [FromQuery] string basket, [FromQuery] int year)
-        {
-            var theGroup = await Groups.GetAsync(group);
-            var theBasket = theGroup.Baskets.First(x => x.Id == basket);
-            var theYear = theBasket.Years.First(x => x.Year == year);
-            foreach (var teamInYear in theYear.Teams)
-            {
-                var teamKey = new TeamKey
-                {
-                    Group = group,
-                    BasketId = basket,
-                    Year = year,
-                    Email = teamInYear.Owner
-                };
-                var team = await _team.GetAsync(teamKey);
-                if (team == null)
-                {
-                    team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
-                    await _team.UpdateAsync(teamKey, team);
-                }
-                var showingTeam = new ShowingTeam
-                {
-                    Name = team.Name,
-                    Owner = team.Owner,
-                    Cost = team.Cost,
-                    Players = team.ActivePlayers.ToList()
-                };
-                yield return showingTeam;
-            }
-        }
-
-
     }
 }

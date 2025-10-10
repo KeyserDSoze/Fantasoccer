@@ -7,7 +7,7 @@ import {
 } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { auctionService } from 'services/auctionService'
+import { auctionService, BidPlacedData } from 'services/auctionService'
 import { 
   AuctionState, 
   AuctionStatus, 
@@ -224,7 +224,6 @@ export default function AuctionLiveScreen() {
   // TIMER LOGIC
   // ============================================
   const startTimer = useCallback(() => {
-    console.log('⏱️ Starting timer with timeout:', offerTimeoutSeconds)
     setTimerSecondsLeft(offerTimeoutSeconds)
     setTimerRunning(true)
     setTimerExpired(false)
@@ -310,7 +309,6 @@ export default function AuctionLiveScreen() {
       toast.show('❌ Sei già il miglior offerente', { variant: 'error' })
       return
     }
-    
     // Determine which team is bidding based on context:
     // - If isAuctioneerBid=true, use selectedTeamForBid (auctioneer panel)
     // - Otherwise, use myTeam (personal panel)
@@ -338,9 +336,7 @@ export default function AuctionLiveScreen() {
           return
         }
       }
-    }
-    
-    if (currentPlayer.role && hasReachedRoleLimit(currentPlayer.role)) {
+    } else if (currentPlayer.role && hasReachedRoleLimit(currentPlayer.role)) {
       toast.show(`❌ Limite ruolo raggiunto per ${getRoleLabel(currentPlayer.role)}`, { variant: 'error' })
       return
     }
@@ -358,7 +354,6 @@ export default function AuctionLiveScreen() {
     try {
       // Only pass bidderEmail if it's an auctioneer bid (for someone else's team)
       const bidderEmail = isAuctioneerBid ? biddingTeam.value.owner : undefined
-      
       // Choose which substitute to send based on context:
       // - Personal bid (bidderEmail undefined) → use mySelectedSubstitute
       // - Auctioneer bid (bidderEmail specified) → use auctioneerSelectedSubstitute
@@ -368,9 +363,7 @@ export default function AuctionLiveScreen() {
         : undefined
       
       const substitutedPlayerKey = selectedSubstituteName ? getPlayerKey(selectedSubstituteName) : undefined
-      
       await auctionService.placeBid(auctionId, amount, bidderEmail, substitutedPlayerKey)
-      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid}, substitute: ${selectedSubstituteName || 'none'})`)
     } catch (err) {
       toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false)
@@ -460,7 +453,6 @@ export default function AuctionLiveScreen() {
     // If we're still waiting for user after 5 seconds, redirect to login
     const authCheckTimeout = setTimeout(async () => {
       if (!user?.email) {
-        console.log('⚠️ User not loaded after 5 seconds - authentication may have failed')
         setConnectionError('Autenticazione necessaria. Reindirizzamento alla pagina di login...')
         
         // Save return URL
@@ -470,7 +462,6 @@ export default function AuctionLiveScreen() {
           const { returnUrlService } = await import('../services/returnUrlService')
           await returnUrlService.saveReturnUrl(returnUrl)
           
-          console.log('🔐 Redirecting to login due to missing user authentication')
           navigation.navigate('Login' as any)
         }, 2000)
       }
@@ -481,13 +472,11 @@ export default function AuctionLiveScreen() {
   
   useEffect(() => {
     if (!user?.email) {
-      console.log('⏳ Waiting for user to be loaded...')
       return
     }
     
     // Prevent multiple simultaneous connection attempts
     if (connectionAttemptedRef.current || isConnectingRef.current) {
-      console.log('⚠️ Connection already attempted or in progress, skipping...')
       return
     }
     
@@ -498,7 +487,6 @@ export default function AuctionLiveScreen() {
     const connectAndJoin = async () => {
       // Double-check to prevent race conditions
       if (isConnectingRef.current) {
-        console.log('⚠️ Already connecting, aborting duplicate attempt')
         return
       }
       
@@ -506,30 +494,67 @@ export default function AuctionLiveScreen() {
       connectionAttemptedRef.current = true
       
       try {
-        console.log('👤 User loaded:', user.email)
-        
-        // Set user email for auction service
-        auctionService.setUserEmail(user.email)
+        // Setup event handlers BEFORE connecting
         auctionService.setEventHandlers({
-          onConnected: () => {
-            console.log('✅ Connected to auction hub')
+          onConnected: (connectionId) => {
+            console.log('✅ Connected to auction hub, connectionId:', connectionId)
             if (isSubscribed) {
               setConnectionState('Connected')
               reconnectAttemptsRef.current = 0
             }
           },
+          onReconnecting: () => {
+            console.log('🔄 SignalR reconnecting...')
+            if (isSubscribed) {
+              setConnectionState('Connecting')
+              toast.show('🔄 Riconnessione in corso...', { variant: 'info', duration: 2000 })
+            }
+          },
+          onReconnected: async (connectionId) => {
+            console.log('✅ SignalR reconnected, connectionId:', connectionId)
+            
+            if (isSubscribed) {
+              setConnectionState('Connected')
+              toast.show('✅ Riconnesso - caricamento stato asta...', { variant: 'success', duration: 3000 })
+              
+              // Il service ha già chiamato joinAuction automaticamente
+              // Richiediamo solo lo stato aggiornato
+              try {
+                await auctionService.getAuctionState(auctionId)
+                await auctionService.getCurrentPlayer(auctionId)
+                toast.show('✅ Stato asta aggiornato', { variant: 'success', duration: 2000 })
+              } catch (error) {
+                console.error('❌ Failed to reload state after reconnect:', error)
+                toast.show('⚠️ Errore ricaricamento stato', { variant: 'error', duration: 3000 })
+              }
+            }
+          },
+          onDisconnected: (error) => {
+            console.log('🔌 SignalR disconnected', error)
+            if (isSubscribed) {
+              setConnectionState('Disconnected')
+              
+              // Only show error if it was unexpected (not during normal navigation away)
+              if (error) {
+                const errorMsg = error.message || 'Unknown error'
+                if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+                  setConnectionError('Sessione scaduta - ricarica la pagina')
+                } else {
+                  toast.show('⚠️ Connessione persa - riconnessione automatica in corso...', { variant: 'warning', duration: 3000 })
+                }
+              }
+            }
+          },
           onError: (error) => {
-            console.error('❌ SignalR error:', error)
             if (isSubscribed) toast.show(`❌ ${error || 'Errore del server'}`, { variant: 'error', duration: 4000 })
           },
-          onUserJoined: (email) => console.log('👋 User joined:', email),
-          onUserLeft: (email) => console.log('👋 User left:', email),
+          onUserJoined: (email) => toast.show(`👋 Utente connesso: ${email}`, { variant: 'info', duration: 4000 }),
+          onUserLeft: (email) => toast.show(`👋 L'utente ${email} si è disconnesso`, { variant: 'info', duration: 4000 }),
           onPlayerShown: (player: StatPlayer) => {
-            console.log('🎯 Player shown:', player)
             if (isSubscribed) {
               // Check if role changed - if so, reset substitutes
               const roleChanged = currentPlayer && currentPlayer.role !== player.role
-              
+              console.log(currentPlayer, player, 'roleChanged:', roleChanged)
               setCurrentPlayer(player)
               setCurrentBid(0)
               setCurrentBidder(null)
@@ -549,24 +574,21 @@ export default function AuctionLiveScreen() {
             }
           },
           onPlayerAssigned: (data: PlayerAssignedData) => {
-            console.log('✅ Player assigned:', data)
             if (isSubscribed) {
               playBidSound()
               vibrateOnBid()
-              
+              toast.show(`✅ Giocatore assegnato: ${data.playerName} a ${data.teamName} per €${data.price}. Ha preso ${data.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 5000 })
               // Reset substitute for the winner (player is no longer available - was removed/substituted)
               // Check if winner is myTeam or selectedTeamForBid
-              if (currentBidder) {
-                // If I won the auction, reset my substitute
-                if (user?.email && currentBidder.toLowerCase() === user.email.toLowerCase()) {
-                  setMySelectedSubstitute(null)
-                }
-                // If auctioneer's selected team won, reset auctioneer substitute
-                if (selectedTeamForBid && currentBidder.toLowerCase() === selectedTeamForBid.toLowerCase()) {
-                  setAuctioneerSelectedSubstitute(null)
-                }
+              // If I won the auction, reset my substitute
+              if (user?.email && data.owner.toLowerCase() === user.email.toLowerCase()) {
+                setMySelectedSubstitute(null)
               }
-              
+              // If auctioneer's selected team won, reset auctioneer substitute
+              if (selectedTeamForBid && data.owner.toLowerCase() === selectedTeamForBid.toLowerCase()) {
+                setAuctioneerSelectedSubstitute(null)
+              }
+              console.log('📦 onPlayerAssigned data:', data)
               setCurrentPlayer(null)
               setCurrentBid(0)
               setCurrentBidder(null)
@@ -576,23 +598,24 @@ export default function AuctionLiveScreen() {
               resetTimer()
             }
           },
-          onBidPlaced: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string; Substituted: string | null }) => {
-            console.log('💰 Bid placed:', data)
+          onBidPlaced: (data: BidPlacedData) => {
             if (isSubscribed) {
-              setCurrentBid(data.Amount)
-              setCurrentBidder(data.BidderEmail)
-              setCurrentSubstitute(data.Substituted)
-              // if (data.BidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
+              setCurrentBid(data.amount)
+              setCurrentBidder(data.bidderEmail)
+              setCurrentSubstitute(data.substituted)
+              // if (data.bidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
                 playBidSound()
                 vibrateOnBid()
               // }
               startTimer()
-              auctionService.getAuctionState(auctionId).catch(console.error)
             }
           },
           onAuctionState: (state: AuctionState) => {
-            console.log('📦 Auction state received:', state)
+            console.log('📦 onAuctionState callback received, state:', state)
+            console.log('📦 isSubscribed:', isSubscribed)
+            
             if (isSubscribed) {
+              console.log('📦 Updating state...')
               setAuctionState(state)
               setTeams(state.teams)
               setIsAuctioneer(state.isAuctioneer)
@@ -618,26 +641,27 @@ export default function AuctionLiveScreen() {
                 setCurrentBidder(state.wrapper.actual.owner)
                 setCurrentSubstitute(state.wrapper.actual.substituted)
               }
+              console.log('✅ State updated successfully')
+            } else {
+              console.log('⚠️ onAuctionState called but isSubscribed is false')
             }
           },
           onAuctionUpdated: () => {
-            console.log('🔄 Auction updated')
             auctionService.getAuctionState(auctionId).catch(console.error)
           },
           onAuctionPaused: () => {
-            console.log('⏸️ Auction paused')
+            toast.show('⏸️ Asta in pausa', { variant: 'info', duration: 4000 })
             if (isSubscribed) setIsLocked(true)
           },
           onAuctionResumed: () => {
-            console.log('▶️ Auction resumed')
+            toast.show('▶️ Asta ripresa', { variant: 'info', duration: 4000 })
             if (isSubscribed) setIsLocked(false)
           },
           onAuctionClosed: () => {
-            console.log('🏁 Auction closed')
+            toast.show('🏁 Asta chiusa', { variant: 'info', duration: 4000 })
             if (isSubscribed) setConnectionError('L\'asta è stata chiusa')
           },
           onCurrentAuctionReset: () => {
-            console.log('🔄 Current auction reset - clearing all bids')
             if (isSubscribed) {
               setCurrentBid(0)
               setCurrentBidder(null)
@@ -649,7 +673,6 @@ export default function AuctionLiveScreen() {
             }
           },
           onTimerReset: () => {
-            console.log('⏱️ Timer reset - restarting countdown')
             if (isSubscribed) {
               startTimer()
               toast.show('⏱️ Timer riavviato', { variant: 'info' })
@@ -657,18 +680,20 @@ export default function AuctionLiveScreen() {
           }
         })
         
-        await auctionService.connect()
+        // Connect to SignalR hub (includes automatic join)
+        console.log('🔌 Connecting to auction hub...')
+        await auctionService.connect(auctionId, user.email)
+        console.log('✅ Connected successfully')
         
-        // Wait for connection to stabilize before proceeding
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // Verify connection state before joining
+        // Verify connection
         if (!isSubscribed) return
         
         if (!auctionService.isConnected()) {
           throw new Error('Connection not established after connect()')
         }
         
+        // Join auction room
+        console.log('📨 Joining auction room...')
         const joined = await auctionService.joinAuction(auctionId)
         if (!joined) {
           if (isSubscribed) {
@@ -677,12 +702,20 @@ export default function AuctionLiveScreen() {
           }
           return
         }
+        console.log('✅ Joined auction room successfully')
+        
+        // Request initial state
+        // Request initial state
+        console.log('📨 Requesting initial auction state...')
         await auctionService.getAuctionState(auctionId)
+        
+        console.log('📨 Requesting current player...')
         await auctionService.getCurrentPlayer(auctionId)
+        
+        console.log('✅ Initial setup complete - waiting for state events...')
         
         // Mark connection as successful
         isConnectingRef.current = false
-        console.log('✅ Connection setup completed successfully')
       } catch (err) {
         console.error('❌ Error connecting to auction:', err)
         isConnectingRef.current = false
@@ -692,7 +725,6 @@ export default function AuctionLiveScreen() {
           
           // Check if it's an authentication error
           if (errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('authentication') || errorMessage.includes('refresh token') || errorMessage.includes('Failed to refresh')) {
-            console.log('🔐 Authentication error detected, redirecting to login...')
             setConnectionError('Sessione scaduta. Reindirizzamento alla pagina di login...')
             
             // Save current location for redirect after login
@@ -708,7 +740,6 @@ export default function AuctionLiveScreen() {
               const { tokenStorageService } = await import('../services/tokenStorageService')
               await tokenStorageService.removeToken()
               
-              console.log('🔐 Token cleared, navigating to login')
               // Navigate to login (will redirect back after successful login)
               navigation.navigate('Login' as any)
             }, 2000)
@@ -722,7 +753,7 @@ export default function AuctionLiveScreen() {
             
             // Only retry if not an auth error and we haven't exceeded max attempts
             if (reconnectAttemptsRef.current < 3) {
-              console.log(`⏰ Scheduling reconnect attempt ${reconnectAttemptsRef.current + 1}/3 in 3 seconds...`)
+              toast.show(`⏰ Tentativo di riconnessione ${reconnectAttemptsRef.current + 1}/3 in 3 secondi...`, { variant: 'error' })
               setTimeout(() => {
                 reconnectAttemptsRef.current++
                 connectionAttemptedRef.current = false
@@ -730,7 +761,7 @@ export default function AuctionLiveScreen() {
                 setConnectionTrigger(prev => prev + 1) // Trigger reconnection
               }, 3000)
             } else {
-              console.log('❌ Max reconnect attempts reached')
+              toast.show('❌ Raggiunto il numero massimo di tentativi di riconnessione', { variant: 'error' })
             }
           }
           
@@ -740,12 +771,15 @@ export default function AuctionLiveScreen() {
     }
     connectAndJoin()
     return () => {
-      console.log('🧹 Cleaning up connection...')
+      // Cleanup: mark component as unsubscribed and notify server we're leaving
       isSubscribed = false
       connectionAttemptedRef.current = false
       isConnectingRef.current = false
+      
+      // Only notify server we're leaving the auction room
+      // Don't call disconnect() - SignalR will automatically close the connection
+      // when needed (tab closed, network lost, timeout)
       auctionService.leaveAuction(auctionId).catch(console.error)
-      auctionService.disconnect().catch(console.error)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auctionId, user?.email, connectionTrigger])
@@ -1339,8 +1373,6 @@ export default function AuctionLiveScreen() {
     
     // Responsive grid: 5 teams per row on desktop, 2 on mobile
     // Width dinamica con massimo per mantenere 5 colonne su desktop
-    const teamsPerRow = media.gtMd ? 5 : 2
-    const gapSize = 12 // $3 = 12px
     const maxCardWidth = media.gtMd ? 240 : 180
     
     // Sort teams by budget (descending - from highest to lowest)
@@ -1512,7 +1544,6 @@ export default function AuctionLiveScreen() {
     if (!selectedTeamDetail) return null
     const team = selectedTeamDetail
     const budget = calculateBudgetRemaining(team)
-    const spent = 1000 - budget
     const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
     
     // Count only active players

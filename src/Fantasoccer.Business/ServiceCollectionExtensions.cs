@@ -23,9 +23,10 @@ namespace Fantasoccer.Business
             },
             x =>
             {
-                x.BearerTokenExpiration = TimeSpan.FromHours(1);
+                x.BearerTokenExpiration = TimeSpan.FromHours(24);
                 x.RefreshTokenExpiration = TimeSpan.FromDays(100);
             });
+            services.AddSingleton<AuctionHubService>();
             services.AddFactory<IFormationParser, Fantagazzetta>(nameof(Fantagazzetta));
             services.AddFactory<IFormationParser, Gazzetta>(nameof(Gazzetta));
             services.AddFactory<IFormationParser, Injury>(nameof(Injury));

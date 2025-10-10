@@ -1,5 +1,5 @@
-// Auction service - HTTP calls and SignalR real-time connection
-import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
+// Auction Service - SignalR real-time connection and HTTP API
+import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr'
 import { buildApiUrl, getCommonHeaders, ApiError } from '../configurations/apiConfig'
 import { tokenStorageService } from './tokenStorageService'
 import type { Role } from '../types/group'
@@ -15,351 +15,460 @@ import type {
 } from '../types/auction'
 import {
   mapRawActualAuction,
-  statPlayerToPlayerWithStats,
   mapRawAuctionHubWrapperToAuctionState
 } from '../types/auction'
 
-// SignalR event handlers type
+// ============================================
+// TYPES & INTERFACES
+// ============================================
+
+/**
+ * SignalR event handlers
+ * These are called when the server sends events to the client
+ */
 export interface AuctionEventHandlers {
-  onConnected?: (message: string) => void
+  // Connection lifecycle
+  onConnected?: (connectionId: string) => void
+  onReconnecting?: () => void
+  onReconnected?: (connectionId: string) => void
+  onDisconnected?: (error?: Error) => void
+  
+  // Server events
   onError?: (message: string) => void
   onUserJoined?: (email: string) => void
   onUserLeft?: (email: string) => void
+  
+  // Auction events
   onPlayerShown?: (player: StatPlayer) => void
   onPlayerAssigned?: (data: PlayerAssignedData) => void
-  onBidPlaced?: (data: { Amount: number; BidderEmail: string; BidderName: string; PlayerName: string; Substituted: string | null }) => void
+  onBidPlaced?: (data: BidPlacedData) => void
+  onAuctionState?: (state: AuctionState) => void
+  onCurrentPlayer?: (player: PlayerWithStats | null) => void
+  
+  // Auction control events
   onAuctionUpdated?: () => void
   onAuctionPaused?: () => void
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
-  onAuctionState?: (state: AuctionState) => void  // ✅ Now returns clean AuctionState
-  onCurrentPlayer?: (player: PlayerWithStats | null) => void
-  onCurrentAuctionReset?: () => void  // Reset all bids for current player
-  onTimerReset?: () => void  // Restart timer and unlock bidding buttons
+  onCurrentAuctionReset?: () => void
+  onTimerReset?: () => void
 }
+
+export interface BidPlacedData {
+  amount: number
+  bidderEmail: string
+  bidderName: string
+  playerName: string
+  substituted: string | null
+}
+
+/**
+ * Connection state for tracking SignalR status
+ */
+export type ConnectionStatus = 
+  | 'Disconnected' 
+  | 'Connecting' 
+  | 'Connected' 
+  | 'Reconnecting' 
+  | 'Failed'
+
+// ============================================
+// AUCTION SERVICE CLASS
+// ============================================
 
 export class AuctionService {
   private hubConnection: HubConnection | null = null
   private eventHandlers: AuctionEventHandlers = {}
-  private userEmail: string | null = null  // Store current user email for mapping
+  private userEmail: string | null = null
+  private isInitialized = false
+  private currentAuctionId: string | null = null
 
   // ============================================
-  // HTTP METHODS (Auction Creation)
+  // HTTP API METHODS
   // ============================================
 
   /**
-   * Create a new auction (HTTP call)
+   * Create a new auction via HTTP
    */
   async createAuction(auctionType: AuctionType, auctionKind: AuctionKind): Promise<string> {
-    try {
-      const token = await tokenStorageService.ensureValidToken()
-      if (!token) {
-        throw new ApiError('No authentication token available', 401)
-      }
+    const token = await tokenStorageService.ensureValidToken()
+    if (!token) {
+      throw new ApiError('No authentication token available', 401)
+    }
 
-      const url = buildApiUrl('/Auction/CreateAuction', {
-        auctionType: auctionType.toString(),
-        auctionKind: auctionKind.toString()
-      })
+    const url = buildApiUrl('/Auction/CreateAuction', {
+      auctionType: auctionType.toString(),
+      auctionKind: auctionKind.toString()
+    })
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          ...getCommonHeaders(),
-          'Authorization': `Bearer ${token}`
-        },
-      })
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...getCommonHeaders(),
+        'Authorization': `Bearer ${token}`
+      },
+    })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new ApiError(
-          `Create auction failed: ${response.status} ${response.statusText}`,
-          response.status,
-          errorText
-        )
-      }
-
-      const auctionId = await response.text()
-      return auctionId.replace(/^"|"$/g, '')
-    } catch (error) {
-      if (error instanceof ApiError) throw error
+    if (!response.ok) {
+      const errorText = await response.text()
       throw new ApiError(
-        `Failed to create auction: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Create auction failed: ${response.status} ${response.statusText}`,
+        response.status,
+        errorText
       )
     }
+
+    const auctionId = await response.text()
+    return auctionId.replace(/^"|"$/g, '')
   }
 
   // ============================================
-  // SIGNALR CONNECTION MANAGEMENT
+  // CONNECTION LIFECYCLE
   // ============================================
 
   /**
-   * Connect to auction hub
+   * Initialize and connect to SignalR hub
+   * This should be called once when entering the auction screen
    */
-  async connect(): Promise<void> {
-    if (this.hubConnection?.state === 'Connected') {
-      console.log('Already connected to auction hub')
+  async connect(auctionId: string, userEmail: string): Promise<void> {
+    console.log('🔌 AuctionService.connect() called', { auctionId, userEmail, currentState: this.getConnectionState() })
+
+    // Store context
+    this.currentAuctionId = auctionId
+    this.userEmail = userEmail
+
+    // If already connected to the same auction, just return
+    if (this.hubConnection?.state === 'Connected' && this.isInitialized) {
+      console.log('✅ Already connected to auction hub')
       return
     }
 
-    // ALWAYS force refresh token before connecting to ensure maximum validity
-    console.log('🔄 Force refreshing token before SignalR connection...')
-    const token = await tokenStorageService.forceRefreshToken()
-    if (!token) {
-      throw new Error('Failed to refresh authentication token before connection')
+    // If there's an existing connection in any state, clean it up first
+    if (this.hubConnection) {
+      console.log('⚠️ Cleaning up existing connection before reconnecting')
+      await this.cleanup()
     }
 
-    console.log('✅ Fresh token obtained for SignalR connection')
+    // Get fresh token
+    const token = await tokenStorageService.forceRefreshToken()
+    if (!token) {
+      throw new Error('Failed to obtain authentication token')
+    }
 
+    // Build hub URL
     const apiConfig = await import('../configurations/apiConfig').then(m => m.getApiConfig())
     const hubUrl = `${apiConfig.baseUrl}/auctionhub`
     
-    console.log('🔌 Connecting to SignalR hub:', hubUrl)
+    console.log('🔌 Building SignalR connection to:', hubUrl)
 
-    try {
-      this.hubConnection = new HubConnectionBuilder()
-        .withUrl(hubUrl, {
-          accessTokenFactory: async () => {
-            const currentToken = await tokenStorageService.ensureValidToken()
-            console.log('🔑 Token factory called, token exists:', !!currentToken)
-            if (!currentToken) {
-              throw new Error('Token not available in factory')
-            }
-            return currentToken
-          },
-          skipNegotiation: false,
-          transport: undefined, // Let SignalR choose the best transport
-        })
-        .withAutomaticReconnect({
-          nextRetryDelayInMilliseconds: (retryContext) => {
-            // Don't retry on auth errors
-            if (retryContext.elapsedMilliseconds > 60000) {
-              console.log('❌ Max reconnection time exceeded')
-              return null // Stop retrying
-            }
-            // Exponential backoff: 2s, 4s, 8s, 16s, 30s
-            const delay = Math.min(2000 * Math.pow(2, retryContext.previousRetryCount), 30000)
-            console.log(`🔄 Retry attempt ${retryContext.previousRetryCount + 1}, waiting ${delay}ms`)
-            return delay
+    // Create connection
+    this.hubConnection = new HubConnectionBuilder()
+      .withUrl(hubUrl, {
+        accessTokenFactory: async () => {
+          // This is called on EVERY connection attempt (initial + reconnections)
+          // Always get the freshest token possible
+          console.log('🔑 accessTokenFactory called - refreshing token...')
+          const freshToken = await tokenStorageService.forceRefreshToken()
+          if (!freshToken) {
+            console.error('❌ Token refresh failed in accessTokenFactory')
+            throw new Error('Authentication token not available')
           }
-        })
-        .configureLogging(LogLevel.Information)
-        .build()
-
-      // Register all event handlers BEFORE starting
-      this.registerEventHandlers()
-      
-      // Add connection close handler for debugging
-      this.hubConnection.onclose((error) => {
-        console.log('❌ SignalR connection closed', error)
-        if (error) {
-          // Check if it's an auth error
-          const errorMsg = error.message || error.toString()
-          if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
-            console.error('🔐 Authentication error - token may be invalid')
+          return freshToken
+        },
+      })
+      .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: (retryContext) => {
+          // Stop retrying after 60 seconds total
+          if (retryContext.elapsedMilliseconds > 60000) {
+            console.log('❌ Reconnection timeout exceeded (60s)')
+            return null
           }
+          // Exponential backoff: 0s, 2s, 4s, 8s, 16s, 30s
+          const delay = retryContext.previousRetryCount === 0 
+            ? 0 
+            : Math.min(2000 * Math.pow(2, retryContext.previousRetryCount - 1), 30000)
+          console.log(`🔄 Reconnection attempt ${retryContext.previousRetryCount + 1}, delay: ${delay}ms`)
+          return delay
         }
       })
+      .configureLogging(LogLevel.Information)
+      .build()
 
-      this.hubConnection.onreconnecting((error) => {
-        console.log('🔄 SignalR reconnecting...', error)
-      })
+    // Setup lifecycle handlers
+    this.setupConnectionLifecycle()
 
-      this.hubConnection.onreconnected((connectionId) => {
-        console.log('✅ SignalR reconnected:', connectionId)
-      })
+    // Register event handlers for auction events
+    this.registerEventHandlers()
 
+    // Start connection
+    try {
+      console.log('🚀 Starting SignalR connection...')
       await this.hubConnection.start()
-      console.log('✅ Connected to auction hub, connectionId:', this.hubConnection?.connectionId)
+      console.log('✅ SignalR connected, connectionId:', this.hubConnection.connectionId)
+      
+      this.isInitialized = true
+
+      // Notify connected
+      this.eventHandlers.onConnected?.(this.hubConnection.connectionId || '')
+      
     } catch (error) {
-      console.error('❌ Failed to connect to auction hub:', error)
+      console.error('❌ Failed to start SignalR connection:', error)
       
+      // Check for auth errors
       const errorMsg = error instanceof Error ? error.message : String(error)
-      
-      // Check for authentication errors
-      if (errorMsg.includes('401') || errorMsg.includes('Unauthorized') || errorMsg.includes('EventSource failed to connect')) {
-        console.error('🔐 Authentication error detected')
-        // Reset connection on auth failure
-        this.hubConnection = null
-        throw new Error('401 Unauthorized - Token invalido o scaduto')
+      if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+        throw new Error('Sessione scaduta - effettua nuovamente il login')
       }
       
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        hubConnectionState: this.hubConnection?.state
-      })
-      
-      // Reset connection on failure
-      this.hubConnection = null
+      // Cleanup on failure
+      await this.cleanup()
       throw error
     }
   }
 
   /**
-   * Disconnect from auction hub
+   * Setup connection lifecycle handlers (onclose, onreconnecting, onreconnected)
+   * These are managed by SignalR automatically and should NOT be called manually
    */
-  async disconnect(): Promise<void> {
-    if (this.hubConnection) {
-      const state = this.hubConnection.state
-      console.log('🔌 Disconnecting from auction hub, current state:', state)
+  private setupConnectionLifecycle(): void {
+    if (!this.hubConnection) return
+
+    // Connection closed (network loss, server shutdown, manual disconnect, etc.)
+    this.hubConnection.onclose((error) => {
+      console.log('🔌 SignalR connection closed', error)
+      this.isInitialized = false
       
-      try {
-        // Only stop if not already disconnected
-        if (state === 'Connected' || state === 'Connecting' || state === 'Reconnecting') {
-          await this.hubConnection.stop()
+      // Notify component
+      this.eventHandlers.onDisconnected?.(error instanceof Error ? error : undefined)
+      
+      // Check for auth errors
+      if (error) {
+        const errorMsg = error.message || error.toString()
+        if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+          console.error('🔐 Connection closed due to authentication error')
         }
-        this.hubConnection = null
-        console.log('✅ Disconnected from auction hub')
-      } catch (error) {
-        console.warn('⚠️ Error during disconnect (non-critical):', error)
-        // Set to null anyway to allow reconnection
-        this.hubConnection = null
       }
+    })
+
+    // Automatic reconnection started
+    this.hubConnection.onreconnecting((error) => {
+      console.log('🔄 SignalR reconnecting...', error)
+      this.eventHandlers.onReconnecting?.()
+    })
+
+    // Automatic reconnection succeeded
+    this.hubConnection.onreconnected(async (connectionId) => {
+      console.log('✅ SignalR reconnected, new connectionId:', connectionId)
+      
+      // CRITICAL: Re-register event handlers
+      // SignalR's automatic reconnection doesn't preserve event registrations
+      console.log('🔄 Re-registering event handlers after reconnection...')
+      this.registerEventHandlers()
+      
+      // CRITICAL: Rejoin the auction room
+      // After reconnection, we need to rejoin the SignalR group
+      if (this.currentAuctionId) {
+        console.log('🔄 Rejoining auction after reconnection...')
+        try {
+          await this.joinAuction(this.currentAuctionId)
+          console.log('✅ Rejoined auction successfully')
+        } catch (error) {
+          console.error('❌ Failed to rejoin auction after reconnection:', error)
+        }
+      }
+      
+      // Notify component so it can reload state
+      this.eventHandlers.onReconnected?.(connectionId || '')
+    })
+  }
+
+  /**
+   * Cleanup connection (used internally, not exposed)
+   * This is called automatically when needed, NOT manually by components
+   */
+  private async cleanup(): Promise<void> {
+    if (!this.hubConnection) return
+
+    console.log('🧹 Cleaning up SignalR connection...')
+    
+    try {
+      const state = this.hubConnection.state
+      
+      // Only stop if in a stoppable state
+      if (state === 'Connected' || state === 'Connecting' || state === 'Reconnecting') {
+        await this.hubConnection.stop()
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Error during cleanup (non-critical):', error)
+    } finally {
+      this.hubConnection = null
+      this.isInitialized = false
+      console.log('✅ Cleanup complete')
     }
   }
 
   /**
-   * Check if connected
+   * Disconnect from hub (should only be called when leaving the app entirely)
+   * For navigation between screens, let SignalR handle it automatically
+   */
+  async disconnect(): Promise<void> {
+    console.log('🔌 Explicit disconnect requested')
+    this.currentAuctionId = null
+    await this.cleanup()
+  }
+
+  /**
+   * Get current connection state
+   */
+  getConnectionState(): ConnectionStatus {
+    if (!this.hubConnection) return 'Disconnected'
+    
+    const state = this.hubConnection.state
+    switch (state) {
+      case 'Connected': return 'Connected'
+      case 'Connecting': return 'Connecting'
+      case 'Reconnecting': return 'Reconnecting'
+      case 'Disconnected': return 'Disconnected'
+      default: return 'Failed'
+    }
+  }
+
+  /**
+   * Check if currently connected
    */
   isConnected(): boolean {
     return this.hubConnection?.state === 'Connected'
   }
 
+  // ============================================
+  // EVENT HANDLERS REGISTRATION
+  // ============================================
+
   /**
-   * Register event handlers with SignalR hub
+   * Set event handlers BEFORE connecting
+   */
+  setEventHandlers(handlers: AuctionEventHandlers): void {
+    this.eventHandlers = { ...handlers }
+  }
+
+  /**
+   * Register all SignalR event handlers
+   * This is called once on connect and again after each automatic reconnection
    */
   private registerEventHandlers(): void {
-    if (!this.hubConnection) return
+    if (!this.hubConnection) {
+      console.warn('⚠️ Cannot register handlers: no hub connection')
+      return
+    }
 
-    // Connection events
+    console.log('📋 Registering SignalR event handlers...')
+
+    // Remove all existing handlers to prevent duplicates
+    this.hubConnection.off('Connected')
+    this.hubConnection.off('Error')
+    this.hubConnection.off('UserJoined')
+    this.hubConnection.off('UserLeft')
+    this.hubConnection.off('PlayerShown')
+    this.hubConnection.off('PlayerAssigned')
+    this.hubConnection.off('BidPlaced')
+    this.hubConnection.off('AuctionState')
+    this.hubConnection.off('CurrentPlayer')
+    this.hubConnection.off('AuctionUpdated')
+    this.hubConnection.off('AuctionPaused')
+    this.hubConnection.off('AuctionResumed')
+    this.hubConnection.off('AuctionClosed')
+    this.hubConnection.off('CurrentAuctionReset')
+    this.hubConnection.off('TimerReset')
+
+    // Register fresh handlers
     this.hubConnection.on('Connected', (message: string) => {
-      console.log('Hub Connected:', message)
-      this.eventHandlers.onConnected?.(message)
+      console.log('📨 Hub.Connected:', message)
+      // Note: onConnected is already called in connect(), this is just for logging
     })
 
-    // Error events
     this.hubConnection.on('Error', (message: string) => {
-      console.error('Hub Error:', message)
+      console.error('📨 Hub.Error:', message)
       this.eventHandlers.onError?.(message)
     })
 
-    // User events
     this.hubConnection.on('UserJoined', (email: string) => {
-      console.log('User joined:', email)
+      console.log('📨 Hub.UserJoined:', email)
       this.eventHandlers.onUserJoined?.(email)
     })
 
     this.hubConnection.on('UserLeft', (email: string) => {
-      console.log('User left:', email)
+      console.log('📨 Hub.UserLeft:', email)
       this.eventHandlers.onUserLeft?.(email)
     })
 
-    // Auction events
     this.hubConnection.on('PlayerShown', (actualAuction: ActualAuctionRaw) => {
-      console.log('Player shown (raw):', actualAuction)
-      const mapped = mapRawActualAuction(actualAuction)
-      this.eventHandlers.onPlayerShown?.(mapped.player)
-    })
-
-    this.hubConnection.on('PlayerAssigned', (data: any) => {
-      console.log('Player assigned:', data)
-      if (this.eventHandlers.onPlayerAssigned) {
-        this.eventHandlers.onPlayerAssigned(data)
-      }
-    })
-
-    this.hubConnection.on('BidPlaced', (data: any) => {
-      console.log('Bid placed:', data)
-      if (this.eventHandlers.onBidPlaced) {
-        this.eventHandlers.onBidPlaced(data)
-      }
-    })
-
-    this.hubConnection.on('AuctionUpdated', () => {
-      console.log('Auction updated')
-      if (this.eventHandlers.onAuctionUpdated) {
-        this.eventHandlers.onAuctionUpdated()
-      }
-    })
-
-    this.hubConnection.on('AuctionPaused', () => {
-      console.log('Auction paused')
-      if (this.eventHandlers.onAuctionPaused) {
-        this.eventHandlers.onAuctionPaused()
-      }
-    })
-
-    this.hubConnection.on('AuctionResumed', () => {
-      console.log('Auction resumed')
-      if (this.eventHandlers.onAuctionResumed) {
-        this.eventHandlers.onAuctionResumed()
-      }
-    })
-
-    this.hubConnection.on('AuctionClosed', () => {
-      console.log('Auction closed')
-      if (this.eventHandlers.onAuctionClosed) {
-        this.eventHandlers.onAuctionClosed()
-      }
-    })
-
-    // State events
-    this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
-      console.log('📦 Auction state received (raw):', wrapperRaw)
-      console.log('📧 Current userEmail for mapping:', this.userEmail)
-      
+      console.log('📨 Hub.PlayerShown:', actualAuction)
       try {
-        console.log('✅ Auction state mapped successfully:', wrapperRaw)
-        // Map raw data to clean AuctionState with current user context
-        const mapped = mapRawAuctionHubWrapperToAuctionState(wrapperRaw, this.userEmail)
-        console.log('✅ Auction state mapped successfully:', mapped)
-        
-        if (this.eventHandlers.onAuctionState) {
-          console.log('🔔 Calling onAuctionState handler')
-          this.eventHandlers.onAuctionState(mapped)
-        } else {
-          console.warn('⚠️ No onAuctionState handler registered')
-        }
+        const mapped = mapRawActualAuction(actualAuction)
+        this.eventHandlers.onPlayerShown?.(mapped.player)
       } catch (error) {
-        console.error('❌ Error mapping auction state:', error)
+        console.error('❌ Error mapping PlayerShown:', error)
+      }
+    })
+
+    this.hubConnection.on('PlayerAssigned', (data: PlayerAssignedData) => {
+      console.log('📨 Hub.PlayerAssigned:', data)
+      this.eventHandlers.onPlayerAssigned?.(data)
+    })
+
+    this.hubConnection.on('BidPlaced', (data: BidPlacedData) => {
+      console.log('📨 Hub.BidPlaced:', data)
+      this.eventHandlers.onBidPlaced?.(data)
+    })
+
+    this.hubConnection.on('AuctionState', (wrapperRaw: AuctionHubWrapperRaw) => {
+      console.log('📨 Hub.AuctionState received (raw):', wrapperRaw)
+      try {
+        const mapped = mapRawAuctionHubWrapperToAuctionState(wrapperRaw, this.userEmail)
+        console.log('✅ AuctionState mapped:', { teams: mapped.teams.length, isAuctioneer: mapped.isAuctioneer })
+        this.eventHandlers.onAuctionState?.(mapped)
+      } catch (error) {
+        console.error('❌ Error mapping AuctionState:', error)
       }
     })
 
     this.hubConnection.on('CurrentPlayer', (player: PlayerWithStats | null) => {
-      console.log('Current player:', player)
+      console.log('📨 Hub.CurrentPlayer:', player)
       this.eventHandlers.onCurrentPlayer?.(player)
     })
 
-    // Reset events
+    this.hubConnection.on('AuctionUpdated', () => {
+      console.log('📨 Hub.AuctionUpdated')
+      this.eventHandlers.onAuctionUpdated?.()
+    })
+
+    this.hubConnection.on('AuctionPaused', () => {
+      console.log('📨 Hub.AuctionPaused')
+      this.eventHandlers.onAuctionPaused?.()
+    })
+
+    this.hubConnection.on('AuctionResumed', () => {
+      console.log('📨 Hub.AuctionResumed')
+      this.eventHandlers.onAuctionResumed?.()
+    })
+
+    this.hubConnection.on('AuctionClosed', () => {
+      console.log('📨 Hub.AuctionClosed')
+      this.eventHandlers.onAuctionClosed?.()
+    })
+
     this.hubConnection.on('CurrentAuctionReset', () => {
-      console.log('🔄 Current auction reset (all bids cleared)')
+      console.log('📨 Hub.CurrentAuctionReset')
       this.eventHandlers.onCurrentAuctionReset?.()
     })
 
     this.hubConnection.on('TimerReset', () => {
-      console.log('⏱️ Timer reset (countdown restarted)')
+      console.log('📨 Hub.TimerReset')
       this.eventHandlers.onTimerReset?.()
     })
-  }
 
-  /**
-   * Set event handlers (call before connecting)
-   */
-  setEventHandlers(handlers: AuctionEventHandlers): void {
-    this.eventHandlers = { ...this.eventHandlers, ...handlers }
-  }
-
-  /**
-   * Set current user email for mapping auction state
-   * Must be called before connecting to ensure correct isAuctioneer detection
-   */
-  setUserEmail(email: string | null): void {
-    console.log('📧 Setting user email:', email)
-    this.userEmail = email
-    if (!email) {
-      console.warn('⚠️ User email is null or undefined - isAuctioneer will always be false')
-    }
+    console.log('✅ Event handlers registered successfully')
   }
 
   // ============================================
@@ -367,159 +476,327 @@ export class AuctionService {
   // ============================================
 
   /**
-   * Join an auction room
+   * Ensure we're connected before invoking methods
+   */
+  private ensureConnected(): void {
+    if (!this.hubConnection) {
+      throw new Error('Not connected to SignalR hub')
+    }
+    if (this.hubConnection.state !== 'Connected') {
+      throw new Error(`Cannot invoke method: connection state is ${this.hubConnection.state}`)
+    }
+  }
+
+  /**
+   * Join auction room
+   * This must be called after connection to receive auction events
    */
   async joinAuction(auctionId: string): Promise<boolean> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    if (this.hubConnection.state !== 'Connected') {
-      throw new Error(`Cannot join auction: connection state is ${this.hubConnection.state}`)
-    }
+    this.ensureConnected()
+    
+    console.log('📨 Invoking JoinAuctionAsync:', auctionId)
+    
     try {
-      const result = await this.hubConnection.invoke<boolean>('JoinAuctionAsync', auctionId)
+      const result = await this.hubConnection!.invoke<boolean>('JoinAuctionAsync', auctionId)
+      console.log('✅ JoinAuctionAsync result:', result)
       return result
     } catch (error) {
-      console.error('Failed to join auction:', error)
-      throw error
+      console.error('❌ JoinAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'join auction')
     }
   }
 
   /**
    * Leave auction room
+   * This is called when navigating away from the auction screen
    */
   async leaveAuction(auctionId: string): Promise<void> {
-    if (!this.hubConnection) return
-    
-    // Only invoke if connected
-    if (this.hubConnection.state !== 'Connected') {
-      console.log('⚠️ Cannot leave auction, connection state:', this.hubConnection.state)
+    // Only leave if we're actually connected
+    if (!this.hubConnection || this.hubConnection.state !== 'Connected') {
+      console.log('⚠️ Cannot leave auction: not connected')
       return
     }
     
+    console.log('📨 Invoking LeaveAuctionAsync:', auctionId)
+    
     try {
       await this.hubConnection.invoke('LeaveAuctionAsync', auctionId)
-      console.log('✅ Left auction:', auctionId)
+      console.log('✅ Left auction room')
     } catch (error) {
-      console.warn('⚠️ Failed to leave auction (non-critical):', error)
+      // Non-critical error, just log it
+      console.warn('⚠️ LeaveAuctionAsync failed (non-critical):', error)
     }
   }
 
   /**
    * Request current auction state
+   * The response comes via the AuctionState event handler
    */
   async getAuctionState(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    console.log('📨 Requesting auction state for:', auctionId)
-    await this.hubConnection.invoke('SendAuctionStateAsync', auctionId)
-    console.log('✅ Auction state request sent')
+    this.ensureConnected()
+    
+    console.log('📨 Invoking SendAuctionStateAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('SendAuctionStateAsync', auctionId)
+      console.log('✅ SendAuctionStateAsync invoked (waiting for AuctionState event...)')
+    } catch (error) {
+      console.error('❌ SendAuctionStateAsync failed:', error)
+      throw this.handleInvokeError(error, 'get auction state')
+    }
   }
 
   /**
-   * Get current player
+   * Request current player being auctioned
+   * The response comes via the CurrentPlayer event handler
    */
   async getCurrentPlayer(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('GetCurrentPlayerAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking GetCurrentPlayerAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('GetCurrentPlayerAsync', auctionId)
+      console.log('✅ GetCurrentPlayerAsync invoked')
+    } catch (error) {
+      console.error('❌ GetCurrentPlayerAsync failed:', error)
+      throw this.handleInvokeError(error, 'get current player')
+    }
   }
 
-  // ============================================
-  // AUCTIONEER METHODS (Admin/SuperAdmin only)
-  // ============================================
-
   /**
-   * Place a bid on current player
-   * @param auctionId - The auction ID
-   * @param amount - Bid amount
-   * @param bidderEmail - Optional: email of team to bid for (auctioneer only)
-   * @param substituted - Optional: playerKey of player to substitute (repair auction only)
+   * Place a bid on the current player
    */
-  async placeBid(auctionId: string, amount: number, bidderEmail?: string, substituted?: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('PlaceBidAsync', auctionId, amount, bidderEmail, substituted)
+  async placeBid(
+    auctionId: string, 
+    amount: number, 
+    bidderEmail?: string, 
+    substituted?: string
+  ): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking PlaceBidAsync:', { auctionId, amount, bidderEmail, substituted })
+    
+    try {
+      await this.hubConnection!.invoke('PlaceBidAsync', auctionId, amount, bidderEmail, substituted)
+      console.log('✅ PlaceBidAsync invoked successfully')
+    } catch (error) {
+      console.error('❌ PlaceBidAsync failed:', error)
+      throw this.handleInvokeError(error, 'place bid')
+    }
   }
 
+  // ============================================
+  // AUCTIONEER METHODS
+  // ============================================
+
   /**
-   * Show next player for bidding
+   * Show next player for the given role
    */
   async showNextPlayer(auctionId: string, role: Role): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('ShowNextPlayerAsync', auctionId, role)
-  }
-
-  async forceNextPlayer(auctionId: string, playerKey: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('ForceNextPlayerAsync', auctionId, playerKey)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ShowNextPlayerAsync:', { auctionId, role })
+    
+    try {
+      await this.hubConnection!.invoke('ShowNextPlayerAsync', auctionId, role)
+      console.log('✅ ShowNextPlayerAsync invoked')
+    } catch (error) {
+      console.error('❌ ShowNextPlayerAsync failed:', error)
+      throw this.handleInvokeError(error, 'show next player')
+    }
   }
 
   /**
-   * Assign current player to a team (uses current bid data from backend)
+   * Force show a specific player by key
+   */
+  async forceNextPlayer(auctionId: string, playerKey: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ForceNextPlayerAsync:', { auctionId, playerKey })
+    
+    try {
+      await this.hubConnection!.invoke('ForceNextPlayerAsync', auctionId, playerKey)
+      console.log('✅ ForceNextPlayerAsync invoked')
+    } catch (error) {
+      console.error('❌ ForceNextPlayerAsync failed:', error)
+      throw this.handleInvokeError(error, 'force next player')
+    }
+  }
+
+  /**
+   * Assign current player to the highest bidder's team
    */
   async assignPlayerToTeam(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('AssignPlayerToTeamAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking AssignPlayerToTeamAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('AssignPlayerToTeamAsync', auctionId)
+      console.log('✅ AssignPlayerToTeamAsync invoked')
+    } catch (error) {
+      console.error('❌ AssignPlayerToTeamAsync failed:', error)
+      throw this.handleInvokeError(error, 'assign player')
+    }
   }
 
   /**
-   * Pause auction
+   * Pause the auction
    */
   async pauseAuction(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('PauseAuctionAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking PauseAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('PauseAuctionAsync', auctionId)
+      console.log('✅ PauseAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ PauseAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'pause auction')
+    }
   }
 
   /**
-   * Resume auction
+   * Resume the auction
    */
   async resumeAuction(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('ResumeAuctionAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ResumeAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('ResumeAuctionAsync', auctionId)
+      console.log('✅ ResumeAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ ResumeAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'resume auction')
+    }
   }
 
   /**
-   * Close auction permanently
+   * Close the auction permanently
    */
   async closeAuction(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('CloseAuctionAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking CloseAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('CloseAuctionAsync', auctionId)
+      console.log('✅ CloseAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ CloseAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'close auction')
+    }
   }
 
   /**
-   * Change timer duration (Auctioneer only)
+   * Change timer duration
    */
   async changeTimer(auctionId: string, seconds: number): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('ChangeTimerAsync', auctionId, seconds)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ChangeTimerAsync:', { auctionId, seconds })
+    
+    try {
+      await this.hubConnection!.invoke('ChangeTimerAsync', auctionId, seconds)
+      console.log('✅ ChangeTimerAsync invoked')
+    } catch (error) {
+      console.error('❌ ChangeTimerAsync failed:', error)
+      throw this.handleInvokeError(error, 'change timer')
+    }
   }
 
   /**
-   * Reset timer - restart countdown and unlock bidding (Auctioneer only)
+   * Reset timer (restart countdown)
    */
   async resetTimer(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('TimerResetAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking TimerResetAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('TimerResetAsync', auctionId)
+      console.log('✅ TimerResetAsync invoked')
+    } catch (error) {
+      console.error('❌ TimerResetAsync failed:', error)
+      throw this.handleInvokeError(error, 'reset timer')
+    }
   }
 
   /**
-   * Complete reset - clear all bids for current player (Auctioneer only)
+   * Complete reset - clear all bids for current player
    */
   async completeReset(auctionId: string): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('CompleteResetAsync', auctionId)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking CompleteResetAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('CompleteResetAsync', auctionId)
+      console.log('✅ CompleteResetAsync invoked')
+    } catch (error) {
+      console.error('❌ CompleteResetAsync failed:', error)
+      throw this.handleInvokeError(error, 'complete reset')
+    }
   }
 
   /**
-   * Change player status in team (Auctioneer only)
+   * Change player status in a team
    */
   async changePlayerStatus(
-    auctionId: string, 
-    owner: string, 
-    playerKey: string, 
-    status: number, 
+    auctionId: string,
+    owner: string,
+    playerKey: string,
+    status: number,
     revenue: number | null
   ): Promise<void> {
-    if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('ChangePlayerStatusAsync', auctionId, owner, playerKey, status, revenue)
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ChangePlayerStatusAsync:', { auctionId, owner, playerKey, status, revenue })
+    
+    try {
+      await this.hubConnection!.invoke('ChangePlayerStatusAsync', auctionId, owner, playerKey, status, revenue)
+      console.log('✅ ChangePlayerStatusAsync invoked')
+    } catch (error) {
+      console.error('❌ ChangePlayerStatusAsync failed:', error)
+      throw this.handleInvokeError(error, 'change player status')
+    }
+  }
+
+  // ============================================
+  // ERROR HANDLING
+  // ============================================
+
+  /**
+   * Handle errors from SignalR invoke calls
+   */
+  private handleInvokeError(error: unknown, operation: string): Error {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    
+    // Check for authentication errors
+    if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
+      return new Error('Sessione scaduta - ricarica la pagina per continuare')
+    }
+    
+    // Check for connection errors
+    if (errorMsg.includes('Connection') || errorMsg.includes('connection')) {
+      return new Error('Connessione persa - verifica la tua connessione internet')
+    }
+    
+    // Generic error
+    return new Error(`Errore durante ${operation}: ${errorMsg}`)
   }
 }
 
-// Export singleton instance
+// ============================================
+// SINGLETON EXPORT
+// ============================================
+
+/**
+ * Singleton instance of AuctionService
+ * Use this for all auction-related operations
+ */
 export const auctionService = new AuctionService()

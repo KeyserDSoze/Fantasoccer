@@ -183,12 +183,12 @@ export interface PlayerWithStats {
  * PlayerAssigned event data (volatile, not stored)
  */
 export interface PlayerAssignedData {
-  Owner: string
-  TeamName: string | null
-  Price: number
-  PlayerName: string
-  TeamCost: number | null
-  TeamPlayersCount: number | null
+  owner: string
+  teamName: string | null
+  price: number
+  playerName: string
+  tamCost: number | null
+  teamPlayersCount: number | null
 }
 
 // ============================================
