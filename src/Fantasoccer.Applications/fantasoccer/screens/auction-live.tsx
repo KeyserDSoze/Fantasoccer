@@ -323,11 +323,19 @@ export default function AuctionLiveScreen() {
     }
     
     // Check if repair auction requires a substitute player
-    if (isRepairAuction()) {
-      const selectedSubstitute = isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute
-      if (!selectedSubstitute) {
-        toast.show('❌ Seleziona un giocatore da sostituire', { variant: 'error' })
-        return
+    // Only require substitute if team has reached the role limit
+    if (isRepairAuction() && currentPlayer.role !== undefined) {
+      const limit = ROLE_LIMITS[currentPlayer.role] || 0
+      const activePlayers = TeamHelper.getActivePlayers(biddingTeam.value)
+      const currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
+      
+      // Only require substitute if team has reached or exceeded limit
+      if (currentCount >= limit) {
+        const selectedSubstitute = isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute
+        if (!selectedSubstitute) {
+          toast.show('❌ Limite ruolo raggiunto - Seleziona un giocatore da sostituire', { variant: 'error' })
+          return
+        }
       }
     }
     
@@ -540,11 +548,24 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) {
               playBidSound()
               vibrateOnBid()
+              
+              // Reset substitute for the winner (player is no longer available - was removed/substituted)
+              // Check if winner is myTeam or selectedTeamForBid
+              if (currentBidder) {
+                // If I won the auction, reset my substitute
+                if (user?.email && currentBidder.toLowerCase() === user.email.toLowerCase()) {
+                  setMySelectedSubstitute(null)
+                }
+                // If auctioneer's selected team won, reset auctioneer substitute
+                if (selectedTeamForBid && currentBidder.toLowerCase() === selectedTeamForBid.toLowerCase()) {
+                  setAuctioneerSelectedSubstitute(null)
+                }
+              }
+              
               setCurrentPlayer(null)
               setCurrentBid(0)
               setCurrentBidder(null)
               setCurrentSubstitute(null)
-              // Don't reset selected substitutes - they persist for next player if same role
               // Don't reset selectedTeamForBid - auctioneer keeps working with same team
               setAssignPrice('')
               resetTimer()
