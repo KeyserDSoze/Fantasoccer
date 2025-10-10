@@ -33,6 +33,24 @@ import { useAuth } from 'providers/AuthProvider'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Entity } from 'types/default'
 import { getPlayerKey } from 'utils'
+import { 
+  getRoleLabel, 
+  getAuctionStatusLabel as getStatusLabel, 
+  getAuctionStatusColor as getStatusColor,
+  getPlayerStatusLabel,
+  getPlayerStatusColor
+} from 'utils/auctionHelper'
+import { 
+  AuctioneerPanel, 
+  PersonalBiddingPanel, 
+  CurrentPlayerCard,
+  TeamsPanel,
+  CustomBidDialog,
+  TeamDetailDialog,
+  ChangeStatusDialog,
+  SubstituteSelectionDialog,
+  PlayerSearchDialog
+} from 'components/auction'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
 
@@ -85,7 +103,6 @@ export default function AuctionLiveScreen() {
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
   const [selectedTeamForBid, setSelectedTeamForBid] = useState<string>('')
   const [assignPrice, setAssignPrice] = useState<string>('')
-  const [customBidAmount, setCustomBidAmount] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)
   const [isCustomBidFromAuctioneer, setIsCustomBidFromAuctioneer] = useState(false) // Track if custom bid is from auctioneer panel
   const [showPlayerSearchDialog, setShowPlayerSearchDialog] = useState(false)
@@ -93,8 +110,6 @@ export default function AuctionLiveScreen() {
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<Entity<Team, TeamKey> | null>(null)
   const [showChangeStatusDialog, setShowChangeStatusDialog] = useState(false)
   const [changeStatusPlayer, setChangeStatusPlayer] = useState<{ playerKey: string; playerName: string; owner: string } | null>(null)
-  const [changeStatusType, setChangeStatusType] = useState<number>(0) // PlayerInTeamStatus enum
-  const [changeStatusRevenue, setChangeStatusRevenue] = useState<string>('')
   const [playerSearchQuery, setPlayerSearchQuery] = useState('')
   const [selectedPlayerForForce, setSelectedPlayerForForce] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -115,39 +130,6 @@ export default function AuctionLiveScreen() {
     }
   }, [])
 
-  // ============================================
-  // HELPER FUNCTIONS
-  // ============================================
-  const getRoleLabel = (role: Role): string => {
-    const labels: Record<Role, string> = {
-      [Role.Undefined]: 'Indefinito',
-      [Role.GoalKeeper]: 'Portiere',
-      [Role.Defensor]: 'Difensore',
-      [Role.Midfielder]: 'Centrocampista',
-      [Role.Forward]: 'Attaccante'
-    }
-    return labels[role] || 'Sconosciuto'
-  }
-
-  const getStatusLabel = (status: AuctionStatus): string => {
-    const labels: Record<AuctionStatus, string> = {
-      [AuctionStatus.NotStarted]: 'Non Iniziata',
-      [AuctionStatus.Paused]: 'In Pausa',
-      [AuctionStatus.InProgress]: 'In Corso',
-      [AuctionStatus.Finished]: 'Terminata'
-    }
-    return labels[status] || 'Sconosciuto'
-  }
-
-  const getStatusColor = (status: AuctionStatus): string => {
-    const colors: Record<AuctionStatus, string> = {
-      [AuctionStatus.NotStarted]: '$gray10',
-      [AuctionStatus.Paused]: '$orange10',
-      [AuctionStatus.InProgress]: '$green10',
-      [AuctionStatus.Finished]: '$blue10'
-    }
-    return colors[status] || '$gray10'
-  }
 
   const playBidSound = useCallback(() => {
     if (!audioEnabled || Platform.OS !== 'web' || !audioContextRef.current) return
@@ -193,34 +175,44 @@ export default function AuctionLiveScreen() {
     return startingMoney - cost
   }, [startingMoney])
 
-  // Helper: Get player status label
-  const getPlayerStatusLabel = (status: number): string => {
-    const labels: Record<number, string> = {
-      0: 'Attivo', // Active
-      1: 'Venduto 1 girone', // SoldForOneHalf
-      2: 'Venduto senza rimborso', // SoldWithNoReturnedPrice
-      3: 'Venduto', // Sold
-      4: 'Rimosso' // Removed
-    }
-    return labels[status] || 'Sconosciuto'
-  }
-
-  // Helper: Get player status color
-  const getPlayerStatusColor = (status: number): string => {
-    const colors: Record<number, string> = {
-      0: '$green11', // Active
-      1: '$orange11', // SoldForOneHalf
-      2: '$red11', // SoldWithNoReturnedPrice
-      3: '$blue11', // Sold
-      4: '$gray11' // Removed
-    }
-    return colors[status] || '$gray11'
-  }
-
   // Helper: Check if auction is repair auction (requires substitution)
   const isRepairAuction = useCallback((): boolean => {
     return auctionState?.wrapper.king === 1 // 1 = Repair auction (based on AuctionKind enum)
   }, [auctionState])
+
+  // Helper: Update auction state from API response
+  const updateAuctionState = useCallback((state: AuctionState) => {
+    console.log('📦 Updating auction state...')
+    setAuctionState(state)
+    setTeams(state.teams)
+    setIsAuctioneer(state.isAuctioneer)
+    setSalesHistory(state.wrapper.winnings)
+    setIsLocked(state.wrapper.status === AuctionStatus.Paused)
+    
+    // Update starting money from league settings (default to 1000 if not available)
+    const leagueStartingMoney = state.league?.settings?.startingMoney ?? 1000
+    setStartingMoney(leagueStartingMoney)
+    
+    // Sync timer with auction state
+    const auctionTimer = state.wrapper.secondsPerAuction ?? 10
+    setOfferTimeoutSeconds(auctionTimer)
+    
+    const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user?.email?.toLowerCase())
+    if (myTeamEntity) {
+      setMyTeam(myTeamEntity)
+      const budget = leagueStartingMoney - TeamHelper.getCost(myTeamEntity.value)
+      setMyTeamBudget(budget)
+    }
+    
+    if (state.wrapper.actual) {
+      setCurrentPlayer(state.wrapper.actual.player)
+      setCurrentBid(state.wrapper.actual.price)
+      setCurrentBidder(state.wrapper.actual.owner)
+      setCurrentSubstitute(state.wrapper.actual.substituted)
+    }
+    
+    console.log('✅ Auction state updated successfully')
+  }, [user?.email])
 
   // ============================================
   // TIMER LOGIC
@@ -520,7 +512,8 @@ export default function AuctionLiveScreen() {
               toast.show('✅ Riconnesso - caricamento stato asta...', { variant: 'success', duration: 3000 })
              
               try {
-                await auctionService.getAuction(auctionId)
+                const auctionState = await auctionService.getAuction(auctionId)
+                updateAuctionState(auctionState)
               } catch (error) {
                 console.error('❌ Failed to reload state after reconnect:', error)
                 toast.show('⚠️ Errore ricaricamento stato', { variant: 'error', duration: 3000 })
@@ -661,10 +654,10 @@ export default function AuctionLiveScreen() {
         }
         console.log('✅ Joined auction room successfully')
         
-        // Request initial state
-        // Request initial state
+        // Request initial auction state from API
         console.log('📨 Requesting initial auction state...')
-        var auction = await auctionService.getAuction(auctionId)
+        const auctionState = await auctionService.getAuction(auctionId)
+        updateAuctionState(auctionState)
         
         console.log('✅ Initial setup complete - waiting for state events...')
         
@@ -742,6 +735,355 @@ export default function AuctionLiveScreen() {
   // RENDER COMPONENTS
   // ============================================
 
+ 
+
+  // Current Player Card Component
+  const renderCurrentPlayer = () => {
+    if (!currentPlayer) return null
+    return (
+      <CurrentPlayerCard
+        currentPlayer={currentPlayer}
+        currentBid={currentBid}
+        currentBidder={currentBidder}
+        currentSubstitute={currentSubstitute}
+        teams={teams}
+        timerRunning={timerRunning}
+        timerExpired={timerExpired}
+        timerSecondsLeft={timerSecondsLeft}
+        realPlayers={auctionState?.realPlayers}
+      />
+    )
+  }
+
+  // Pulsantiera Partecipante Component
+  const renderParticipantBidding = () => {
+    if (isAuctioneer) return null
+    return (
+      <YStack gap="$2">
+        {renderPersonalBidding()}
+        {timerExpired && currentPlayer && (
+          <Card padding="$2" backgroundColor="$orange2" borderColor="$orange8" borderWidth="$0.5">
+            <Text fontSize="$3" color="$orange11">⏱️ Tempo scaduto - Solo il banditore può agire</Text>
+          </Card>
+        )}
+      </YStack>
+    )
+  }
+
+  // Helper: Pulsantiera Personale (usata sia da partecipanti che banditore con squadra)
+  const renderPersonalBidding = () => {
+    if (!myTeam) return null
+    
+    return (
+      <PersonalBiddingPanel
+        myTeam={myTeam}
+        myTeamBudget={myTeamBudget}
+        currentPlayer={currentPlayer}
+        onIncrementBid={handleIncrementBid}
+        onFixedBid={handleFixedBid}
+        onCustomBid={() => {
+          setIsCustomBidFromAuctioneer(false)
+          setShowCustomBidDialog(true)
+        }}
+        isRepairAuction={isRepairAuction()}
+        mySelectedSubstitute={mySelectedSubstitute}
+        onSelectSubstitute={() => {
+          setIsSubstituteSelectionForAuctioneer(false)
+          setShowSubstituteSelectionDialog(true)
+        }}
+        arePersonalBidButtonsDisabled={arePersonalBidButtonsDisabled}
+        currentBidder={currentBidder}
+        userEmail={user?.email || null}
+      />
+    )
+  }
+
+  // Pulsantiera Banditore con Controlli Component
+  const renderAuctioneerPanel = () => {
+    if (!isAuctioneer) return null
+
+    const auctioneerPanel = (
+      <AuctioneerPanel
+        currentPlayer={currentPlayer}
+        currentBid={currentBid}
+        currentBidder={currentBidder}
+        currentSubstitute={currentSubstitute}
+        teams={teams}
+        selectedTeamForBid={selectedTeamForBid}
+        onSelectedTeamForBidChange={setSelectedTeamForBid}
+        calculateBudgetRemaining={calculateBudgetRemaining}
+        auctioneerSelectedSubstitute={auctioneerSelectedSubstitute}
+        isRepairAuction={isRepairAuction()}
+        onSelectSubstitute={() => {
+          setIsSubstituteSelectionForAuctioneer(true)
+          setShowSubstituteSelectionDialog(true)
+        }}
+        areAuctioneerBidButtonsDisabled={areAuctioneerBidButtonsDisabled}
+        onIncrementBid={handleIncrementBid}
+        tempBlockButtons={tempBlockButtons}
+        selectedRole={selectedRole}
+        onSelectedRoleChange={setSelectedRole}
+        loading={loading}
+        onShowNextPlayer={async () => {
+          setLoading(true)
+          try {
+            await auctionService.showNextPlayer(auctionId, selectedRole)
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onSearchPlayer={() => setShowPlayerSearchDialog(true)}
+        auctionState={auctionState}
+        onAssignPlayer={async () => {
+          setLoading(true)
+          try {
+            await auctionService.assignPlayerToTeam(auctionId)
+            toast.show('✅ Giocatore aggiudicato!', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        auctionStatus={auctionState?.wrapper.status || AuctionStatus.NotStarted}
+        offerTimeoutSeconds={offerTimeoutSeconds}
+        onChangeTimer={async (seconds) => {
+          setLoading(true)
+          try {
+            await auctionService.changeTimer(auctionId, seconds)
+            toast.show(`⏱️ Timer aggiornato a ${seconds}s`, { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onPauseAuction={async () => {
+          setLoading(true)
+          try {
+            await auctionService.pauseAuction(auctionId)
+            toast.show('⏸️ Asta in pausa', { variant: 'info' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onResumeAuction={async () => {
+          setLoading(true)
+          try {
+            await auctionService.resumeAuction(auctionId)
+            toast.show('▶️ Asta ripresa', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onResetTimer={async () => {
+          setLoading(true)
+          try {
+            await auctionService.resetTimer(auctionId)
+            toast.show('⏱️ Timer riavviato per tutti', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onCompleteReset={async () => {
+          setLoading(true)
+          try {
+            await auctionService.completeReset(auctionId)
+            toast.show('🔄 Asta resettata per tutti', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onCloseAuction={async () => {
+          if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
+          setLoading(true)
+          try {
+            await auctionService.closeAuction(auctionId)
+            toast.show('🏁 Asta chiusa', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+      />
+    )
+
+    // Se banditore ha una squadra, mostra doppia pulsantiera (layout responsive)
+    if (myTeam) {
+      const StackComponent = media.gtMd ? XStack : YStack
+      return (
+        <StackComponent gap="$3" alignItems="stretch">
+          <YStack flex={media.gtMd ? 1 : undefined} width="100%">{renderPersonalBidding()}</YStack>
+          <YStack flex={media.gtMd ? 1 : undefined} width="100%" marginTop={media.gtMd ? 0 : "$3"}>{auctioneerPanel}</YStack>
+        </StackComponent>
+      )
+    }
+
+    // Se banditore senza squadra, mostra solo pannello banditore
+    return <YStack width="100%">{auctioneerPanel}</YStack>
+  }
+
+  // Teams Panel Component  
+  const renderTeams = () => {
+    return (
+      <TeamsPanel
+        teams={teams}
+        user={user}
+        startingMoney={startingMoney}
+        calculateBudgetRemaining={calculateBudgetRemaining}
+        onTeamClick={(team) => {
+          setSelectedTeamDetail(team)
+          setShowTeamDetailDialog(true)
+        }}
+      />
+    )
+  }
+
+  // Timer Component
+  // Custom Bid Dialog Component
+  const renderCustomBidDialog = () => (
+    <CustomBidDialog
+      open={showCustomBidDialog}
+      currentBid={currentBid}
+      onOpenChange={setShowCustomBidDialog}
+      onConfirm={(amount) => {
+        placeBid(amount, isCustomBidFromAuctioneer)
+        toast.show('✅ Offerta inviata!', { variant: 'success' })
+      }}
+    />
+  )
+
+  // Team Detail Dialog Component
+  const renderTeamDetailDialog = () => (
+    <TeamDetailDialog
+      open={showTeamDetailDialog}
+      team={selectedTeamDetail}
+      user={user}
+      startingMoney={startingMoney}
+      calculateBudgetRemaining={calculateBudgetRemaining}
+      isAuctioneer={isAuctioneer}
+      onOpenChange={setShowTeamDetailDialog}
+      onModifyPlayerStatus={(playerKey, playerName, owner) => {
+        setChangeStatusPlayer({ playerKey, playerName, owner })
+        setShowChangeStatusDialog(true)
+      }}
+      getPlayerKey={getPlayerKey}
+    />
+  )
+
+  // Change Player Status Dialog Component
+  const renderChangeStatusDialog = () => (
+    <ChangeStatusDialog
+      open={showChangeStatusDialog}
+      playerKey={changeStatusPlayer?.playerKey || null}
+      playerName={changeStatusPlayer?.playerName || null}
+      owner={changeStatusPlayer?.owner || null}
+      loading={loading}
+      onOpenChange={setShowChangeStatusDialog}
+      onConfirm={async (owner, playerKey, status, revenue) => {
+        setLoading(true)
+        try {
+          await auctionService.changePlayerStatus(auctionId, owner, playerKey, status, revenue)
+          setShowChangeStatusDialog(false)
+          setChangeStatusPlayer(null)
+          toast.show('✅ Stato giocatore aggiornato', { variant: 'success' })
+        } catch (err) {
+          toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+        } finally {
+          setLoading(false)
+        }
+      }}
+      onCancel={() => {
+        setChangeStatusPlayer(null)
+      }}
+    />
+  )
+
+  // Substitute Selection Dialog Component
+  const renderSubstituteSelectionDialog = () => {
+    const team = isSubstituteSelectionForAuctioneer && selectedTeamForBid
+      ? teams.find(t => t.value.owner === selectedTeamForBid)
+      : myTeam
+    
+    const currentSelection = isSubstituteSelectionForAuctioneer ? auctioneerSelectedSubstitute : mySelectedSubstitute
+    
+    return (
+      <SubstituteSelectionDialog
+        open={showSubstituteSelectionDialog}
+        currentPlayer={currentPlayer}
+        team={team || null}
+        currentSelection={currentSelection}
+        realPlayers={auctionState?.realPlayers}
+        onOpenChange={setShowSubstituteSelectionDialog}
+        onSelectPlayer={(playerName) => {
+          if (isSubstituteSelectionForAuctioneer) {
+            setAuctioneerSelectedSubstitute(playerName)
+          } else {
+            setMySelectedSubstitute(playerName)
+          }
+        }}
+        onRemoveSelection={() => {
+          if (isSubstituteSelectionForAuctioneer) {
+            setAuctioneerSelectedSubstitute(null)
+          } else {
+            setMySelectedSubstitute(null)
+          }
+        }}
+      />
+    )
+  }
+
+  // Player Search Dialog Component (Force Next Player)
+  const renderPlayerSearchDialog = () => {
+    if (!auctionState) return null
+    
+    return (
+      <PlayerSearchDialog
+        open={showPlayerSearchDialog}
+        selectedRole={selectedRole}
+        playerSearchQuery={playerSearchQuery}
+        selectedPlayerForForce={selectedPlayerForForce}
+        realPlayers={auctionState.realPlayers}
+        loading={loading}
+        onOpenChange={setShowPlayerSearchDialog}
+        onSelectedRoleChange={setSelectedRole}
+        onPlayerSearchQueryChange={setPlayerSearchQuery}
+        onSelectedPlayerForForceChange={setSelectedPlayerForForce}
+        onConfirm={async () => {
+          if (!selectedPlayerForForce) return
+          
+          setLoading(true)
+          try {
+            await auctionService.showNextPlayer(auctionId, selectedRole)
+            setShowPlayerSearchDialog(false)
+            setPlayerSearchQuery('')
+            setSelectedPlayerForForce('')
+            toast.show(`✅ Prossimo giocatore mostrato!`, { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onCancel={() => {
+          setPlayerSearchQuery('')
+          setSelectedPlayerForForce('')
+        }}
+      />
+    )
+  }
+
   // Header Component
   const renderHeader = () => {
     if (!auctionState) return null
@@ -796,1282 +1138,6 @@ export default function AuctionLiveScreen() {
       </Card>
     )
   }
-
-  // Current Player Card Component
-  const renderCurrentPlayer = () => {
-    if (!currentPlayer) return null
-    return (
-      <Card padding="$4" backgroundColor="$green2" borderRadius="$4" borderWidth="$0.5" borderColor="$green8">
-        <YStack gap="$3">
-          <XStack gap="$2" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-            <XStack gap="$2" alignItems="center">
-              <Users size={20} color="$green11" />
-              <Text fontSize="$5" fontWeight="700" color="$green11">Giocatore in Asta</Text>
-            </XStack>
-            <Text fontSize="$4" color="$green10">{getRoleLabel(currentPlayer.role)}</Text>
-          </XStack>
-          <YStack gap="$2">
-            <Text fontSize="$7" fontWeight="700" color="$green11">{currentPlayer.name}</Text>
-            <Text fontSize="$4" color="$green10">{currentPlayer.realTeam.name}</Text>
-          </YStack>
-          <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
-            <XStack gap="$4" justifyContent="space-between" alignItems="center" flexWrap="wrap">
-              <YStack gap="$1" flex={1}>
-                <Text fontSize="$2" color="$color10">Offerta Corrente</Text>
-                <Text fontSize="$6" fontWeight="700" color="$color11">€{currentBid}</Text>
-              </YStack>
-              {currentBidder && (
-                <YStack gap="$1" flex={1}>
-                  <Text fontSize="$2" color="$color10">Offerente</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">
-                    {teams.find(t => t.value.owner === currentBidder)?.value.name || currentBidder}
-                  </Text>
-                  {currentSubstitute && (
-                    <Text fontSize="$3" color="$orange11" marginTop="$1">
-                      Sostituisce: {(() => {
-                        const substitutePlayer = auctionState?.realPlayers.find(p => p.key === currentSubstitute)
-                        return substitutePlayer?.name || currentSubstitute
-                      })()}
-                    </Text>
-                  )}
-                </YStack>
-              )}
-              {(timerRunning || timerExpired) && (
-                <YStack gap="$1" alignItems="center" justifyContent="center" minWidth={100}>
-                  <Text fontSize="$2" color="$color10">Timer</Text>
-                  <Card 
-                    padding="$2" 
-                    paddingHorizontal="$3" 
-                    backgroundColor={timerExpired ? '$red8' : timerSecondsLeft <= 3 ? '$orange8' : '$blue8'} 
-                    borderRadius="$4"
-                  >
-                    <XStack gap="$2" alignItems="center">
-                      <Clock size={20} color="white" />
-                      <Text fontSize="$6" fontWeight="700" color="white">
-                        {timerExpired ? 'SCADUTO' : `${timerSecondsLeft}s`}
-                      </Text>
-                    </XStack>
-                  </Card>
-                </YStack>
-              )}
-            </XStack>
-          </Card>
-          <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
-            <YStack gap="$3">
-              <Text fontSize="$3" fontWeight="700" color="$color11">Statistiche Stagione</Text>
-              <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
-                <YStack gap="$1" minWidth={80}>
-                  <Text fontSize="$2" color="$color10">Media Voto</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.average?.toFixed(2) || 'N/A'}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={80}>
-                  <Text fontSize="$2" color="$color10">Fantamedia</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.fantaAverage?.toFixed(2) || 'N/A'}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={80}>
-                  <Text fontSize="$2" color="$color10">Partite</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withVote || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={80}>
-                  <Text fontSize="$2" color="$color10">Senza Voto</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withoutVote || 0}</Text>
-                </YStack>
-              </XStack>
-              <Separator />
-              <Text fontSize="$3" fontWeight="700" color="$color11">Eventi</Text>
-              <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Gol</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.goals || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Rigori</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.penalties || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Assist</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.assists || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Rig. Parati</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.stoppedPenalties || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Gol Subiti</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.sufferedGoals || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Rig. Sbagliati</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.wrongedPenalties || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Autogol</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.ownGoals || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Ammonizioni</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.yellowCards || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">Espulsioni</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.redCards || 0}</Text>
-                </YStack>
-                <YStack gap="$1" minWidth={70}>
-                  <Text fontSize="$2" color="$color10">MVP</Text>
-                  <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.manOfTheMatch || 0}</Text>
-                </YStack>
-              </XStack>
-            </YStack>
-          </Card>
-        </YStack>
-      </Card>
-    )
-  }
-
-  // Pulsantiera Partecipante Component
-  const renderParticipantBidding = () => {
-    if (isAuctioneer) return null
-    return (
-      <YStack gap="$2">
-        {renderPersonalBidding()}
-        {timerExpired && currentPlayer && (
-          <Card padding="$2" backgroundColor="$orange2" borderColor="$orange8" borderWidth="$0.5">
-            <Text fontSize="$3" color="$orange11">⏱️ Tempo scaduto - Solo il banditore può agire</Text>
-          </Card>
-        )}
-      </YStack>
-    )
-  }
-
-  // Helper: Pulsantiera Personale (usata sia da partecipanti che banditore con squadra)
-  const renderPersonalBidding = () => {
-    if (!myTeam) return null
-    const bidStatus = arePersonalBidButtonsDisabled()
-    const isDisabled = bidStatus.disabled
-    
-    return (
-      <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8" opacity={isDisabled ? 0.5 : 1}>
-        <YStack gap="$3">
-          <XStack gap="$2" alignItems="center">
-            <DollarSign size={20} color="$blue11" />
-            <Text fontSize="$5" fontWeight="700" color="$blue11">Mia Squadra</Text>
-          </XStack>
-          <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
-            <Text fontSize="$3" color="$blue11">{myTeam.value.name} • Budget: €{myTeamBudget}</Text>
-          </Card>
-          <XStack gap="$2">
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(1)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
-            </Button>
-          </XStack>
-          <XStack gap="$2">
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(2)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(3)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(5)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleIncrementBid(7)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+7</Text>
-            </Button>
-          </XStack>
-          <Separator />
-          <XStack gap="$2">
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(50)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">50</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(100)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">100</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(150)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">150</Text>
-            </Button>
-            <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => handleFixedBid(200)} disabled={isDisabled}>
-              <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">200</Text>
-            </Button>
-          </XStack>
-          <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={() => {
-            setIsCustomBidFromAuctioneer(false)
-            setShowCustomBidDialog(true)
-          }} disabled={isDisabled}>Offerta Personalizzata</Button>
-          {isRepairAuction() && currentPlayer && (
-            <Button 
-              icon={Users} 
-              size="$5" 
-              theme={mySelectedSubstitute ? "green" : "orange"} 
-              variant="outlined" 
-              onPress={() => {
-                setIsSubstituteSelectionForAuctioneer(false)
-                setShowSubstituteSelectionDialog(true)
-              }}
-            >
-              {mySelectedSubstitute 
-                ? `Sostituisce: ${myTeam?.value.players.find(p => p.name === mySelectedSubstitute)?.name || mySelectedSubstitute}` 
-                : 'Seleziona giocatore da sostituire'}
-            </Button>
-          )}
-          {currentBidder?.toLowerCase() === user?.email?.toLowerCase() && !isDisabled && (
-            <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth="$0.5">
-              <Text fontSize="$3" color="$green11">✅ Sei il miglior offerente</Text>
-            </Card>
-          )}
-          {bidStatus.reason && (
-            <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
-              <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
-            </Card>
-          )}
-        </YStack>
-      </Card>
-    )
-  }
-
-  // Pulsantiera Banditore con Controlli Component
-  const renderAuctioneerPanel = () => {
-    if (!isAuctioneer) return null
-
-    const renderAuctioneerBidding = () => {
-      const bidStatus = areAuctioneerBidButtonsDisabled()
-      const isDisabled = bidStatus.disabled
-      
-      return (
-        <YStack gap="$3">
-          
-          {!currentPlayer && (
-            <Card padding="$3" backgroundColor="$orange1" borderRadius="$3">
-              <Text fontSize="$3" color="$orange11" textAlign="center">
-                Nessun giocatore in asta - Seleziona il prossimo giocatore
-              </Text>
-            </Card>
-          )}
-          
-          {currentPlayer && (
-            <>
-              <YStack gap="$2">
-                <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
-                <Select id="team-select" value={selectedTeamForBid} onValueChange={setSelectedTeamForBid}>
-                  <Select.Trigger iconAfter={ChevronDown}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
-                  <Select.Content zIndex={200000}>
-                    <Select.Viewport>
-                      {teams.map((team, idx) => (
-                        <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
-                          <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
-                        </Select.Item>
-                      ))}
-                    </Select.Viewport>
-                  </Select.Content>
-                </Select>
-                {selectedTeamForBid && (
-                  <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-                    <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
-                  </Card>
-                )}
-              </YStack>
-              <Separator />
-              {isRepairAuction() && selectedTeamForBid && (
-                <Button 
-                  icon={Users} 
-                  size="$5" 
-                  theme={auctioneerSelectedSubstitute ? "green" : "orange"} 
-                  variant="outlined" 
-                  onPress={() => {
-                    setIsSubstituteSelectionForAuctioneer(true)
-                    setShowSubstituteSelectionDialog(true)
-                  }}
-                >
-                  {auctioneerSelectedSubstitute 
-                    ? `Sostituisce: ${teams.find(t => t.value.owner === selectedTeamForBid)?.value.players.find(p => p.name === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}` 
-                    : 'Seleziona giocatore da sostituire'}
-                </Button>
-              )}
-              <Separator />
-              <YStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
-                <XStack gap="$2">
-                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(1, true)} disabled={isDisabled}>
-                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
-                  </Button>
-                </XStack>
-                <XStack gap="$2">
-                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(2, true)} disabled={isDisabled}>
-                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
-                  </Button>
-                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(3, true)} disabled={isDisabled}>
-                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+3</Text>
-                  </Button>
-                  <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="orange" onPress={() => handleIncrementBid(5, true)} disabled={isDisabled}>
-                    <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+5</Text>
-                  </Button>
-                </XStack>
-              </YStack>
-              {bidStatus.reason && (
-                <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth="$0.5">
-                  <Text fontSize="$3" color="$red11">❌ {bidStatus.reason}</Text>
-                </Card>
-              )}
-            </>
-          )}
-        </YStack>
-      )
-    }
-
-    const renderAuctioneerControls = () => (
-      <YStack gap="$3">
-        <XStack gap="$2" alignItems="center">
-          <Gavel size={20} color="$orange11" />
-          <Text fontSize="$5" fontWeight="700" color="$orange11">Pulsantiera Banditore</Text>
-        </XStack>
-        <Text fontSize="$4" marginTop="$2" fontWeight="600" color="$orange11">Gestione Giocatore</Text>
-        <XStack gap="$2">
-          <YStack flex={1}>
-            <Select value={selectedRole.toString()} onValueChange={(val) => setSelectedRole(Number(val) as Role)}>
-              <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
-              <Select.Content zIndex={200000}>
-                <Select.Viewport>
-                  {[Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward].map((role, idx) => (
-                    <Select.Item key={role} index={idx} value={role.toString()}>
-                      <Select.ItemText>{getRoleLabel(role)}</Select.ItemText>
-                    </Select.Item>
-                  ))}
-                </Select.Viewport>
-              </Select.Content>
-            </Select>
-          </YStack>
-          <Button icon={TrendingUp} theme="orange" flex={1} disabled={loading} onPress={async () => {
-            setLoading(true)
-            try {
-              await auctionService.showNextPlayer(auctionId, selectedRole)
-            } catch (err) {
-              toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-            } finally {
-              setLoading(false)
-            }
-          }}>Prossimo</Button>
-        </XStack>
-        <Button icon={Search} theme="orange" variant="outlined" onPress={() => setShowPlayerSearchDialog(true)}>Cerca Giocatore</Button>
-        <Separator />
-        {currentBidder && currentPlayer && (
-          <>
-            <Text fontSize="$4" fontWeight="600" color="$orange11">Aggiudica Giocatore</Text>
-            <Card padding="$3" backgroundColor="$orange1">
-              <YStack gap="$1">
-                <Text fontSize="$3" color="$orange11">
-                  {currentPlayer.name} a {teams.find(t => t.value.owner === currentBidder)?.value.name} per €{currentBid}
-                </Text>
-                {currentSubstitute && (
-                  <Text fontSize="$2" color="$orange10" fontStyle="italic">
-                    in sostituzione di {(() => {
-                      const substitutePlayer = auctionState?.realPlayers.find(p => p.key === currentSubstitute)
-                      return substitutePlayer?.name || currentSubstitute
-                    })()}
-                  </Text>
-                )}
-              </YStack>
-            </Card>
-            <Button icon={Gavel} theme="green" disabled={loading} onPress={async () => {
-              setLoading(true)
-              try {
-                await auctionService.assignPlayerToTeam(auctionId)
-                toast.show('✅ Giocatore aggiudicato!', { variant: 'success' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}>Aggiudica</Button>
-            <Separator />
-          </>
-        )}
-        <Text fontSize="$4" fontWeight="600" color="$orange11">Controlli Asta</Text>
-        <XStack gap="$2" flexWrap="wrap" alignItems="center">
-          <YStack gap="$1">
-            <Select 
-              value={offerTimeoutSeconds.toString()} 
-              onValueChange={async (val) => {
-                const newSeconds = Number(val)
-                setLoading(true)
-                try {
-                  await auctionService.changeTimer(auctionId, newSeconds)
-                  // Don't set locally - will be updated via AuctionState event
-                  toast.show(`⏱️ Timer aggiornato a ${newSeconds}s`, { variant: 'success' })
-                } catch (err) {
-                  toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-                } finally {
-                  setLoading(false)
-                }
-              }}
-            >
-              <Select.Trigger width={70} size="$3"><Select.Value /></Select.Trigger>
-              <Select.Content zIndex={200000}>
-                <Select.Viewport>
-                  {[5, 10, 15, 20, 30, 45, 60].map((secs, idx) => (
-                    <Select.Item key={secs} index={idx} value={secs.toString()}>
-                      <Select.ItemText>{secs}s</Select.ItemText>
-                    </Select.Item>
-                  ))}
-                </Select.Viewport>
-              </Select.Content>
-            </Select>
-          </YStack>
-          {auctionState && auctionState.wrapper.status === AuctionStatus.InProgress ? (
-            <Button icon={Pause} theme="orange" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
-              setLoading(true)
-              try {
-                await auctionService.pauseAuction(auctionId)
-                toast.show('⏸️ Asta in pausa', { variant: 'info' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}>Pausa</Button>
-          ) : (
-            <Button icon={Play} theme="green" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
-              setLoading(true)
-              try {
-                await auctionService.resumeAuction(auctionId)
-                toast.show('▶️ Asta ripresa', { variant: 'success' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}>Riprendi</Button>
-          )}
-          <Button 
-            icon={Clock} 
-            theme="blue" 
-            variant="outlined" 
-            flex={1} 
-            minWidth={90} 
-            size="$3" 
-            disabled={!currentPlayer || loading}
-            onPress={async () => {
-              setLoading(true)
-              try {
-                await auctionService.resetTimer(auctionId)
-                toast.show('⏱️ Timer riavviato per tutti', { variant: 'success' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}
-          >
-            Riavvia Timer
-          </Button>
-          <Button 
-            icon={RotateCcw} 
-            theme="orange" 
-            variant="outlined" 
-            flex={1} 
-            minWidth={90} 
-            size="$3" 
-            disabled={!currentPlayer || loading}
-            onPress={async () => {
-              setLoading(true)
-              try {
-                await auctionService.completeReset(auctionId)
-                toast.show('🔄 Asta resettata per tutti', { variant: 'success' })
-              } catch (err) {
-                toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-              } finally {
-                setLoading(false)
-              }
-            }}
-          >
-            Reset Completo
-          </Button>
-          <Button icon={XCircle} theme="red" flex={1} minWidth={90} size="$3" disabled={loading} onPress={async () => {
-            if (Platform.OS === 'web' && !confirm('Sei sicuro di voler chiudere l\'asta?')) return
-            setLoading(true)
-            try {
-              await auctionService.closeAuction(auctionId)
-              toast.show('🏁 Asta chiusa', { variant: 'success' })
-            } catch (err) {
-              toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-            } finally {
-              setLoading(false)
-            }
-          }}>Chiudi</Button>
-        </XStack>
-      </YStack>
-    )
-
-    const auctioneerCard = (
-      <Card padding="$4" backgroundColor="$orange2" borderRadius="$4" borderWidth="$0.5" borderColor="$orange8" opacity={tempBlockButtons ? 0.6 : 1}>
-        {renderAuctioneerControls()}
-        {renderAuctioneerBidding()}
-      </Card>
-    )
-
-    // Se banditore ha una squadra, mostra doppia pulsantiera (layout responsive)
-    if (myTeam) {
-      const StackComponent = media.gtMd ? XStack : YStack
-      return (
-        <StackComponent gap="$3" alignItems="stretch">
-          <YStack flex={media.gtMd ? 1 : undefined} width="100%">{renderPersonalBidding()}</YStack>
-          <YStack flex={media.gtMd ? 1 : undefined} width="100%" marginTop={media.gtMd ? 0 : "$3"}>{auctioneerCard}</YStack>
-        </StackComponent>
-      )
-    }
-
-    // Se banditore senza squadra, mostra solo pannello banditore (wrapped in YStack for consistency)
-    return <YStack width="100%">{auctioneerCard}</YStack>
-  }
-
-  // Teams Panel Component  
-  const renderTeams = () => {
-    if (teams.length === 0) return null
-    
-    // Responsive grid: 5 teams per row on desktop, 2 on mobile
-    // Width dinamica con massimo per mantenere 5 colonne su desktop
-    const maxCardWidth = media.gtMd ? 240 : 180
-    
-    // Sort teams by budget (descending - from highest to lowest)
-    const sortedTeams = [...teams].sort((a, b) => {
-      const budgetA = calculateBudgetRemaining(a)
-      const budgetB = calculateBudgetRemaining(b)
-      return budgetB - budgetA // Descending order
-    })
-    
-    return (
-      <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
-        <YStack gap="$4">
-          <XStack gap="$2" alignItems="center">
-            <Users size={20} color="$color11" />
-            <Text fontSize="$5" fontWeight="700" color="$color11">Squadre Partecipanti ({teams.length})</Text>
-          </XStack>
-          <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
-            {sortedTeams.map((team) => {
-              const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
-              const budget = calculateBudgetRemaining(team)
-              const hasLowBudget = budget < 100
-              
-              // Count only active players (status === 0)
-              const activePlayers = TeamHelper.getActivePlayers(team.value)
-              const roleCount = {
-                [Role.GoalKeeper]: activePlayers.filter(p => p.role === Role.GoalKeeper).length,
-                [Role.Defensor]: activePlayers.filter(p => p.role === Role.Defensor).length,
-                [Role.Midfielder]: activePlayers.filter(p => p.role === Role.Midfielder).length,
-                [Role.Forward]: activePlayers.filter(p => p.role === Role.Forward).length,
-              }
-              return (
-                <Card 
-                  key={team.value.owner}
-                  flex={media.gtMd ? 1 : 0}
-                  flexBasis={media.gtMd ? undefined : "47.5%"}
-                  minWidth={media.gtMd ? 180 : undefined}
-                  maxWidth={media.gtMd ? maxCardWidth : "47.5%"}
-                  padding="$3" 
-                  backgroundColor={isMyTeam ? '$blue2' : '$color1'} 
-                  borderRadius="$3" 
-                  borderWidth="$0.5" 
-                  borderColor={isMyTeam ? '$blue8' : '$borderColor'}
-                  pressStyle={{ scale: 0.98, opacity: 0.9 }}
-                  cursor="pointer"
-                  onPress={() => {
-                    setSelectedTeamDetail(team)
-                    setShowTeamDetailDialog(true)
-                  }}
-                >
-                  <YStack gap="$2">
-                    <XStack gap="$2" alignItems="center" justifyContent="space-between">
-                      <Text fontSize="$4" fontWeight="700" color="$color11" numberOfLines={1} flex={1}>
-                        {team.value.name}
-                      </Text>
-                      {isMyTeam && (
-                        <Card padding="$1" paddingHorizontal="$2" backgroundColor="$blue8" borderRadius="$2">
-                          <Text fontSize="$1" color="$blue1" fontWeight="700">TUA</Text>
-                        </Card>
-                      )}
-                    </XStack>
-                    <XStack gap="$2" flexWrap="wrap">
-                      <YStack gap="$0.5" flex={1}>
-                        <Text fontSize="$1" color="$color10">Budget</Text>
-                        <Text fontSize="$3" fontWeight="600" color={hasLowBudget ? '$red11' : '$color11'}>€{budget}</Text>
-                      </YStack>
-                      <YStack gap="$0.5" flex={1}>
-                        <Text fontSize="$1" color="$color10">Gioc.</Text>
-                        <Text fontSize="$3" fontWeight="600" color="$color11">{activePlayers.length}/25</Text>
-                      </YStack>
-                    </XStack>
-                    
-                    {/* Budget Breakdown */}
-                    <Card padding="$2" backgroundColor="$color3" borderRadius="$2">
-                      <YStack gap="$1">
-                        <Text fontSize="$1" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
-                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Budget Iniziale</Text>
-                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{startingMoney}</Text>
-                          </YStack>
-                          <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$red10">Costo Totale</Text>
-                            <Text fontSize="$2" fontWeight="600" color="$red11">-€{TeamHelper.getTotalCostForPlayers(team.value)}</Text>
-                          </YStack>
-                        </XStack>
-                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Ricavi Vendite</Text>
-                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{TeamHelper.getRevenueMoney(team.value)}</Text>
-                          </YStack>
-                          <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Da Classifica</Text>
-                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{team.value.moneyFromRank}</Text>
-                          </YStack>
-                        </XStack>
-                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Infortunati/Ceduti</Text>
-                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}</Text>
-                          </YStack>
-                        </XStack>
-                      </YStack>
-                    </Card>
-                    
-                    <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
-                      <XStack gap="$2" justifyContent="space-between">
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$color10">P</Text>
-                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.GoalKeeper] >= ROLE_LIMITS[Role.GoalKeeper] ? '$red11' : '$color11'}>{roleCount[Role.GoalKeeper]}/{ROLE_LIMITS[Role.GoalKeeper]}</Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$color10">D</Text>
-                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Defensor] >= ROLE_LIMITS[Role.Defensor] ? '$red11' : '$color11'}>{roleCount[Role.Defensor]}/{ROLE_LIMITS[Role.Defensor]}</Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$color10">C</Text>
-                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Midfielder] >= ROLE_LIMITS[Role.Midfielder] ? '$red11' : '$color11'}>{roleCount[Role.Midfielder]}/{ROLE_LIMITS[Role.Midfielder]}</Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$color10">A</Text>
-                          <Text fontSize="$2" fontWeight="600" color={roleCount[Role.Forward] >= ROLE_LIMITS[Role.Forward] ? '$red11' : '$color11'}>{roleCount[Role.Forward]}/{ROLE_LIMITS[Role.Forward]}</Text>
-                        </YStack>
-                      </XStack>
-                    </Card>
-                  </YStack>
-                </Card>
-              )
-            })}
-          </XStack>
-        </YStack>
-      </Card>
-    )
-  }
-
-  // Timer Component
-  // Custom Bid Dialog Component
-  const renderCustomBidDialog = () => (
-    <Dialog modal open={showCustomBidDialog} onOpenChange={setShowCustomBidDialog}>
-      <Dialog.Portal>
-        <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-        <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={400} maxWidth="90%">
-          <Dialog.Title fontSize="$6" fontWeight="700">Offerta Personalizzata</Dialog.Title>
-          <Dialog.Description>Inserisci l'importo della tua offerta (deve essere superiore a €{currentBid})</Dialog.Description>
-          <YStack gap="$3">
-            <Input placeholder="Importo (€)" value={customBidAmount} onChangeText={setCustomBidAmount} keyboardType="numeric" size="$5" />
-            <XStack gap="$2" justifyContent="flex-end">
-              <Dialog.Close asChild>
-                <Button variant="outlined">Annulla</Button>
-              </Dialog.Close>
-              <Button theme="blue" onPress={() => {
-                const amount = parseInt(customBidAmount, 10)
-                if (!isNaN(amount) && amount > 0) {
-                  placeBid(amount, isCustomBidFromAuctioneer)
-                  setCustomBidAmount('')
-                  setShowCustomBidDialog(false)
-                } else {
-                  toast.show('❌ Inserisci un importo valido', { variant: 'error' })
-                }
-              }}>Conferma Offerta</Button>
-            </XStack>
-          </YStack>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog>
-  )
-
-  // Team Detail Dialog Component
-  const renderTeamDetailDialog = () => {
-    if (!selectedTeamDetail) return null
-    const team = selectedTeamDetail
-    const budget = calculateBudgetRemaining(team)
-    const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
-    
-    // Count only active players
-    const activePlayers = TeamHelper.getActivePlayers(team.value)
-    
-    // Sort players: orderBy status, thenBy role
-    const sortedPlayers = [...team.value.players].sort((a, b) => {
-      if (a.status !== b.status) return (a.status || 0) - (b.status || 0)
-      return (a.role || 0) - (b.role || 0)
-    })
-
-    return (
-      <Dialog modal open={showTeamDetailDialog} onOpenChange={setShowTeamDetailDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={700} maxWidth="95%" maxHeight="90%">
-            <Dialog.Title fontSize="$6" fontWeight="700">{team.value.name}</Dialog.Title>
-            <Dialog.Description>Dettaglio squadra - {team.value.owner}</Dialog.Description>
-            <ScrollView maxHeight={600} showsHorizontalScrollIndicator={false}>
-              <YStack gap="$4" padding="$2">
-                <Card padding="$3" backgroundColor={isMyTeam ? '$blue2' : '$color2'} borderRadius="$3">
-                  <YStack gap="$3">
-                    <XStack gap="$4" flexWrap="wrap">
-                      <YStack gap="$1">
-                        <Text fontSize="$2" color="$color10">Budget Rimasto</Text>
-                        <Text fontSize="$5" fontWeight="700" color={budget < 100 ? '$red11' : '$color11'}>€{budget}</Text>
-                      </YStack>
-                      <YStack gap="$1">
-                        <Text fontSize="$2" color="$color10">Giocatori</Text>
-                        <Text fontSize="$5" fontWeight="700" color="$color11">{activePlayers.length}/25</Text>
-                      </YStack>
-                      <YStack gap="$1">
-                        <Text fontSize="$2" color="$color10">Slot Rimasti</Text>
-                        <Text fontSize="$5" fontWeight="700" color="$color11">{25 - activePlayers.length}</Text>
-                      </YStack>
-                    </XStack>
-                    
-                    <Card padding="$3" backgroundColor={isMyTeam ? '$blue1' : '$color3'} borderRadius="$3">
-                      <YStack gap="$2">
-                        <Text fontSize="$3" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
-                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$1" flex={1} minWidth={120}>
-                            <Text fontSize="$2" color="$green10">Budget Iniziale</Text>
-                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{startingMoney}</Text>
-                          </YStack>
-                          <YStack gap="$1" flex={1} minWidth={120}>
-                            <Text fontSize="$2" color="$red10">Costo Totale</Text>
-                            <Text fontSize="$4" fontWeight="600" color="$red11">-€{TeamHelper.getTotalCostForPlayers(team.value)}</Text>
-                          </YStack>
-                        </XStack>
-                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$1" flex={1} minWidth={120}>
-                            <Text fontSize="$2" color="$green10">Ricavi Vendite</Text>
-                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{TeamHelper.getRevenueMoney(team.value)}</Text>
-                          </YStack>
-                          <YStack gap="$1" flex={1} minWidth={120}>
-                            <Text fontSize="$2" color="$green10">Da Classifica</Text>
-                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{team.value.moneyFromRank}</Text>
-                          </YStack>
-                        </XStack>
-                        <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
-                          <YStack gap="$1" flex={1} minWidth={120}>
-                            <Text fontSize="$2" color="$green10">Infortunati/Ceduti</Text>
-                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}</Text>
-                          </YStack>
-                        </XStack>
-                      </YStack>
-                    </Card>
-                  </YStack>
-                </Card>
-                <YStack gap="$2">
-                  <Text fontSize="$4" fontWeight="700" color="$color11">Rosa ({sortedPlayers.length})</Text>
-                  {sortedPlayers.length === 0 ? (
-                    <Card padding="$3" backgroundColor="$color2">
-                      <Text fontSize="$3" color="$color10" textAlign="center">Nessun giocatore ancora</Text>
-                    </Card>
-                  ) : (
-                    <YStack gap="$2">
-                      {sortedPlayers.map((player) => (
-                        <Card key={player.name} padding="$3" backgroundColor="$color1" borderRadius="$3">
-                          <XStack gap="$2" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-                            <YStack gap="$1" flex={1}>
-                              <Text fontSize="$4" fontWeight="600" color="$color11">{player.name}</Text>
-                              <XStack gap="$2" flexWrap="wrap">
-                                <Text fontSize="$2" color="$color10">{getRoleLabel(player.role)} • {player.team.name}</Text>
-                                <Text fontSize="$2" fontWeight="600" color={getPlayerStatusColor(player.status || 0)}>
-                                  {getPlayerStatusLabel(player.status || 0)}
-                                </Text>
-                                {(player.status === 3 || player.status === 1) && player.revenue !== undefined && player.revenue !== 0 && (
-                                  <Text fontSize="$2" fontWeight="600" color={player.revenue > 0 ? '$green11' : '$red11'}>
-                                    ({player.revenue > 0 ? '+' : ''}{player.revenue}€)
-                                  </Text>
-                                )}
-                              </XStack>
-                            </YStack>
-                            <XStack gap="$2" alignItems="center">
-                              <Text fontSize="$4" fontWeight="700" color="$color11">€{player.price}</Text>
-                              {isAuctioneer && (
-                                <Button 
-                                  size="$2" 
-                                  theme="orange" 
-                                  variant="outlined"
-                                  onPress={() => {
-                                    setChangeStatusPlayer({ playerKey: getPlayerKey(player.name), playerName: player.name, owner: team.value.owner })
-                                    setChangeStatusType(player.status || 0)
-                                    setChangeStatusRevenue(player.revenue?.toString() || '')
-                                    setShowChangeStatusDialog(true)
-                                  }}
-                                >
-                                  Modifica
-                                </Button>
-                              )}
-                            </XStack>
-                          </XStack>
-                        </Card>
-                      ))}
-                    </YStack>
-                  )}
-                </YStack>
-              </YStack>
-            </ScrollView>
-            <XStack justifyContent="flex-end">
-              <Dialog.Close asChild>
-                <Button>Chiudi</Button>
-              </Dialog.Close>
-            </XStack>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    )
-  }
-
-  // Change Player Status Dialog Component
-  const renderChangeStatusDialog = () => {
-    if (!changeStatusPlayer) return null
-    const needsRevenue = changeStatusType === 3 // Sold status
-    
-    return (
-      <Dialog modal open={showChangeStatusDialog} onOpenChange={setShowChangeStatusDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={500} maxWidth="95%">
-            <Dialog.Title fontSize="$6" fontWeight="700">Cambia Stato Giocatore</Dialog.Title>
-            <Dialog.Description>{changeStatusPlayer.playerName}</Dialog.Description>
-            <YStack gap="$3">
-              <YStack gap="$2">
-                <Label htmlFor="status-select" fontSize="$4">Motivo cambio stato:</Label>
-                <Select id="status-select" value={changeStatusType.toString()} onValueChange={(val) => setChangeStatusType(Number(val))}>
-                  <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
-                  <Select.Content zIndex={200000}>
-                    <Select.Viewport>
-                      <Select.Item index={0} value="0"><Select.ItemText>Attivo (ripristina)</Select.ItemText></Select.Item>
-                      <Select.Item index={1} value="1"><Select.ItemText>Errore di caricamento (rimosso)</Select.ItemText></Select.Item>
-                      <Select.Item index={2} value="2"><Select.ItemText>Infortunato/Estero (1 girone)</Select.ItemText></Select.Item>
-                      <Select.Item index={3} value="3"><Select.ItemText>Venduto ad altro giocatore</Select.ItemText></Select.Item>
-                      <Select.Item index={4} value="4"><Select.ItemText>Rimuovi giocatore</Select.ItemText></Select.Item>
-                    </Select.Viewport>
-                  </Select.Content>
-                </Select>
-              </YStack>
-              {needsRevenue && (
-                <YStack gap="$2">
-                  <Label htmlFor="revenue-input" fontSize="$4">Importo vendita (+ guadagno / - perdita):</Label>
-                  <Input 
-                    id="revenue-input"
-                    placeholder="Es: 50 o -30" 
-                    value={changeStatusRevenue} 
-                    onChangeText={setChangeStatusRevenue} 
-                    keyboardType="numeric" 
-                    size="$4" 
-                  />
-                  <Text fontSize="$2" color="$color10">Lascia vuoto o 0 se nessun importo da registrare</Text>
-                </YStack>
-              )}
-              <Card padding="$3" backgroundColor="$blue2" borderRadius="$3">
-                <YStack gap="$2">
-                  <Text fontSize="$3" fontWeight="600" color="$blue11">Spiegazione stati:</Text>
-                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Errore di caricamento:</Text> Giocatore rimosso definitivamente</Text>
-                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)</Text>
-                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)</Text>
-                  <Text fontSize="$2" color="$blue11">• <Text fontWeight="600">Rimosso:</Text> Giocatore rimosso definitivamente</Text>
-                </YStack>
-              </Card>
-              <XStack gap="$2" justifyContent="flex-end">
-                <Dialog.Close asChild>
-                  <Button variant="outlined" onPress={() => {
-                    setChangeStatusPlayer(null)
-                    setChangeStatusRevenue('')
-                  }}>Annulla</Button>
-                </Dialog.Close>
-                <Button theme="orange" disabled={loading} onPress={async () => {
-                  setLoading(true)
-                  try {
-                    let revenue: number | null = null
-                    if (needsRevenue && changeStatusRevenue) {
-                      const parsed = parseInt(changeStatusRevenue, 10)
-                      if (!isNaN(parsed)) revenue = parsed
-                    }
-                    
-                    await auctionService.changePlayerStatus(
-                      auctionId, 
-                      changeStatusPlayer.owner, 
-                      changeStatusPlayer.playerKey, 
-                      changeStatusType, 
-                      revenue
-                    )
-                    
-                    setShowChangeStatusDialog(false)
-                    setChangeStatusPlayer(null)
-                    setChangeStatusRevenue('')
-                  } catch (err) {
-                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-                  } finally {
-                    setLoading(false)
-                  }
-                }}>Conferma</Button>
-              </XStack>
-            </YStack>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    )
-  }
-
-  // Substitute Selection Dialog Component
-  const renderSubstituteSelectionDialog = () => {
-    if (!currentPlayer) return null
-    
-    const team = isSubstituteSelectionForAuctioneer && selectedTeamForBid
-      ? teams.find(t => t.value.owner === selectedTeamForBid)
-      : myTeam
-    
-    if (!team) return null
-    
-    // Filter players by same role as current player
-    const eligiblePlayers = team.value.players.filter(p => 
-      p.role === currentPlayer.role && 
-      p.status === 0 // Only active players
-    )
-    
-    const currentSelection = isSubstituteSelectionForAuctioneer ? auctioneerSelectedSubstitute : mySelectedSubstitute
-    
-    return (
-      <Dialog modal open={showSubstituteSelectionDialog} onOpenChange={setShowSubstituteSelectionDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={800} maxWidth="95%" maxHeight="90%">
-            <Dialog.Title fontSize="$6" fontWeight="700">Seleziona Giocatore da Sostituire</Dialog.Title>
-            <Dialog.Description>
-              Scegli un {getRoleLabel(currentPlayer.role)} da sostituire con {currentPlayer.name}
-            </Dialog.Description>
-            <ScrollView maxHeight={500}>
-              <YStack gap="$3" padding="$2">
-                {eligiblePlayers.length === 0 ? (
-                  <Card padding="$4" backgroundColor="$orange2" borderRadius="$3">
-                    <Text fontSize="$4" color="$orange11" textAlign="center">
-                      Nessun {getRoleLabel(currentPlayer.role)} disponibile per la sostituzione
-                    </Text>
-                  </Card>
-                ) : (
-                  <YStack gap="$3">
-                    {eligiblePlayers.map((player) => {
-                      // Get stats from realPlayers using playerKey
-                      const playerKey = getPlayerKey(player.name)
-                      const playerStats = auctionState?.realPlayers.find(p => p.key === playerKey)
-                      
-                      return (
-                        <Card
-                          key={player.name}
-                          padding="$4"
-                          backgroundColor={currentSelection === player.name ? '$blue2' : '$color1'}
-                          borderRadius="$4"
-                          borderWidth="$0.5"
-                          borderColor={currentSelection === player.name ? '$blue8' : '$borderColor'}
-                          pressStyle={{ scale: 0.98, opacity: 0.9 }}
-                          cursor="pointer"
-                          onPress={() => {
-                            if (isSubstituteSelectionForAuctioneer) {
-                              setAuctioneerSelectedSubstitute(player.name)
-                            } else {
-                              setMySelectedSubstitute(player.name)
-                            }
-                            setShowSubstituteSelectionDialog(false)
-                          }}
-                        >
-                          <YStack gap="$3">
-                            <XStack gap="$2" alignItems="center" justifyContent="space-between">
-                              <YStack gap="$1" flex={1}>
-                                <Text fontSize="$6" fontWeight="700" color="$color11">{player.name}</Text>
-                                <Text fontSize="$3" color="$color10">{player.team.name}</Text>
-                              </YStack>
-                              {currentSelection === player.name && (
-                                <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue8" borderRadius="$3">
-                                  <Text fontSize="$3" color="white" fontWeight="700">✓ SELEZIONATO</Text>
-                                </Card>
-                              )}
-                            </XStack>
-                            
-                            <XStack gap="$4" flexWrap="wrap">
-                              <YStack gap="$1">
-                                <Text fontSize="$2" color="$color10">Ruolo</Text>
-                                <Text fontSize="$4" fontWeight="600" color="$color11">{getRoleLabel(player.role)}</Text>
-                              </YStack>
-                              <YStack gap="$1">
-                                <Text fontSize="$2" color="$color10">Prezzo Acquisto</Text>
-                                <Text fontSize="$4" fontWeight="600" color="$color11">€{player.price}</Text>
-                              </YStack>
-                              {player.revenue !== 0 && (
-                                <YStack gap="$1">
-                                  <Text fontSize="$2" color="$color10">Revenue</Text>
-                                  <Text fontSize="$4" fontWeight="600" color={player.revenue > 0 ? '$green11' : '$red11'}>
-                                    {player.revenue > 0 ? '+' : ''}€{player.revenue}
-                                  </Text>
-                                </YStack>
-                              )}
-                              <YStack gap="$1">
-                                <Text fontSize="$2" color="$color10">Costo Effettivo</Text>
-                                <Text fontSize="$4" fontWeight="600" color="$color11">€{player.price + player.revenue}</Text>
-                              </YStack>
-                            </XStack>
-
-                            {playerStats && (
-                              <>
-                                <Separator />
-                                <YStack gap="$2">
-                                  <Text fontSize="$3" fontWeight="600" color="$color11">Statistiche Stagione</Text>
-                                  <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
-                                    <YStack gap="$1" minWidth={80}>
-                                      <Text fontSize="$2" color="$color10">Media Voto</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">
-                                        {playerStats.average?.toFixed(2) || 'N/A'}
-                                      </Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={80}>
-                                      <Text fontSize="$2" color="$color10">Fantamedia</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">
-                                        {playerStats.fantaAverage?.toFixed(2) || 'N/A'}
-                                      </Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={80}>
-                                      <Text fontSize="$2" color="$color10">Partite</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.withVote || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={80}>
-                                      <Text fontSize="$2" color="$color10">Senza Voto</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.withoutVote || 0}</Text>
-                                    </YStack>
-                                  </XStack>
-                                </YStack>
-
-                                <Separator />
-
-                                <YStack gap="$2">
-                                  <Text fontSize="$3" fontWeight="600" color="$color11">Eventi</Text>
-                                  <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Gol</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.goals || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Rigori</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.penalties || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Assist</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.assists || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Rig. Parati</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.stoppedPenalties || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Gol Subiti</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.sufferedGoals || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Rig. Sbag.</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.wrongedPenalties || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Autogol</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.ownGoals || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Ammon.</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.yellowCards || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">Espuls.</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.redCards || 0}</Text>
-                                    </YStack>
-                                    <YStack gap="$1" minWidth={60}>
-                                      <Text fontSize="$2" color="$color10">MVP</Text>
-                                      <Text fontSize="$3" fontWeight="600" color="$color11">{playerStats.manOfTheMatch || 0}</Text>
-                                    </YStack>
-                                  </XStack>
-                                </YStack>
-                              </>
-                            )}
-
-                            {!playerStats && (
-                              <Card padding="$2" backgroundColor="$orange1" marginTop="$2">
-                                <Text fontSize="$2" color="$orange11" textAlign="center">
-                                  ℹ️ Statistiche non disponibili per questo giocatore
-                                </Text>
-                              </Card>
-                            )}
-                          </YStack>
-                        </Card>
-                      )
-                    })}
-                  </YStack>
-                )}
-              </YStack>
-            </ScrollView>
-            <XStack justifyContent="flex-end" gap="$2">
-              {currentSelection && (
-                <Button variant="outlined" theme="orange" onPress={() => {
-                  if (isSubstituteSelectionForAuctioneer) {
-                    setAuctioneerSelectedSubstitute(null)
-                  } else {
-                    setMySelectedSubstitute(null)
-                  }
-                }}>Rimuovi Selezione</Button>
-              )}
-              <Dialog.Close asChild>
-                <Button>Chiudi</Button>
-              </Dialog.Close>
-            </XStack>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    )
-  }
-
-  // Player Search Dialog Component (Force Next Player)
-  const renderPlayerSearchDialog = () => {
-    if (!auctionState) return null
-    
-    // Filter players by selected role and search query
-    const filteredPlayers = auctionState.realPlayers
-      .filter(p => p.role === selectedRole)
-      .filter(p => {
-        if (!playerSearchQuery) return true
-        const query = playerSearchQuery.toLowerCase()
-        return p.name.toLowerCase().includes(query) || 
-               p.realTeam.name.toLowerCase().includes(query)
-      })
-      .sort((a, b) => a.name.localeCompare(b.name))
-    
-    return (
-      <Dialog modal open={showPlayerSearchDialog} onOpenChange={setShowPlayerSearchDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay key="overlay" animation="quick" opacity={0.5} enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
-          <Dialog.Content bordered elevate key="content" animateOnly={['transform', 'opacity']} animation={['quick', { opacity: { overshootClamping: true } }]} enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} gap="$4" width={600} maxWidth="95%" maxHeight="90%">
-            <Dialog.Title fontSize="$6" fontWeight="700">Cerca Giocatore</Dialog.Title>
-            <Dialog.Description>
-              Seleziona un giocatore specifico per il ruolo: {getRoleLabel(selectedRole)}
-            </Dialog.Description>
-            
-            <YStack gap="$3">
-              <YStack gap="$2">
-                <Label htmlFor="role-select-search" fontSize="$4">Ruolo:</Label>
-                <Select id="role-select-search" value={selectedRole.toString()} onValueChange={(val) => {
-                  setSelectedRole(Number(val) as Role)
-                  setPlayerSearchQuery('')
-                  setSelectedPlayerForForce('')
-                }}>
-                  <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
-                  <Select.Content zIndex={200000}>
-                    <Select.Viewport>
-                      <Select.Item index={0} value={Role.GoalKeeper.toString()}><Select.ItemText>Portiere</Select.ItemText></Select.Item>
-                      <Select.Item index={1} value={Role.Defensor.toString()}><Select.ItemText>Difensore</Select.ItemText></Select.Item>
-                      <Select.Item index={2} value={Role.Midfielder.toString()}><Select.ItemText>Centrocampista</Select.ItemText></Select.Item>
-                      <Select.Item index={3} value={Role.Forward.toString()}><Select.ItemText>Attaccante</Select.ItemText></Select.Item>
-                    </Select.Viewport>
-                  </Select.Content>
-                </Select>
-              </YStack>
-              
-              <YStack gap="$2">
-                <Label htmlFor="player-search-input" fontSize="$4">Cerca per nome:</Label>
-                <Input 
-                  id="player-search-input"
-                  placeholder="Scrivi per cercare..." 
-                  value={playerSearchQuery} 
-                  onChangeText={setPlayerSearchQuery}
-                  size="$4"
-                  autoFocus
-                />
-                <Text fontSize="$2" color="$color10">{filteredPlayers.length} giocatori trovati</Text>
-              </YStack>
-              
-              <ScrollView maxHeight={400}>
-                <YStack gap="$2">
-                  {filteredPlayers.map((player) => (
-                    <Card
-                      key={player.key}
-                      padding="$3"
-                      backgroundColor={selectedPlayerForForce === player.name ? '$blue2' : '$color1'}
-                      borderRadius="$3"
-                      borderWidth="$0.5"
-                      borderColor={selectedPlayerForForce === player.name ? '$blue8' : '$borderColor'}
-                      pressStyle={{ scale: 0.98, opacity: 0.9 }}
-                      cursor="pointer"
-                      onPress={() => setSelectedPlayerForForce(player.name)}
-                    >
-                      <XStack gap="$3" alignItems="center" justifyContent="space-between">
-                        <YStack flex={1}>
-                          <Text fontSize="$4" fontWeight="600" color="$color11">{player.name}</Text>
-                          <Text fontSize="$3" color="$color10">{player.realTeam.name}</Text>
-                        </YStack>
-                        <YStack alignItems="flex-end" gap="$1">
-                          <XStack gap="$2" alignItems="center">
-                            <Text fontSize="$2" color="$color10">Media:</Text>
-                            <Text fontSize="$3" fontWeight="600" color="$color11">{player.average.toFixed(1)}</Text>
-                          </XStack>
-                          <XStack gap="$2" alignItems="center">
-                            <Text fontSize="$2" color="$color10">FM:</Text>
-                            <Text fontSize="$3" fontWeight="600" color="$color11">{player.fantaAverage.toFixed(1)}</Text>
-                          </XStack>
-                        </YStack>
-                      </XStack>
-                    </Card>
-                  ))}
-                  {filteredPlayers.length === 0 && (
-                    <Card padding="$4" backgroundColor="$color2">
-                      <Text fontSize="$3" color="$color10" textAlign="center">
-                        Nessun giocatore trovato
-                      </Text>
-                    </Card>
-                  )}
-                </YStack>
-              </ScrollView>
-            </YStack>
-            
-            <XStack justifyContent="flex-end" gap="$2">
-              <Dialog.Close asChild>
-                <Button variant="outlined" onPress={() => {
-                  setPlayerSearchQuery('')
-                  setSelectedPlayerForForce('')
-                }}>Annulla</Button>
-              </Dialog.Close>
-              <Button 
-                theme="orange" 
-                disabled={!selectedPlayerForForce || loading}
-                onPress={async () => {
-                  if (!selectedPlayerForForce) return
-                  
-                  setLoading(true)
-                  try {
-                    const playerKey = getPlayerKey(selectedPlayerForForce)
-                    // Backend removed forceNextPlayer - just show next for the role
-                    await auctionService.showNextPlayer(auctionId, selectedRole)
-                    setShowPlayerSearchDialog(false)
-                    setPlayerSearchQuery('')
-                    setSelectedPlayerForForce('')
-                    toast.show(`✅ Prossimo giocatore mostrato!`, { variant: 'success' })
-                  } catch (err) {
-                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
-                  } finally {
-                    setLoading(false)
-                  }
-                }}
-              >
-                Mostra Prossimo
-              </Button>
-            </XStack>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog>
-    )
-  }
-
   // ============================================
   // MAIN RENDER
   // ============================================

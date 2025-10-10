@@ -6,7 +6,7 @@ namespace Fantasoccer.Domain
     public sealed class AuctionBid
     {
         [JsonPropertyName("a")]
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
 
         [JsonPropertyName("e")]
         public string BidderEmail { get; set; }
@@ -29,7 +29,7 @@ namespace Fantasoccer.Domain
         public string TeamName { get; set; }
 
         [JsonPropertyName("p")]
-        public decimal Price { get; set; }
+        public int Price { get; set; }
 
         [JsonPropertyName("n")]
         public string PlayerName { get; set; }
