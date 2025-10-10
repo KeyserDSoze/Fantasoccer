@@ -350,12 +350,15 @@ export default function AuctionLiveScreen() {
       // Choose which substitute to send based on context:
       // - Personal bid (bidderEmail undefined) → use mySelectedSubstitute
       // - Auctioneer bid (bidderEmail specified) → use auctioneerSelectedSubstitute
-      const substituted = isRepairAuction() 
+      // Convert player name to playerKey using utility
+      const selectedSubstituteName = isRepairAuction() 
         ? (isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute) 
         : undefined
       
-      await auctionService.placeBid(auctionId, amount, bidderEmail, substituted || undefined)
-      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid}, substitute: ${substituted || 'none'})`)
+      const substitutedPlayerKey = selectedSubstituteName ? getPlayerKey(selectedSubstituteName) : undefined
+      
+      await auctionService.placeBid(auctionId, amount, bidderEmail, substitutedPlayerKey)
+      console.log(`✅ Bid placed: €${amount} by ${biddingTeam.value.name} (auctioneer bid: ${isAuctioneerBid}, substitute: ${selectedSubstituteName || 'none'})`)
     } catch (err) {
       toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false)
@@ -1134,7 +1137,7 @@ export default function AuctionLiveScreen() {
             <Button icon={Gavel} theme="green" disabled={loading} onPress={async () => {
               setLoading(true)
               try {
-                await auctionService.assignPlayerToTeam(auctionId, currentBidder, currentBid)
+                await auctionService.assignPlayerToTeam(auctionId)
                 toast.show('✅ Giocatore aggiudicato!', { variant: 'success' })
               } catch (err) {
                 toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })

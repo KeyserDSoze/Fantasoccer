@@ -446,11 +446,11 @@ export class AuctionService {
   }
 
   /**
-   * Assign current player to a team
+   * Assign current player to a team (uses current bid data from backend)
    */
-  async assignPlayerToTeam(auctionId: string, ownerEmail: string, price: number): Promise<void> {
+  async assignPlayerToTeam(auctionId: string): Promise<void> {
     if (!this.hubConnection) throw new Error('Not connected to hub')
-    await this.hubConnection.invoke('AssignPlayerToTeamAsync', auctionId, ownerEmail, price)
+    await this.hubConnection.invoke('AssignPlayerToTeamAsync', auctionId)
   }
 
   /**
