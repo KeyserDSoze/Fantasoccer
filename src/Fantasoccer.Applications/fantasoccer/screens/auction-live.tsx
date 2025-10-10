@@ -346,7 +346,10 @@ export default function AuctionLiveScreen() {
     try {
       // Only pass bidderEmail if it's an auctioneer bid (for someone else's team)
       const bidderEmail = isAuctioneerBid ? biddingTeam.value.owner : undefined
-      // Get selected substitute for repair auctions
+      
+      // Choose which substitute to send based on context:
+      // - Personal bid (bidderEmail undefined) → use mySelectedSubstitute
+      // - Auctioneer bid (bidderEmail specified) → use auctioneerSelectedSubstitute
       const substituted = isRepairAuction() 
         ? (isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute) 
         : undefined
@@ -446,7 +449,7 @@ export default function AuctionLiveScreen() {
         setConnectionError('Autenticazione necessaria. Reindirizzamento alla pagina di login...')
         
         // Save return URL
-        const returnUrl = `/auction-live/${auctionId}`
+        const returnUrl = `/auction/${auctionId}`
         
         setTimeout(async () => {
           const { returnUrlService } = await import('../services/returnUrlService')
@@ -654,7 +657,7 @@ export default function AuctionLiveScreen() {
             setConnectionError('Sessione scaduta. Reindirizzamento alla pagina di login...')
             
             // Save current location for redirect after login
-            const returnUrl = `/auction-live/${auctionId}`
+            const returnUrl = `/auction/${auctionId}`
             
             // Redirect to login after a short delay to show the message
             setTimeout(async () => {

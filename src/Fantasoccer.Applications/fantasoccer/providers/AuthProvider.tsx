@@ -322,9 +322,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 window.dispatchEvent(new PopStateEvent('popstate'))
               } else {
                 // For React Native, parse the URL and navigate
-                // Example: /auction-live/123 -> navigate to AuctionLive with auctionId: 123
+                // Example: /auction/123 -> navigate to AuctionLive with auctionId: 123
                 const urlParts = returnUrl.split('/')
-                if (urlParts[1] === 'auction-live' && urlParts[2]) {
+                if (urlParts[1] === 'auction' && urlParts[2]) {
                   // We can't navigate directly here without access to navigation
                   // Store a flag that the app can check on mount
                   console.log('📱 React Native: Will navigate to auction-live with ID:', urlParts[2])

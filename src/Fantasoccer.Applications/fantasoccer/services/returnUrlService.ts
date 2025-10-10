@@ -7,7 +7,7 @@ const RETURN_URL_KEY = 'fantasoccer_return_url'
 export const returnUrlService = {
   /**
    * Save the current URL to return to after login
-   * @param url - The URL to return to (e.g., "/auction-live/123")
+   * @param url - The URL to return to (e.g., "/auction/123")
    */
   saveReturnUrl: async (url: string): Promise<void> => {
     try {
@@ -64,7 +64,7 @@ export const returnUrlService = {
 
   /**
    * Parse a return URL and extract route information
-   * @param url - The URL to parse (e.g., "/auction-live/123")
+   * @param url - The URL to parse (e.g., "/auction/123")
    * @returns Object with route name and params, or null if invalid
    */
   parseReturnUrl: (url: string): { routeName: string; params?: any } | null => {
@@ -74,7 +74,7 @@ export const returnUrlService = {
       if (urlParts.length === 0) return null
       
       // Handle different URL patterns
-      if (urlParts[0] === 'auction-live' && urlParts[1]) {
+      if (urlParts[0] === 'auction' && urlParts[1]) {
         return {
           routeName: 'AuctionLive',
           params: { auctionId: urlParts[1] },
