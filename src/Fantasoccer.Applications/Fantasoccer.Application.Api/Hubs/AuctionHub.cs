@@ -431,6 +431,11 @@ namespace Fantasoccer.Application.Api.Hubs
                     return Task.FromResult(new ConcurrencyResponse(false, "Auction is already finished"));
                 }
 
+                if (wrapper.Wrapper.Actual?.Owner != null)
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "Auction for player not terminated"));
+                }
+
                 var nextPlayer = forcedPlayerKey != null ? wrapper.RealPlayers!.FirstOrDefault(x => x.Key == forcedPlayerKey) : GetNextPlayer(wrapper, role);
                 if (nextPlayer == null)
                 {

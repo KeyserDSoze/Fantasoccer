@@ -4,7 +4,7 @@ import { Role } from 'types/group'
 import { StatPlayer } from 'types/auction'
 import { getRoleLabel } from 'utils/auctionHelper'
 import { Entity } from 'types/default'
-import { Team, TeamKey } from 'types/team'
+import { Team, TeamKey, PlayerInTeamStatus } from 'types/team'
 import { getPlayerKey } from 'utils'
 
 export interface PlayerSearchDialogProps {
@@ -38,22 +38,26 @@ export function PlayerSearchDialog({
   onConfirm,
   onCancel,
 }: PlayerSearchDialogProps) {
-  // Collect all player keys that are already owned by teams
+  // Collect all player keys that are already owned by teams (only active players)
   const ownedPlayerKeys = new Set<string>()
   teams.forEach(team => {
     team.value.players.forEach(player => {
-      const playerKey = getPlayerKey(player.name)
-      ownedPlayerKeys.add(playerKey)
+      // Only exclude players with Active status (status === 0)
+      // Sold/Removed players (status > 0) should still be available for auction
+      if (player.status === PlayerInTeamStatus.Active) {
+        const playerKey = getPlayerKey(player.name)
+        ownedPlayerKeys.add(playerKey)
+      }
     })
   })
   
   // Filter players by:
   // 1. Selected role
-  // 2. Not already owned by any team
+  // 2. Not already owned by any team (with Active status)
   // 3. Search query (name or real team)
   const filteredPlayers = realPlayers
     .filter(p => p.role === selectedRole)
-    .filter(p => !ownedPlayerKeys.has(p.key)) // Exclude players already in teams
+    .filter(p => !ownedPlayerKeys.has(p.key)) // Exclude players already in teams with Active status
     .filter(p => {
       if (!playerSearchQuery) return true
       const query = playerSearchQuery.toLowerCase()

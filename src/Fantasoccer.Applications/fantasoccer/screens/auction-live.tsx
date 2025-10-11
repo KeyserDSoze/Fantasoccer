@@ -95,6 +95,7 @@ export default function AuctionLiveScreen() {
   const [myTeamBudget, setMyTeamBudget] = useState<number>(1000)
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(0)
   const [offerTimeoutSeconds, setOfferTimeoutSeconds] = useState<number>(10)
+  const offerTimeoutSecondsRef = useRef<number>(10) // Ref to always have latest value
   const [timerRunning, setTimerRunning] = useState<boolean>(false)
   const [timerExpired, setTimerExpired] = useState<boolean>(false)
   const [firstOfferHappened, setFirstOfferHappened] = useState<boolean>(false)
@@ -175,6 +176,7 @@ export default function AuctionLiveScreen() {
     const auctionTimer = state.wrapper.secondsPerAuction ?? 10
     console.log('⏱️ Setting offer timeout to', auctionTimer, 'seconds')
     setOfferTimeoutSeconds(auctionTimer)
+    offerTimeoutSecondsRef.current = auctionTimer // Keep ref in sync
     
     const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user?.email?.toLowerCase())
     if (myTeamEntity) {
@@ -198,8 +200,9 @@ export default function AuctionLiveScreen() {
   // ============================================
   const startTimer = useCallback(() => {
     console.log('⏱️ Starting timer...')
-    setTimerSecondsLeft(offerTimeoutSeconds)
-    console.log('⏱️ Timer set to', offerTimeoutSeconds, 'seconds')
+    const timeout = offerTimeoutSecondsRef.current // Use ref for latest value
+    setTimerSecondsLeft(timeout)
+    console.log('⏱️ Timer set to', timeout, 'seconds')
     setTimerRunning(true)
     setTimerExpired(false)
     setFirstOfferHappened(true)
@@ -215,15 +218,16 @@ export default function AuctionLiveScreen() {
         return prev - 1
       })
     }, 1000)
-  }, [offerTimeoutSeconds])
+  }, []) // No dependencies - always uses latest ref value
 
   const resetTimer = useCallback(() => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
-    setTimerSecondsLeft(offerTimeoutSeconds)
+    const timeout = offerTimeoutSecondsRef.current // Use ref for latest value
+    setTimerSecondsLeft(timeout)
     setTimerRunning(false)
     setTimerExpired(false)
     setFirstOfferHappened(false)
-  }, [offerTimeoutSeconds])
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -621,13 +625,20 @@ export default function AuctionLiveScreen() {
               setCurrentBidder(null)
               setCurrentSubstitute(null)
               resetTimer()
-              toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info' })
+              toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info', duration: 1000 })
             }
           },
           onTimerReset: () => {
             if (isSubscribed) {
               startTimer()
-              toast.show('⏱️ Timer riavviato', { variant: 'info' })
+              toast.show('⏱️ Timer riavviato', { variant: 'info', duration: 1000 })
+            }
+          },
+          onTimerUpdate: (seconds) => {
+            if (isSubscribed) {
+              console.log('⏱️ Timer updated to', seconds, 'seconds')
+              setOfferTimeoutSeconds(seconds)
+              offerTimeoutSecondsRef.current = seconds // Keep ref in sync
             }
           }
         })
