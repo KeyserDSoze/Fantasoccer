@@ -9,7 +9,7 @@ import { Team, TeamKey } from 'types/team'
 import { getRoleLabel } from 'utils/auctionHelper'
 
 export interface CurrentPlayerCardProps {
-  currentPlayer: StatPlayer
+  currentPlayer: StatPlayer | null
   currentBid: number
   currentBidder: string | null
   currentSubstitute: string | null
@@ -31,6 +31,11 @@ export function CurrentPlayerCard({
   timerSecondsLeft,
   realPlayers,
 }: CurrentPlayerCardProps) {
+  // Placeholder values when no player in auction
+  const displayName = currentPlayer?.name || '---'
+  const displayTeam = currentPlayer?.realTeam.name || '---'
+  const displayRole = currentPlayer ? getRoleLabel(currentPlayer.role) : '---'
+  
   return (
     <Card padding="$4" backgroundColor="$green2" borderRadius="$4" borderWidth="$0.5" borderColor="$green8">
       <YStack gap="$3">
@@ -39,11 +44,11 @@ export function CurrentPlayerCard({
             <Users size={20} color="$green11" />
             <Text fontSize="$5" fontWeight="700" color="$green11">Giocatore in Asta</Text>
           </XStack>
-          <Text fontSize="$4" color="$green10">{getRoleLabel(currentPlayer.role)}</Text>
+          <Text fontSize="$4" color="$green10">{displayRole}</Text>
         </XStack>
         <YStack gap="$2">
-          <Text fontSize="$7" fontWeight="700" color="$green11">{currentPlayer.name}</Text>
-          <Text fontSize="$4" color="$green10">{currentPlayer.realTeam.name}</Text>
+          <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
+          <Text fontSize="$4" color="$green10">{displayTeam}</Text>
         </YStack>
         <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
           <XStack gap="$4" justifyContent="space-between" alignItems="center" flexWrap="wrap">
@@ -93,19 +98,19 @@ export function CurrentPlayerCard({
             <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Media Voto</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.average?.toFixed(2) || 'N/A'}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.average?.toFixed(2) || '0.00'}</Text>
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Fantamedia</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.fantaAverage?.toFixed(2) || 'N/A'}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.fantaAverage?.toFixed(2) || '0.00'}</Text>
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Partite</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withVote || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.withVote || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Senza Voto</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.withoutVote || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.withoutVote || 0}</Text>
               </YStack>
             </XStack>
             <Separator />
@@ -113,43 +118,43 @@ export function CurrentPlayerCard({
             <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Gol</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.goals || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.goals || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rigori</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.penalties || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.penalties || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Assist</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.assists || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.assists || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rig. Parati</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.stoppedPenalties || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.stoppedPenalties || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Gol Subiti</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.sufferedGoals || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.sufferedGoals || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rig. Sbagliati</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.wrongedPenalties || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.wrongedPenalties || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Autogol</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.ownGoals || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.ownGoals || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Ammonizioni</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.yellowCards || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.yellowCards || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Espulsioni</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.redCards || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.redCards || 0}</Text>
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">MVP</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer.manOfTheMatch || 0}</Text>
+                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.manOfTheMatch || 0}</Text>
               </YStack>
             </XStack>
           </YStack>

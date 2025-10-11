@@ -791,7 +791,6 @@ export default function AuctionLiveScreen() {
 
   // Current Player Card Component
   const renderCurrentPlayer = () => {
-    if (!currentPlayer) return null
     return (
       <CurrentPlayerCard
         currentPlayer={currentPlayer}

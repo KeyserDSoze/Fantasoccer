@@ -100,7 +100,7 @@ export function PersonalBiddingPanel({
         <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={onCustomBid} disabled={isDisabled}>
           Offerta Personalizzata
         </Button>
-        {isRepairAuction && currentPlayer && (
+        {isRepairAuction && (
           <Button 
             icon={Users} 
             size="$5" 
