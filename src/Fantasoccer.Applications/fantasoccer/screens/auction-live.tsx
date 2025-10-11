@@ -173,7 +173,6 @@ export default function AuctionLiveScreen() {
 
   // Helper: Update auction state from API response
   const updateAuctionState = useCallback((state: AuctionState) => {
-    console.log('📦 Updating auction state...')
     setAuctionState(state)
     setTeams(state.teams)
     setIsAuctioneer(state.isAuctioneer)
@@ -186,7 +185,6 @@ export default function AuctionLiveScreen() {
     
     // Sync timer with auction state
     const auctionTimer = state.wrapper.secondsPerAuction ?? 10
-    console.log('⏱️ Setting offer timeout to', auctionTimer, 'seconds')
     setOfferTimeoutSeconds(auctionTimer)
     offerTimeoutSecondsRef.current = auctionTimer // Keep ref in sync
     
@@ -204,17 +202,14 @@ export default function AuctionLiveScreen() {
       setCurrentSubstitute(state.wrapper.actual.substituted)
     }
     
-    console.log('✅ Auction state updated successfully')
   }, [user?.email])
 
   // ============================================
   // TIMER LOGIC
   // ============================================
   const startTimer = useCallback(() => {
-    console.log('⏱️ Starting timer...')
     const timeout = offerTimeoutSecondsRef.current // Use ref for latest value
     setTimerSecondsLeft(timeout)
-    console.log('⏱️ Timer set to', timeout, 'seconds')
     setTimerRunning(true)
     setTimerExpired(false)
     setFirstOfferHappened(true)
@@ -463,7 +458,6 @@ export default function AuctionLiveScreen() {
   
   useEffect(() => {
     if (!user?.email) {
-      console.log('⏸️ Connection useEffect skipped - no user email')
       return
     }
     
@@ -480,8 +474,6 @@ export default function AuctionLiveScreen() {
       connectionAttemptedRef.current = false
       isConnectingRef.current = false
     }
-    
-    console.log('🚀 Connection useEffect starting...', { auctionId, userEmail: user.email })
     
     let isSubscribed = true
     
@@ -883,12 +875,10 @@ export default function AuctionLiveScreen() {
     const previousYearStats = currentPlayer 
       ? previousYearStatsMap.current.get(getPlayerKey(currentPlayer.name))
       : undefined
-    console.log(chancedPlayersMap.current)
     // Get chance and real game info for current player
     const chancedPlayer = currentPlayer
       ? chancedPlayersMap.current.get(getPlayerKey(currentPlayer.name))
       : undefined
-console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
     return (
       <CurrentPlayerCard
         currentPlayer={currentPlayer}
@@ -1072,7 +1062,7 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
     )
 
     // Se banditore ha una squadra, mostra doppia pulsantiera (layout responsive)
-    if (myTeam) {
+    if (myTeam && showMyTeamPanel && showAuctioneerPanel) {
       const StackComponent = media.gtMd ? XStack : YStack
       return (
         <StackComponent gap="$3" alignItems="stretch">
@@ -1083,7 +1073,11 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
     }
 
     // Se banditore senza squadra, mostra solo pannello banditore
-    return <YStack width="100%">{auctioneerPanel}</YStack>
+    if(showAuctioneerPanel)
+      return <YStack width="100%">{auctioneerPanel}</YStack>
+    if(showMyTeamPanel)
+      return <YStack width="100%">{renderPersonalBidding()}</YStack>
+    return null
   }
 
   // Teams Panel Component  
@@ -1323,7 +1317,7 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
                           <Switch size="$2" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel}>
                             <Switch.Thumb animation="quick" />
                           </Switch>
-                          <Text fontSize="$2" color="$blue11">Mia Pulsantiera</Text>
+                          <Text fontSize="$2" color="$blue11">Pulsantiera</Text>
                         </XStack>
                       )}
                       {isAuctioneer && (
@@ -1409,7 +1403,7 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
               {renderHeader()}
               {renderCurrentPlayer()}
               {showMyTeamPanel && renderParticipantBidding()}
-              {showAuctioneerPanel && renderAuctioneerPanel()}
+              {renderAuctioneerPanel()}
               {showTeamsPanel && renderTeams()}
             </YStack>
           </YStack>
