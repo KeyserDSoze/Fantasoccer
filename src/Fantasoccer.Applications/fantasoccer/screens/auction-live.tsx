@@ -653,10 +653,24 @@ export default function AuctionLiveScreen() {
             }
           },
           onTeamUpdated: (team: Entity<Team, TeamKey>) => {
+            console.log('📦 Team updated from server:', team.value.name)
             if (isSubscribed) {
+              // Update teams array
               setTeams(prevTeams => 
-                prevTeams.map(t => t.key === team.key ? team : t)
+                prevTeams.map(t => t.value.owner === team.value.owner ? team : t)
               )
+              
+              // Update myTeam if it's my team
+              if (user?.email && team.value.owner.toLowerCase() === user.email.toLowerCase()) {
+                setMyTeam(team)
+                const budget = startingMoney - TeamHelper.getCost(team.value)
+                setMyTeamBudget(budget)
+              }
+              
+              // Update selectedTeamDetail if it's the team being viewed in the dialog
+              if (selectedTeamDetail && team.value.owner === selectedTeamDetail.value.owner) {
+                setSelectedTeamDetail(team)
+              }
             }
           },
           onTimerUpdate: (seconds) => {

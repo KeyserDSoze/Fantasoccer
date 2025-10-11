@@ -328,7 +328,7 @@ export class TeamHelper {
   static getMoneyFromSoldWithOneHalfReturnedPrice(team: Team): number {
     return team.players
       .filter(player => player.status === PlayerInTeamStatus.SoldForOneHalf)
-      .reduce((sum, player) => sum + player.price / 2, 0)
+      .reduce((sum, player) => sum + Math.floor(player.price / 2), 0)
   }
 
   static getCost(team: Team): number {

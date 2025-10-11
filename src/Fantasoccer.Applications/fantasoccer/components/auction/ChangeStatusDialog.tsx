@@ -31,7 +31,7 @@ export function ChangeStatusDialog({
   const needsRevenue = statusType === 3 // Sold status
   
   return (
-    <Dialog modal open={open} onOpenChange={onOpenChange}>
+    <Dialog modal open={open}>
       <Dialog.Portal>
         <Dialog.Overlay 
           key="overlay" 
@@ -72,10 +72,10 @@ export function ChangeStatusDialog({
                       <Select.ItemText>Attivo (ripristina)</Select.ItemText>
                     </Select.Item>
                     <Select.Item index={1} value="1">
-                      <Select.ItemText>Errore di caricamento (rimosso)</Select.ItemText>
+                      <Select.ItemText>Infortunato/Estero</Select.ItemText>
                     </Select.Item>
                     <Select.Item index={2} value="2">
-                      <Select.ItemText>Infortunato/Estero (1 girone)</Select.ItemText>
+                      <Select.ItemText>Scartato</Select.ItemText>
                     </Select.Item>
                     <Select.Item index={3} value="3">
                       <Select.ItemText>Venduto ad altro giocatore</Select.ItemText>
@@ -111,10 +111,10 @@ export function ChangeStatusDialog({
               <YStack gap="$2">
                 <Text fontSize="$3" fontWeight="600" color="$blue11">Spiegazione stati:</Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Errore di caricamento:</Text> Giocatore rimosso definitivamente
+                  • <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)
+                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell'allenatore
                 </Text>
                 <Text fontSize="$2" color="$blue11">
                   • <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)
@@ -126,18 +126,17 @@ export function ChangeStatusDialog({
             </Card>
             
             <XStack gap="$2" justifyContent="flex-end">
-              <Dialog.Close asChild>
-                <Button 
-                  variant="outlined" 
-                  onPress={() => {
-                    onCancel()
-                    setRevenue('')
-                    setStatusType(0)
-                  }}
-                >
-                  Annulla
-                </Button>
-              </Dialog.Close>
+              <Button 
+                variant="outlined" 
+                onPress={() => {
+                  onCancel()
+                  setRevenue('')
+                  setStatusType(0)
+                  onOpenChange(false)
+                }}
+              >
+                Annulla
+              </Button>
               <Button 
                 theme="orange" 
                 disabled={loading} 
