@@ -15,6 +15,7 @@ export interface TeamsPanelProps {
   calculateBudgetRemaining: (team: Entity<Team, TeamKey>) => number
   onTeamClick: (team: Entity<Team, TeamKey>) => void
   chancedPlayersMap?: Map<string, ChancedRealPlayer>
+  showTeamDetails?: boolean
 }
 
 const ROLE_LIMITS = {
@@ -24,7 +25,7 @@ const ROLE_LIMITS = {
   [Role.Forward]: 6,
 }
 
-export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemaining, onTeamClick, chancedPlayersMap }: TeamsPanelProps) {
+export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemaining, onTeamClick, chancedPlayersMap, showTeamDetails = true }: TeamsPanelProps) {
   const media = useMedia()
   
   if (teams.length === 0) return null
@@ -114,6 +115,37 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
               tierCount[tier]++
             })
             
+            // Count starters per role for this team (based on Fantagazzetta)
+            const teamStartersStats = {
+              [Role.GoalKeeper]: { starters: 0, total: 0 },
+              [Role.Defensor]: { starters: 0, total: 0 },
+              [Role.Midfielder]: { starters: 0, total: 0 },
+              [Role.Forward]: { starters: 0, total: 0 },
+            }
+            
+            // Count players per real team for this team
+            const teamRealTeamDistribution = new Map<string, number>()
+            
+            activePlayers.forEach(player => {
+              // Count starters
+              if (chancedPlayersMap && player.role !== Role.Undefined) {
+                const playerKey = getPlayerKey(player.name)
+                const chancedPlayer = chancedPlayersMap.get(playerKey)
+                teamStartersStats[player.role].total++
+                if (chancedPlayer?.chance?.fantagazzetta) {
+                  teamStartersStats[player.role].starters++
+                }
+              }
+              
+              // Count real teams
+              const teamName = player.team.name
+              teamRealTeamDistribution.set(teamName, (teamRealTeamDistribution.get(teamName) || 0) + 1)
+            })
+            
+            // Sort real teams by count
+            const teamSortedRealTeams = Array.from(teamRealTeamDistribution.entries())
+              .sort((a, b) => b[1] - a[1])
+            
             return (
               <Card 
                 key={team.value.owner}
@@ -158,45 +190,47 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                   </XStack>
                   
                   {/* Budget Breakdown */}
-                  <Card padding="$2" backgroundColor="$color3" borderRadius="$2">
-                    <YStack gap="$1">
-                      <Text fontSize="$1" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
-                      <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                        <YStack gap="$0.5" flex={1} minWidth={80}>
-                          <Text fontSize="$1" color="$green10">Budget Iniziale</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$green11">+€{startingMoney}</Text>
-                        </YStack>
-                        <YStack gap="$0.5" flex={1} minWidth={80}>
-                          <Text fontSize="$1" color="$red10">Costo Totale</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$red11">
-                            -€{TeamHelper.getTotalCostForPlayers(team.value)}
-                          </Text>
-                        </YStack>
-                      </XStack>
-                      <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                        <YStack gap="$0.5" flex={1} minWidth={80}>
-                          <Text fontSize="$1" color="$green10">Ricavi Vendite</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$green11">
-                            +€{TeamHelper.getRevenueMoney(team.value)}
-                          </Text>
-                        </YStack>
-                        <YStack gap="$0.5" flex={1} minWidth={80}>
-                          <Text fontSize="$1" color="$green10">Da Classifica</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$green11">
-                            +€{team.value.moneyFromRank}
-                          </Text>
-                        </YStack>
-                      </XStack>
-                      <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
-                        <YStack gap="$0.5" flex={1} minWidth={80}>
-                          <Text fontSize="$1" color="$green10">Infortunati/Ceduti</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$green11">
-                            +€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}
-                          </Text>
-                        </YStack>
-                      </XStack>
-                    </YStack>
-                  </Card>
+                  {showTeamDetails && (
+                    <Card padding="$2" backgroundColor="$color3" borderRadius="$2">
+                      <YStack gap="$1">
+                        <Text fontSize="$1" color="$color10" fontWeight="600">Dettaglio Budget:</Text>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Budget Iniziale</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">+€{startingMoney}</Text>
+                          </YStack>
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$red10">Costo Totale</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$red11">
+                              -€{TeamHelper.getTotalCostForPlayers(team.value)}
+                            </Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Ricavi Vendite</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">
+                              +€{TeamHelper.getRevenueMoney(team.value)}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Da Classifica</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">
+                              +€{team.value.moneyFromRank}
+                            </Text>
+                          </YStack>
+                        </XStack>
+                        <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
+                          <YStack gap="$0.5" flex={1} minWidth={80}>
+                            <Text fontSize="$1" color="$green10">Infortunati/Ceduti</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$green11">
+                              +€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                  )}
                   
                   {/* Role counts */}
                   <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
@@ -245,37 +279,98 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                   </Card>
                   
                   {/* Tier distribution */}
-                  <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
-                    <YStack gap="$1">
-                      <Text fontSize="$1" color="$color10" fontWeight="600">Tier Squadre:</Text>
-                      <XStack gap="$2" justifyContent="space-between">
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$color11">
-                            {tierCount[TeamTier.T1]}
-                          </Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$color11">
-                            {tierCount[TeamTier.T2]}
-                          </Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$color11">
-                            {tierCount[TeamTier.T3]}
-                          </Text>
-                        </YStack>
-                        <YStack gap="$0.5" alignItems="center">
-                          <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
-                          <Text fontSize="$2" fontWeight="600" color="$color11">
-                            {tierCount[TeamTier.T4]}
-                          </Text>
-                        </YStack>
-                      </XStack>
-                    </YStack>
-                  </Card>
+                  {showTeamDetails && (
+                    <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
+                      <YStack gap="$1">
+                        <Text fontSize="$1" color="$color10" fontWeight="600">Tier Squadre:</Text>
+                        <XStack gap="$2" justifyContent="space-between">
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {tierCount[TeamTier.T1]}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {tierCount[TeamTier.T2]}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {tierCount[TeamTier.T3]}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {tierCount[TeamTier.T4]}
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                  )}
+
+                  {/* Real Team Distribution Card */}
+                  {showTeamDetails && (
+                    <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
+                      <YStack gap="$1">
+                        <Text fontSize="$1" color="$color10" fontWeight="600">Squadre Serie A:</Text>
+                        <XStack gap="$1" flexWrap="wrap">
+                          {teamSortedRealTeams.map(([teamName, count]) => (
+                            <Card 
+                              key={teamName} 
+                              padding="$1" 
+                              paddingHorizontal="$2" 
+                              backgroundColor="$blue8" 
+                              borderRadius="$2"
+                            >
+                              <Text fontSize="$1" color="white" fontWeight="600">
+                                {teamName} {count}
+                              </Text>
+                            </Card>
+                          ))}
+                        </XStack>
+                      </YStack>
+                    </Card>
+                  )}
+
+                  {/* Starters by Role Card */}
+                  {showTeamDetails && (
+                    <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
+                      <YStack gap="$1">
+                        <Text fontSize="$1" color="$color10" fontWeight="600">Titolari (Fantagazzetta):</Text>
+                        <XStack gap="$2" justifyContent="space-around">
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$color10">P</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {teamStartersStats[Role.GoalKeeper].starters}/{teamStartersStats[Role.GoalKeeper].total}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$color10">D</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {teamStartersStats[Role.Defensor].starters}/{teamStartersStats[Role.Defensor].total}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$color10">C</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {teamStartersStats[Role.Midfielder].starters}/{teamStartersStats[Role.Midfielder].total}
+                            </Text>
+                          </YStack>
+                          <YStack gap="$0.5" alignItems="center">
+                            <Text fontSize="$1" color="$color10">A</Text>
+                            <Text fontSize="$2" fontWeight="600" color="$color11">
+                              {teamStartersStats[Role.Forward].starters}/{teamStartersStats[Role.Forward].total}
+                            </Text>
+                          </YStack>
+                        </XStack>
+                      </YStack>
+                    </Card>
+                  )}
                 </YStack>
               </Card>
             )

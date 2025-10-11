@@ -126,6 +126,7 @@ export default function AuctionLiveScreen() {
   const [showMyTeamPanel, setShowMyTeamPanel] = useState(true)
   const [showTeamsPanel, setShowTeamsPanel] = useState(true)
   const [showPlayerStats, setShowPlayerStats] = useState(true)
+  const [showTeamDetails, setShowTeamDetails] = useState(true)
 
   // Refs for previous year stats and chanced players (populated after getAuction)
   const previousYearStatsMap = useRef<Map<string, StatPlayer>>(new Map())
@@ -1093,6 +1094,7 @@ export default function AuctionLiveScreen() {
           setShowTeamDetailDialog(true)
         }}
         chancedPlayersMap={chancedPlayersMap.current}
+        showTeamDetails={showTeamDetails}
       />
     )
   }
@@ -1339,6 +1341,12 @@ export default function AuctionLiveScreen() {
                           <Switch.Thumb animation="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Statistiche Giocatore</Text>
+                      </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showTeamDetails} onCheckedChange={setShowTeamDetails}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Dettagli Squadre</Text>
                       </XStack>
                     </XStack>
                   </YStack>
