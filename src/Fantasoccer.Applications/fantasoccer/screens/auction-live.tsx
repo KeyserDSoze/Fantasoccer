@@ -937,6 +937,7 @@ export default function AuctionLiveScreen() {
         arePersonalBidButtonsDisabled={arePersonalBidButtonsDisabled}
         currentBidder={currentBidder}
         userEmail={user?.email || null}
+        chancedPlayersMap={chancedPlayersMap.current}
       />
     )
   }

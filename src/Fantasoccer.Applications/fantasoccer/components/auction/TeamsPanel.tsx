@@ -4,9 +4,10 @@ import { Entity } from 'types/default'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Role } from 'types/group'
 import { useMedia } from 'tamagui'
-import { getTeamTier, TeamTier } from 'utils/teamTiers'
+import { TeamTier, getTeamTier } from 'utils/teamTiers'
 import type { ChancedRealPlayer } from 'types/chance'
 import { getPlayerKey } from 'utils'
+import { calculateTeamStatistics } from 'utils/teamStats'
 
 export interface TeamsPanelProps {
   teams: Entity<Team, TeamKey>[]
@@ -96,55 +97,9 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
             
             // Count only active players (status === 0)
             const activePlayers = TeamHelper.getActivePlayers(team.value)
-            const roleCount = {
-              [Role.GoalKeeper]: activePlayers.filter(p => p.role === Role.GoalKeeper).length,
-              [Role.Defensor]: activePlayers.filter(p => p.role === Role.Defensor).length,
-              [Role.Midfielder]: activePlayers.filter(p => p.role === Role.Midfielder).length,
-              [Role.Forward]: activePlayers.filter(p => p.role === Role.Forward).length,
-            }
             
-            // Count players by tier
-            const tierCount = {
-              [TeamTier.T1]: 0,
-              [TeamTier.T2]: 0,
-              [TeamTier.T3]: 0,
-              [TeamTier.T4]: 0,
-            }
-            activePlayers.forEach(player => {
-              const tier = getTeamTier(player.team.name)
-              tierCount[tier]++
-            })
-            
-            // Count starters per role for this team (based on Fantagazzetta)
-            const teamStartersStats = {
-              [Role.GoalKeeper]: { starters: 0, total: 0 },
-              [Role.Defensor]: { starters: 0, total: 0 },
-              [Role.Midfielder]: { starters: 0, total: 0 },
-              [Role.Forward]: { starters: 0, total: 0 },
-            }
-            
-            // Count players per real team for this team
-            const teamRealTeamDistribution = new Map<string, number>()
-            
-            activePlayers.forEach(player => {
-              // Count starters
-              if (chancedPlayersMap && player.role !== Role.Undefined) {
-                const playerKey = getPlayerKey(player.name)
-                const chancedPlayer = chancedPlayersMap.get(playerKey)
-                teamStartersStats[player.role].total++
-                if (chancedPlayer?.chance?.fantagazzetta) {
-                  teamStartersStats[player.role].starters++
-                }
-              }
-              
-              // Count real teams
-              const teamName = player.team.name
-              teamRealTeamDistribution.set(teamName, (teamRealTeamDistribution.get(teamName) || 0) + 1)
-            })
-            
-            // Sort real teams by count
-            const teamSortedRealTeams = Array.from(teamRealTeamDistribution.entries())
-              .sort((a, b) => b[1] - a[1])
+            // Calculate all statistics for this team
+            const stats = calculateTeamStatistics(team, chancedPlayersMap)
             
             return (
               <Card 
@@ -240,9 +195,9 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         <Text 
                           fontSize="$2" 
                           fontWeight="600" 
-                          color={roleCount[Role.GoalKeeper] >= ROLE_LIMITS[Role.GoalKeeper] ? '$red11' : '$color11'}
+                          color={stats.roleCount[Role.GoalKeeper] >= ROLE_LIMITS[Role.GoalKeeper] ? '$red11' : '$color11'}
                         >
-                          {roleCount[Role.GoalKeeper]}/{ROLE_LIMITS[Role.GoalKeeper]}
+                          {stats.roleCount[Role.GoalKeeper]}/{ROLE_LIMITS[Role.GoalKeeper]}
                         </Text>
                       </YStack>
                       <YStack gap="$0.5" alignItems="center">
@@ -250,9 +205,9 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         <Text 
                           fontSize="$2" 
                           fontWeight="600" 
-                          color={roleCount[Role.Defensor] >= ROLE_LIMITS[Role.Defensor] ? '$red11' : '$color11'}
+                          color={stats.roleCount[Role.Defensor] >= ROLE_LIMITS[Role.Defensor] ? '$red11' : '$color11'}
                         >
-                          {roleCount[Role.Defensor]}/{ROLE_LIMITS[Role.Defensor]}
+                          {stats.roleCount[Role.Defensor]}/{ROLE_LIMITS[Role.Defensor]}
                         </Text>
                       </YStack>
                       <YStack gap="$0.5" alignItems="center">
@@ -260,9 +215,9 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         <Text 
                           fontSize="$2" 
                           fontWeight="600" 
-                          color={roleCount[Role.Midfielder] >= ROLE_LIMITS[Role.Midfielder] ? '$red11' : '$color11'}
+                          color={stats.roleCount[Role.Midfielder] >= ROLE_LIMITS[Role.Midfielder] ? '$red11' : '$color11'}
                         >
-                          {roleCount[Role.Midfielder]}/{ROLE_LIMITS[Role.Midfielder]}
+                          {stats.roleCount[Role.Midfielder]}/{ROLE_LIMITS[Role.Midfielder]}
                         </Text>
                       </YStack>
                       <YStack gap="$0.5" alignItems="center">
@@ -270,9 +225,9 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         <Text 
                           fontSize="$2" 
                           fontWeight="600" 
-                          color={roleCount[Role.Forward] >= ROLE_LIMITS[Role.Forward] ? '$red11' : '$color11'}
+                          color={stats.roleCount[Role.Forward] >= ROLE_LIMITS[Role.Forward] ? '$red11' : '$color11'}
                         >
-                          {roleCount[Role.Forward]}/{ROLE_LIMITS[Role.Forward]}
+                          {stats.roleCount[Role.Forward]}/{ROLE_LIMITS[Role.Forward]}
                         </Text>
                       </YStack>
                     </XStack>
@@ -287,25 +242,25 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {tierCount[TeamTier.T1]}
+                              {stats.tierCount[TeamTier.T1]}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {tierCount[TeamTier.T2]}
+                              {stats.tierCount[TeamTier.T2]}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {tierCount[TeamTier.T3]}
+                              {stats.tierCount[TeamTier.T3]}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {tierCount[TeamTier.T4]}
+                              {stats.tierCount[TeamTier.T4]}
                             </Text>
                           </YStack>
                         </XStack>
@@ -319,7 +274,7 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                       <YStack gap="$1">
                         <Text fontSize="$1" color="$color10" fontWeight="600">Squadre Serie A:</Text>
                         <XStack gap="$1" flexWrap="wrap">
-                          {teamSortedRealTeams.map(([teamName, count]) => (
+                          {stats.realTeamDistribution.map(([teamName, count]) => (
                             <Card 
                               key={teamName} 
                               padding="$1" 
@@ -346,25 +301,25 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$color10">P</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {teamStartersStats[Role.GoalKeeper].starters}/{teamStartersStats[Role.GoalKeeper].total}
+                              {stats.startersByRole[Role.GoalKeeper].starters}/{stats.startersByRole[Role.GoalKeeper].total}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$color10">D</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {teamStartersStats[Role.Defensor].starters}/{teamStartersStats[Role.Defensor].total}
+                              {stats.startersByRole[Role.Defensor].starters}/{stats.startersByRole[Role.Defensor].total}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$color10">C</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {teamStartersStats[Role.Midfielder].starters}/{teamStartersStats[Role.Midfielder].total}
+                              {stats.startersByRole[Role.Midfielder].starters}/{stats.startersByRole[Role.Midfielder].total}
                             </Text>
                           </YStack>
                           <YStack gap="$0.5" alignItems="center">
                             <Text fontSize="$1" color="$color10">A</Text>
                             <Text fontSize="$2" fontWeight="600" color="$color11">
-                              {teamStartersStats[Role.Forward].starters}/{teamStartersStats[Role.Forward].total}
+                              {stats.startersByRole[Role.Forward].starters}/{stats.startersByRole[Role.Forward].total}
                             </Text>
                           </YStack>
                         </XStack>

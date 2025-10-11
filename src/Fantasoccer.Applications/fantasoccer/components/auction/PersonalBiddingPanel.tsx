@@ -5,8 +5,12 @@ import {
 } from 'tamagui'
 import { DollarSign, Users } from '@tamagui/lucide-icons'
 import { Entity } from 'types/default'
-import { Team, TeamKey } from 'types/team'
+import { Team, TeamKey, TeamHelper } from 'types/team'
 import { StatPlayer } from 'types/auction'
+import { Role } from 'types/group'
+import { TeamTier } from 'utils/teamTiers'
+import type { ChancedRealPlayer } from 'types/chance'
+import { calculateTeamStatistics } from 'utils/teamStats'
 
 export interface PersonalBiddingPanelProps {
   // Team info
@@ -32,6 +36,9 @@ export interface PersonalBiddingPanelProps {
   // Current bidder info
   currentBidder: string | null
   userEmail: string | null
+  
+  // Statistics
+  chancedPlayersMap?: Map<string, ChancedRealPlayer>
 }
 
 export function PersonalBiddingPanel({
@@ -47,11 +54,23 @@ export function PersonalBiddingPanel({
   arePersonalBidButtonsDisabled,
   currentBidder,
   userEmail,
+  chancedPlayersMap,
 }: PersonalBiddingPanelProps) {
   const media = useMedia()
   const bidStatus = arePersonalBidButtonsDisabled()
   const isDisabled = bidStatus.disabled
   const isCurrentBidder = currentBidder?.toLowerCase() === userEmail?.toLowerCase()
+  
+  // Calculate team statistics
+  const stats = calculateTeamStatistics(myTeam, chancedPlayersMap)
+  const activePlayers = TeamHelper.getActivePlayers(myTeam.value)
+  
+  const ROLE_LIMITS = {
+    [Role.GoalKeeper]: 3,
+    [Role.Defensor]: 8,
+    [Role.Midfielder]: 8,
+    [Role.Forward]: 6,
+  }
   
   return (
     <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8" opacity={isDisabled ? 0.5 : 1}>
@@ -63,6 +82,101 @@ export function PersonalBiddingPanel({
         <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
           <Text fontSize="$3" color="$blue11">{myTeam.value.name} • Budget: €{myTeamBudget}</Text>
         </Card>
+        
+        {/* Tier distribution */}
+        <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+          <YStack gap="$1">
+            <Text fontSize="$2" color="$blue11" fontWeight="600">Tier Squadre:</Text>
+            <XStack gap="$2" justifyContent="space-between">
+              <YStack gap="$0.5" alignItems="center">
+                <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
+                <Text fontSize="$2" fontWeight="600" color="$blue11">
+                  {stats.tierCount[TeamTier.T1]}
+                </Text>
+              </YStack>
+              <YStack gap="$0.5" alignItems="center">
+                <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
+                <Text fontSize="$2" fontWeight="600" color="$blue11">
+                  {stats.tierCount[TeamTier.T2]}
+                </Text>
+              </YStack>
+              <YStack gap="$0.5" alignItems="center">
+                <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
+                <Text fontSize="$2" fontWeight="600" color="$blue11">
+                  {stats.tierCount[TeamTier.T3]}
+                </Text>
+              </YStack>
+              <YStack gap="$0.5" alignItems="center">
+                <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
+                <Text fontSize="$2" fontWeight="600" color="$blue11">
+                  {stats.tierCount[TeamTier.T4]}
+                </Text>
+              </YStack>
+            </XStack>
+          </YStack>
+        </Card>
+        
+        {/* Real Team Distribution */}
+        {stats.realTeamDistribution.length > 0 && (
+          <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$blue11" fontWeight="600">Squadre Serie A:</Text>
+              <XStack gap="$1" flexWrap="wrap">
+                {stats.realTeamDistribution.map(([teamName, count]) => (
+                  <Card 
+                    key={teamName} 
+                    padding="$1" 
+                    paddingHorizontal="$2" 
+                    backgroundColor="$blue8" 
+                    borderRadius="$2"
+                  >
+                    <Text fontSize="$1" color="white" fontWeight="600">
+                      {teamName} {count}
+                    </Text>
+                  </Card>
+                ))}
+              </XStack>
+            </YStack>
+          </Card>
+        )}
+        
+        {/* Starters by Role */}
+        {chancedPlayersMap && (
+          <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$blue11" fontWeight="600">Titolari (Fantagazzetta):</Text>
+              <XStack gap="$2" justifyContent="space-around">
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$blue10">P</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.startersByRole[Role.GoalKeeper].starters}/{stats.roleCount[Role.GoalKeeper]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$blue10">D</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.startersByRole[Role.Defensor].starters}/{stats.roleCount[Role.Defensor]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$blue10">C</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.startersByRole[Role.Midfielder].starters}/{stats.roleCount[Role.Midfielder]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$blue10">A</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.startersByRole[Role.Forward].starters}/{stats.roleCount[Role.Forward]}
+                  </Text>
+                </YStack>
+              </XStack>
+            </YStack>
+          </Card>
+        )}
+        
+        <Separator />
+        
         <XStack gap="$2">
           <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => onIncrementBid(1)} disabled={isDisabled}>
             <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
