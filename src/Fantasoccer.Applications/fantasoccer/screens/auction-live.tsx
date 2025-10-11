@@ -1091,6 +1091,7 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
           setSelectedTeamDetail(team)
           setShowTeamDetailDialog(true)
         }}
+        chancedPlayersMap={chancedPlayersMap.current}
       />
     )
   }

@@ -5,6 +5,8 @@ import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Role } from 'types/group'
 import { useMedia } from 'tamagui'
 import { getTeamTier, TeamTier } from 'utils/teamTiers'
+import type { ChancedRealPlayer } from 'types/chance'
+import { getPlayerKey } from 'utils'
 
 export interface TeamsPanelProps {
   teams: Entity<Team, TeamKey>[]
@@ -12,6 +14,7 @@ export interface TeamsPanelProps {
   startingMoney: number
   calculateBudgetRemaining: (team: Entity<Team, TeamKey>) => number
   onTeamClick: (team: Entity<Team, TeamKey>) => void
+  chancedPlayersMap?: Map<string, ChancedRealPlayer>
 }
 
 const ROLE_LIMITS = {
@@ -21,7 +24,7 @@ const ROLE_LIMITS = {
   [Role.Forward]: 6,
 }
 
-export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemaining, onTeamClick }: TeamsPanelProps) {
+export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemaining, onTeamClick, chancedPlayersMap }: TeamsPanelProps) {
   const media = useMedia()
   
   if (teams.length === 0) return null
@@ -36,6 +39,44 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
     return budgetB - budgetA
   })
   
+  // Calculate starters statistics per role (based on Fantagazzetta)
+  const startersStats = {
+    [Role.GoalKeeper]: { starters: 0, total: 0 },
+    [Role.Defensor]: { starters: 0, total: 0 },
+    [Role.Midfielder]: { starters: 0, total: 0 },
+    [Role.Forward]: { starters: 0, total: 0 },
+  }
+  
+  // Calculate real team distribution
+  const realTeamDistribution = new Map<string, number>()
+  
+  // Iterate through all teams and their active players
+  teams.forEach(team => {
+    const activePlayers = TeamHelper.getActivePlayers(team.value)
+    activePlayers.forEach(player => {
+      // Count starters per role
+      if (chancedPlayersMap) {
+        const playerKey = getPlayerKey(player.name)
+        const chancedPlayer = chancedPlayersMap.get(playerKey)
+        
+        if (player.role !== Role.Undefined) {
+          startersStats[player.role].total++
+          if (chancedPlayer?.chance?.fantagazzetta) {
+            startersStats[player.role].starters++
+          }
+        }
+      }
+      
+      // Count players per real team
+      const teamName = player.team.name
+      realTeamDistribution.set(teamName, (realTeamDistribution.get(teamName) || 0) + 1)
+    })
+  })
+  
+  // Sort real teams by player count (descending)
+  const sortedRealTeams = Array.from(realTeamDistribution.entries())
+    .sort((a, b) => b[1] - a[1])
+  
   return (
     <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
       <YStack gap="$4">
@@ -45,6 +86,103 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
             Squadre Partecipanti ({teams.length})
           </Text>
         </XStack>
+        
+        {/* Starters Statistics per Role */}
+        {chancedPlayersMap && chancedPlayersMap.size > 0 && (
+          <Card padding="$3" backgroundColor="$blue2" borderRadius="$3" borderWidth="$0.5" borderColor="$blue8">
+            <YStack gap="$2">
+              <Text fontSize="$4" fontWeight="700" color="$blue11">
+                📊 Titolari (Fantagazzetta)
+              </Text>
+              <XStack gap="$3" justifyContent="space-around" flexWrap="wrap">
+                <YStack gap="$1" alignItems="center" minWidth={80}>
+                  <Text fontSize="$2" color="$blue10">Portieri</Text>
+                  <Text fontSize="$5" fontWeight="700" color="$blue11">
+                    {startersStats[Role.GoalKeeper].starters}/{startersStats[Role.GoalKeeper].total}
+                  </Text>
+                  {startersStats[Role.GoalKeeper].total > 0 && (
+                    <Text fontSize="$1" color="$blue10">
+                      {Math.round((startersStats[Role.GoalKeeper].starters / startersStats[Role.GoalKeeper].total) * 100)}%
+                    </Text>
+                  )}
+                </YStack>
+                <YStack gap="$1" alignItems="center" minWidth={80}>
+                  <Text fontSize="$2" color="$blue10">Difensori</Text>
+                  <Text fontSize="$5" fontWeight="700" color="$blue11">
+                    {startersStats[Role.Defensor].starters}/{startersStats[Role.Defensor].total}
+                  </Text>
+                  {startersStats[Role.Defensor].total > 0 && (
+                    <Text fontSize="$1" color="$blue10">
+                      {Math.round((startersStats[Role.Defensor].starters / startersStats[Role.Defensor].total) * 100)}%
+                    </Text>
+                  )}
+                </YStack>
+                <YStack gap="$1" alignItems="center" minWidth={80}>
+                  <Text fontSize="$2" color="$blue10">Centrocampisti</Text>
+                  <Text fontSize="$5" fontWeight="700" color="$blue11">
+                    {startersStats[Role.Midfielder].starters}/{startersStats[Role.Midfielder].total}
+                  </Text>
+                  {startersStats[Role.Midfielder].total > 0 && (
+                    <Text fontSize="$1" color="$blue10">
+                      {Math.round((startersStats[Role.Midfielder].starters / startersStats[Role.Midfielder].total) * 100)}%
+                    </Text>
+                  )}
+                </YStack>
+                <YStack gap="$1" alignItems="center" minWidth={80}>
+                  <Text fontSize="$2" color="$blue10">Attaccanti</Text>
+                  <Text fontSize="$5" fontWeight="700" color="$blue11">
+                    {startersStats[Role.Forward].starters}/{startersStats[Role.Forward].total}
+                  </Text>
+                  {startersStats[Role.Forward].total > 0 && (
+                    <Text fontSize="$1" color="$blue10">
+                      {Math.round((startersStats[Role.Forward].starters / startersStats[Role.Forward].total) * 100)}%
+                    </Text>
+                  )}
+                </YStack>
+              </XStack>
+            </YStack>
+          </Card>
+        )}
+        
+        {/* Real Team Distribution */}
+        {sortedRealTeams.length > 0 && (
+          <Card padding="$3" backgroundColor="$green2" borderRadius="$3" borderWidth="$0.5" borderColor="$green8">
+            <YStack gap="$2">
+              <Text fontSize="$4" fontWeight="700" color="$green11">
+                ⚽ Distribuzione Squadre Serie A ({sortedRealTeams.length} squadre)
+              </Text>
+              <XStack gap="$2" flexWrap="wrap">
+                {sortedRealTeams.map(([teamName, count]) => (
+                  <Card 
+                    key={teamName}
+                    padding="$2" 
+                    paddingHorizontal="$3" 
+                    backgroundColor="$green1" 
+                    borderRadius="$3"
+                    borderWidth={1}
+                    borderColor="$green7"
+                  >
+                    <XStack gap="$2" alignItems="center">
+                      <Text fontSize="$3" fontWeight="600" color="$green11">
+                        {teamName}
+                      </Text>
+                      <Card 
+                        padding="$1" 
+                        paddingHorizontal="$2" 
+                        backgroundColor="$green8" 
+                        borderRadius="$2"
+                      >
+                        <Text fontSize="$2" fontWeight="700" color="white">
+                          {count}
+                        </Text>
+                      </Card>
+                    </XStack>
+                  </Card>
+                ))}
+              </XStack>
+            </YStack>
+          </Card>
+        )}
         
         <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
           {sortedTeams.map((team) => {
