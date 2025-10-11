@@ -4,6 +4,7 @@ import { Entity } from 'types/default'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Role } from 'types/group'
 import { useMedia } from 'tamagui'
+import { getTeamTier, TeamTier } from 'utils/teamTiers'
 
 export interface TeamsPanelProps {
   teams: Entity<Team, TeamKey>[]
@@ -59,6 +60,18 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
               [Role.Midfielder]: activePlayers.filter(p => p.role === Role.Midfielder).length,
               [Role.Forward]: activePlayers.filter(p => p.role === Role.Forward).length,
             }
+            
+            // Count players by tier
+            const tierCount = {
+              [TeamTier.T1]: 0,
+              [TeamTier.T2]: 0,
+              [TeamTier.T3]: 0,
+              [TeamTier.T4]: 0,
+            }
+            activePlayers.forEach(player => {
+              const tier = getTeamTier(player.team.name)
+              tierCount[tier]++
+            })
             
             return (
               <Card 
@@ -188,6 +201,39 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         </Text>
                       </YStack>
                     </XStack>
+                  </Card>
+                  
+                  {/* Tier distribution */}
+                  <Card padding="$2" backgroundColor="$color2" borderRadius="$2">
+                    <YStack gap="$1">
+                      <Text fontSize="$1" color="$color10" fontWeight="600">Tier Squadre:</Text>
+                      <XStack gap="$2" justifyContent="space-between">
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
+                          <Text fontSize="$2" fontWeight="600" color="$color11">
+                            {tierCount[TeamTier.T1]}
+                          </Text>
+                        </YStack>
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
+                          <Text fontSize="$2" fontWeight="600" color="$color11">
+                            {tierCount[TeamTier.T2]}
+                          </Text>
+                        </YStack>
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
+                          <Text fontSize="$2" fontWeight="600" color="$color11">
+                            {tierCount[TeamTier.T3]}
+                          </Text>
+                        </YStack>
+                        <YStack gap="$0.5" alignItems="center">
+                          <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
+                          <Text fontSize="$2" fontWeight="600" color="$color11">
+                            {tierCount[TeamTier.T4]}
+                          </Text>
+                        </YStack>
+                      </XStack>
+                    </YStack>
                   </Card>
                 </YStack>
               </Card>
