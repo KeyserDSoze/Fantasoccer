@@ -39,6 +39,7 @@ export interface PersonalBiddingPanelProps {
   
   // Statistics
   chancedPlayersMap?: Map<string, ChancedRealPlayer>
+  showStats?: boolean
 }
 
 export function PersonalBiddingPanel({
@@ -55,6 +56,7 @@ export function PersonalBiddingPanel({
   currentBidder,
   userEmail,
   chancedPlayersMap,
+  showStats = true,
 }: PersonalBiddingPanelProps) {
   const media = useMedia()
   const bidStatus = arePersonalBidButtonsDisabled()
@@ -84,40 +86,42 @@ export function PersonalBiddingPanel({
         </Card>
         
         {/* Tier distribution */}
-        <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
-          <YStack gap="$1">
-            <Text fontSize="$2" color="$blue11" fontWeight="600">Tier Squadre:</Text>
-            <XStack gap="$2" justifyContent="space-between">
-              <YStack gap="$0.5" alignItems="center">
-                <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
-                <Text fontSize="$2" fontWeight="600" color="$blue11">
-                  {stats.tierCount[TeamTier.T1]}
-                </Text>
-              </YStack>
-              <YStack gap="$0.5" alignItems="center">
-                <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
-                <Text fontSize="$2" fontWeight="600" color="$blue11">
-                  {stats.tierCount[TeamTier.T2]}
-                </Text>
-              </YStack>
-              <YStack gap="$0.5" alignItems="center">
-                <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
-                <Text fontSize="$2" fontWeight="600" color="$blue11">
-                  {stats.tierCount[TeamTier.T3]}
-                </Text>
-              </YStack>
-              <YStack gap="$0.5" alignItems="center">
-                <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
-                <Text fontSize="$2" fontWeight="600" color="$blue11">
-                  {stats.tierCount[TeamTier.T4]}
-                </Text>
-              </YStack>
-            </XStack>
-          </YStack>
-        </Card>
+        {showStats && (
+          <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+            <YStack gap="$1">
+              <Text fontSize="$2" color="$blue11" fontWeight="600">Tier Squadre:</Text>
+              <XStack gap="$2" justifyContent="space-between">
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$yellow10" fontWeight="700">T1</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.tierCount[TeamTier.T1]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$blue10" fontWeight="700">T2</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.tierCount[TeamTier.T2]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$green10" fontWeight="700">T3</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.tierCount[TeamTier.T3]}
+                  </Text>
+                </YStack>
+                <YStack gap="$0.5" alignItems="center">
+                  <Text fontSize="$1" color="$gray10" fontWeight="700">T4</Text>
+                  <Text fontSize="$2" fontWeight="600" color="$blue11">
+                    {stats.tierCount[TeamTier.T4]}
+                  </Text>
+                </YStack>
+              </XStack>
+            </YStack>
+          </Card>
+        )}
         
         {/* Real Team Distribution */}
-        {stats.realTeamDistribution.length > 0 && (
+        {showStats && stats.realTeamDistribution.length > 0 && (
           <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
             <YStack gap="$1">
               <Text fontSize="$2" color="$blue11" fontWeight="600">Squadre Serie A:</Text>
@@ -141,7 +145,7 @@ export function PersonalBiddingPanel({
         )}
         
         {/* Starters by Role */}
-        {chancedPlayersMap && (
+        {showStats && chancedPlayersMap && (
           <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
             <YStack gap="$1">
               <Text fontSize="$2" color="$blue11" fontWeight="600">Titolari (Fantagazzetta):</Text>
