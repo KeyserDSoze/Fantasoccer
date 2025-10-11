@@ -33,6 +33,7 @@ import { useAuth } from 'providers/AuthProvider'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Entity } from 'types/default'
 import { getPlayerKey } from 'utils'
+import { useStatPlayers } from 'hooks/useStatPlayers'
 import { 
   getRoleLabel, 
   getAuctionStatusLabel as getStatusLabel, 
@@ -119,6 +120,27 @@ export default function AuctionLiveScreen() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const connectionAttemptedRef = useRef<boolean>(false)
   const isConnectingRef = useRef<boolean>(false)
+
+  // Load previous year stats for comparison
+  const previousYear = auctionState?.league?.year ? auctionState.league.year - 1 : undefined
+  const { players: previousYearPlayers } = useStatPlayers({ 
+    year: previousYear, 
+    enabled: !!previousYear 
+  })
+
+  // Create lookup map for previous year stats by playerKey
+  const previousYearStatsMap = useRef<Map<string, StatPlayer>>(new Map())
+  useEffect(() => {
+    if (previousYearPlayers && previousYearPlayers.length > 0) {
+      const map = new Map<string, StatPlayer>()
+      previousYearPlayers.forEach(player => {
+        const key = getPlayerKey(player.name)
+        map.set(key, player)
+      })
+      previousYearStatsMap.current = map
+      console.log(`📊 Loaded ${map.size} players from previous year (${previousYear})`)
+    }
+  }, [previousYearPlayers, previousYear])
 
   // Initialize audio context
   useEffect(() => {
@@ -795,9 +817,15 @@ export default function AuctionLiveScreen() {
 
   // Current Player Card Component
   const renderCurrentPlayer = () => {
+    // Get previous year stats for current player
+    const previousYearStats = currentPlayer 
+      ? previousYearStatsMap.current.get(getPlayerKey(currentPlayer.name))
+      : undefined
+
     return (
       <CurrentPlayerCard
         currentPlayer={currentPlayer}
+        previousYearStats={previousYearStats}
         currentBid={currentBid}
         currentBidder={currentBidder}
         currentSubstitute={currentSubstitute}

@@ -2,7 +2,7 @@
 import { 
   Card, Separator, Text, XStack, YStack, Image
 } from 'tamagui'
-import { Users, Clock } from '@tamagui/lucide-icons'
+import { Users, Clock, ArrowRightLeft } from '@tamagui/lucide-icons'
 import { StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
@@ -11,6 +11,7 @@ import { getPlayerImageUrlFromName } from 'utils/playerImage'
 
 export interface CurrentPlayerCardProps {
   currentPlayer: StatPlayer | null
+  previousYearStats?: StatPlayer
   currentBid: number
   currentBidder: string | null
   currentSubstitute: string | null
@@ -23,6 +24,7 @@ export interface CurrentPlayerCardProps {
 
 export function CurrentPlayerCard({
   currentPlayer,
+  previousYearStats,
   currentBid,
   currentBidder,
   currentSubstitute,
@@ -37,6 +39,36 @@ export function CurrentPlayerCard({
   const displayTeam = currentPlayer?.realTeam.name || '---'
   const displayRole = currentPlayer ? getRoleLabel(currentPlayer.role) : '---'
   const { src: playerImageUrl, fallback: fallbackImageUrl } = getPlayerImageUrlFromName(currentPlayer?.name)
+  
+  // Check if player changed team from previous year
+  const hasChangedTeam = currentPlayer && previousYearStats 
+    && currentPlayer.realTeam.name !== previousYearStats.realTeam.name
+  
+  // Helper component to display stat with previous year comparison
+  const StatWithComparison = ({ 
+    current, 
+    previous, 
+    decimals = 0 
+  }: { 
+    current: number | undefined | null; 
+    previous: number | undefined | null; 
+    decimals?: number 
+  }) => {
+    const currentValue = current ?? 0
+    const displayCurrent = decimals > 0 ? currentValue.toFixed(decimals) : currentValue.toString()
+    
+    // Show "/-" when no previous year data
+    const displayPrevious = (previous === undefined || previous === null) 
+      ? '-' 
+      : (decimals > 0 ? previous.toFixed(decimals) : previous.toString())
+    
+    return (
+      <XStack gap="$1" alignItems="center">
+        <Text fontSize="$4" fontWeight="600" color="$color11">{displayCurrent}</Text>
+        <Text fontSize="$3" fontWeight="500" color="$gray10">/ {displayPrevious}</Text>
+      </XStack>
+    )
+  }
   
   return (
     <Card padding="$4" backgroundColor="$green2" borderRadius="$4" borderWidth="$0.5" borderColor="$green8">
@@ -110,63 +142,115 @@ export function CurrentPlayerCard({
             <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Media Voto</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.average?.toFixed(2) || '0.00'}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.average} 
+                  previous={previousYearStats?.average}
+                  decimals={2}
+                />
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Fantamedia</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.fantaAverage?.toFixed(2) || '0.00'}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.fantaAverage} 
+                  previous={previousYearStats?.fantaAverage}
+                  decimals={2}
+                />
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Partite</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.withVote || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.withVote} 
+                  previous={previousYearStats?.withVote}
+                />
               </YStack>
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Senza Voto</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.withoutVote || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.withoutVote} 
+                  previous={previousYearStats?.withoutVote}
+                />
               </YStack>
             </XStack>
+            {hasChangedTeam && (
+              <XStack gap="$2" alignItems="center" paddingTop="$2">
+                <ArrowRightLeft size={16} color="$orange10" />
+                <Text fontSize="$2" color="$orange10" fontWeight="600">
+                  Ha cambiato squadra ({previousYearStats?.realTeam.name} → {currentPlayer?.realTeam.name})
+                </Text>
+              </XStack>
+            )}
             <Separator />
             <Text fontSize="$3" fontWeight="700" color="$color11">Eventi</Text>
             <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Gol</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.goals || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.goals} 
+                  previous={previousYearStats?.goals}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rigori</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.penalties || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.penalties} 
+                  previous={previousYearStats?.penalties}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Assist</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.assists || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.assists} 
+                  previous={previousYearStats?.assists}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rig. Parati</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.stoppedPenalties || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.stoppedPenalties} 
+                  previous={previousYearStats?.stoppedPenalties}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Gol Subiti</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.sufferedGoals || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.sufferedGoals} 
+                  previous={previousYearStats?.sufferedGoals}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Rig. Sbagliati</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.wrongedPenalties || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.wrongedPenalties} 
+                  previous={previousYearStats?.wrongedPenalties}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Autogol</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.ownGoals || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.ownGoals} 
+                  previous={previousYearStats?.ownGoals}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Ammonizioni</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.yellowCards || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.yellowCards} 
+                  previous={previousYearStats?.yellowCards}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">Espulsioni</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.redCards || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.redCards} 
+                  previous={previousYearStats?.redCards}
+                />
               </YStack>
               <YStack gap="$1" minWidth={70}>
                 <Text fontSize="$2" color="$color10">MVP</Text>
-                <Text fontSize="$4" fontWeight="600" color="$color11">{currentPlayer?.manOfTheMatch || 0}</Text>
+                <StatWithComparison 
+                  current={currentPlayer?.manOfTheMatch} 
+                  previous={previousYearStats?.manOfTheMatch}
+                />
               </YStack>
             </XStack>
           </YStack>
