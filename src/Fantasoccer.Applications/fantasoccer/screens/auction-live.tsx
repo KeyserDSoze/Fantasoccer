@@ -128,9 +128,9 @@ export default function AuctionLiveScreen() {
   const [showPlayerStats, setShowPlayerStats] = useState(true)
   const [showTeamDetails, setShowTeamDetails] = useState(true)
 
-  // Refs for previous year stats and chanced players (populated after getAuction)
-  const previousYearStatsMap = useRef<Map<string, StatPlayer>>(new Map())
-  const chancedPlayersMap = useRef<Map<string, any>>(new Map())
+  // Stats and chance data (use state instead of ref to trigger re-renders)
+  const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
+  const [chancedPlayersMap, setChancedPlayersMap] = useState<Map<string, any>>(new Map())
 
   // Initialize audio context
   useEffect(() => {
@@ -736,7 +736,7 @@ export default function AuctionLiveScreen() {
                 const key = getPlayerKey(player.name)
                 map.set(key, player)
               })
-              previousYearStatsMap.current = map
+              setPreviousYearStatsMap(map)
               console.log(`📊 Loaded ${map.size} players from previous year (${previousYear})`)
             }
           } catch (error) {
@@ -780,7 +780,7 @@ export default function AuctionLiveScreen() {
                 const key = getPlayerKey(player.name)
                 map.set(key, player)
               })
-              chancedPlayersMap.current = map
+              setChancedPlayersMap(map)
               console.log(`🎲 Loaded ${map.size} chanced players for day ${effectiveDay} (year ${currentFantacalcioYear})`)
             } else {
               console.log(`🎲 No chanced players available for day ${effectiveDay}`)
@@ -874,11 +874,11 @@ export default function AuctionLiveScreen() {
   const renderCurrentPlayer = () => {
     // Get previous year stats for current player
     const previousYearStats = currentPlayer 
-      ? previousYearStatsMap.current.get(getPlayerKey(currentPlayer.name))
+      ? previousYearStatsMap.get(getPlayerKey(currentPlayer.name))
       : undefined
     // Get chance and real game info for current player
     const chancedPlayer = currentPlayer
-      ? chancedPlayersMap.current.get(getPlayerKey(currentPlayer.name))
+      ? chancedPlayersMap.get(getPlayerKey(currentPlayer.name))
       : undefined
     return (
       <CurrentPlayerCard
@@ -937,7 +937,7 @@ export default function AuctionLiveScreen() {
         arePersonalBidButtonsDisabled={arePersonalBidButtonsDisabled}
         currentBidder={currentBidder}
         userEmail={user?.email || null}
-        chancedPlayersMap={chancedPlayersMap.current}
+        chancedPlayersMap={chancedPlayersMap}
       />
     )
   }
@@ -1094,7 +1094,7 @@ export default function AuctionLiveScreen() {
           setSelectedTeamDetail(team)
           setShowTeamDetailDialog(true)
         }}
-        chancedPlayersMap={chancedPlayersMap.current}
+        chancedPlayersMap={chancedPlayersMap}
         showTeamDetails={showTeamDetails}
       />
     )
@@ -1332,16 +1332,16 @@ export default function AuctionLiveScreen() {
                         </XStack>
                       )}
                       <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel}>
-                          <Switch.Thumb animation="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Squadre Partecipanti</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showPlayerStats} onCheckedChange={setShowPlayerStats}>
                           <Switch.Thumb animation="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Statistiche Giocatore</Text>
+                      </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Squadre Partecipanti</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showTeamDetails} onCheckedChange={setShowTeamDetails}>
