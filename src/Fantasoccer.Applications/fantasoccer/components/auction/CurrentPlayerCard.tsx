@@ -23,6 +23,7 @@ export interface CurrentPlayerCardProps {
   timerExpired: boolean
   timerSecondsLeft: number
   realPlayers?: Array<{ key: string; name: string }>
+  showStats?: boolean
 }
 
 export function CurrentPlayerCard({
@@ -37,6 +38,7 @@ export function CurrentPlayerCard({
   timerExpired,
   timerSecondsLeft,
   realPlayers,
+  showStats = true,
 }: CurrentPlayerCardProps) {
   const media = useMedia()
   
@@ -197,9 +199,11 @@ export function CurrentPlayerCard({
             )}
           </XStack>
         </Card>
-        <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
-          <YStack gap="$3">
-            <Text fontSize="$3" fontWeight="700" color="$color11">Statistiche Stagione</Text>
+        {showStats && (
+          <>
+            <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
+              <YStack gap="$3">
+                <Text fontSize="$3" fontWeight="700" color="$color11">Statistiche Stagione</Text>
             <XStack gap="$4" flexWrap="wrap" justifyContent="space-between">
               <YStack gap="$1" minWidth={80}>
                 <Text fontSize="$2" color="$color10">Media Voto</Text>
@@ -316,6 +320,8 @@ export function CurrentPlayerCard({
             </XStack>
           </YStack>
         </Card>
+          </>
+        )}
       </YStack>
     </Card>
   )

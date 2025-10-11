@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Platform, Vibration } from 'react-native'
 import { 
   Button, Card, Input, Select, Separator, Text, XStack, YStack, 
-  useMedia, Spinner, Label, Switch, Dialog, ScrollView
+  useMedia, Spinner, Label, Switch, Dialog, ScrollView, Accordion, Square
 } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
@@ -120,6 +120,12 @@ export default function AuctionLiveScreen() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const connectionAttemptedRef = useRef<boolean>(false)
   const isConnectingRef = useRef<boolean>(false)
+  
+  // UI visibility toggles
+  const [showAuctioneerPanel, setShowAuctioneerPanel] = useState(true)
+  const [showMyTeamPanel, setShowMyTeamPanel] = useState(true)
+  const [showTeamsPanel, setShowTeamsPanel] = useState(true)
+  const [showPlayerStats, setShowPlayerStats] = useState(true)
 
   // Refs for previous year stats and chanced players (populated after getAuction)
   const previousYearStatsMap = useRef<Map<string, StatPlayer>>(new Map())
@@ -896,6 +902,7 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
         timerExpired={timerExpired}
         timerSecondsLeft={timerSecondsLeft}
         realPlayers={auctionState?.realPlayers}
+        showStats={showPlayerStats}
       />
     )
   }
@@ -1238,50 +1245,115 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
     const auctionKindLabel = AuctionKindLabels[auctionState.wrapper.king] || 'Sconosciuto'
     
     return (
-      <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8">
-        <YStack gap="$2">
-          <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-            <XStack gap="$2" alignItems="center">
-              <Gavel size={24} color="$blue11" />
-              <Text fontSize="$5" fontWeight="700" color="$blue11">
-                Asta {isAuctioneer ? '(Banditore)' : ''} - {auctionState.leagueName || 'Lega'}
-              </Text>
-            </XStack>
-            <XStack gap="$2" alignItems="center">
-              <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.wrapper.status)}>
-                {getStatusLabel(auctionState.wrapper.status)}
-              </Text>
-              {isLocked && <Lock size={20} color="$orange10" />}
-            </XStack>
-          </XStack>
-          <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
-            <XStack gap="$2" alignItems="center">
-              <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
-                <Text fontSize="$3" color="$blue11" fontWeight="600">{auctionKindLabel}</Text>
-              </Card>
-              <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
-                <Text fontSize="$3" color="$blue11" fontWeight="600">Lista: {auctionTypeLabel}</Text>
-              </Card>
-            </XStack>
-            <XStack gap="$2" alignItems="center">
-              {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
-              <Text fontSize="$3" color="$color11">Audio</Text>
-              <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
-                <Switch.Thumb animation="quick" />
-              </Switch>
-              {Platform.OS !== 'web' && (
-                <XStack gap="$2" alignItems="center">
-                  <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
-                  <Text fontSize="$3" color="$color11">Vibrazione</Text>
-                  <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                    <Switch.Thumb animation="quick" />
-                  </Switch>
+      <Accordion overflow="hidden" type="multiple" defaultValue={['header']}>
+        <Accordion.Item value="header">
+          <Accordion.Trigger 
+            flexDirection="row" 
+            justifyContent="space-between"
+            padding="$4"
+            backgroundColor="$blue2"
+            borderRadius="$4"
+            borderWidth="$0.5"
+            borderColor="$blue8"
+          >
+            {({ open }: { open: boolean }) => (
+              <>
+                <XStack gap="$2" alignItems="center" flex={1}>
+                  <Gavel size={24} color="$blue11" />
+                  <Text fontSize="$5" fontWeight="700" color="$blue11">
+                    Asta {isAuctioneer ? '(Banditore)' : ''} - {auctionState.leagueName || 'Lega'}
+                  </Text>
                 </XStack>
-              )}
-            </XStack>
-          </XStack>
-        </YStack>
-      </Card>
+                <XStack gap="$2" alignItems="center">
+                  <Text fontSize="$4" fontWeight="600" color={getStatusColor(auctionState.wrapper.status)}>
+                    {getStatusLabel(auctionState.wrapper.status)}
+                  </Text>
+                  {isLocked && <Lock size={20} color="$orange10" />}
+                  <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                    <ChevronDown size={20} color="$blue11" />
+                  </Square>
+                </XStack>
+              </>
+            )}
+          </Accordion.Trigger>
+          
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content 
+              padding="$4" 
+              paddingTop="$2"
+              backgroundColor="$blue2"
+              borderBottomLeftRadius="$4"
+              borderBottomRightRadius="$4"
+            >
+              <YStack gap="$2">
+                <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
+                  <XStack gap="$2" alignItems="center">
+                    <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                      <Text fontSize="$3" color="$blue11" fontWeight="600">{auctionKindLabel}</Text>
+                    </Card>
+                    <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue1" borderRadius="$3">
+                      <Text fontSize="$3" color="$blue11" fontWeight="600">Lista: {auctionTypeLabel}</Text>
+                    </Card>
+                  </XStack>
+                  <XStack gap="$2" alignItems="center">
+                    {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
+                    <Text fontSize="$3" color="$color11">Audio</Text>
+                    <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
+                      <Switch.Thumb animation="quick" />
+                    </Switch>
+                    {Platform.OS !== 'web' && (
+                      <XStack gap="$2" alignItems="center">
+                        <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
+                        <Text fontSize="$3" color="$color11">Vibrazione</Text>
+                        <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                      </XStack>
+                    )}
+                  </XStack>
+                </XStack>
+                
+                {/* UI Visibility Toggles */}
+                <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$blue11" fontWeight="600">Mostra/Nascondi Sezioni:</Text>
+                    <XStack gap="$3" flexWrap="wrap">
+                      {myTeam && (
+                        <XStack gap="$1" alignItems="center">
+                          <Switch size="$2" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel}>
+                            <Switch.Thumb animation="quick" />
+                          </Switch>
+                          <Text fontSize="$2" color="$blue11">Mia Pulsantiera</Text>
+                        </XStack>
+                      )}
+                      {isAuctioneer && (
+                        <XStack gap="$1" alignItems="center">
+                          <Switch size="$2" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel}>
+                            <Switch.Thumb animation="quick" />
+                          </Switch>
+                          <Text fontSize="$2" color="$blue11">Pulsantiera Banditore</Text>
+                        </XStack>
+                      )}
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Squadre Partecipanti</Text>
+                      </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showPlayerStats} onCheckedChange={setShowPlayerStats}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Statistiche Giocatore</Text>
+                      </XStack>
+                    </XStack>
+                  </YStack>
+                </Card>
+              </YStack>
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
     )
   }
   // ============================================
@@ -1336,9 +1408,9 @@ console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
             <YStack width="100%" gap="$4">
               {renderHeader()}
               {renderCurrentPlayer()}
-              {renderParticipantBidding()}
-              {renderAuctioneerPanel()}
-              {renderTeams()}
+              {showMyTeamPanel && renderParticipantBidding()}
+              {showAuctioneerPanel && renderAuctioneerPanel()}
+              {showTeamsPanel && renderTeams()}
             </YStack>
           </YStack>
         </ScrollView>
