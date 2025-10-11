@@ -575,7 +575,24 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) {
               playBidSound()
               vibrateOnBid()
-              toast.show(`✅ Giocatore assegnato: ${data.playerAssignedInAuction?.playerName} a ${data.playerAssignedInAuction?.teamName} per €${data.playerAssignedInAuction?.price}. Ha preso ${data.playerAssignedInAuction?.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 5000 })
+              toast.show(`✅ Giocatore assegnato: ${data.playerAssignedInAuction?.playerName} a ${data.playerAssignedInAuction?.teamName} per €${data.playerAssignedInAuction?.price}. Ha preso ${data.playerAssignedInAuction?.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 4000 })
+              
+              // Update the team that won the auction with the updated team data
+              if (data.team) {
+                setTeams(prevTeams => 
+                  prevTeams.map(team => 
+                    team.value.owner === data.team!.value.owner ? data.team! : team
+                  )
+                )
+                
+                // Update myTeam if I won the auction
+                if (user?.email && data.team.value.owner.toLowerCase() === user.email.toLowerCase()) {
+                  setMyTeam(data.team)
+                  const budget = startingMoney - TeamHelper.getCost(data.team.value)
+                  setMyTeamBudget(budget)
+                }
+              }
+              
               // Reset substitute for the winner (player is no longer available - was removed/substituted)
               // Check if winner is myTeam or selectedTeamForBid
               // If I won the auction, reset my substitute
@@ -586,6 +603,7 @@ export default function AuctionLiveScreen() {
               if (selectedTeamForBid && data.playerAssignedInAuction?.owner.toLowerCase() === selectedTeamForBid.toLowerCase()) {
                 setAuctioneerSelectedSubstitute(null)
               }
+              
               console.log('📦 onPlayerAssigned data:', data)
               setCurrentPlayer(null)
               setCurrentBid(0)
@@ -632,6 +650,13 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) {
               startTimer()
               toast.show('⏱️ Timer riavviato', { variant: 'info', duration: 1000 })
+            }
+          },
+          onTeamUpdated: (team: Entity<Team, TeamKey>) => {
+            if (isSubscribed) {
+              setTeams(prevTeams => 
+                prevTeams.map(t => t.key === team.key ? team : t)
+              )
             }
           },
           onTimerUpdate: (seconds) => {
