@@ -1,18 +1,20 @@
 // CurrentPlayerCard - Card che mostra il giocatore corrente in asta con statistiche
 import { 
-  Card, Separator, Text, XStack, YStack, Image
+  Card, Separator, Text, XStack, YStack, useMedia
 } from 'tamagui'
 import { Users, Clock, ArrowRightLeft } from '@tamagui/lucide-icons'
 import { StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
-import { getRoleLabel } from 'utils/auctionHelper'
-import { getPlayerImageUrlFromName } from 'utils/playerImage'
+import { getRoleLabel, mapToLivePlayer } from 'utils/auctionHelper'
 import { getTeamTierInfo } from 'utils/teamTiers'
+import { PlayerCard } from 'components/lineup/PlayerCard'
+import type { ChancedRealPlayer } from 'types/chance'
 
 export interface CurrentPlayerCardProps {
   currentPlayer: StatPlayer | null
   previousYearStats?: StatPlayer
+  chancedPlayer?: ChancedRealPlayer
   currentBid: number
   currentBidder: string | null
   currentSubstitute: string | null
@@ -26,6 +28,7 @@ export interface CurrentPlayerCardProps {
 export function CurrentPlayerCard({
   currentPlayer,
   previousYearStats,
+  chancedPlayer,
   currentBid,
   currentBidder,
   currentSubstitute,
@@ -35,11 +38,12 @@ export function CurrentPlayerCard({
   timerSecondsLeft,
   realPlayers,
 }: CurrentPlayerCardProps) {
+  const media = useMedia()
+  
   // Placeholder values when no player in auction
   const displayName = currentPlayer?.name || '---'
   const displayTeam = currentPlayer?.realTeam.name || '---'
   const displayRole = currentPlayer ? getRoleLabel(currentPlayer.role) : '---'
-  const { src: playerImageUrl, fallback: fallbackImageUrl } = getPlayerImageUrlFromName(currentPlayer?.name)
   
   // Get team tier info
   const tierInfo = getTeamTierInfo(currentPlayer?.realTeam.name)
@@ -84,36 +88,73 @@ export function CurrentPlayerCard({
           </XStack>
           <Text fontSize="$4" color="$green10">{displayRole}</Text>
         </XStack>
-        <XStack gap="$3" alignItems="center">
-          <Image
-            source={{ uri: playerImageUrl }}
-            defaultSource={{ uri: fallbackImageUrl }}
-            width={80}
-            height={80}
-            borderRadius="$3"
-            backgroundColor="$gray5"
-          />
-          <YStack gap="$2" flex={1}>
-            <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
-            <XStack gap="$2" alignItems="center">
-              <Text fontSize="$4" color="$green10">{displayTeam}</Text>
-              {currentPlayer && (
+        <YStack gap="$2">
+          <XStack gap="$3" alignItems="flex-start">
+            {currentPlayer ? (
+              <PlayerCard player={mapToLivePlayer(currentPlayer, chancedPlayer)} />
+            ) : (
+              <Card 
+                width={112} 
+                height={150} 
+                backgroundColor="$gray5" 
+                borderRadius="$3"
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Text fontSize="$4" color="$gray10">---</Text>
+              </Card>
+            )}
+            <YStack gap="$2" flex={1}>
+              <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
+              <XStack gap="$2" alignItems="center">
+                <Text fontSize="$4" color="$green10">{displayTeam}</Text>
+                {currentPlayer && (
+                  <Card 
+                    paddingVertical="$1" 
+                    paddingHorizontal="$2" 
+                    backgroundColor={tierInfo.backgroundColor}
+                    borderRadius="$2"
+                    borderWidth={1}
+                    borderColor={tierInfo.color}
+                  >
+                    <Text fontSize="$2" fontWeight="700" color={tierInfo.color}>
+                      {tierInfo.label}
+                    </Text>
+                  </Card>
+                )}
+              </XStack>
+              {/* Desktop: mostra descrizione a destra */}
+              {media.gtSm && chancedPlayer?.chance?.description && (
                 <Card 
-                  paddingVertical="$1" 
-                  paddingHorizontal="$2" 
-                  backgroundColor={tierInfo.backgroundColor}
-                  borderRadius="$2"
+                  marginTop="$2"
+                  padding="$3" 
+                  backgroundColor="$red9" 
+                  borderRadius="$3"
                   borderWidth={1}
-                  borderColor={tierInfo.color}
+                  borderColor="$red10"
                 >
-                  <Text fontSize="$2" fontWeight="700" color={tierInfo.color}>
-                    {tierInfo.label}
+                  <Text fontSize="$4" fontWeight="700" color="white">
+                    ⚠️ {chancedPlayer.chance.description}
                   </Text>
                 </Card>
               )}
-            </XStack>
-          </YStack>
-        </XStack>
+            </YStack>
+          </XStack>
+          {/* Mobile: mostra descrizione sotto */}
+          {!media.gtSm && chancedPlayer?.chance?.description && (
+            <Card 
+              padding="$3" 
+              backgroundColor="$red9" 
+              borderRadius="$3"
+              borderWidth={1}
+              borderColor="$red10"
+            >
+              <Text fontSize="$4" fontWeight="700" color="white" textAlign="center">
+                ⚠️ {chancedPlayer.chance.description}
+              </Text>
+            </Card>
+          )}
+        </YStack>
         <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
           <XStack gap="$4" justifyContent="space-between" alignItems="center" flexWrap="wrap">
             <YStack gap="$1" flex={1}>

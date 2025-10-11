@@ -33,7 +33,7 @@ import { useAuth } from 'providers/AuthProvider'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Entity } from 'types/default'
 import { getPlayerKey } from 'utils'
-import { useStatPlayers } from 'hooks/useStatPlayers'
+
 import { 
   getRoleLabel, 
   getAuctionStatusLabel as getStatusLabel, 
@@ -121,26 +121,9 @@ export default function AuctionLiveScreen() {
   const connectionAttemptedRef = useRef<boolean>(false)
   const isConnectingRef = useRef<boolean>(false)
 
-  // Load previous year stats for comparison
-  const previousYear = auctionState?.league?.year ? auctionState.league.year - 1 : undefined
-  const { players: previousYearPlayers } = useStatPlayers({ 
-    year: previousYear, 
-    enabled: !!previousYear 
-  })
-
-  // Create lookup map for previous year stats by playerKey
+  // Refs for previous year stats and chanced players (populated after getAuction)
   const previousYearStatsMap = useRef<Map<string, StatPlayer>>(new Map())
-  useEffect(() => {
-    if (previousYearPlayers && previousYearPlayers.length > 0) {
-      const map = new Map<string, StatPlayer>()
-      previousYearPlayers.forEach(player => {
-        const key = getPlayerKey(player.name)
-        map.set(key, player)
-      })
-      previousYearStatsMap.current = map
-      console.log(`📊 Loaded ${map.size} players from previous year (${previousYear})`)
-    }
-  }, [previousYearPlayers, previousYear])
+  const chancedPlayersMap = useRef<Map<string, any>>(new Map())
 
   // Initialize audio context
   useEffect(() => {
@@ -737,7 +720,80 @@ export default function AuctionLiveScreen() {
         const auctionState = await auctionService.getAuction(auctionId)
         updateAuctionState(auctionState)
         
-        console.log('✅ Initial setup complete - waiting for state events...')
+        console.log('✅ Initial setup complete - loading additional data...')
+        
+        // Load previous year stats for comparison (after we have auctionState)
+        if (auctionState?.league?.year) {
+          const previousYear = auctionState.league.year - 1
+          console.log(`📊 Loading stats for previous year (${previousYear})...`)
+          
+          try {
+            const { statPlayerService } = await import('../services/statPlayerService')
+            const previousYearWrapper = await statPlayerService.getCurrentUserEnhancedWrapper({ year: previousYear })
+            
+            if (previousYearWrapper?.players && previousYearWrapper.players.length > 0) {
+              const map = new Map<string, StatPlayer>()
+              previousYearWrapper.players.forEach(player => {
+                const key = getPlayerKey(player.name)
+                map.set(key, player)
+              })
+              previousYearStatsMap.current = map
+              console.log(`📊 Loaded ${map.size} players from previous year (${previousYear})`)
+            }
+          } catch (error) {
+            console.error('❌ Error loading previous year stats:', error)
+          }
+        }
+        
+        // Load Serie A calendar and chance data (ALWAYS use current fantacalcio year, not auction year!)
+        // Auction might be for a past year, but we always want current Serie A data
+        try {
+          // Get current fantacalcio year (not from auction, but from actual date)
+          const { getActualFantacalcioYear } = await import('../utils/timezoneHelpers')
+          const currentFantacalcioYear = getActualFantacalcioYear()
+          console.log(`🎲 Loading chance data for current fantacalcio year (${currentFantacalcioYear})...`)
+          
+          // Get current/next Serie A day for the current fantacalcio year
+          const { serieAService } = await import('../services/serieAService')
+          const calendarData = await serieAService.getEnhancedCalendarByYear(currentFantacalcioYear)
+          const currentSerieADay = calendarData?.liveSerieADay || calendarData?.nextDay?.serieADay || 0
+          
+          if (currentSerieADay > 0) {
+            console.log(`📅 Live/Next Serie A day: ${currentSerieADay}`)
+            
+            // Try to load chance data for current day (using current fantacalcio year)
+            const { chanceService } = await import('../services/chanceService')
+            let chancedPlayersWrapper = await chanceService.getEnhancedWrapper({ year: currentFantacalcioYear, day: currentSerieADay })
+            let effectiveDay = currentSerieADay
+            
+            // If no data for current day, try previous day
+            if ((!chancedPlayersWrapper?.players || chancedPlayersWrapper.players.length === 0) && currentSerieADay > 1) {
+              const previousDay = currentSerieADay - 1
+              console.log(`🎲 No data for day ${currentSerieADay}, trying previous day ${previousDay}...`)
+              chancedPlayersWrapper = await chanceService.getEnhancedWrapper({ year: currentFantacalcioYear, day: previousDay })
+              effectiveDay = previousDay
+            }
+            
+            // Populate chanced players map
+            if (chancedPlayersWrapper?.players && chancedPlayersWrapper.players.length > 0) {
+              const map = new Map()
+              chancedPlayersWrapper.players.forEach(player => {
+                const key = getPlayerKey(player.name)
+                map.set(key, player)
+              })
+              chancedPlayersMap.current = map
+              console.log(`🎲 Loaded ${map.size} chanced players for day ${effectiveDay} (year ${currentFantacalcioYear})`)
+            } else {
+              console.log(`🎲 No chanced players available for day ${effectiveDay}`)
+            }
+          } else {
+            console.log('📅 No live/next Serie A day available')
+          }
+        } catch (error) {
+          console.error('❌ Error loading chance data:', error)
+        }
+        
+        console.log('✅ All data loaded - waiting for state events...')
         
         // Mark connection as successful
         isConnectingRef.current = false
@@ -821,11 +877,17 @@ export default function AuctionLiveScreen() {
     const previousYearStats = currentPlayer 
       ? previousYearStatsMap.current.get(getPlayerKey(currentPlayer.name))
       : undefined
-
+    console.log(chancedPlayersMap.current)
+    // Get chance and real game info for current player
+    const chancedPlayer = currentPlayer
+      ? chancedPlayersMap.current.get(getPlayerKey(currentPlayer.name))
+      : undefined
+console.log('Chanced player for', currentPlayer?.name, chancedPlayer)
     return (
       <CurrentPlayerCard
         currentPlayer={currentPlayer}
         previousYearStats={previousYearStats}
+        chancedPlayer={chancedPlayer}
         currentBid={currentBid}
         currentBidder={currentBidder}
         currentSubstitute={currentSubstitute}

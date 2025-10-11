@@ -1,5 +1,8 @@
-import { AuctionStatus } from '../types/auction'
+import { AuctionStatus, StatPlayer } from '../types/auction'
 import { Role } from '../types/group'
+import { ChancedRealPlayer } from '../types/chance'
+import { LivePlayer } from '../types/game'
+import { FantaSoccerRole, PlayerInTeamStatus } from '../types/team'
 
 /**
  * Auction Helper Utilities
@@ -189,5 +192,36 @@ export const playAuctionSound = (
         oscillator2.stop(now + 0.2)
       }
       break
+  }
+}
+
+/**
+ * Mappa un StatPlayer + ChancedRealPlayer in un LivePlayer per la PlayerCard
+ * 
+ * @param statPlayer - Il giocatore con le statistiche (obbligatorio)
+ * @param chancedPlayer - I dati di chance/disponibilità (opzionale)
+ * @returns LivePlayer compatibile con PlayerCard
+ */
+export const mapToLivePlayer = (
+  statPlayer: StatPlayer,
+  chancedPlayer?: ChancedRealPlayer
+): LivePlayer => {
+  return {
+    current: {
+      name: statPlayer.name,
+      team: statPlayer.realTeam,
+      role: statPlayer.role,
+      isActive: statPlayer.isActive,
+      visible: statPlayer.isVisible,
+      price: 0, // Non rilevante nel contesto asta
+      revenue: 0, // Non rilevante nel contesto asta
+      status: PlayerInTeamStatus.Active,
+      position: FantaSoccerRole.BackupGoalKeeper // Posizione di default per asta
+    },
+    vote: null,
+    chance: chancedPlayer?.chance || null,
+    realGame: null, // Non abbiamo i dati della partita in questo contesto
+    finalValue: null,
+    currentPosition: FantaSoccerRole.BackupGoalKeeper
   }
 }
