@@ -73,7 +73,7 @@ namespace Fantasoccer.Engine.IngestionData
                 }
             }
 
-            string result = sb.ToString();
+            var result = sb.ToString();
 
             // 4️⃣ Rimuove apostrofi, virgolette e altri segni simili
             result = Regex.Replace(result, @"['’`´]", "");
@@ -96,8 +96,6 @@ namespace Fantasoccer.Engine.IngestionData
                     {
                         var imageAsUri = string.Empty;
                         var surname = NormalizeName(player.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower());
-                        if (!surname.StartsWith("bernab"))
-                            continue;
                         var teamShortName = player.RealTeam.Abbreviation.ToLower();
                         var possiblePlayer = playerImages.data.body.FirstOrDefault(x => IsThisPlayer(x, surname, teamShortName, player.Role.AsString().First().ToString().ToLower()));
                         if (possiblePlayer != null)

@@ -521,6 +521,7 @@ export default function AuctionLiveScreen() {
              
               try {
                 const auctionState = await auctionService.getAuction(auctionId)
+                
                 updateAuctionState(auctionState)
               } catch (error) {
                 console.error('❌ Failed to reload state after reconnect:', error)

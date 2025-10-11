@@ -1,12 +1,13 @@
 // CurrentPlayerCard - Card che mostra il giocatore corrente in asta con statistiche
 import { 
-  Card, Separator, Text, XStack, YStack 
+  Card, Separator, Text, XStack, YStack, Image
 } from 'tamagui'
 import { Users, Clock } from '@tamagui/lucide-icons'
 import { StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
 import { getRoleLabel } from 'utils/auctionHelper'
+import { getPlayerImageUrlFromName } from 'utils/playerImage'
 
 export interface CurrentPlayerCardProps {
   currentPlayer: StatPlayer | null
@@ -35,6 +36,7 @@ export function CurrentPlayerCard({
   const displayName = currentPlayer?.name || '---'
   const displayTeam = currentPlayer?.realTeam.name || '---'
   const displayRole = currentPlayer ? getRoleLabel(currentPlayer.role) : '---'
+  const { src: playerImageUrl, fallback: fallbackImageUrl } = getPlayerImageUrlFromName(currentPlayer?.name)
   
   return (
     <Card padding="$4" backgroundColor="$green2" borderRadius="$4" borderWidth="$0.5" borderColor="$green8">
@@ -46,10 +48,20 @@ export function CurrentPlayerCard({
           </XStack>
           <Text fontSize="$4" color="$green10">{displayRole}</Text>
         </XStack>
-        <YStack gap="$2">
-          <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
-          <Text fontSize="$4" color="$green10">{displayTeam}</Text>
-        </YStack>
+        <XStack gap="$3" alignItems="center">
+          <Image
+            source={{ uri: playerImageUrl }}
+            defaultSource={{ uri: fallbackImageUrl }}
+            width={80}
+            height={80}
+            borderRadius="$3"
+            backgroundColor="$gray5"
+          />
+          <YStack gap="$2" flex={1}>
+            <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
+            <Text fontSize="$4" color="$green10">{displayTeam}</Text>
+          </YStack>
+        </XStack>
         <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
           <XStack gap="$4" justifyContent="space-between" alignItems="center" flexWrap="wrap">
             <YStack gap="$1" flex={1}>
