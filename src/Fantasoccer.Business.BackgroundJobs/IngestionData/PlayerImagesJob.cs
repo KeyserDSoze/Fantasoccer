@@ -1,5 +1,7 @@
-﻿using System.Net;
+﻿using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Timers;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +31,58 @@ namespace Fantasoccer.Engine.IngestionData
 
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<PlayerImagesJob>(exception);
+        private static bool IsThisPlayer(Body player, string surname, string team, string role)
+        {
+            var playerSurname = NormalizeName(player.surname).ToLower();
+            var playerName = NormalizeName(player.name).ToLower();
+            var teamShortName = player.team_short_name.ToLower();
+            var codeRole = player.cod_role.ToLower();
+            if (playerSurname.Contains(surname) || surname.Contains(playerSurname) || playerName.Contains(surname) || surname.Contains(playerName))
+            {
+                if (teamShortName == team)
+                {
+                    return codeRole == role ||
+                        (surname == playerSurname &&
+                            ((codeRole == "a" && role == "c")
+                                || (codeRole == "c" && role == "a")
+                                || (codeRole == "d" && role == "c")
+                                || (codeRole == "c" && role == "d")));
+                }
+            }
+            return false;
+        }
+        private static string NormalizeName(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return input;
 
+            // 1️⃣ Decodifica eventuali entità HTML (es: &#39; -> ')
+            var decoded = WebUtility.HtmlDecode(input);
+
+            // 2️⃣ Normalizza in forma decomposed (NFD) per separare lettere e accenti
+            var normalized = decoded.Normalize(NormalizationForm.FormD);
+
+            // 3️⃣ Rimuove i segni diacritici (accenti)
+            var sb = new StringBuilder();
+            foreach (var c in normalized)
+            {
+                var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(c);
+                }
+            }
+
+            string result = sb.ToString();
+
+            // 4️⃣ Rimuove apostrofi, virgolette e altri segni simili
+            result = Regex.Replace(result, @"['’`´]", "");
+
+            // 5️⃣ Normalizza spazi multipli
+            result = Regex.Replace(result, @"\s+", " ").Trim();
+
+            return result;
+        }
         private async Task InvokeAsync()
         {
             var year = FantacalcioTime.ActualYear;
@@ -38,37 +91,44 @@ namespace Fantasoccer.Engine.IngestionData
             {
                 var url = "https://www.legaseriea.it/api/widget/player?lang=it&offset=0&limit=1030";
                 var playerImages = await _httpClient.GetFromJsonAsync<Rootobject>(url).NoContext();
-                foreach (var player in players)
-                {
-                    var imageAsUri = string.Empty;
-                    var surname = player.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower();
-                    var teamShortName = player.RealTeam.Abbreviation.ToLower();
-                    var possiblePlayer = playerImages.data.body.FirstOrDefault(x => x.surname.ToLower().Equals(surname) && x.team_short_name.ToLower().Equals(teamShortName));
-                    if (possiblePlayer != null)
+                if (playerImages != null)
+                    foreach (var player in players)
                     {
-                        imageAsUri = possiblePlayer.medium_shot;
-                    }
-                    if (!string.IsNullOrWhiteSpace(imageAsUri))
-                    {
-                        await Try.WithDefaultOnCatchAsync(async () =>
+                        var imageAsUri = string.Empty;
+                        var surname = NormalizeName(player.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower());
+                        if (!surname.StartsWith("bernab"))
+                            continue;
+                        var teamShortName = player.RealTeam.Abbreviation.ToLower();
+                        var possiblePlayer = playerImages.data.body.FirstOrDefault(x => IsThisPlayer(x, surname, teamShortName, player.Role.AsString().First().ToString().ToLower()));
+                        if (possiblePlayer != null)
                         {
-                            using (WebClient client = new())
+                            imageAsUri = possiblePlayer.medium_shot;
+                        }
+                        if (!string.IsNullOrWhiteSpace(imageAsUri))
+                        {
+                            await Try.WithDefaultOnCatchAsync(async () =>
                             {
-                                var image = client.DownloadData(imageAsUri);
-                                await _contentRepository.UploadAsync($"players/{player.Key}.jpg",
-                                    image, new ContentRepositoryOptions
+                                var imageName = $"players/{player.Key}.jpg";
+                                if (!await _contentRepository.ExistAsync(imageName))
+                                {
+                                    using (WebClient client = new())
                                     {
-                                        HttpHeaders = new ContentRepositoryHttpHeaders
-                                        {
-                                            ContentType = "image/png"
-                                        }
-                                    }, true).NoContext();
-                            }
-                        });
+                                        var image = client.DownloadData(imageAsUri);
+                                        await _contentRepository.UploadAsync(imageName,
+                                            image, new ContentRepositoryOptions
+                                            {
+                                                HttpHeaders = new ContentRepositoryHttpHeaders
+                                                {
+                                                    ContentType = "image/png"
+                                                }
+                                            }, true).NoContext();
+                                    }
+                                }
+                            });
 
+                        }
+                        await Task.Delay(30);
                     }
-                    await Task.Delay(30);
-                }
             }
         }
 
