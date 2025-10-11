@@ -135,7 +135,6 @@ export interface AuctionWrapper {
   actual: ActualAuction | null
   winnings: AuctionWin[]
   status: AuctionStatus
-  listOfPlayers: Record<Role, string[]>
   participants: AnnualTeam[]
   lastShow: Record<Role, string | null>
   secondsPerAuction: number
@@ -304,7 +303,6 @@ export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
     actual: raw.a ? mapRawActualAuction(raw.a) : null,
     winnings: raw.w.map(mapRawAuctionWin),
     status: raw.s as AuctionStatus,
-    listOfPlayers,
     participants: raw.pr.map(mapRawAnnualTeamToAnnualTeam),
     lastShow,
     secondsPerAuction: raw.sec ?? 10

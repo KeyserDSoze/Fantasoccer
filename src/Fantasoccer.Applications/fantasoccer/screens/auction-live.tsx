@@ -94,10 +94,10 @@ export default function AuctionLiveScreen() {
   const [startingMoney, setStartingMoney] = useState<number>(1000) // League's starting budget
   const [myTeamBudget, setMyTeamBudget] = useState<number>(1000)
   const [timerSecondsLeft, setTimerSecondsLeft] = useState<number>(0)
+  const [offerTimeoutSeconds, setOfferTimeoutSeconds] = useState<number>(10)
   const [timerRunning, setTimerRunning] = useState<boolean>(false)
   const [timerExpired, setTimerExpired] = useState<boolean>(false)
   const [firstOfferHappened, setFirstOfferHappened] = useState<boolean>(false)
-  const [offerTimeoutSeconds, setOfferTimeoutSeconds] = useState<number>(10)
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
   const [selectedTeamForBid, setSelectedTeamForBid] = useState<string>('')
@@ -173,6 +173,7 @@ export default function AuctionLiveScreen() {
     
     // Sync timer with auction state
     const auctionTimer = state.wrapper.secondsPerAuction ?? 10
+    console.log('⏱️ Setting offer timeout to', auctionTimer, 'seconds')
     setOfferTimeoutSeconds(auctionTimer)
     
     const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user?.email?.toLowerCase())
@@ -196,7 +197,9 @@ export default function AuctionLiveScreen() {
   // TIMER LOGIC
   // ============================================
   const startTimer = useCallback(() => {
+    console.log('⏱️ Starting timer...')
     setTimerSecondsLeft(offerTimeoutSeconds)
+    console.log('⏱️ Timer set to', offerTimeoutSeconds, 'seconds')
     setTimerRunning(true)
     setTimerExpired(false)
     setFirstOfferHappened(true)
@@ -1055,6 +1058,7 @@ export default function AuctionLiveScreen() {
         selectedPlayerForForce={selectedPlayerForForce}
         realPlayers={auctionState.realPlayers}
         loading={loading}
+        teams={teams}
         onOpenChange={setShowPlayerSearchDialog}
         onSelectedRoleChange={setSelectedRole}
         onPlayerSearchQueryChange={setPlayerSearchQuery}
