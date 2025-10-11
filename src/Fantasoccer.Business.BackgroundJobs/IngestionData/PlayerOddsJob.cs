@@ -1,4 +1,9 @@
-﻿using System.Timers;
+﻿using System.Globalization;
+using System.Net;
+using System.Numerics;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Timers;
 using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Domain;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,6 +107,10 @@ namespace Fantasoccer.Engine.IngestionData
                         foreach (var parsedPlayer in playersFromParser)
                         {
                             var chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
+                            if (chancedPlayer == default)
+                            {
+                                chancedPlayer = players.FirstOrDefault(x => IsThisPlayer(parsedPlayer, x));
+                            }
                             if (chancedPlayer != default)
                             {
                                 chancedPlayer.Chance.Fantagazzetta |= parsedPlayer.Chance.Fantagazzetta;
@@ -129,7 +138,50 @@ namespace Fantasoccer.Engine.IngestionData
             else
                 await _logger.LogAsync<PlayerOddsJob>($"Il calendario è vuoto").NoContext();
         }
+        private static bool IsThisPlayer(ChancedRealPlayer parsed, ChancedRealPlayer player)
+        {
+            var parsedPlayerName = NormalizeName(parsed.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower()).ToLower();
+            var playerName = NormalizeName(player.Name.Split(' ').OrderByDescending(x => x.Length).First().Split('.').OrderByDescending(x => x.Length).First().ToLower()).ToLower();
+            var parsedTeamName = NormalizeName(parsed.RealTeam.Name).ToLower();
+            var teamName = NormalizeName(player.RealTeam.Name).ToLower();
+            if (parsedPlayerName.Contains(playerName) || playerName.Contains(parsedPlayerName))
+            {
+                return teamName == parsedTeamName;
+            }
+            return false;
+        }
+        private static string NormalizeName(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return input;
 
+            // 1️⃣ Decodifica eventuali entità HTML (es: &#39; -> ')
+            var decoded = WebUtility.HtmlDecode(input);
+
+            // 2️⃣ Normalizza in forma decomposed (NFD) per separare lettere e accenti
+            var normalized = decoded.Normalize(NormalizationForm.FormD);
+
+            // 3️⃣ Rimuove i segni diacritici (accenti)
+            var sb = new StringBuilder();
+            foreach (var c in normalized)
+            {
+                var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(c);
+                }
+            }
+
+            var result = sb.ToString();
+
+            // 4️⃣ Rimuove apostrofi, virgolette e altri segni simili
+            result = Regex.Replace(result, @"['’`´]", "");
+
+            // 5️⃣ Normalizza spazi multipli
+            result = Regex.Replace(result, @"\s+", " ").Trim();
+
+            return result;
+        }
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<PlayerOddsJob>(exception);
     }
