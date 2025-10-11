@@ -8,6 +8,7 @@ import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
 import { getRoleLabel } from 'utils/auctionHelper'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
+import { getTeamTierInfo } from 'utils/teamTiers'
 
 export interface CurrentPlayerCardProps {
   currentPlayer: StatPlayer | null
@@ -39,6 +40,9 @@ export function CurrentPlayerCard({
   const displayTeam = currentPlayer?.realTeam.name || '---'
   const displayRole = currentPlayer ? getRoleLabel(currentPlayer.role) : '---'
   const { src: playerImageUrl, fallback: fallbackImageUrl } = getPlayerImageUrlFromName(currentPlayer?.name)
+  
+  // Get team tier info
+  const tierInfo = getTeamTierInfo(currentPlayer?.realTeam.name)
   
   // Check if player changed team from previous year
   const hasChangedTeam = currentPlayer && previousYearStats 
@@ -91,7 +95,23 @@ export function CurrentPlayerCard({
           />
           <YStack gap="$2" flex={1}>
             <Text fontSize="$7" fontWeight="700" color="$green11">{displayName}</Text>
-            <Text fontSize="$4" color="$green10">{displayTeam}</Text>
+            <XStack gap="$2" alignItems="center">
+              <Text fontSize="$4" color="$green10">{displayTeam}</Text>
+              {currentPlayer && (
+                <Card 
+                  paddingVertical="$1" 
+                  paddingHorizontal="$2" 
+                  backgroundColor={tierInfo.backgroundColor}
+                  borderRadius="$2"
+                  borderWidth={1}
+                  borderColor={tierInfo.color}
+                >
+                  <Text fontSize="$2" fontWeight="700" color={tierInfo.color}>
+                    {tierInfo.label}
+                  </Text>
+                </Card>
+              )}
+            </XStack>
           </YStack>
         </XStack>
         <Card padding="$3" backgroundColor="$color1" borderRadius="$3">
