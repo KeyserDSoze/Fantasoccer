@@ -37,7 +37,8 @@ import {
   getRoleLabel, 
   getAuctionStatusLabel as getStatusLabel, 
   getAuctionStatusColor as getStatusColor,
-  playBidSound as playBidSoundUtil
+  playAuctionSound,
+  AuctionSoundType
 } from 'utils/auctionHelper'
 import { 
   AuctioneerPanel, 
@@ -129,9 +130,9 @@ export default function AuctionLiveScreen() {
     }
   }, [])
 
-  const playBidSound = useCallback(() => {
+  const playSound = useCallback((soundType: AuctionSoundType) => {
     if (Platform.OS !== 'web') return
-    playBidSoundUtil(audioContextRef.current, audioEnabled)
+    playAuctionSound(audioContextRef.current, audioEnabled, soundType)
   }, [audioEnabled])
 
   const vibrateOnBid = useCallback(() => {
@@ -573,7 +574,9 @@ export default function AuctionLiveScreen() {
           },
           onPlayerAssigned: (data: PlayerAssignedMessage) => {
             if (isSubscribed) {
-              playBidSound()
+              // Determina se ho vinto io l'asta
+              const iWon = user?.email && data.playerAssignedInAuction?.owner.toLowerCase() === user.email.toLowerCase()
+              playSound(iWon ? AuctionSoundType.MyWin : AuctionSoundType.OtherWin)
               vibrateOnBid()
               toast.show(`✅ Giocatore assegnato: ${data.playerAssignedInAuction?.playerName} a ${data.playerAssignedInAuction?.teamName} per €${data.playerAssignedInAuction?.price}. Ha preso ${data.playerAssignedInAuction?.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 4000 })
               
@@ -618,10 +621,10 @@ export default function AuctionLiveScreen() {
               setCurrentBid(data.amount)
               setCurrentBidder(data.bidderEmail)
               setCurrentSubstitute(data.substituted)
-              // if (data.bidderEmail.toLowerCase() !== user?.email?.toLowerCase()) {
-                playBidSound()
-                vibrateOnBid()
-              // }
+              // Determina se sono io a fare l'offerta
+              const isMyBid = user?.email && data.bidderEmail.toLowerCase() === user.email.toLowerCase()
+              playSound(isMyBid ? AuctionSoundType.MyBid : AuctionSoundType.OtherBid)
+              vibrateOnBid()
               startTimer()
             }
           },
