@@ -167,10 +167,10 @@ namespace Fantasoccer.Engine.GroupsManager
                                             new Notification
                                             {
                                                 Body = body,
-                                                Title = "fantacalcio.xyz",
+                                                Title = "FantaZone",
                                                 Data = new NotificationData
                                                 {
-                                                    Uri = "https://fantacalcio.xyz/live"
+                                                    Uri = "https://fanta.zone/live"
                                                 }
                                             });
                                     }
@@ -195,10 +195,10 @@ namespace Fantasoccer.Engine.GroupsManager
                             await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, new Notification
                             {
                                 Body = "Ricorda di schierare la formazione!",
-                                Title = "fantacalcio.xyz",
+                                Title = "FantaZone",
                                 Data = new NotificationData
                                 {
-                                    Uri = "https://fantacalcio.xyz/edit"
+                                    Uri = "https://fanta.zone/edit"
                                 }
                             });
                         }

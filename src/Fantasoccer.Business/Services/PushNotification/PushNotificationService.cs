@@ -19,7 +19,7 @@ namespace Fantasoccer.Business
             foreach (var notification in notificationSettings.Subscriptions)
             {
                 var subscription = new PushSubscription(notification.Endpoint, notification.P256DH, notification.Auth);
-                var vapidDetails = new VapidDetails($"mailto:{email.Split('@').First()}@fantacalcio.xyz", PublicKey, PrivateKey);
+                var vapidDetails = new VapidDetails($"mailto:{email.Split('@').First()}@fanta.zone", PublicKey, PrivateKey);
                 using var webPushClient = new WebPushClient();
                 try
                 {

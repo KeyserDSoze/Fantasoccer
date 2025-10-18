@@ -49,8 +49,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: value.Body,
     data: value.Data,
-    icon: value.Icon ?? 'https://fanta.zone/favicon.ico',
-    badge: value.Badge ?? 'https://fanta.zone/favicon-96x96.png',
+    icon: value.Icon ?? 'https://fanta.zone/android-chrome-192x192.png',
+    badge: value.Badge ?? 'https://fanta.zone/favicon-32x32.png',
     vibrate: value.Vibrate ?? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
     requireInteraction: value.RequireInteraction ?? false
   }
@@ -60,8 +60,8 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const target = event.notification.data?.Uri ?? event.notification.data?.url
-  if (target.includes("fantacalcio.xyz")){
+  let target = event.notification.data?.Uri ?? event.notification.data?.url
+  if (target && target.includes("fantacalcio.xyz")){
     target = target.replace("fantacalcio.xyz", "fanta.zone")
   }
   if (!target) {
