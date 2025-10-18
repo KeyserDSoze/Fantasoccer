@@ -66,6 +66,34 @@ if ('serviceWorker' in navigator && 'PushManager' in window) {
             console.log('Service Worker is registered', swReg);
 
             swRegistration = swReg;
+            
+            // Auto-update: check for updates every 60 seconds
+            setInterval(() => {
+                swReg.update();
+            }, 60000);
+            
+            // Handle service worker updates
+            swReg.addEventListener('updatefound', () => {
+                const newWorker = swReg.installing;
+                console.log('[Service Worker] Update found, installing new version...');
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        console.log('[Service Worker] New version installed, activating...');
+                        // New service worker available, reload the page
+                        newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                });
+            });
+            
+            // Reload page when new service worker takes control
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                console.log('[Service Worker] Controller changed, reloading page...');
+                refreshing = true;
+                window.location.reload();
+            });
         })
         .catch(function (error) {
             console.error('Service Worker Error', error);

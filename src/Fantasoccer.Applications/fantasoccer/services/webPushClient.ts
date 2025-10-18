@@ -80,6 +80,14 @@ const ensureServiceWorkerRegistration = async (): Promise<ServiceWorkerRegistrat
   if (!registrationPromise) {
     registrationPromise = navigator.serviceWorker
       .register(SERVICE_WORKER_PATH)
+      .then((registration) => {
+        // Auto-update: check for updates every 60 seconds
+        setInterval(() => {
+          registration.update()
+        }, 60000)
+
+        return registration
+      })
       .catch((error) => {
         console.error('webPushClient: service worker registration failed', error)
         return null

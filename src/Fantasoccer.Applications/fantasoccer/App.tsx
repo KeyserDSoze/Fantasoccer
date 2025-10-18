@@ -14,6 +14,7 @@ import { ThemeProvider, useAppTheme } from 'providers/ThemeProvider';
 import { setupRepositoryServices } from 'configurations/repositoryConfig';
 import { ToastProvider, ToastViewport, Toast, useToastState } from '@tamagui/toast';
 import { YStack, Text } from 'tamagui';
+import { ServiceWorkerUpdateNotification } from 'components/ServiceWorkerUpdateNotification';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -56,6 +57,8 @@ const AppContent = () => {
             {/* Toast Viewport e Custom Toast */}
             <ToastViewport />
             <CurrentToast />
+            {/* Service Worker Update Banner */}
+            <ServiceWorkerUpdateNotification />
           </AppProvider>
         </AuthProvider>
       </LoadingProvider>

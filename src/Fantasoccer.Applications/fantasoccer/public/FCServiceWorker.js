@@ -18,6 +18,21 @@ const urlB64ToUint8Array = (base64String) => {
   return outputArray
 }
 
+// Auto-update: activate new service worker immediately
+self.addEventListener('install', (event) => {
+  console.log('[Service Worker] Installing new version...')
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  console.log('[Service Worker] Activating new version...')
+  event.waitUntil(
+    clients.claim().then(() => {
+      console.log('[Service Worker] Claiming all clients')
+    })
+  )
+})
+
 self.addEventListener('message', (event) => {
   if (!event.data) {
     return
@@ -25,6 +40,11 @@ self.addEventListener('message', (event) => {
 
   if (event.data.type === 'SET_VAPID_KEY' && typeof event.data.value === 'string') {
     self.__fantasoccerVapidKey = event.data.value
+  }
+  
+  // Force update on request
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
 })
 
