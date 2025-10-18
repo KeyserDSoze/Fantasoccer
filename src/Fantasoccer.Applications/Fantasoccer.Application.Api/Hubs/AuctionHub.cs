@@ -1,10 +1,13 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Concurrent;
+using Azure;
 using Fantasoccer.Business;
 using Fantasoccer.Business.Services;
 using Fantasoccer.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Org.BouncyCastle.Bcpg;
 using Org.BouncyCastle.Crypto;
 using RepositoryFramework;
 
@@ -17,15 +20,18 @@ namespace Fantasoccer.Application.Api.Hubs
         private readonly IRepository<AppIdentity, string> _identityRepository;
         private readonly EncryptionService _encryptionService;
         private readonly IRepository<Team, TeamKey> _team;
+        private readonly IRepository<Team, TeamDayKey> _teamDay;
         public AuctionHub(AuctionHubService auctionHubService,
             IRepository<AppIdentity, string> identityRepository,
             EncryptionService encryptionService,
-            IRepository<Team, TeamKey> team)
+            IRepository<Team, TeamKey> team,
+            IRepository<Team, TeamDayKey> teamDay)
         {
             _auctionHubService = auctionHubService;
             _identityRepository = identityRepository;
             _encryptionService = encryptionService;
             _team = team;
+            _teamDay = teamDay;
         }
         private sealed class ConcurrencyResponse
         {
@@ -86,7 +92,21 @@ namespace Fantasoccer.Application.Api.Hubs
                         toRemove.Status = PlayerInTeamStatus.SoldWithNoReturnedPrice;
                     }
                 }
-                return (await _team.UpdateAsync(team.Key, team.Value), string.Empty);
+                var response = await _team.UpdateAsync(team.Key, team.Value);
+                var nextSerieA = auctionWrapper.RealCalendar?.NextDay?.SerieADay;
+                if (nextSerieA != null)
+                {
+                    var teamDayKey = new TeamDayKey
+                    {
+                        Year = team.Key.Year,
+                        Email = team.Key.Email,
+                        Group = team.Key.Group,
+                        BasketId = team.Key.BasketId,
+                        Day = nextSerieA.Value
+                    };
+                    response = response || await _teamDay.UpdateAsync(teamDayKey, team.Value);
+                }
+                return (response, string.Empty);
             }
             else
             {
@@ -510,6 +530,19 @@ namespace Fantasoccer.Application.Api.Hubs
                     player.Revenue = 0;
                 }
                 var updated = await _team.UpdateAsync(teamEntity.Key, team);
+                var nextSerieA = wrapper.RealCalendar?.NextDay?.SerieADay;
+                if (nextSerieA != null)
+                {
+                    var teamDayKey = new TeamDayKey
+                    {
+                        Year = teamEntity.Key.Year,
+                        Email = teamEntity.Key.Email,
+                        Group = teamEntity.Key.Group,
+                        BasketId = teamEntity.Key.BasketId,
+                        Day = nextSerieA.Value
+                    };
+                    updated = updated || await _teamDay.UpdateAsync(teamDayKey, team);
+                }
                 return new ConcurrencyResponse(true, teamEntity);
             });
             if (concurrentResponse?.IsOk == true)

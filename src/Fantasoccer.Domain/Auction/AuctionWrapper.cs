@@ -63,6 +63,8 @@ namespace Fantasoccer.Domain
         public List<Entity<Team, TeamKey>> Teams { get; set; } = [];
         [JsonPropertyName("r")]
         public List<StatPlayer>? RealPlayers { get; set; }
+        [JsonPropertyName("rc")]
+        public RealCalendar? RealCalendar { get; set; }
         [JsonIgnore]
         public string LastJsonSaved { get; set; }
     }

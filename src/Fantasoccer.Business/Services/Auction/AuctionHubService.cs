@@ -12,6 +12,7 @@ namespace Fantasoccer.Business
         private readonly ILock _lock;
         private readonly IRepository<AuctionWrapper, string> _auctionRepository;
         private readonly IRepository<AppIdentity, string> _identityRepository;
+        private readonly IRepository<RealCalendar, int> _realCalendarRepository;
         private readonly IRepository<Rank, LeagueKey> _rankRepository;
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Group, string> _groups;
@@ -19,12 +20,14 @@ namespace Fantasoccer.Business
 
         public AuctionHubService(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
              IRepository<AppIdentity, string> identityRepository,
+             IRepository<RealCalendar, int> realCalendarRepository,
             IRepository<Rank, LeagueKey> rankRepository,
            IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
         {
             _lock = @lock;
             _auctionRepository = auctionRepository;
             _identityRepository = identityRepository;
+            _realCalendarRepository = realCalendarRepository;
             _rankRepository = rankRepository;
             _team = team;
             _groups = groups;
@@ -74,6 +77,7 @@ namespace Fantasoccer.Business
                             var leagueWrapper = group.Leagues.FirstOrDefault(x => x.Id == auction.LeagueKey.League);
                             if (league != null && leagueWrapper != null)
                             {
+                                var calendar = await _realCalendarRepository.GetAsync(auction.LeagueKey.Year);
                                 var rank = await _rankRepository.GetAsync(auction.LeagueKey);
                                 var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
                                 var teams = new List<Entity<Team, TeamKey>>();
@@ -112,6 +116,7 @@ namespace Fantasoccer.Business
                                     League = league,
                                     LeagueName = leagueWrapper?.Name ?? auction.LeagueKey.League,
                                     RealPlayers = statPlayers?.Players ?? [],
+                                    RealCalendar = calendar,
                                     Teams = teams,
                                     LastJsonSaved = auction.ToJson()
                                 });
