@@ -15,6 +15,7 @@ import { Behaviour } from 'types/serieA'
 import type { Chance } from '../../types/chance'
 import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
+import { Role } from 'types/group'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
 import { IconFactory } from './icons'
 
@@ -42,7 +43,7 @@ const BEHAVIOUR_CONFIG = {
 // Configurazione per i bonus/malus con ordine specifico usando IconFactory
 const BONUS_MALUS_CONFIG: {
   key: keyof Vote
-  iconType: 'goal' | 'penalty' | 'assist' | 'stoppedPenalty' | 'sufferedGoal' | 'wrongedPenalty' | 'ownGoal'
+  iconType: 'goal' | 'penalty' | 'assist' | 'stoppedPenalty' | 'sufferedGoal' | 'wrongedPenalty' | 'ownGoal' | 'cleanSheet'
   label: string
   description: string
   order: number
@@ -185,6 +186,9 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
       config: BEHAVIOUR_CONFIG[vote.status]
     } : null
 
+    // Calcola clean sheet per portieri: se è portiere, ha voto e non ha subito gol
+    const hasCleanSheet = vote.role === Role.GoalKeeper && vote.hasVote && (vote.sufferedGoals === 0)
+
     // Bonus/Malus raggruppati per tipo
     const bonusGroups: {
       config: typeof BONUS_MALUS_CONFIG[0]
@@ -209,6 +213,21 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
           items
         })
       }
+    }
+
+    // Aggiungi clean sheet se presente (solo per portieri)
+    if (hasCleanSheet) {
+      bonusGroups.unshift({ // unshift per metterlo all'inizio
+        config: { 
+          key: 'sufferedGoals' as keyof Vote, // usa una key esistente come placeholder
+          iconType: 'cleanSheet', 
+          label: 'Porta Inviolata', 
+          description: 'porta inviolata',
+          order: 0 
+        },
+        count: 1,
+        items: [<IconFactory key="cleanSheet" type="cleanSheet" size={14} />]
+      })
     }
 
     // Man of the Match

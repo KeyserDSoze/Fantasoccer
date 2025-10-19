@@ -12,6 +12,7 @@ export type IconType =
   | 'wrongedPenalty'
   | 'ownGoal'
   | 'sufferedGoal'
+  | 'cleanSheet'
   | 'yellowCard'
   | 'redCard'
   | 'injury'
@@ -61,6 +62,10 @@ export const IconFactory: React.FC<IconFactoryProps> = ({ type, size = 16 }) => 
       // Gol subito - pallone rosso con dettagli bianchi
       return <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" size={size} />
 
+    case 'cleanSheet':
+      // Porta inviolata (clean sheet) - emoji scudo o trofeo
+      return <span style={{ fontSize: size }}>🛡️</span>
+
     case 'yellowCard':
       // Cartellino giallo - SVG cartellino giallo
       return <BehaviourCardSVG color="#fbbf24" size={size} />
@@ -94,6 +99,7 @@ export const useIconLabel = (type: IconType): string => {
     wrongedPenalty: 'Rigore sbagliato',
     ownGoal: 'Autogol',
     sufferedGoal: 'Gol subito',
+    cleanSheet: 'Porta inviolata',
     yellowCard: 'Ammonizione',
     redCard: 'Espulsione',
     injury: 'Infortunio',

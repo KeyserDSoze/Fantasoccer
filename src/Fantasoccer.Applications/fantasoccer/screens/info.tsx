@@ -181,6 +181,10 @@ export default function InfoScreen() {
                       <Text fontSize="$2" color="$color10">Assist fornito</Text>
                     </XStack>
                     <XStack alignItems="center" gap="$2">
+                      <IconFactory type="cleanSheet" size={16} />
+                      <Text fontSize="$2" color="$color10">Porta inviolata (clean sheet) - solo portieri che non hanno subito gol</Text>
+                    </XStack>
+                    <XStack alignItems="center" gap="$2">
                       <IconFactory type="stoppedPenalty" size={16} />
                       <Text fontSize="$2" color="$color10">Rigore parato (portieri)</Text>
                     </XStack>
