@@ -16,7 +16,7 @@ import type { Chance } from '../../types/chance'
 import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
-import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate } from 'utils/timezoneHelpers'
+import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate, convertUTCToItalianTimezone, convertDateToItalianTimezone } from 'utils/timezoneHelpers'
 import { IconFactory } from './icons'
 
 
@@ -317,7 +317,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   const gameInfo = useMemo(() => {
     if (!realGame) return null
     const actualDate = new Date()
-    const gameDate = realGame.date ? convertUTCToItalianTimezoneAsNotNullableDate(realGame.date.toISOString()) : null
+    const gameDate = realGame.date ? convertDateToItalianTimezone(realGame.date) : null
     const isPlayed = gameDate && gameDate < actualDate
     
     const homeTeamName = realGame.home?.name || realGame.home

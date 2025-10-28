@@ -45,16 +45,10 @@ export function convertUTCToItalianTimezone(utcDateString: string | null): strin
     // Controlliamo se la data è nel periodo dell'ora legale
     const isDST = utcDate >= dstStart && utcDate < dstEnd;
     
-    // Calcoliamo l'offset in base al periodo
-    const offsetHours = isDST ? 2 : 1; // UTC+2 in estate, UTC+1 in inverno
-    const offsetMinutes = offsetHours * 60;
-    
     // Creiamo una nuova data aggiungendo l'offset
     const italianDate = new Date(utcDate.getTime());
-    
     // Formattiamo la data con il timezone italiano
     const offsetString = isDST ? '+02:00' : '+01:00';
-    
     // Costruiamo manualmente la stringa ISO con il timezone corretto
     const year_str = italianDate.getUTCFullYear();
     const month = String(italianDate.getUTCMonth() + 1).padStart(2, '0');
@@ -73,6 +67,7 @@ export function convertUTCToItalianTimezone(utcDateString: string | null): strin
 
 export function convertUTCToItalianTimezoneAsNotNullableDate(utcDateString: string | null): Date {
   const currentDate = convertUTCToItalianTimezone(utcDateString);
+
   return currentDate ? new Date(currentDate) : new Date();
 }
 
@@ -177,7 +172,6 @@ function getLastSundayOfMonth(year: number, month: number): Date {
  * @param utcDateString - Data UTC+0 da analizzare
  */
 export function debugTimezoneConversion(utcDateString: string): void {
-  console.log('🧪 Debug conversione timezone:', utcDateString);
   console.log('=' .repeat(40));
   
   const original = new Date(utcDateString);
@@ -199,3 +193,46 @@ export const ITALIAN_TIMEZONE_CONSTANTS = {
   DST_END_MONTH: 9,    // Ottobre (0-indexed)
   CHANGE_HOUR: 2       // Cambio alle 2:00 del mattino
 } as const;
+
+
+/**
+ * Converte un oggetto Date (in qualsiasi timezone) al timezone italiano
+ * Questa funzione NON si fida del timezone originale della Date - la tratta sempre come UTC+0
+ * e applica l'offset italiano appropriato (UTC+1 o UTC+2)
+ * 
+ * @param date - Oggetto Date da convertire (verrà trattato come UTC)
+ * @returns Oggetto Date con il timezone italiano corretto
+ * 
+ * @example
+ * const backendDate = new Date('2024-03-31T14:00:00Z'); // 14:00 UTC
+ * const italianDate = convertDateToItalianTimezone(backendDate);
+ * // Risultato: Date che rappresenta 31 Mar 2024, 16:00 (UTC+2 per ora legale)
+ */
+export function convertDateToItalianTimezone(date: Date | null): Date | null {
+  if (!date) return null;
+  try {
+    // Ottieni i componenti UTC della data (ignorando il timezone locale)
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
+    const ms = date.getUTCMilliseconds();
+    
+    // Ricostruisci la data in UTC puro
+    const utcDate = new Date(Date.UTC(year, month, day, hours, minutes, seconds, ms));
+    
+    // Calcola l'offset italiano (UTC+1 o UTC+2)
+    const offsetHours = getItalianTimezoneOffset(utcDate);
+    console.log(`Convertendo data al timezone italiano: Offset di +${offsetHours} ore`);
+    // Aggiungi l'offset per ottenere l'ora italiana
+    const italianTimestamp = utcDate.getTime();
+    
+    return new Date(italianTimestamp);
+    
+  } catch (error) {
+    console.error('Errore nella conversione Date al timezone italiano:', error);
+    return date; // Ritorna la data originale in caso di errore
+  }
+}
