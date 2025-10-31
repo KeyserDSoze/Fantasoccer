@@ -115,6 +115,52 @@ const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyFo
       },
     },
     {
+      key: 'valuePoints',
+      label: 'PF',
+      width: isCompact ? 48 : 56,
+      render: (team) => ({
+        value: `${team.valuePoint ?? 0}`,
+        color: '$blue10',
+      }),
+    },
+    {
+      key: 'sufferedValuePoints',
+      label: 'PS',
+      width: isCompact ? 48 : 56,
+      render: (team) => ({
+        value: `${team.sufferedValuePoint ?? 0}`,
+        color: '$orange10',
+      }),
+    },
+    {
+      key: 'avgValuePointsPerGame',
+      label: 'PF/G',
+      width: isCompact ? 56 : 64,
+      render: (team) => {
+        const totalGames = (team.victories ?? 0) + (team.draws ?? 0) + (team.defeats ?? 0)
+        const avgPoints = totalGames > 0 ? (team.valuePoint ?? 0) / totalGames : 0
+        
+        return {
+          value: avgPoints > 0 ? avgPoints.toFixed(1) : '-',
+          color: '$blue10',
+        }
+      },
+    },
+    {
+      key: 'avgSufferedValuePointsPerGame',
+      label: 'PS/G',
+      width: isCompact ? 56 : 64,
+      render: (team) => {
+        const totalGames = (team.victories ?? 0) + (team.draws ?? 0) + (team.defeats ?? 0)
+        const avgSuffered = totalGames > 0 ? (team.sufferedValuePoint ?? 0) / totalGames : 0
+        
+        return {
+          value: avgSuffered > 0 ? avgSuffered.toFixed(1) : '-',
+          color: '$orange10',
+        }
+      },
+    },
+    {
       key: 'goalMoney',
       label: '+$',
       width: isCompact ? 64 : 72,
