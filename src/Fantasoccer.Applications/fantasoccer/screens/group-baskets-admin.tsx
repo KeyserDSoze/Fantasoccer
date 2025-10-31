@@ -50,7 +50,7 @@ export default function GroupBasketsAdminScreen() {
 
   // Format year number to season string (e.g., 1 -> "2011/12", 14 -> "2024/25")
   const formatSeasonFromYear = (yearNumber: number): string => {
-    const baseYear = 2011
+    const baseYear = 2012
     const startYear = baseYear + yearNumber
     const endYear = startYear + 1
     return `${startYear}/${String(endYear).slice(-2)}`
@@ -58,7 +58,7 @@ export default function GroupBasketsAdminScreen() {
 
   // Available years for selector (year indices from 1 to current year index + 1)
   const availableYears = useMemo(() => {
-    const baseYear = 2011
+    const baseYear = 2012
     const currentSolarYear = new Date().getFullYear()
     const maxYearIndex = currentSolarYear - baseYear + 2 // +2 to include next year
     const years: number[] = []

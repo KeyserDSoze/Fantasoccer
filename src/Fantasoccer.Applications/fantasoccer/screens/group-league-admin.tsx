@@ -24,7 +24,15 @@ export default function GroupLeagueAdminScreen() {
   const [dayToRecalculate, setDayToRecalculate] = useState(38)
   const [pendingLeagueChanges, setPendingLeagueChanges] = useState<Partial<League> | null>(null)
   
-  const [loading, setLoading] = useState(false)
+  // Loading states for each operation
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  
+  const setLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }))
+  }
+  
+  const isLoading = (key: string) => loadingStates[key] || false
+  const isAnyLoading = Object.values(loadingStates).some(v => v)
 
   const formatSeasonFromYear = (yearNumber: number): string => {
     const baseYear = 2012
@@ -111,7 +119,7 @@ export default function GroupLeagueAdminScreen() {
   const createLeague = useCallback(async () => {
     if (!currentGroup || !newLeagueName.trim()) return
 
-    setLoading(true)
+    setLoading('create', true)
 
     try {
       const newLeagueId = crypto.randomUUID()
@@ -141,7 +149,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nella creazione della lega: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('create', false)
     }
   }, [currentGroup, newLeagueName, refreshGroups, toast])
 
@@ -149,7 +157,7 @@ export default function GroupLeagueAdminScreen() {
   const deleteLeague = useCallback(async (leagueId: string) => {
     if (!currentGroup) return
 
-    setLoading(true)
+    setLoading('delete', true)
 
     try {
       const leagueToDelete = currentGroup.leagues.find(l => l.id === leagueId)
@@ -175,7 +183,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nell'eliminazione della lega: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('delete', false)
     }
   }, [currentGroup, refreshGroups, toast])
 
@@ -183,7 +191,7 @@ export default function GroupLeagueAdminScreen() {
   const saveSettings = useCallback(async () => {
     if (!currentGroup || !selectedLeague || !settings) return
 
-    setLoading(true)
+    setLoading('save', true)
 
     try {
       const updatedGroup = {
@@ -205,7 +213,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('save', false)
     }
   }, [currentGroup, selectedLeague, settings, refreshGroups, toast])
 
@@ -213,7 +221,7 @@ export default function GroupLeagueAdminScreen() {
   const createCalendarAndRank = useCallback(async () => {
     if (!currentGroup || !selectedLeague) return
 
-    setLoading(true)
+    setLoading('calendar', true)
 
     try {
       const result = await leagueManagerService.createCalendarAndRank(
@@ -231,7 +239,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nella creazione: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('calendar', false)
     }
   }, [currentGroup, selectedLeague, currentYearIndex, toast])
 
@@ -239,7 +247,7 @@ export default function GroupLeagueAdminScreen() {
   const randomizePlayers = useCallback(async () => {
     if (!currentGroup || !selectedLeague) return
 
-    setLoading(true)
+    setLoading('randomize', true)
 
     try {
       const result = await leagueManagerService.randomizePlayersForAuctions(
@@ -257,7 +265,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nella randomizzazione: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('randomize', false)
     }
   }, [currentGroup, selectedLeague, currentYearIndex, toast])
 
@@ -265,7 +273,7 @@ export default function GroupLeagueAdminScreen() {
   const recalculateAll = useCallback(async () => {
     if (!currentGroup || !selectedLeague) return
 
-    setLoading(true)
+    setLoading('recalcAll', true)
 
     try {
       const result = await leagueManagerService.recalculate(
@@ -286,7 +294,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nel ricalcolo: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('recalcAll', false)
     }
   }, [currentGroup, selectedLeague, currentYearIndex, toast])
 
@@ -294,7 +302,7 @@ export default function GroupLeagueAdminScreen() {
   const recalculateLastDay = useCallback(async () => {
     if (!currentGroup || !selectedLeague) return
 
-    setLoading(true)
+    setLoading('recalcLast', true)
 
     try {
       const result = await leagueManagerService.recalculate(
@@ -315,7 +323,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nel ricalcolo: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('recalcLast', false)
     }
   }, [currentGroup, selectedLeague, currentYearIndex, toast])
 
@@ -323,7 +331,7 @@ export default function GroupLeagueAdminScreen() {
   const recalculateSpecificDay = useCallback(async () => {
     if (!currentGroup || !selectedLeague) return
 
-    setLoading(true)
+    setLoading('recalcDay', true)
 
     try {
       const result = await leagueManagerService.recalculate(
@@ -344,7 +352,7 @@ export default function GroupLeagueAdminScreen() {
     } catch (err) {
       toast.show(`❌ Errore nel ricalcolo: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setLoading(false)
+      setLoading('recalcDay', false)
     }
   }, [currentGroup, selectedLeague, currentYearIndex, dayToRecalculate, toast])
 
@@ -506,12 +514,12 @@ export default function GroupLeagueAdminScreen() {
                     placeholder="Nome lega"
                     value={newLeagueName}
                     onChangeText={setNewLeagueName}
-                    disabled={loading}
+                    disabled={isAnyLoading}
                   />
                   <Button
-                    icon={loading ? Spinner : Package}
+                    icon={isLoading('create') ? Spinner : Package}
                     onPress={createLeague}
-                    disabled={loading || !newLeagueName.trim()}
+                    disabled={isAnyLoading || !newLeagueName.trim()}
                     theme="blue"
                   >
                     Crea Lega
@@ -535,7 +543,7 @@ export default function GroupLeagueAdminScreen() {
                           size="$3"
                           variant="outlined"
                           onPress={() => deleteLeague(selectedLeague.id)}
-                          disabled={loading}
+                          disabled={isAnyLoading}
                           theme="red"
                         >
                           Elimina Lega
@@ -552,7 +560,7 @@ export default function GroupLeagueAdminScreen() {
                             flex={1}
                             value={selectedLeague.name}
                             onChangeText={(val) => updateLeagueProperty('name', val)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -562,7 +570,7 @@ export default function GroupLeagueAdminScreen() {
                             <Switch
                               checked={selectedLeague.isMain}
                               onCheckedChange={(checked) => updateLeagueProperty('isMain', checked)}
-                              disabled={loading}
+                              disabled={isAnyLoading}
                             />
                           </XStack>
                         </XStack>
@@ -574,7 +582,7 @@ export default function GroupLeagueAdminScreen() {
                               value={selectedLeague.type.toString()} 
                               onValueChange={(val) => updateLeagueProperty('type', Number(val) as LeagueType)}
                             >
-                              <Select.Trigger iconAfter={ChevronDown} disabled={loading}>
+                              <Select.Trigger iconAfter={ChevronDown} disabled={isAnyLoading}>
                                 <Select.Value />
                               </Select.Trigger>
                               <Select.Content zIndex={200000}>
@@ -616,7 +624,7 @@ export default function GroupLeagueAdminScreen() {
                               value={selectedYearlyLeague?.type?.toString() ?? selectedLeague.type.toString()} 
                               onValueChange={(val) => updateYearlyLeagueType(Number(val) as LeagueType)}
                             >
-                              <Select.Trigger iconAfter={ChevronDown} disabled={loading}>
+                              <Select.Trigger iconAfter={ChevronDown} disabled={isAnyLoading}>
                                 <Select.Value placeholder={`Default: ${['Nessuno', 'Lega', 'Coppa', 'Nuova Coppa', 'Super Lega'][selectedLeague.type]}`} />
                               </Select.Trigger>
                               <Select.Content zIndex={200000}>
@@ -649,7 +657,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.startingMoney)}
                             onChangeText={(val) => updateSetting('startingMoney', Number(val) || 500)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -660,7 +668,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.delayedDay)}
                             onChangeText={(val) => updateSetting('delayedDay', Number(val) || 0)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -671,7 +679,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.cancelledDay)}
                             onChangeText={(val) => updateSetting('cancelledDay', Number(val) || 0)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -682,7 +690,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.pointForFirstGoal)}
                             onChangeText={(val) => updateSetting('pointForFirstGoal', Number(val) || 66)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -693,7 +701,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.pointForNextGoal)}
                             onChangeText={(val) => updateSetting('pointForNextGoal', Number(val) || 6)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -704,7 +712,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.pointForOwnGoal)}
                             onChangeText={(val) => updateSetting('pointForOwnGoal', Number(val) || 0)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -715,7 +723,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.differencePointForOwnGoal)}
                             onChangeText={(val) => updateSetting('differencePointForOwnGoal', Number(val) || 0)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -726,7 +734,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.pointInHome)}
                             onChangeText={(val) => updateSetting('pointInHome', Number(val) || 0)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -737,7 +745,7 @@ export default function GroupLeagueAdminScreen() {
                             keyboardType="numeric"
                             value={String(settings.pointForVictory)}
                             onChangeText={(val) => updateSetting('pointForVictory', Number(val) || 3)}
-                            disabled={loading}
+                            disabled={isAnyLoading}
                           />
                         </XStack>
 
@@ -747,7 +755,7 @@ export default function GroupLeagueAdminScreen() {
                             <Switch
                               checked={settings.randomAuction}
                               onCheckedChange={(checked) => updateSetting('randomAuction', checked)}
-                              disabled={loading}
+                              disabled={isAnyLoading}
                             />
                           </XStack>
                         </XStack>
@@ -758,7 +766,7 @@ export default function GroupLeagueAdminScreen() {
                             <Switch
                               checked={settings.rankWithValuePoints}
                               onCheckedChange={(checked) => updateSetting('rankWithValuePoints', checked)}
-                              disabled={loading}
+                              disabled={isAnyLoading}
                             />
                           </XStack>
                         </XStack>
@@ -766,9 +774,9 @@ export default function GroupLeagueAdminScreen() {
 
                       {/* Save Button */}
                       <Button
-                        icon={loading ? Spinner : Save}
+                        icon={isLoading('save') ? Spinner : Save}
                         onPress={saveSettings}
-                        disabled={loading}
+                        disabled={isAnyLoading}
                         theme="green"
                       >
                         Salva Impostazioni
@@ -786,18 +794,18 @@ export default function GroupLeagueAdminScreen() {
                       </Text>
 
                       <Button
-                        icon={loading ? Spinner : Calculator}
+                        icon={isLoading('calendar') ? Spinner : Calculator}
                         onPress={createCalendarAndRank}
-                        disabled={loading}
+                        disabled={isAnyLoading}
                         theme="blue"
                       >
                         Crea Calendario e Classifica
                       </Button>
 
                       <Button
-                        icon={loading ? Spinner : Shuffle}
+                        icon={isLoading('randomize') ? Spinner : Shuffle}
                         onPress={randomizePlayers}
-                        disabled={loading}
+                        disabled={isAnyLoading}
                         theme="purple"
                       >
                         Randomizza Giocatori per Asta
@@ -808,18 +816,18 @@ export default function GroupLeagueAdminScreen() {
                       <Text fontSize="$4" fontWeight="600" color="$color11">Ricalcoli</Text>
 
                       <Button
-                        icon={loading ? Spinner : RefreshCw}
+                        icon={isLoading('recalcAll') ? Spinner : RefreshCw}
                         onPress={recalculateAll}
-                        disabled={loading}
+                        disabled={isAnyLoading}
                         theme="orange"
                       >
                         Ricalcola Tutto
                       </Button>
 
                       <Button
-                        icon={loading ? Spinner : RefreshCw}
+                        icon={isLoading('recalcLast') ? Spinner : RefreshCw}
                         onPress={recalculateLastDay}
-                        disabled={loading}
+                        disabled={isAnyLoading}
                         theme="orange"
                       >
                         Ricalcola Solo Ultima Giornata
@@ -837,13 +845,13 @@ export default function GroupLeagueAdminScreen() {
                               setDayToRecalculate(num)
                             }
                           }}
-                          disabled={loading}
+                          disabled={isAnyLoading}
                         />
                         <Button
                           flex={1}
-                          icon={loading ? Spinner : RefreshCw}
+                          icon={isLoading('recalcDay') ? Spinner : RefreshCw}
                           onPress={recalculateSpecificDay}
-                          disabled={loading || dayToRecalculate < 1 || dayToRecalculate > 38}
+                          disabled={isAnyLoading || dayToRecalculate < 1 || dayToRecalculate > 38}
                           theme="orange"
                         >
                           Ricalcola Giornata
