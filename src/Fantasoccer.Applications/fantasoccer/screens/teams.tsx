@@ -11,14 +11,7 @@ import { TeamLogo } from 'components/team/TeamLogo'
 import { Role } from 'types/group'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import type { LeagueOption } from 'components/LeagueSelectorsWidget'
-
-// Helper function to format year
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 export default function TeamsScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()

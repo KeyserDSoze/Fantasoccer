@@ -1,6 +1,7 @@
 // Types matching the C# HallOfFame domain structures
 import { Player, PlayerRaw, mapRawPlayerToPlayer } from './team'
 import { CalendarGame, CalendarGameRaw, mapRawCalendarGameToCalendarGame } from './calendar'
+import { formatSeasonFromYear } from 'utils/season'
 
 // ============================================
 // RAW INTERFACES (matching JSON property names from C#)
@@ -340,10 +341,7 @@ export class HallOfFameHelper {
    * Format season from year number
    */
   static formatSeason(year: number): string {
-    const baseYear = 2011
-    const startYear = baseYear + year
-    const endYear = startYear + 1
-    return `${startYear}/${String(endYear).slice(-2)}`
+    return formatSeasonFromYear(year)
   }
 
   /**

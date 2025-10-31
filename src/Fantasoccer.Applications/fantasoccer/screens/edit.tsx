@@ -8,14 +8,7 @@ import { useNavigation } from '@react-navigation/native'
 import { calendarService } from 'services/calendarService'
 import { serieAService } from 'services/serieAService'
 import type { CalendarGame } from 'types/calendar'
-
-// Helper function to convert year number to season string
-const getSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 export default function EditTeamScreen() {
   const { currentGroup, selectedLeagueId, selectedYear, getAvailableLeagues } = useApp()
@@ -96,7 +89,7 @@ export default function EditTeamScreen() {
 
       if (allGames.length === 0) {
         const leagueName = getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'questa lega'
-        const season = getSeasonFromYear(selectedYear)
+        const season = formatSeasonFromYear(selectedYear)
         setError(`Non hai una squadra in ${leagueName} per l'anno ${season}`)
         setIsLoading(false)
         return

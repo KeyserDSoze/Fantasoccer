@@ -30,14 +30,7 @@ import { marketService } from 'services/marketService'
 import { Team, Player } from 'types/team'
 import { Role } from 'types/group'
 import { MarketStatus } from 'types/market'
-
-// Helper to format season from year number
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 // Helper to get role label
 const getRoleLabel = (role: Role): string => {

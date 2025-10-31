@@ -11,6 +11,7 @@ import { leagueManagerService } from 'services/leagueManagerService'
 import type { League, LeagueSetting, VoteLeagueSetting, AnnualLeague, Role } from 'types/group'
 import { LeagueType } from 'types/group'
 import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown } from '@tamagui/lucide-icons'
+import { formatSeasonFromYear, getAvailableSeasonYears, getCurrentSeasonYear } from 'utils/season'
 
 export default function GroupLeagueAdminScreen() {
   const media = useMedia()
@@ -34,28 +35,11 @@ export default function GroupLeagueAdminScreen() {
   const isLoading = (key: string) => loadingStates[key] || false
   const isAnyLoading = Object.values(loadingStates).some(v => v)
 
-  const formatSeasonFromYear = (yearNumber: number): string => {
-    const baseYear = 2012
-    const startYear = baseYear + yearNumber - 1
-    const endYear = startYear + 1
-    return `${startYear}/${String(endYear).slice(-2)}`
-  }
-
-  // Available years for selector (year indices from 1 to current year index + 1)
-  const availableYears = useMemo(() => {
-    const baseYear = 2012
-    const currentSolarYear = new Date().getFullYear()
-    const maxYearIndex = currentSolarYear - baseYear + 2 // +2 to include next year
-    const years: number[] = []
-    for (let yearIndex = 1; yearIndex <= maxYearIndex; yearIndex++) {
-      years.push(yearIndex)
-    }
-    return years
-  }, [])
+  // Available years for selector
+  const availableYears = useMemo(() => getAvailableSeasonYears(), [])
 
   // Selected year index (default to current year index)
-  const currentSolarYear = new Date().getFullYear()
-  const currentYearIndex = selectedYear ?? (currentSolarYear - 2012 + 1)
+  const currentYearIndex = selectedYear ?? getCurrentSeasonYear()
 
   // League options for selector
   const leagueOptions = useMemo(() => {

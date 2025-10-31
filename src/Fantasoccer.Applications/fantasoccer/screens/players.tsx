@@ -31,13 +31,7 @@ import type { StatPlayer } from 'types/stat'
 import { RoleExtensions } from 'types/group'
 import { teamService } from 'services/teamService'
 import type { Team } from 'types/team'
-
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 type NumericStatKey =
   | 'summatory'

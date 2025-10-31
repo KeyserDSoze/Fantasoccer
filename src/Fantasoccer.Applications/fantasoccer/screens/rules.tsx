@@ -18,13 +18,7 @@ import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { Role, RoleExtensions, GroupHelper, type LeagueSetting, type VoteLeagueSetting } from 'types/group'
 import { IconFactory, useIconLabel } from 'components/lineup/icons'
-
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 // Regole fisse del fantacalcio
 const FIXED_RULES = {

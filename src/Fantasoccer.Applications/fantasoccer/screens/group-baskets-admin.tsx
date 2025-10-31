@@ -32,6 +32,7 @@ import {
   Edit3,
   Save
 } from '@tamagui/lucide-icons'
+import { formatSeasonFromYear, getAvailableSeasonYears } from 'utils/season'
 
 export default function GroupBasketsAdminScreen() {
   const media = useMedia()
@@ -48,29 +49,11 @@ export default function GroupBasketsAdminScreen() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Format year number to season string (e.g., 1 -> "2011/12", 14 -> "2024/25")
-  const formatSeasonFromYear = (yearNumber: number): string => {
-    const baseYear = 2012
-    const startYear = baseYear + yearNumber
-    const endYear = startYear + 1
-    return `${startYear}/${String(endYear).slice(-2)}`
-  }
-
-  // Available years for selector (year indices from 1 to current year index + 1)
-  const availableYears = useMemo(() => {
-    const baseYear = 2012
-    const currentSolarYear = new Date().getFullYear()
-    const maxYearIndex = currentSolarYear - baseYear + 2 // +2 to include next year
-    const years: number[] = []
-    for (let yearIndex = 1; yearIndex <= maxYearIndex; yearIndex++) {
-      years.push(yearIndex)
-    }
-    return years
-  }, [])
+  // Available years for selector
+  const availableYears = useMemo(() => getAvailableSeasonYears(), [])
 
   // Selected year index (default to current year index)
-  const currentSolarYear = new Date().getFullYear()
-  const currentYearIndex = selectedYear ?? (currentSolarYear - 2011 + 1)
+  const currentYearIndex = selectedYear ?? availableYears[availableYears.length - 2] ?? 1
 
   // Selected basket
   const selectedBasket = useMemo(() => {

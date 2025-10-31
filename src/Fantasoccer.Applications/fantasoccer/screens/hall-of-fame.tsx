@@ -31,14 +31,7 @@ import { useHallOfFame } from 'hooks/useHallOfFame'
 import { RankedTeam, WinningTeam, WinningPlayer, HallOfFameHelper } from 'types/hallOfFame'
 import { useNavigation } from '@react-navigation/native'
 import type { NavigationProp } from 'navigation'
-
-// Helper to format season from year number
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 // Helper to format multiple years
 const formatYears = (years: number[]): string => {

@@ -16,13 +16,7 @@ import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'
 import { useRankByComponents } from 'hooks/useRank'
 import { useGroupLeagues } from 'hooks/useGroup'
-
-const formatSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2011
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  return `${startYear}/${String(endYear).slice(-2)}`
-}
+import { formatSeasonFromYear } from 'utils/season'
 
 const formatRoundLabel = (roundId: string): string => {
   if (roundId === '@') {

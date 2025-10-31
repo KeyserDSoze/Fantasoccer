@@ -39,6 +39,7 @@ import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
+import { formatSeasonFromYear } from 'utils/season'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -69,16 +70,6 @@ type NavigationItem = NavigationRouteItem | NavigationLinkItem
 type NavigationSection = {
   section: string
   items: NavigationItem[]
-}
-
-// Helper function to convert year number to season string
-const getSeasonFromYear = (yearNumber: number): string => {
-  const baseYear = 2012
-  const startYear = baseYear + yearNumber
-  const endYear = startYear + 1
-  
-  // return `${startYear}/${String(endYear).slice(-2)} (${yearNumber})`
-  return `${startYear}/${String(endYear).slice(-2)}`
 }
 
 // Navigation items structure based on prompt_frontendapp routing
@@ -331,7 +322,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                       {selectedLeagueId && (
                         <Text fontSize="$2" color="$color11">
                           🏆 {getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'Unknown League'}
-                          {selectedYear && ` • Anno ${getSeasonFromYear(selectedYear)}`}
+                          {selectedYear && ` • Anno ${formatSeasonFromYear(selectedYear)}`}
                         </Text>
                       )}
                     </YStack>
@@ -432,7 +423,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                                 minWidth="$3"
                               >
                                 <Text fontSize="$1" color={selectedYear === year ? "orange" : "$color11"}>
-                                  {getSeasonFromYear(year)}
+                                  {formatSeasonFromYear(year)}
                                 </Text>
                               </Button>
                             ))}
