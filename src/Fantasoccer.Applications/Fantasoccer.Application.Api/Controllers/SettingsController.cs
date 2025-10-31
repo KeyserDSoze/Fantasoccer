@@ -153,6 +153,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 };
                 var calendar = await _calendarRepository.GetAsync(leagueKey);
                 if (calendar != null)
+                {
                     foreach (var day in calendar.Rounds.SelectMany(x => x.Value))
                     {
                         foreach (var game in day.Games)
@@ -167,24 +168,27 @@ namespace Fantasoccer.Application.Api.Controllers
                             }
                         }
                     }
-                await WriteMessageAsync($"Agg. calendario {league.Name}");
+                    await _calendarRepository.UpdateAsync(leagueKey, calendar);
+                    await WriteMessageAsync($"Agg. calendario {league.Name}");
+                }
                 var rank = await _rankRepository.GetAsync(leagueKey);
-                if (rank == null)
-                    continue;
-                var checkIfNeedsUpdate = false;
-                foreach (var rankedTeams in rank.RankedTeams)
+                if (rank != null)
                 {
-                    foreach (var team in rankedTeams.Value)
+                    var checkIfNeedsUpdate = false;
+                    foreach (var rankedTeams in rank.RankedTeams)
                     {
-                        if (team.Owner == owner)
+                        foreach (var team in rankedTeams.Value)
                         {
-                            team.Name = newName;
-                            checkIfNeedsUpdate = true;
+                            if (team.Owner == owner)
+                            {
+                                team.Name = newName;
+                                checkIfNeedsUpdate = true;
+                            }
                         }
                     }
+                    if (checkIfNeedsUpdate)
+                        await _rankRepository.UpdateAsync(leagueKey, rank);
                 }
-                if (checkIfNeedsUpdate)
-                    await _rankRepository.UpdateAsync(leagueKey, rank);
             }
             for (var i = 1; i <= actualDay; i++)
             {
@@ -199,22 +203,24 @@ namespace Fantasoccer.Application.Api.Controllers
                         League = league.Id
                     };
                     var rank = await _dailyRankRepository.GetAsync(yearDayLeague);
-                    if (rank == null)
-                        continue;
-                    var checkIfNeedsUpdate = false;
-                    foreach (var rankedTeams in rank.RankedTeams)
+                    if (rank != null)
                     {
-                        foreach (var team in rankedTeams.Value)
+
+                        var checkIfNeedsUpdate = false;
+                        foreach (var rankedTeams in rank.RankedTeams)
                         {
-                            if (team.Owner == owner)
+                            foreach (var team in rankedTeams.Value)
                             {
-                                team.Name = newName;
-                                checkIfNeedsUpdate = true;
+                                if (team.Owner == owner)
+                                {
+                                    team.Name = newName;
+                                    checkIfNeedsUpdate = true;
+                                }
                             }
                         }
+                        if (checkIfNeedsUpdate)
+                            await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
                     }
-                    if (checkIfNeedsUpdate)
-                        await _dailyRankRepository.UpdateAsync(yearDayLeague, rank);
                 }
                 await WriteMessageAsync($"Agg. squadra giornata {i}");
                 // Update daily team
@@ -227,10 +233,11 @@ namespace Fantasoccer.Application.Api.Controllers
                     Day = i,
                 };
                 var teamDay = await _teamDayRepository.GetAsync(teamDayKey);
-                if (teamDay == null)
-                    continue;
-                teamDay.Name = newName;
-                await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
+                if (teamDay != null)
+                {
+                    teamDay.Name = newName;
+                    await _teamDayRepository.UpdateAsync(teamDayKey, teamDay);
+                }
             }
             await WriteMessageAsync("ok");
         }
