@@ -33,6 +33,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                         market = new() { Markets = new() };
                         await _marketRepository.InsertAsync(leagueKey, market);
                     }
+                    market.Markets ??= [];
                     var hasExpiredSomething = false;
                     foreach (var exchange in market.Markets.Where(x => x.Status == MarketStatus.Pending))
                     {

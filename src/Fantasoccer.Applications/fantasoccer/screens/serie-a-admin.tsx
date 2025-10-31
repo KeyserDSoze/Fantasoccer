@@ -13,6 +13,7 @@ import {
   Button,
   useMedia
 } from 'tamagui'
+import { useToastController } from '@tamagui/toast'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { serieAService } from 'services/serieAService'
 import { recalculationService } from 'services/recalculationService'
@@ -33,6 +34,7 @@ import {
 export default function SerieAAdminScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
+  const toast = useToastController()
 
   // Use app context for year and calendar
   const { selectedYear, setSelectedYear } = useApp()
@@ -40,13 +42,18 @@ export default function SerieAAdminScreen() {
     enablePolling: false // Disable auto-refresh for admin page
   })
 
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
   const [modifiedGames, setModifiedGames] = useState<Set<string>>(new Set())
-  const [recalculating, setRecalculating] = useState(false)
   const [recalculatingDay, setRecalculatingDay] = useState<number | null>(null)
-  const [recalcError, setRecalcError] = useState<string | null>(null)
-  const [recalcSuccess, setRecalcSuccess] = useState<string | null>(null)
+  
+  // Loading states for each operation
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  
+  const setLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }))
+  }
+  
+  const isLoadingOp = (key: string) => loadingStates[key] || false
+  const isAnyLoading = Object.values(loadingStates).some(v => v)
 
   // Local calendar state for modifications (overlay on top of the hook's calendar)
   const [localCalendar, setLocalCalendar] = useState<RealCalendar | null>(null)
@@ -56,8 +63,6 @@ export default function SerieAAdminScreen() {
     if (calendar) {
       setLocalCalendar(calendar)
       setModifiedGames(new Set()) // Clear modifications on calendar change
-      setRecalcSuccess(null) // Clear success message on calendar change
-      setRecalcError(null) // Clear error message on calendar change
     }
   }, [calendar])
 
@@ -114,8 +119,7 @@ export default function SerieAAdminScreen() {
   const saveChanges = useCallback(async () => {
     if (!localCalendar || !selectedYear || modifiedGames.size === 0) return
 
-    setSaving(true)
-    setSaveError(null)
+    setLoading('save', true)
 
     try {
       // For each modified game, update it
@@ -141,63 +145,65 @@ export default function SerieAAdminScreen() {
 
       // Clear modifications
       setModifiedGames(new Set())
+      
+      toast.show(`✅ ${modifiedGames.size} partita/e salvata/e con successo`, { variant: 'success' })
 
       // Reload calendar to ensure consistency
       await refetch()
     } catch (err) {
-      setSaveError(`Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      toast.show(`❌ Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setSaving(false)
+      setLoading('save', false)
     }
-  }, [localCalendar, modifiedGames, selectedYear, refetch])
+  }, [localCalendar, modifiedGames, selectedYear, refetch, toast])
 
   // Recalculate day votes
   const recalculateDay = useCallback(async (serieADay: number) => {
     if (!selectedYear) return
 
     setRecalculatingDay(serieADay)
-    setRecalculating(true)
-    setRecalcError(null)
-    setRecalcSuccess(null)
+    setLoading(`recalcDay-${serieADay}`, true)
 
     try {
       const result = await recalculationService.recalculateDay(selectedYear, serieADay)
       
       if (result) {
-        setRecalcSuccess(`Giornata ${serieADay} ricalcolata con successo`)
+        toast.show(`✅ Giornata ${serieADay} ricalcolata con successo`, { variant: 'success' })
         // Reload calendar to show updated data
         await refetch()
+      } else {
+        toast.show(`❌ Errore nel ricalcolo della giornata ${serieADay}`, { variant: 'error' })
       }
     } catch (err) {
-      setRecalcError(`Errore nel ricalcolo della giornata ${serieADay}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      toast.show(`❌ Errore nel ricalcolo della giornata ${serieADay}: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setRecalculating(false)
+      setLoading(`recalcDay-${serieADay}`, false)
       setRecalculatingDay(null)
     }
-  }, [selectedYear, refetch])
+  }, [selectedYear, refetch, toast])
 
   // Recalculate all year stats
   const recalculateYearStats = useCallback(async () => {
     if (!selectedYear) return
 
-    setRecalculating(true)
-    setRecalcError(null)
-    setRecalcSuccess(null)
+    setLoading('recalcYear', true)
 
     try {
       const result = await recalculationService.recalculateStats(selectedYear)
       
       if (result) {
-        setRecalcSuccess(`Statistiche dell'anno ${selectedYear}/${selectedYear + 1} ricalcolate con successo`)
+        toast.show(`✅ Statistiche dell'anno ${selectedYear}/${selectedYear + 1} ricalcolate con successo`, { variant: 'success' })
         // Reload calendar to show updated data
         await refetch()
+      } else {
+        toast.show('❌ Errore nel ricalcolo delle statistiche', { variant: 'error' })
       }
     } catch (err) {
-      setRecalcError(`Errore nel ricalcolo delle statistiche: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      toast.show(`❌ Errore nel ricalcolo delle statistiche: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
-      setRecalculating(false)
+      setLoading('recalcYear', false)
     }
-  }, [selectedYear, refetch])
+  }, [selectedYear, refetch, toast])
 
   // Statistics
   const statistics = useMemo(() => {
@@ -269,42 +275,15 @@ export default function SerieAAdminScreen() {
                     size="$3"
                     backgroundColor="$green9"
                     onPress={saveChanges}
-                    disabled={saving}
-                    icon={saving ? <Spinner size="small" /> : <Save size="$1" />}
+                    disabled={isAnyLoading}
+                    icon={isLoadingOp('save') ? <Spinner size="small" /> : <Save size="$1" />}
                   >
-                    {saving ? 'Salvataggio...' : 'Salva Modifiche'}
+                    {isLoadingOp('save') ? 'Salvataggio...' : 'Salva Modifiche'}
                   </Button>
                 </XStack>
               )
             }
           />
-
-          {/* Save Error */}
-          {saveError && (
-            <Card padding="$3" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">
-              <Text color="$red11" fontWeight="600">Errore di salvataggio: {saveError}</Text>
-            </Card>
-          )}
-
-          {/* Recalculation Error */}
-          {recalcError && (
-            <Card padding="$3" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">
-              <XStack alignItems="center" gap="$2">
-                <AlertCircle size="$1" color="$red11" />
-                <Text color="$red11" fontWeight="600">{recalcError}</Text>
-              </XStack>
-            </Card>
-          )}
-
-          {/* Recalculation Success */}
-          {recalcSuccess && (
-            <Card padding="$3" backgroundColor="$green3" borderColor="$green7" borderWidth="$0.5">
-              <XStack alignItems="center" gap="$2">
-                <CheckCircle size="$1" color="$green11" />
-                <Text color="$green11" fontWeight="600">{recalcSuccess}</Text>
-              </XStack>
-            </Card>
-          )}
 
           {/* Statistics */}
           {localCalendar && (
@@ -358,7 +337,7 @@ export default function SerieAAdminScreen() {
                 size="$3"
                 variant="outlined"
                 onPress={() => refetch()}
-                disabled={isLoading}
+                disabled={isLoading || isAnyLoading}
                 icon={<RefreshCw size="$1" />}
               >
                 Ricarica
@@ -370,10 +349,10 @@ export default function SerieAAdminScreen() {
                 size="$3"
                 backgroundColor="$purple9"
                 onPress={recalculateYearStats}
-                disabled={recalculating || !selectedYear}
-                icon={recalculating ? <Spinner size="small" /> : <BarChart3 size="$1" />}
+                disabled={isAnyLoading || !selectedYear}
+                icon={isLoadingOp('recalcYear') ? <Spinner size="small" /> : <BarChart3 size="$1" />}
               >
-                {recalculating ? 'Ricalcolo...' : 'Ricalcola Anno'}
+                {isLoadingOp('recalcYear') ? 'Ricalcolo...' : 'Ricalcola Anno'}
               </Button>
             </XStack>
           </XStack>
@@ -407,7 +386,7 @@ export default function SerieAAdminScreen() {
                   onToggleDelayed={toggleDelayed}
                   onRecalculateDay={recalculateDay}
                   modifiedGames={modifiedGames}
-                  isRecalculating={recalculatingDay === day.serieADay}
+                  isRecalculating={isLoadingOp(`recalcDay-${day.serieADay}`)}
                 />
               ))}
             </YStack>

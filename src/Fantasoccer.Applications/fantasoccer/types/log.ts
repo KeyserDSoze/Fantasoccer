@@ -33,12 +33,23 @@ export interface FantasoccerLog {
  * Map raw log data to clean interface
  */
 export const mapFantasoccerLog = (raw: FantasoccerLogRaw): FantasoccerLog => {
+  // Parse timestamp - handle different formats
+  let timestamp = new Date()
+  
+  if (raw.timestamp && raw.timestamp !== '0001-01-01T00:00:00') {
+    const parsedDate = new Date(raw.timestamp)
+    // Verifica che la data sia valida
+    if (!isNaN(parsedDate.getTime())) {
+      timestamp = parsedDate
+    } else {
+      console.warn('Invalid timestamp in log:', raw.timestamp)
+    }
+  }
+  
   return {
     primaryKey: raw.primaryKey || '',
     secondaryKey: raw.secondaryKey || '',
-    timestamp: raw.timestamp && raw.timestamp !== '0001-01-01T00:00:00' 
-      ? new Date(raw.timestamp) 
-      : new Date(),
+    timestamp,
     message: raw.message || '',
     error: raw.error || '',
     raw
