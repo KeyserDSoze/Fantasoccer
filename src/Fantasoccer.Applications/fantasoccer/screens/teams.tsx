@@ -5,7 +5,7 @@ import { YStack, XStack, Text, H3, Separator, Card, Spinner, Button } from 'tama
 import { Users, DollarSign, TrendingUp, Award, ChevronDown, ChevronUp, User } from '@tamagui/lucide-icons'
 import { useApp } from 'providers/AppProvider'
 import { teamService } from 'services/teamService'
-import type { Team, Player } from 'types/team'
+import type { EnhancedTeam, Player } from 'types/team'
 import { PlayerInTeamStatus } from 'types/team'
 import { TeamLogo } from 'components/team/TeamLogo'
 import { Role } from 'types/group'
@@ -15,7 +15,7 @@ import { formatSeasonFromYear } from 'utils/season'
 
 export default function TeamsScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()
-  const [teams, setTeams] = useState<Team[]>([])
+  const [teams, setTeams] = useState<EnhancedTeam[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedTeamIndex, setExpandedTeamIndex] = useState<number | null>(null)
@@ -82,12 +82,18 @@ export default function TeamsScreen() {
       // Estrai gli owner (email) dai team
       const owners = yearlyBasket.teams.map(t => t.owner)
 
-      // Recupera tutti i team usando il teamService
-      const fetchedTeams = await teamService.getTeamsByBasket(
+      // Get league settings for moneyFromRank calculation
+      const annualLeague = league.years?.find((y: any) => y.year === localYear)
+      const settings = annualLeague?.settings
+
+      // Recupera tutti i team enhanced usando il teamService
+      const fetchedTeams = await teamService.getEnhancedTeamsByBasket(
         currentGroup.id,
         localYear,
         basketId,
-        owners
+        owners,
+        localLeagueId,
+        settings
       )
 
       setTeams(fetchedTeams)
@@ -108,8 +114,45 @@ export default function TeamsScreen() {
     }).format(amount)
   }
 
-  const getTotalCost = (team: Team) => {
-    return team.players.reduce((sum, player) => sum + (player.price || 0), 0)
+  const getTotalCost = (team: EnhancedTeam) => {
+    // Usa i valori precalcolati dell'EnhancedTeam
+    return team.totalCost
+  }
+
+  const getBudget = (team: EnhancedTeam) => {
+    // Budget = starting money - netCost + revenue + rank money
+    // Per ora usiamo semplicemente il netCost che include i ricavi
+    return team.cost // netCost è già il costo netto (spese - ricavi)
+  }
+
+  const getActivePlayers = (team: EnhancedTeam) => {
+    return team.activePlayers
+  }
+
+  const groupPlayersByRole = (players: Player[]) => {
+    const groups: Record<Role, Player[]> = {
+      [Role.GoalKeeper]: [],
+      [Role.Defensor]: [],
+      [Role.Midfielder]: [],
+      [Role.Forward]: [],
+      [Role.Undefined]: [],
+    }
+
+    players.forEach(player => {
+      const role = player.role ?? Role.Undefined
+      if (!groups[role]) {
+        groups[role] = []
+      }
+      groups[role].push(player)
+    })
+
+    // Ordina i giocatori per prezzo decrescente in ogni ruolo
+    Object.keys(groups).forEach(roleKey => {
+      const role = parseInt(roleKey) as Role
+      groups[role].sort((a, b) => (b.price || 0) - (a.price || 0))
+    })
+
+    return groups
   }
 
   const getRoleLabel = (role: Role): string => {
@@ -130,41 +173,6 @@ export default function TeamsScreen() {
       case Role.Forward: return '$red10'
       default: return '$gray10'
     }
-  }
-
-  const groupPlayersByRole = (players: Player[]) => {
-    const groups: Record<Role, Player[]> = {
-      [Role.GoalKeeper]: [],
-      [Role.Defensor]: [],
-      [Role.Midfielder]: [],
-      [Role.Forward]: [],
-      [Role.Undefined]: [],
-    }
-
-    players.forEach(player => {
-      const role = player.role ?? Role.Undefined
-      
-      // Debug: log per vedere i ruoli dei giocatori
-      if (role === Role.GoalKeeper) {
-        console.log('Portiere trovato:', player.name, 'role:', role)
-      }
-      
-      if (!groups[role]) {
-        groups[role] = []
-      }
-      groups[role].push(player)
-    })
-
-    // Debug: log per vedere quanti portieri abbiamo
-    console.log('Portieri totali:', groups[Role.GoalKeeper].length)
-
-    // Ordina i giocatori per prezzo decrescente in ogni ruolo
-    Object.keys(groups).forEach(roleKey => {
-      const role = parseInt(roleKey) as Role
-      groups[role].sort((a, b) => (b.price || 0) - (a.price || 0))
-    })
-
-    return groups
   }
 
   const toggleTeamExpansion = (index: number) => {
@@ -281,7 +289,6 @@ export default function TeamsScreen() {
             <YStack gap="$3">
               {teams.map((team, index) => {
                 const isExpanded = expandedTeamIndex === index
-                const playersByRole = groupPlayersByRole(team.players)
 
                 return (
                   <Card
@@ -325,17 +332,23 @@ export default function TeamsScreen() {
                         </YStack>
 
                         {/* Team Stats */}
-                        <YStack gap="$2" minWidth={150}>
+                        <YStack gap="$2" minWidth={180}>
                           <XStack gap="$2" alignItems="center">
                             <DollarSign size={18} color="$green10" />
                             <Text fontSize="$4" fontWeight="600" color="$color12">
-                              {formatCurrency(getTotalCost(team))}
+                              Valore: {formatCurrency(getTotalCost(team))}
                             </Text>
                           </XStack>
                           <XStack gap="$2" alignItems="center">
-                            <Users size={16} color="$blue10" />
+                            <TrendingUp size={16} color="$blue10" />
                             <Text fontSize="$3" color="$color11">
-                              {team.players.length} giocatori
+                              Budget: {formatCurrency(getBudget(team))}
+                            </Text>
+                          </XStack>
+                          <XStack gap="$2" alignItems="center">
+                            <Users size={16} color="$purple10" />
+                            <Text fontSize="$3" color="$color11">
+                              {team.activePlayers.length}/{team.players.length} giocatori
                             </Text>
                           </XStack>
                           {team.revenueMoney > 0 && (
@@ -372,22 +385,38 @@ export default function TeamsScreen() {
                       <>
                         <Separator marginVertical="$3" />
                         <YStack gap="$4">
-                          <Text fontSize="$5" fontWeight="600" color="$color12">
-                            Rosa completa
-                          </Text>
+                          <XStack justifyContent="space-between" alignItems="center">
+                            <Text fontSize="$5" fontWeight="600" color="$color12">
+                              Rosa completa
+                            </Text>
+                            <XStack gap="$4">
+                              <Text fontSize="$3" color="$color11">
+                                💰 Costo netto: {formatCurrency(team.netCost)}
+                              </Text>
+                              <Text fontSize="$3" color="$color11">
+                                📊 Valore: {formatCurrency(team.totalCost)}
+                              </Text>
+                              <Text fontSize="$3" color="$color11">
+                                👥 {team.activePlayers.length} attivi
+                              </Text>
+                            </XStack>
+                          </XStack>
 
-                          {/* Giocatori raggruppati per ruolo */}
+                          {/* Giocatori raggruppati per ruolo usando i dati precalcolati */}
                           {[Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward].map(role => {
-                            const players = playersByRole[role]
-                            if (!players || players.length === 0) return null
+                            const playersByRole = groupPlayersByRole(team.players)
+                            const players = playersByRole[role] || []
+                            if (players.length === 0) return null
+
+                            const activePlayers = players.filter((p: Player) => isPlayerActive(p.status))
 
                             return (
                               <YStack key={role} gap="$2">
                                 <Text fontSize="$4" fontWeight="600" color={getRoleColor(role)}>
-                                  {getRoleLabel(role)} ({players.length})
+                                  {getRoleLabel(role)} ({activePlayers.length}/{players.length})
                                 </Text>
                                 <YStack gap="$2" paddingLeft="$3">
-                                  {players.map((player, pIndex) => {
+                                  {players.map((player: Player, pIndex: number) => {
                                     const isActive = isPlayerActive(player.status)
                                     return (
                                       <XStack

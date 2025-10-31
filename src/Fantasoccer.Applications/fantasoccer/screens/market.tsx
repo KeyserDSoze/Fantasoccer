@@ -27,7 +27,7 @@ import { useApp } from 'providers/AppProvider'
 import { useAuth } from 'providers/AuthProvider'
 import { teamService } from 'services/teamService'
 import { marketService } from 'services/marketService'
-import { Team, Player } from 'types/team'
+import { EnhancedTeam, Player } from 'types/team'
 import { Role } from 'types/group'
 import { MarketStatus } from 'types/market'
 import { formatSeasonFromYear } from 'utils/season'
@@ -58,13 +58,13 @@ export default function MarketScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()
   const { user } = useAuth()
   
-  const [teams, setTeams] = useState<Team[]>([])
-  const [myTeam, setMyTeam] = useState<Team | null>(null)
+  const [teams, setTeams] = useState<EnhancedTeam[]>([])
+  const [myTeam, setMyTeam] = useState<EnhancedTeam | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
   // Trade state
-  const [selectedTargetTeam, setSelectedTargetTeam] = useState<Team | null>(null)
+  const [selectedTargetTeam, setSelectedTargetTeam] = useState<EnhancedTeam | null>(null)
   const [mySelectedPlayers, setMySelectedPlayers] = useState<Player[]>([])
   const [targetSelectedPlayers, setTargetSelectedPlayers] = useState<Player[]>([])
   const [myMoneyOffer, setMyMoneyOffer] = useState<number>(0)
@@ -84,6 +84,35 @@ export default function MarketScreen() {
   // Check if current year is the latest
   const isCurrentYearLatest = selectedYear === latestYear
   const canCreateTrade = isCurrentYearLatest && selectedYear != null && selectedLeagueId != null
+
+  // Get league settings
+  const leagueSettings = useMemo(() => {
+    if (!currentGroup || !selectedLeagueId || !selectedYear) return null
+    
+    const league = currentGroup.leagues?.find((l: any) => l.id === selectedLeagueId)
+    if (!league) return null
+    
+    const annualLeague = league.years?.find((y: any) => y.year === selectedYear)
+    return annualLeague?.settings ?? null
+  }, [currentGroup, selectedLeagueId, selectedYear])
+
+  // Calculate team budget: startingMoney - totalCost + moneyFromRank
+  const getTeamBudget = useCallback((team: EnhancedTeam): number => {
+    if (!leagueSettings) return 0
+    return leagueSettings.startingMoney - team.totalCost + team.moneyFromRank
+  }, [leagueSettings])
+
+  // Get available budget for my team (considering current money offer)
+  const getMyAvailableBudget = useMemo(() => {
+    if (!myTeam) return 0
+    return getTeamBudget(myTeam) - myMoneyOffer
+  }, [myTeam, getTeamBudget, myMoneyOffer])
+
+  // Get available budget for target team (considering current money offer)
+  const getTargetAvailableBudget = useMemo(() => {
+    if (!selectedTargetTeam) return 0
+    return getTeamBudget(selectedTargetTeam) - targetMoneyOffer
+  }, [selectedTargetTeam, getTeamBudget, targetMoneyOffer])
 
   // Load teams
   useEffect(() => {
@@ -129,12 +158,18 @@ export default function MarketScreen() {
         return
       }
 
+      // Get league settings for moneyFromRank calculation
+      const annualLeague = league.years?.find((y: any) => y.year === selectedYear)
+      const settings = annualLeague?.settings
+
       const owners = yearlyBasket.teams.map((t: any) => t.owner)
-      const fetchedTeams = await teamService.getTeamsByBasket(
+      const fetchedTeams = await teamService.getEnhancedTeamsByBasket(
         currentGroup.id,
         selectedYear,
         basketId,
-        owners
+        owners,
+        selectedLeagueId,
+        settings
       )
 
       setTeams(fetchedTeams)
@@ -153,9 +188,9 @@ export default function MarketScreen() {
     }
   }
 
-  // Filter active players only
-  const getActivePlayers = (team: Team): Player[] => {
-    return team.players.filter(p => p.status === 0) // PlayerInTeamStatus.Active
+  // Filter active players only - EnhancedTeam already provides activePlayers
+  const getActivePlayers = (team: EnhancedTeam): Player[] => {
+    return team.activePlayers
   }
 
   // Group players by role
@@ -228,7 +263,7 @@ export default function MarketScreen() {
 
   // Create trade
   const handleCreateTrade = async () => {
-    if (!currentGroup || !selectedLeagueId || !selectedYear || !user?.email || !selectedTargetTeam) {
+    if (!currentGroup || !selectedLeagueId || !selectedYear || !user?.email || !selectedTargetTeam || !myTeam) {
       return
     }
 
@@ -239,6 +274,27 @@ export default function MarketScreen() {
 
     if (mySelectedPlayers.length === 0 || targetSelectedPlayers.length === 0) {
       setError('Seleziona almeno un giocatore per squadra')
+      return
+    }
+
+    // Validate budgets
+    if (myMoneyOffer > getTeamBudget(myTeam)) {
+      setError(`Non hai abbastanza budget. Disponibile: ${formatCurrency(getTeamBudget(myTeam))}`)
+      return
+    }
+
+    if (targetMoneyOffer > getTeamBudget(selectedTargetTeam)) {
+      setError(`${selectedTargetTeam.name} non ha abbastanza budget. Disponibile: ${formatCurrency(getTeamBudget(selectedTargetTeam))}`)
+      return
+    }
+
+    if (getMyAvailableBudget < 0) {
+      setError('Il tuo budget non può essere negativo dopo lo scambio')
+      return
+    }
+
+    if (getTargetAvailableBudget < 0) {
+      setError(`Il budget di ${selectedTargetTeam.name} non può essere negativo dopo lo scambio`)
       return
     }
 
@@ -369,9 +425,26 @@ export default function MarketScreen() {
                 <Text fontSize="$5" fontWeight="600" color="$blue11">
                   La mia squadra: {myTeam.name}
                 </Text>
-                <Text fontSize="$3" color="$blue10" marginTop="$1">
-                  💰 Budget: {formatCurrency(myTeam.revenueMoney)}
-                </Text>
+                <XStack gap="$4" marginTop="$2" flexWrap="wrap">
+                  <YStack>
+                    <Text fontSize="$2" color="$blue10">Budget disponibile</Text>
+                    <Text fontSize="$4" fontWeight="600" color="$blue11">
+                      💰 {formatCurrency(getTeamBudget(myTeam))}
+                    </Text>
+                  </YStack>
+                  <YStack>
+                    <Text fontSize="$2" color="$blue10">Valore rosa</Text>
+                    <Text fontSize="$4" fontWeight="600" color="$blue11">
+                      📊 {formatCurrency(myTeam.totalCost)}
+                    </Text>
+                  </YStack>
+                  <YStack>
+                    <Text fontSize="$2" color="$blue10">Premi classifica</Text>
+                    <Text fontSize="$4" fontWeight="600" color="$blue11">
+                      🏆 {formatCurrency(myTeam.moneyFromRank)}
+                    </Text>
+                  </YStack>
+                </XStack>
               </Card>
 
               {/* Select target team */}
@@ -396,15 +469,19 @@ export default function MarketScreen() {
                         justifyContent="flex-start"
                         paddingHorizontal="$4"
                         paddingVertical="$3"
+                        height="auto"
                       >
-                        <XStack gap="$3" alignItems="center" flex={1}>
-                          <Users size={20} color={selectedTargetTeam?.owner === team.owner ? '$green10' : '$color11'} />
-                          <YStack flex={1} alignItems="flex-start">
+                        <XStack gap="$3" alignItems="flex-start" flex={1} width="100%">
+                          <Users size={20} color={selectedTargetTeam?.owner === team.owner ? '$green10' : '$color11'} style={{ marginTop: 2 }} />
+                          <YStack flex={1} alignItems="flex-start" gap="$1">
                             <Text fontSize="$4" fontWeight="500" color="$color12">
                               {team.name}
                             </Text>
                             <Text fontSize="$2" color="$color10">
                               {team.owner}
+                            </Text>
+                            <Text fontSize="$2" color="$color11">
+                              💰 Budget: {formatCurrency(getTeamBudget(team))}
                             </Text>
                           </YStack>
                         </XStack>
@@ -575,6 +652,8 @@ export default function MarketScreen() {
                             circular
                             onPress={() => setMyMoneyOffer(Math.max(0, myMoneyOffer - 10))}
                             backgroundColor="$blue4"
+                            disabled={myMoneyOffer <= 0}
+                            opacity={myMoneyOffer <= 0 ? 0.5 : 1}
                           >
                             <Minus size={16} />
                           </Button>
@@ -583,7 +662,8 @@ export default function MarketScreen() {
                             value={myMoneyOffer.toString()}
                             onChangeText={(text) => {
                               const num = parseInt(text) || 0
-                              setMyMoneyOffer(Math.max(0, num))
+                              const maxBudget = myTeam ? getTeamBudget(myTeam) : 0
+                              setMyMoneyOffer(Math.max(0, Math.min(maxBudget, num)))
                             }}
                             keyboardType="numeric"
                             textAlign="center"
@@ -591,15 +671,30 @@ export default function MarketScreen() {
                           <Button
                             size="$3"
                             circular
-                            onPress={() => setMyMoneyOffer(myMoneyOffer + 10)}
+                            onPress={() => {
+                              const maxBudget = myTeam ? getTeamBudget(myTeam) : 0
+                              setMyMoneyOffer(Math.min(maxBudget, myMoneyOffer + 10))
+                            }}
                             backgroundColor="$blue4"
+                            disabled={myTeam && myMoneyOffer >= getTeamBudget(myTeam)}
+                            opacity={myTeam && myMoneyOffer >= getTeamBudget(myTeam) ? 0.5 : 1}
                           >
                             <Plus size={16} />
                           </Button>
                         </XStack>
-                        <Text fontSize="$2" color="$color10" textAlign="center">
-                          {formatCurrency(myMoneyOffer)}
-                        </Text>
+                        <YStack gap="$1">
+                          <Text fontSize="$2" color="$color10" textAlign="center">
+                            {formatCurrency(myMoneyOffer)}
+                          </Text>
+                          <Text 
+                            fontSize="$2" 
+                            color={getMyAvailableBudget < 0 ? '$red10' : '$blue10'} 
+                            textAlign="center"
+                            fontWeight="500"
+                          >
+                            Disponibile: {formatCurrency(getMyAvailableBudget)}
+                          </Text>
+                        </YStack>
                       </YStack>
 
                       {/* Target money offer */}
@@ -613,6 +708,8 @@ export default function MarketScreen() {
                             circular
                             onPress={() => setTargetMoneyOffer(Math.max(0, targetMoneyOffer - 10))}
                             backgroundColor="$orange4"
+                            disabled={targetMoneyOffer <= 0}
+                            opacity={targetMoneyOffer <= 0 ? 0.5 : 1}
                           >
                             <Minus size={16} />
                           </Button>
@@ -621,7 +718,8 @@ export default function MarketScreen() {
                             value={targetMoneyOffer.toString()}
                             onChangeText={(text) => {
                               const num = parseInt(text) || 0
-                              setTargetMoneyOffer(Math.max(0, num))
+                              const maxBudget = selectedTargetTeam ? getTeamBudget(selectedTargetTeam) : 0
+                              setTargetMoneyOffer(Math.max(0, Math.min(maxBudget, num)))
                             }}
                             keyboardType="numeric"
                             textAlign="center"
@@ -629,15 +727,30 @@ export default function MarketScreen() {
                           <Button
                             size="$3"
                             circular
-                            onPress={() => setTargetMoneyOffer(targetMoneyOffer + 10)}
+                            onPress={() => {
+                              const maxBudget = selectedTargetTeam ? getTeamBudget(selectedTargetTeam) : 0
+                              setTargetMoneyOffer(Math.min(maxBudget, targetMoneyOffer + 10))
+                            }}
                             backgroundColor="$orange4"
+                            disabled={selectedTargetTeam && targetMoneyOffer >= getTeamBudget(selectedTargetTeam)}
+                            opacity={selectedTargetTeam && targetMoneyOffer >= getTeamBudget(selectedTargetTeam) ? 0.5 : 1}
                           >
                             <Plus size={16} />
                           </Button>
                         </XStack>
-                        <Text fontSize="$2" color="$color10" textAlign="center">
-                          {formatCurrency(targetMoneyOffer)}
-                        </Text>
+                        <YStack gap="$1">
+                          <Text fontSize="$2" color="$color10" textAlign="center">
+                            {formatCurrency(targetMoneyOffer)}
+                          </Text>
+                          <Text 
+                            fontSize="$2" 
+                            color={getTargetAvailableBudget < 0 ? '$red10' : '$orange10'} 
+                            textAlign="center"
+                            fontWeight="500"
+                          >
+                            Disponibile: {formatCurrency(getTargetAvailableBudget)}
+                          </Text>
+                        </YStack>
                       </YStack>
                     </XStack>
                   </Card>
