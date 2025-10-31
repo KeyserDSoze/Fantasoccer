@@ -1,9 +1,40 @@
-import { type FC } from 'react'
+import { type FC, useEffect } from 'react'
 import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons'
 import { Button, Card, ScrollView, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
-import { useWindowDimensions } from 'react-native'
+import { useWindowDimensions, Platform } from 'react-native'
 import type { EnhancedRankedTeam } from 'types/rank'
 import { TeamLogo } from '../team/TeamLogo'
+
+// Aggiungi stili CSS per scrollbar personalizzata (solo web)
+if (Platform.OS === 'web') {
+  const styleId = 'custom-scrollbar-styles'
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style')
+    style.id = styleId
+    style.textContent = `
+      .custom-horizontal-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(100, 150, 200, 0.6) rgba(100, 150, 200, 0.1);
+      }
+      .custom-horizontal-scrollbar::-webkit-scrollbar {
+        height: 10px;
+      }
+      .custom-horizontal-scrollbar::-webkit-scrollbar-track {
+        background: rgba(100, 150, 200, 0.1);
+        border-radius: 5px;
+        margin: 0 4px;
+      }
+      .custom-horizontal-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(100, 150, 200, 0.6);
+        border-radius: 5px;
+      }
+      .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 150, 200, 0.8);
+      }
+    `
+    document.head.appendChild(style)
+  }
+}
 
 export type LeagueRankingWidgetProps = {
   leagueName?: string | null
@@ -391,8 +422,10 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
 
             <ScrollView
               horizontal
-              showsHorizontalScrollIndicator={isCompact}
+              showsHorizontalScrollIndicator={true}
               contentContainerStyle={{ paddingRight: 16 }}
+              // @ts-ignore - className is web-only
+              className={Platform.OS === 'web' ? 'custom-horizontal-scrollbar' : undefined}
             >
               <YStack minWidth={statsMinWidth} flexShrink={0}>
                 <XStack
