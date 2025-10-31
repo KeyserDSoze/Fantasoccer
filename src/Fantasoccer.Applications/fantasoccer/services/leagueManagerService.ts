@@ -114,7 +114,7 @@ export class LeagueManagerService {
         throw new ApiError('No authentication token available', 401)
       }
 
-      const url = buildApiUrl('/LeagueManager/RecalculateAsync', {
+      const url = buildApiUrl('/LeagueManager/Recalculate', {
         groupId,
         leagueId,
         year: year.toString(),

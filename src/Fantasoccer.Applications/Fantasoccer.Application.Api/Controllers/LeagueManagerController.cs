@@ -217,6 +217,9 @@ namespace Fantasoccer.Application.Api.Controllers
                 var yearlyLeague = group.GetAnnualLeague(leagueId, year);
                 var leagueType = yearlyLeague!.Type;
                 var settings = yearlyLeague?.Settings;
+                if (leagueType == LeagueType.Null)
+                    leagueType = group.Leagues.First(x => x.Id == leagueId).Type;
+                _teamCalculator.SetLeagueSettings(leagueType, settings ?? LeagueSetting.Default);
                 if (settings != null)
                 {
                     foreach (var round in calendar.Rounds)

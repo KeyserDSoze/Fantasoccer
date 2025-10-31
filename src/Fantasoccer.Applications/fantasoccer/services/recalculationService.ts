@@ -3,9 +3,9 @@ import { tokenStorageService } from './tokenStorageService'
 
 export const recalculationEndpoints = {
   recalculateDay: (params: { year: number; serieADay: number }) =>
-    buildApiUrl('/Recalculation/RecalculateDayAsync', params as any),
+    buildApiUrl('/Recalculation/RecalculateDay', params as any),
   recalculateStats: (params: { year: number }) =>
-    buildApiUrl('/Recalculation/RecalculateStatsAsync', params as any)
+    buildApiUrl('/Recalculation/RecalculateStats', params as any)
 }
 
 export const recalculationService = {
