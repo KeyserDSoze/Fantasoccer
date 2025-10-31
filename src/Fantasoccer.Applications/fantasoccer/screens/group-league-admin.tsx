@@ -74,7 +74,6 @@ export default function GroupLeagueAdminScreen() {
   const selectedYearlyLeague = useMemo(() => {
     if (!selectedLeague) return null
     const selectedYear = selectedLeague.years.find(y => y.year === currentYearIndex) || null
-    console.log('Selected Year:', selectedYear)
     return selectedYear
   }, [selectedLeague, currentYearIndex])
 
