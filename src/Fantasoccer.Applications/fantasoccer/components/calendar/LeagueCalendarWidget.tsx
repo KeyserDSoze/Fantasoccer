@@ -14,6 +14,7 @@ import type { CalendarDay, CalendarGame } from 'types/calendar'
 import { useNavigation } from '@react-navigation/native'
 import { useCurrentGroup } from 'hooks'
 import { useApp } from 'providers/AppProvider'
+import { TeamLogo } from '../team/TeamLogo'
 
 export type LeagueCalendarWidgetProps = {
   leagueName?: string | null
@@ -67,6 +68,7 @@ const GameRow: FC<{
   const year = propYear ?? selectedYear ?? null
   
   const navigation = useNavigation()
+  const logoSize = 28
 
   const onPress = () => {
     navigation.navigate("Game", { 
@@ -82,15 +84,34 @@ const GameRow: FC<{
       <XStack
         alignItems="center"
         justifyContent="space-between"
-        gap="$3"
-        paddingVertical="$1.5"
+        gap="$2"
+        paddingVertical="$2"
+        width="100%"
       >
-        <YStack flex={1} gap="$1">
-          <Text color="$color12" fontWeight="700" numberOfLines={1}>
+        {/* Home team - logo + name */}
+        <XStack flex={1} gap="$2" alignItems="center" minWidth={0}>
+          {group && year && game.homeOwner && (
+            <YStack flexShrink={0}>
+              <TeamLogo
+                groupId={group}
+                year={year}
+                ownerEmail={game.homeOwner}
+                size={logoSize}
+              />
+            </YStack>
+          )}
+          <Text 
+            color="$color12" 
+            fontWeight="700" 
+            numberOfLines={1}
+            flexShrink={1}
+            flexGrow={1}
+          >
             {game.home}
           </Text>
-        </YStack>
+        </XStack>
 
+        {/* Score in the middle */}
         <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
           <Text color="$color11" fontWeight="600">
             {!isCancelled ? (hasResult ? `${homeGoals} - ${awayGoals}` : 'VS') : "Annullata"}
@@ -102,11 +123,28 @@ const GameRow: FC<{
           )}
         </YStack>
 
-        <YStack flex={1} gap="$1" alignItems="flex-end">
-          <Text color="$color12" fontWeight="700" numberOfLines={1}>
+        {/* Away team - name + logo */}
+        <XStack flex={1} gap="$2" alignItems="center" justifyContent="flex-end" minWidth={0}>
+          <Text 
+            color="$color12" 
+            fontWeight="700" 
+            numberOfLines={1}
+            flexShrink={1}
+            flexGrow={1}
+          >
             {game.away}
           </Text>
-        </YStack>
+          {group && year && game.awayOwner && (
+            <YStack flexShrink={0}>
+              <TeamLogo
+                groupId={group}
+                year={year}
+                ownerEmail={game.awayOwner}
+                size={logoSize}
+              />
+            </YStack>
+          )}
+        </XStack>
       </XStack>
     </Button>
   )
