@@ -15,6 +15,7 @@ import { setupRepositoryServices } from 'configurations/repositoryConfig';
 import { ToastProvider, ToastViewport, Toast, useToastState } from '@tamagui/toast';
 import { YStack, Text } from 'tamagui';
 import { ServiceWorkerUpdateNotification } from 'components/ServiceWorkerUpdateNotification';
+import { AddToHomeScreenBanner } from 'components/AddToHomeScreenBanner';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -59,6 +60,8 @@ const AppContent = () => {
             <CurrentToast />
             {/* Service Worker Update Banner */}
             <ServiceWorkerUpdateNotification />
+            {/* Add to Home Screen Banner */}
+            <AddToHomeScreenBanner />
           </AppProvider>
         </AuthProvider>
       </LoadingProvider>
