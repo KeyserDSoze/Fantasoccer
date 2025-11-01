@@ -12,28 +12,40 @@ interface FieldDimensions {
   cardScale: number // Nuovo: fattore di scala per le card
 }
 
+interface UseResponsiveFieldOptions {
+  customZoom?: number // Zoom personalizzato dall'utente
+}
+
 // Breakpoints
 const MOBILE_BREAKPOINT = 768
 const TABLET_BREAKPOINT = 1024
 
-export const useResponsiveField = (): FieldDimensions => {
+export const useResponsiveField = (options?: UseResponsiveFieldOptions): FieldDimensions => {
+  const customZoom = options?.customZoom
+
   const [dimensions, setDimensions] = useState(() => {
     const screen = Dimensions.get('window')
-    return calculateFieldDimensions(screen.width, screen.height)
+    return calculateFieldDimensions(screen.width, screen.height, customZoom)
   })
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setDimensions(calculateFieldDimensions(window.width, window.height))
+      setDimensions(calculateFieldDimensions(window.width, window.height, customZoom))
     })
 
     return () => subscription?.remove()
-  }, [])
+  }, [customZoom])
+
+  // Aggiorna dimensions quando customZoom cambia (anche senza resize della finestra)
+  useEffect(() => {
+    const screen = Dimensions.get('window')
+    setDimensions(calculateFieldDimensions(screen.width, screen.height, customZoom))
+  }, [customZoom])
 
   return dimensions
 }
 
-function calculateFieldDimensions(screenWidth: number, screenHeight: number): FieldDimensions {
+function calculateFieldDimensions(screenWidth: number, screenHeight: number, customZoom?: number): FieldDimensions {
   const isMobile = screenWidth < MOBILE_BREAKPOINT
   const isTablet = screenWidth >= MOBILE_BREAKPOINT && screenWidth < TABLET_BREAKPOINT
   const isDesktop = screenWidth >= TABLET_BREAKPOINT
@@ -61,11 +73,14 @@ function calculateFieldDimensions(screenWidth: number, screenHeight: number): Fi
   const baseWidth = 1400
   let cardScale: number
   
-  if (isMobile) {
+  // Se c'è uno zoom personalizzato, usa quello
+  if (customZoom !== undefined) {
+    cardScale = customZoom
+  } else if (isMobile) {
     // Su mobile, incrementiamo significativamente il fattore di scala per rendere le card più visibili
     // Usiamo un minimo di 1.0x su mobile + boost aggiuntivo
     const baseScale = Math.max(fieldWidth / baseWidth, 1.0)
-    cardScale = Math.min(baseScale * 0.6, 2.0) // boost del 60% per mobile, max 2.0x
+    cardScale = Math.min(baseScale * 0.55, 2.0) // boost del 55% per mobile, max 2.0x
   } else {
     // Su desktop/tablet, manteniamo la scala normale
     cardScale = Math.min(fieldWidth / baseWidth, 1.2) // max 1.2x, min proporzionale

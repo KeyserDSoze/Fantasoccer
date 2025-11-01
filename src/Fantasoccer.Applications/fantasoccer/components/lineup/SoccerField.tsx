@@ -8,6 +8,7 @@ import { Role } from 'types/group'
 import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal'
 import { PlayerViewModal } from './PlayerViewModal'
+import { ZoomControls } from '../field/ZoomControls'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 import { useAuth } from '../../providers/AuthProvider'
 import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
@@ -85,6 +86,16 @@ export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
   groupId?: string // ID del gruppo per salvare il team
   onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
+  customZoom?: number // Zoom personalizzato per le card (0.1 - 1.0)
+  // Zoom controls props
+  zoomControls?: {
+    zoomLevel: number
+    onIncrease: () => void
+    onDecrease: () => void
+    onReset: () => void
+    minZoom: number
+    maxZoom: number
+  }
   style?: any
 }
 
@@ -106,8 +117,8 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: SoccerFieldProps) => {
-  const { width, height, isMobile, orientation, cardScale } = useResponsiveField()
+export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, style }: SoccerFieldProps) => {
+  const { width, height, isMobile, orientation, cardScale } = useResponsiveField({ customZoom })
   const { user } = useAuth()
   const toast = useToastController()
   
@@ -669,6 +680,20 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, style }: Soc
               {isSaving ? 'Salvataggio...' : 'Salva Formazione'}
             </Button>
           )}
+        </XStack>
+      )}
+
+      {/* CONTROLLI ZOOM - Centrati sotto i pulsanti */}
+      {zoomControls && (
+        <XStack justifyContent="center" paddingHorizontal={16}>
+          <ZoomControls
+            zoomLevel={zoomControls.zoomLevel}
+            onIncrease={zoomControls.onIncrease}
+            onDecrease={zoomControls.onDecrease}
+            onReset={zoomControls.onReset}
+            minZoom={zoomControls.minZoom}
+            maxZoom={zoomControls.maxZoom}
+          />
         </XStack>
       )}
 

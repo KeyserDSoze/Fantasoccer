@@ -1,10 +1,10 @@
 import React, { useMemo, useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
-import { YStack, XStack, Text, H3, Separator, Button, Card } from 'tamagui'
+import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
+import { useFieldZoom } from 'hooks/useFieldZoom'
 import { SoccerField } from 'components/lineup'
-import { useMedia } from 'tamagui'
 import { type GameWrapper } from 'types/game'
 import gameService from 'services/gameService'
 import { useNavigation, useRoute } from '@react-navigation/native'
@@ -21,6 +21,9 @@ export default function GameScreen() {
     isLoading,
     error,
   } = useSerieACalendar({ refreshInterval: 60000, enablePolling: true })
+
+  // Zoom controls
+  const { zoomLevel, increaseZoom, decreaseZoom, resetZoom, minZoom, maxZoom } = useFieldZoom({ isMobile: media.sm })
 
   const route = useRoute<RouteProp<RootStackParamList, 'Game'>>()
   const { params } = route
@@ -415,6 +418,15 @@ export default function GameScreen() {
                     gameWrapper={gameWrapper} 
                     groupId={routeGroupId ?? undefined}
                     onRefresh={refreshGame}
+                    customZoom={zoomLevel}
+                    zoomControls={{
+                      zoomLevel,
+                      onIncrease: increaseZoom,
+                      onDecrease: decreaseZoom,
+                      onReset: resetZoom,
+                      minZoom,
+                      maxZoom
+                    }}
                   />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>

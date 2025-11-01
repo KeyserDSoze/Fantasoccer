@@ -58,6 +58,14 @@ const patchNotes: PatchNote[] = [
         category: 'Feature',
         description: 'Pagina Patch Notes per tenere traccia di tutti i cambiamenti'
       },
+      {
+        category: 'Feature',
+        description: 'Controlli Zoom per le card dei giocatori nel campo di gioco (10%-100%) con salvataggio preferenze'
+      },
+      {
+        category: 'Improvement',
+        description: 'Aggiunta visualizzazione versione app nella barra di navigazione'
+      },
     ]
   },
   {
