@@ -52,6 +52,7 @@ namespace Fantasoccer.Business
                     var votePlayer = votes?.Players?.FirstOrDefault(x => x.Key == playerKey);
                     if (votePlayer == null)
                     {
+                        player.NoPlayed++;
                         player.AllGames!.Add(new StatPlayerGame
                         {
                             Positiveness = -2,
@@ -78,7 +79,7 @@ namespace Fantasoccer.Business
                                     statPlayerGame.Positiveness += 2;
                                 player.SufferedGoal += votePlayer.Vote.SufferedGoal;
                                 if (votePlayer.Vote.SufferedGoal > 0)
-                                    statPlayerGame.Positiveness -= 2;
+                                    statPlayerGame.Positiveness -= 1;
                                 player.StoppedPenalty += votePlayer.Vote.StoppedPenalty;
                                 if (votePlayer.Vote.StoppedPenalty > 0)
                                     statPlayerGame.Positiveness += 2;
@@ -87,14 +88,17 @@ namespace Fantasoccer.Business
                                     statPlayerGame.Positiveness += 1;
                                 player.OwnGoal += votePlayer.Vote.OwnGoal;
                                 if (votePlayer.Vote.OwnGoal > 0)
-                                    statPlayerGame.Positiveness -= 1;
+                                    statPlayerGame.Positiveness -= 2;
                                 player.Goal += votePlayer.Vote.Goal;
                                 if (votePlayer.Vote.Goal > 0)
                                     statPlayerGame.Positiveness += 2;
+                                player.WrongedPenalty += votePlayer.Vote.WrongedPenalty;
+                                if (votePlayer.Vote.WrongedPenalty > 0)
+                                    statPlayerGame.Positiveness -= 2;
                                 if (votePlayer.Vote.Status == Behaviour.RedCard)
                                 {
                                     player.RedCard++;
-                                    statPlayerGame.Positiveness -= 1;
+                                    statPlayerGame.Positiveness -= 2;
                                 }
                                 if (votePlayer.Vote.Status == Behaviour.YellowCard)
                                 {
@@ -125,8 +129,13 @@ namespace Fantasoccer.Business
                             else
                             {
                                 player.WithoutVote++;
-                                statPlayerGame.Positiveness -= 1;
+                                statPlayerGame.Positiveness -= 2;
                             }
+                        }
+                        else
+                        {
+                            player.NoPlayed++;
+                            statPlayerGame.Positiveness -= 2;
                         }
                     }
                 }

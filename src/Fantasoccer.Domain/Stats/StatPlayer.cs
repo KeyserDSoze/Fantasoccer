@@ -16,6 +16,8 @@ namespace Fantasoccer.Domain
         public int WithVote { get; set; }
         [JsonPropertyName("q")]
         public int WithoutVote { get; set; }
+        [JsonPropertyName("np")]
+        public int NoPlayed { get; set; }
         [JsonPropertyName("s")]
         public int WithSpecial { get; set; }
         [JsonPropertyName("g")]
