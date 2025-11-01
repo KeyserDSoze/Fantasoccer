@@ -32,6 +32,7 @@ import {
   Package,
   HelpCircle,
   Bell,
+  FileText,
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
@@ -39,6 +40,7 @@ import { hasRole, IdentityRole } from '../../types/identity'
 import { SwitchThemeButton } from './SwitchThemeButton'
 import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
+import { APP_VERSION } from 'config/version'
 import { formatSeasonFromYear } from 'utils/season'
 
 interface NavigationBarProps {
@@ -111,6 +113,7 @@ const navigationItems: NavigationSection[] = [
       { type: 'route', route: 'Info', label: 'Guida', icon: HelpCircle, description: 'Guida al sito' },
       { type: 'route', route: 'Settings', label: 'Impostazioni', icon: Settings, description: 'Impostazioni utente' },
       { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Bell, description: 'Gestisci le notifiche push' },
+      { type: 'route', route: 'PatchNotes', label: 'Patch Notes', icon: FileText, description: 'Novità e aggiornamenti dell\'app' },
     ],
   },
 ]
@@ -480,6 +483,13 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                 >
                   <Text color="$red10" fontWeight="500">Logout</Text>
                 </Button>
+
+                {/* Version Info */}
+                <XStack justifyContent="center" marginTop="$4" paddingTop="$3" borderTopWidth={1} borderTopColor="$borderColor">
+                  <Text fontSize="$2" color="$color9">
+                    v{APP_VERSION}
+                  </Text>
+                </XStack>
               </YStack>
             </YStack>
           </ScrollView>

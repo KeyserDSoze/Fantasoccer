@@ -23,6 +23,7 @@ import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
 import GroupLeagueAdminScreen from 'screens/group-league-admin';
 import AuctionCreateScreen from 'screens/auction-create';
 import AuctionLiveScreen from 'screens/auction-live';
+import PatchNotesScreen from 'screens/patch-notes';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 import PushNotificationScreen from 'screens/push-notification';
@@ -62,6 +63,7 @@ export type RootStackParamList = {
   GroupLeagueAdmin: undefined;
   Settings: undefined;
   Info: undefined;
+  PatchNotes: undefined;
   PushNotification: undefined;
   AuctionCreate: undefined;
   AuctionLive: { auctionId: string };
@@ -106,6 +108,7 @@ const linking = {
       GroupLeagueAdmin: 'group-league-admin',
       Settings: 'settings',
       Info: 'info',
+      PatchNotes: 'patch-notes',
       PushNotification: 'push-notification',
       AuctionCreate: 'auction/create',
       AuctionLive: 'auction/:auctionId',
@@ -154,6 +157,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="GroupLeagueAdmin" component={GroupLeagueAdminScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Info" component={InfoScreen} />
+        <Stack.Screen name="PatchNotes" component={PatchNotesScreen} />
         <Stack.Screen name="PushNotification" component={PushNotificationScreen} />
         <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
         <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
