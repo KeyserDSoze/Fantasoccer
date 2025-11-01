@@ -465,3 +465,54 @@ export const DefaultRank: Rank = {
   serieADay: 0,
   rounds: {}
 }
+
+// ============================================
+// LUCK PARAMETER TYPES
+// ============================================
+
+/**
+ * Types of luck events that can occur in a game
+ */
+export type LuckEventType =
+  | 'win-vs-worst'              // Vittoria contro il peggior punteggio del turno (+5)
+  | 'win-vs-second-worst'       // Vittoria contro il secondo peggior punteggio (+6)
+  | 'win-narrow'                // Vittoria di misura con <6 punti di scarto (+0.5 per punto)
+  | 'draw-wide-gap'             // Pareggio con ampio scarto di punti (scala 0-3)
+  | 'loss-narrow'               // Sconfitta di misura (-0.5 per punto)
+  | 'loss-as-best'              // Sconfitta pur essendo il miglior punteggio (-8)
+  | 'loss-as-top3'              // Sconfitta pur essendo nel top 3 (-4)
+  | 'win-as-worst'              // Vittoria pur essendo il peggior punteggio (+7)
+
+/**
+ * Details of a single luck event in a game
+ */
+export interface LuckEvent {
+  type: LuckEventType
+  points: number                // Punti fortuna guadagnati/persi
+  gameId: string                // ID della partita
+  gameDay: number               // Giornata della partita
+  opponent: string              // Nome avversario
+  myScore: number               // Punteggio della squadra
+  opponentScore: number         // Punteggio avversario
+  result: 'win' | 'draw' | 'loss' // Risultato della partita
+  detail: string                // Descrizione dettagliata dell'evento
+}
+
+/**
+ * Luck calculation for a single team
+ */
+export interface TeamLuck {
+  owner: string
+  name: string
+  totalLuck: number             // Somma di tutti i punti fortuna
+  gamesPlayed: number           // Partite giocate (escluse annullate)
+  avgLuck: number               // Fortuna media per partita (totalLuck / gamesPlayed)
+  events: LuckEvent[]           // Lista dettagliata di tutti gli eventi
+}
+
+/**
+ * Enhanced RankedTeam with luck parameter
+ */
+export interface EnhancedRankedTeamWithLuck extends EnhancedRankedTeam {
+  luck?: TeamLuck                // Parametro fortuna (opzionale, calcolato se disponibile calendario)
+}

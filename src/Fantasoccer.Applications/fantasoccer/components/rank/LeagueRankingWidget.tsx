@@ -1,9 +1,12 @@
-import { type FC, useEffect } from 'react'
-import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons'
+import { type FC, useEffect, useState } from 'react'
+import { AlertTriangle, RefreshCw, Info } from '@tamagui/lucide-icons'
 import { Button, Card, ScrollView, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { useWindowDimensions, Platform } from 'react-native'
-import type { EnhancedRankedTeam } from 'types/rank'
+import type { EnhancedRankedTeam, TeamLuck } from 'types/rank'
+import type { Calendar } from 'types/calendar'
 import { TeamLogo } from '../team/TeamLogo'
+import { LuckDetailModal } from './LuckDetailModal'
+import { LuckCalculator } from 'utils/luckCalculator'
 
 // Aggiungi stili CSS per scrollbar personalizzata (solo web)
 if (Platform.OS === 'web') {
@@ -40,6 +43,7 @@ export type LeagueRankingWidgetProps = {
   leagueName?: string | null
   seasonLabel?: string | null
   roundLabel?: string | null
+  roundId?: string | null // ID del girone per calcolare la fortuna
   teamCount?: number | null
   rankedTeams: EnhancedRankedTeam[]
   loading?: boolean
@@ -55,6 +59,7 @@ export type LeagueRankingWidgetProps = {
   year?: number | null // Per il logo della squadra
   moneyForGoal?: number // Soldi per goal fatto
   moneyForSufferedGoal?: number // Soldi per goal subito
+  calendar?: Calendar | null // Calendario per calcolare il parametro fortuna
 }
 
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare la classifica.'
@@ -76,7 +81,12 @@ type StatColumnDefinition = {
   render: (team: EnhancedRankedTeam) => StatCellValue
 }
 
-const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyForSufferedGoal: number = 0) => {
+const createStatColumns = (
+  isCompact: boolean, 
+  moneyForGoal: number = 0, 
+  moneyForSufferedGoal: number = 0,
+  teamLuckMap: Map<string, TeamLuck> | null = null
+) => {
   const columns: StatColumnDefinition[] = [
     {
       key: 'points',
@@ -223,6 +233,27 @@ const createStatColumns = (isCompact: boolean, moneyForGoal: number = 0, moneyFo
     },
   ]
 
+  // Add luck column if data is available
+  if (teamLuckMap) {
+    columns.push({
+      key: 'luck',
+      label: '🍀',
+      width: isCompact ? 56 : 64,
+      render: (team) => {
+        const teamLuck = teamLuckMap.get(team.owner)
+        if (!teamLuck) {
+          return { value: '-', color: '$color9' }
+        }
+
+        return {
+          value: LuckCalculator.formatLuck(teamLuck.avgLuck),
+          color: LuckCalculator.getLuckColor(teamLuck.avgLuck),
+          fontWeight: 600,
+        }
+      },
+    })
+  }
+
   const gapBetweenColumns = 12
   const minWidth = columns.reduce(
     (acc, column, index) =>
@@ -237,6 +268,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   leagueName,
   seasonLabel,
   roundLabel,
+  roundId,
   teamCount,
   rankedTeams,
   loading,
@@ -252,9 +284,27 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   year,
   moneyForGoal = 0,
   moneyForSufferedGoal = 0,
+  calendar = null,
 }) => {
   const { width } = useWindowDimensions()
   const isCompact = width < 600
+  const [selectedTeamLuck, setSelectedTeamLuck] = useState<TeamLuck | null>(null)
+  const [luckModalOpen, setLuckModalOpen] = useState(false)
+
+  // Calculate team luck from calendar if available
+  const teamLuckMap = calendar && roundId 
+    ? LuckCalculator.calculateTeamLuck(calendar, roundId)
+    : null
+
+  const handleLuckClick = (team: EnhancedRankedTeam) => {
+    if (!teamLuckMap) return
+    
+    const teamLuck = teamLuckMap.get(team.owner)
+    if (teamLuck) {
+      setSelectedTeamLuck(teamLuck)
+      setLuckModalOpen(true)
+    }
+  }
 
   const showSelectionIncomplete = Boolean(isSelectionIncomplete)
   const showError = Boolean(error)
@@ -262,7 +312,12 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   const showEmpty =
     !showSelectionIncomplete && !showError && !showLoading && rankedTeams.length === 0
 
-  const { columns: statColumns, minWidth: statsMinWidth } = createStatColumns(isCompact, moneyForGoal, moneyForSufferedGoal)
+  const { columns: statColumns, minWidth: statsMinWidth} = createStatColumns(
+    isCompact, 
+    moneyForGoal, 
+    moneyForSufferedGoal,
+    teamLuckMap
+  )
 
   // Dimensioni aggiornate per fare spazio al logo
   const logoSize = isCompact ? 32 : 36
@@ -464,6 +519,35 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
                     >
                       {statColumns.map((column) => {
                         const { value, color, fontWeight } = column.render(team)
+                        const isLuckColumn = column.key === 'luck'
+                        const hasLuckData = isLuckColumn && teamLuckMap?.has(team.owner)
+                        
+                        if (isLuckColumn && hasLuckData) {
+                          return (
+                            <Button
+                              key={`${column.key}-${team.owner}-${team.name}-${index}`}
+                              size="$2"
+                              chromeless
+                              padding="$0"
+                              width={column.width}
+                              onPress={() => { handleLuckClick(team) }}
+                              cursor="pointer"
+                            >
+                              <XStack gap="$1" alignItems="center" justifyContent="center">
+                                <Text
+                                  fontSize="$3"
+                                  color={color ?? '$color11'}
+                                  fontWeight={fontWeight}
+                                  textAlign="center"
+                                >
+                                  {value}
+                                </Text>
+                                <Info size={12} color={color ?? '$color11'} />
+                              </XStack>
+                            </Button>
+                          )
+                        }
+                        
                         return (
                           <Text
                             key={`${column.key}-${team.owner}-${team.name}-${index}`}
@@ -496,6 +580,13 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
           )}
         </YStack>
       )}
+      
+      {/* Luck Detail Modal */}
+      <LuckDetailModal
+        teamLuck={selectedTeamLuck}
+        open={luckModalOpen}
+        onClose={() => { setLuckModalOpen(false) }}
+      />
     </Card>
   )
 }

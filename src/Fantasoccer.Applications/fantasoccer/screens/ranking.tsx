@@ -15,6 +15,7 @@ import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
 import { useApp } from 'providers/AppProvider'
 import { useRankByComponents } from 'hooks/useRank'
+import { useCalendar } from 'hooks/useCalendar'
 import { useGroupLeagues } from 'hooks/useGroup'
 import { formatSeasonFromYear } from 'utils/season'
 
@@ -89,6 +90,27 @@ export default function Ranking() {
       skip: shouldSkipRank
     }
   )
+
+  // Fetch calendar for luck calculation
+  const leagueKey = useMemo(() => {
+    if (!currentGroup?.id || !localLeagueId || localYear == null) {
+      return null
+    }
+    return {
+      group: currentGroup.id,
+      league: localLeagueId,
+      year: localYear
+    }
+  }, [currentGroup?.id, localLeagueId, localYear])
+
+  const {
+    calendar,
+    loading: calendarLoading,
+    error: calendarError
+  } = useCalendar(leagueKey, {
+    refreshInterval: 120000,
+    skip: !leagueKey
+  })
 
   // Fetch annual leagues to get settings
   const { getAnnualLeague } = useGroupLeagues(currentGroup?.id ?? null, localYear ?? undefined)
@@ -290,12 +312,14 @@ export default function Ranking() {
               leagueName={leagueName}
               seasonLabel={seasonLabel}
               roundLabel={selectedRoundLabel}
+              roundId={selectedRoundId}
               teamCount={roundTeamCount}
               rankedTeams={rankedTeams}
               groupId={currentGroup?.id}
               year={localYear}
               moneyForGoal={moneyForGoal}
               moneyForSufferedGoal={moneyForSufferedGoal}
+              calendar={calendar}
               loading={loading}
               error={error}
               isSelectionIncomplete={shouldSkipRank || isRoundSelectionIncomplete}
