@@ -104,6 +104,14 @@ namespace Fantasoccer.Infrastructure
                     builder.ConnectionString = storageConnectionString;
                     builder.IsPublic = true;
                 }, "images");
+            await services
+                .AddContentRepository()
+                .WithBlobStorageIntegrationAsync(builder =>
+                {
+                    builder.ContainerName = "logos";
+                    builder.ConnectionString = storageConnectionString;
+                    builder.IsPublic = true;
+                }, "logos");
             return services;
         }
         private static Task<IServiceCollection> AddBlobStorage<T, TKey>(this IServiceCollection services,

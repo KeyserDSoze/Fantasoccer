@@ -77,7 +77,8 @@ class SettingsService {
    */
   async uploadLogo(params: UploadLogoParams): Promise<boolean> {
     const formData = new FormData()
-    formData.append('image', params.image)
+    // Il backend si aspetta 'image' come nome del campo (parametro IFormFile image)
+    formData.append('image', params.image, 'logo.png')
 
     const url = buildApiUrl('/Settings/UploadLogo', {
       groupId: params.groupId,
@@ -89,7 +90,7 @@ class SettingsService {
     const token = await tokenStorageService.getTokenString()
     const headers = getCommonHeaders(true, token ?? undefined)
     
-    // Rimuovo Content-Type per FormData (il browser lo imposta automaticamente)
+    // Rimuovo Content-Type per FormData (il browser lo imposta automaticamente con boundary)
     const { 'Content-Type': _, ...headersWithoutContentType } = headers
 
     const response = await fetch(url, {

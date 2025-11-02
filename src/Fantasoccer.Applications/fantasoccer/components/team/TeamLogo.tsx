@@ -72,7 +72,6 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
       source={{ uri: logoUrl }}
       width={size}
       height={size}
-      borderRadius={size / 2}
       onError={() => setImageError(true)}
     />
   )
