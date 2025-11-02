@@ -1,11 +1,14 @@
 import { useState, useCallback } from 'react'
-import { settingsService, ChangeTeamNameParams, UploadLogoParams } from 'services/settingsService'
+import { settingsService, ChangeTeamNameParams, UploadLogoParams, CopyLogoParams } from 'services/settingsService'
 
 export interface UseSettingsResult {
   // Team logo
   uploadingLogo: boolean
   uploadLogoError: string | null
   uploadLogo: (params: UploadLogoParams) => Promise<boolean>
+  copyingLogo: boolean
+  copyLogoError: string | null
+  copyLogoFromPreviousYear: (params: CopyLogoParams) => Promise<boolean>
 
   // Team name
   changingTeamName: boolean
@@ -24,6 +27,8 @@ export function useSettings(): UseSettingsResult {
   // Team logo state
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadLogoError, setUploadLogoError] = useState<string | null>(null)
+  const [copyingLogo, setCopyingLogo] = useState(false)
+  const [copyLogoError, setCopyLogoError] = useState<string | null>(null)
 
   // Team name state
   const [changingTeamName, setChangingTeamName] = useState(false)
@@ -55,6 +60,29 @@ export function useSettings(): UseSettingsResult {
       return false
     } finally {
       setUploadingLogo(false)
+    }
+  }, [])
+
+  // Copy logo from previous year
+  const copyLogoFromPreviousYear = useCallback(async (params: CopyLogoParams): Promise<boolean> => {
+    setCopyingLogo(true)
+    setCopyLogoError(null)
+
+    try {
+      const success = await settingsService.copyLogoFromPreviousYear(params)
+      
+      if (!success) {
+        setCopyLogoError('Impossibile copiare il logo. Verifica che esista un logo per l\'anno precedente.')
+      }
+
+      return success
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Errore sconosciuto durante la copia del logo'
+      setCopyLogoError(errorMessage)
+      console.error('Error copying logo:', error)
+      return false
+    } finally {
+      setCopyingLogo(false)
     }
   }, [])
 
@@ -130,6 +158,9 @@ export function useSettings(): UseSettingsResult {
     uploadingLogo,
     uploadLogoError,
     uploadLogo,
+    copyingLogo,
+    copyLogoError,
+    copyLogoFromPreviousYear,
 
     // Team name
     changingTeamName,

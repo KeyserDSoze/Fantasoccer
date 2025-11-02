@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
+import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
 import {
   Button,
   Card,
+  Dialog,
   H3,
   H4,
   Input,
@@ -68,6 +69,9 @@ export default function SettingsScreen() {
     uploadingLogo,
     uploadLogoError,
     uploadLogo,
+    copyingLogo,
+    copyLogoError,
+    copyLogoFromPreviousYear,
     changingTeamName,
     changeTeamNameError,
     changeTeamNameMessages,
@@ -84,7 +88,9 @@ export default function SettingsScreen() {
   const [teamNameSuccess, setTeamNameSuccess] = useState(false)
   const [usernameSuccess, setUsernameSuccess] = useState(false)
   const [logoSuccess, setLogoSuccess] = useState(false)
+  const [copyLogoSuccess, setCopyLogoSuccess] = useState(false)
   const [messagesOpen, setMessagesOpen] = useState(false)
+  const [showCopyLogoModal, setShowCopyLogoModal] = useState(false)
   
   // Local state for updated team name (to avoid full page refresh)
   const [updatedTeamName, setUpdatedTeamName] = useState<string | null>(null)
@@ -93,7 +99,7 @@ export default function SettingsScreen() {
   const [updatedUsername, setUpdatedUsername] = useState<string | null>(null)
   
   // Cache buster for team logo (timestamp when logo was last updated)
-  const [logoCacheBuster, setLogoCacheBuster] = useState<number | undefined>(undefined)
+  const [logoCacheBuster, setLogoCacheBuster] = useState<number>(Date.now())
   
   // Display team name: use updated name if available, otherwise original
   const displayTeamName = updatedTeamName ?? userTeamInfo?.teamName ?? ''
@@ -152,15 +158,54 @@ export default function SettingsScreen() {
       })
 
       if (success) {
-        // Update cache buster to force logo refresh
-        setLogoCacheBuster(Date.now())
-        setLogoSuccess(true)
-        setTimeout(() => setLogoSuccess(false), 3000)
+        // Wait a bit for blob storage to propagate, then update cache buster
+        setTimeout(() => {
+          setLogoCacheBuster(Date.now())
+          setLogoSuccess(true)
+          setTimeout(() => setLogoSuccess(false), 3000)
+        }, 500)
       }
     } catch (error) {
       console.error('Error selecting/uploading logo:', error)
     }
   }, [groupId, userTeamInfo, uploadLogo])
+
+  // Handle copy logo from previous year - show preview modal
+  const handleShowCopyLogoPreview = useCallback(() => {
+    setShowCopyLogoModal(true)
+  }, [])
+
+  // Confirm and copy logo from previous year
+  const handleConfirmCopyLogo = useCallback(async () => {
+    if (!groupId || !userTeamInfo) return
+
+    try {
+      const success = await copyLogoFromPreviousYear({
+        groupId,
+        year: userTeamInfo.year,
+        owner: userTeamInfo.owner,
+        basketId: userTeamInfo.basketId,
+      })
+
+      if (success) {
+        // Close modal first
+        setShowCopyLogoModal(false)
+        
+        // Wait a bit for blob storage to propagate, then update cache buster
+        setTimeout(() => {
+          setLogoCacheBuster(Date.now())
+          setCopyLogoSuccess(true)
+          setTimeout(() => setCopyLogoSuccess(false), 3000)
+        }, 500)
+      } else {
+        // Close modal even on failure
+        setShowCopyLogoModal(false)
+      }
+    } catch (error) {
+      console.error('Error copying logo:', error)
+      setShowCopyLogoModal(false)
+    }
+  }, [groupId, userTeamInfo, copyLogoFromPreviousYear])
 
   // Handle team name change
   const handleChangeTeamName = useCallback(async () => {
@@ -298,6 +343,16 @@ export default function SettingsScreen() {
                     {uploadingLogo ? 'Caricamento...' : 'Carica Nuovo Logo'}
                   </Button>
 
+                  <Button
+                    icon={Copy}
+                    onPress={handleShowCopyLogoPreview}
+                    disabled={copyingLogo || uploadingLogo}
+                    theme="purple"
+                    size="$4"
+                  >
+                    Usa Logo Anno Precedente
+                  </Button>
+
                   {uploadLogoError && (
                     <XStack
                       padding="$2"
@@ -324,6 +379,36 @@ export default function SettingsScreen() {
                       <Check size="$1" color="$green10" />
                       <Text color="$green11" fontSize="$2">
                         Logo caricato con successo!
+                      </Text>
+                    </XStack>
+                  )}
+
+                  {copyLogoError && (
+                    <XStack
+                      padding="$2"
+                      backgroundColor="$red3"
+                      borderRadius="$2"
+                      gap="$2"
+                      alignItems="center"
+                    >
+                      <AlertTriangle size="$1" color="$red10" />
+                      <Text color="$red11" fontSize="$2">
+                        {copyLogoError}
+                      </Text>
+                    </XStack>
+                  )}
+
+                  {copyLogoSuccess && (
+                    <XStack
+                      padding="$2"
+                      backgroundColor="$green3"
+                      borderRadius="$2"
+                      gap="$2"
+                      alignItems="center"
+                    >
+                      <Check size="$1" color="$green10" />
+                      <Text color="$green11" fontSize="$2">
+                        Logo copiato con successo!
                       </Text>
                     </XStack>
                   )}
@@ -523,6 +608,73 @@ export default function SettingsScreen() {
           </YStack>
         )}
       </YStack>
+
+      {/* Copy Logo Preview Modal */}
+      <Dialog modal open={showCopyLogoModal} onOpenChange={setShowCopyLogoModal}>
+        <Dialog.Portal>
+          <Dialog.Overlay
+            key="overlay"
+            animation="quick"
+            opacity={0.5}
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+          />
+          <Dialog.Content
+            bordered
+            elevate
+            key="content"
+            animateOnly={['transform', 'opacity']}
+            animation={[
+              'quick',
+              {
+                opacity: {
+                  overshootClamping: true,
+                },
+              },
+            ]}
+            enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
+            exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
+            gap="$4"
+            maxWidth={500}
+          >
+            <Dialog.Title>Conferma Utilizzo Logo Anno Precedente</Dialog.Title>
+            <Dialog.Description>
+              Questo è il logo che verrà utilizzato per la tua squadra. Vuoi procedere?
+            </Dialog.Description>
+
+            {/* Logo Preview */}
+            <YStack alignItems="center" padding="$4" gap="$3">
+              {userTeamInfo && groupId && (
+                <TeamLogo
+                  groupId={groupId}
+                  year={(userTeamInfo.year - 1).toString()}
+                  ownerEmail={userTeamInfo.owner}
+                  size={media.gtSm ? 150 : 120}
+                />
+              )}
+              <Text fontSize="$3" color="$color11">
+                Logo Anno {userTeamInfo ? userTeamInfo.year - 1 : ''}
+              </Text>
+            </YStack>
+
+            <XStack gap="$3" justifyContent="flex-end">
+              <Dialog.Close displayWhenAdapted asChild>
+                <Button theme="alt2" aria-label="Annulla">
+                  Annulla
+                </Button>
+              </Dialog.Close>
+              <Button
+                theme="active"
+                onPress={handleConfirmCopyLogo}
+                disabled={copyingLogo}
+                icon={copyingLogo ? <Spinner /> : Copy}
+              >
+                {copyingLogo ? 'Copiando...' : 'Conferma'}
+              </Button>
+            </XStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
     </ScreenContent>
   )
 }

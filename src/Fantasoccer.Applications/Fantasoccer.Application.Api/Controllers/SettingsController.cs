@@ -80,6 +80,33 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             return false;
         }
+        [HttpPost]
+        public async ValueTask<bool> CopyLogoFromPreviousYearAsync([FromQuery] string groupId, [FromQuery] int year, [FromQuery] string owner, [FromQuery] string basketId)
+        {
+            var group = await _groups.GetAsync(groupId);
+            if (!CheckIsOwner(group!, year, owner, basketId))
+            {
+                return false;
+            }
+            var contentRepository = _contentFactory.Create("logos")!;
+            var previousYearKey = $"{groupId}/{year - 1}/{owner}.png";
+            var currentYearKey = $"{groupId}/{year}/{owner}.png";
+            // Download logo from previous year
+            var previousLogo = await contentRepository.DownloadAsync(previousYearKey);
+            if (previousLogo?.Data == null || previousLogo.Data.Length == 0)
+            {
+                return false; // No logo found for previous year
+            }
+            // Upload to current year
+            var response = await contentRepository.UploadAsync(currentYearKey, previousLogo.Data, new ContentRepositoryOptions
+            {
+                HttpHeaders = new()
+                {
+                    ContentType = "image/png"
+                }
+            });
+            return response;
+        }
         [HttpGet]
         public async Task ChangeTeamNameAsync([FromQuery] string groupId, [FromQuery] string owner, [FromQuery] string newName, [FromQuery] string basketId)
         {

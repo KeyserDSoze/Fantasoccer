@@ -16,7 +16,7 @@ interface PatchNote {
 const patchNotes: PatchNote[] = [
   {
     version: '1.1.0',
-    date: '1 Novembre 2024',
+    date: '2 Novembre 2024',
     changes: [
       {
         category: 'Feature',
@@ -36,15 +36,23 @@ const patchNotes: PatchNote[] = [
       },
       {
         category: 'Feature',
-        description: 'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima)'
+        description: 'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima) basato su somma ultime 5 partite'
       },
       {
         category: 'Feature',
         description: 'Visualizzazione "Ultima Partita" con gestione partite non giocate e calcolo automatico positiveness'
       },
       {
+        category: 'Feature',
+        description: 'Sistema caricamento logo squadra con supporto PNG e preview in tempo reale'
+      },
+      {
+        category: 'Feature',
+        description: 'Funzione "Usa Logo Anno Precedente" con modal di anteprima e conferma prima della copia'
+      },
+      {
         category: 'Improvement',
-        description: 'Algoritmo formazione automatica aggiornato per usare somma diretta trend invece di categorie mappate'
+        description: 'Algoritmo formazione automatica migliorato - privilegia ultima partita giocata rispetto al trend per evitare penalizzazione giocatori tornati da infortunio'
       },
       {
         category: 'Improvement',
@@ -53,6 +61,30 @@ const patchNotes: PatchNote[] = [
       {
         category: 'Improvement',
         description: 'Normalizzazione chiavi giocatori consistente tra frontend e backend per lookup affidabile'
+      },
+      {
+        category: 'Improvement',
+        description: 'Cache busting migliorato per loghi squadre - aggiornamento immediato dopo upload o copia con timestamp dinamico'
+      },
+      {
+        category: 'Improvement',
+        description: 'Logo squadre ora mostrato in formato quadrato/originale invece di circolare ritagliato'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto problema cambio nome squadra - ora funziona correttamente con validazione e feedback in tempo reale'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto problema cambio username - aggiornamento corretto con persistenza e validazione'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto errore 415 Unsupported Media Type durante upload logo - corretti attributi controller da [FromBody] a [FromForm]'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto problema cache browser per loghi - aggiunto delay propagazione blob storage e cache buster iniziale'
       },
       {
         category: 'Feature',

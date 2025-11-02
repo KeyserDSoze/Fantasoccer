@@ -14,6 +14,13 @@ export interface UploadLogoParams {
   image: File | Blob
 }
 
+export interface CopyLogoParams {
+  groupId: string
+  year: number
+  owner: string
+  basketId: string
+}
+
 export interface ChangeTeamNameParams {
   groupId: string
   owner: string
@@ -101,6 +108,32 @@ class SettingsService {
 
     if (!response.ok) {
       throw new Error(`Failed to upload logo: ${response.statusText}`)
+    }
+
+    return await response.json()
+  }
+
+  /**
+   * Copia il logo dall'anno precedente
+   */
+  async copyLogoFromPreviousYear(params: CopyLogoParams): Promise<boolean> {
+    const url = buildApiUrl('/Settings/CopyLogoFromPreviousYear', {
+      groupId: params.groupId,
+      year: params.year.toString(),
+      owner: params.owner,
+      basketId: params.basketId,
+    })
+
+    const token = await tokenStorageService.getTokenString()
+    const headers = getCommonHeaders(true, token ?? undefined)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to copy logo: ${response.statusText}`)
     }
 
     return await response.json()
