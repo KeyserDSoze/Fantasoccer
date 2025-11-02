@@ -9,6 +9,7 @@ import {
 } from '@tamagui/lucide-icons'
 
 import type { LivePlayer } from 'types/game'
+import type { StatPlayer } from 'types/stat'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
 import type { Vote } from 'types/serieA'
 import { Behaviour } from 'types/serieA'
@@ -18,6 +19,8 @@ import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
 import { formatGameDateTime, convertUTCToItalianTimezoneAsNotNullableDate, convertUTCToItalianTimezone, convertDateToItalianTimezone } from 'utils/timezoneHelpers'
 import { IconFactory } from './icons'
+import { calculatePlayerStats, getTrendVisual } from 'utils/statPlayerCalculator'
+import { getPlayerKey } from 'utils/keyUtils'
 
 
 // Dimensioni base esportate della PlayerCard per allineare altri componenti (es. badge ruoli panchina)
@@ -27,6 +30,7 @@ export const PLAYER_CARD_HEIGHT = 150
 export interface PlayerCardProps {
   player: LivePlayer
   onPress?: () => void // Callback opzionale per rendere la card cliccabile
+  statPlayersMap?: Map<string, StatPlayer> // Mappa per lookup StatPlayer
 }
 
 // ============================================
@@ -69,7 +73,7 @@ const CHANCE_INFO_MAP = {
 
 
 
-export function PlayerCard({ player, onPress }: PlayerCardProps) {
+export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false)
   const [isBlinking, setIsBlinking] = useState(false)
 
@@ -81,6 +85,20 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
 
   const name = current?.name ?? 'Giocatore'
   const teamName = current?.team?.name ?? ''
+  const playerKey = getPlayerKey(name) // Genera chiave normalizzata dal nome
+
+  // Lookup StatPlayer per calcoli trend/positiveness
+  const statPlayer = useMemo(() => {
+    return statPlayersMap?.get(playerKey) ?? null
+  }, [statPlayersMap, playerKey])
+
+  // Calcola metriche da StatPlayer (sostituisce chance.trend e chance.lastGame)
+  const playerStats = useMemo(() => {
+    if (!statPlayer) {
+      return null
+    }
+    return calculatePlayerStats(statPlayer)
+  }, [statPlayer])
 
   const { src, fallback } = useMemo(() => getPlayerImageUrlFromName(current?.name), [current?.name])
   const imageUri = useFallbackImage ? fallback : src
@@ -161,20 +179,15 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
   }, [voteDisplayInfo?.shouldBlink])
 
   // Visual mapping per trend (0..4) -> colore e freccia direzionale
+  // Usa playerStats da StatPlayer calcolato dinamicamente
   const trendVisual = useMemo(() => {
-    const trendValue = typeof (chance as any)?.trend === 'number' ? (chance as any).trend : 2
-    // Clamp di sicurezza
-    const t = Math.min(4, Math.max(0, trendValue))
-    const colorScale = [
-      '#dc2626', // 0 molto negativo
-      '#f97316', // 1 negativo
-      '#facc15', // 2 neutro
-      '#4ade80', // 3 positivo
-      '#16a34a'  // 4 molto positivo (Excellent)
-    ]
-    const arrows = ['↓', '↘', '→', '↗', '↑']
-    return { backgroundColor: colorScale[t], arrow: arrows[t] }
-  }, [chance?.trend])
+    if (playerStats?.trendVisual) {
+      return playerStats.trendVisual
+    }
+    
+    // Se non ci sono dati StatPlayer, usa valori default (Normal/grigio)
+    return getTrendVisual(2) // TrendType.Normal = 2
+  }, [playerStats])
 
   // Sistema organizzato per comportamenti e bonus/malus
   const playerBehaviourAndBonus = useMemo(() => {
@@ -501,7 +514,8 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
       )}
 
       {/* Chance badge (pre-gara): mostra positiveness + freccia trend con scala colori */}
-      {isGameNotStarted && chance && (
+      {/* Usa playerStats.lastGame da StatPlayer calcolato dinamicamente */}
+      {isGameNotStarted && playerStats && (
         <YStack
           position="absolute"
           top={vote ? 34 : -4} /* se c'è già il voto lo spostiamo sotto per non sovrapporre */
@@ -524,7 +538,9 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
               {trendVisual.arrow}
             </Text>
             <Text fontSize={13} fontWeight="900" color="#fff">
-              {chance.lastGame?.positiveness ?? '?'}
+              {playerStats?.trendAverage !== undefined
+                ? `${playerStats.trendAverage < 0 ? '' : ''}${Math.round(playerStats.trendAverage)}`
+                : '?'}
             </Text>
           </XStack>
         </YStack>
@@ -728,7 +744,7 @@ export function PlayerCard({ player, onPress }: PlayerCardProps) {
     </YStack>
   )
 
-  // Render condizionale: se c'è onPress, wrappa con Pressable
+  // Render: wrappa sempre con Pressable se c'è onPress
   return onPress ? (
     <Pressable onPress={onPress}>
       {cardContent}

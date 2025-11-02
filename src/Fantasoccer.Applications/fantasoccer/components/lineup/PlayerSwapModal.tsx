@@ -8,6 +8,9 @@ import { Role } from 'types/group'
 import { PlayerCard } from './PlayerCard'
 import { getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
 import { ChanceType } from '../../types/chance'
+import type { StatPlayer } from '../../types/stat'
+import { calculatePlayerStats } from '../../utils/statPlayerCalculator'
+import { getPlayerKey } from '../../utils/keyUtils'
 
 interface PlayerSwapModalProps {
   isOpen: boolean
@@ -19,6 +22,7 @@ interface PlayerSwapModalProps {
   canRemove: boolean
   onAddToField?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna/panchina in campo
   onAddToBench?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna in panchina
+  statPlayersMap?: Map<string, StatPlayer> // Mappa per statistiche giocatori
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -38,7 +42,8 @@ export function PlayerSwapModal({
   onRemove,
   canRemove,
   onAddToField,
-  onAddToBench
+  onAddToBench,
+  statPlayersMap
 }: PlayerSwapModalProps) {
   // Filtra giocatori papabili per ruolo (stesso ruolo principale)
   const eligiblePlayers = useMemo(() => {
@@ -104,6 +109,15 @@ export function PlayerSwapModal({
   // Estrai informazioni chance del giocatore selezionato
   const selectedPlayerChance = selectedPlayer?.chance
   
+  // Calcola statistiche da StatPlayer per il giocatore selezionato
+  const selectedPlayerStats = useMemo(() => {
+    if (!selectedPlayer || !statPlayersMap) return null
+    const playerName = (selectedPlayer.current as any)?.name ?? ''
+    const playerKey = getPlayerKey(playerName)
+    const statPlayer = statPlayersMap.get(playerKey)
+    return statPlayer ? calculatePlayerStats(statPlayer) : null
+  }, [selectedPlayer, statPlayersMap])
+  
   // Determina le informazioni da mostrare
   const playerInfo = useMemo(() => {
     if (!selectedPlayer) return null
@@ -122,15 +136,11 @@ export function PlayerSwapModal({
     const fantagazzettaStarter = chance?.fantagazzetta
     const gazzettaStarter = chance?.gazzetta
     
-    // Trend (forma recente) - scala 0-4
-    const trend = typeof chance?.trend === 'number' ? chance.trend : null
-    const trendLabels = ['Pessima', 'Negativa', 'Neutra', 'Positiva', 'Ottima']
-    const trendLabel = trend !== null ? trendLabels[Math.min(4, Math.max(0, trend))] : null
-    const trendArrows = ['↓↓', '↓', '→', '↑', '↑↑']
-    const trendArrow = trend !== null ? trendArrows[Math.min(4, Math.max(0, trend))] : null
-    
-    // Ultima partita (positiveness)
-    const lastGamePositiveness = chance?.lastGame?.positiveness
+    // Trend e lastGame ora vengono da selectedPlayerStats (StatPlayer)
+    const trend = selectedPlayerStats?.trend ?? null
+    const trendLabel = selectedPlayerStats?.trendVisual?.label ?? null
+    const trendArrow = selectedPlayerStats?.trendVisual?.arrow ?? null
+    const lastGamePositiveness = selectedPlayerStats?.lastGame?.positiveness ?? null
     
     return {
       hasInjury,
@@ -144,7 +154,7 @@ export function PlayerSwapModal({
       trendArrow,
       lastGamePositiveness
     }
-  }, [selectedPlayer, selectedPlayerChance])
+  }, [selectedPlayer, selectedPlayerChance, selectedPlayerStats])
 
   return (
     <Sheet
@@ -453,7 +463,7 @@ export function PlayerSwapModal({
                           height={200}
                         >
                           <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} />
+                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
                             <XStack 
                               backgroundColor="$green10" 
                               paddingHorizontal={10} 
@@ -511,7 +521,7 @@ export function PlayerSwapModal({
                           height={200}
                         >
                           <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} />
+                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
                             <XStack 
                               backgroundColor="$orange10" 
                               paddingHorizontal={10} 
@@ -569,7 +579,7 @@ export function PlayerSwapModal({
                           height={200}
                         >
                           <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} />
+                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
                             <XStack 
                               backgroundColor="$blue10" 
                               paddingHorizontal={10} 

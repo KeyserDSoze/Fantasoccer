@@ -67,8 +67,6 @@ export interface Chance {
   sky: boolean
   status: ChanceType
   description: string | null
-  lastGame: StatPlayerGame | null
-  trend: TrendType
 }
 
 export interface EnhancedChance extends Chance {
@@ -112,8 +110,6 @@ export function mapRawChanceToChance(raw: ChanceRaw): Chance {
     sky: raw?.s ?? false,
     status: raw?.t ?? ChanceType.Normal,
     description: raw?.d ?? null,
-    lastGame: raw?.l ? mapRawStatPlayerGameToGame(raw.l) : null,
-    trend: raw?.r ?? TrendType.Normal,
   }
 }
 
@@ -174,8 +170,6 @@ export class ChanceHelper {
       sky: false,
       status: ChanceType.Normal,
       description: null,
-      lastGame: null,
-      trend: TrendType.Normal,
     }
   }
 
@@ -211,11 +205,7 @@ export class ChancedRealPlayerHelper {
         return roleComparison
       }
 
-      const trendComparison = TREND_ORDER[b.chance.trend] - TREND_ORDER[a.chance.trend]
-      if (trendComparison !== 0) {
-        return trendComparison
-      }
-
+      // Trend rimosso - ora ordinamento solo per ruolo e nome
       return a.name.localeCompare(b.name, 'it-IT', { sensitivity: 'base' })
     })
   }

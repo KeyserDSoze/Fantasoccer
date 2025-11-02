@@ -3,6 +3,7 @@ import { Dimensions } from 'react-native'
 import { Sheet, YStack, XStack, Text, Button, ScrollView, Card } from 'tamagui'
 import { X, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus, Clock, CheckCircle, Circle } from '@tamagui/lucide-icons'
 import type { LivePlayer } from 'types/game'
+import type { StatPlayer } from 'types/stat'
 import type { Vote } from 'types/serieA'
 import type { Chance } from '../../types/chance'
 import type { RealGame } from 'types/serieA'
@@ -11,11 +12,14 @@ import { ChanceType as ChanceTypeEnum } from '../../types/chance'
 import { Role } from 'types/group'
 import { AssistSVG, SoccerBallSVG, BehaviourCardSVG } from './icons'
 import { convertUTCToItalianTimezoneAsNotNullableDate, formatGameDateTime } from 'utils/timezoneHelpers'
+import { calculatePlayerStats } from 'utils/statPlayerCalculator'
+import { getPlayerKey } from 'utils/keyUtils'
 
 interface PlayerViewModalProps {
   isOpen: boolean
   onClose: () => void
   player: LivePlayer | null
+  statPlayersMap?: Map<string, StatPlayer>
 }
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -43,7 +47,7 @@ const BEHAVIOUR_CONFIG = {
   [Behaviour.Nothing]: { label: '', icon: null, color: '' }
 }
 
-export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProps) {
+export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: PlayerViewModalProps) {
   const screenHeight = Dimensions.get('window').height
 
   if (!player) return null
@@ -57,6 +61,20 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
   const playerRole = current?.role ?? Role.Undefined
   const roleLabel = ROLE_LABELS[playerRole as Role] ?? 'Non definito'
   const teamName = current?.team?.name ?? ''
+  const playerKey = getPlayerKey(playerName)
+
+  // Lookup StatPlayer per calcoli e timeline
+  const statPlayer = useMemo(() => {
+    return statPlayersMap?.get(playerKey) ?? null
+  }, [statPlayersMap, playerKey])
+
+  // Calcola metriche da StatPlayer (sostituisce chance.trend e chance.lastGame)
+  const playerStats = useMemo(() => {
+    if (!statPlayer) {
+      return null
+    }
+    return calculatePlayerStats(statPlayer)
+  }, [statPlayer])
 
   // Determina se la partita è iniziata, in corso o terminata
   const gameStatus = useMemo(() => {
@@ -129,15 +147,8 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
     const fantagazzettaStarter = chance.fantagazzetta
     const gazzettaStarter = chance.gazzetta
 
-    // Trend (forma recente) - scala 0-4
-    const trend = typeof chance.trend === 'number' ? chance.trend : null
-    const trendLabels = ['Pessima', 'Negativa', 'Neutra', 'Positiva', 'Ottima']
-    const trendLabel = trend !== null ? trendLabels[Math.min(4, Math.max(0, trend))] : null
-    const trendArrows = ['↓↓', '↓', '→', '↑', '↑↑']
-    const trendArrow = trend !== null ? trendArrows[Math.min(4, Math.max(0, trend))] : null
-
-    // Ultima partita (positiveness)
-    const lastGamePositiveness = chance.lastGame?.positiveness
+    // Trend e lastGame ora vengono da playerStats (StatPlayer) invece di chance
+    // Non ci sono più in Chance - rimossi dal backend
 
     return {
       hasInjury,
@@ -146,10 +157,6 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
       suspensionDescription,
       fantagazzettaStarter,
       gazzettaStarter,
-      trend,
-      trendLabel,
-      trendArrow,
-      lastGamePositiveness
     }
   }, [chance])
 
@@ -469,54 +476,60 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
                       </YStack>
                     </Card>
                   )}
+                </YStack>
+              )}
 
-                  {/* Forma recente (trend) */}
-                  {chanceInfo.trend !== null && (
+              {/* STATISTICHE GIOCATORE (sempre visibili se disponibili) */}
+              {playerStats && (
+                <YStack gap={12}>
+                  {/* Forma recente (trend) - usa playerStats da StatPlayer */}
+                  {playerStats.trend !== null && (
                     <Card 
                       backgroundColor={
-                        chanceInfo.trend >= 3 ? "$green2" : 
-                        chanceInfo.trend <= 1 ? "$red2" : 
+                        playerStats.trend >= 3 ? "$green2" : 
+                        playerStats.trend <= 1 ? "$red2" : 
                         "$yellow2"
                       }
                       padding={12} 
                       borderRadius={12}
                     >
                       <XStack gap={8} alignItems="center">
-                        {chanceInfo.trend >= 3 ? (
+                        {playerStats.trend >= 3 ? (
                           <TrendingUp size={20} color="#16a34a" />
-                        ) : chanceInfo.trend <= 1 ? (
+                        ) : playerStats.trend <= 1 ? (
                           <TrendingDown size={20} color="#dc2626" />
                         ) : (
                           <Minus size={20} color="#eab308" />
                         )}
                         <YStack flex={1}>
                           <Text fontSize={14} fontWeight="700" color={
-                            chanceInfo.trend >= 3 ? "$green11" : 
-                            chanceInfo.trend <= 1 ? "$red11" : 
+                            playerStats.trend >= 3 ? "$green11" : 
+                            playerStats.trend <= 1 ? "$red11" : 
                             "$yellow11"
                           }>
-                            {chanceInfo.trendArrow} FORMA RECENTE: {chanceInfo.trendLabel?.toUpperCase()}
+                            {playerStats.trendVisual.arrow} FORMA RECENTE: {playerStats.trendVisual.label?.toUpperCase()} ({Math.round(playerStats.trendAverage)})
                           </Text>
                           <Text fontSize={12} color={
-                            chanceInfo.trend >= 3 ? "$green10" : 
-                            chanceInfo.trend <= 1 ? "$red10" : 
+                            playerStats.trend >= 3 ? "$green10" : 
+                            playerStats.trend <= 1 ? "$red10" : 
                             "$yellow10"
                           }>
-                            {chanceInfo.trend >= 3 ? 'Sta giocando molto bene nelle ultime partite' : 
-                             chanceInfo.trend <= 1 ? 'Prestazioni negative nelle ultime partite' : 
-                             'Prestazioni altalenanti nelle ultime partite'}
+                            {playerStats.trend >= 3 ? 'Sta giocando molto bene' : 
+                             playerStats.trend <= 1 ? 'Prestazioni negative' : 
+                             'Prestazioni altalenanti'}
                           </Text>
                         </YStack>
                       </XStack>
                     </Card>
                   )}
 
-                  {/* Ultima partita (positiveness) */}
-                  {chanceInfo.lastGamePositiveness !== undefined && chanceInfo.lastGamePositiveness !== null && (
+                  {/* Ultima partita (positiveness) - usa playerStats da StatPlayer */}
+                  {playerStats?.lastGame && (
                     <Card 
                       backgroundColor={
-                        chanceInfo.lastGamePositiveness > 0 ? "$green2" : 
-                        chanceInfo.lastGamePositiveness < 0 ? "$red2" : 
+                        playerStats.lastGame.vote === null ? "$gray2" :
+                        playerStats.lastGame.positiveness > 0 ? "$green2" : 
+                        playerStats.lastGame.positiveness < 0 ? "$red2" : 
                         "$gray2"
                       }
                       padding={12} 
@@ -524,26 +537,86 @@ export function PlayerViewModal({ isOpen, onClose, player }: PlayerViewModalProp
                     >
                       <YStack gap={4}>
                         <Text fontSize={14} fontWeight="700" color={
-                          chanceInfo.lastGamePositiveness > 0 ? "$green11" : 
-                          chanceInfo.lastGamePositiveness < 0 ? "$red11" : 
+                          playerStats.lastGame.vote === null ? "$gray11" :
+                          playerStats.lastGame.positiveness > 0 ? "$green11" : 
+                          playerStats.lastGame.positiveness < 0 ? "$red11" : 
                           "$gray11"
                         }>
-                          ⚽ ULTIMA PARTITA
+                          ⚽ ULTIMA PARTITA (G{playerStats.lastGame.serieADay})
                         </Text>
                         <Text fontSize={12} color={
-                          chanceInfo.lastGamePositiveness > 0 ? "$green10" : 
-                          chanceInfo.lastGamePositiveness < 0 ? "$red10" : 
+                          playerStats.lastGame.vote === null ? "$gray10" :
+                          playerStats.lastGame.positiveness > 0 ? "$green10" : 
+                          playerStats.lastGame.positiveness < 0 ? "$red10" : 
                           "$gray10"
                         }>
-                          Valore: {chanceInfo.lastGamePositiveness > 0 ? '+' : ''}{chanceInfo.lastGamePositiveness} • 
-                          {chanceInfo.lastGamePositiveness > 0 ? ' Ha fatto bonus!' : 
-                           chanceInfo.lastGamePositiveness < 0 ? ' Ha preso malus' : 
-                           ' Prestazione neutra'}
+                          {playerStats.lastGame.vote === null 
+                            ? 'Non ha giocato' 
+                            : `Valore: ${playerStats.lastGame.positiveness > 0 ? '' : ''}${Math.round(playerStats.lastGame.positiveness)} • ${
+                                playerStats.lastGame.positiveness > 0 ? 'Ha fatto bonus!' : 
+                                playerStats.lastGame.positiveness < 0 ? 'Ha preso malus' : 
+                                'Prestazione neutra'
+                              }`
+                          }
                         </Text>
                       </YStack>
                     </Card>
                   )}
                 </YStack>
+              )}
+
+              {/* Timeline partite recenti (sempre visibile se disponibile) */}
+              {statPlayer && statPlayer.games && statPlayer.games.length > 0 && (
+                <Card backgroundColor="$background" padding={12} borderRadius={12} borderWidth={1} borderColor="$borderColor">
+                  <YStack gap={8}>
+                    <Text fontSize={14} fontWeight="700" color="$color12">
+                      📊 ULTIME PARTITE
+                    </Text>
+                    <Text fontSize={11} color="$color11" marginBottom={4}>
+                      Ordine: dalla più recente • Verde: positivo | Rosso: negativo | Grigio: non giocata
+                    </Text>
+                    
+                    {/* Griglia pallini - INVERTITI: trend dentro, giornata sotto - ORDINE DECRESCENTE */}
+                    <XStack gap={6} flexWrap="wrap">
+                      {statPlayer.games
+                        .slice()
+                        .sort((a, b) => b.serieADay - a.serieADay) // Ordine decrescente: dalla più recente
+                        .slice(0, 15)
+                        .map((game, index) => {
+                          const hasVote = game.vote !== null
+                          const ballColor = !hasVote 
+                            ? '#6b7280' 
+                            : game.positiveness > 0 
+                            ? '#16a34a' 
+                            : '#dc2626'
+                          
+                          return (
+                            <YStack key={`game-${game.serieADay}-${index}`} alignItems="center" gap={2}>
+                              <YStack
+                                width={36}
+                                height={36}
+                                borderRadius={18}
+                                backgroundColor={ballColor}
+                                alignItems="center"
+                                justifyContent="center"
+                                borderWidth={2}
+                                borderColor="rgba(255,255,255,0.3)"
+                              >
+                                {/* INVERTITO: Trend dentro la palla - ARROTONDATO senza virgola */}
+                                <Text fontSize={11} fontWeight="bold" color="#fff">
+                                  {hasVote ? `${game.positiveness > 0 ? '+' : ''}${Math.round(game.positiveness)}` : '-'}
+                                </Text>
+                              </YStack>
+                              {/* INVERTITO: Giornata di Serie A sotto */}
+                              <Text fontSize={9} fontWeight="600" color="$color11">
+                                G{game.serieADay}
+                              </Text>
+                            </YStack>
+                          )
+                        })}
+                    </XStack>
+                  </YStack>
+                </Card>
               )}
 
               {/* Messaggio se nessuna informazione disponibile */}

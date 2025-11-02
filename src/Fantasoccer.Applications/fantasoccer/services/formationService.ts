@@ -5,15 +5,18 @@
  * Calcola la formazione ottimale basandosi su un algoritmo che valuta:
  * - Fantagazzetta (+5/-5)
  * - Status giocatore (Normal +1, Injury/Disqualified -99, Warned/Maybe -5)
- * - Trend (0-4 dall'enum)
- * - Positiveness dell'ultima partita
+ * - Trend (0-4 calcolato da StatPlayer)
+ * - Positiveness dell'ultima partita (da StatPlayer)
  */
 
 import type { LivePlayer, LiveTeam } from 'types/game'
+import type { StatPlayer } from 'types/stat'
 import type { Chance, ChanceType, TrendType } from 'types/chance'
 import type { RealGame } from 'types/serieA'
 import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
+import { calculatePlayerStats } from 'utils/statPlayerCalculator'
+import { getPlayerKey } from 'utils/keyUtils'
 
 // ============================================
 // CONSTANTS
@@ -138,13 +141,20 @@ const calculateHomeAwayBonus = (realGame: RealGame | null | undefined, playerTea
 // ============================================
 
 /**
- * Calcola lo score di un giocatore basandosi sui dati Chance
+ * Calcola lo score di un giocatore basandosi sui dati Chance e StatPlayer
+ * AGGIORNATO: usa StatPlayer per trend e lastGame.positiveness invece di Chance
  */
-export const calculatePlayerScore = (player: LivePlayer): number => {
+export const calculatePlayerScore = (player: LivePlayer, statPlayersMap?: Map<string, StatPlayer>): number => {
   const chance = player.chance
   if (!chance) return 0
 
   let score = 0
+
+  // Lookup StatPlayer per trend e positiveness
+  const playerName = (player.current as any)?.name ?? ''
+  const playerKey = getPlayerKey(playerName)
+  const statPlayer = statPlayersMap?.get(playerKey) ?? null
+  const playerStats = statPlayer ? calculatePlayerStats(statPlayer) : null
 
   // 1) Fantagazzetta: +5 se true, -5 se false
   score += chance.fantagazzetta ? 5 : -5
@@ -168,13 +178,13 @@ export const calculatePlayerScore = (player: LivePlayer): number => {
       break
   }
 
-  // 3) Trend: aggiungi il valore numerico (0-4)
-  score += chance.trend ?? 0
+  // 3) Trend: usa trendAverage (somma diretta ultime 5 partite) invece del TrendType mappato
+  const trendValue = playerStats?.trendAverage ?? 0
+  score += trendValue
 
-  // 4) LastGame: usa positiveness se disponibile
-  if (chance.lastGame?.positiveness !== undefined) {
-    score += chance.lastGame.positiveness
-  }
+  // 4) LastGame positiveness: usa StatPlayer - nessun fallback necessario
+  const lastGamePositiveness = playerStats?.lastGame?.positiveness ?? 0
+  score += lastGamePositiveness
 
   // 5) Casa/Trasferta e difficoltà avversario
   const playerTeamName = (player.current as any)?.realTeam?.name ?? ''
@@ -213,11 +223,11 @@ const sortPlayersByScore = (players: PlayerScore[]): PlayerScore[] => {
  * 5. Assegna panchinari (primi 2 per ruolo)
  * 6. Manda tutti i restanti in tribuna
  */
-export const calculateOptimalFormation = (team: LiveTeam): LivePlayer[] => {
+export const calculateOptimalFormation = (team: LiveTeam, statPlayersMap?: Map<string, StatPlayer>): LivePlayer[] => {
   // 1. Calcola score per tutti i giocatori
   const scoredPlayers: PlayerScore[] = team.players.map(player => ({
     player,
-    score: calculatePlayerScore(player),
+    score: calculatePlayerScore(player, statPlayersMap),
     role: getPlayerRole(player),
   }))
 
@@ -354,8 +364,8 @@ export const calculateOptimalFormation = (team: LiveTeam): LivePlayer[] => {
  * Applica la formazione ottimale a un team
  * Ritorna una copia aggiornata del team
  */
-export const applyOptimalFormation = (team: LiveTeam): LiveTeam => {
-  const updatedPlayers = calculateOptimalFormation(team)
+export const applyOptimalFormation = (team: LiveTeam, statPlayersMap?: Map<string, StatPlayer>): LiveTeam => {
+  const updatedPlayers = calculateOptimalFormation(team, statPlayersMap)
   return {
     ...team,
     players: updatedPlayers,

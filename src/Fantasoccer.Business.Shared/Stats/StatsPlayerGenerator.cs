@@ -80,6 +80,8 @@ namespace Fantasoccer.Business
                                 player.SufferedGoal += votePlayer.Vote.SufferedGoal;
                                 if (votePlayer.Vote.SufferedGoal > 0)
                                     statPlayerGame.Positiveness -= 1;
+                                if (player.Role == Role.GoalKeeper && votePlayer.Vote.SufferedGoal == 0)
+                                    statPlayerGame.Positiveness += 1;
                                 player.StoppedPenalty += votePlayer.Vote.StoppedPenalty;
                                 if (votePlayer.Vote.StoppedPenalty > 0)
                                     statPlayerGame.Positiveness += 2;
@@ -108,7 +110,8 @@ namespace Fantasoccer.Business
                                 if (votePlayer.Vote.Value >= 6)
                                 {
                                     player.IsEnough++;
-                                    statPlayerGame.Positiveness += 1;
+                                    if (player.Role == Role.GoalKeeper || player.Role == Role.Defensor)
+                                        statPlayerGame.Positiveness += 1;
                                 }
                                 if (votePlayer.Vote.ManOfTheMatch)
                                 {
@@ -124,7 +127,10 @@ namespace Fantasoccer.Business
                                 var value = _teamCalculator.FinalValue(_teamCalculator.ForceEnrich(new Player() { Role = player.Role }, votePlayer.Vote, null, null));
                                 player.FantaSummatory += value.Value;
                                 if (value.Special)
+                                {
                                     player.WithSpecial++;
+                                    statPlayerGame.Positiveness += 1;
+                                }
                             }
                             else
                             {

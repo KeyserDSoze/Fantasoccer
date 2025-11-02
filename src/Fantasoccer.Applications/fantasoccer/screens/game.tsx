@@ -6,7 +6,10 @@ import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { useFieldZoom } from 'hooks/useFieldZoom'
 import { SoccerField } from 'components/lineup'
 import { type GameWrapper } from 'types/game'
+import { type StatPlayer } from 'types/stat'
 import gameService from 'services/gameService'
+import { statPlayerService } from 'services/statPlayerService'
+import { createStatPlayerMap } from 'utils/statPlayerCalculator'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { formatItalianDate } from 'utils/timezoneHelpers'
 import type { RootStackParamList } from '../navigation'
@@ -39,6 +42,10 @@ export default function GameScreen() {
   const [gameLoading, setGameLoading] = useState(false)
   const [gameError, setGameError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false) // Flag per evitare refresh multipli
+
+  // StatPlayers map per calcoli trend/positiveness
+  const [statPlayersMap, setStatPlayersMap] = useState<Map<string, StatPlayer>>(new Map())
+  const [statPlayersLoading, setStatPlayersLoading] = useState(false)
 
   // Funzione per ricaricare i dati della partita
   const refreshGame = async (isAutoRefresh = false) => {
@@ -90,6 +97,32 @@ export default function GameScreen() {
 
     return () => { mounted = false }
   }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
+
+  // Caricamento StatPlayers per calcoli trend/positiveness
+  useEffect(() => {
+    if (!routeYear) {
+      return
+    }
+
+    let mounted = true
+    setStatPlayersLoading(true)
+
+    statPlayerService.getCurrentUserEnhancedWrapper({ year: parseInt(routeYear) })
+      .then(wrapper => {
+        if (mounted && wrapper) {
+          const map = createStatPlayerMap(wrapper.players)
+          setStatPlayersMap(map)
+        }
+      })
+      .catch(err => {
+        console.error('Error loading StatPlayers:', err)
+      })
+      .finally(() => {
+        if (mounted) setStatPlayersLoading(false)
+      })
+
+    return () => { mounted = false }
+  }, [routeYear])
 
   // Stato per controllare se ci sono partite live in questo momento
   const [isLiveActive, setIsLiveActive] = useState(false)
@@ -427,6 +460,7 @@ export default function GameScreen() {
                       minZoom,
                       maxZoom
                     }}
+                    statPlayersMap={statPlayersMap}
                   />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>

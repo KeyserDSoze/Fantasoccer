@@ -18,14 +18,12 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _repository;
         private readonly IRepository<RealCalendar, int> _calendar;
         private readonly IRepository<RealPlayersWrapper, int> _realPlayersRepository;
-        private readonly IRepository<StatPlayersWrapper, int> _statsRepository;
 
         public PlayerOddsJob(IFantasoccerLogger logger,
             IFactory<IFormationParser> formations,
             IRepository<ChancedRealPlayerWrapper, YearDayKey> repository,
             IRepository<RealCalendar, int> calendar,
-            IRepository<RealPlayersWrapper, int> realPlayersRepository,
-            IRepository<StatPlayersWrapper, int> statsRepository)
+            IRepository<RealPlayersWrapper, int> realPlayersRepository)
         {
             _logger = logger;
             _repository = repository;
@@ -39,7 +37,6 @@ namespace Fantasoccer.Engine.IngestionData
                 formations.Create("Injury")!,
             ];
             _realPlayersRepository = realPlayersRepository;
-            _statsRepository = statsRepository;
         }
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
@@ -49,7 +46,6 @@ namespace Fantasoccer.Engine.IngestionData
                 var day = (calendar.LiveDay ?? calendar.NextDay)?.SerieADay ?? 0;
                 if (day > 0)
                 {
-                    var statPlayersWrapper = await _statsRepository.GetAsync(FantacalcioTime.ActualYear, cancellationToken);
                     var key = new YearDayKey
                     {
                         Year = FantacalcioTime.ActualYear,
@@ -70,28 +66,6 @@ namespace Fantasoccer.Engine.IngestionData
                                 Chance = new Chance()
                             });
                         }
-                    }
-                    foreach (var player in players.Where(x => x.Chance.LastGame == default))
-                    {
-                        var currentStatPlayer = statPlayersWrapper!.Players.FirstOrDefault(x => x.Key == player.Key);
-                        if (player.Chance == default)
-                            player.Chance = new Chance();
-                        player.Chance.LastGame = currentStatPlayer?.AllGames?.OrderByDescending(x => x.SerieADay).FirstOrDefault();
-                        var positivenessCount = 2;
-                        var lastThreeGames = currentStatPlayer?.AllGames?.OrderByDescending(x => x.SerieADay).Take(3);
-                        if (lastThreeGames != null)
-                            foreach (var theGame in lastThreeGames)
-                            {
-                                if (theGame.Positiveness > 1)
-                                    positivenessCount++;
-                                else if (theGame.Positiveness < 0)
-                                    positivenessCount--;
-                            }
-                        if (positivenessCount > 4)
-                            positivenessCount = 4;
-                        else if (positivenessCount < 0)
-                            positivenessCount = 0;
-                        player.Chance.Trend = (TrendType)positivenessCount;
                     }
                     foreach (var player in players)
                     {

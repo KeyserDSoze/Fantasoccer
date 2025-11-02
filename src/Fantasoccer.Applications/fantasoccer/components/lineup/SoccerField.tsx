@@ -3,6 +3,7 @@ import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { Save, Sparkles, Undo2 } from '@tamagui/lucide-icons'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
+import type { StatPlayer } from 'types/stat'
 import { FantaSoccerRole, Team } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
@@ -86,7 +87,8 @@ export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
   groupId?: string // ID del gruppo per salvare il team
   onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
-  customZoom?: number // Zoom personalizzato per le card (0.1 - 1.0)
+  customZoom?: number // Zoom personalizzato per le card (0.1 - 2.0)
+  statPlayersMap?: Map<string, StatPlayer> // Mappa key->StatPlayer per calcoli trend/positiveness
   // Zoom controls props
   zoomControls?: {
     zoomLevel: number
@@ -117,7 +119,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, style }: SoccerFieldProps) => {
+export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, statPlayersMap, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField({ customZoom })
   const { user } = useAuth()
   const toast = useToastController()
@@ -391,8 +393,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
     // Salva il backup della formazione corrente
     setFormationBackup({ home, away })
 
-    // Calcola la formazione ottimale
-    const optimizedTeam = formationService.applyOptimalFormation(teamToOptimize)
+    // Calcola la formazione ottimale usando StatPlayer per metriche migliori
+    const optimizedTeam = formationService.applyOptimalFormation(teamToOptimize, statPlayersMap)
 
     // Aggiorna lo stato locale
     setLocalTeams(prev => ({
@@ -573,6 +575,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
               key={`${sectionKey}-${i}`} 
               player={player}
               onPress={() => handlePlayerClick(player, teamIndex)}
+              statPlayersMap={statPlayersMap}
             />
           ))}
         </XStack>
@@ -745,6 +748,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
                       key={`${p.current?.name ?? ''}-${i}`} 
                       player={p}
                       onPress={() => handlePlayerClick(p, teamIndex)}
+                      statPlayersMap={statPlayersMap}
                     />
                   ))}
                 </XStack>
@@ -781,6 +785,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
                       key={`${p.current?.name ?? ''}-${i}`} 
                       player={p}
                       onPress={() => handlePlayerClick(p, teamIndex)}
+                      statPlayersMap={statPlayersMap}
                     />
                   ))}
                 </YStack>
@@ -925,6 +930,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
                       key={`home-tribune-${i}`} 
                       player={player}
                       onPress={() => handlePlayerClick(player, 0)}
+                      statPlayersMap={statPlayersMap}
                     />
                   ))}
                   {homeTribune.length === 0 && (
@@ -968,6 +974,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
                       key={`away-tribune-${i}`} 
                       player={player}
                       onPress={() => handlePlayerClick(player, 1)}
+                      statPlayersMap={statPlayersMap}
                     />
                   ))}
                   {awayTribune.length === 0 && (
@@ -997,6 +1004,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
         canRemove={selectedCanRemove}
         onAddToField={handleAddToField}
         onAddToBench={handleAddToBench}
+        statPlayersMap={statPlayersMap}
       />
 
       {/* MODALE PER VISUALIZZAZIONE INFO GIOCATORE */}
@@ -1007,6 +1015,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
           setSelectedPlayer(null)
         }}
         player={selectedPlayer}
+        statPlayersMap={statPlayersMap}
       />
     </YStack>
   )

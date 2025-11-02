@@ -20,6 +20,38 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
+        description: 'Sistema di statistiche giocatori dinamico basato su StatPlayer - sostituisce il vecchio sistema statico Chance'
+      },
+      {
+        category: 'Feature',
+        description: 'Badge trend dinamico nelle card giocatori con calcolo in tempo reale basato su somma ultime 5 partite'
+      },
+      {
+        category: 'Feature',
+        description: 'Timeline visiva partite nella modal dettaglio giocatore - pallini colorati con positiveness e giornata'
+      },
+      {
+        category: 'Feature',
+        description: 'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima)'
+      },
+      {
+        category: 'Feature',
+        description: 'Visualizzazione "Ultima Partita" con gestione partite non giocate e calcolo automatico positiveness'
+      },
+      {
+        category: 'Improvement',
+        description: 'Algoritmo formazione automatica aggiornato per usare somma diretta trend invece di categorie mappate'
+      },
+      {
+        category: 'Improvement',
+        description: 'Performance migliorate con Map lookup O(1) per accesso StatPlayer invece di array search'
+      },
+      {
+        category: 'Improvement',
+        description: 'Normalizzazione chiavi giocatori consistente tra frontend e backend per lookup affidabile'
+      },
+      {
+        category: 'Feature',
         description: 'Aggiunto parametro Fortuna (🍀) nella classifica - visualizza quanto sei stato fortunato o sfortunato durante la stagione'
       },
       {
