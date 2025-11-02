@@ -27,6 +27,7 @@ import PatchNotesScreen from 'screens/patch-notes';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 import PushNotificationScreen from 'screens/push-notification';
+import { VersionUpdateBanner } from 'components/version/VersionUpdateBanner';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -162,6 +163,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
         <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
       </Stack.Navigator>
+      {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
+      <VersionUpdateBanner />
     </NavigationContainer>
   );
 }

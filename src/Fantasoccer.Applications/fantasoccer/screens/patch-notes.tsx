@@ -32,6 +32,10 @@ const patchNotes: PatchNote[] = [
       },
       {
         category: 'Feature',
+        description: 'Banner notifica nuova versione con link diretto alle patch notes - mostrato automaticamente solo una volta per versione'
+      },
+      {
+        category: 'Feature',
         description: 'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima)'
       },
       {
