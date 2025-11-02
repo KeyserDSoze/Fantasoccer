@@ -178,13 +178,15 @@ export const calculatePlayerScore = (player: LivePlayer, statPlayersMap?: Map<st
       break
   }
 
-  // 3) Trend: usa trendAverage (somma diretta ultime 5 partite) invece del TrendType mappato
-  const trendValue = playerStats?.trendAverage ?? 0
-  score += trendValue
-
-  // 4) LastGame positiveness: usa StatPlayer - nessun fallback necessario
-  const lastGamePositiveness = playerStats?.lastGame?.positiveness ?? 0
-  score += lastGamePositiveness
+  // 3) Trend intelligente: 
+  // - Se l'ultima partita è stata giocata (vote !== null), usa solo quella (più recente e affidabile)
+  // - Se l'ultima partita NON è stata giocata, usa trendAverage (somma ultime 5)
+  // Questo evita di penalizzare giocatori che erano infortunati ma ora sono disponibili
+  const lastGameWasPlayed = playerStats?.lastGame?.vote !== null
+  const trendScore = lastGameWasPlayed 
+    ? (playerStats?.lastGame?.positiveness ?? 0) 
+    : (playerStats?.trendAverage ?? 0)
+  score += trendScore
 
   // 5) Casa/Trasferta e difficoltà avversario
   const playerTeamName = (player.current as any)?.realTeam?.name ?? ''
