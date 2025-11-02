@@ -59,9 +59,9 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false)
   
-  const logoUrl = cacheBuster 
-    ? `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png?t=${cacheBuster}`
-    : `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png`
+  // Use provided cacheBuster or generate one based on current day (updates daily)
+  const effectiveCacheBuster = cacheBuster ?? Math.floor(Date.now() / (1000 * 60 * 60 * 24))
+  const logoUrl = `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png?t=${effectiveCacheBuster}`
   
   if (imageError) {
     return <FallbackLogo size={size} color={fallbackColor} />
