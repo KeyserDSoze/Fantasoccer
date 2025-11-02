@@ -3,7 +3,7 @@ import { Platform } from 'react-native'
 
 const ZOOM_STORAGE_KEY = 'field-zoom-level'
 const MIN_ZOOM = 0.1 // 10%
-const MAX_ZOOM = 1.0 // 100%
+const MAX_ZOOM = 2.0 // 200%
 const DEFAULT_MOBILE_ZOOM = 0.55 // 55%
 const DEFAULT_DESKTOP_ZOOM = 1.0 // 100%
 const ZOOM_STEP = 0.05 // 5% per click

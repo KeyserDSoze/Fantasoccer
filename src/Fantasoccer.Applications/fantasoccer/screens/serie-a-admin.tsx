@@ -352,7 +352,7 @@ export default function SerieAAdminScreen() {
                 disabled={isAnyLoading || !selectedYear}
                 icon={isLoadingOp('recalcYear') ? <Spinner size="small" /> : <BarChart3 size="$1" />}
               >
-                {isLoadingOp('recalcYear') ? 'Ricalcolo...' : 'Ricalcola Anno'}
+                {isLoadingOp('recalcYear') ? 'Ricalcolo...' : 'Ricalcola statistiche dei giocatori'}
               </Button>
             </XStack>
           </XStack>

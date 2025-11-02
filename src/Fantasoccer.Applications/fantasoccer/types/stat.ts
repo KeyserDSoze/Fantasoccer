@@ -16,6 +16,7 @@ export interface StatPlayerRaw extends RealPlayerRaw {
   f: number   // FantaSummatory (matches [JsonPropertyName("f")])
   v: number   // WithVote (matches [JsonPropertyName("v")])
   q: number   // WithoutVote (matches [JsonPropertyName("q")])
+  np: number  // NoPlayed (matches [JsonPropertyName("np")])
   s: number   // WithSpecial (matches [JsonPropertyName("s")])
   g: number   // Goal (matches [JsonPropertyName("g")])
   p: number   // Penalty (matches [JsonPropertyName("p")])
@@ -51,6 +52,7 @@ export interface StatPlayer extends RealPlayer {
   fantaSummatory: number
   withVote: number
   withoutVote: number
+  noPlayed: number
   withSpecial: number
   goals: number
   penalties: number
@@ -110,6 +112,7 @@ export function mapRawStatPlayerToStatPlayer(raw: StatPlayerRaw): StatPlayer {
     fantaSummatory,
     withVote,
     withoutVote: raw.q ?? 0,
+    noPlayed: raw.np ?? 0,
     withSpecial: raw.s ?? 0,
     goals: raw.g ?? 0,
     penalties: raw.p ?? 0,
