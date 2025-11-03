@@ -276,6 +276,8 @@ export default function CalendarScreen() {
               roundLabel={selectedRoundLabel}
               pendingGamesCount={pendingGames.length}
               days={selectedRoundDays}
+              groupId={currentGroup?.id}
+              leagueId={localLeagueId}
               year={localYear}
               loading={loading}
               error={error}

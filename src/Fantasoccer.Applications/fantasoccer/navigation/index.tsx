@@ -1,5 +1,6 @@
-import { NavigationContainer, Theme } from '@react-navigation/native';
+import { NavigationContainer, Theme, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useEffect, useRef } from 'react';
 import Home from 'screens/home';
 import Details from 'screens/details';
 import Ranking from 'screens/ranking';
@@ -82,6 +83,49 @@ declare global {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Internal component with navigation access for auth-failure handling
+function NavigationListener() {
+  const navigation = useNavigation<NavigationProp>();
+  const hasNavigatedRef = useRef(false);
+
+  useEffect(() => {
+    console.log('🎧 [NavigationListener] Mounted and listening for auth-failure events');
+    
+    const handleAuthFailure = () => {
+      console.log('� [NavigationListener] AUTH-FAILURE EVENT RECEIVED!');
+      if (!hasNavigatedRef.current) {
+        hasNavigatedRef.current = true;
+        console.log('🏠 [NavigationListener] Navigating to Home...');
+        // Navigate to Home screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+        console.log('✅ [NavigationListener] Navigation completed');
+        // Reset the flag after a delay to allow future navigations
+        setTimeout(() => {
+          hasNavigatedRef.current = false;
+        }, 1000);
+      } else {
+        console.log('⚠️ [NavigationListener] Already navigated, skipping');
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth-failure', handleAuthFailure);
+      console.log('✅ [NavigationListener] Event listener registered');
+      return () => {
+        console.log('🔇 [NavigationListener] Removing event listener');
+        window.removeEventListener('auth-failure', handleAuthFailure);
+      };
+    } else {
+      console.log('⚠️ [NavigationListener] Window not available (React Native?)');
+    }
+  }, [navigation]);
+
+  return null;
+}
+
 // Configurazione linking completa per URL sync
 const linking = {
   prefixes: ['http://localhost:3000', 'https://fanta.zone', 'fantazone://'],
@@ -163,6 +207,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
         <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
       </Stack.Navigator>
+      {/* Listen for auth failures and redirect to Home */}
+      <NavigationListener />
       {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
       <VersionUpdateBanner />
     </NavigationContainer>

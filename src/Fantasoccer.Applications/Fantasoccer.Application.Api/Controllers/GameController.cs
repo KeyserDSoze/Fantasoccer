@@ -96,17 +96,18 @@ namespace Fantasoccer.Application.Api.Controllers
             var group = await _groups.GetAsync(groupId);
             if (group != null)
             {
-                var league = group.GetAnnualLeague(leagueId, year);
-                if (league != null)
+                var annualLeague = group.GetAnnualLeague(leagueId, year);
+                if (annualLeague != null)
                 {
+                    var league = group.Leagues.First(x => x.Id == leagueId);
                     var calendar = await _calendar.GetAsync(new LeagueKey { Group = groupId, League = leagueId, Year = year });
                     if (calendar != null)
                     {
                         var game = calendar.GetGameById(gameId);
                         if (game.Value != null)
                         {
-                            var leagueSettings = league.Settings;
-                            var leagueType = league.Type == LeagueType.Null ? LeagueType.League : league.Type;
+                            var leagueSettings = annualLeague.Settings;
+                            var leagueType = annualLeague.Type == LeagueType.Null ? (league.Type == LeagueType.Null ? LeagueType.League : league.Type) : annualLeague.Type;
                             var leagueCalculator = _leagueCalculatorFactory.Create(leagueType.ToString());
                             var realCalendar = await _realCalendar.GetAsync(year);
                             var nextSerieA = realCalendar?.NextDay?.SerieADay ?? 39;

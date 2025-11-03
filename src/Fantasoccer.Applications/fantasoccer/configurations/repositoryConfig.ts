@@ -172,12 +172,19 @@ const getAuthHeaders = async () : Promise<HeadersInit> => {
 
 // Error handler for auth issues with automatic token refresh and save
 const handleAuthError = async (endpoint: any, uri: string, method: string, headers: any, body: any, err: any) => {
-  if (err.status === 401) {
-    console.log('🔐 401 Unauthorized - attempting token refresh...');
+  // Check if err is a Response object or has status/statusCode properties
+  const statusCode = (err instanceof Response ? err.status : (err?.status || err?.statusCode));
+  
+  // Check if the error message or URI indicates a 401 error
+  const is401Error = statusCode === 401 || 
+                     err?.message?.includes('401') || 
+                     err?.message?.includes('Unauthorized') ||
+                     uri?.includes('401');
+  
+  if (is401Error) {
     try {
       const storedData = await tokenStorageService.loadToken();
       if (storedData?.refreshToken) {
-        console.log('🔄 Refreshing token...');
         const newTokenData = await authService.refreshToken(storedData.refreshToken);
         
         // Calculate expiration time (assuming token is valid for the specified seconds)
@@ -192,42 +199,58 @@ const handleAuthError = async (endpoint: any, uri: string, method: string, heade
         };
         
         await tokenStorageService.saveToken(updatedTokenData);
-        console.log('✅ Token refreshed and saved successfully');
         
         return true; // Retry the request with new token
       } else {
-        console.log('❌ No refresh token available');
         await handleAuthenticationFailure();
       }
     } catch (refreshError) {
-      console.error("❌ Token refresh failed:", refreshError);
       await handleAuthenticationFailure();
     }
   }
+  
+  // If no token is available and we get any error, treat it as auth failure
+  const storedData = await tokenStorageService.loadToken();
+  if (!storedData) {
+    await handleAuthenticationFailure();
+  }
+  
   return false; // Don't retry
 };
 
 // Handle authentication failure by clearing tokens and redirecting to login
 const handleAuthenticationFailure = async () => {
   try {
+    // Save current location for redirect after login
+    if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/login') {
+      const returnUrl = window.location.pathname + window.location.search;
+      
+      // Use returnUrlService for proper cross-platform support
+      const { returnUrlService } = await import('../services/returnUrlService');
+      await returnUrlService.saveReturnUrl(returnUrl);
+    }
+    
     // Clear all stored tokens
     await tokenStorageService.removeToken();
-    console.log('🧹 Cleared invalid tokens');
     
-    // If we're in browser environment, redirect to login
+    // Dispatch a custom event that the app can listen to
     if (typeof window !== 'undefined') {
-      console.log('🚪 Redirecting to login (client-side) ...');
-      try {
-        // Prefer client-side navigation via history API so Next App Router can handle it
-        window.history.pushState({}, '', '/login')
-        window.dispatchEvent(new PopStateEvent('popstate'))
-      } catch (err) {
-        // Fallback to full reload if history API fails
-        console.warn('Client-side redirect failed, falling back to full redirect', err)
-        window.location.href = '/login'
-      }
+      const event = new CustomEvent('auth-failure');
+      window.dispatchEvent(event);
+      
+      // Fallback: try client-side navigation for web
+      setTimeout(() => {
+        try {
+          if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
+            window.history.pushState({}, '', '/');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }
+        } catch (err) {
+          console.warn('Client-side redirect failed', err);
+        }
+      }, 100);
     }
   } catch (error) {
-    console.error('❌ Error handling authentication failure:', error);
+    console.error('Error handling authentication failure:', error);
   }
 };

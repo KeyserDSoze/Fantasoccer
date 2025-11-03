@@ -87,6 +87,10 @@ const patchNotes: PatchNote[] = [
         description: 'Risolto problema cache browser per loghi - aggiunto delay propagazione blob storage e cache buster iniziale'
       },
       {
+        category: 'Fix',
+        description: 'Risolto problema redirect dopo scadenza token - implementato sistema auto-refresh token con fallback e ritorno automatico alla pagina precedente dopo re-login'
+      },
+      {
         category: 'Feature',
         description: 'Aggiunto parametro Fortuna (🍀) nella classifica - visualizza quanto sei stato fortunato o sfortunato durante la stagione'
       },
