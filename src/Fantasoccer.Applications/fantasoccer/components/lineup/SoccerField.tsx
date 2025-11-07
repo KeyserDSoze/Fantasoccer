@@ -6,7 +6,7 @@ import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import type { StatPlayer } from 'types/stat'
 import { FantaSoccerRole, Team } from 'types/team'
 import { Role } from 'types/group'
-import { PlayerCard, PLAYER_CARD_HEIGHT } from './PlayerCard'
+import { PlayerCard, PLAYER_CARD_HEIGHT, PLAYER_CARD_WIDTH } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal'
 import { PlayerViewModal } from './PlayerViewModal'
 import { ZoomControls } from '../field/ZoomControls'
@@ -526,6 +526,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
     }
 
     const scaledCardHeight = PLAYER_CARD_HEIGHT * cardScale
+    const scaledCardWidth = PLAYER_CARD_WIDTH * cardScale
 
     return (
       <XStack
@@ -558,27 +559,36 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
             {roleIcon} {roleLabel.substring(0, 3)}
           </Text>
         </YStack>
-        {/* Cards giocatori */}
-        <XStack
-          gap={gapBetweenCards}
-          flexWrap="wrap"
-          flex={1}
-          alignItems="flex-start"
-          style={{
-            transform: `scale(${cardScale})`,
-            transformOrigin: 'left top',
-            height: scaledCardHeight
+        {/* ScrollView orizzontale per le cards con transform scale per zoom */}
+        <ScrollView
+          horizontal
+          contentContainerStyle={{
+            paddingHorizontal: 4,
+            minHeight: scaledCardHeight
           }}
+          style={{ flex: 1, height: scaledCardHeight }}
+          showsHorizontalScrollIndicator={false}
         >
-          {players.map((player, i) => (
-            <PlayerCard 
-              key={`${sectionKey}-${i}`} 
-              player={player}
-              onPress={() => handlePlayerClick(player, teamIndex)}
-              statPlayersMap={statPlayersMap}
-            />
-          ))}
-        </XStack>
+          <XStack
+            gap={gapBetweenCards}
+            flexWrap="nowrap"
+            alignItems="flex-start"
+            style={{
+              transform: `scale(${cardScale})`,
+              transformOrigin: 'left top',
+              height: scaledCardHeight
+            }}
+          >
+            {players.map((player, i) => (
+              <PlayerCard 
+                key={`${sectionKey}-${i}`}
+                player={player}
+                onPress={() => handlePlayerClick(player, teamIndex)}
+                statPlayersMap={statPlayersMap}
+              />
+            ))}
+          </XStack>
+        </ScrollView>
       </XStack>
     )
   }
