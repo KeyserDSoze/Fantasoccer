@@ -91,6 +91,18 @@ const patchNotes: PatchNote[] = [
         description: 'Risolto problema redirect dopo scadenza token - implementato sistema auto-refresh token con fallback e ritorno automatico alla pagina precedente dopo re-login'
       },
       {
+        category: 'Fix',
+        description: 'Risolto problema sovrapposizione card giocatori in panchina/tribuna su alcuni browser mobile - rimosso flexWrap in favore di ScrollView orizzontale'
+      },
+      {
+        category: 'Improvement',
+        description: 'Zoom panchina e tribuna ora sincronizzato con zoom campo - controlli zoom applicati uniformemente a tutto il SoccerField'
+      },
+      {
+        category: 'Feature',
+        description: 'Visualizzazione prezzo giocatore nelle modali di dettaglio e scambio - badge verde con icona 💰 accanto a nome e ruolo'
+      },
+      {
         category: 'Feature',
         description: 'Aggiunto parametro Fortuna (🍀) nella classifica - visualizza quanto sei stato fortunato o sfortunato durante la stagione'
       },
