@@ -61,6 +61,7 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
   const playerRole = current?.role ?? Role.Undefined
   const roleLabel = ROLE_LABELS[playerRole as Role] ?? 'Non definito'
   const teamName = current?.team?.name ?? ''
+  const playerPrice = current?.price ?? null
   const playerKey = getPlayerKey(playerName)
 
   // Lookup StatPlayer per calcoli e timeline
@@ -215,9 +216,18 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
                 <Text fontSize={20} fontWeight="800" color="$color">
                   {playerName}
                 </Text>
-                <Text fontSize={14} color="$gray11">
-                  {roleLabel} • {teamName}
-                </Text>
+                <XStack gap={8} alignItems="center">
+                  <Text fontSize={14} color="$gray11">
+                    {roleLabel} • {teamName}
+                  </Text>
+                  {playerPrice !== null && (
+                    <XStack gap={4} alignItems="center" paddingHorizontal={8} paddingVertical={2} backgroundColor="$green3" borderRadius={6}>
+                      <Text fontSize={13} fontWeight="700" color="$green11">
+                        💰 {playerPrice}
+                      </Text>
+                    </XStack>
+                  )}
+                </XStack>
               </YStack>
               <Button
                 circular

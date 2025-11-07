@@ -104,6 +104,7 @@ export function PlayerSwapModal({
   const selectedPlayerName = (selectedPlayer?.current as any)?.name ?? 'Giocatore'
   const selectedPlayerRole = (selectedPlayer?.current as any)?.role ?? Role.Undefined
   const selectedRoleLabel = ROLE_LABELS[selectedPlayerRole as Role] ?? 'Non definito'
+  const selectedPlayerPrice = (selectedPlayer?.current as any)?.price ?? null
   const screenHeight = Dimensions.get('window').height
 
   // Estrai informazioni chance del giocatore selezionato
@@ -184,9 +185,18 @@ export function PlayerSwapModal({
                 <Text fontSize={20} fontWeight="800" color="$color">
                   {selectedIsInTribune || selectedIsInBench ? 'Aggiungi Giocatore' : 'Scambia Giocatore'}
                 </Text>
-                <Text fontSize={14} color="$gray11">
-                  {selectedPlayerName} • {selectedRoleLabel}
-                </Text>
+                <XStack gap={8} alignItems="center">
+                  <Text fontSize={14} color="$gray11">
+                    {selectedPlayerName} • {selectedRoleLabel}
+                  </Text>
+                  {selectedPlayerPrice !== null && (
+                    <XStack gap={4} alignItems="center" paddingHorizontal={8} paddingVertical={2} backgroundColor="$green3" borderRadius={6}>
+                      <Text fontSize={13} fontWeight="700" color="$green11">
+                        💰 {selectedPlayerPrice}
+                      </Text>
+                    </XStack>
+                  )}
+                </XStack>
               </YStack>
               <Button
                 circular
