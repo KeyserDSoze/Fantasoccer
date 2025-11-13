@@ -17,6 +17,7 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<Team, TeamKey> _teamRepository;
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
+        private readonly ITeamChecker _teamChecker;
 
         public GameController(IFactory<ILeagueCalculator> leagueCalculatorFactory,
             ITeamCalculator teamCalculator,
@@ -24,7 +25,8 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<RealCalendar, int> realCalendar,
             IRepository<Group, string> groups,
             IRepository<Team, TeamKey> teamRepository,
-            IRepository<Team, TeamDayKey> teamDayRepository)
+            IRepository<Team, TeamDayKey> teamDayRepository,
+            ITeamChecker teamChecker)
         {
             _leagueCalculatorFactory = leagueCalculatorFactory;
             _teamCalculator = teamCalculator;
@@ -33,6 +35,7 @@ namespace Fantasoccer.Application.Api.Controllers
             _groups = groups;
             _teamRepository = teamRepository;
             _teamDayRepository = teamDayRepository;
+            _teamChecker = teamChecker;
         }
         [HttpPost]
         public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
@@ -82,8 +85,17 @@ namespace Fantasoccer.Application.Api.Controllers
                                 player.Position = playerToSave.Position;
                             }
                         }
-                        var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
-                        return new TeamResponse(response.IsOk, response.Message);
+                        var resultFromCheck = _teamChecker.Validate(actualTeam);
+                        if (resultFromCheck.IsOk)
+                        {
+                            actualTeam.LastUpdate = FantacalcioTime.ItalyNow;
+                            var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
+                            return new TeamResponse(response.IsOk, response.Message);
+                        }
+                        else
+                        {
+                            return resultFromCheck;
+                        }
                     }
                 }
                 return new TeamResponse(true, "Squadra non trovata nel tuo gruppo di appartenenza.");
