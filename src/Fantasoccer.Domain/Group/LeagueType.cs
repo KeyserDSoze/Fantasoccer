@@ -6,7 +6,8 @@
         League,
         Cup,
         NewCup,
-        SuperLeague
+        SuperLeague,
+        FutsalLeague
     }
     public static class LeagueTypeExtensions
     {

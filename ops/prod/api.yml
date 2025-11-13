@@ -37,7 +37,7 @@ jobs:
       workingDirectory: "$(srcPath)/Fantasoccer.Applications/Fantasoccer.Application.Api/"
       projects: "Fantasoccer.Application.Api.csproj"
       executeAllTests: false
-      sdkVersion: "9.x"
+      sdkVersion: "10.x"
       artifactName: "fantasoccer_api"
       publishArtifact: true
       #projectTestName: ""

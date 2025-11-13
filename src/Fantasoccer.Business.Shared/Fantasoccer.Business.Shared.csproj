@@ -11,4 +11,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Fantasoccer.Domain\Fantasoccer.Domain.csproj" />
     </ItemGroup>
+    <ItemGroup>
+      <Folder Include="Services\" />
+    </ItemGroup>
 </Project>

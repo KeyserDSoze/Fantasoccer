@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
-namespace Fantasoccer.Business
+﻿namespace Fantasoccer.Business
 {
     internal sealed class DefaultLeague : ILeagueCalculator
     {
