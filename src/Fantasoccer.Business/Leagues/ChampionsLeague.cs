@@ -1,6 +1,5 @@
 ﻿using System.Security.Cryptography;
 using Microsoft.Extensions.DependencyInjection;
-using Org.BouncyCastle.Math.EC.Multiplier;
 
 namespace Fantasoccer.Business
 {

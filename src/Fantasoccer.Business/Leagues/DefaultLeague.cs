@@ -138,6 +138,7 @@
                 }
             }
             playersInField.AddRange(playersAsSubstitute);
+            playersInField.AddRange(allPlayers.Where(x => x.Current.Position == FantaSoccerRole.Tribune));
             return playersInField;
         }
         public List<LeagueWinner> GetTheYearlyWinners(Rank rank, Calendar calendar)

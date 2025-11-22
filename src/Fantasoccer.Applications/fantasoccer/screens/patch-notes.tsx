@@ -15,6 +15,52 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '1.2.0',
+    date: '22 Novembre 2024',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Modalità Super Admin - permette agli amministratori di modificare le formazioni di entrambe le squadre durante le partite live'
+      },
+      {
+        category: 'Feature',
+        description: 'Toggle attivazione modalità Super Admin nel menu di navigazione con salvataggio persistente in localStorage'
+      },
+      {
+        category: 'Feature',
+        description: 'Selezione esplicita squadra da modificare (Home/Away) con bottoni dedicati e indicatore visivo dello stato attivo'
+      },
+      {
+        category: 'Feature',
+        description: 'Visualizzazione tribuna durante partite live - ora tutti i giocatori sono visibili anche quando la partita è iniziata'
+      },
+      {
+        category: 'Feature',
+        description: 'Badge prezzo giocatore visualizzato nelle modali di dettaglio e scambio (💰)'
+      },
+      {
+        category: 'Improvement',
+        description: 'Ordinamento corretto panchinari nella modal di scambio - primi panchinari prima dei secondi'
+      },
+      {
+        category: 'Improvement',
+        description: 'Polling automatico disabilitato durante modifica formazione in modalità Super Admin - previene sovrascrittura modifiche'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto problema sovrapposizione card giocatori in panchina/tribuna su mobile - implementato ScrollView orizzontale con zoom sincronizzato'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto problema apertura modal swap per Super Admin durante partite live - bypassato controllo hasGameStarted'
+      },
+      {
+        category: 'Fix',
+        description: 'Corretta logica ownership squadre in modalità admin - permette modifica indipendentemente da canEdit e proprietà'
+      }
+    ]
+  },
+  {
     version: '1.1.0',
     date: '2 Novembre 2024',
     changes: [

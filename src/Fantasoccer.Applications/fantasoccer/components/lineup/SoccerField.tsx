@@ -89,6 +89,7 @@ export interface SoccerFieldProps {
   onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
   customZoom?: number // Zoom personalizzato per le card (0.1 - 2.0)
   statPlayersMap?: Map<string, StatPlayer> // Mappa key->StatPlayer per calcoli trend/positiveness
+  adminEditingTeam?: 'home' | 'away' | null // Modalità SuperAdmin - quale squadra sta modificando
   // Zoom controls props
   zoomControls?: {
     zoomLevel: number
@@ -119,7 +120,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, statPlayersMap, style }: SoccerFieldProps) => {
+export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, statPlayersMap, adminEditingTeam = null, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField({ customZoom })
   const { user } = useAuth()
   const toast = useToastController()
@@ -190,11 +191,17 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   const homeTribune = sortTribune(homeTribuneRaw)
   const awayTribune = sortTribune(awayTribuneRaw)
 
-  // Determina quale team è modificabile (owner === email)
+  // Determina quale team è modificabile (owner === email o modalità admin)
   const canEdit = gameWrapper?.canEdit ?? false
   const userEmail = user?.email ?? ''
-  const homeIsMyTeam = canEdit && (home?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
-  const awayIsMyTeam = canEdit && (away?.owner ?? '').toLowerCase() === userEmail.toLowerCase()
+  
+  // Determina se siamo in modalità admin per qualsiasi squadra
+  const isAdminMode = adminEditingTeam !== null
+  
+  // In modalità admin, ignora canEdit e permetti modifica basata solo su adminEditingTeam
+  // In modalità normale, richiedi canEdit E ownership
+  const homeIsMyTeam = adminEditingTeam === 'home' || (canEdit && (home?.owner ?? '').toLowerCase() === userEmail.toLowerCase())
+  const awayIsMyTeam = adminEditingTeam === 'away' || (canEdit && (away?.owner ?? '').toLowerCase() === userEmail.toLowerCase())
 
   // Determina se almeno una partita è iniziata (per mostrare view modal invece di edit modal)
   const hasGameStarted = useMemo(() => {
@@ -212,8 +219,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
     const isMyTeam = teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam
     
-    // Se almeno una partita è iniziata, mostra sempre il modal di visualizzazione
-    if (hasGameStarted) {
+    // Se almeno una partita è iniziata E non siamo in modalità admin, mostra sempre il modal di visualizzazione
+    if (hasGameStarted && !isAdminMode) {
       setSelectedPlayer(player)
       setViewModalOpen(true)
       return
@@ -226,8 +233,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       return
     }
     
-    // Altrimenti, se canEdit e isMyTeam, mostra il modal di editing
-    if (canEdit && isMyTeam) {
+    // Altrimenti, se canEdit e isMyTeam (o isAdminMode), mostra il modal di editing
+    if ((canEdit || isAdminMode) && isMyTeam) {
       setSelectedPlayer(player)
       setEditingTeamIndex(teamIndex)
       setModalOpen(true)
@@ -446,7 +453,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
         }))
       }
 
-      const response = await gameService.saveTeam(groupId, teamData)
+      const response = await gameService.saveTeam(groupId, teamData, isAdminMode)
       
       if (response?.i) {
         toast.show('✅ Formazione salvata con successo!', { variant: 'success' })

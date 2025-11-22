@@ -162,7 +162,9 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     setSelectedLeague,
     setSelectedYear,
     getAvailableLeagues,
-    getAvailableYears
+    getAvailableYears,
+    superAdminMode,
+    toggleSuperAdminMode
   } = useApp()
   const media = useMedia()
   const isDesktop = !media.sm
@@ -455,6 +457,28 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
               {isSuperAdmin && (
                 <>
                   <Separator />
+                  
+                  {/* Super Admin Mode Toggle */}
+                  <YStack gap="$3" marginBottom="$4" padding="$3" backgroundColor="$purple2" borderRadius="$4">
+                    <Text fontSize="$5" fontWeight="bold" color="$purple11">
+                      🛡️ Modalità Super Admin
+                    </Text>
+                    <Text fontSize="$2" color="$color11">
+                      Attiva questa modalità per modificare le formazioni di tutte le squadre durante le partite live.
+                    </Text>
+                    <Button
+                      size="$3"
+                      backgroundColor={superAdminMode ? "$purple10" : "$purple4"}
+                      borderColor={superAdminMode ? "$purple10" : "$purple8"}
+                      onPress={toggleSuperAdminMode}
+                      pressStyle={{ opacity: 0.8 }}
+                    >
+                      <Text color={superAdminMode ? "white" : "$purple11"} fontWeight="600">
+                        {superAdminMode ? '✓ Modalità Attiva' : 'Attiva Modalità'}
+                      </Text>
+                    </Button>
+                  </YStack>
+                  
                   {superAdminItems.map(renderSection)}
                 </>
               )}

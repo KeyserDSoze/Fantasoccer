@@ -15,9 +15,11 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<Calendar, LeagueKey> _calendar;
         private readonly IRepository<RealCalendar, int> _realCalendar;
         private readonly IRepository<Group, string> _groups;
+        private readonly IRepository<AppIdentity, string> _users;
         private readonly IRepository<Team, TeamKey> _teamRepository;
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly ITeamChecker _teamChecker;
+        private readonly IFantasoccerLogger _logger;
 
         public GameController(IFactory<ILeagueCalculator> leagueCalculatorFactory,
             ITeamCalculator teamCalculator,
@@ -26,7 +28,9 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<Group, string> groups,
             IRepository<Team, TeamKey> teamRepository,
             IRepository<Team, TeamDayKey> teamDayRepository,
-            ITeamChecker teamChecker)
+            ITeamChecker teamChecker,
+            IRepository<AppIdentity, string> users,
+            IFantasoccerLogger logger)
         {
             _leagueCalculatorFactory = leagueCalculatorFactory;
             _teamCalculator = teamCalculator;
@@ -36,13 +40,22 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamRepository = teamRepository;
             _teamDayRepository = teamDayRepository;
             _teamChecker = teamChecker;
+            _users = users;
+            _logger = logger;
         }
         [HttpPost]
-        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team)
+        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team, [FromQuery] bool asAdmin = false)
         {
-            if (team.Owner != User.Identity?.Name)
+            if (User.Identity == null)
+                return new TeamResponse(false, "Utente non autenticato.");
+            var user = await _users.GetAsync(User.Identity.Name!);
+            if (user == null)
+                return new TeamResponse(false, "Utente non valido.");
+            var groupForIdentity = user.Groups.FirstOrDefault(x => x.Id == groupId);
+            if (groupForIdentity == null)
+                return new TeamResponse(false, "Non fai parte del gruppo.");
+            if (!(team.Owner == User.Identity.Name || team.AdditionalOwners?.Contains(User.Identity.Name!) == true || (asAdmin && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
                 return new TeamResponse(false, "Non sei l'owner della squadra.");
-
             var group = await _groups.GetAsync(groupId);
             if (group != null)
             {
@@ -52,7 +65,7 @@ namespace Fantasoccer.Application.Api.Controllers
                     if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
                     {
                         var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
-                        var nextSerieA = realCalendar?.NextDay?.SerieADay;
+                        var nextSerieA = asAdmin ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay;
                         if (nextSerieA == null)
                             return new TeamResponse(false, "Campionato terminato.");
                         var teamDayKey = new TeamDayKey

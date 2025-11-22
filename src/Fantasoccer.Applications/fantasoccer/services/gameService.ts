@@ -7,7 +7,7 @@ export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
     buildApiUrl('/Game/Get', params as any),
   saveFormation: () => buildApiUrl('/Game/SaveFormation'),
-  saveTeam: (groupId: string) => buildApiUrl('/Game/SaveTeam', { groupId } as any)
+  saveTeam: (groupId: string, asAdmin?: boolean) => buildApiUrl('/Game/SaveTeam', { groupId, asAdmin: asAdmin || undefined } as any)
 }
 
 export const gameService = {
@@ -49,8 +49,8 @@ export const gameService = {
     return await res.json()
   },
 
-  async saveTeam(groupId: string, team: Team) {
-    const url = gameEndpoints.saveTeam(groupId)
+  async saveTeam(groupId: string, team: Team, asAdmin?: boolean) {
+    const url = gameEndpoints.saveTeam(groupId, asAdmin)
     const accessToken = await tokenStorageService.getTokenString()
     if (!accessToken) {
       console.warn('No valid access token available')

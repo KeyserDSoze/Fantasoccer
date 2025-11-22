@@ -14,6 +14,7 @@ export interface AppState {
   groupsError: string | null
   selectedLeagueId: string | null
   selectedYear: number | null
+  superAdminMode: boolean
 }
 
 export interface AppContextType extends AppState {
@@ -24,6 +25,7 @@ export interface AppContextType extends AppState {
   getAvailableLeagues: () => League[]
   getAvailableYears: (leagueId?: string) => number[]
   clearError: () => void
+  toggleSuperAdminMode: () => void
 }
 
 // Context
@@ -55,6 +57,14 @@ export function AppProvider({ children }: AppProviderProps) {
   const [groupsError, setGroupsError] = useState<string | null>(null)
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [superAdminMode, setSuperAdminMode] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('superAdminMode')
+      return stored === 'true'
+    } catch {
+      return false
+    }
+  })
 
   // Load user groups when user is authenticated
   const loadUserGroups = async () => {
@@ -354,6 +364,19 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Note: Global loading state is managed directly in the AuthGuard component
 
+  // Toggle Super Admin Mode
+  const toggleSuperAdminMode = () => {
+    setSuperAdminMode(prev => {
+      const newValue = !prev
+      try {
+        localStorage.setItem('superAdminMode', String(newValue))
+      } catch (error) {
+        console.error('Error saving superAdminMode to localStorage:', error)
+      }
+      return newValue
+    })
+  }
+
   const contextValue: AppContextType = {
     // State
     currentGroup,
@@ -363,6 +386,7 @@ export function AppProvider({ children }: AppProviderProps) {
     groupsError,
     selectedLeagueId,
     selectedYear,
+    superAdminMode,
     
     // Actions
     refreshGroups,
@@ -371,7 +395,8 @@ export function AppProvider({ children }: AppProviderProps) {
     setSelectedYear: setSelectedYearFunc,
     getAvailableLeagues,
     getAvailableYears,
-    clearError
+    clearError,
+    toggleSuperAdminMode
   }
 
   return (

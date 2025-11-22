@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui'
+import { ShieldCheck } from '@tamagui/lucide-icons'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { useFieldZoom } from 'hooks/useFieldZoom'
 import { SoccerField } from 'components/lineup'
@@ -16,6 +17,9 @@ import type { RootStackParamList } from '../navigation'
 import type { RouteProp } from '@react-navigation/native'
 import { TeamLogo } from 'components/team/TeamLogo'
 import { TeamBonuses } from 'components/icons/BonusIcons'
+import { useAuth } from '../providers/AuthProvider'
+import { useApp } from '../providers/AppProvider'
+import { IdentityRole, hasRole } from '../types/identity'
 
 export default function GameScreen() {
   const media = useMedia()
@@ -37,6 +41,21 @@ export default function GameScreen() {
   const routeYear = params?.year ?? null
   const routeGroupId = params?.groupId ?? null
   const navigation = useNavigation()
+  
+  // Auth e SuperAdmin check
+  const { user } = useAuth()
+  const { currentGroup, superAdminMode } = useApp()
+  
+  // Verifica se l'utente è SuperAdmin nel gruppo corrente
+  const isSuperAdmin = useMemo(() => {
+    if (!user || !currentGroup || !routeGroupId) return false
+    const userInGroup = user.groups?.find(g => g.id === routeGroupId)
+    return userInGroup ? hasRole(userInGroup.role, IdentityRole.SuperAdmin) : false
+  }, [user, currentGroup, routeGroupId])
+  
+  // Stato per la modalità admin (permette di modificare entrambe le squadre)
+  // null = nessuna modalità admin, 'home' = modifica squadra casa, 'away' = modifica squadra ospite
+  const [adminEditingTeam, setAdminEditingTeam] = useState<'home' | 'away' | null>(null)
   // gameService result (live teams + extra info) — prefer this when available
   const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null)
   const [gameLoading, setGameLoading] = useState(false)
@@ -185,14 +204,14 @@ export default function GameScreen() {
     }
   }, [gameWrapper?.serieADay, calendar])
 
-  // Polling automatico ogni 10 secondi SOLO se ci sono partite live
+  // Polling automatico ogni 10 secondi SOLO se ci sono partite live E non si sta modificando
   useEffect(() => {
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
       return
     }
 
-    // ⚠️ IMPORTANTE: Avvia il polling SOLO quando ci sono partite live
-    if (!isLiveActive) {
+    // ⚠️ IMPORTANTE: Avvia il polling SOLO quando ci sono partite live E non si sta modificando in modalità admin
+    if (!isLiveActive || adminEditingTeam !== null) {
       return
     }
 
@@ -200,11 +219,11 @@ export default function GameScreen() {
       refreshGame(true) // true = è un auto-refresh, non mostra loading
     }, 10000) // 10 secondi
 
-    // Cleanup: ferma il polling quando il componente viene smontato o isLiveActive cambia
+    // Cleanup: ferma il polling quando il componente viene smontato o cambiano le dipendenze
     return () => {
       clearInterval(pollingInterval)
     }
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive])
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive, adminEditingTeam])
 
   // Compute played score and bonuses from gameService wrapper if available
   const title = gameWrapper ? `${gameWrapper.game?.home} vs ${gameWrapper.game?.away}` : 'Partita'
@@ -442,6 +461,60 @@ export default function GameScreen() {
             )}
           </Card>
 
+          {/* Modalità SuperAdmin - visibile solo se modalità attiva dal menu */}
+          {isSuperAdmin && superAdminMode && gameWrapper && (
+            <Card padding="$3" backgroundColor="$purple2" borderWidth={2} borderColor="$purple8">
+              <YStack gap="$3">
+                <XStack gap="$3" alignItems="center">
+                  <ShieldCheck size={24} color="$purple11" />
+                  <YStack gap="$1" flex={1}>
+                    <Text fontSize="$4" fontWeight="700" color="$purple11">
+                      Modalità Super Admin
+                    </Text>
+                    <Text fontSize="$2" color="$purple10">
+                      {adminEditingTeam === null
+                        ? '✗ Disattivata - Seleziona una squadra da modificare'
+                        : adminEditingTeam === 'home'
+                        ? `✓ Modifica squadra CASA: ${gameWrapper.game?.home}`
+                        : `✓ Modifica squadra OSPITE: ${gameWrapper.game?.away}`}
+                    </Text>
+                  </YStack>
+                </XStack>
+                
+                {/* Bottoni per selezionare quale squadra modificare */}
+                <XStack gap="$3" flexWrap="wrap">
+                  <Button
+                    flex={1}
+                    minWidth={150}
+                    size="$3"
+                    backgroundColor={adminEditingTeam === 'home' ? '$purple10' : '$purple4'}
+                    color={adminEditingTeam === 'home' ? '$white1' : '$purple11'}
+                    borderWidth={2}
+                    borderColor={adminEditingTeam === 'home' ? '$purple11' : '$purple6'}
+                    onPress={() => setAdminEditingTeam(adminEditingTeam === 'home' ? null : 'home')}
+                    pressStyle={{ opacity: 0.8 }}
+                  >
+                    {adminEditingTeam === 'home' ? '✓' : ''} Modifica {gameWrapper.game?.home}
+                  </Button>
+                  
+                  <Button
+                    flex={1}
+                    minWidth={150}
+                    size="$3"
+                    backgroundColor={adminEditingTeam === 'away' ? '$purple10' : '$purple4'}
+                    color={adminEditingTeam === 'away' ? '$white1' : '$purple11'}
+                    borderWidth={2}
+                    borderColor={adminEditingTeam === 'away' ? '$purple11' : '$purple6'}
+                    onPress={() => setAdminEditingTeam(adminEditingTeam === 'away' ? null : 'away')}
+                    pressStyle={{ opacity: 0.8 }}
+                  >
+                    {adminEditingTeam === 'away' ? '✓' : ''} Modifica {gameWrapper.game?.away}
+                  </Button>
+                </XStack>
+              </YStack>
+            </Card>
+          )}
+
           {gameWrapper && (
             <Card padding="$3" backgroundColor="$color2">
               {gameLoading ? (
@@ -461,6 +534,7 @@ export default function GameScreen() {
                       maxZoom
                     }}
                     statPlayersMap={statPlayersMap}
+                    adminEditingTeam={adminEditingTeam}
                   />
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
