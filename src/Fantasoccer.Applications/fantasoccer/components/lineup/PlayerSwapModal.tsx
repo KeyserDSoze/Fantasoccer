@@ -98,6 +98,10 @@ export function PlayerSwapModal({
       }
     })
 
+    // Ordina gli array per posizione (enum value crescente)
+    starters.sort((a, b) => a.currentPosition - b.currentPosition)
+    bench.sort((a, b) => a.currentPosition - b.currentPosition)
+
     return { starters, bench, tribune }
   }, [eligiblePlayers])
 
