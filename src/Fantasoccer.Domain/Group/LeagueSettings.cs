@@ -2,10 +2,57 @@
 
 namespace Fantasoccer
 {
+    public enum LeagueCalendarType
+    {
+        Random,
+        Cup
+    }
+    public enum FormationType
+    {
+        Normal,
+        Best
+    }
+    public enum RoundType
+    {
+        Rank,
+        Elimination
+    }
+    public sealed class LeagueRound
+    {
+        public string Name { get; set; }
+        public RoundType Type { get; set; }
+        public bool FromStart { get; set; }
+        public int? FromRankingStartTeam { get; set; }
+        public int? FromRankingEndTeam { get; set; }
+    }
+    public sealed class FromPreviousYearSettings
+    {
+
+    }
+    public sealed class LeagueTypeSettings
+    {
+        public LeagueCalendarType CalendarType { get; set; }
+        public List<LeagueRound> Rounds { get; set; }
+        public LeagueTypeNumberSettings Numbers { get; set; }
+    }
+    public sealed class LeagueTypeNumberSettings
+    {
+        public int MaxPlayersInTeam { get; set; }
+        public int GoalKeepersInTeam { get; set; }
+        public int DefendersInTeam { get; set; }
+        public int MidfieldersInTeam { get; set; }
+        public int ForwardsInTeam { get; set; }
+        public int GoalKeepersInBench { get; set; }
+        public int DefendersInBench { get; set; }
+        public int MidfieldersInBench { get; set; }
+        public int ForwardsInBench { get; set; }
+    }
     public class LeagueSetting
     {
         [JsonPropertyName("v")]
         public Dictionary<Role, VoteLeagueSetting> Votes { get; set; }
+        //[JsonPropertyName("frm")]
+        //public FormationType Formation { get; set; }
         [JsonPropertyName("s")]
         public int StartingMoney { get; set; }
         [JsonPropertyName("d")]

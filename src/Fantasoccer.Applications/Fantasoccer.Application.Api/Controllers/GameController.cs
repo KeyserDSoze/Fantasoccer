@@ -44,7 +44,7 @@ namespace Fantasoccer.Application.Api.Controllers
             _logger = logger;
         }
         [HttpPost]
-        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team, [FromQuery] bool asAdmin = false)
+        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team, [FromQuery] bool? asAdmin = false)
         {
             if (User.Identity == null)
                 return new TeamResponse(false, "Utente non autenticato.");
@@ -54,7 +54,7 @@ namespace Fantasoccer.Application.Api.Controllers
             var groupForIdentity = user.Groups.FirstOrDefault(x => x.Id == groupId);
             if (groupForIdentity == null)
                 return new TeamResponse(false, "Non fai parte del gruppo.");
-            if (!(team.Owner == User.Identity.Name || team.AdditionalOwners?.Contains(User.Identity.Name!) == true || (asAdmin && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
+            if (!(team.Owner == User.Identity.Name || team.AdditionalOwners?.Contains(User.Identity.Name!) == true || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
                 return new TeamResponse(false, "Non sei l'owner della squadra.");
             var group = await _groups.GetAsync(groupId);
             if (group != null)
@@ -65,7 +65,7 @@ namespace Fantasoccer.Application.Api.Controllers
                     if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
                     {
                         var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
-                        var nextSerieA = asAdmin ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay;
+                        var nextSerieA = asAdmin == true ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay;
                         if (nextSerieA == null)
                             return new TeamResponse(false, "Campionato terminato.");
                         var teamDayKey = new TeamDayKey
