@@ -7,7 +7,13 @@ export const gameEndpoints = {
   getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
     buildApiUrl('/Game/Get', params as any),
   saveFormation: () => buildApiUrl('/Game/SaveFormation'),
-  saveTeam: (groupId: string, asAdmin?: boolean) => buildApiUrl('/Game/SaveTeam', { groupId, asAdmin: asAdmin || undefined } as any)
+  saveTeam: (groupId: string, asAdmin?: boolean) => {
+    const params: any = { groupId }
+    if (asAdmin !== undefined) {
+      params.asAdmin = asAdmin
+    }
+    return buildApiUrl('/Game/SaveTeam', params)
+  }
 }
 
 export const gameService = {
