@@ -19,40 +19,109 @@ namespace Fantasoccer
     }
     public sealed class LeagueRound
     {
+        [JsonPropertyName("n")]
         public string Name { get; set; }
+        [JsonPropertyName("t")]
         public RoundType Type { get; set; }
+        [JsonPropertyName("f")]
         public bool FromStart { get; set; }
+        [JsonPropertyName("s")]
         public int? FromRankingStartTeam { get; set; }
+        [JsonPropertyName("e")]
         public int? FromRankingEndTeam { get; set; }
     }
     public sealed class FromPreviousYearSettings
     {
-
+        /// <summary>
+        /// Gets or sets the list of league identifiers associated with the entity.
+        /// </summary>
+        [JsonPropertyName("l")]
+        public List<string> LeaguesId { get; set; } = [];
+        /// <summary>
+        /// Gets or sets the maximum number of teams allowed in a league.
+        /// </summary>
+        [JsonPropertyName("m")]
+        public int MaxTeamsPerLeague { get; set; }
+        /// <summary>
+        /// Getting the teams from previous year by Rank or by Elimination, for instance the first 4 teams in Rank or the semifinalists in Elimination, based on MaxTeamsPerLeague
+        /// </summary>
+        [JsonPropertyName("t")]
+        public RoundType RoundType { get; set; }
+    }
+    public sealed class CardTrainerSettings
+    {
+        [JsonPropertyName("c")]
+        public Dictionary<CardType, int> MaxCardsPerType { get; set; } = [];
     }
     public sealed class LeagueTypeSettings
     {
+        [JsonPropertyName("t")]
         public LeagueCalendarType CalendarType { get; set; }
-        public List<LeagueRound> Rounds { get; set; }
-        public LeagueTypeNumberSettings Numbers { get; set; }
+        [JsonPropertyName("r")]
+        public List<LeagueRound> Rounds { get; set; } = [];
+        [JsonPropertyName("n")]
+        public LeagueTypeNumberSettings Numbers { get; set; } = LeagueTypeNumberSettings.Default;
+        [JsonPropertyName("fpy")]
+        public FromPreviousYearSettings? FromPreviousYear { get; set; }
+        [JsonPropertyName("ct")]
+        public CardTrainerSettings CardTrainer { get; set; } = new CardTrainerSettings();
+        public static LeagueTypeSettings Default { get; } = new LeagueTypeSettings()
+        {
+            CalendarType = LeagueCalendarType.Random,
+            Rounds =
+            [
+                new()
+                {
+                    Name = "@",
+                    Type = RoundType.Rank,
+                    FromStart = true
+                }
+            ],
+            Numbers = LeagueTypeNumberSettings.Default,
+            FromPreviousYear = null
+        };
     }
     public sealed class LeagueTypeNumberSettings
     {
+        [JsonPropertyName("t")]
         public int MaxPlayersInTeam { get; set; }
-        public int GoalKeepersInTeam { get; set; }
-        public int DefendersInTeam { get; set; }
-        public int MidfieldersInTeam { get; set; }
-        public int ForwardsInTeam { get; set; }
-        public int GoalKeepersInBench { get; set; }
-        public int DefendersInBench { get; set; }
-        public int MidfieldersInBench { get; set; }
-        public int ForwardsInBench { get; set; }
+        [JsonPropertyName("g")]
+        public int MaxGoalKeepersInTeam { get; set; }
+        [JsonPropertyName("d")]
+        public int MaxDefendersInTeam { get; set; }
+        [JsonPropertyName("m")]
+        public int MaxMidfieldersInTeam { get; set; }
+        [JsonPropertyName("f")]
+        public int MaxForwardsInTeam { get; set; }
+        [JsonPropertyName("mg")]
+        public int MaxGoalKeepersInBench { get; set; }
+        [JsonPropertyName("md")]
+        public int MaxDefendersInBench { get; set; }
+        [JsonPropertyName("mb")]
+        public int MaxMidfieldersInBench { get; set; }
+        [JsonPropertyName("fb")]
+        public int MaxForwardsInBench { get; set; }
+        public static LeagueTypeNumberSettings Default { get; } = new LeagueTypeNumberSettings()
+        {
+            MaxPlayersInTeam = 25,
+            MaxGoalKeepersInTeam = 1,
+            MaxDefendersInTeam = 5,
+            MaxMidfieldersInTeam = 4,
+            MaxForwardsInTeam = 2,
+            MaxGoalKeepersInBench = 1,
+            MaxDefendersInBench = 1,
+            MaxMidfieldersInBench = 1,
+            MaxForwardsInBench = 1
+        };
     }
     public class LeagueSetting
     {
         [JsonPropertyName("v")]
         public Dictionary<Role, VoteLeagueSetting> Votes { get; set; }
-        //[JsonPropertyName("frm")]
-        //public FormationType Formation { get; set; }
+        [JsonPropertyName("frm")]
+        public FormationType Formation { get; set; }
+        [JsonPropertyName("lt")]
+        public LeagueTypeSettings? Type { get; set; }
         [JsonPropertyName("s")]
         public int StartingMoney { get; set; }
         [JsonPropertyName("d")]

@@ -83,6 +83,7 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<NewsWrapper, YearDayGroup>(storageConnectionString, "news", "news");
             await services.AddBlobStorage<PushNotificationSettings, string>(storageConnectionString, null, "pushnotification");
             await services.AddBlobStorage<AuctionWrapper, string>(storageConnectionString, null, "auction");
+            await services.AddBlobStorage<CardWrapper, string>(storageConnectionString, null, "cards");
             await services.AddRepositoryAsync<FantasoccerLog, string>(async builder =>
             {
                 await builder.WithTableStorageAsync(storageBuilder =>
@@ -112,6 +113,14 @@ namespace Fantasoccer.Infrastructure
                     builder.ConnectionString = storageConnectionString;
                     builder.IsPublic = true;
                 }, "logos");
+            await services
+                .AddContentRepository()
+                .WithBlobStorageIntegrationAsync(builder =>
+                {
+                    builder.ContainerName = "cardimages";
+                    builder.ConnectionString = storageConnectionString;
+                    builder.IsPublic = true;
+                }, "cards");
             return services;
         }
         private static Task<IServiceCollection> AddBlobStorage<T, TKey>(this IServiceCollection services,
