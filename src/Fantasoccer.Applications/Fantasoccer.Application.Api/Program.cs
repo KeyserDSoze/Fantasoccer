@@ -14,6 +14,10 @@ builder.Services.AddAuthorization(configure =>
     {
         policy.RequireClaim(ClaimTypes.Email);
     });
+    configure.AddPolicy("super_admin", policy =>
+    {
+        policy.RequireClaim(ClaimTypes.Role, "super_admin");
+    });
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationInsightsTelemetry(x =>

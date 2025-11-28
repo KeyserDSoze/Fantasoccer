@@ -27,8 +27,13 @@ namespace Fantasoccer.Business.Authorization
                 response.Username = "Snail84muz@hotmail.com";
             }
             var user = await _repository.GetAsync(response.Username, cancellationToken);
+            var isSuperAdmin = user.Username == "alessandro.rapiti44@gmail.com";
             yield return new Claim(ClaimTypes.Name, user.Email);
             yield return new Claim(ClaimTypes.Email, user.Email);
+            if (isSuperAdmin)
+            {
+                yield return new Claim(ClaimTypes.Role, "super_admin");
+            }
         }
     }
 }
