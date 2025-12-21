@@ -265,25 +265,33 @@ export default function SerieAAdminScreen() {
             showLeagueSection={false}
             showRoundSection={false}
             title="Selettore Stagione"
-            footer={
-              modifiedGames.size > 0 && (
-                <XStack gap="$2" justifyContent="space-between" alignItems="center" marginTop="$2">
-                  <Text fontSize="$2" color="$orange11" fontWeight="600">
-                    ⚠️ {modifiedGames.size} partita/e modificata/e - Salvare le modifiche
-                  </Text>
-                  <Button
-                    size="$3"
-                    backgroundColor="$green9"
-                    onPress={saveChanges}
-                    disabled={isAnyLoading}
-                    icon={isLoadingOp('save') ? <Spinner size="small" /> : <Save size="$1" />}
-                  >
-                    {isLoadingOp('save') ? 'Salvataggio...' : 'Salva Modifiche'}
-                  </Button>
-                </XStack>
-              )
-            }
           />
+
+          {/* Save Changes Banner */}
+          {modifiedGames.size > 0 && (
+            <Card
+              padding="$3"
+              backgroundColor="$orange2"
+              borderRadius="$4"
+              borderWidth="$1"
+              borderColor="$orange7"
+            >
+              <XStack gap="$3" justifyContent="space-between" alignItems="center">
+                <Text fontSize="$3" color="$orange11" fontWeight="600">
+                  ⚠️ {modifiedGames.size} partita/e modificata/e - Salvare le modifiche
+                </Text>
+                <Button
+                  size="$3"
+                  backgroundColor="$green9"
+                  onPress={saveChanges}
+                  disabled={isAnyLoading}
+                  icon={isLoadingOp('save') ? <Spinner size="small" /> : <Save size="$1" />}
+                >
+                  {isLoadingOp('save') ? 'Salvataggio...' : 'Salva Modifiche'}
+                </Button>
+              </XStack>
+            </Card>
+          )}
 
           {/* Statistics */}
           {localCalendar && (

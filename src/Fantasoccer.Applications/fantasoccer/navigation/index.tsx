@@ -22,6 +22,8 @@ import SerieAAdminScreen from 'screens/serie-a-admin';
 import GroupUsersAdminScreen from 'screens/group-users-admin';
 import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
 import GroupLeagueAdminScreen from 'screens/group-league-admin';
+import CardsAdminScreen from 'screens/cards-admin';
+import CardEditScreen from 'screens/card-edit';
 import AuctionCreateScreen from 'screens/auction-create';
 import AuctionLiveScreen from 'screens/auction-live';
 import PatchNotesScreen from 'screens/patch-notes';
@@ -63,6 +65,8 @@ export type RootStackParamList = {
   GroupUsersAdmin: undefined;
   GroupBasketsAdmin: undefined;
   GroupLeagueAdmin: undefined;
+  CardsAdmin: undefined;
+  CardEdit: { cardId?: string | null };
   Settings: undefined;
   Info: undefined;
   PatchNotes: undefined;
@@ -151,6 +155,8 @@ const linking = {
       GroupUsersAdmin: 'group-users-admin',
       GroupBasketsAdmin: 'group-baskets-admin',
       GroupLeagueAdmin: 'group-league-admin',
+      CardsAdmin: 'cards-admin',
+      CardEdit: 'card-edit/:cardId?',
       Settings: 'settings',
       Info: 'info',
       PatchNotes: 'patch-notes',
@@ -200,6 +206,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="GroupUsersAdmin" component={GroupUsersAdminScreen} />
         <Stack.Screen name="GroupBasketsAdmin" component={GroupBasketsAdminScreen} />
         <Stack.Screen name="GroupLeagueAdmin" component={GroupLeagueAdminScreen} />
+        <Stack.Screen name="CardsAdmin" component={CardsAdminScreen} />
+        <Stack.Screen name="CardEdit" component={CardEditScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="Info" component={InfoScreen} />
         <Stack.Screen name="PatchNotes" component={PatchNotesScreen} />

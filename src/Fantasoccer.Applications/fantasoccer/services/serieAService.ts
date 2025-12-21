@@ -177,7 +177,7 @@ export class SerieAService {
           g: d.games.map(g => ({
             h: { n: g.home.name, a: g.home.abbreviation },
             a: { n: g.away.name, a: g.away.abbreviation },
-            d: g.date.toISOString() as any,
+            d: g.dateUtcString as any,
             g: g.homeGoals,
             y: g.awayGoals,
             e: g.delayed

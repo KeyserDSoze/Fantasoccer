@@ -110,6 +110,7 @@ export interface RealGame {
   home: RealTeam
   away: RealTeam
   date: Date
+  dateUtcString: string  // Original UTC ISO string for updates
   homeGoals: number | null
   awayGoals: number | null
   delayed: boolean
@@ -224,10 +225,12 @@ export function mapRawTeamToTeam(raw: RealTeamRaw): RealTeam {
 }
 
 export function mapRawGameToGame(raw: RealGameRaw): RealGame {
+  const dateString = typeof raw.d === 'string' ? raw.d : (raw.d as any).toISOString()
   return {
     home: mapRawTeamToTeam(raw.h),
     away: mapRawTeamToTeam(raw.a),
-    date: convertUTCToItalianTimezoneAsNotNullableDate(raw.d.toString()),
+    date: convertUTCToItalianTimezoneAsNotNullableDate(dateString),
+    dateUtcString: dateString,
     homeGoals: raw.g,
     awayGoals: raw.y,
     delayed: raw.e

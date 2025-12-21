@@ -201,6 +201,7 @@ namespace Fantasoccer
                 {
                     CardId = card.Id,
                     Points = card.Points,
+                    NegativePoints = card.NegativePoints,
                     EnemyPoints = card.EnemyPoints,
                     Reached = checkMyTeam && checkEnemyTeam &&
                               (card.MyCondition == null || (myOccurences >= (card.MyCondition.ConditionForPlayer?.MinimumNumberOfOccurencies ?? myPlayersInvolved)))
@@ -222,6 +223,8 @@ namespace Fantasoccer
         public string CardId { get; set; }
         [JsonPropertyName("p")]
         public float Points { get; set; }
+        [JsonPropertyName("np")]
+        public float NegativePoints { get; set; }
         [JsonPropertyName("ep")]
         public float EnemyPoints { get; set; }
         [JsonPropertyName("r")]
@@ -253,6 +256,8 @@ namespace Fantasoccer
         public CardType Type { get; set; }
         [JsonPropertyName("p")]
         public float Points { get; set; }
+        [JsonPropertyName("np")]
+        public float NegativePoints { get; set; }
         [JsonPropertyName("ep")]
         public float EnemyPoints { get; set; }
         [JsonPropertyName("mc")]

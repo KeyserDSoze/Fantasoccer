@@ -33,6 +33,7 @@ import {
   HelpCircle,
   Bell,
   FileText,
+  Sparkles,
 } from '@tamagui/lucide-icons'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
@@ -145,6 +146,7 @@ const superAdminItems: NavigationSection[] = [
       { type: 'route', route: 'Users', label: 'Gestione Utenti', icon: Users, description: 'Visualizza tutti gli utenti e i loro gruppi' },
       { type: 'route', route: 'Logs', label: 'Log di Piattaforma', icon: PlayCircle, description: 'Log e errori delle ultime 24 ore per job' },
       { type: 'route', route: 'SerieAAdmin', label: 'Gestione Serie A', icon: Calendar, description: 'Gestisci partite rinviate nel calendario Serie A' },
+      { type: 'route', route: 'CardsAdmin', label: 'Gestione Carte', icon: Sparkles, description: 'Crea e gestisci carte speciali del gioco' },
     ],
   },
 ]
