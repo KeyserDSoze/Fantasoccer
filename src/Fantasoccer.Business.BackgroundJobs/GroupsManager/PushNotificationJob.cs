@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Text;
+﻿using System.Text;
 using System.Timers;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -133,11 +132,16 @@ namespace Fantasoccer.Engine.GroupsManager
                                         }
                                     }
                                 }
+                                var sendTasks = new List<ValueTask>();
+                                var semaphore = new SemaphoreSlim(10);
+
                                 foreach (var notification in notificationsToSend)
                                 {
                                     foreach (var team in teams.Where(x => x.Players.Any(t => t.Key == notification.PlayerKey)))
                                     {
-                                        await SendNotificationAsync(team, notification, null, null, x => x?.Value?.MatchEvents == true);
+                                        await semaphore.WaitAsync();
+                                        sendTasks.Add(SendNotificationWithSemaphoreAsync(team, notification, null, null, x => x?.Value?.MatchEvents == true, semaphore));
+                                        
                                         if (currentOpponents.ContainsKey(team.Owner))
                                         {
                                             var opponents = currentOpponents[team.Owner];
@@ -145,11 +149,19 @@ namespace Fantasoccer.Engine.GroupsManager
                                             {
                                                 var opponentTeam = teams.FirstOrDefault(x => x.Owner == opponent.Opponent);
                                                 if (opponentTeam != null)
-                                                    await SendNotificationAsync(opponentTeam, notification, $"[{opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true);
+                                                {
+                                                    await semaphore.WaitAsync();
+                                                    sendTasks.Add(SendNotificationWithSemaphoreAsync(opponentTeam, notification, $"[{opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true, semaphore));
+                                                }
                                             }
                                         }
                                     }
                                 }
+
+                                await Task.WhenAll(sendTasks.Select(t => t.AsTask()));
+                                
+                                var stats = _pushNotificationService.GetStatistics();
+                                await _logger.LogAsync<PushNotificationJob>($"Push notification job completed: {stats.TotalSucceeded} sent, {stats.TotalFailed} failed, {stats.TotalDiscarded} discarded after {3} retries").NoContext();
                             }
                             async ValueTask SendNotificationAsync(Team currentTeam, NotificationToSend notification, string? prefix, string? postfix, Func<Entity<PushNotificationSettings, string>?, bool> predicate)
                             {
@@ -176,6 +188,18 @@ namespace Fantasoccer.Engine.GroupsManager
                                     }
                                 }
                             }
+
+                            async ValueTask SendNotificationWithSemaphoreAsync(Team currentTeam, NotificationToSend notification, string? prefix, string? postfix, Func<Entity<PushNotificationSettings, string>?, bool> predicate, SemaphoreSlim semaphore)
+                            {
+                                try
+                                {
+                                    await SendNotificationAsync(currentTeam, notification, prefix, postfix, predicate);
+                                }
+                                finally
+                                {
+                                    semaphore.Release();
+                                }
+                            }
                             await _logger.LogAsync<PushNotificationJob>($"Notification parsate.").NoContext();
                         }
                     }
@@ -190,18 +214,37 @@ namespace Fantasoccer.Engine.GroupsManager
                     if (!await _pushNotificationSentRepository.ExistAsync(yearlyDayKey))
                     {
                         var notificationUsers = await _pushNotificationRepository.Where(x => x.DeploymentReminder).ToListAsync();
+                        var reminderTasks = new List<ValueTask>();
+                        var semaphore = new SemaphoreSlim(10);
+
                         foreach (var user in notificationUsers)
                         {
-                            await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, new Notification
-                            {
-                                Body = "Ricorda di schierare la formazione!",
-                                Title = "FantaZone",
-                                Data = new NotificationData
-                                {
-                                    Uri = "https://fanta.zone/edit"
-                                }
-                            });
+                            await semaphore.WaitAsync();
+                            reminderTasks.Add(SendReminderWithSemaphoreAsync(user, semaphore));
                         }
+
+                        await Task.WhenAll(reminderTasks.Select(t => t.AsTask()));
+
+                        async ValueTask SendReminderWithSemaphoreAsync(Entity<PushNotificationSettings, string> user, SemaphoreSlim sem)
+                        {
+                            try
+                            {
+                                await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, new Notification
+                                {
+                                    Body = "Ricorda di schierare la formazione!",
+                                    Title = "FantaZone",
+                                    Data = new NotificationData
+                                    {
+                                        Uri = "https://fanta.zone/edit"
+                                    }
+                                });
+                            }
+                            finally
+                            {
+                                sem.Release();
+                            }
+                        }
+
                         await _pushNotificationSentRepository.InsertAsync(yearlyDayKey, new PushNotificationSent
                         {
                             DeploymentReminder = true,
@@ -265,6 +308,6 @@ namespace Fantasoccer.Engine.GroupsManager
             public string Body { get; set; }
         }
         public Task OnException(Exception exception)
-        => _logger.LogErrorAsync<PushNotificationJob>(exception);
+            => _logger.LogErrorAsync<PushNotificationJob>(exception);
     }
 }
