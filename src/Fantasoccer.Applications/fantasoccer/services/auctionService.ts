@@ -679,6 +679,40 @@ export class AuctionService {
   }
 
   /**
+   * Finalize the auction - Close and save all teams with next day lineup
+   */
+  async finalizeAuction(auctionId: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking FinalizeAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('FinalizeAuctionAsync', auctionId)
+      console.log('✅ FinalizeAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ FinalizeAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'finalize auction')
+    }
+  }
+
+  /**
+   * Reopen a finalized auction
+   */
+  async reopenAuction(auctionId: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking ReopenAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('ReopenAuctionAsync', auctionId)
+      console.log('✅ ReopenAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ ReopenAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'reopen auction')
+    }
+  }
+
+  /**
    * Change timer duration
    */
   async changeTimer(auctionId: string, seconds: number): Promise<void> {

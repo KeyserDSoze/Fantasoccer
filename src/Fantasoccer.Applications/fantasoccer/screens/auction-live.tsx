@@ -25,12 +25,12 @@ import { Role } from 'types/group'
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
   Clock, Lock, RotateCcw, Search, DollarSign, 
-  AlertCircle, Volume2, VolumeX, Vibrate
+  AlertCircle, Volume2, VolumeX, Vibrate, History, UserX
 } from '@tamagui/lucide-icons'
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
-import { Team, TeamKey, TeamHelper } from 'types/team'
+import { Team, TeamKey, TeamHelper, PlayerInTeamStatus, PlayerStatusHelper } from 'types/team'
 import { Entity } from 'types/default'
 import { getPlayerKey } from 'utils'
 
@@ -128,6 +128,8 @@ export default function AuctionLiveScreen() {
   const [showPlayerStats, setShowPlayerStats] = useState(true)
   const [showTeamDetails, setShowTeamDetails] = useState(true)
   const [showMyTeamStats, setShowMyTeamStats] = useState(true)
+  const [showPurchaseHistory, setShowPurchaseHistory] = useState(true)
+  const [showInactivePlayers, setShowInactivePlayers] = useState(true)
 
   // Stats and chance data (use state instead of ref to trigger re-renders)
   const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
@@ -1062,6 +1064,28 @@ export default function AuctionLiveScreen() {
             setLoading(false)
           }
         }}
+        onFinalizeAuction={async () => {
+          setLoading(true)
+          try {
+            await auctionService.finalizeAuction(auctionId)
+            toast.show('✅ Asta finalizzata e tutte le squadre salvate con successo!', { variant: 'success', duration: 5000 })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onReopenAuction={async () => {
+          setLoading(true)
+          try {
+            await auctionService.reopenAuction(auctionId)
+            toast.show('✅ Asta riaperta con successo!', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
       />
     )
 
@@ -1193,6 +1217,269 @@ export default function AuctionLiveScreen() {
           }
         }}
       />
+    )
+  }
+
+  // Purchase History Component
+  const renderPurchaseHistory = () => {
+    if (!showPurchaseHistory || !auctionState) return null
+    
+    // Group purchases by team
+    const purchasesByTeam = salesHistory.reduce((acc, purchase) => {
+      if (!purchase.owner) return acc
+      if (!acc[purchase.owner]) {
+        acc[purchase.owner] = []
+      }
+      acc[purchase.owner].push(purchase)
+      return acc
+    }, {} as Record<string, AuctionWin[]>)
+    
+    // Sort teams by total spent
+    const sortedTeams = Object.entries(purchasesByTeam).sort((a, b) => {
+      const totalA = a[1].reduce((sum, p) => sum + p.price, 0)
+      const totalB = b[1].reduce((sum, p) => sum + p.price, 0)
+      return totalB - totalA
+    })
+    
+    return (
+      <Accordion overflow="hidden" type="multiple" defaultValue={['purchases']}>
+        <Accordion.Item value="purchases">
+          <Accordion.Trigger
+            flexDirection="row"
+            justifyContent="space-between"
+            padding="$4"
+            backgroundColor="$green2"
+            borderRadius="$4"
+            borderWidth="$0.5"
+            borderColor="$green8"
+          >
+            {({ open }: { open: boolean }) => (
+              <>
+                <XStack gap="$2" alignItems="center" flex={1}>
+                  <History size={24} color="$green11" />
+                  <Text fontSize="$5" fontWeight="700" color="$green11">
+                    Storico Acquisti ({salesHistory.length})
+                  </Text>
+                  {salesHistory.length > 0 && (
+                    <Card padding="$1.5" paddingHorizontal="$2.5" backgroundColor="$green1" borderRadius="$2">
+                      <Text fontSize="$3" color="$green11" fontWeight="600">
+                        Totale speso: €{salesHistory.reduce((sum, p) => sum + p.price, 0)}
+                      </Text>
+                    </Card>
+                  )}
+                </XStack>
+                <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <ChevronDown size={20} color="$green11" />
+                </Square>
+              </>
+            )}
+          </Accordion.Trigger>
+          
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content
+              padding="$4"
+              paddingTop="$2"
+              backgroundColor="$green2"
+              borderBottomLeftRadius="$4"
+              borderBottomRightRadius="$4"
+            >
+              {salesHistory.length === 0 ? (
+                <Card padding="$4" backgroundColor="$green1" borderRadius="$3">
+                  <Text color="$green11" textAlign="center">Nessun acquisto ancora effettuato</Text>
+                </Card>
+              ) : (
+                <YStack gap="$3">
+                  {sortedTeams.map(([owner, purchases]) => {
+                    const team = teams.find(t => t.value.owner === owner)
+                    const teamName = team?.value.name || owner
+                    const totalSpent = purchases.reduce((sum, p) => sum + p.price, 0)
+                    
+                    return (
+                      <Card key={owner} padding="$3" backgroundColor="$green1" borderRadius="$3">
+                        <YStack gap="$2">
+                          <XStack justifyContent="space-between" alignItems="center">
+                            <Text fontSize="$4" fontWeight="700" color="$green11">
+                              {teamName}
+                            </Text>
+                            <Card padding="$1.5" paddingHorizontal="$2.5" backgroundColor="$green3" borderRadius="$2">
+                              <Text fontSize="$3" color="$green11" fontWeight="600">
+                                €{totalSpent} ({purchases.length} giocatori)
+                              </Text>
+                            </Card>
+                          </XStack>
+                          <Separator marginVertical="$1" />
+                          <YStack gap="$1.5">
+                            {purchases.map((purchase, idx) => {
+                              // Find player name from realPlayers
+                              const player = auctionState.realPlayers.find(
+                                p => getPlayerKey(p.name, p.realTeam?.id || '') === purchase.playerKey
+                              )
+                              const playerName = player?.name || purchase.playerKey
+                              
+                              return (
+                                <XStack
+                                  key={`${purchase.playerKey}-${idx}`}
+                                  justifyContent="space-between"
+                                  alignItems="center"
+                                  padding="$2"
+                                  backgroundColor="$green3"
+                                  borderRadius="$2"
+                                >
+                                  <Text fontSize="$3" color="$green12">
+                                    {playerName}
+                                  </Text>
+                                  <Text fontSize="$3" color="$green11" fontWeight="600">
+                                    €{purchase.price}
+                                  </Text>
+                                </XStack>
+                              )
+                            })}
+                          </YStack>
+                        </YStack>
+                      </Card>
+                    )
+                  })}
+                </YStack>
+              )}
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
+    )
+  }
+
+  // Inactive Players Component (Sold/Removed players)
+  const renderInactivePlayers = () => {
+    if (!showInactivePlayers || !auctionState) return null
+    
+    // Collect all inactive players from all teams
+    const inactivePlayers: Array<{
+      player: any
+      teamName: string
+      owner: string
+    }> = []
+    
+    teams.forEach(team => {
+      team.value.players.forEach(player => {
+        if (player.status !== PlayerInTeamStatus.Active) {
+          inactivePlayers.push({
+            player,
+            teamName: team.value.name,
+            owner: team.value.owner
+          })
+        }
+      })
+    })
+    
+    // Group by team
+    const inactiveByTeam = inactivePlayers.reduce((acc, item) => {
+      if (!acc[item.owner]) {
+        acc[item.owner] = {
+          teamName: item.teamName,
+          players: []
+        }
+      }
+      acc[item.owner].players.push(item.player)
+      return acc
+    }, {} as Record<string, { teamName: string; players: any[] }>)
+    
+    const totalInactive = inactivePlayers.length
+    
+    return (
+      <Accordion overflow="hidden" type="multiple">
+        <Accordion.Item value="inactive">
+          <Accordion.Trigger
+            flexDirection="row"
+            justifyContent="space-between"
+            padding="$4"
+            backgroundColor="$red2"
+            borderRadius="$4"
+            borderWidth="$0.5"
+            borderColor="$red8"
+          >
+            {({ open }: { open: boolean }) => (
+              <>
+                <XStack gap="$2" alignItems="center" flex={1}>
+                  <UserX size={24} color="$red11" />
+                  <Text fontSize="$5" fontWeight="700" color="$red11">
+                    Giocatori Cacciati/Venduti ({totalInactive})
+                  </Text>
+                </XStack>
+                <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <ChevronDown size={20} color="$red11" />
+                </Square>
+              </>
+            )}
+          </Accordion.Trigger>
+          
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content
+              padding="$4"
+              paddingTop="$2"
+              backgroundColor="$red2"
+              borderBottomLeftRadius="$4"
+              borderBottomRightRadius="$4"
+            >
+              {totalInactive === 0 ? (
+                <Card padding="$4" backgroundColor="$red1" borderRadius="$3">
+                  <Text color="$red11" textAlign="center">Nessun giocatore cacciato o venduto</Text>
+                </Card>
+              ) : (
+                <YStack gap="$3">
+                  {Object.entries(inactiveByTeam).map(([owner, data]) => (
+                    <Card key={owner} padding="$3" backgroundColor="$red1" borderRadius="$3">
+                      <YStack gap="$2">
+                        <XStack justifyContent="space-between" alignItems="center">
+                          <Text fontSize="$4" fontWeight="700" color="$red11">
+                            {data.teamName}
+                          </Text>
+                          <Card padding="$1.5" paddingHorizontal="$2.5" backgroundColor="$red3" borderRadius="$2">
+                            <Text fontSize="$3" color="$red11" fontWeight="600">
+                              {data.players.length} giocatori
+                            </Text>
+                          </Card>
+                        </XStack>
+                        <Separator marginVertical="$1" />
+                        <YStack gap="$1.5">
+                          {data.players.map((player, idx) => (
+                            <XStack
+                              key={`${player.key}-${idx}`}
+                              justifyContent="space-between"
+                              alignItems="center"
+                              padding="$2"
+                              backgroundColor="$red3"
+                              borderRadius="$2"
+                            >
+                              <YStack flex={1}>
+                                <Text fontSize="$3" color="$red12" fontWeight="600">
+                                  {player.name}
+                                </Text>
+                                <Text fontSize="$2" color="$red10">
+                                  {PlayerStatusHelper.asLabel(player.status)}
+                                </Text>
+                              </YStack>
+                              <XStack gap="$2" alignItems="center">
+                                <Text fontSize="$3" color="$red11" fontWeight="600">
+                                  Pagato: €{player.price}
+                                </Text>
+                                {player.revenue != null && player.revenue > 0 && (
+                                  <Text fontSize="$3" color="$green11" fontWeight="600">
+                                    Venduto: €{player.revenue}
+                                  </Text>
+                                )}
+                              </XStack>
+                            </XStack>
+                          ))}
+                        </YStack>
+                      </YStack>
+                    </Card>
+                  ))}
+                </YStack>
+              )}
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
     )
   }
 
@@ -1359,6 +1646,18 @@ export default function AuctionLiveScreen() {
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Dettagli Squadre</Text>
                       </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Storico Acquisti</Text>
+                      </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Giocatori Cacciati/Venduti</Text>
+                      </XStack>
                     </XStack>
                   </YStack>
                 </Card>
@@ -1424,6 +1723,8 @@ export default function AuctionLiveScreen() {
               {showMyTeamPanel && renderParticipantBidding()}
               {renderAuctioneerPanel()}
               {showTeamsPanel && renderTeams()}
+              {renderPurchaseHistory()}
+              {renderInactivePlayers()}
             </YStack>
           </YStack>
         </ScrollView>

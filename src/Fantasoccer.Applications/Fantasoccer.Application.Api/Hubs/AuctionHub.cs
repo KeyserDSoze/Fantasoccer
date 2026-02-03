@@ -668,6 +668,77 @@ namespace Fantasoccer.Application.Api.Hubs
             return ChangeAuctionStateAsync(auctionId, AuctionStatus.Finished, "close");
         }
 
+        /// <summary>
+        /// AUCTIONEER: Finalize auction - Close and save all teams with next day lineup
+        /// </summary>
+        public async Task FinalizeAuctionAsync(string auctionId)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            {
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Only auctioneer can finalize the auction");
+                }
+
+                // Change auction status to Finished
+                wrapper.Wrapper.Status = AuctionStatus.Finished;
+
+                // Save all teams with next day lineup
+                var nextSerieA = wrapper.RealCalendar?.NextDay?.SerieADay;
+                if (nextSerieA != null)
+                {
+                    foreach (var teamEntity in wrapper.Teams)
+                    {
+                        if (teamEntity?.Value == null || teamEntity.Key == null) continue;
+
+                        try
+                        {
+                            // Save main team
+                            await _team.UpdateAsync(teamEntity.Key, teamEntity.Value);
+
+                            // Save team day for next Serie A day
+                            var teamDayKey = new TeamDayKey
+                            {
+                                Year = teamEntity.Key.Year,
+                                Email = teamEntity.Key.Email,
+                                Group = teamEntity.Key.Group,
+                                BasketId = teamEntity.Key.BasketId,
+                                Day = nextSerieA.Value
+                            };
+                            await _teamDay.UpdateAsync(teamDayKey, teamEntity.Value);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log error but continue with other teams
+                            Console.WriteLine($"Error saving team {teamEntity.Value.Name}: {ex.Message}");
+                        }
+                    }
+                }
+
+                return new ConcurrencyResponse(true, new { TeamsCount = wrapper.Teams.Count, NextDay = nextSerieA });
+            });
+
+            if (concurrencyResponse?.IsOk == true)
+            {
+                await Clients.Group(auctionId).SendAsync("AuctionFinalized", concurrencyResponse.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
+        }
+
+        /// <summary>
+        /// AUCTIONEER: Reopen a finalized auction
+        /// </summary>
+        public Task ReopenAuctionAsync(string auctionId)
+        {
+            return ChangeAuctionStateAsync(auctionId, AuctionStatus.Paused, "reopen");
+        }
+
         private async Task ChangeAuctionStateAsync(string auctionId, AuctionStatus status, string eventName)
         {
             var email = GetUserEmail();

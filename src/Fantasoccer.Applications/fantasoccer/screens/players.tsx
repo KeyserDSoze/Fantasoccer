@@ -29,7 +29,7 @@ import type { LeagueOption } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { useStatPlayers } from 'hooks/useStatPlayers'
 import type { StatPlayer } from 'types/stat'
-import { RoleExtensions } from 'types/group'
+import { Role, RoleExtensions } from 'types/group'
 import { teamService } from 'services/teamService'
 import type { Team } from 'types/team'
 import { formatSeasonFromYear } from 'utils/season'
@@ -58,6 +58,8 @@ type NumericStatKey =
 type ColumnKey = 'name' | 'role' | 'team' | 'fantaTeam' | NumericStatKey
 
 type PlayerOwnershipFilter = 'all' | 'owned' | 'free'
+
+type RoleFilter = Role | 'all'
 
 type EnhancedStatPlayer = StatPlayer & {
   fantaTeamOwner?: string
@@ -213,6 +215,7 @@ export default function PlayersScreen() {
   const [sortKey, setSortKey] = useState<SortKey>('fantaAverage')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [ownershipFilter, setOwnershipFilter] = useState<PlayerOwnershipFilter>('all')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
 
@@ -380,6 +383,11 @@ export default function PlayersScreen() {
       result = result.filter(p => p.fantaTeamOwner == null)
     }
 
+    // Apply role filter
+    if (roleFilter !== 'all') {
+      result = result.filter(p => p.role === roleFilter)
+    }
+
     // Apply search term filter
     if (searchTerm) {
       const normalizedTerm = searchTerm.trim().toLowerCase()
@@ -394,7 +402,7 @@ export default function PlayersScreen() {
     }
 
     return result
-  }, [enhancedPlayers, searchTerm, ownershipFilter])
+  }, [enhancedPlayers, searchTerm, ownershipFilter, roleFilter])
 
   const sortedPlayers = useMemo(() => {
     const sortable = [...filteredPlayers]
@@ -582,6 +590,65 @@ export default function PlayersScreen() {
                       borderWidth={0}
                     >
                       Solo liberi
+                    </Button>
+                  </XStack>
+                </XStack>
+
+                {/* Role filter buttons */}
+                <XStack gap="$2" alignItems="center" flexWrap="wrap">
+                  <Text color="$color10" fontSize="$3" fontWeight="600">
+                    Ruolo:
+                  </Text>
+                  <XStack gap="$2" flexWrap="wrap">
+                    <Button
+                      size="$2"
+                      backgroundColor={roleFilter === 'all' ? '$purple9' : '$color4'}
+                      color={roleFilter === 'all' ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setRoleFilter('all')}
+                      borderWidth={0}
+                    >
+                      Tutti
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={roleFilter === Role.GoalKeeper ? '$purple9' : '$color4'}
+                      color={roleFilter === Role.GoalKeeper ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setRoleFilter(Role.GoalKeeper)}
+                      borderWidth={0}
+                    >
+                      {RoleExtensions.asString(Role.GoalKeeper)}
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={roleFilter === Role.Defensor ? '$purple9' : '$color4'}
+                      color={roleFilter === Role.Defensor ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setRoleFilter(Role.Defensor)}
+                      borderWidth={0}
+                    >
+                      {RoleExtensions.asString(Role.Defensor)}
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={roleFilter === Role.Midfielder ? '$purple9' : '$color4'}
+                      color={roleFilter === Role.Midfielder ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setRoleFilter(Role.Midfielder)}
+                      borderWidth={0}
+                    >
+                      {RoleExtensions.asString(Role.Midfielder)}
+                    </Button>
+                    <Button
+                      size="$2"
+                      backgroundColor={roleFilter === Role.Forward ? '$purple9' : '$color4'}
+                      color={roleFilter === Role.Forward ? 'white' : '$color11'}
+                      pressStyle={{ opacity: 0.8 }}
+                      onPress={() => setRoleFilter(Role.Forward)}
+                      borderWidth={0}
+                    >
+                      {RoleExtensions.asString(Role.Forward)}
                     </Button>
                   </XStack>
                 </XStack>

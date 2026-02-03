@@ -6,7 +6,7 @@ import {
 } from 'tamagui'
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
-  Clock, RotateCcw, Search 
+  Clock, RotateCcw, Search, Check, Unlock 
 } from '@tamagui/lucide-icons'
 import { Role } from 'types/group'
 import { AuctionStatus, StatPlayer, AuctionState } from 'types/auction'
@@ -57,6 +57,8 @@ export interface AuctioneerPanelProps {
   onResetTimer: () => Promise<void>
   onCompleteReset: () => Promise<void>
   onCloseAuction: () => Promise<void>
+  onFinalizeAuction: () => Promise<void>
+  onReopenAuction: () => Promise<void>
 }
 
 export function AuctioneerPanel({
@@ -89,6 +91,8 @@ export function AuctioneerPanel({
   onResetTimer,
   onCompleteReset,
   onCloseAuction,
+  onFinalizeAuction,
+  onReopenAuction,
 }: AuctioneerPanelProps) {
   const media = useMedia()
   
@@ -275,10 +279,47 @@ export function AuctioneerPanel({
         >
           Reset Completo
         </Button>
-        <Button icon={XCircle} theme="red" flex={1} minWidth={90} size="$3" disabled={loading} onPress={onCloseAuction}>
-          Chiudi
-        </Button>
       </XStack>
+      <Separator />
+      {auctionStatus === AuctionStatus.Finished ? (
+        <>
+          <Text fontSize="$4" fontWeight="600" color="$green11">Asta Finalizzata</Text>
+          <Button 
+            icon={Unlock} 
+            theme="blue" 
+            size="$4"
+            disabled={loading}
+            onPress={async () => {
+              if (Platform.OS === 'web' && !confirm('Sei sicuro di voler riaprire l\'asta?')) return
+              await onReopenAuction()
+            }}
+          >
+            Riapri Asta
+          </Button>
+          <Text fontSize="$2" color="$blue10" textAlign="center">
+            Riapre l'asta in stato Pausa per poterla modificare e ri-finalizzare
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text fontSize="$4" fontWeight="600" color="$red11">Finalizza Asta</Text>
+          <Button 
+            icon={Check} 
+            theme="red" 
+            size="$4"
+            disabled={loading}
+            onPress={async () => {
+              if (Platform.OS === 'web' && !confirm('Sei sicuro di voler finalizzare l\'asta? Questo chiuderà l\'asta e salverà tutte le squadre con la formazione della prossima giornata.')) return
+              await onFinalizeAuction()
+            }}
+          >
+            Finalizza e Salva Tutte le Squadre
+          </Button>
+          <Text fontSize="$2" color="$red10" textAlign="center">
+            ⚠️ Chiude l'asta e salva automaticamente tutte le squadre con la formazione della prossima giornata
+          </Text>
+        </>
+      )}
     </YStack>
   )
 
