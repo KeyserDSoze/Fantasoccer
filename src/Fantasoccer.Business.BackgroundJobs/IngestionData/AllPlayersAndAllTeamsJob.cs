@@ -1,4 +1,5 @@
-﻿using System.Timers;
+﻿using System.Globalization;
+using System.Timers;
 using Fantasoccer.Business.IngestionData;
 using RepositoryFramework;
 
@@ -8,25 +9,32 @@ namespace Fantasoccer.Engine.IngestionData
     {
         private readonly IFantasoccerLogger _logger;
         private readonly IOfficialVote _vote;
+        private readonly IRepository<RealCalendar, int> _calendar;
         private readonly IRepository<RealPlayersWrapper, int> _realPlayersRepository;
         private readonly IRepository<RealTeamWrapper, int> _realTeamsRepository;
         private readonly IRepository<Group, string> _groupRepository;
         private readonly IAllPlayers _allPlayers;
+        private readonly IStatsPlayerGenerator _statsPlayerGenerator;
         private readonly IRepository<Team, TeamKey> _teamRepository;
+
 
         public AllPlayersAndAllTeamsJob(IFantasoccerLogger logger,
             IOfficialVote vote,
+            IRepository<RealCalendar, int> calendar,
             IRepository<RealPlayersWrapper, int> realPlayersRepository,
             IRepository<RealTeamWrapper, int> realTeamsRepository,
             IAllPlayers allPlayers,
+            IStatsPlayerGenerator statsPlayerGenerator,
             IRepository<Group, string> groupRepository,
             IRepository<Team, TeamKey> teamRepository)
         {
             _logger = logger;
             _vote = vote;
+            _calendar = calendar;
             _realPlayersRepository = realPlayersRepository;
             _realTeamsRepository = realTeamsRepository;
             _allPlayers = allPlayers;
+            _statsPlayerGenerator = statsPlayerGenerator;
             _groupRepository = groupRepository;
             _teamRepository = teamRepository;
         }
@@ -64,6 +72,7 @@ namespace Fantasoccer.Engine.IngestionData
                 var playersExist = actualPlayers != null;
                 if (!playersExist)
                     actualPlayers = new RealPlayersWrapper { Players = new() };
+                var initialPlayersCount = actualPlayers?.Players.Count ?? 0;
                 foreach (var actualPlayer in actualPlayers!.Players)
                 {
                     var realPlayer = players.FirstOrDefault(x => x.Key == actualPlayer.Key);
@@ -82,6 +91,12 @@ namespace Fantasoccer.Engine.IngestionData
                     await _realPlayersRepository.InsertAsync(year, new RealPlayersWrapper { Players = players }).NoContext();
                 else
                     await _realPlayersRepository.UpdateAsync(year, new RealPlayersWrapper { Players = players }).NoContext();
+                if (initialPlayersCount != players.Count)
+                {
+                    var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+                    var day = calendar?.LastDay?.SerieADay ?? 38;
+                    await _statsPlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, day).NoContext();
+                }
                 foreach (var group in await _groupRepository.ToListAsEntityAsync().NoContext())
                 {
                     foreach (var basket in group.Baskets)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   AlertTriangle,
   BarChart3,
+  Download,
   RefreshCw,
   Search,
   ArrowUp,
@@ -157,8 +158,6 @@ const columnDefinitions: ColumnDefinition[] = [
   { key: 'role', label: 'Ruolo', minWidth: 140 },
   { key: 'average', label: 'Media', minWidth: 120, align: 'right', isNumeric: true },
   { key: 'fantaAverage', label: 'FantaMedia', minWidth: 120, align: 'right', isNumeric: true },
-  { key: 'summatory', label: 'Somma Voti', minWidth: 120, align: 'right', isNumeric: true },
-  { key: 'fantaSummatory', label: 'Somma Fanta', minWidth: 140, align: 'right', isNumeric: true },
   { key: 'withVote', label: 'Presenze', minWidth: 120, align: 'right', isNumeric: true },
   { key: 'withoutVote', label: 'Senza voto', minWidth: 130, align: 'right', isNumeric: true },
   { key: 'withSpecial', label: 'Con bonus', minWidth: 130, align: 'right', isNumeric: true },
@@ -387,9 +386,9 @@ export default function PlayersScreen() {
       if (normalizedTerm) {
         result = result.filter((player) => {
           const matchesName = player.name.toLowerCase().includes(normalizedTerm)
-          const matchesTeam = player.realTeam?.name?.toLowerCase().includes(normalizedTerm)
-          const matchesRole = (player.roleLabel ?? RoleExtensions.asString(player.role)).toLowerCase().includes(normalizedTerm)
-          return matchesName || matchesTeam || matchesRole
+          const matchesSerieATeam = player.realTeam?.name?.toLowerCase().includes(normalizedTerm)
+          const matchesFantaTeam = player.fantaTeamName?.toLowerCase().includes(normalizedTerm)
+          return matchesName || matchesSerieATeam || matchesFantaTeam
         })
       }
     }
@@ -417,6 +416,34 @@ export default function PlayersScreen() {
 
     return sortable
   }, [filteredPlayers, sortKey, sortDirection])
+
+  const downloadCsv = useCallback(() => {
+    const headers = columnDefinitions.map(col => col.label)
+    const csvRows = [
+      headers.join(';'),
+      ...sortedPlayers.map(player =>
+        columnDefinitions.map(col => {
+          const value = getColumnValue(player, col.key)
+          // Escape values that contain semicolons or quotes
+          if (value.includes(';') || value.includes('"')) {
+            return `"${value.replace(/"/g, '""')}"`
+          }
+          return value
+        }).join(';')
+      )
+    ]
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    const seasonLabel = localYear ? formatSeasonFromYear(localYear).replace('/', '-') : 'all'
+    link.download = `giocatori_${seasonLabel}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [sortedPlayers, localYear])
 
   const showSelectionCard = availableYears.length === 0
   const hasPlayers = sortedPlayers.length > 0
@@ -508,13 +535,13 @@ export default function PlayersScreen() {
                     </Text>
                   </XStack>
 
-                  <XStack gap="$2" alignItems="center" width="100%" maxWidth={320}>
+                  <XStack gap="$2" alignItems="center" width="100%" maxWidth={400}>
                     <Search size="$1" color="$color10" />
                     <Input
                       flex={1}
                       value={searchTerm}
                       onChangeText={setSearchTerm}
-                      placeholder="Cerca per nome, squadra o ruolo"
+                      placeholder="Cerca per nome, squadra Serie A o fantacalcio"
                       borderColor="$color5"
                     />
                   </XStack>
@@ -582,6 +609,15 @@ export default function PlayersScreen() {
                     }}
                   >
                     Aggiorna
+                  </Button>
+                  <Button
+                    size="$2"
+                    icon={Download}
+                    variant="outlined"
+                    onPress={downloadCsv}
+                    disabled={!hasPlayers}
+                  >
+                    Scarica CSV
                   </Button>
                 </XStack>
 
