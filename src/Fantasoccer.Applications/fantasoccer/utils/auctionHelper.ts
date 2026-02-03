@@ -94,7 +94,8 @@ export enum AuctionSoundType {
   MyBid = 'my-bid',           // Quando faccio io un'offerta
   OtherBid = 'other-bid',     // Quando qualcun altro fa un'offerta
   MyWin = 'my-win',           // Quando vinco io l'asta
-  OtherWin = 'other-win'      // Quando vince qualcun altro
+  OtherWin = 'other-win',     // Quando vince qualcun altro
+  TimerExpired = 'timer-expired' // Quando scade il timer
 }
 
 /**
@@ -190,6 +191,37 @@ export const playAuctionSound = (
         gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
         oscillator2.start(now + 0.1)
         oscillator2.stop(now + 0.2)
+      }
+      break
+    
+    case AuctionSoundType.TimerExpired:
+      // Timer scaduto: suono tipo gong profondo e risonante
+      {
+        // Gong principale - frequenza bassa con risonanza
+        const oscillator1 = audioContext.createOscillator()
+        const gainNode1 = audioContext.createGain()
+        oscillator1.type = 'sine'
+        oscillator1.connect(gainNode1)
+        gainNode1.connect(audioContext.destination)
+        oscillator1.frequency.setValueAtTime(200, now)
+        oscillator1.frequency.exponentialRampToValueAtTime(100, now + 0.8)
+        gainNode1.gain.setValueAtTime(0.4, now)
+        gainNode1.gain.exponentialRampToValueAtTime(0.01, now + 0.8)
+        oscillator1.start(now)
+        oscillator1.stop(now + 0.8)
+        
+        // Armonico superiore per dare risonanza
+        const oscillator2 = audioContext.createOscillator()
+        const gainNode2 = audioContext.createGain()
+        oscillator2.type = 'sine'
+        oscillator2.connect(gainNode2)
+        gainNode2.connect(audioContext.destination)
+        oscillator2.frequency.setValueAtTime(400, now)
+        oscillator2.frequency.exponentialRampToValueAtTime(200, now + 0.6)
+        gainNode2.gain.setValueAtTime(0.2, now)
+        gainNode2.gain.exponentialRampToValueAtTime(0.01, now + 0.6)
+        oscillator2.start(now)
+        oscillator2.stop(now + 0.6)
       }
       break
   }

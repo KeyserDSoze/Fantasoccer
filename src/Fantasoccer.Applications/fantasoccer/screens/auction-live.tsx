@@ -224,6 +224,8 @@ export default function AuctionLiveScreen() {
           clearInterval(timerIntervalRef.current!)
           setTimerRunning(false)
           setTimerExpired(true)
+          // Play gong sound when timer expires
+          playSound(AuctionSoundType.TimerExpired)
           return 0
         }
         return prev - 1
