@@ -17,6 +17,8 @@ import type {
   BidPlaced,
   BidPlacedRaw
 } from '../types/auction'
+import type { StatPlayerRaw } from '../types/stat'
+import { mapRawStatPlayerToStatPlayer } from '../types/stat'
 import type { Entity } from '../types/default'
 import type { Team, TeamKey } from '../types/team'
 import {
@@ -59,6 +61,7 @@ export interface AuctionEventHandlers {
   onAuctionResumed?: () => void
   onAuctionClosed?: () => void
   onCurrentAuctionReset?: () => void
+  onCurrentAuctionClosed?: () => void
   onTimerReset?: () => void
 }
 
@@ -502,6 +505,11 @@ export class AuctionService {
       this.eventHandlers.onCurrentAuctionReset?.()
     })
 
+    this.hubConnection.on('CurrentAuctionClosed', () => {
+      console.log('📨 Hub.CurrentAuctionClosed')
+      this.eventHandlers.onCurrentAuctionClosed?.()
+    })
+
     this.hubConnection.on('TimerReset', () => {
       console.log('📨 Hub.TimerReset')
       this.eventHandlers.onTimerReset?.()
@@ -709,6 +717,46 @@ export class AuctionService {
     } catch (error) {
       console.error('❌ ReopenAuctionAsync failed:', error)
       throw this.handleInvokeError(error, 'reopen auction')
+    }
+  }
+
+  /**
+   * Close current auction (open for call)
+   */
+  async closeCurrentAuction(auctionId: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking CloseCurrentAuctionAsync:', auctionId)
+    
+    try {
+      await this.hubConnection!.invoke('CloseCurrentAuctionAsync', auctionId)
+      console.log('✅ CloseCurrentAuctionAsync invoked')
+    } catch (error) {
+      console.error('❌ CloseCurrentAuctionAsync failed:', error)
+      throw this.handleInvokeError(error, 'close current auction')
+    }
+  }
+
+  /**
+   * Get discarded players for a specific role
+   */
+  async getDiscardedPlayers(auctionId: string, role: number): Promise<StatPlayer[]> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking GetDiscardedPlayersAsync:', { auctionId, role })
+    
+    try {
+      const rawResult: StatPlayerRaw[] = await this.hubConnection!.invoke('GetDiscardedPlayersAsync', auctionId, role)
+      console.log('✅ GetDiscardedPlayersAsync raw result:', rawResult)
+      
+      // Map raw data to StatPlayer
+      const players = (rawResult || []).map(mapRawStatPlayerToStatPlayer)
+      console.log('✅ Mapped players:', players)
+      
+      return players
+    } catch (error) {
+      console.error('❌ GetDiscardedPlayersAsync failed:', error)
+      throw this.handleInvokeError(error, 'get discarded players')
     }
   }
 

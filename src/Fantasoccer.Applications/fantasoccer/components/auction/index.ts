@@ -17,6 +17,9 @@ export type { CustomBidDialogProps } from './CustomBidDialog'
 export { TeamDetailDialog } from './TeamDetailDialog'
 export type { TeamDetailDialogProps } from './TeamDetailDialog'
 
+export { DiscardedPlayersPanel } from './DiscardedPlayersPanel'
+export type { DiscardedPlayersPanelProps } from './DiscardedPlayersPanel'
+
 export { ChangeStatusDialog } from './ChangeStatusDialog'
 export type { ChangeStatusDialogProps } from './ChangeStatusDialog'
 

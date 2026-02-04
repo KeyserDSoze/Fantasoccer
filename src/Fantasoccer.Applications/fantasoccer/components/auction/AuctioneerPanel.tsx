@@ -2,11 +2,11 @@
 import { Platform } from 'react-native'
 import { 
   Button, Card, Select, Separator, Text, XStack, YStack, 
-  useMedia, Label 
+  useMedia, Label
 } from 'tamagui'
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
-  Clock, RotateCcw, Search, Check, Unlock 
+  Clock, RotateCcw, Search, Check, Unlock, Filter 
 } from '@tamagui/lucide-icons'
 import { Role } from 'types/group'
 import { AuctionStatus, StatPlayer, AuctionState } from 'types/auction'
@@ -57,6 +57,7 @@ export interface AuctioneerPanelProps {
   onResetTimer: () => Promise<void>
   onCompleteReset: () => Promise<void>
   onCloseAuction: () => Promise<void>
+  onCloseCurrentAuction: () => Promise<void>
   onFinalizeAuction: () => Promise<void>
   onReopenAuction: () => Promise<void>
 }
@@ -91,6 +92,7 @@ export function AuctioneerPanel({
   onResetTimer,
   onCompleteReset,
   onCloseAuction,
+  onCloseCurrentAuction,
   onFinalizeAuction,
   onReopenAuction,
 }: AuctioneerPanelProps) {
@@ -202,6 +204,19 @@ export function AuctioneerPanel({
       <Button icon={Search} theme="orange" variant="outlined" onPress={onSearchPlayer}>
         Cerca Giocatore
       </Button>
+      {currentPlayer && (
+        <Button 
+          icon={XCircle} 
+          theme="red" 
+          variant="outlined" 
+          onPress={async () => {
+            if (Platform.OS === 'web' && !confirm('Vuoi chiudere l\'asta corrente e aprire per chiamata?')) return
+            await onCloseCurrentAuction()
+          }}
+        >
+          Chiudi Asta Corrente (Apri a Chiamata)
+        </Button>
+      )}
       <Separator />
       {currentBidder && currentPlayer && (
         <>

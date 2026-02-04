@@ -48,6 +48,7 @@ import {
   TeamsPanel,
   CustomBidDialog,
   TeamDetailDialog,
+  DiscardedPlayersPanel,
   ChangeStatusDialog,
   SubstituteSelectionDialog,
   PlayerSearchDialog
@@ -659,6 +660,16 @@ export default function AuctionLiveScreen() {
               toast.show('🔄 Asta resettata - tutte le offerte cancellate', { variant: 'info', duration: 1000 })
             }
           },
+          onCurrentAuctionClosed: () => {
+            if (isSubscribed) {
+              setCurrentPlayer(null)
+              setCurrentBid(0)
+              setCurrentBidder(null)
+              setCurrentSubstitute(null)
+              resetTimer()
+              toast.show('📞 Asta aperta a chiamata - Puoi ora selezionare un giocatore scartato', { variant: 'info', duration: 3000 })
+            }
+          },
           onTimerReset: () => {
             if (isSubscribed) {
               startTimer()
@@ -1082,6 +1093,17 @@ export default function AuctionLiveScreen() {
           try {
             await auctionService.reopenAuction(auctionId)
             toast.show('✅ Asta riaperta con successo!', { variant: 'success' })
+          } catch (err) {
+            toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+          } finally {
+            setLoading(false)
+          }
+        }}
+        onCloseCurrentAuction={async () => {
+          setLoading(true)
+          try {
+            await auctionService.closeCurrentAuction(auctionId)
+            toast.show('✅ Asta corrente chiusa - Ora puoi chiamare un giocatore scartato', { variant: 'success' })
           } catch (err) {
             toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
           } finally {
@@ -1724,6 +1746,23 @@ export default function AuctionLiveScreen() {
               {renderCurrentPlayer()}
               {showMyTeamPanel && renderParticipantBidding()}
               {renderAuctioneerPanel()}
+              <DiscardedPlayersPanel
+                auctionState={auctionState}
+                teams={teams}
+                selectedRole={selectedRole}
+                currentPlayer={currentPlayer}
+                isAuctioneer={isAuctioneer}
+                onForceShowPlayer={async (playerKey: string) => {
+                  setLoading(true)
+                  try {
+                    await auctionService.showNextPlayer(auctionId, selectedRole, playerKey)
+                  } catch (err) {
+                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+              />
               {showTeamsPanel && renderTeams()}
               {renderPurchaseHistory()}
               {renderInactivePlayers()}

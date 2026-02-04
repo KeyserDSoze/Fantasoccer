@@ -63,6 +63,22 @@ export interface ActualAuctionRaw {
 }
 
 /**
+ * Raw PlayerForAuction interface matching C# JsonPropertyName
+ */
+export interface PlayerForAuctionRaw {
+  k: string  // EncryptedKey
+  i: boolean // IsShowed
+}
+
+/**
+ * Clean PlayerForAuction interface
+ */
+export interface PlayerForAuction {
+  encryptedKey: string
+  isShowed: boolean
+}
+
+/**
  * Raw AuctionWrapper interface matching C# JsonPropertyName
  */
 export interface AuctionWrapperRaw {
@@ -75,7 +91,7 @@ export interface AuctionWrapperRaw {
   a: ActualAuctionRaw | null            // Actual
   w: AuctionWinRaw[]                    // Winnings
   s: number                              // Status (AuctionStatus enum)
-  p: Record<string, string[]>           // ListOfPlayers (Role as string key)
+  p: Record<string, PlayerForAuctionRaw[]>  // ListOfPlayers (Role as string key, array of PlayerForAuction)
   pr: AnnualTeamRaw[]                   // Participants
   ls: Record<string, string | null>     // LastShow (Role as string key)
   sec: number                            // SecondsPerAuction
@@ -135,6 +151,7 @@ export interface AuctionWrapper {
   actual: ActualAuction | null
   winnings: AuctionWin[]
   status: AuctionStatus
+  listOfPlayers: Record<Role, PlayerForAuction[]>
   participants: AnnualTeam[]
   lastShow: Record<Role, string | null>
   secondsPerAuction: number
@@ -255,6 +272,16 @@ export type TeamEntityRaw = EntityRaw<TeamRaw, TeamKeyRaw>
 // ============================================
 
 /**
+ * Map raw PlayerForAuction to clean interface
+ */
+export function mapRawPlayerForAuction(raw: PlayerForAuctionRaw): PlayerForAuction {
+  return {
+    encryptedKey: raw.k,
+    isShowed: raw.i
+  }
+}
+
+/**
  * Map raw AuctionWin to clean interface
  */
 export function mapRawAuctionWin(raw: AuctionWinRaw): AuctionWin {
@@ -283,9 +310,9 @@ export function mapRawActualAuction(raw: ActualAuctionRaw): ActualAuction {
  */
 export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
   // Convert string keys back to Role enum for listOfPlayers and lastShow
-  const listOfPlayers: Record<Role, string[]> = {} as Record<Role, string[]>
+  const listOfPlayers: Record<Role, PlayerForAuction[]> = {} as Record<Role, PlayerForAuction[]>
   for (const [key, value] of Object.entries(raw.p)) {
-    listOfPlayers[parseInt(key) as Role] = value
+    listOfPlayers[parseInt(key) as Role] = value.map(mapRawPlayerForAuction)
   }
 
   const lastShow: Record<Role, string | null> = {} as Record<Role, string | null>

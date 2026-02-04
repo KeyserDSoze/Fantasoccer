@@ -657,22 +657,14 @@ export default function PlayersScreen() {
                   <Text color="$color10" fontSize="$2">
                     {hasPlayers ? `${sortedPlayers.length} giocatori` : 'Nessun giocatore disponibile'}
                   </Text>
-                  {lastUpdated && (
-                    <Text color="$color9" fontSize="$2">
-                      Aggiornato: {lastUpdated.toLocaleString('it-IT')}
-                    </Text>
-                  )}
-                  {isLoadingTeams && (
-                    <Text color="$color9" fontSize="$2">
-                      (Caricamento squadre...)
-                    </Text>
-                  )}
                   <Button
                     size="$2"
-                    icon={RefreshCw}
+                    icon={isLoading || isLoadingTeams ? Spinner : RefreshCw}
                     variant="outlined"
+                    disabled={isLoading || isLoadingTeams}
                     onPress={() => {
                       void refetch()
+                      void loadTeams()
                     }}
                   >
                     Aggiorna
@@ -686,6 +678,11 @@ export default function PlayersScreen() {
                   >
                     Scarica CSV
                   </Button>
+                  {lastUpdated && (
+                    <Text color="$color9" fontSize="$2">
+                      Aggiornato: {lastUpdated.toLocaleString('it-IT')}
+                    </Text>
+                  )}
                 </XStack>
 
                 {isLoading && !hasPlayers ? (
@@ -699,7 +696,10 @@ export default function PlayersScreen() {
                     <Text color="$color10" textAlign="center">
                       {error}
                     </Text>
-                    <Button icon={RefreshCw} variant="outlined" onPress={() => void refetch()}>
+                    <Button icon={RefreshCw} variant="outlined" onPress={() => {
+                      void refetch()
+                      void loadTeams()
+                    }}>
                       Riprova
                     </Button>
                   </YStack>

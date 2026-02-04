@@ -431,6 +431,43 @@ namespace Fantasoccer.Application.Api.Hubs
             }
         }
 
+        public async Task<List<StatPlayer>> GetDiscardedPlayersAsync(string auctionId, Role role)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return new List<StatPlayer>();
+
+            var wrapper = await _auctionHubService.GetCurrentWrapperAsync(auctionId);
+            if (wrapper?.RealPlayers == null) return new List<StatPlayer>();
+
+            // Get all shown players for this role (decrypted keys)
+            var shownPlayers = wrapper.Wrapper.ListOfPlayers[role]
+                .Where(p => p.IsShowed)
+                .Select(p => _encryptionService.Decrypt(p.EncryptedKey))
+                .ToList();
+
+            // Get purchased player keys
+            var purchasedKeys = wrapper.Wrapper.Winnings.Select(w => w.PlayerKey).ToList();
+
+            // Get removed player keys from all teams
+            var removedPlayerKeys = wrapper.Teams
+                .SelectMany(t => t.Value.Players)
+                .Where(p => (p.Status == PlayerInTeamStatus.Removed || p.Status == PlayerInTeamStatus.SoldWithNoReturnedPrice) && p.Role == role)
+                .Select(p => p.Key)
+                .Distinct()
+                .ToList();
+
+            // Return players that are:
+            // 1. Shown but not purchased OR
+            // 2. Removed from teams and not purchased
+            var discardedPlayers = wrapper.RealPlayers
+                .Where(p => p.Role == role && 
+                       !purchasedKeys.Contains(p.Key) && 
+                       (shownPlayers.Contains(p.Key) || removedPlayerKeys.Contains(p.Key)))
+                .ToList();
+
+            return discardedPlayers;
+        }
+
         /// <summary>
         /// AUCTIONEER: Show next player for bidding
         /// </summary>
@@ -479,6 +516,40 @@ namespace Fantasoccer.Application.Api.Hubs
             if (concurrencyResponse?.IsOk == true)
             {
                 await Clients.Group(auctionId).SendAsync("PlayerShown", concurrencyResponse?.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
+        }
+
+        public async Task CloseCurrentAuctionAsync(string auctionId)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email)) return;
+
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
+            {
+                if (wrapper == null || !IsAuctioneer(wrapper, email))
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneers can close current auction"));
+                }
+
+                if (wrapper.Wrapper.Actual == null)
+                {
+                    return Task.FromResult(new ConcurrencyResponse(false, "No current auction to close"));
+                }
+
+                // Close current auction by setting Actual to null
+                wrapper.Wrapper.Actual = null;
+                wrapper.Wrapper.Status = AuctionStatus.Paused;
+
+                return Task.FromResult(new ConcurrencyResponse(true, "Current auction closed"));
+            });
+
+            if (concurrencyResponse?.IsOk == true)
+            {
+                await Clients.Group(auctionId).SendAsync("CurrentAuctionClosed");
             }
             else
             {
