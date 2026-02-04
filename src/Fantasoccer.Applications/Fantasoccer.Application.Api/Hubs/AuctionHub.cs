@@ -857,6 +857,23 @@ namespace Fantasoccer.Application.Api.Hubs
                 await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
             }
         }
+
+        /// <summary>
+        /// Send emoji reaction to all participants
+        /// </summary>
+        public async Task SendEmojiReactionAsync(string auctionId, string emoji)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email))
+            {
+                await Clients.Caller.SendAsync("Error", "User not authenticated");
+                return;
+            }
+
+            // Broadcast to all users in auction (including sender)
+            await Clients.Group(auctionId).SendAsync("EmojiReceived", new { emoji, sender = email });
+        }
+
         public override async Task OnConnectedAsync()
         {
             var email = GetUserEmail();

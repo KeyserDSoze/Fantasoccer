@@ -24,6 +24,7 @@ export interface PersonalBiddingPanelProps {
   onIncrementBid: (increment: number, isAuctioneer?: boolean) => void
   onFixedBid: (amount: number, isAuctioneer?: boolean) => void
   onCustomBid: () => void
+  sendEmoji: (emoji: string) => void
   
   // Substitute selection
   isRepairAuction: boolean
@@ -49,6 +50,7 @@ export function PersonalBiddingPanel({
   onIncrementBid,
   onFixedBid,
   onCustomBid,
+  sendEmoji,
   isRepairAuction,
   mySelectedSubstitute,
   onSelectSubstitute,
@@ -215,6 +217,39 @@ export function PersonalBiddingPanel({
             <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">200</Text>
           </Button>
         </XStack>
+        
+        {/* Emoji Reactions */}
+        <Separator />
+        <YStack gap="$2">
+          <Text fontSize="$2" color="$blue11" fontWeight="600">Reazioni:</Text>
+          <XStack gap="$2" flexWrap="wrap">
+            <Button size="$4" chromeless onPress={() => sendEmoji('🔥')}>
+              <Text fontSize={32}>🔥</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('😂')}>
+              <Text fontSize={32}>😂</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('💰')}>
+              <Text fontSize={32}>💰</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('👍')}>
+              <Text fontSize={32}>👍</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('❤️')}>
+              <Text fontSize={32}>❤️</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('😱')}>
+              <Text fontSize={32}>😱</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('🤔')}>
+              <Text fontSize={32}>🤔</Text>
+            </Button>
+            <Button size="$4" chromeless onPress={() => sendEmoji('🎉')}>
+              <Text fontSize={32}>🎉</Text>
+            </Button>
+          </XStack>
+        </YStack>
+        
         <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={onCustomBid} disabled={isDisabled}>
           Offerta Personalizzata
         </Button>

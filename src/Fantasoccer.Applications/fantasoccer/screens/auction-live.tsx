@@ -55,6 +55,7 @@ import {
   PlayerSearchDialog,
   FloatingPlayerWidget
 } from 'components/auction'
+import { FloatingEmoji } from 'components/auction/FloatingEmoji'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
 
@@ -85,6 +86,7 @@ export default function AuctionLiveScreen() {
   const [auctionState, setAuctionState] = useState<AuctionState | null>(null)
   const [currentPlayer, setCurrentPlayer] = useState<StatPlayer | null>(null)
   const [teams, setTeams] = useState<Entity<Team, TeamKey>[]>([])
+  const teamsRef = useRef<Entity<Team, TeamKey>[]>([])
   const [currentBid, setCurrentBid] = useState<number>(0)
   const [currentBidder, setCurrentBidder] = useState<string | null>(null)
   const [currentSubstitute, setCurrentSubstitute] = useState<string | null>(null)
@@ -138,6 +140,15 @@ export default function AuctionLiveScreen() {
   const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
   const [chancedPlayersMap, setChancedPlayersMap] = useState<Map<string, any>>(new Map())
   const [connectedUsers, setConnectedUsers] = useState<string[]>([])
+  
+  // Emoji reactions
+  interface ActiveEmoji {
+    id: string
+    emoji: string
+    sender: string
+    timestamp: number
+  }
+  const [activeEmojis, setActiveEmojis] = useState<ActiveEmoji[]>([])
 
   // Initialize audio context
   useEffect(() => {
@@ -152,6 +163,62 @@ export default function AuctionLiveScreen() {
   const playSound = useCallback((soundType: AuctionSoundType) => {
     if (Platform.OS !== 'web') return
     playAuctionSound(audioContextRef.current, audioEnabled, soundType)
+  }, [audioEnabled])
+
+  const playEmojiSound = useCallback((frequency: number) => {
+    if (Platform.OS !== 'web' || !audioEnabled || !audioContextRef.current) return
+    
+    const ctx = audioContextRef.current
+    const now = ctx.currentTime
+    
+    // Oscillatore principale
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(frequency, now)
+    osc1.connect(gain1)
+    
+    // Oscillatore armonico (quinta superiore per ricchezza)
+    const osc2 = ctx.createOscillator()
+    const gain2 = ctx.createGain()
+    osc2.type = 'sine'
+    osc2.frequency.setValueAtTime(frequency * 1.5, now)
+    osc2.connect(gain2)
+    
+    // Filtro passa-basso per warmth
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(frequency * 6, now)
+    filter.Q.setValueAtTime(3, now)
+    
+    // Connessioni
+    gain1.connect(filter)
+    gain2.connect(filter)
+    filter.connect(ctx.destination)
+    
+    // Envelope ADSR più secco e veloce
+    gain1.gain.setValueAtTime(0, now)
+    gain1.gain.linearRampToValueAtTime(0.25, now + 0.05) // Attack veloce
+    gain1.gain.linearRampToValueAtTime(0.15, now + 0.12) // Decay rapido
+    gain1.gain.setValueAtTime(0.15, now + 0.25) // Sustain breve
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.45) // Release veloce
+    
+    // Envelope per armonico (più soft)
+    gain2.gain.setValueAtTime(0, now)
+    gain2.gain.linearRampToValueAtTime(0.1, now + 0.05)
+    gain2.gain.linearRampToValueAtTime(0.06, now + 0.12)
+    gain2.gain.setValueAtTime(0.06, now + 0.25)
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.45)
+    
+    // Sweep filtro più rapido
+    filter.frequency.setValueAtTime(frequency * 6, now)
+    filter.frequency.exponentialRampToValueAtTime(frequency * 2.5, now + 0.3)
+    
+    // Start/Stop
+    osc1.start(now)
+    osc2.start(now)
+    osc1.stop(now + 0.5)
+    osc2.stop(now + 0.5)
   }, [audioEnabled])
 
   const vibrateOnBid = useCallback(() => {
@@ -183,6 +250,7 @@ export default function AuctionLiveScreen() {
   const updateAuctionState = useCallback((state: AuctionState) => {
     setAuctionState(state)
     setTeams(state.teams)
+    teamsRef.current = state.teams // Keep ref in sync
     setIsAuctioneer(state.isAuctioneer)
     setSalesHistory(state.wrapper.winnings)
     setIsLocked(state.wrapper.status === AuctionStatus.Paused)
@@ -375,6 +443,21 @@ export default function AuctionLiveScreen() {
   const handleFixedBid = useCallback((amount: number, isAuctioneerBid: boolean = false) => {
     placeBid(amount, isAuctioneerBid)
   }, [placeBid])
+
+  // Send emoji reaction
+  const sendEmoji = useCallback(async (emoji: string) => {
+    if (!auctionId) return
+    try {
+      await auctionService.sendEmoji(auctionId, emoji)
+    } catch (error) {
+      console.error('Error sending emoji:', error)
+    }
+  }, [auctionId])
+
+  // Remove completed emoji animation
+  const removeEmoji = useCallback((id: string) => {
+    setActiveEmojis(prev => prev.filter(e => e.id !== id))
+  }, [])
 
   // Check if personal bidding buttons should be disabled (for myTeam)
   const arePersonalBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
@@ -573,6 +656,30 @@ export default function AuctionLiveScreen() {
               toast.show(`👋 L'utente ${email} si è disconnesso`, { variant: 'info', duration: 4000 })
             }
           },
+          onEmojiReceived: (data: { emoji: string; sender: string }) => {
+            if (isSubscribed) {
+              // Get fresh teams state from ref
+              setActiveEmojis(prev => {
+                // Find sender name (team name if player, email otherwise)
+                const team = teamsRef.current.find(t => t.value.owner.toLowerCase() === data.sender.toLowerCase())
+                const senderName = team?.value.name || data.sender.split('@')[0]
+                
+                console.log('Emoji received:', { sender: data.sender, team: team?.value.name, senderName })
+                
+                // Add emoji to active emojis
+                const emojiId = `${Date.now()}-${Math.random()}`
+                return [...prev, { id: emojiId, emoji: data.emoji, sender: senderName, timestamp: Date.now() }]
+              })
+              
+              // Play sound based on emoji
+              const emojiSounds: Record<string, number> = {
+                '🔥': 600, '😂': 400, '💰': 700, '👍': 500,
+                '❤️': 650, '😱': 550, '🤔': 450, '🎉': 750
+              }
+              const frequency = emojiSounds[data.emoji] || 500
+              playEmojiSound(frequency)
+            }
+          },
           onPlayerShown: (actualAuction: ActualAuction) => {
             if (isSubscribed) {
               // Check if role changed - if so, reset substitutes
@@ -606,11 +713,13 @@ export default function AuctionLiveScreen() {
               
               // Update the team that won the auction with the updated team data
               if (data.team) {
-                setTeams(prevTeams => 
-                  prevTeams.map(team => 
+                setTeams(prevTeams => {
+                  const updated = prevTeams.map(team => 
                     team.value.owner === data.team!.value.owner ? data.team! : team
                   )
-                )
+                  teamsRef.current = updated // Keep ref in sync
+                  return updated
+                })
                 
                 // Update myTeam if I won the auction
                 if (user?.email && data.team.value.owner.toLowerCase() === user.email.toLowerCase()) {
@@ -699,9 +808,11 @@ export default function AuctionLiveScreen() {
             console.log('📦 Team updated from server:', team.value.name)
             if (isSubscribed) {
               // Update teams array
-              setTeams(prevTeams => 
-                prevTeams.map(t => t.value.owner === team.value.owner ? team : t)
-              )
+              setTeams(prevTeams => {
+                const updated = prevTeams.map(t => t.value.owner === team.value.owner ? team : t)
+                teamsRef.current = updated // Keep ref in sync
+                return updated
+              })
               
               // Update myTeam if it's my team
               if (user?.email && team.value.owner.toLowerCase() === user.email.toLowerCase()) {
@@ -970,6 +1081,7 @@ export default function AuctionLiveScreen() {
           setIsCustomBidFromAuctioneer(false)
           setShowCustomBidDialog(true)
         }}
+        sendEmoji={sendEmoji}
         isRepairAuction={isRepairAuction()}
         mySelectedSubstitute={mySelectedSubstitute}
         onSelectSubstitute={() => {
@@ -1894,6 +2006,7 @@ export default function AuctionLiveScreen() {
         {renderSubstituteSelectionDialog()}
         {renderPlayerSearchDialog()}
       </ScreenContent>
+      
       {/* Floating player widget - rendered OUTSIDE ScreenContent to be truly fixed */}
       {currentPlayer && myTeam && (
         <FloatingPlayerWidget
@@ -1906,6 +2019,17 @@ export default function AuctionLiveScreen() {
           disabled={arePersonalBidButtonsDisabled().disabled}
         />
       )}
+      
+      {/* Floating emojis - rendered outside to animate freely */}
+      {activeEmojis.map((emojiData) => (
+        <FloatingEmoji
+          key={emojiData.id}
+          id={emojiData.id}
+          emoji={emojiData.emoji}
+          sender={emojiData.sender}
+          onComplete={() => removeEmoji(emojiData.id)}
+        />
+      ))}
     </View>
   )
 }

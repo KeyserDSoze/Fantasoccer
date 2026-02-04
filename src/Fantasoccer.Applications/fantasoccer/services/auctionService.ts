@@ -48,6 +48,7 @@ export interface AuctionEventHandlers {
   onError?: (message: string) => void
   onUserJoined?: (email: string) => void
   onUserLeft?: (email: string) => void
+  onEmojiReceived?: (data: { emoji: string; sender: string }) => void
   
   // Auction events - UPDATED
   onPlayerShown?: (actualAuction: ActualAuction) => void  // Now receives full ActualAuction
@@ -436,6 +437,11 @@ export class AuctionService {
       this.eventHandlers.onUserLeft?.(email)
     })
 
+    this.hubConnection.on('EmojiReceived', (data: { emoji: string; sender: string }) => {
+      console.log('📨 Hub.EmojiReceived:', data)
+      this.eventHandlers.onEmojiReceived?.(data)
+    })
+
     // PlayerShown - Now receives full ActualAuction object
     this.hubConnection.on('PlayerShown', (actualAuctionRaw: ActualAuctionRaw) => {
       console.log('📨 Hub.PlayerShown (ActualAuction):', actualAuctionRaw)
@@ -590,6 +596,22 @@ export class AuctionService {
     } catch (error) {
       console.error('❌ GetConnectedUsersAsync failed:', error)
       return []
+    }
+  }
+
+  /**
+   * Send emoji reaction
+   */
+  async sendEmoji(auctionId: string, emoji: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking SendEmojiReactionAsync:', { auctionId, emoji })
+    
+    try {
+      await this.hubConnection!.invoke('SendEmojiReactionAsync', auctionId, emoji)
+      console.log('✅ SendEmojiReactionAsync invoked successfully')
+    } catch (error) {
+      console.error('❌ SendEmojiReactionAsync failed:', error)
     }
   }
 
