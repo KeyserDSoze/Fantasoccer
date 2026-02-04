@@ -122,6 +122,8 @@ export default function AuctionLiveScreen() {
   const [tempBlockButtons, setTempBlockButtons] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(true)
   const [vibrationEnabled, setVibrationEnabled] = useState(true)
+  const [emojiSoundEnabled, setEmojiSoundEnabled] = useState(true)
+  const emojiSoundEnabledRef = useRef<boolean>(true)
   const audioContextRef = useRef<AudioContext | null>(null)
   const connectionAttemptedRef = useRef<boolean>(false)
   const isConnectingRef = useRef<boolean>(false)
@@ -135,6 +137,8 @@ export default function AuctionLiveScreen() {
   const [showMyTeamStats, setShowMyTeamStats] = useState(true)
   const [showPurchaseHistory, setShowPurchaseHistory] = useState(true)
   const [showInactivePlayers, setShowInactivePlayers] = useState(true)
+  const [showEmojis, setShowEmojis] = useState(true)
+  const showEmojisRef = useRef<boolean>(true)
 
   // Stats and chance data (use state instead of ref to trigger re-renders)
   const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
@@ -160,13 +164,23 @@ export default function AuctionLiveScreen() {
     }
   }, [])
 
+  // Sync emojiSoundEnabled ref
+  useEffect(() => {
+    emojiSoundEnabledRef.current = emojiSoundEnabled
+  }, [emojiSoundEnabled])
+
+  // Sync showEmojis ref
+  useEffect(() => {
+    showEmojisRef.current = showEmojis
+  }, [showEmojis])
+
   const playSound = useCallback((soundType: AuctionSoundType) => {
     if (Platform.OS !== 'web') return
     playAuctionSound(audioContextRef.current, audioEnabled, soundType)
   }, [audioEnabled])
 
   const playEmojiSound = useCallback((frequency: number) => {
-    if (Platform.OS !== 'web' || !audioEnabled || !audioContextRef.current) return
+    if (Platform.OS !== 'web' || !showEmojisRef.current || !emojiSoundEnabledRef.current || !audioContextRef.current) return
     
     const ctx = audioContextRef.current
     const now = ctx.currentTime
@@ -219,7 +233,7 @@ export default function AuctionLiveScreen() {
     osc2.start(now)
     osc1.stop(now + 0.5)
     osc2.stop(now + 0.5)
-  }, [audioEnabled])
+  }, [])
 
   const vibrateOnBid = useCallback(() => {
     if (!vibrationEnabled || Platform.OS === 'web') return
@@ -658,20 +672,23 @@ export default function AuctionLiveScreen() {
           },
           onEmojiReceived: (data: { emoji: string; sender: string }) => {
             if (isSubscribed) {
-              // Get fresh teams state from ref
-              setActiveEmojis(prev => {
-                // Find sender name (team name if player, email otherwise)
-                const team = teamsRef.current.find(t => t.value.owner.toLowerCase() === data.sender.toLowerCase())
-                const senderName = team?.value.name || data.sender.split('@')[0]
-                
-                console.log('Emoji received:', { sender: data.sender, team: team?.value.name, senderName })
-                
-                // Add emoji to active emojis
-                const emojiId = `${Date.now()}-${Math.random()}`
-                return [...prev, { id: emojiId, emoji: data.emoji, sender: senderName, timestamp: Date.now() }]
-              })
+              // Only add emoji if showEmojis is enabled
+              if (showEmojisRef.current) {
+                // Get fresh teams state from ref
+                setActiveEmojis(prev => {
+                  // Find sender name (team name if player, email otherwise)
+                  const team = teamsRef.current.find(t => t.value.owner.toLowerCase() === data.sender.toLowerCase())
+                  const senderName = team?.value.name || data.sender.split('@')[0]
+                  
+                  console.log('Emoji received:', { sender: data.sender, team: team?.value.name, senderName })
+                  
+                  // Add emoji to active emojis
+                  const emojiId = `${Date.now()}-${Math.random()}`
+                  return [...prev, { id: emojiId, emoji: data.emoji, sender: senderName, timestamp: Date.now() }]
+                })
+              }
               
-              // Play sound based on emoji
+              // Play sound based on emoji (respects showEmojis and emojiSoundEnabled via ref)
               const emojiSounds: Record<string, number> = {
                 '🔥': 600, '😂': 400, '💰': 700, '👍': 500,
                 '❤️': 650, '😱': 550, '🤔': 450, '🎉': 750
@@ -1820,6 +1837,18 @@ export default function AuctionLiveScreen() {
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Giocatori Cacciati/Venduti</Text>
                       </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={showEmojis} onCheckedChange={setShowEmojis}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Reazioni Emoji</Text>
+                      </XStack>
+                      <XStack gap="$1" alignItems="center">
+                        <Switch size="$2" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled}>
+                          <Switch.Thumb animation="quick" />
+                        </Switch>
+                        <Text fontSize="$2" color="$blue11">Audio Emoji</Text>
+                      </XStack>
                     </XStack>
                   </YStack>
                 </Card>
@@ -2021,7 +2050,7 @@ export default function AuctionLiveScreen() {
       )}
       
       {/* Floating emojis - rendered outside to animate freely */}
-      {activeEmojis.map((emojiData) => (
+      {showEmojis && activeEmojis.map((emojiData) => (
         <FloatingEmoji
           key={emojiData.id}
           id={emojiData.id}
