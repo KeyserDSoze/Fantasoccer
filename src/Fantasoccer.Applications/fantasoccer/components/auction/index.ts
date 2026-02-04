@@ -28,3 +28,6 @@ export type { SubstituteSelectionDialogProps } from './SubstituteSelectionDialog
 
 export { PlayerSearchDialog } from './PlayerSearchDialog'
 export type { PlayerSearchDialogProps } from './PlayerSearchDialog'
+
+export { FloatingPlayerWidget } from './FloatingPlayerWidget'
+export type { FloatingPlayerWidgetProps } from './FloatingPlayerWidget'

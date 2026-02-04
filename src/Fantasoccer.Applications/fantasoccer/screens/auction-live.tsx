@@ -51,7 +51,8 @@ import {
   DiscardedPlayersPanel,
   ChangeStatusDialog,
   SubstituteSelectionDialog,
-  PlayerSearchDialog
+  PlayerSearchDialog,
+  FloatingPlayerWidget
 } from 'components/auction'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
@@ -641,11 +642,17 @@ export default function AuctionLiveScreen() {
           },
           onAuctionPaused: () => {
             toast.show('⏸️ Asta in pausa', { variant: 'info', duration: 4000 })
-            if (isSubscribed) setIsLocked(true)
+            if (isSubscribed) {
+              setIsLocked(true)
+              setAuctionState(prev => prev ? { ...prev, wrapper: { ...prev.wrapper, status: AuctionStatus.Paused } } : prev)
+            }
           },
           onAuctionResumed: () => {
             toast.show('▶️ Asta ripresa', { variant: 'info', duration: 4000 })
-            if (isSubscribed) setIsLocked(false)
+            if (isSubscribed) {
+              setIsLocked(false)
+              setAuctionState(prev => prev ? { ...prev, wrapper: { ...prev.wrapper, status: AuctionStatus.InProgress } } : prev)
+            }
           },
           onAuctionClosed: () => {
             toast.show('🏁 Asta chiusa', { variant: 'info', duration: 4000 })
@@ -1743,9 +1750,44 @@ export default function AuctionLiveScreen() {
           <YStack padding="$4" gap="$6">
             <YStack width="100%" gap="$4">
               {renderHeader()}
-              {renderCurrentPlayer()}
-              {showMyTeamPanel && renderParticipantBidding()}
-              {renderAuctioneerPanel()}
+              {/* Layout responsivo basato su ruolo e device */}
+              {!isAuctioneer && showMyTeamPanel ? (
+                /* Caso 1: Giocatore normale (NON banditore) */
+                <>
+                  {media.gtMd ? (
+                    <XStack gap="$4" alignItems="stretch">
+                      <YStack flex={1}>{renderCurrentPlayer()}</YStack>
+                      <YStack flex={1}>{renderParticipantBidding()}</YStack>
+                    </XStack>
+                  ) : (
+                    <YStack gap="$4">
+                      {renderCurrentPlayer()}
+                      {renderParticipantBidding()}
+                    </YStack>
+                  )}
+                </>
+              ) : isAuctioneer && !myTeam ? (
+                /* Caso 2: SOLO banditore (senza team) */
+                <>
+                  {media.gtMd ? (
+                    <XStack gap="$4" alignItems="stretch">
+                      <YStack flex={1}>{renderCurrentPlayer()}</YStack>
+                      <YStack flex={1}>{renderAuctioneerPanel()}</YStack>
+                    </XStack>
+                  ) : (
+                    <YStack gap="$4">
+                      {renderCurrentPlayer()}
+                      {renderAuctioneerPanel()}
+                    </YStack>
+                  )}
+                </>
+              ) : (
+                /* Caso 3: Banditore con team (già gestito nel renderAuctioneerPanel) */
+                <>
+                  {renderCurrentPlayer()}
+                  {renderAuctioneerPanel()}
+                </>
+              )}
               <DiscardedPlayersPanel
                 auctionState={auctionState}
                 teams={teams}
@@ -1775,6 +1817,18 @@ export default function AuctionLiveScreen() {
         {renderSubstituteSelectionDialog()}
         {renderPlayerSearchDialog()}
       </ScreenContent>
+      {/* Floating player widget - rendered OUTSIDE ScreenContent to be truly fixed */}
+      {currentPlayer && myTeam && (
+        <FloatingPlayerWidget
+          currentPlayer={currentPlayer}
+          currentBid={currentBid}
+          currentBidder={currentBidder}
+          teams={teams}
+          timerSecondsLeft={timerSecondsLeft}
+          onIncrementBid={() => handleIncrementBid(1, false)}
+          disabled={arePersonalBidButtonsDisabled().disabled}
+        />
+      )}
     </View>
   )
 }

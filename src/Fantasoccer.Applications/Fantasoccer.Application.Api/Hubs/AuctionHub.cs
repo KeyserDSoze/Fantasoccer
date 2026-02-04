@@ -460,8 +460,8 @@ namespace Fantasoccer.Application.Api.Hubs
             // 1. Shown but not purchased OR
             // 2. Removed from teams and not purchased
             var discardedPlayers = wrapper.RealPlayers
-                .Where(p => p.Role == role && 
-                       !purchasedKeys.Contains(p.Key) && 
+                .Where(p => p.Role == role &&
+                       !purchasedKeys.Contains(p.Key) &&
                        (shownPlayers.Contains(p.Key) || removedPlayerKeys.Contains(p.Key)))
                 .ToList();
 
