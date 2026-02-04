@@ -268,13 +268,13 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email))
             {
-                return new List<string>();
+                return [];
             }
 
             var wrapper = await _auctionHubService.GetCurrentWrapperAsync(auctionId);
             if (wrapper?.Wrapper?.Participants == null)
             {
-                return new List<string>();
+                return [];
             }
 
             // Return all participants emails
