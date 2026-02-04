@@ -15,6 +15,68 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '1.3.0',
+    date: '4 Febbraio 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Pannello giocatori rimanenti - visualizza tutti i giocatori del ruolo corrente che non sono ancora usciti nell\'asta, ordinati per partite giocate e fantamedia'
+      },
+      {
+        category: 'Feature',
+        description: 'Pannello giocatori scartati nell\'asta - visualizza tutti i giocatori mostrati ma non acquistati e quelli rimossi dalle squadre'
+      },
+      {
+        category: 'Feature',
+        description: 'Badge team che ha scartato il giocatore - mostra quale squadra ha rimosso un giocatore dalla propria rosa'
+      },
+      {
+        category: 'Feature',
+        description: 'Visualizzazione eventi nei pannelli giocatori - mostra gol ⚽, assist 🎯, rigori, parate 🧤, cartellini 🟨🟥 in formato compatto'
+      },
+      {
+        category: 'Feature',
+        description: 'FloatingPlayerWidget - widget floating in basso a destra con immagine giocatore, timer, prezzo e squadra vincente durante l\'asta live'
+      },
+      {
+        category: 'Feature',
+        description: 'Offerta rapida +1 dal FloatingPlayerWidget - possibilità di rilanciare cliccando direttamente sul widget senza scorrere la pagina'
+      },
+      {
+        category: 'Feature',
+        description: 'Stato visivo widget disabilitato - il cerchio diventa grigio quando non si può fare offerta (budget insufficiente, non è il proprio turno, ecc.)'
+      },
+      {
+        category: 'Improvement',
+        description: 'Layout responsive asta live - su desktop il pannello del giocatore in asta e il pannello offerte sono affiancati orizzontalmente per non-banditori'
+      },
+      {
+        category: 'Improvement',
+        description: 'Layout pannelli giocatori migliorato - nome a sinistra con team reale tra parentesi per migliore leggibilità'
+      },
+      {
+        category: 'Improvement',
+        description: 'Sistema immagini giocatore unificato - FloatingPlayerWidget usa la stessa logica di caricamento immagini con fallback automatico'
+      },
+      {
+        category: 'Improvement',
+        description: 'Normalizzazione chiavi giocatori con getPlayerKey() - matching affidabile tra realPlayers e team players per calcolo giocatori rimanenti'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto aggiornamento status asta in tempo reale - ora l\'header mostra correttamente "In Pausa"/"In Corso" quando lo status cambia via SignalR'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolto refresh giocatori nella schermata statistiche - il pulsante "Aggiorna" ora ricarica sia i giocatori che le squadre contemporaneamente'
+      },
+      {
+        category: 'Fix',
+        description: 'Mapping corretto dati giocatori scartati - risolto problema conversione JSON server con chiavi abbreviate (n, t, r) verso frontend TypeScript'
+      }
+    ]
+  },
+  {
     version: '1.2.0',
     date: '22 Novembre 2024',
     changes: [

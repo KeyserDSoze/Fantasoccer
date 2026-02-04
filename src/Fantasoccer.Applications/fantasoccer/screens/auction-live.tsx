@@ -48,6 +48,7 @@ import {
   TeamsPanel,
   CustomBidDialog,
   TeamDetailDialog,
+  RemainingPlayersPanel,
   DiscardedPlayersPanel,
   ChangeStatusDialog,
   SubstituteSelectionDialog,
@@ -1788,6 +1789,23 @@ export default function AuctionLiveScreen() {
                   {renderAuctioneerPanel()}
                 </>
               )}
+              <RemainingPlayersPanel
+                auctionState={auctionState}
+                teams={teams}
+                selectedRole={selectedRole}
+                currentPlayer={currentPlayer}
+                isAuctioneer={isAuctioneer}
+                onForceShowPlayer={async (playerKey: string) => {
+                  setLoading(true)
+                  try {
+                    await auctionService.showNextPlayer(auctionId, selectedRole, playerKey)
+                  } catch (err) {
+                    toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+              />
               <DiscardedPlayersPanel
                 auctionState={auctionState}
                 teams={teams}

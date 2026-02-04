@@ -43,17 +43,6 @@ export function DiscardedPlayersPanel({
       setLoading(true)
       try {
         const players = await auctionService.getDiscardedPlayers(auctionState.wrapper.id, selectedRole)
-        console.log('📋 Discarded players loaded:', { 
-          role: selectedRole, 
-          count: players.length, 
-          players,
-          firstPlayer: players[0] ? {
-            name: players[0].name,
-            key: players[0].key,
-            role: players[0].role,
-            realTeam: players[0].realTeam
-          } : null
-        })
         setShownPlayers(players)
       } catch (error) {
         console.error('❌ Error loading discarded players:', error)
@@ -82,17 +71,11 @@ export function DiscardedPlayersPanel({
         )
       )
 
-      if (discardedByTeam) {
-        console.log('✅ Found discarded player:', player.name, 'by team:', discardedByTeam.value.name)
-      }
-
       return {
         ...player,
         discardedByTeam: discardedByTeam?.value.name
       }
     })
-
-    console.log('🔍 Total discarded players with team info:', players.length, 'with team:', players.filter(p => p.discardedByTeam).length)
 
     return players
   }, [auctionState, teams, selectedRole, shownPlayers])
@@ -160,9 +143,9 @@ export function DiscardedPlayersPanel({
                           pressStyle={{ opacity: 0.8 }}
                           padding="$0"
                         >
-                          <XStack gap="$2" flex={1} justifyContent="space-between" width="100%">
+                          <XStack gap="$2" flex={1} justifyContent="flex-start" width="100%">
                             <Text fontSize="$3" color="$purple12" fontWeight="600">{player.name}</Text>
-                            <Text fontSize="$2" color="$purple11">{player.realTeam?.name || ''}</Text>
+                            <Text fontSize="$2" color="$purple10">({player.realTeam?.name || ''})</Text>
                           </XStack>
                         </Button>
                         
@@ -190,6 +173,28 @@ export function DiscardedPlayersPanel({
                           <Text fontSize="$2" color="$purple10">
                             FantaMedia: {player.fantaAverage?.toFixed(2) || '0.00'}
                           </Text>
+                        </XStack>
+                        
+                        {/* Eventi compatti */}
+                        <XStack gap="$1.5" alignItems="center" flexWrap="wrap">
+                          {(player.goals || 0) > 0 && (
+                            <Text fontSize="$2" color="$green11" fontWeight="600">⚽{player.goals}</Text>
+                          )}
+                          {(player.assists || 0) > 0 && (
+                            <Text fontSize="$2" color="$blue11" fontWeight="600">🎯{player.assists}</Text>
+                          )}
+                          {(player.penalties || 0) > 0 && (
+                            <Text fontSize="$2" color="$purple11" fontWeight="600">🎯R{player.penalties}</Text>
+                          )}
+                          {(player.stoppedPenalties || 0) > 0 && (
+                            <Text fontSize="$2" color="$orange11" fontWeight="600">🧤{player.stoppedPenalties}</Text>
+                          )}
+                          {(player.yellowCards || 0) > 0 && (
+                            <Text fontSize="$2" color="$yellow11" fontWeight="600">🟨{player.yellowCards}</Text>
+                          )}
+                          {(player.redCards || 0) > 0 && (
+                            <Text fontSize="$2" color="$red11" fontWeight="600">🟥{player.redCards}</Text>
+                          )}
                         </XStack>
                       </YStack>
                     </Card>
