@@ -49,6 +49,7 @@ export interface AuctionEventHandlers {
   onUserJoined?: (email: string) => void
   onUserLeft?: (email: string) => void
   onEmojiReceived?: (data: { emoji: string; sender: string }) => void
+  onAuctioneerChanged?: (data: { oldAuctioneer: string; newAuctioneer: string }) => void
   
   // Auction events - UPDATED
   onPlayerShown?: (actualAuction: ActualAuction) => void  // Now receives full ActualAuction
@@ -442,6 +443,11 @@ export class AuctionService {
       this.eventHandlers.onEmojiReceived?.(data)
     })
 
+    this.hubConnection.on('AuctioneerChanged', (data: { oldAuctioneer: string; newAuctioneer: string }) => {
+      console.log('📨 Hub.AuctioneerChanged:', data)
+      this.eventHandlers.onAuctioneerChanged?.(data)
+    })
+
     // PlayerShown - Now receives full ActualAuction object
     this.hubConnection.on('PlayerShown', (actualAuctionRaw: ActualAuctionRaw) => {
       console.log('📨 Hub.PlayerShown (ActualAuction):', actualAuctionRaw)
@@ -612,6 +618,23 @@ export class AuctionService {
       console.log('✅ SendEmojiReactionAsync invoked successfully')
     } catch (error) {
       console.error('❌ SendEmojiReactionAsync failed:', error)
+    }
+  }
+
+  /**
+   * Transfer auctioneer role to another user
+   */
+  async transferAuctioneerRole(auctionId: string, newAuctioneerEmail: string): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking TransferAuctioneerRoleAsync:', { auctionId, newAuctioneerEmail })
+    
+    try {
+      await this.hubConnection!.invoke('TransferAuctioneerRoleAsync', auctionId, newAuctioneerEmail)
+      console.log('✅ TransferAuctioneerRoleAsync invoked successfully')
+    } catch (error) {
+      console.error('❌ TransferAuctioneerRoleAsync failed:', error)
+      throw this.handleInvokeError(error, 'transfer auctioneer role')
     }
   }
 

@@ -144,6 +144,7 @@ export default function AuctionLiveScreen() {
   const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
   const [chancedPlayersMap, setChancedPlayersMap] = useState<Map<string, any>>(new Map())
   const [connectedUsers, setConnectedUsers] = useState<string[]>([])
+  const [selectedUserForTransfer, setSelectedUserForTransfer] = useState<string | null>(null)
   
   // Emoji reactions
   interface ActiveEmoji {
@@ -468,6 +469,18 @@ export default function AuctionLiveScreen() {
     }
   }, [auctionId])
 
+  // Transfer auctioneer role to another user
+  const handleTransferAuctioneer = useCallback(async (newAuctioneerEmail: string) => {
+    if (!auctionId) return
+    try {
+      await auctionService.transferAuctioneerRole(auctionId, newAuctioneerEmail)
+      // Success toast will be shown when AuctioneerChanged event is received
+    } catch (error) {
+      console.error('Error transferring auctioneer role:', error)
+      toast.show('❌ Errore nel trasferimento del ruolo', { type: 'error' })
+    }
+  }, [auctionId, toast])
+
   // Remove completed emoji animation
   const removeEmoji = useCallback((id: string) => {
     setActiveEmojis(prev => prev.filter(e => e.id !== id))
@@ -695,6 +708,18 @@ export default function AuctionLiveScreen() {
               }
               const frequency = emojiSounds[data.emoji] || 500
               playEmojiSound(frequency)
+            }
+          },
+          onAuctioneerChanged: (data: { oldAuctioneer: string; newAuctioneer: string }) => {
+            if (isSubscribed) {
+              console.log('🎯 Auctioneer changed:', data)
+              // Update isAuctioneer state if current user is the new auctioneer
+              const isNewAuctioneer = data.newAuctioneer.toLowerCase() === user?.email?.toLowerCase()
+              setIsAuctioneer(isNewAuctioneer)
+              
+              // Show success toast with the new auctioneer name
+              const newAuctioneerName = teams.find(t => t.value.owner.toLowerCase() === data.newAuctioneer.toLowerCase())?.value.name || data.newAuctioneer
+              toast.show(`✅ Ruolo trasferito a: ${newAuctioneerName}`, { type: 'success' })
             }
           },
           onPlayerShown: (actualAuction: ActualAuction) => {
@@ -1862,30 +1887,65 @@ export default function AuctionLiveScreen() {
                     ) : (
                       <XStack gap="$2" flexWrap="wrap">
                         {connectedUsers.map(email => {
-                          const isAuctioneer = email === auctionState.userEmail && auctionState.isAuctioneer
+                          const isThisAuctioneer = email === auctionState.userEmail && auctionState.isAuctioneer
                           const team = teams.find(t => t.value.owner.toLowerCase() === email.toLowerCase())
                           const displayName = team?.value.name || email
                           
+                          // Show transfer button if:
+                          // 1. Current user IS auctioneer
+                          // 2. Target user is NOT current user
+                          // 3. This user is currently selected
+                          // Backend will validate if target user is actually admin/superadmin
+                          const canTransferToThisUser = isAuctioneer && email.toLowerCase() !== user?.email?.toLowerCase()
+                          const isSelected = selectedUserForTransfer === email
+                          
                           return (
-                            <Card key={email} padding="$1.5" paddingHorizontal="$2" backgroundColor="$blue2" borderRadius="$2" borderWidth="$0.5" borderColor="$blue7">
-                              <XStack gap="$1.5" alignItems="center" title={email}>
-                                <Text fontSize="$2" color="$blue11" fontWeight="500">{displayName}</Text>
-                                {isAuctioneer && (
-                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$orange9" borderRadius="$2">
-                                    <Text fontSize="$1" color="white" fontWeight="600">Banditore</Text>
-                                  </Card>
+                            <Card 
+                              key={email} 
+                              padding="$1.5" 
+                              paddingHorizontal="$2" 
+                              backgroundColor={isSelected ? "$blue4" : "$blue2"}
+                              borderRadius="$2" 
+                              borderWidth="$0.5" 
+                              borderColor={isSelected ? "$blue9" : "$blue7"}
+                              title={email}
+                              cursor={canTransferToThisUser ? "pointer" : "default"}
+                              onPress={canTransferToThisUser ? () => setSelectedUserForTransfer(isSelected ? null : email) : undefined}
+                            >
+                              <YStack gap="$1">
+                                <XStack gap="$1.5" alignItems="center">
+                                  <Text fontSize="$2" color="$blue11" fontWeight="500">{displayName}</Text>
+                                  {isThisAuctioneer && (
+                                    <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$orange9" borderRadius="$2">
+                                      <Text fontSize="$1" color="white" fontWeight="600">Banditore</Text>
+                                    </Card>
+                                  )}
+                                  {team && (
+                                    <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$green9" borderRadius="$2">
+                                      <Text fontSize="$1" color="white" fontWeight="600">Giocatore</Text>
+                                    </Card>
+                                  )}
+                                  {!isThisAuctioneer && !team && (
+                                    <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$gray9" borderRadius="$2">
+                                      <Text fontSize="$1" color="white" fontWeight="600">Ospite</Text>
+                                    </Card>
+                                  )}
+                                </XStack>
+                                {canTransferToThisUser && isSelected && (
+                                  <Button 
+                                    size="$2" 
+                                    theme="orange" 
+                                    onPress={(e) => {
+                                      e.stopPropagation()
+                                      handleTransferAuctioneer(email)
+                                      setSelectedUserForTransfer(null)
+                                    }}
+                                    fontSize="$1"
+                                  >
+                                    🎯 Trasferisci Ruolo
+                                  </Button>
                                 )}
-                                {team && (
-                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$green9" borderRadius="$2">
-                                    <Text fontSize="$1" color="white" fontWeight="600">Giocatore</Text>
-                                  </Card>
-                                )}
-                                {!isAuctioneer && !team && (
-                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$gray9" borderRadius="$2">
-                                    <Text fontSize="$1" color="white" fontWeight="600">Ospite</Text>
-                                  </Card>
-                                )}
-                              </XStack>
+                              </YStack>
                             </Card>
                           )
                         })}

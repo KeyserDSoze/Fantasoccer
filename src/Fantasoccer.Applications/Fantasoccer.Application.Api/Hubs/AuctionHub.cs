@@ -916,6 +916,58 @@ namespace Fantasoccer.Application.Api.Hubs
                 await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
             }
         }
+
+        /// <summary>
+        /// Transfer auctioneer role to another user (admin/league creator only)
+        /// </summary>
+        public async Task TransferAuctioneerRoleAsync(string auctionId, string newAuctioneerEmail)
+        {
+            var currentEmail = GetUserEmail();
+            if (string.IsNullOrEmpty(currentEmail))
+            {
+                await Clients.Caller.SendAsync("Error", "User not authenticated");
+                return;
+            }
+
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            {
+                if (wrapper == null)
+                {
+                    return new ConcurrencyResponse(false, "Auction not found");
+                }
+
+                // Check if current user is auctioneer
+                if (!IsAuctioneer(wrapper, currentEmail))
+                {
+                    return new ConcurrencyResponse(false, "Only current auctioneer can transfer the role");
+                }
+
+                var newUser = wrapper.Group.Participants.FirstOrDefault(x => x.Email.ToLower() == newAuctioneerEmail.ToLower());
+
+
+                if (!(newUser.Role.HasFlag(IdentityRole.Admin) ||
+                       newUser.Role.HasFlag(IdentityRole.SuperAdmin)))
+                {
+                    return new ConcurrencyResponse(false, "New auctioneer must be an admin or league creator");
+                }
+
+                // Transfer the role
+                wrapper.Wrapper.Creator = newAuctioneerEmail;
+
+                return new ConcurrencyResponse(true, new { OldAuctioneer = currentEmail, NewAuctioneer = newAuctioneerEmail });
+            });
+
+            if (concurrencyResponse?.IsOk == true)
+            {
+                // Notify all users about auctioneer change
+                await Clients.Group(auctionId).SendAsync("AuctioneerChanged", concurrencyResponse.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Generic Error");
+            }
+        }
+
         public async Task TimerResetAsync(string auctionId)
         {
             var email = GetUserEmail();
