@@ -576,6 +576,24 @@ export class AuctionService {
   }
 
   /**
+   * Get connected users (participants) in auction
+   */
+  async getConnectedUsers(auctionId: string): Promise<string[]> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking GetConnectedUsersAsync:', auctionId)
+    
+    try {
+      const result = await this.hubConnection!.invoke<string[]>('GetConnectedUsersAsync', auctionId)
+      console.log('✅ GetConnectedUsersAsync result:', result)
+      return result || []
+    } catch (error) {
+      console.error('❌ GetConnectedUsersAsync failed:', error)
+      return []
+    }
+  }
+
+  /**
    * Place a bid on the current player
    */
   async placeBid(

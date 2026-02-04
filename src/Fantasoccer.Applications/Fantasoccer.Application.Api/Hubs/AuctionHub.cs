@@ -261,6 +261,27 @@ namespace Fantasoccer.Application.Api.Hubs
         }
 
         /// <summary>
+        /// Get connected users (participants) in auction
+        /// </summary>
+        public async Task<List<string>> GetConnectedUsersAsync(string auctionId)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email))
+            {
+                return new List<string>();
+            }
+
+            var wrapper = await _auctionHubService.GetCurrentWrapperAsync(auctionId);
+            if (wrapper?.Wrapper?.Participants == null)
+            {
+                return new List<string>();
+            }
+
+            // Return all participants emails
+            return wrapper.Wrapper.Participants.Select(p => p.Owner).ToList();
+        }
+
+        /// <summary>
         /// Leave auction room
         /// </summary>
         public async Task LeaveAuctionAsync(string auctionId)

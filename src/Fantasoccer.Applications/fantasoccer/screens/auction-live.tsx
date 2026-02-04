@@ -137,6 +137,7 @@ export default function AuctionLiveScreen() {
   // Stats and chance data (use state instead of ref to trigger re-renders)
   const [previousYearStatsMap, setPreviousYearStatsMap] = useState<Map<string, StatPlayer>>(new Map())
   const [chancedPlayersMap, setChancedPlayersMap] = useState<Map<string, any>>(new Map())
+  const [connectedUsers, setConnectedUsers] = useState<string[]>([])
 
   // Initialize audio context
   useEffect(() => {
@@ -560,8 +561,18 @@ export default function AuctionLiveScreen() {
           onError: (error) => {
             if (isSubscribed) toast.show(`❌ ${error || 'Errore del server'}`, { variant: 'error', duration: 4000 })
           },
-          onUserJoined: (email) => toast.show(`👋 Utente connesso: ${email}`, { variant: 'info', duration: 4000 }),
-          onUserLeft: (email) => toast.show(`👋 L'utente ${email} si è disconnesso`, { variant: 'info', duration: 4000 }),
+          onUserJoined: (email) => {
+            if (isSubscribed) {
+              setConnectedUsers(prev => [...new Set([...prev, email])])
+              toast.show(`👋 Utente connesso: ${email}`, { variant: 'info', duration: 4000 })
+            }
+          },
+          onUserLeft: (email) => {
+            if (isSubscribed) {
+              setConnectedUsers(prev => prev.filter(e => e !== email))
+              toast.show(`👋 L'utente ${email} si è disconnesso`, { variant: 'info', duration: 4000 })
+            }
+          },
           onPlayerShown: (actualAuction: ActualAuction) => {
             if (isSubscribed) {
               // Check if role changed - if so, reset substitutes
@@ -737,6 +748,13 @@ export default function AuctionLiveScreen() {
           return
         }
         console.log('✅ Joined auction room successfully')
+        
+        // Get list of connected users
+        if (isSubscribed) {
+          const connectedUsersList = await auctionService.getConnectedUsers(auctionId)
+          console.log('👥 Connected users:', connectedUsersList)
+          setConnectedUsers(connectedUsersList)
+        }
         
         // Request initial auction state from API
         console.log('📨 Requesting initial auction state...')
@@ -1691,6 +1709,47 @@ export default function AuctionLiveScreen() {
                         <Text fontSize="$2" color="$blue11">Giocatori Cacciati/Venduti</Text>
                       </XStack>
                     </XStack>
+                  </YStack>
+                </Card>
+                
+                {/* Connected Users */}
+                <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
+                  <YStack gap="$2">
+                    <Text fontSize="$2" color="$blue11" fontWeight="600">Utenti Connessi ({connectedUsers.length}):</Text>
+                    {connectedUsers.length === 0 ? (
+                      <Text fontSize="$2" color="$blue10">Nessun utente connesso</Text>
+                    ) : (
+                      <XStack gap="$2" flexWrap="wrap">
+                        {connectedUsers.map(email => {
+                          const isAuctioneer = email === auctionState.userEmail && auctionState.isAuctioneer
+                          const team = teams.find(t => t.value.owner.toLowerCase() === email.toLowerCase())
+                          const displayName = team?.value.name || email
+                          
+                          return (
+                            <Card key={email} padding="$1.5" paddingHorizontal="$2" backgroundColor="$blue2" borderRadius="$2" borderWidth="$0.5" borderColor="$blue7">
+                              <XStack gap="$1.5" alignItems="center" title={email}>
+                                <Text fontSize="$2" color="$blue11" fontWeight="500">{displayName}</Text>
+                                {isAuctioneer && (
+                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$orange9" borderRadius="$2">
+                                    <Text fontSize="$1" color="white" fontWeight="600">Banditore</Text>
+                                  </Card>
+                                )}
+                                {team && (
+                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$green9" borderRadius="$2">
+                                    <Text fontSize="$1" color="white" fontWeight="600">Giocatore</Text>
+                                  </Card>
+                                )}
+                                {!isAuctioneer && !team && (
+                                  <Card padding="$0.5" paddingHorizontal="$1.5" backgroundColor="$gray9" borderRadius="$2">
+                                    <Text fontSize="$1" color="white" fontWeight="600">Ospite</Text>
+                                  </Card>
+                                )}
+                              </XStack>
+                            </Card>
+                          )
+                        })}
+                      </XStack>
+                    )}
                   </YStack>
                 </Card>
               </YStack>
