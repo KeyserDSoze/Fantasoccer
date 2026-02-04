@@ -26,13 +26,15 @@ export function SubstituteSelectionDialog({
   onSelectPlayer,
   onRemoveSelection,
 }: SubstituteSelectionDialogProps) {
-  if (!currentPlayer || !team) return null
+  if (!team) return null
   
-  // Filter players by same role as current player
-  const eligiblePlayers = team.value.players.filter(p => 
-    p.role === currentPlayer.role && 
-    p.status === 0 // Only active players
-  )
+  // Filter players by same role as current player (if player is in auction)
+  // Otherwise show all active players
+  const eligiblePlayers = team.value.players.filter(p => {
+    if (p.status !== 0) return false // Only active players
+    if (!currentPlayer) return true // Show all if no player in auction
+    return p.role === currentPlayer.role // Filter by role if player exists
+  })
   
   return (
     <Dialog modal open={open} onOpenChange={onOpenChange}>
@@ -59,7 +61,10 @@ export function SubstituteSelectionDialog({
         >
           <Dialog.Title fontSize="$6" fontWeight="700">Seleziona Giocatore da Sostituire</Dialog.Title>
           <Dialog.Description>
-            Scegli un {getRoleLabel(currentPlayer.role)} da sostituire con {currentPlayer.name}
+            {currentPlayer 
+              ? `Scegli un ${getRoleLabel(currentPlayer.role)} da sostituire con ${currentPlayer.name}`
+              : 'Scegli un giocatore da sostituire (pre-selezione)'
+            }
           </Dialog.Description>
           
           <ScrollView maxHeight={500}>
@@ -67,7 +72,10 @@ export function SubstituteSelectionDialog({
               {eligiblePlayers.length === 0 ? (
                 <Card padding="$4" backgroundColor="$orange2" borderRadius="$3">
                   <Text fontSize="$4" color="$orange11" textAlign="center">
-                    Nessun {getRoleLabel(currentPlayer.role)} disponibile per la sostituzione
+                    {currentPlayer 
+                      ? `Nessun ${getRoleLabel(currentPlayer.role)} disponibile per la sostituzione`
+                      : 'Nessun giocatore disponibile per la sostituzione'
+                    }
                   </Text>
                 </Card>
               ) : (

@@ -942,10 +942,10 @@ namespace Fantasoccer.Application.Api.Hubs
                     return new ConcurrencyResponse(false, "Only current auctioneer can transfer the role");
                 }
 
-                var newUser = wrapper.Group.Participants.FirstOrDefault(x => x.Email.ToLower() == newAuctioneerEmail.ToLower());
+                var newUser = wrapper.Group?.Participants.FirstOrDefault(x => x.Email.ToLower() == newAuctioneerEmail.ToLower());
 
 
-                if (!(newUser.Role.HasFlag(IdentityRole.Admin) ||
+                if (newUser == null || !(newUser.Role.HasFlag(IdentityRole.Admin) ||
                        newUser.Role.HasFlag(IdentityRole.SuperAdmin)))
                 {
                     return new ConcurrencyResponse(false, "New auctioneer must be an admin or league creator");
