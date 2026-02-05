@@ -127,6 +127,11 @@ namespace Fantasoccer.Domain
         public required Dictionary<Role, string?> LastShow { get; set; }
         [JsonPropertyName("sec")]
         public int SecondsPerAuction { get; set; } = 10;
+        /// <summary>
+        /// Current role being auctioned (for synchronization across all users)
+        /// </summary>
+        [JsonPropertyName("cr")]
+        public Role CurrentRole { get; set; } = Role.GoalKeeper;
     }
     public sealed class ActualAuction
     {

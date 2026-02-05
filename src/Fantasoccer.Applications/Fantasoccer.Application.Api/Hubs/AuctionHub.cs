@@ -282,6 +282,48 @@ namespace Fantasoccer.Application.Api.Hubs
         }
 
         /// <summary>
+        /// Set current role being auctioned (auctioneer only)
+        /// </summary>
+        public async Task SetCurrentRoleAsync(string auctionId, int role)
+        {
+            var email = GetUserEmail();
+            if (string.IsNullOrEmpty(email))
+            {
+                await Clients.Caller.SendAsync("Error", "User not authenticated");
+                return;
+            }
+
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async (wrapper) =>
+            {
+                if (wrapper == null)
+                {
+                    return new ConcurrencyResponse(false, "Auction not found");
+                }
+
+                // Check if user is auctioneer
+                if (!IsAuctioneer(wrapper, email))
+                {
+                    return new ConcurrencyResponse(false, "Only auctioneer can set current role");
+                }
+
+                // Update current role
+                wrapper.Wrapper.CurrentRole = (Role)role;
+
+                return new ConcurrencyResponse(true, new { CurrentRole = role });
+            });
+
+            if (concurrencyResponse?.IsOk == true)
+            {
+                // Notify all users about role change
+                await Clients.Group(auctionId).SendAsync("CurrentRoleChanged", concurrencyResponse.Data);
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("Error", concurrencyResponse?.Message ?? "Failed to set current role");
+            }
+        }
+
+        /// <summary>
         /// Leave auction room
         /// </summary>
         public async Task LeaveAuctionAsync(string auctionId)

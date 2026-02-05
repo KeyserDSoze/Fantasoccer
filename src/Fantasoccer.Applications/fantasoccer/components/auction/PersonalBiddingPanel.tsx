@@ -1,6 +1,6 @@
 // PersonalBiddingPanel - Pulsantiera personale per le offerte del partecipante/banditore
 import { 
-  Button, Card, Separator, Text, XStack, YStack, 
+  Button, Card, Separator, Text, View, XStack, YStack, 
   useMedia 
 } from 'tamagui'
 import { DollarSign, Users } from '@tamagui/lucide-icons'
@@ -76,8 +76,15 @@ export function PersonalBiddingPanel({
     [Role.Forward]: 6,
   }
   
+  // Check if disabled ONLY because of role limit (not other reasons like locked/expired)
+  const isDisabledForRoleLimit = bidStatus.reason?.includes('Limite ruolo raggiunto') || false
+  
+  // Substitute button should be disabled only when budget is 0
+  const isSubstituteButtonDisabled = isRepairAuction ? myTeamBudget <= 0 : isDisabled
+  const shouldShowGlow = isRepairAuction && isDisabledForRoleLimit && !mySelectedSubstitute
+  
   return (
-    <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8" opacity={isDisabled ? 0.5 : 1}>
+    <Card padding="$4" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8">
       <YStack gap="$3">
         <XStack gap="$2" alignItems="center">
           <DollarSign size={20} color="$blue11" />
@@ -183,12 +190,12 @@ export function PersonalBiddingPanel({
         
         <Separator />
         
-        <XStack gap="$2">
+        <XStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
           <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => onIncrementBid(1)} disabled={isDisabled}>
             <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">Incremento</Text>
           </Button>
         </XStack>
-        <XStack gap="$2">
+        <XStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
           <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => onIncrementBid(2)} disabled={isDisabled}>
             <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">+2</Text>
           </Button>
@@ -203,7 +210,7 @@ export function PersonalBiddingPanel({
           </Button>
         </XStack>
         <Separator />
-        <XStack gap="$2">
+        <XStack gap="$2" opacity={isDisabled ? 0.5 : 1}>
           <Button flex={1} size={media.gtSm ? "$6" : "$5"} theme="blue" onPress={() => onFixedBid(50)} disabled={isDisabled}>
             <Text fontSize={media.gtSm ? "$7" : "$5"} fontWeight="700" color="white">50</Text>
           </Button>
@@ -250,7 +257,7 @@ export function PersonalBiddingPanel({
           </XStack>
         </YStack>
         
-        <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={onCustomBid} disabled={isDisabled}>
+        <Button icon={DollarSign} size="$5" theme="blue" variant="outlined" onPress={onCustomBid} disabled={isDisabled} opacity={isDisabled ? 0.5 : 1}>
           Offerta Personalizzata
         </Button>
         {isRepairAuction && (
@@ -260,6 +267,17 @@ export function PersonalBiddingPanel({
             theme={mySelectedSubstitute ? "green" : "orange"} 
             variant="outlined" 
             onPress={onSelectSubstitute}
+            disabled={isSubstituteButtonDisabled}
+            animation="bouncy"
+            style={{
+              ...(shouldShowGlow && {
+                borderColor: '#f97316',
+                borderWidth: 2,
+                shadowColor: '#f97316',
+                shadowRadius: 12,
+                shadowOpacity: 0.8,
+              })
+            }}
           >
             {mySelectedSubstitute 
               ? `Sostituisce: ${myTeam.value.players.find(p => p.name === mySelectedSubstitute)?.name || mySelectedSubstitute}` 

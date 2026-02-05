@@ -77,7 +77,17 @@ export function DiscardedPlayersPanel({
       }
     })
 
-    return players
+    // Ordina per: withVote DESC, fantaAverage DESC
+    return players.sort((a, b) => {
+      const withVoteA = a.withVote || 0
+      const withVoteB = b.withVote || 0
+      if (withVoteB !== withVoteA) {
+        return withVoteB - withVoteA // Più partite prima
+      }
+      const fantaAvgA = a.fantaAverage || 0
+      const fantaAvgB = b.fantaAverage || 0
+      return fantaAvgB - fantaAvgA // Migliore fantamedia prima
+    })
   }, [auctionState, teams, selectedRole, shownPlayers])
 
   // Applica filtro di ricerca separatamente

@@ -50,6 +50,7 @@ export interface AuctionEventHandlers {
   onUserLeft?: (email: string) => void
   onEmojiReceived?: (data: { emoji: string; sender: string }) => void
   onAuctioneerChanged?: (data: { oldAuctioneer: string; newAuctioneer: string }) => void
+  onCurrentRoleChanged?: (data: { currentRole: number }) => void
   
   // Auction events - UPDATED
   onPlayerShown?: (actualAuction: ActualAuction) => void  // Now receives full ActualAuction
@@ -448,6 +449,11 @@ export class AuctionService {
       this.eventHandlers.onAuctioneerChanged?.(data)
     })
 
+    this.hubConnection.on('CurrentRoleChanged', (data: { currentRole: number }) => {
+      console.log('📨 Hub.CurrentRoleChanged:', data)
+      this.eventHandlers.onCurrentRoleChanged?.(data)
+    })
+
     // PlayerShown - Now receives full ActualAuction object
     this.hubConnection.on('PlayerShown', (actualAuctionRaw: ActualAuctionRaw) => {
       console.log('📨 Hub.PlayerShown (ActualAuction):', actualAuctionRaw)
@@ -635,6 +641,23 @@ export class AuctionService {
     } catch (error) {
       console.error('❌ TransferAuctioneerRoleAsync failed:', error)
       throw this.handleInvokeError(error, 'transfer auctioneer role')
+    }
+  }
+
+  /**
+   * Set current role being auctioned (auctioneer only)
+   */
+  async setCurrentRole(auctionId: string, role: number): Promise<void> {
+    this.ensureConnected()
+    
+    console.log('📨 Invoking SetCurrentRoleAsync:', { auctionId, role })
+    
+    try {
+      await this.hubConnection!.invoke('SetCurrentRoleAsync', auctionId, role)
+      console.log('✅ SetCurrentRoleAsync invoked successfully')
+    } catch (error) {
+      console.error('❌ SetCurrentRoleAsync failed:', error)
+      throw this.handleInvokeError(error, 'set current role')
     }
   }
 

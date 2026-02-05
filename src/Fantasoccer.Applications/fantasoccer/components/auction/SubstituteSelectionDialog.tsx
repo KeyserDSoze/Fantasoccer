@@ -2,12 +2,14 @@ import { Dialog, Button, Card, ScrollView, Separator, Text, XStack, YStack } fro
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
 import { StatPlayer } from 'types/auction'
+import { Role } from 'types/group'
 import { getRoleLabel } from 'utils/auctionHelper'
 import { getPlayerKey } from 'utils'
 
 export interface SubstituteSelectionDialogProps {
   open: boolean
   currentPlayer: StatPlayer | null
+  selectedRole: Role
   team: Entity<Team, TeamKey> | null
   currentSelection: string | null
   realPlayers: StatPlayer[] | undefined
@@ -19,6 +21,7 @@ export interface SubstituteSelectionDialogProps {
 export function SubstituteSelectionDialog({
   open,
   currentPlayer,
+  selectedRole,
   team,
   currentSelection,
   realPlayers,
@@ -28,12 +31,10 @@ export function SubstituteSelectionDialog({
 }: SubstituteSelectionDialogProps) {
   if (!team) return null
   
-  // Filter players by same role as current player (if player is in auction)
-  // Otherwise show all active players
+  // Filter players by selected role (the role currently being auctioned)
   const eligiblePlayers = team.value.players.filter(p => {
     if (p.status !== 0) return false // Only active players
-    if (!currentPlayer) return true // Show all if no player in auction
-    return p.role === currentPlayer.role // Filter by role if player exists
+    return p.role === selectedRole // Filter by selected role
   })
   
   return (
@@ -62,8 +63,8 @@ export function SubstituteSelectionDialog({
           <Dialog.Title fontSize="$6" fontWeight="700">Seleziona Giocatore da Sostituire</Dialog.Title>
           <Dialog.Description>
             {currentPlayer 
-              ? `Scegli un ${getRoleLabel(currentPlayer.role)} da sostituire con ${currentPlayer.name}`
-              : 'Scegli un giocatore da sostituire (pre-selezione)'
+              ? `Scegli un ${getRoleLabel(selectedRole)} da sostituire con ${currentPlayer.name}`
+              : `Scegli un ${getRoleLabel(selectedRole)} da sostituire (pre-selezione)`
             }
           </Dialog.Description>
           
@@ -72,10 +73,7 @@ export function SubstituteSelectionDialog({
               {eligiblePlayers.length === 0 ? (
                 <Card padding="$4" backgroundColor="$orange2" borderRadius="$3">
                   <Text fontSize="$4" color="$orange11" textAlign="center">
-                    {currentPlayer 
-                      ? `Nessun ${getRoleLabel(currentPlayer.role)} disponibile per la sostituzione`
-                      : 'Nessun giocatore disponibile per la sostituzione'
-                    }
+                    Nessun {getRoleLabel(selectedRole)} disponibile per la sostituzione
                   </Text>
                 </Card>
               ) : (

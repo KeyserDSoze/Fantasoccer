@@ -145,6 +145,7 @@ export default function AuctionLiveScreen() {
   const [chancedPlayersMap, setChancedPlayersMap] = useState<Map<string, any>>(new Map())
   const [connectedUsers, setConnectedUsers] = useState<string[]>([])
   const [selectedUserForTransfer, setSelectedUserForTransfer] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0) // Per forzare refresh delle liste giocatori
   
   // Emoji reactions
   interface ActiveEmoji {
@@ -269,6 +270,9 @@ export default function AuctionLiveScreen() {
     setIsAuctioneer(state.isAuctioneer)
     setSalesHistory(state.wrapper.winnings)
     setIsLocked(state.wrapper.status === AuctionStatus.Paused)
+    
+    // Sync selected role with wrapper's current role
+    setSelectedRole(state.wrapper.currentRole)
     
     // Update starting money from league settings (default to 1000 if not available)
     const leagueStartingMoney = state.league?.settings?.startingMoney ?? 1000
@@ -480,6 +484,19 @@ export default function AuctionLiveScreen() {
       toast.show('❌ Errore nel trasferimento del ruolo', { type: 'error' })
     }
   }, [auctionId, toast])
+
+  // Handle role change from auctioneer panel
+  const handleRoleChange = useCallback(async (newRole: Role) => {
+    if (!auctionId) return
+    setSelectedRole(newRole)
+    if (isAuctioneer) {
+      try {
+        await auctionService.setCurrentRole(auctionId, newRole)
+      } catch (error) {
+        console.error('Error setting current role:', error)
+      }
+    }
+  }, [auctionId, isAuctioneer])
 
   // Remove completed emoji animation
   const removeEmoji = useCallback((id: string) => {
@@ -722,6 +739,30 @@ export default function AuctionLiveScreen() {
               toast.show(`✅ Ruolo trasferito a: ${newAuctioneerName}`, { type: 'success' })
             }
           },
+          onCurrentRoleChanged: (data: { currentRole: number }) => {
+            if (isSubscribed) {
+              console.log('🎯 Current role changed:', data)
+              const newRole = data.currentRole as Role
+              setSelectedRole(newRole)
+              
+              // Reset selected substitute if it has a different role
+              if (mySelectedSubstitute && myTeam) {
+                const player = myTeam.value.players.find(p => p.name === mySelectedSubstitute)
+                if (player && player.role !== newRole) {
+                  setMySelectedSubstitute(null)
+                }
+              }
+              if (auctioneerSelectedSubstitute && selectedTeamForBid) {
+                const team = teams.find(t => t.value.owner === selectedTeamForBid)
+                if (team) {
+                  const player = team.value.players.find(p => p.name === auctioneerSelectedSubstitute)
+                  if (player && player.role !== newRole) {
+                    setAuctioneerSelectedSubstitute(null)
+                  }
+                }
+              }
+            }
+          },
           onPlayerShown: (actualAuction: ActualAuction) => {
             if (isSubscribed) {
               // Check if role changed - if so, reset substitutes
@@ -741,6 +782,9 @@ export default function AuctionLiveScreen() {
               // Reset player search dialog state
               setPlayerSearchQuery('')
               setSelectedPlayerForForce('')
+              
+              // Forza refresh liste giocatori
+              setRefreshKey(prev => prev + 1)
               
               resetTimer()
             }
@@ -788,6 +832,9 @@ export default function AuctionLiveScreen() {
               setCurrentBidder(null)
               setCurrentSubstitute(null)
               // Don't reset selectedTeamForBid - auctioneer keeps working with same team
+              
+              // Forza refresh liste giocatori
+              setRefreshKey(prev => prev + 1)
               resetTimer()
             }
           },
@@ -1163,7 +1210,7 @@ export default function AuctionLiveScreen() {
         onIncrementBid={handleIncrementBid}
         tempBlockButtons={tempBlockButtons}
         selectedRole={selectedRole}
-        onSelectedRoleChange={setSelectedRole}
+        onSelectedRoleChange={handleRoleChange}
         loading={loading}
         onShowNextPlayer={async () => {
           setLoading(true)
@@ -1402,6 +1449,7 @@ export default function AuctionLiveScreen() {
       <SubstituteSelectionDialog
         open={showSubstituteSelectionDialog}
         currentPlayer={currentPlayer}
+        selectedRole={selectedRole}
         team={team || null}
         currentSelection={currentSelection}
         realPlayers={auctionState?.realPlayers}
@@ -1701,7 +1749,7 @@ export default function AuctionLiveScreen() {
         loading={loading}
         teams={teams}
         onOpenChange={setShowPlayerSearchDialog}
-        onSelectedRoleChange={setSelectedRole}
+        onSelectedRoleChange={handleRoleChange}
         onPlayerSearchQueryChange={setPlayerSearchQuery}
         onSelectedPlayerForForceChange={setSelectedPlayerForForce}
         onConfirm={async () => {
@@ -1759,6 +1807,11 @@ export default function AuctionLiveScreen() {
                     {getStatusLabel(auctionState.wrapper.status)}
                   </Text>
                   {isLocked && <Lock size={20} color="$orange10" />}
+                  <Card padding="$1.5" paddingHorizontal="$2.5" backgroundColor="$orange2" borderRadius="$3" borderWidth="$0.5" borderColor="$orange8">
+                    <Text fontSize="$3" fontWeight="700" color="$orange11">
+                      🎯 {getRoleLabel(selectedRole)}
+                    </Text>
+                  </Card>
                   <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
                     <ChevronDown size={20} color="$blue11" />
                   </Square>
@@ -2050,6 +2103,7 @@ export default function AuctionLiveScreen() {
                 </>
               )}
               <RemainingPlayersPanel
+                key={`remaining-${refreshKey}`}
                 auctionState={auctionState}
                 teams={teams}
                 selectedRole={selectedRole}
@@ -2067,6 +2121,7 @@ export default function AuctionLiveScreen() {
                 }}
               />
               <DiscardedPlayersPanel
+                key={`discarded-${refreshKey}`}
                 auctionState={auctionState}
                 teams={teams}
                 selectedRole={selectedRole}
