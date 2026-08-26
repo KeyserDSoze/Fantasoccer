@@ -31,6 +31,8 @@ export const API_CONFIGS = {
   },
 } as const
 
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '')
+
 // Environment detection
 export const getEnvironment = (): 'development' | 'production' => {
   if (typeof window !== 'undefined') {
@@ -44,7 +46,10 @@ export const getEnvironment = (): 'development' | 'production' => {
 // Get current API configuration
 export const getApiConfig = (): ApiConfig => {
   const env = getEnvironment()
-  return API_CONFIGS[env]
+  return {
+    ...API_CONFIGS[env],
+    baseUrl: configuredApiUrl || API_CONFIGS[env].baseUrl,
+  }
 }
 
 // Helper to build API URLs

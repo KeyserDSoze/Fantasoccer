@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.3.11206.111 d18.3
+VisualStudioVersion = 18.3.11206.111
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{91114266-E644-452D-8132-7D762C9B8968}"
 EndProject
@@ -20,8 +20,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6422E4BC-A343-4EB2-B156-85D7686D6BB6}"
 	ProjectSection(SolutionItems) = preProject
 		ops\template\angular-build.yml = ops\template\angular-build.yml
-		ops\prod\api.yml = ops\prod\api.yml
-		ops\prod\app.yml = ops\prod\app.yml
 		ops\template\dotnet-build-docker.yml = ops\template\dotnet-build-docker.yml
 		ops\template\dotnet-build.yml = ops\template\dotnet-build.yml
 		ops\template\node-build-docker.yml = ops\template\node-build-docker.yml
@@ -33,11 +31,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Ops", "Ops", "{7733D513-280
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prod", "Prod", "{813E55E5-9349-4602-870F-C1954A89E06F}"
-	ProjectSection(SolutionItems) = preProject
-		ops\prod\api.yml = ops\prod\api.yml
-		ops\prod\app.yml = ops\prod\app.yml
-		ops\prod\wasm.yml = ops\prod\wasm.yml
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{FDDE1887-6152-4DFC-9819-8A1338011A4D}"
 	ProjectSection(SolutionItems) = preProject
@@ -53,16 +46,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Api", "Api", "{34FF582F-388
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "App", "App", "{D5A54E23-3A99-4C7A-A254-FC5DB5C50506}"
-	ProjectSection(SolutionItems) = preProject
-		ops\prod\app\appsettings.json = ops\prod\app\appsettings.json
-	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "src\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{B796A215-C3CC-42C0-B778-AAA129D86AB9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Wasm", "Wasm", "{0288F6D0-C2F2-41D5-866F-0766706AF4EB}"
-	ProjectSection(SolutionItems) = preProject
-		ops\prod\wasm\appsettings.json = ops\prod\wasm\appsettings.json
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Infrastructure.ClientStorage", "src\Fantasoccer.Infrastructure.ClientStorage\Fantasoccer.Infrastructure.ClientStorage.csproj", "{57A5307D-DFBD-43F0-8FF9-E066701BD597}"
 EndProject

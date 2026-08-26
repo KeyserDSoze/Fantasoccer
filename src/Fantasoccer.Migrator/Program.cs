@@ -19,9 +19,12 @@ namespace Migrator
         public static async Task Main(string[] args)
         {
             var services = new ServiceCollection();
-            var storageAccountName = "superfc";
-            var storageAccountKey = "CS124aZwZywrMrxFiCdGFipSN+UbExX1BPEb/9aY1dWGLdSboO2drxh3yFSFOVM6uGc7Grahs/sZcpDRtP77yg==";
-            var newStorage = "DefaultEndpointsProtocol=https;AccountName=fasostorage;AccountKey=R52c5CERE/WGuEiE+8U7sBg8zoy2/zB0hmtPPmHKgvABfCvoQn/d3YHo4EG42Wx3iKkcY6EYxpEX+AStxkydZw==;EndpointSuffix=core.windows.net";
+            var storageAccountName = Environment.GetEnvironmentVariable("MIGRATOR_STORAGE_ACCOUNT_NAME")
+                ?? throw new InvalidOperationException("MIGRATOR_STORAGE_ACCOUNT_NAME is required.");
+            var storageAccountKey = Environment.GetEnvironmentVariable("MIGRATOR_STORAGE_ACCOUNT_KEY")
+                ?? throw new InvalidOperationException("MIGRATOR_STORAGE_ACCOUNT_KEY is required.");
+            var newStorage = Environment.GetEnvironmentVariable("MIGRATOR_STORAGE_CONNECTION_STRING")
+                ?? throw new InvalidOperationException("MIGRATOR_STORAGE_CONNECTION_STRING is required.");
             services
                 .AddRystem()
                 .AddAzureService()
