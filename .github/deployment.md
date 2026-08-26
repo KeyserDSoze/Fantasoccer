@@ -12,9 +12,7 @@ Create these **Variables** in `Settings > Environments > production`:
 
 Create these **Secrets** in the same environment:
 
-- `AZURE_CLIENT_ID`: Entra application/client ID used by GitHub OIDC
-- `AZURE_TENANT_ID`: Entra tenant ID
-- `AZURE_SUBSCRIPTION_ID`: target Azure subscription ID
+- `AZURE_CREDENTIALS`: JSON containing `clientId`, `clientSecret`, `tenantId`, and `subscriptionId` for the Entra application
 - `STATIC_WEB_APP_DEPLOYMENT_TOKEN`: deployment token from the Static Web App
 - `API_STORAGE_CONNECTION_STRING`: Azure Storage connection string
 - `API_APPINSIGHTS_CONNECTION_STRING`: Application Insights connection string
@@ -23,6 +21,10 @@ Create these **Secrets** in the same environment:
 - `ENCRYPTION_KEY`: application encryption key
 - `ENCRYPTION_IV`: application encryption IV
 
-The OIDC identity needs `Website Contributor` on the API App Service (or its resource group). The Static Web App token is scoped to that Static Web App and is only used by the static-app workflow.
+For the current Azure target, set `API_APP_NAME=apifc`, `API_RESOURCE_GROUP=fc`, and `FRONTEND_API_URL=https://apifc.azurewebsites.net`.
+
+The Entra service principal needs `Website Contributor` on the API App Service (or its resource group). The Static Web App token is scoped to that Static Web App and is only used by the static-app workflow.
+
+The client secret should have an explicit expiration and be rotated. An infinite-duration secret is deliberately not recommended because it creates a permanent deployment credential.
 
 Rotate every credential that was previously committed to the repository, including storage, OAuth, OpenAI, encryption, App Insights, and Static Web App credentials. Removing a value from Git history does not revoke it.
