@@ -33,6 +33,9 @@ namespace Fantasoccer.Tests
             services.AddSingleton<TestStatsPlayerGenerator>();
             services.AddSingleton<IStatsPlayerGenerator>(x => x.GetRequiredService<TestStatsPlayerGenerator>());
             services.AddSingleton<AllPlayersAndAllTeamsJob>();
+            services.AddSingleton<TestLiveVote>();
+            services.AddSingleton<ILiveVote>(x => x.GetRequiredService<TestLiveVote>());
+            services.AddSingleton<LiveVotesJob>();
         }
     }
 }
