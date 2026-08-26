@@ -2,6 +2,8 @@
 
 Both workflows use the `production` GitHub Environment and deploy from `main`.
 
+The API workflow currently skips the solution test step while the test project is being repaired. Re-enable it before treating the production deployment as fully validated.
+
 ## Environment variables
 
 Create these **Variables** in `Settings > Environments > production`:

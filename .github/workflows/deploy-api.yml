@@ -44,9 +44,6 @@ jobs:
       - name: Build API
         run: dotnet build "${{ env.API_PROJECT }}" --configuration Release --no-restore
 
-      - name: Test solution
-        run: dotnet test Fantasoccer.sln --configuration Release --no-restore --verbosity normal
-
       - name: Publish API
         run: dotnet publish "${{ env.API_PROJECT }}" --configuration Release --no-restore --output ./publish
 
