@@ -40,6 +40,7 @@ namespace Fantasoccer.Tests
             services.AddHttpClient("player-images")
                 .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestPlayerImagesHandler>());
             services.AddSingleton<PlayerImagesJob>();
+            services.AddTransient<PlayerOddsJob>();
         }
     }
 }
