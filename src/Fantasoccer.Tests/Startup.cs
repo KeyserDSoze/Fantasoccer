@@ -1,6 +1,9 @@
 ﻿using Fantasoccer.Business;
 using Fantasoccer.Business.BackgroundJobs.GroupsManager;
+using Fantasoccer.Business.IngestionData;
+using Fantasoccer.Engine.IngestionData;
 using Fantasoccer.InMemory;
+using Fantasoccer.Tests.Tests.BackgroundJobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +26,13 @@ namespace Fantasoccer.Tests
             services.AddFantasoccerBusiness(configuration);
             services.AddSharedBusiness();
             services.AddTransient<MarketJob>();
+            services.AddSingleton<TestOfficialVote>();
+            services.AddSingleton<IOfficialVote>(x => x.GetRequiredService<TestOfficialVote>());
+            services.AddSingleton<TestAllPlayers>();
+            services.AddSingleton<IAllPlayers>(x => x.GetRequiredService<TestAllPlayers>());
+            services.AddSingleton<TestStatsPlayerGenerator>();
+            services.AddSingleton<IStatsPlayerGenerator>(x => x.GetRequiredService<TestStatsPlayerGenerator>());
+            services.AddSingleton<AllPlayersAndAllTeamsJob>();
         }
     }
 }
