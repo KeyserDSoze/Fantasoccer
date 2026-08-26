@@ -35,79 +35,101 @@ namespace Fantasoccer.Business.IngestionData
             List<VotedRealPlayer> players = new();
             if (!string.IsNullOrWhiteSpace(value))
             {
-                var values = s_takeTheTeams.Split(s_takeTheBody.Split(value)[1]);
-                foreach (var squadra in values.Skip(1).Take(20))
+                var bodyValues = s_takeTheBody.Split(value);
+                if (bodyValues.Length >= 2)
                 {
-                    if (!s_trRegex.IsMatch(squadra))
-                        continue;
-                    var realTeam = s_nameOfTeamRegex.Split(squadra)[1].Split('"')[1].ToLower();
-                    realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
-                    foreach (var element in s_trRegex.Split(s_tbodyRegex.Split(squadra)[1]).Skip(1))
+                    var values = s_takeTheTeams.Split(bodyValues[1]);
+                    foreach (var squadra in values.Skip(1).Take(20))
                     {
-                        var elementSplitted = s_tdedRegex.Split(element);
-                        VotedRealPlayer player = new()
-                        {
-                            Name = GetName(element),
-                            RealTeam = new RealTeam { Name = realTeam },
-                            IsActive = true
-                        };
-                        var vote = GetVote(elementSplitted[1]);
-                        player.Role = GetRole(element).ToLower() switch
-                        {
-                            "a" => Role.Forward,
-                            "c" => Role.Midfielder,
-                            "d" => Role.Defensor,
-                            "p" => Role.GoalKeeper,
-                            _ => Role.Undefined
-                        };
+                        if (!s_trRegex.IsMatch(squadra))
+                            continue;
+                        var teamContent = s_nameOfTeamRegex.Split(squadra);
+                        if (teamContent.Length < 2)
+                            continue;
 
-                        var anotherSplitting = s_takeTheVote.Split(elementSplitted[2]);
-                        player.Vote = new Vote()
+                        var teamName = teamContent[1].Split('"');
+                        if (teamName.Length < 2 || string.IsNullOrWhiteSpace(teamName[1]))
+                            continue;
+
+                        var teamBody = s_tbodyRegex.Split(squadra);
+                        if (teamBody.Length < 2)
+                            continue;
+
+                        var realTeam = teamName[1].ToLower();
+                        realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
+                        foreach (var element in s_trRegex.Split(teamBody[1]).Skip(1))
                         {
-                            Role = player.Role,
-                            Value = vote < 0 ? 0 : vote,
-                            IsFinal = true,
-                            Goal = GetSomethingDone(anotherSplitting[1]),
-                            SufferedGoal = GetSomethingDone(anotherSplitting[2]),
-                            OwnGoal = GetSomethingDone(anotherSplitting[3]),
-                            Penalty = GetSomethingDone(anotherSplitting[4]),
-                            WrongedPenalty = GetSomethingDone(anotherSplitting[5]),
-                            StoppedPenalty = GetSomethingDone(anotherSplitting[6]),
-                            Assist = GetSomethingDone(anotherSplitting[7]),
-                            ManOfTheMatch = GetSomethingDone(anotherSplitting[8]) == 1,
-                            Status = element.Contains("red-card") ? Behaviour.RedCard :
-                                (element.Contains("yellow-card") ? Behaviour.YellowCard : Behaviour.Nothing),
-                            HasVote = vote != -1 && HasVote(s_spanClose.Split(elementSplitted[1])[0]),
-                            IsIn = true,
-                            IsOut = false
-                        };
-                        if (!player.Vote.HasVote && player.Vote.Status > Behaviour.Nothing)
-                        {
-                            player.Vote.HasVote = true;
-                            player.Vote.Value = 6;
+                            var elementSplitted = s_tdedRegex.Split(element);
+                            if (elementSplitted.Length < 2)
+                                continue;
+                            if (!s_takeTheVote.IsMatch(elementSplitted[1]))
+                                continue;
+
+                            var anotherSplitting = elementSplitted.Length > 2 ? s_takeTheVote.Split(elementSplitted[2]) : [];
+
+                            VotedRealPlayer player = new()
+                            {
+                                Name = GetName(element),
+                                RealTeam = new RealTeam { Name = realTeam },
+                                IsActive = true
+                            };
+                            var vote = GetVote(elementSplitted[1]);
+                            player.Role = GetRole(element).ToLower() switch
+                            {
+                                "a" => Role.Forward,
+                                "c" => Role.Midfielder,
+                                "d" => Role.Defensor,
+                                "p" => Role.GoalKeeper,
+                                _ => Role.Undefined
+                            };
+
+                            player.Vote = new Vote()
+                            {
+                                Role = player.Role,
+                                Value = vote < 0 ? 0 : vote,
+                                IsFinal = true,
+                                Goal = GetSomethingDone(anotherSplitting, 1),
+                                SufferedGoal = GetSomethingDone(anotherSplitting, 2),
+                                OwnGoal = GetSomethingDone(anotherSplitting, 3),
+                                Penalty = GetSomethingDone(anotherSplitting, 4),
+                                WrongedPenalty = GetSomethingDone(anotherSplitting, 5),
+                                StoppedPenalty = GetSomethingDone(anotherSplitting, 6),
+                                Assist = GetSomethingDone(anotherSplitting, 7),
+                                ManOfTheMatch = GetSomethingDone(anotherSplitting, 8) == 1,
+                                Status = element.Contains("red-card") ? Behaviour.RedCard :
+                                    (element.Contains("yellow-card") ? Behaviour.YellowCard : Behaviour.Nothing),
+                                HasVote = vote != -1 && HasVote(s_spanClose.Split(elementSplitted[1])[0]),
+                                IsIn = true,
+                                IsOut = false
+                            };
+                            if (!player.Vote.HasVote && player.Vote.Status > Behaviour.Nothing)
+                            {
+                                player.Vote.HasVote = true;
+                                player.Vote.Value = 6;
+                            }
+                            players.Add(player);
                         }
-                        players.Add(player);
                     }
                 }
             }
-            var serieACalendar = await _realCalendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            var serieACalendar = await _realCalendar.GetAsync(year).NoContext();
             if (serieACalendar != null)
             {
-                var day = serieACalendar.Days.FirstOrDefault(x => x.SerieADay == serieADay);
-                var delayed = day.Games.Where(x => x.Delayed);
+                var day = serieACalendar.Days?.FirstOrDefault(x => x.SerieADay == serieADay);
+                var delayed = day?.Games?.Where(x => x.Delayed).ToList() ?? [];
                 if (delayed.Any())
                 {
-                    var allPlayers = await _allPlayers.GetAsync(FantacalcioTime.ActualYear).NoContext();
-                    if (allPlayers != null)
+                    var allPlayers = await _allPlayers.GetAsync(year).NoContext();
+                    if (allPlayers?.Players != null)
                     {
-                        foreach (var game in day.Games.Where(x => x.Delayed))
+                        foreach (var game in delayed)
                         {
                             Delayed(game.Home);
                             Delayed(game.Away);
                         }
                         void Delayed(RealTeam team)
                         {
-                            foreach (var player in allPlayers.Players.Where(x => x.RealTeam.Abbreviation == team.Abbreviation))
+                            foreach (var player in allPlayers.Players.Where(x => x.RealTeam?.Abbreviation == team.Abbreviation))
                             {
                                 players.Add(new()
                                 {
@@ -131,7 +153,15 @@ namespace Fantasoccer.Business.IngestionData
             return players;
         }
         private static string GetName(string name) => s_spanRegex.IsMatch(name) ? HttpUtility.HtmlDecode(s_spanRegex.Match(name).Value.Split('>')[1].Split('<')[0]) : string.Empty;
-        private static string GetRole(string role) => HttpUtility.HtmlDecode((s_forRole.Split(role)[1]).Split('"')[1]);
+        private static string GetRole(string role)
+        {
+            var values = s_forRole.Split(role);
+            if (values.Length < 2)
+                return string.Empty;
+
+            var roleValues = values[1].Split('"');
+            return roleValues.Length < 2 ? string.Empty : HttpUtility.HtmlDecode(roleValues[1]);
+        }
         private static bool HasVote(string check) => !check.ToLower().Contains("55");
         private static float GetVote(string voto)
         {
@@ -150,7 +180,11 @@ namespace Fantasoccer.Business.IngestionData
         }
         private static int GetSomethingDone(string value)
         {
-            value = value.Split('"')[1].Trim();
+            var values = value.Split('"');
+            if (values.Length < 2)
+                return 0;
+
+            value = values[1].Trim();
             if (string.IsNullOrWhiteSpace(value))
                 return 0;
             if (value.Equals("-"))
@@ -167,6 +201,7 @@ namespace Fantasoccer.Business.IngestionData
                 }
             }
         }
+        private static int GetSomethingDone(string[] values, int index) => values.Length > index ? GetSomethingDone(values[index]) : 0;
         private static bool GetYellowCard(string check) => check.ToLower().Contains("trn-ry");
         private static bool GetRedCard(string check) => check.ToLower().Contains("trn-rr");
     }
