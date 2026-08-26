@@ -20,7 +20,7 @@ namespace Fantasoccer.Engine.IngestionData
             IRepository<RealPlayersWrapper, int> realPlayers,
             IFactory<IContentRepository> factory)
         {
-            _httpClient = httpClientFactory.CreateClient("base");
+            _httpClient = httpClientFactory.CreateClient("player-images");
             _logger = logger;
             _realPlayers = realPlayers;
             _contentRepository = factory.Create("images");
@@ -90,7 +90,15 @@ namespace Fantasoccer.Engine.IngestionData
             if (players != null)
             {
                 var url = "https://www.legaseriea.it/api/widget/player?lang=it&offset=0&limit=1030";
-                var playerImages = await _httpClient.GetFromJsonAsync<Rootobject>(url).NoContext();
+                Rootobject? playerImages;
+                try
+                {
+                    playerImages = await _httpClient.GetFromJsonAsync<Rootobject>(url).NoContext();
+                }
+                catch (HttpRequestException)
+                {
+                    return;
+                }
                 if (playerImages != null)
                     foreach (var player in players)
                     {

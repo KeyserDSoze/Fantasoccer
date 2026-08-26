@@ -36,6 +36,10 @@ namespace Fantasoccer.Tests
             services.AddSingleton<TestLiveVote>();
             services.AddSingleton<ILiveVote>(x => x.GetRequiredService<TestLiveVote>());
             services.AddSingleton<LiveVotesJob>();
+            services.AddSingleton<TestPlayerImagesHandler>();
+            services.AddHttpClient("player-images")
+                .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestPlayerImagesHandler>());
+            services.AddSingleton<PlayerImagesJob>();
         }
     }
 }
