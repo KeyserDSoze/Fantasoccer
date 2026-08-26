@@ -4,6 +4,7 @@ using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Engine.IngestionData;
 using Fantasoccer.InMemory;
 using Fantasoccer.Tests.Tests.BackgroundJobs;
+using Fantasoccer.Tests.Tests.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,10 +30,12 @@ namespace Fantasoccer.Tests
             services.AddSingleton<TestOfficialVote>();
             services.AddSingleton<IOfficialVote>(x => x.GetRequiredService<TestOfficialVote>());
             services.AddSingleton<TestAllPlayers>();
-            services.AddSingleton<IAllPlayers>(x => x.GetRequiredService<TestAllPlayers>());
             services.AddSingleton<TestStatsPlayerGenerator>();
             services.AddSingleton<IStatsPlayerGenerator>(x => x.GetRequiredService<TestStatsPlayerGenerator>());
-            services.AddSingleton<AllPlayersAndAllTeamsJob>();
+            services.AddSingleton<AllPlayersAndAllTeamsJob>(x =>
+                ActivatorUtilities.CreateInstance<AllPlayersAndAllTeamsJob>(
+                    x,
+                    x.GetRequiredService<TestAllPlayers>()));
             services.AddSingleton<TestLiveVote>();
             services.AddSingleton<ILiveVote>(x => x.GetRequiredService<TestLiveVote>());
             services.AddSingleton<LiveVotesJob>();
@@ -41,6 +44,9 @@ namespace Fantasoccer.Tests
                 .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestPlayerImagesHandler>());
             services.AddSingleton<PlayerImagesJob>();
             services.AddTransient<PlayerOddsJob>();
+            services.AddSingleton<TestAllPlayersHandler>();
+            services.AddHttpClient("all-players")
+                .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestAllPlayersHandler>());
         }
     }
 }

@@ -5,6 +5,7 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Tests.Tests.BackgroundJobs;
 
+[Collection("InMemoryRepository")]
 public sealed class AllPlayersAndAllTeamsJobTest : IAsyncLifetime
 {
     private readonly AllPlayersAndAllTeamsJob _job;

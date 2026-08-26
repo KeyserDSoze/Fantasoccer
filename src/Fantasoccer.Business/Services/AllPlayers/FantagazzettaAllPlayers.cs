@@ -18,7 +18,7 @@ namespace Fantasoccer.Business.IngestionData
 
         public FantagazzettaAllPlayers(IHttpClientFactory httpClientFactory, IRepository<RealTeamWrapper, int> repository)
         {
-            HttpClient = httpClientFactory.CreateClient("base");
+            HttpClient = httpClientFactory.CreateClient("all-players");
             _repository = repository;
         }
 
@@ -30,7 +30,7 @@ namespace Fantasoccer.Business.IngestionData
             var fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
             foreach (var playerFromFanta in s_playerRowRegex.Split(fantapage).Skip(1))
             {
-                if (playerFromFanta.Contains("class=\"out-of-game\""))
+                if (playerFromFanta.Contains("out-of-game", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
