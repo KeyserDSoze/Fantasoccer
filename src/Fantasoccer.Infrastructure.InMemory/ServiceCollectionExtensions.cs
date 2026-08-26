@@ -26,6 +26,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<Group, string>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Rank, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>(onlyQuery: false);
+            services.AddInMemoryInfrastructure<MarketWrapper, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<StatPlayersWrapper, int>();
             services.AddInMemoryInfrastructure<RealTeamWrapper, int>();

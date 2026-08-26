@@ -24,7 +24,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             var groups = await _groups.ToListAsEntityAsync();
             foreach (var group in groups)
             {
-                foreach (var league in group.Leagues.Where(x => x.Years.Exists(t => t.Year == actualYear)))
+                foreach (var league in group.Leagues?.Where(x => x.Years.Exists(t => t.Year == actualYear)) ?? [])
                 {
                     var leagueKey = new LeagueKey { Group = group.Id, League = league.Id, Year = actualYear };
                     var market = await _marketRepository.GetAsync(leagueKey).NoContext();
