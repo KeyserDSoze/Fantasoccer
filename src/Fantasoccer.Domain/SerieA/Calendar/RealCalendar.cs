@@ -20,7 +20,9 @@ namespace Fantasoccer
         [JsonIgnore]
         public RealDay? LastDay => Days.OrderByDescending(x => x.SerieADay).FirstOrDefault(day =>
         {
-            var lastGame = day.Games.Where(x => !x.Delayed).OrderBy(x => x.Date).Last();
+            var lastGame = day.Games?.Where(x => !x.Delayed).OrderBy(x => x.Date).LastOrDefault();
+            if (lastGame == null)
+                return false;
             return FantacalcioTime.ItalyNow >= lastGame.Date + s_twoHours;
         });
         [JsonIgnore]
