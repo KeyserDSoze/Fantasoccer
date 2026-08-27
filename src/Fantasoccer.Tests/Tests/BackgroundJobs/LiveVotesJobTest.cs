@@ -6,6 +6,7 @@ using Rystem.Content;
 
 namespace Fantasoccer.Tests.Tests.BackgroundJobs;
 
+[Collection("InMemoryRepository")]
 public sealed class LiveVotesJobTest : IAsyncLifetime
 {
     private readonly LiveVotesJob _job;

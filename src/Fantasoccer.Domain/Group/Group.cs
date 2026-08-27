@@ -38,7 +38,7 @@ namespace Fantasoccer
         }
         public string? GetBasketId(string owner, int? year = null)
         {
-            foreach (var basket in Baskets)
+            foreach (var basket in Baskets ?? [])
             {
                 if (basket.Years != null)
                 {
@@ -46,7 +46,7 @@ namespace Fantasoccer
                     {
                         if (year == null || yearly.Year == year)
                         {
-                            if (yearly.Teams.Exists(x => x.Owner == owner))
+                            if (yearly.Teams?.Exists(x => x.Owner == owner) == true)
                             {
                                 return basket.Id;
                             }
