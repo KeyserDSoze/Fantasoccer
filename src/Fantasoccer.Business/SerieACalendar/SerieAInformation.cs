@@ -1,5 +1,6 @@
-﻿using System.Net.Http.Json;
-using System.Text;
+﻿using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Fantasoccer.Business
@@ -21,11 +22,15 @@ namespace Fantasoccer.Business
                 max = 38;
             var calendar = new RealCalendar
             {
+                Year = FantacalcioTime.ActualYear,
                 Days = []
             };
             for (var day = min; day <= max; day++)
             {
-                var theDay = await _calendarHttpClientFromGazzetta.GetFromJsonAsync<GazzettaCalendario>($"v1/sports/calendar?day={day}&sportId=1&competitionId=21");
+                var theDay = await GetFromJsonAsync<GazzettaCalendario>(_calendarHttpClientFromGazzetta, $"v1/sports/calendar?day={day}&sportId=1&competitionId=21");
+                if (theDay?.data?.games == null)
+                    continue;
+
                 var realDay = new RealDay
                 {
                     Games = [],
@@ -35,12 +40,16 @@ namespace Fantasoccer.Business
                 calendar.Days.Add(realDay);
                 foreach (var game in theDay.data.games)
                 {
-                    foreach (var match in game.matches)
+                    foreach (var match in game.matches ?? [])
                     {
+                        if (match.homeTeam == null || match.awayTeam == null ||
+                            string.IsNullOrWhiteSpace(match.homeTeam.teamName) || string.IsNullOrWhiteSpace(match.awayTeam.teamName))
+                            continue;
+
                         realDay.Games.Add(new RealGame
                         {
-                            Home = new RealTeam { Name = match.homeTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.homeTeam.shortTeamName.ToLower() },
-                            Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName.ToLower() },
+                            Home = new RealTeam { Name = match.homeTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.homeTeam.shortTeamName?.ToLower() ?? string.Empty },
+                            Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Date = FantacalcioTime.ToItalyNow(match.utcDate),
                             Delayed = false,
                             HomeGoal = match.homeTeam.score,
@@ -85,28 +94,55 @@ namespace Fantasoccer.Business
 
         public async Task<RealRank> GetRankAsync()
         {
-            var season = FantacalcioTime.LabelYear(FantacalcioTime.ItalyNow, '-', true);
-            var rank = await _serieAHttpClient.GetFromJsonAsync<RankRoot>($"stats/v3/live/overall?season_id=serie-a::Football_Season::5f0e080fc3a44073984b75b3a8e06a8a", default);
+            var rank = await GetFromJsonAsync<RankRoot>(_serieAHttpClient, "stats/v3/live/overall?season_id=serie-a::Football_Season::5f0e080fc3a44073984b75b3a8e06a8a");
             var realRank = new RealRank
             {
                 Teams = [],
             };
-            foreach (var team in rank!.data.standings.First().teams)
+            var teams = rank?.data?.standings?.FirstOrDefault()?.teams;
+            if (teams == null)
+                return realRank;
+
+            foreach (var team in teams)
             {
+                if (string.IsNullOrWhiteSpace(team.officialName))
+                    continue;
+
+                var stats = team.stats ?? [];
                 realRank.Teams.Add(new RealRankedTeam
                 {
                     Name = team.officialName,
-                    Goal = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "goals-for")?.statsValue.ToString() ?? "0"),
-                    SufferedGoal = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "goals-against")?.statsValue.ToString() ?? "0"),
-                    Defeats = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "lose")?.statsValue.ToString() ?? "0"),
-                    Draws = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "draw")?.statsValue.ToString() ?? "0"),
-                    Victories = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "win")?.statsValue.ToString() ?? "0"),
-                    Point = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "points")?.statsValue.ToString() ?? "0"),
-                    Played = int.Parse(team.stats.FirstOrDefault(x => x.statsId == "matches-played")?.statsValue.ToString() ?? "0")
+                    Goal = GetStat(stats, "goals-for"),
+                    SufferedGoal = GetStat(stats, "goals-against"),
+                    Defeats = GetStat(stats, "lose"),
+                    Draws = GetStat(stats, "draw"),
+                    Victories = GetStat(stats, "win"),
+                    Point = GetStat(stats, "points"),
+                    Played = GetStat(stats, "matches-played")
                 });
             }
             realRank.Teams = [.. realRank.Teams.OrderByDescending(x => x.Point)];
             return realRank;
+        }
+
+        private static int GetStat(Stat[] stats, string id)
+            => int.TryParse(stats.FirstOrDefault(x => x.statsId == id)?.statsValue?.ToString(), out var value) ? value : 0;
+
+        private static async Task<T?> GetFromJsonAsync<T>(HttpClient client, string requestUri)
+        {
+            using var response = await client.GetAsync(requestUri).NoContext();
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return default;
+
+            response.EnsureSuccessStatusCode();
+            try
+            {
+                return await response.Content.ReadFromJsonAsync<T>().NoContext();
+            }
+            catch (JsonException)
+            {
+                return default;
+            }
         }
 
         private class CalendarDataBody
