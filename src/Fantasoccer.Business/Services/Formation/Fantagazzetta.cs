@@ -27,7 +27,14 @@ namespace Fantasoccer.Business.IngestionData
                     var name = s_spanRegex.IsMatch(player) ? HttpUtility.HtmlDecode(s_spanRegex.Match(player).Value.Split('>')[1].Split('<')[0]) : string.Empty;
                     if (string.IsNullOrWhiteSpace(name))
                         continue;
-                    var realTeam = player.Split("href=\"https://www.fantacalcio.it/serie-a/squadre/")[1].Split('/')[0];
+                    var teamValues = player.Split("href=\"https://www.fantacalcio.it/serie-a/squadre/");
+                    if (teamValues.Length < 2)
+                        continue;
+
+                    var realTeam = teamValues[1].Split('/')[0];
+                    if (string.IsNullOrWhiteSpace(realTeam))
+                        continue;
+
                     realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                     players.Add(new()
                     {

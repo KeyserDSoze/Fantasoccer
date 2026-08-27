@@ -30,13 +30,22 @@ namespace Fantasoccer.Business.IngestionData
             {
                 var s = app;
                 var theListOfPlayersAsHtml = s_ulRegex.Split(s);
+                if (theListOfPlayersAsHtml.Length < 3)
+                    continue;
+
                 var listOfPlayersOfHomeTeam = s_spanRegex.Matches(theListOfPlayersAsHtml[1]);
                 var listOfPlayersOfAwayTeam = s_spanRegex.Matches(theListOfPlayersAsHtml[2]);
                 var teams = theListOfPlayersAsHtml[0].Split("https://www.gazzetta.it/calcio/squadre/");
+                if (teams.Length < 3)
+                    continue;
+
                 SetPlayers(listOfPlayersOfHomeTeam, teams[1].Split('/')[0]);
                 SetPlayers(listOfPlayersOfAwayTeam, teams[2].Split('/')[0]);
                 void SetPlayers(MatchCollection values, string realTeam)
                 {
+                    if (string.IsNullOrWhiteSpace(realTeam))
+                        return;
+
                     realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                     foreach (Match m in values)
                     {
