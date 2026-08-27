@@ -1,10 +1,11 @@
 // Group League Admin Screen - Super Admin management of league settings and calculations
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, ScrollView } from 'react-native'
+import { Alert, Platform, View, ScrollView } from 'react-native'
 import { Button, Card, Input, Separator, Text, XStack, YStack, useMedia, Switch, Label, Select, Spinner } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
+import { LeagueSettingsEditor } from 'components/LeagueSettingsEditor'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
 import { leagueManagerService } from 'services/leagueManagerService'
@@ -14,7 +15,7 @@ import type { Calendar } from 'types/calendar'
 import { DefaultLeagueSetting, LeagueType } from 'types/group'
 import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown, Copy } from '@tamagui/lucide-icons'
 import { formatSeasonFromYear, getAvailableSeasonYears, getCurrentSeasonYear } from 'utils/season'
-import { cloneLeagueSetting, copyAnnualLeagueToYear, getAnnualLeagueForYear, upsertAnnualLeague } from 'utils/groupAdmin'
+import { cloneLeagueSetting, copyAnnualLeagueToYear, getAnnualLeagueForYear, isLeagueSettingValid, upsertAnnualLeague } from 'utils/groupAdmin'
 
 const getCalendarOwners = (calendar: Calendar): string[] => {
   const owners = new Set<string>()
@@ -39,6 +40,8 @@ export default function GroupLeagueAdminScreen() {
   const [dayToRecalculate, setDayToRecalculate] = useState(38)
   const [pendingLeagueChanges, setPendingLeagueChanges] = useState<Partial<League> | null>(null)
   const [calendarOwners, setCalendarOwners] = useState<string[] | null>(null)
+  const [settingsValid, setSettingsValid] = useState(true)
+  const [settingsRevision, setSettingsRevision] = useState(0)
   
   // Loading states for each operation
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
@@ -77,6 +80,10 @@ export default function GroupLeagueAdminScreen() {
     return league
   }, [currentGroup, selectedLeagueId, pendingLeagueChanges])
 
+  const persistedSelectedLeague = useMemo(() => {
+    return currentGroup?.leagues.find(league => league.id === selectedLeagueId) || null
+  }, [currentGroup, selectedLeagueId])
+
   // Selected yearly league
   const selectedYearlyLeague = useMemo(() => {
     if (!selectedLeague) return null
@@ -84,8 +91,8 @@ export default function GroupLeagueAdminScreen() {
   }, [selectedLeague, currentYearIndex])
 
   const previousYearlyLeague = useMemo(() => {
-    return selectedLeague?.years.find(y => y.year === currentYearIndex - 1) || null
-  }, [selectedLeague, currentYearIndex])
+    return persistedSelectedLeague?.years.find(y => y.year === currentYearIndex - 1) || null
+  }, [persistedSelectedLeague, currentYearIndex])
 
   const isYearPersisted = useMemo(() => {
     const persistedLeague = currentGroup?.leagues.find(league => league.id === selectedLeagueId)
@@ -118,6 +125,51 @@ export default function GroupLeagueAdminScreen() {
     return selectedYearlyLeague?.settings || null
   }, [selectedYearlyLeague])
 
+  const confirmDiscardChanges = useCallback(async (): Promise<boolean> => {
+    if (!hasPendingChanges) return true
+    if (Platform.OS === 'web') {
+      return window.confirm('Ci sono modifiche non salvate. Vuoi scartarle?')
+    }
+
+    return new Promise(resolve => {
+      Alert.alert(
+        'Modifiche non salvate',
+        'Vuoi scartare le modifiche prima di cambiare selezione?',
+        [
+          { text: 'Resta qui', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Scarta', style: 'destructive', onPress: () => resolve(true) }
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      )
+    })
+  }, [hasPendingChanges])
+
+  const confirmSettingsReplacement = useCallback(async (message: string): Promise<boolean> => {
+    if (Platform.OS === 'web') return window.confirm(message)
+
+    return new Promise(resolve => {
+      Alert.alert(
+        'Sostituisci impostazioni',
+        message,
+        [
+          { text: 'Annulla', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Continua', style: 'destructive', onPress: () => resolve(true) }
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) }
+      )
+    })
+  }, [])
+
+  const handleLeagueSelection = useCallback(async (leagueId: string | null) => {
+    if (leagueId === selectedLeagueId || !await confirmDiscardChanges()) return
+    setSelectedLeagueId(leagueId)
+  }, [selectedLeagueId, confirmDiscardChanges])
+
+  const handleYearSelection = useCallback(async (year: number | null) => {
+    if (year === currentYearIndex || !await confirmDiscardChanges()) return
+    await setSelectedYear(year)
+  }, [currentYearIndex, confirmDiscardChanges, setSelectedYear])
+
   // Initialize selected league
   useEffect(() => {
     if (currentGroup && currentGroup.leagues && currentGroup.leagues.length > 0 && !selectedLeagueId) {
@@ -125,10 +177,12 @@ export default function GroupLeagueAdminScreen() {
     }
   }, [currentGroup, selectedLeagueId])
 
-  // Clear pending changes when switching leagues
+  // Draft changes belong to a single league and year.
   useEffect(() => {
     setPendingLeagueChanges(null)
-  }, [selectedLeagueId])
+    setSettingsValid(true)
+    setSettingsRevision(revision => revision + 1)
+  }, [selectedLeagueId, currentYearIndex])
 
   useEffect(() => {
     let active = true
@@ -171,25 +225,37 @@ export default function GroupLeagueAdminScreen() {
     }))
   }, [selectedLeague])
 
-  const initializeYearWithDefaults = useCallback(() => {
+  const initializeYearWithDefaults = useCallback(async () => {
     if (!selectedLeague) return
+    if ((isYearPersisted || hasPendingChanges) && !await confirmSettingsReplacement(
+      `Vuoi sostituire tutte le impostazioni del ${formatSeasonFromYear(currentYearIndex)} con i valori di default?`
+    )) return
 
+    const defaultSettings = cloneLeagueSetting(DefaultLeagueSetting)
     updateAnnualLeague({
       year: currentYearIndex,
       type: selectedLeague.type,
-      settings: cloneLeagueSetting(DefaultLeagueSetting)
+      settings: defaultSettings
     })
+    setSettingsValid(isLeagueSettingValid(defaultSettings))
+    setSettingsRevision(revision => revision + 1)
     toast.show(`Settings di default pronti per il ${formatSeasonFromYear(currentYearIndex)}. Premi Salva Impostazioni per confermare.`, { variant: 'success' })
-  }, [selectedLeague, currentYearIndex, updateAnnualLeague, toast])
+  }, [selectedLeague, isYearPersisted, hasPendingChanges, currentYearIndex, confirmSettingsReplacement, updateAnnualLeague, toast])
 
-  const copySettingsFromPreviousYear = useCallback(() => {
+  const copySettingsFromPreviousYear = useCallback(async () => {
     if (!previousYearlyLeague) return
 
     if (!selectedLeague) return
+    if ((isYearPersisted || hasPendingChanges) && !await confirmSettingsReplacement(
+      `Vuoi sostituire tutte le impostazioni del ${formatSeasonFromYear(currentYearIndex)} con quelle del ${formatSeasonFromYear(currentYearIndex - 1)}?`
+    )) return
 
-    updateAnnualLeague(copyAnnualLeagueToYear(previousYearlyLeague, currentYearIndex, selectedLeague.type))
+    const copiedYear = copyAnnualLeagueToYear(previousYearlyLeague, currentYearIndex, selectedLeague.type)
+    updateAnnualLeague(copiedYear)
+    setSettingsValid(isLeagueSettingValid(copiedYear.settings))
+    setSettingsRevision(revision => revision + 1)
     toast.show(`Settings copiati dal ${formatSeasonFromYear(currentYearIndex - 1)}. Premi Salva Impostazioni per confermare.`, { variant: 'success' })
-  }, [previousYearlyLeague, selectedLeague, currentYearIndex, updateAnnualLeague, toast])
+  }, [previousYearlyLeague, selectedLeague, isYearPersisted, hasPendingChanges, currentYearIndex, confirmSettingsReplacement, updateAnnualLeague, toast])
 
   // Create new league
   const createLeague = useCallback(async () => {
@@ -444,25 +510,14 @@ export default function GroupLeagueAdminScreen() {
     }
   }, [currentGroup, selectedLeague, currentYearIndex, dayToRecalculate, toast])
 
-  // Update setting value (generic)
-  const updateSetting = useCallback(<K extends keyof LeagueSetting>(
-    key: K,
-    value: LeagueSetting[K]
-  ) => {
-    if (!selectedLeague || !selectedYearlyLeague || !settings) return
+  const updateSettings = useCallback((updatedSettings: LeagueSetting) => {
+    if (!selectedLeague || !selectedYearlyLeague) return
 
-    const updatedSettings: LeagueSetting = {
-      ...settings,
-      [key]: value
-    }
-
-    const updatedYearlyLeague: AnnualLeague = {
+    updateAnnualLeague({
       ...selectedYearlyLeague,
       settings: updatedSettings
-    }
-
-    updateAnnualLeague(updatedYearlyLeague)
-  }, [selectedLeague, selectedYearlyLeague, settings, updateAnnualLeague])
+    })
+  }, [selectedLeague, selectedYearlyLeague, updateAnnualLeague])
 
   // Update yearly league type (not a setting, but a property of AnnualLeague)
   const updateYearlyLeagueType = useCallback((newType: LeagueType) => {
@@ -501,10 +556,10 @@ export default function GroupLeagueAdminScreen() {
               <LeagueSelectorsWidget
                 leagues={leagueOptions}
                 selectedLeagueId={selectedLeagueId}
-                onSelectLeague={setSelectedLeagueId}
+                onSelectLeague={handleLeagueSelection}
                 years={availableYears}
                 selectedYear={currentYearIndex}
-                onSelectYear={setSelectedYear}
+                onSelectYear={handleYearSelection}
                 formatYearLabel={formatSeasonFromYear}
                 title="Selettori Lega e Anno"
                 leagueHint="Seleziona la lega da gestire"
@@ -566,25 +621,6 @@ export default function GroupLeagueAdminScreen() {
                                 ? `I settings per il ${formatSeasonFromYear(currentYearIndex)} sono pronti ma non ancora salvati.`
                                 : `Il ${formatSeasonFromYear(currentYearIndex)} non è ancora configurato per questa lega. Puoi modificare i default qui sotto oppure copiarli dall'anno precedente.`}
                             </Text>
-                            <XStack gap="$2" flexWrap="wrap">
-                              <Button
-                                size="$3"
-                                variant="outlined"
-                                onPress={initializeYearWithDefaults}
-                                disabled={isAnyLoading}
-                              >
-                                Usa settings di default
-                              </Button>
-                              <Button
-                                size="$3"
-                                icon={Copy}
-                                onPress={copySettingsFromPreviousYear}
-                                disabled={isAnyLoading || !previousYearlyLeague}
-                                theme="blue"
-                              >
-                                Copia dal {formatSeasonFromYear(currentYearIndex - 1)}
-                              </Button>
-                            </XStack>
                             {!previousYearlyLeague && (
                               <Text color="$orange10" fontSize="$2">
                                 Nessun setting disponibile per il {formatSeasonFromYear(currentYearIndex - 1)}.
@@ -689,8 +725,32 @@ export default function GroupLeagueAdminScreen() {
 
                       {/* Year-Specific Settings */}
                       <YStack gap="$3">
-                        <Text fontSize="$4" fontWeight="600" color="$color11">
-                          Impostazioni Anno {formatSeasonFromYear(currentYearIndex)}
+                        <XStack gap="$3" alignItems="center" justifyContent="space-between" flexWrap="wrap">
+                          <Text fontSize="$4" fontWeight="600" color="$color11">
+                            Impostazioni Anno {formatSeasonFromYear(currentYearIndex)}
+                          </Text>
+                          <XStack gap="$2" flexWrap="wrap">
+                            <Button
+                              size="$3"
+                              variant="outlined"
+                              onPress={initializeYearWithDefaults}
+                              disabled={isAnyLoading}
+                            >
+                              Ripristina default
+                            </Button>
+                            <Button
+                              size="$3"
+                              icon={Copy}
+                              onPress={copySettingsFromPreviousYear}
+                              disabled={isAnyLoading || !previousYearlyLeague}
+                              theme="blue"
+                            >
+                              Copia tutto dal {formatSeasonFromYear(currentYearIndex - 1)}
+                            </Button>
+                          </XStack>
+                        </XStack>
+                        <Text fontSize="$2" color="$color10">
+                          La copia include tipo annuale, punteggi, bonus, crediti, modificatori voto e configurazioni avanzate.
                         </Text>
                         
                         <XStack gap="$3" alignItems="center">
@@ -726,133 +786,21 @@ export default function GroupLeagueAdminScreen() {
                           </YStack>
                         </XStack>
 
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Starting Money</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.startingMoney)}
-                            onChangeText={(val) => updateSetting('startingMoney', Number(val) || 500)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Delayed Day</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.delayedDay)}
-                            onChangeText={(val) => updateSetting('delayedDay', Number(val) || 0)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Cancelled Day</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.cancelledDay)}
-                            onChangeText={(val) => updateSetting('cancelledDay', Number(val) || 0)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Point First Goal</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.pointForFirstGoal)}
-                            onChangeText={(val) => updateSetting('pointForFirstGoal', Number(val) || 66)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Point Next Goal</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.pointForNextGoal)}
-                            onChangeText={(val) => updateSetting('pointForNextGoal', Number(val) || 6)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Point Own Goal</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.pointForOwnGoal)}
-                            onChangeText={(val) => updateSetting('pointForOwnGoal', Number(val) || 0)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Diff Point Own Goal</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.differencePointForOwnGoal)}
-                            onChangeText={(val) => updateSetting('differencePointForOwnGoal', Number(val) || 0)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Point In Home</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.pointInHome)}
-                            onChangeText={(val) => updateSetting('pointInHome', Number(val) || 0)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Point For Victory</Label>
-                          <Input
-                            flex={1}
-                            keyboardType="numeric"
-                            value={String(settings.pointForVictory)}
-                            onChangeText={(val) => updateSetting('pointForVictory', Number(val) || 3)}
-                            disabled={isAnyLoading}
-                          />
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Random Auction</Label>
-                          <XStack flex={1}>
-                            <Switch
-                              checked={settings.randomAuction}
-                              onCheckedChange={(checked) => updateSetting('randomAuction', checked)}
-                              disabled={isAnyLoading}
-                            />
-                          </XStack>
-                        </XStack>
-
-                        <XStack gap="$3" alignItems="center">
-                          <Label width={180}>Rank With Value Points</Label>
-                          <XStack flex={1}>
-                            <Switch
-                              checked={settings.rankWithValuePoints}
-                              onCheckedChange={(checked) => updateSetting('rankWithValuePoints', checked)}
-                              disabled={isAnyLoading}
-                            />
-                          </XStack>
-                        </XStack>
+                        <LeagueSettingsEditor
+                          key={`${selectedLeague.id}-${currentYearIndex}-${settingsRevision}`}
+                          value={settings}
+                          disabled={isAnyLoading}
+                          resetKey={`${selectedLeague.id}-${currentYearIndex}-${settingsRevision}`}
+                          onChange={updateSettings}
+                          onValidityChange={setSettingsValid}
+                        />
                       </YStack>
 
                       {/* Save Button */}
                       <Button
                         icon={isLoading('save') ? Spinner : Save}
                         onPress={saveSettings}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || !settingsValid || !isLeagueSettingValid(settings)}
                         theme="green"
                       >
                         Salva Impostazioni

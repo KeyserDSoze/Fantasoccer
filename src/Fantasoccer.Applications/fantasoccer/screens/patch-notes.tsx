@@ -15,6 +15,32 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '1.4.0',
+    date: '27 Agosto 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Editor completo dei settings annuali della lega: classifica, soglie gol, bonus difesa, fair play, porta inviolata e crediti'
+      },
+      {
+        category: 'Feature',
+        description: 'Configurazione dei modificatori voto generali e override specifici per portieri, difensori, centrocampisti e attaccanti'
+      },
+      {
+        category: 'Improvement',
+        description: 'Copia completa dall\'anno precedente disponibile anche per stagioni già configurate, inclusi tipo annuale, modificatori voto e settings avanzati'
+      },
+      {
+        category: 'Improvement',
+        description: 'Validazione degli input e conferma prima di sostituire settings o abbandonare modifiche non salvate'
+      },
+      {
+        category: 'Fix',
+        description: 'Serializzazione allineata al backend per ruoli, formazione, Futsal League e configurazioni annuali avanzate'
+      }
+    ]
+  },
+  {
     version: '1.3.1',
     date: '27 Agosto 2026',
     changes: [

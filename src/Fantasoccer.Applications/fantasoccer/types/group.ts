@@ -1,5 +1,5 @@
 // Types matching the C# Group structure
-import { preserveRawLeagueSetting } from '../utils/groupAdmin'
+import { preserveRawLeagueSetting, serializeVoteSettings } from '../utils/groupAdmin'
 
 // Import IdentityRole from existing identity types
 export { IdentityRole } from './identity'
@@ -38,7 +38,8 @@ export enum LeagueType {
   League = 1,
   Cup = 2,
   NewCup = 3,
-  SuperLeague = 4
+  SuperLeague = 4,
+  FutsalLeague = 5
 }
 
 export const LeagueTypeExtensions = {
@@ -49,6 +50,21 @@ export enum MarketType {
   WithVote = 0,
   WithoutVote = 1,
   Denied = 2
+}
+
+export enum FormationType {
+  Normal = 0,
+  Best = 1
+}
+
+export enum LeagueCalendarType {
+  Random = 0,
+  Cup = 1
+}
+
+export enum RoundType {
+  Rank = 0,
+  Elimination = 1
 }
 
 // ============================================
@@ -69,8 +85,48 @@ export interface VoteLeagueSettingRaw {
   m: number    // ManOfTheMatch
 }
 
+export interface LeagueRoundRaw {
+  n: string | null
+  t: RoundType
+  f: boolean
+  s: number | null
+  e: number | null
+}
+
+export interface FromPreviousYearSettingsRaw {
+  l: string[]
+  m: number
+  t: RoundType
+}
+
+export interface CardTrainerSettingsRaw {
+  c: Record<string, number>
+}
+
+export interface LeagueTypeNumberSettingsRaw {
+  t: number
+  g: number
+  d: number
+  m: number
+  f: number
+  mg: number
+  md: number
+  mb: number
+  fb: number
+}
+
+export interface LeagueTypeSettingsRaw {
+  t: LeagueCalendarType
+  r: LeagueRoundRaw[]
+  n: LeagueTypeNumberSettingsRaw
+  fpy: FromPreviousYearSettingsRaw | null
+  ct: CardTrainerSettingsRaw
+}
+
 export interface LeagueSettingRaw {
   v: Record<string, VoteLeagueSettingRaw>  // Votes (Role -> VoteLeagueSetting)
+  frm: FormationType
+  lt: LeagueTypeSettingsRaw | null
   s: number    // StartingMoney
   d: number    // DelayedDay
   c: number    // CancelledDay
@@ -158,10 +214,26 @@ export interface VoteLeagueSetting {
   manOfTheMatch: number
 }
 
+export const DefaultVoteLeagueSetting: VoteLeagueSetting = {
+  assist: 1,
+  goal: 3,
+  ownGoal: -3,
+  penalty: 3,
+  stoppedPenalty: 3,
+  redCard: -1,
+  yellowCard: -0.5,
+  sufferedGoal: -1,
+  wrongedPenalty: -3,
+  injury: 0,
+  manOfTheMatch: 2
+}
+
 export interface LeagueSetting {
-  // Keeps settings that exist in the backend but are not editable in this screen.
+  // Keeps fields introduced by newer backend versions during a full group update.
   raw?: LeagueSettingRaw
   votes: Partial<Record<Role, VoteLeagueSetting>>
+  formation: FormationType
+  typeSettings: LeagueTypeSettingsRaw | null
   startingMoney: number
   delayedDay: number
   cancelledDay: number
@@ -266,9 +338,15 @@ export function mapRawLeagueSettingToLeagueSetting(raw: LeagueSettingRaw): Leagu
     }
   }
 
+  if (!votes[Role.Undefined]) {
+    votes[Role.Undefined] = { ...DefaultVoteLeagueSetting }
+  }
+
   return {
     raw,
     votes,
+    formation: raw.frm ?? FormationType.Normal,
+    typeSettings: raw.lt ?? null,
     startingMoney: raw.s,
     delayedDay: raw.d,
     cancelledDay: raw.c,
@@ -405,17 +483,7 @@ export function mapVoteLeagueSettingToRaw(setting: VoteLeagueSetting): VoteLeagu
 }
 
 export function mapLeagueSettingToRaw(setting: LeagueSetting): LeagueSettingRaw {
-  const votes: Record<string, VoteLeagueSettingRaw> = {}
-  if (setting.votes) {
-    for (const [roleKey, voteSetting] of Object.entries(setting.votes)) {
-      const role = parseInt(roleKey) as Role
-      if (voteSetting) {
-        votes[Role[role] || roleKey] = mapVoteLeagueSettingToRaw(voteSetting)
-      }
-    }
-  }
-
-  return preserveRawLeagueSetting(setting, votes)
+  return preserveRawLeagueSetting(setting, serializeVoteSettings(setting.votes))
 }
 
 export function mapAnnualLeagueToRaw(annualLeague: AnnualLeague): AnnualLeagueRaw {
@@ -523,20 +591,10 @@ export class GroupHelper {
 // Default LeagueSetting (matching C# Default property)
 export const DefaultLeagueSetting: LeagueSetting = {
   startingMoney: 1000,
+  formation: FormationType.Normal,
+  typeSettings: null,
   votes: {
-    [Role.Undefined]: {
-      assist: 1,
-      goal: 3,
-      ownGoal: -3,
-      penalty: 3,
-      stoppedPenalty: 3,
-      redCard: -1,
-      yellowCard: -0.5,
-      sufferedGoal: -1,
-      wrongedPenalty: -3,
-      injury: 0,
-      manOfTheMatch: 2
-    }
+    [Role.Undefined]: DefaultVoteLeagueSetting
   },
   delayedDay: 2,
   cancelledDay: 1,
