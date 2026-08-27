@@ -23,43 +23,51 @@ namespace Fantasoccer.Engine.IngestionData
 
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
-            var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            var actualYear = FantacalcioTime.ActualYear;
+            var calendar = await _calendar.GetAsync(actualYear, cancellationToken).NoContext();
             var day = calendar?.LiveDay?.SerieADay ?? calendar?.LastDay?.SerieADay ?? 38;
             if (day < 38)
             {
                 var listUpdated = new List<string>();
-                var groups = await _groups.ToListAsEntityAsync().NoContext();
-                foreach (var group in groups.Where(x => x.Baskets != null))
+                var groups = await _groups.ToListAsEntityAsync(cancellationToken: cancellationToken).NoContext();
+                foreach (var group in groups)
                 {
-                    foreach (var basket in group.Baskets.Where(x => x.Years != null))
+                    if (string.IsNullOrWhiteSpace(group.Id))
+                        continue;
+
+                    foreach (var basket in group.Baskets ?? [])
                     {
-                        foreach (var owner in basket.Years
-                            .Where(x => x.Year == FantacalcioTime.ActualYear)
-                            .SelectMany(x => x.Teams)
-                            .Select(x => x.Owner))
+                        if (string.IsNullOrWhiteSpace(basket.Id))
+                            continue;
+
+                        foreach (var owner in basket.Years?
+                            .Where(x => x.Year == actualYear)
+                            .SelectMany(x => x.Teams ?? [])
+                            .Select(x => x.Owner)
+                            .Where(x => !string.IsNullOrWhiteSpace(x)) ?? [])
                         {
                             var nextKey = new TeamDayKey
                             {
-                                Year = FantacalcioTime.ActualYear,
+                                Year = actualYear,
                                 Day = day + 1,
                                 Email = owner,
                                 Group = group.Id,
                                 BasketId = basket.Id
                             };
-                            if (!await _repository.ExistAsync(nextKey))
+                            if (!await _repository.ExistAsync(nextKey, cancellationToken))
                             {
                                 var key = new TeamDayKey
                                 {
-                                    Year = FantacalcioTime.ActualYear,
+                                    Year = actualYear,
                                     Day = day,
                                     Email = owner,
                                     Group = group.Id,
                                     BasketId = basket.Id
                                 };
-                                var oldTeam = await _repository.GetAsync(key).NoContext();
+                                var oldTeam = await _repository.GetAsync(key, cancellationToken).NoContext();
                                 if (oldTeam != null)
                                 {
-                                    await _repository.UpdateAsync(nextKey, oldTeam).NoContext();
+                                    await _repository.InsertAsync(nextKey, oldTeam, cancellationToken).NoContext();
                                     listUpdated.Add(owner);
                                 }
                                 else
