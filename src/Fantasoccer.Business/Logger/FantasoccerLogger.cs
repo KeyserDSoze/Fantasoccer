@@ -13,7 +13,7 @@ namespace Fantasoccer.Business
         public async Task LogAsync<T>(string message)
         {
             var id = $"{IFantasoccerLogger.LogPrimaryKey}_-_{typeof(T).Name}_{DateTime.UtcNow.Hour}";
-            await _repository.UpdateAsync(id, new FantasoccerLog
+            await TryUpdateAsync(id, new FantasoccerLog
             {
                 PrimaryKey = IFantasoccerLogger.LogPrimaryKey,
                 SecondaryKey = id,
@@ -23,13 +23,25 @@ namespace Fantasoccer.Business
         public async Task LogErrorAsync<T>(Exception exception)
         {
             var id = $"{IFantasoccerLogger.ErrorPrimaryKey}_-_{typeof(T).Name}_{DateTime.UtcNow.Hour}";
-            await _repository.UpdateAsync(id, new FantasoccerLog
+            await TryUpdateAsync(id, new FantasoccerLog
             {
                 PrimaryKey = IFantasoccerLogger.ErrorPrimaryKey,
                 SecondaryKey = id,
                 Message = $"{typeof(T).Name} with: {exception.Message}",
                 Error = exception.ToString()
             });
+        }
+
+        private async Task TryUpdateAsync(string id, FantasoccerLog log)
+        {
+            try
+            {
+                await _repository.UpdateAsync(id, log);
+            }
+            catch
+            {
+                // Logging must not change the outcome of the operation being logged.
+            }
         }
 
         public async Task<IEnumerable<FantasoccerLog>> Top100Async()
