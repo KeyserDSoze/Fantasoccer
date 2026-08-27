@@ -81,6 +81,20 @@ public sealed class SerieACalendarTest : IDisposable
         Assert.Null(game.AwayGoal);
     }
 
+    [Fact]
+    public async Task ExposesLiveScoreAsResult()
+    {
+        _calendarHandler.Response = _ => JsonResponse("""
+            {"data":{"games":[{"matches":[{"utcDate":"2026-08-27T18:45:00Z","status":"LIVE","homeTeam":{"teamName":"Roma","shortTeamName":"rom","score":2},"awayTeam":{"teamName":"Milan","shortTeamName":"mil","score":1}}]}]}}
+            """);
+
+        var calendar = await _serieA.GetCalendarAsync(1, 1);
+
+        var game = Assert.Single(Assert.Single(calendar.Days).Games);
+        Assert.Equal(2, game.HomeGoal);
+        Assert.Equal(1, game.AwayGoal);
+    }
+
     private static HttpResponseMessage JsonResponse(string content)
         => new(HttpStatusCode.OK)
         {

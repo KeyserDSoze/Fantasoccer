@@ -15,13 +15,13 @@ namespace Fantasoccer.Engine.IngestionData
         public SerieAJob(IFantasoccerLogger logger, ISerieAInformation serieA,
             IRepository<RealCalendar, int> repository,
             IRepository<RealRank, int> rankRepository,
-            TimeProvider? timeProvider = null)
+            TimeProvider timeProvider)
         {
             _logger = logger;
             _serieA = serieA;
             _repository = repository;
             _rankRepository = rankRepository;
-            _timeProvider = timeProvider ?? TimeProvider.System;
+            _timeProvider = timeProvider;
         }
 
         public async Task ActionToDoAsync(CancellationToken cancellationToken)

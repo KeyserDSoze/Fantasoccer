@@ -9,6 +9,7 @@ namespace Fantasoccer.Engine
     {
         public static IServiceCollection AddFantasoccerBackgroundWork(this IServiceCollection services)
         {
+            services.AddSingleton(TimeProvider.System);
             services
                 .AddBackgroundJob<SerieAJob>(options =>
                 {

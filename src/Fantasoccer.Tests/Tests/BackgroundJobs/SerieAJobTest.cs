@@ -1,4 +1,5 @@
 using Fantasoccer.Business;
+using Fantasoccer.Engine;
 using Fantasoccer.Engine.IngestionData;
 using Fantasoccer.InMemory;
 using Microsoft.Extensions.DependencyInjection;
@@ -182,6 +183,48 @@ public sealed class SerieAJobTest : IAsyncLifetime
         Assert.Equal(1, rank.Teams.Single(x => x.Name == "Lazio").Point);
         Assert.Equal(0, rank.Teams.Single(x => x.Name == "Bologna").Played);
         Assert.Equal(0, rank.Teams.Single(x => x.Name == "Genoa").Played);
+    }
+
+    [Fact]
+    public async Task RecalculatesExistingRankWhenCalendarDoesNotChange()
+    {
+        var year = FantacalcioTime.ActualYear;
+        await _calendars.InsertAsync(year, new RealCalendar
+        {
+            Year = year,
+            Days =
+            [
+                new RealDay
+                {
+                    Year = year,
+                    SerieADay = 1,
+                    Games = [Game("Roma", "Milan", delayed: false, 2, 1)]
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+        await _ranks.InsertAsync(year, new RealRank
+        {
+            Teams = [new RealRankedTeam { Name = "Milan", Point = 99 }]
+        }, TestContext.Current.CancellationToken);
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var rank = await _ranks.GetAsync(year, TestContext.Current.CancellationToken);
+        Assert.NotNull(rank);
+        Assert.Equal("Roma", rank.Teams[0].Name);
+        Assert.Equal(3, rank.Teams[0].Point);
+        Assert.Equal(0, rank.Teams.Single(x => x.Name == "Milan").Point);
+    }
+
+    [Fact]
+    public void BackgroundJobsRegisterSystemTimeProvider()
+    {
+        var services = new ServiceCollection();
+
+        services.AddFantasoccerBackgroundWork();
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Same(TimeProvider.System, provider.GetRequiredService<TimeProvider>());
     }
 
     private SerieAJob CreateJob()

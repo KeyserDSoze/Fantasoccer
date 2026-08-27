@@ -47,15 +47,16 @@ namespace Fantasoccer.Business
                             string.IsNullOrWhiteSpace(match.homeTeam.teamName) || string.IsNullOrWhiteSpace(match.awayTeam.teamName))
                             continue;
 
-                        var isFinal = string.Equals(match.status, "FULL", StringComparison.OrdinalIgnoreCase);
+                        var hasScore = string.Equals(match.status, "FULL", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(match.status, "LIVE", StringComparison.OrdinalIgnoreCase);
                         realDay.Games.Add(new RealGame
                         {
                             Home = new RealTeam { Name = match.homeTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.homeTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Date = FantacalcioTime.ToItalyNow(match.utcDate),
                             Delayed = string.Equals(match.status, "POSTPONED", StringComparison.OrdinalIgnoreCase),
-                            HomeGoal = isFinal ? match.homeTeam.score : null,
-                            AwayGoal = isFinal ? match.awayTeam.score : null
+                            HomeGoal = hasScore ? match.homeTeam.score : null,
+                            AwayGoal = hasScore ? match.awayTeam.score : null
                         });
                     }
                 }
