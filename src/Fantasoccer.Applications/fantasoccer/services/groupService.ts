@@ -64,7 +64,7 @@ export class GroupService {
    * @param groupId - Group ID
    * @param group - Updated group object
    */
-  async updateGroup(groupId: string, group: Group): Promise<Group | null> {
+  async updateGroup(groupId: string, group: Group): Promise<Group> {
     try {
       const repository = RepositoryServices
         .Repository<GroupRaw, string>("Group")
@@ -75,15 +75,14 @@ export class GroupService {
       // Update the group
       const result = await repository.update(groupId, rawGroup)
       
-      if (result && 'value' in result) {
-        // Return the updated group
-        return mapRawGroupToGroup((result as any).value as GroupRaw)
+      if (!result?.isOk) {
+        throw new Error(result?.message || 'Aggiornamento del gruppo non riuscito')
       }
-      
-      return null
+
+      return mapRawGroupToGroup(result.entity.value)
     } catch (error) {
       console.error('Error updating group:', error)
-      return null
+      throw error
     }
   }
 

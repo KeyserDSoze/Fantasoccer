@@ -66,7 +66,10 @@ namespace Fantasoccer.Application.Api.Controllers
                 var actualLeague = group.GetAnnualLeague(leagueId, year);
                 if (actualLeague != null)
                 {
-                    var leagueCalculator = _leagueCalculatorFactory.Create(actualLeague.Type.ToString())!;
+                    var actualLeagueType = league.GetAnnualType(year);
+                    if (actualLeagueType == LeagueType.Null)
+                        return false;
+                    var leagueCalculator = _leagueCalculatorFactory.Create(actualLeagueType.ToString())!;
                     var leagueKey = new LeagueKey()
                     {
                         Group = groupId,
@@ -79,11 +82,15 @@ namespace Fantasoccer.Application.Api.Controllers
                         var teams = new List<AnnualTeam>();
                         foreach (var basket in group.Baskets.Where(x => league.BasketsId.Contains(x.Id)))
                         {
-                            foreach (var team in basket.Years.First(x => x.Year == year).Teams)
+                            foreach (var team in basket.Years.FirstOrDefault(x => x.Year == year)?.Teams ?? [])
                                 teams.Add(team);
                         }
-                        if (actualLeague.Type == LeagueType.Cup)
+                        if (teams.Count < 2 || teams.Select(x => x.Owner).Distinct().Count() != teams.Count)
+                            return false;
+                        if (actualLeagueType == LeagueType.Cup)
                         {
+                            if (teams.Count < 16)
+                                return false;
                             var worthTeams = new List<AnnualTeam>();
                             foreach (var mainLeague in group.Leagues.Where(x => x.IsMain))
                             {
@@ -212,13 +219,40 @@ namespace Fantasoccer.Application.Api.Controllers
                     Year = year
                 };
                 var calendar = await _calendar.GetAsync(leagueKey);
+                if (calendar == null)
+                    return false;
+                var league = group.Leagues.FirstOrDefault(x => x.Id == leagueId);
+                if (league == null)
+                    return false;
+                var currentOwnerEntries = group.Baskets
+                    .Where(x => league.BasketsId.Contains(x.Id))
+                    .SelectMany(x => x.Years.FirstOrDefault(y => y.Year == year)?.Teams ?? [])
+                    .Select(x => x.Owner)
+                    .ToArray();
+                var currentOwners = currentOwnerEntries
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToArray();
+                var calendarOwners = calendar.Rounds
+                    .SelectMany(x => x.Value)
+                    .SelectMany(x => x.Games)
+                    .SelectMany(x => new[] { x.HomeOwner, x.AwayOwner })
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToArray();
+                var leagueType = league.GetAnnualType(year);
+                var yearlyLeague = group.GetAnnualLeague(leagueId, year);
+                if (yearlyLeague == null || leagueType == LeagueType.Null)
+                    return false;
+                var hasDuplicateOwners = currentOwnerEntries.Length != currentOwners.Length;
+                var hasMatchingRoster = leagueType == LeagueType.Cup
+                    ? calendarOwners.Length == 16 && calendarOwners.All(currentOwners.Contains)
+                    : currentOwners.SequenceEqual(calendarOwners);
+                if (hasDuplicateOwners || !hasMatchingRoster)
+                    return false;
                 var realCalendar = await _realCalendar.GetAsync(year);
                 var lastDay = realCalendar?.LastDay;
-                var yearlyLeague = group.GetAnnualLeague(leagueId, year);
-                var leagueType = yearlyLeague!.Type;
                 var settings = yearlyLeague?.Settings;
-                if (leagueType == LeagueType.Null)
-                    leagueType = group.Leagues.First(x => x.Id == leagueId).Type;
                 _teamCalculator.SetLeagueSettings(leagueType, settings ?? LeagueSetting.Default);
                 if (settings != null)
                 {

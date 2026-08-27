@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { useAuth } from './AuthProvider'
 import { groupService } from '../services/groupService'
 import { authService } from '../services/authService'
@@ -19,6 +19,7 @@ export interface AppState {
 
 export interface AppContextType extends AppState {
   refreshGroups: () => Promise<void>
+  applyGroupUpdate: (group: Group) => void
   setCurrentGroup: (groupId: string | null) => Promise<void>
   setSelectedLeague: (leagueId: string | null) => Promise<void>
   setSelectedYear: (year: number | null) => Promise<void>
@@ -55,6 +56,7 @@ export function AppProvider({ children }: AppProviderProps) {
   const [userGroups, setUserGroups] = useState<Group[]>([])
   const [isGroupsLoading, setIsGroupsLoading] = useState<boolean>(false)
   const [groupsError, setGroupsError] = useState<string | null>(null)
+  const groupsLoadSequence = useRef(0)
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [superAdminMode, setSuperAdminMode] = useState<boolean>(() => {
@@ -68,6 +70,8 @@ export function AppProvider({ children }: AppProviderProps) {
 
   // Load user groups when user is authenticated
   const loadUserGroups = async () => {
+    const loadSequence = ++groupsLoadSequence.current
+
     if (!isAuthenticated || !user) {
       setUserGroups([])
       setCurrentGroupState(null)
@@ -82,6 +86,8 @@ export function AppProvider({ children }: AppProviderProps) {
       
       // Load all user groups
       const groups = await groupService.getUserGroups()
+      if (loadSequence !== groupsLoadSequence.current) return
+
       setUserGroups(groups)
       
       // Set current group based on user state or first available group
@@ -92,16 +98,20 @@ export function AppProvider({ children }: AppProviderProps) {
         targetGroupId = groups.length > 0 ? groups[0].id : null
       }
       
-      if (targetGroupId) {
-        await setCurrentGroupInternal(targetGroupId)
-      }
+      const targetGroup = groups.find(group => group.id === targetGroupId) || null
+      setCurrentGroupState(targetGroup)
+      setEnhancedGroup(targetGroup ? enhanceGroup(targetGroup) : null)
       
     } catch (error) {
+      if (loadSequence !== groupsLoadSequence.current) return
+
       console.error('Error loading user groups:', error)
       setGroupsError(error instanceof Error ? error.message : 'Errore nel caricamento dei gruppi')
     } finally {
-      setIsGroupsLoading(false)
-      hideLoading()
+      if (loadSequence === groupsLoadSequence.current) {
+        setIsGroupsLoading(false)
+        hideLoading()
+      }
     }
   }
 
@@ -183,6 +193,15 @@ export function AppProvider({ children }: AppProviderProps) {
   // Refresh groups
   const refreshGroups = async () => {
     await loadUserGroups()
+  }
+
+  const applyGroupUpdate = (group: Group) => {
+    groupsLoadSequence.current++
+    setUserGroups(groups => groups.map(existing => existing.id === group.id ? group : existing))
+    setCurrentGroupState(group)
+    setEnhancedGroup(enhanceGroup(group))
+    setIsGroupsLoading(false)
+    hideLoading()
   }
 
   // Clear error
@@ -314,9 +333,11 @@ export function AppProvider({ children }: AppProviderProps) {
       loadUserGroups()
     } else if (!isAuthenticated) {
       // Clear groups when user logs out
+      groupsLoadSequence.current++
       setUserGroups([])
       setCurrentGroupState(null)
       setEnhancedGroup(null)
+      setIsGroupsLoading(false)
       setGroupsError(null)
       setSelectedLeagueId(null)
       setSelectedYear(null)
@@ -390,6 +411,7 @@ export function AppProvider({ children }: AppProviderProps) {
     
     // Actions
     refreshGroups,
+    applyGroupUpdate,
     setCurrentGroup,
     setSelectedLeague,
     setSelectedYear: setSelectedYearFunc,

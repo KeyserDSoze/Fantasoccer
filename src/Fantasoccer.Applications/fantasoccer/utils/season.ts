@@ -2,29 +2,31 @@
  * Season utilities forFantaSoccer
  * 
  * Season year logic:
- * - Season 1 = 2012/13 (August 2012 - July 2013)
- * - Season starts in August and ends in July
+ * - Season 1 = 2012/13
+ * - The app switches season on August 10, matching the backend
  * - Base year is 2012 (first season)
  */
 
 const BASE_YEAR = 2012 // First season year
 const SEASON_START_MONTH = 8 // August (1-indexed)
+const SEASON_START_DAY = 10
 
 /**
  * Get the current season year index based on current date
  * Examples:
  * - May 2026 -> Season 14 (2025/26)
- * - August 2025 -> Season 14 (2025/26)
+ * - August 10, 2025 -> Season 14 (2025/26)
  * - July 2026 -> Season 14 (2025/26)
  * - August 2026 -> Season 15 (2026/27)
  */
-export function getCurrentSeasonYear(): number {
-  const now = new Date()
-  const currentYear = now.getFullYear()
-  const currentMonth = now.getMonth() + 1 // getMonth() is 0-indexed
+export function getCurrentSeasonYear(now = new Date()): number {
+  const currentYear = now.getUTCFullYear()
+  const currentMonth = now.getUTCMonth() + 1 // getUTCMonth() is 0-indexed
+  const currentDay = now.getUTCDate()
 
-  // If we're before August (months 1-7), we're still in the previous season
-  const seasonStartYear = currentMonth >= SEASON_START_MONTH ? currentYear : currentYear - 1
+  const isNewSeason = currentMonth > SEASON_START_MONTH ||
+    (currentMonth === SEASON_START_MONTH && currentDay >= SEASON_START_DAY)
+  const seasonStartYear = isNewSeason ? currentYear : currentYear - 1
   
   // Calculate season index (1-based)
   return seasonStartYear - BASE_YEAR + 1

@@ -1,5 +1,5 @@
 // Types matching the C# Group structure
-import { convertUTCToItalianTimezone } from '../utils/timezoneHelpers'
+import { preserveRawLeagueSetting } from '../utils/groupAdmin'
 
 // Import IdentityRole from existing identity types
 export { IdentityRole } from './identity'
@@ -46,9 +46,9 @@ export const LeagueTypeExtensions = {
 }
 
 export enum MarketType {
-  // Add values based on your C# MarketType enum
-  // For now, adding a placeholder
-  Default = 0
+  WithVote = 0,
+  WithoutVote = 1,
+  Denied = 2
 }
 
 // ============================================
@@ -70,7 +70,7 @@ export interface VoteLeagueSettingRaw {
 }
 
 export interface LeagueSettingRaw {
-  v: Record<number, VoteLeagueSettingRaw>  // Votes (Role -> VoteLeagueSetting)
+  v: Record<string, VoteLeagueSettingRaw>  // Votes (Role -> VoteLeagueSetting)
   s: number    // StartingMoney
   d: number    // DelayedDay
   c: number    // CancelledDay
@@ -159,6 +159,8 @@ export interface VoteLeagueSetting {
 }
 
 export interface LeagueSetting {
+  // Keeps settings that exist in the backend but are not editable in this screen.
+  raw?: LeagueSettingRaw
   votes: Partial<Record<Role, VoteLeagueSetting>>
   startingMoney: number
   delayedDay: number
@@ -253,12 +255,19 @@ export function mapRawLeagueSettingToLeagueSetting(raw: LeagueSettingRaw): Leagu
   const votes: Partial<Record<Role, VoteLeagueSetting>> = {}
   
   // Map the votes dictionary
-  for (const [roleKey, voteRaw] of Object.entries(raw.v)) {
-    const role = parseInt(roleKey) as Role
-    votes[role] = mapRawVoteLeagueSettingToVoteLeagueSetting(voteRaw)
+  for (const [roleKey, voteRaw] of Object.entries(raw.v || {})) {
+    const numericRole = Number(roleKey)
+    const role = Number.isNaN(numericRole)
+      ? Role[roleKey as keyof typeof Role]
+      : numericRole
+
+    if (typeof role === 'number') {
+      votes[role as Role] = mapRawVoteLeagueSettingToVoteLeagueSetting(voteRaw)
+    }
   }
 
   return {
+    raw,
     votes,
     startingMoney: raw.s,
     delayedDay: raw.d,
@@ -396,40 +405,17 @@ export function mapVoteLeagueSettingToRaw(setting: VoteLeagueSetting): VoteLeagu
 }
 
 export function mapLeagueSettingToRaw(setting: LeagueSetting): LeagueSettingRaw {
-  const votes: Record<number, VoteLeagueSettingRaw> = {}
+  const votes: Record<string, VoteLeagueSettingRaw> = {}
   if (setting.votes) {
     for (const [roleKey, voteSetting] of Object.entries(setting.votes)) {
       const role = parseInt(roleKey) as Role
       if (voteSetting) {
-        votes[role] = mapVoteLeagueSettingToRaw(voteSetting)
+        votes[Role[role] || roleKey] = mapVoteLeagueSettingToRaw(voteSetting)
       }
     }
   }
 
-  return {
-    v: votes,
-    s: setting.startingMoney,
-    d: setting.delayedDay,
-    c: setting.cancelledDay,
-    g: setting.pointForFirstGoal,
-    t: setting.pointForNextGoal,
-    o: setting.pointForOwnGoal,
-    f: setting.differencePointForOwnGoal,
-    p: setting.pointInHome,
-    a: setting.pointForVictory,
-    b: setting.pointForDefeat,
-    h: setting.pointForDraw,
-    "3": setting.pointForStrongDefense,
-    "4": setting.pointForStrongDefense4,
-    "5": setting.pointForStrongDefense5,
-    gp: setting.pointForGoodPeople,
-    l: setting.pointForCleanSheet,
-    m: setting.moneyForGoal,
-    n: setting.moneyForSufferedGoal,
-    q: setting.randomAuction,
-    vp: setting.rankWithValuePoints,
-    mk: setting.market
-  }
+  return preserveRawLeagueSetting(setting, votes)
 }
 
 export function mapAnnualLeagueToRaw(annualLeague: AnnualLeague): AnnualLeagueRaw {
@@ -571,7 +557,7 @@ export const DefaultLeagueSetting: LeagueSetting = {
   pointForGoodPeople: 2,
   randomAuction: false,
   rankWithValuePoints: false,
-  market: MarketType.Default
+  market: MarketType.WithVote
 }
 
 // Enhanced Group interface with computed properties

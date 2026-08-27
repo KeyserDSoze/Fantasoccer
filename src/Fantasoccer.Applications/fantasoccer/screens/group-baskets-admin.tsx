@@ -12,13 +12,12 @@ import {
   Separator,
   Button,
   Input,
-  Select,
   useMedia
 } from 'tamagui'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
-import { Basket, YearlyBasket, AnnualTeam, UserOfAGroup } from 'types/group'
+import { Basket, AnnualTeam } from 'types/group'
 import { 
   Package,
   Plus,
@@ -26,19 +25,17 @@ import {
   Copy,
   Users,
   UserPlus,
-  UserMinus,
   AlertCircle,
-  CheckCircle,
-  Edit3,
-  Save
+  CheckCircle
 } from '@tamagui/lucide-icons'
 import { formatSeasonFromYear, getAvailableSeasonYears } from 'utils/season'
+import { copyMissingTeams } from 'utils/groupAdmin'
 
 export default function GroupBasketsAdminScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
 
-  const { currentGroup, refreshGroups, selectedYear, setSelectedYear } = useApp()
+  const { currentGroup, applyGroupUpdate, selectedYear, setSelectedYear } = useApp()
 
   const [selectedBasketId, setSelectedBasketId] = useState<string | null>(null)
   const [newBasketName, setNewBasketName] = useState('')
@@ -113,20 +110,19 @@ export default function GroupBasketsAdminScreen() {
         baskets: [...(currentGroup.baskets || []), newBasket]
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess(`Basket "${newBasketName}" creato con successo`)
       setNewBasketName('')
       setSelectedBasketId(newBasketId)
-      
-      await refreshGroups()
       
     } catch (err) {
       setError(`Errore nella creazione del basket: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, newBasketName, currentYearIndex, refreshGroups])
+  }, [currentGroup, newBasketName, currentYearIndex, applyGroupUpdate])
 
   // Delete basket
   const deleteBasket = useCallback(async (basketId: string) => {
@@ -144,7 +140,8 @@ export default function GroupBasketsAdminScreen() {
         baskets: (currentGroup.baskets || []).filter(b => b.id !== basketId)
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess(`Basket "${basketToDelete?.name}" eliminato con successo`)
       
@@ -155,14 +152,12 @@ export default function GroupBasketsAdminScreen() {
         setSelectedBasketId(null)
       }
       
-      await refreshGroups()
-      
     } catch (err) {
       setError(`Errore nell'eliminazione del basket: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, refreshGroups])
+  }, [currentGroup, applyGroupUpdate])
 
   // Add team to current year
   const addTeam = useCallback(async () => {
@@ -217,19 +212,18 @@ export default function GroupBasketsAdminScreen() {
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess(`Team "${teamName}" aggiunto con successo`)
       setNewTeamName('')
-      
-      await refreshGroups()
       
     } catch (err) {
       setError(`Errore nell'aggiunta del team: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, selectedBasket, newTeamOwner, newTeamName, teams, currentYearIndex, refreshGroups])
+  }, [currentGroup, selectedBasket, newTeamOwner, newTeamName, teams, currentYearIndex, applyGroupUpdate])
 
   // Delete team
   const deleteTeam = useCallback(async (teamOwner: string) => {
@@ -260,18 +254,17 @@ export default function GroupBasketsAdminScreen() {
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess('Team eliminato con successo')
-      
-      await refreshGroups()
       
     } catch (err) {
       setError(`Errore nell'eliminazione del team: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, selectedBasket, currentYearIndex, refreshGroups])
+  }, [currentGroup, selectedBasket, currentYearIndex, applyGroupUpdate])
 
   // Change team owner
   const changeTeamOwner = useCallback(async (currentOwner: string, newOwner: string) => {
@@ -312,18 +305,17 @@ export default function GroupBasketsAdminScreen() {
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess('Owner aggiornato con successo')
-      
-      await refreshGroups()
       
     } catch (err) {
       setError(`Errore nell'aggiornamento dell'owner: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, selectedBasket, teams, currentYearIndex, refreshGroups])
+  }, [currentGroup, selectedBasket, teams, currentYearIndex, applyGroupUpdate])
 
   // Toggle co-owner
   const toggleCoOwner = useCallback(async (teamOwner: string, coOwner: string) => {
@@ -366,18 +358,17 @@ export default function GroupBasketsAdminScreen() {
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       setSuccess('Co-owner aggiornato con successo')
-      
-      await refreshGroups()
       
     } catch (err) {
       setError(`Errore nell'aggiornamento dei co-owner: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, selectedBasket, currentYearIndex, refreshGroups])
+  }, [currentGroup, selectedBasket, currentYearIndex, applyGroupUpdate])
 
   // Copy teams from previous year
   const copyFromPreviousYear = useCallback(async () => {
@@ -387,7 +378,7 @@ export default function GroupBasketsAdminScreen() {
     const previousYearBasket = selectedBasket.years.find(y => y.year === previousYear)
 
     if (!previousYearBasket || previousYearBasket.teams.length === 0) {
-      setError(`Nessun team trovato per l'anno ${previousYear}`)
+      setError(`Nessun team trovato per il ${formatSeasonFromYear(previousYear)}`)
       return
     }
 
@@ -400,9 +391,7 @@ export default function GroupBasketsAdminScreen() {
       const existingTeams = yearlyBasket?.teams || []
       
       // Copy teams that don't already exist (by owner)
-      const teamsToCopy = previousYearBasket.teams.filter(
-        prevTeam => !existingTeams.some(t => t.owner === prevTeam.owner)
-      )
+      const teamsToCopy = copyMissingTeams(previousYearBasket.teams, existingTeams)
 
       if (teamsToCopy.length === 0) {
         setError('Tutti i team dell\'anno precedente sono già presenti')
@@ -437,18 +426,17 @@ export default function GroupBasketsAdminScreen() {
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
-      
-      setSuccess(`${teamsToCopy.length} team copiati dall'anno ${previousYear}`)
-      
-      await refreshGroups()
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
+
+      setSuccess(`${teamsToCopy.length} team copiati dal ${formatSeasonFromYear(previousYear)}`)
       
     } catch (err) {
       setError(`Errore nella copia dei team: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, selectedBasket, currentYearIndex, yearlyBasket, refreshGroups])
+  }, [currentGroup, selectedBasket, currentYearIndex, yearlyBasket, applyGroupUpdate])
 
   if (!currentGroup) {
     return (
@@ -615,7 +603,7 @@ export default function GroupBasketsAdminScreen() {
                   disabled={loading}
                   icon={<Copy size="$0.75" />}
                 >
-                  Copia dall'anno scorso
+                  Copia dall&apos;anno scorso
                 </Button>
               </XStack>
 
@@ -777,4 +765,3 @@ export default function GroupBasketsAdminScreen() {
     </View>
   )
 }
-

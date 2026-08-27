@@ -8,22 +8,37 @@ import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
 import { leagueManagerService } from 'services/leagueManagerService'
-import type { League, LeagueSetting, VoteLeagueSetting, AnnualLeague, Role } from 'types/group'
-import { LeagueType } from 'types/group'
-import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown } from '@tamagui/lucide-icons'
+import { calendarService } from 'services/calendarService'
+import type { League, LeagueSetting, AnnualLeague } from 'types/group'
+import type { Calendar } from 'types/calendar'
+import { DefaultLeagueSetting, LeagueType } from 'types/group'
+import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown, Copy } from '@tamagui/lucide-icons'
 import { formatSeasonFromYear, getAvailableSeasonYears, getCurrentSeasonYear } from 'utils/season'
+import { cloneLeagueSetting, copyAnnualLeagueToYear, getAnnualLeagueForYear, upsertAnnualLeague } from 'utils/groupAdmin'
+
+const getCalendarOwners = (calendar: Calendar): string[] => {
+  const owners = new Set<string>()
+  Object.values(calendar.rounds).flat().forEach(day => {
+    day.games.forEach(game => {
+      owners.add(game.homeOwner)
+      owners.add(game.awayOwner)
+    })
+  })
+  return [...owners].sort()
+}
 
 export default function GroupLeagueAdminScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
   const toast = useToastController()
 
-  const { currentGroup, refreshGroups, selectedYear, setSelectedYear } = useApp()
+  const { currentGroup, applyGroupUpdate, selectedYear, setSelectedYear } = useApp()
 
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
   const [newLeagueName, setNewLeagueName] = useState('')
   const [dayToRecalculate, setDayToRecalculate] = useState(38)
   const [pendingLeagueChanges, setPendingLeagueChanges] = useState<Partial<League> | null>(null)
+  const [calendarOwners, setCalendarOwners] = useState<string[] | null>(null)
   
   // Loading states for each operation
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
@@ -65,9 +80,38 @@ export default function GroupLeagueAdminScreen() {
   // Selected yearly league
   const selectedYearlyLeague = useMemo(() => {
     if (!selectedLeague) return null
-    const selectedYear = selectedLeague.years.find(y => y.year === currentYearIndex) || null
-    return selectedYear
+    return getAnnualLeagueForYear(selectedLeague, currentYearIndex, DefaultLeagueSetting)
   }, [selectedLeague, currentYearIndex])
+
+  const previousYearlyLeague = useMemo(() => {
+    return selectedLeague?.years.find(y => y.year === currentYearIndex - 1) || null
+  }, [selectedLeague, currentYearIndex])
+
+  const isYearPersisted = useMemo(() => {
+    const persistedLeague = currentGroup?.leagues.find(league => league.id === selectedLeagueId)
+    return persistedLeague?.years.some(year => year.year === currentYearIndex) || false
+  }, [currentGroup, selectedLeagueId, currentYearIndex])
+
+  const isYearInDraft = selectedLeague?.years.some(year => year.year === currentYearIndex) || false
+  const hasPendingChanges = pendingLeagueChanges?.id === selectedLeagueId
+  const effectiveLeagueType = selectedYearlyLeague?.type || selectedLeague?.type || LeagueType.Null
+  const associatedBaskets = currentGroup?.baskets.filter(basket => selectedLeague?.basketsId.includes(basket.id)) || []
+  const currentYearTeams = associatedBaskets.flatMap(basket => (
+    basket.years.find(year => year.year === currentYearIndex)?.teams || []
+  ))
+  const hasDuplicateOwners = new Set(currentYearTeams.map(team => team.owner)).size !== currentYearTeams.length
+  const minimumCalendarTeams = effectiveLeagueType === LeagueType.Cup ? 16 : 2
+  const canRunOperations = isYearPersisted && !hasPendingChanges && effectiveLeagueType !== LeagueType.Null
+  const canCreateCalendar = canRunOperations && associatedBaskets.length > 0 &&
+    currentYearTeams.length >= minimumCalendarTeams && !hasDuplicateOwners
+  const currentOwners = [...new Set(currentYearTeams.map(team => team.owner))].sort()
+  const hasMatchingCalendarRoster = calendarOwners !== null && (
+    effectiveLeagueType === LeagueType.Cup
+      ? calendarOwners.length === 16 && calendarOwners.every(owner => currentOwners.includes(owner))
+      : calendarOwners.length === currentOwners.length &&
+        calendarOwners.every((owner, index) => owner === currentOwners[index])
+  )
+  const canRecalculate = canRunOperations && !hasDuplicateOwners && hasMatchingCalendarRoster
 
   // Settings for current year
   const settings = useMemo(() => {
@@ -86,18 +130,66 @@ export default function GroupLeagueAdminScreen() {
     setPendingLeagueChanges(null)
   }, [selectedLeagueId])
 
+  useEffect(() => {
+    let active = true
+    setCalendarOwners(null)
+
+    if (!currentGroup || !selectedLeagueId || !isYearPersisted) return
+
+    calendarService.getCalendarByComponents(currentGroup.id, selectedLeagueId, currentYearIndex)
+      .then(calendar => {
+        if (!active || !calendar) return
+
+        setCalendarOwners(getCalendarOwners(calendar))
+      })
+
+    return () => {
+      active = false
+    }
+  }, [currentGroup, selectedLeagueId, currentYearIndex, isYearPersisted])
+
   // Helper to update league properties
   const updateLeagueProperty = useCallback(<K extends keyof League>(
     key: K,
     value: League[K]
   ) => {
     if (!selectedLeague) return
-    setPendingLeagueChanges({
-      ...pendingLeagueChanges,
+    setPendingLeagueChanges(current => ({
+      ...current,
       id: selectedLeague.id,
       [key]: value
+    }))
+  }, [selectedLeague])
+
+  const updateAnnualLeague = useCallback((annualLeague: AnnualLeague) => {
+    if (!selectedLeague) return
+
+    setPendingLeagueChanges(current => ({
+      ...current,
+      id: selectedLeague.id,
+      years: upsertAnnualLeague(selectedLeague.years, annualLeague)
+    }))
+  }, [selectedLeague])
+
+  const initializeYearWithDefaults = useCallback(() => {
+    if (!selectedLeague) return
+
+    updateAnnualLeague({
+      year: currentYearIndex,
+      type: selectedLeague.type,
+      settings: cloneLeagueSetting(DefaultLeagueSetting)
     })
-  }, [selectedLeague, pendingLeagueChanges])
+    toast.show(`Settings di default pronti per il ${formatSeasonFromYear(currentYearIndex)}. Premi Salva Impostazioni per confermare.`, { variant: 'success' })
+  }, [selectedLeague, currentYearIndex, updateAnnualLeague, toast])
+
+  const copySettingsFromPreviousYear = useCallback(() => {
+    if (!previousYearlyLeague) return
+
+    if (!selectedLeague) return
+
+    updateAnnualLeague(copyAnnualLeagueToYear(previousYearlyLeague, currentYearIndex, selectedLeague.type))
+    toast.show(`Settings copiati dal ${formatSeasonFromYear(currentYearIndex - 1)}. Premi Salva Impostazioni per confermare.`, { variant: 'success' })
+  }, [previousYearlyLeague, selectedLeague, currentYearIndex, updateAnnualLeague, toast])
 
   // Create new league
   const createLeague = useCallback(async () => {
@@ -113,7 +205,11 @@ export default function GroupLeagueAdminScreen() {
         name: newLeagueName.trim(),
         isMain: false,
         type: LeagueType.League,
-        years: [],
+        years: [{
+          year: currentYearIndex,
+          type: LeagueType.League,
+          settings: cloneLeagueSetting(DefaultLeagueSetting)
+        }],
         basketsId: []
       }
 
@@ -122,20 +218,19 @@ export default function GroupLeagueAdminScreen() {
         leagues: [...(currentGroup.leagues || []), newLeague]
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       toast.show(`✅ Lega "${newLeagueName}" creata con successo`, { variant: 'success' })
       setNewLeagueName('')
       setSelectedLeagueId(newLeagueId)
-      
-      await refreshGroups()
       
     } catch (err) {
       toast.show(`❌ Errore nella creazione della lega: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
       setLoading('create', false)
     }
-  }, [currentGroup, newLeagueName, refreshGroups, toast])
+  }, [currentGroup, newLeagueName, currentYearIndex, applyGroupUpdate, toast])
 
   // Delete league
   const deleteLeague = useCallback(async (leagueId: string) => {
@@ -151,7 +246,8 @@ export default function GroupLeagueAdminScreen() {
         leagues: (currentGroup.leagues || []).filter(l => l.id !== leagueId)
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       toast.show(`✅ Lega "${leagueToDelete?.name}" eliminata con successo`, { variant: 'success' })
       
@@ -162,44 +258,46 @@ export default function GroupLeagueAdminScreen() {
         setSelectedLeagueId(null)
       }
       
-      await refreshGroups()
-      
     } catch (err) {
       toast.show(`❌ Errore nell'eliminazione della lega: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
       setLoading('delete', false)
     }
-  }, [currentGroup, refreshGroups, toast])
+  }, [currentGroup, applyGroupUpdate, toast])
 
   // Save league settings
   const saveSettings = useCallback(async () => {
-    if (!currentGroup || !selectedLeague || !settings) return
+    if (!currentGroup || !selectedLeague || !selectedYearlyLeague) return
 
     setLoading('save', true)
 
     try {
+      const leagueToSave: League = {
+        ...selectedLeague,
+        years: upsertAnnualLeague(selectedLeague.years, selectedYearlyLeague)
+      }
+
       const updatedGroup = {
         ...currentGroup,
         leagues: (currentGroup.leagues || []).map(l => 
-          l.id === selectedLeague.id ? selectedLeague : l
+          l.id === selectedLeague.id ? leagueToSave : l
         )
       }
 
-      await groupService.updateGroup(currentGroup.id, updatedGroup)
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
       
       toast.show('✅ Settings salvati con successo', { variant: 'success' })
       
       // Clear pending changes after successful save
       setPendingLeagueChanges(null)
       
-      await refreshGroups()
-      
     } catch (err) {
       toast.show(`❌ Errore nel salvataggio: ${err instanceof Error ? err.message : 'Unknown error'}`, { variant: 'error' })
     } finally {
       setLoading('save', false)
     }
-  }, [currentGroup, selectedLeague, settings, refreshGroups, toast])
+  }, [currentGroup, selectedLeague, selectedYearlyLeague, applyGroupUpdate, toast])
 
   // Create calendar and rank
   const createCalendarAndRank = useCallback(async () => {
@@ -215,6 +313,12 @@ export default function GroupLeagueAdminScreen() {
       )
 
       if (result) {
+        const calendar = await calendarService.getCalendarByComponents(
+          currentGroup.id,
+          selectedLeague.id,
+          currentYearIndex
+        )
+        setCalendarOwners(calendar ? getCalendarOwners(calendar) : null)
         toast.show('✅ Calendario e classifica creati con successo', { variant: 'success' })
       } else {
         toast.show('❌ Errore nella creazione del calendario', { variant: 'error' })
@@ -357,21 +461,8 @@ export default function GroupLeagueAdminScreen() {
       settings: updatedSettings
     }
 
-    const updatedLeague: League = {
-      ...selectedLeague,
-      years: selectedLeague.years.map(y =>
-        y.year === currentYearIndex ? updatedYearlyLeague : y
-      )
-    }
-
-    // If year doesn't exist, create it
-    if (!selectedLeague.years.some(y => y.year === currentYearIndex)) {
-      updatedLeague.years = [...selectedLeague.years, updatedYearlyLeague]
-    }
-
-    // Update in local state (will be saved on "Save" button)
-    setSelectedLeagueId(updatedLeague.id)
-  }, [selectedLeague, selectedYearlyLeague, settings, currentYearIndex])
+    updateAnnualLeague(updatedYearlyLeague)
+  }, [selectedLeague, selectedYearlyLeague, settings, updateAnnualLeague])
 
   // Update yearly league type (not a setting, but a property of AnnualLeague)
   const updateYearlyLeagueType = useCallback((newType: LeagueType) => {
@@ -382,75 +473,8 @@ export default function GroupLeagueAdminScreen() {
       type: newType
     }
 
-    const updatedLeague: League = {
-      ...selectedLeague,
-      years: selectedLeague.years.map(y =>
-        y.year === currentYearIndex ? updatedYearlyLeague : y
-      )
-    }
-
-    // If year doesn't exist, create it with the new type
-    if (!selectedLeague.years.some(y => y.year === currentYearIndex)) {
-      updatedLeague.years = [...selectedLeague.years, updatedYearlyLeague]
-    }
-
-    // Update in local state (will be saved on "Save" button)
-    setSelectedLeagueId(updatedLeague.id)
-  }, [selectedLeague, selectedYearlyLeague, settings, currentYearIndex])
-
-  // Update vote setting for a role
-  const updateVoteSetting = useCallback((
-    role: Role,
-    key: keyof VoteLeagueSetting,
-    value: number
-  ) => {
-    if (!selectedLeague || !selectedYearlyLeague || !settings) return
-
-    const currentVoteSetting = settings.votes[role] || {
-      goal: 0,
-      penalty: 0,
-      sufferedGoal: 0,
-      stoppedPenalty: 0,
-      wrongedPenalty: 0,
-      ownGoal: 0,
-      assist: 0,
-      yellowCard: 0,
-      redCard: 0,
-      injury: 0,
-      manOfTheMatch: 0
-    }
-
-    const updatedVoteSetting: VoteLeagueSetting = {
-      ...currentVoteSetting,
-      [key]: value
-    }
-
-    const updatedSettings: LeagueSetting = {
-      ...settings,
-      votes: {
-        ...settings.votes,
-        [role]: updatedVoteSetting
-      }
-    }
-
-    const updatedYearlyLeague: AnnualLeague = {
-      ...selectedYearlyLeague,
-      settings: updatedSettings
-    }
-
-    const updatedLeague: League = {
-      ...selectedLeague,
-      years: selectedLeague.years.map(y =>
-        y.year === currentYearIndex ? updatedYearlyLeague : y
-      )
-    }
-
-    if (!selectedLeague.years.some(y => y.year === currentYearIndex)) {
-      updatedLeague.years = [...selectedLeague.years, updatedYearlyLeague]
-    }
-
-    setSelectedLeagueId(updatedLeague.id)
-  }, [selectedLeague, selectedYearlyLeague, settings, currentYearIndex])
+    updateAnnualLeague(updatedYearlyLeague)
+  }, [selectedLeague, selectedYearlyLeague, settings, updateAnnualLeague])
 
   if (!currentGroup) {
     return (
@@ -534,6 +558,42 @@ export default function GroupLeagueAdminScreen() {
                         </Button>
                       </XStack>
 
+                      {!isYearPersisted && (
+                        <Card padding="$3" backgroundColor="$orange3" borderColor="$orange7" borderWidth="$0.5">
+                          <YStack gap="$3">
+                            <Text color="$orange11" fontWeight="600">
+                              {isYearInDraft
+                                ? `I settings per il ${formatSeasonFromYear(currentYearIndex)} sono pronti ma non ancora salvati.`
+                                : `Il ${formatSeasonFromYear(currentYearIndex)} non è ancora configurato per questa lega. Puoi modificare i default qui sotto oppure copiarli dall'anno precedente.`}
+                            </Text>
+                            <XStack gap="$2" flexWrap="wrap">
+                              <Button
+                                size="$3"
+                                variant="outlined"
+                                onPress={initializeYearWithDefaults}
+                                disabled={isAnyLoading}
+                              >
+                                Usa settings di default
+                              </Button>
+                              <Button
+                                size="$3"
+                                icon={Copy}
+                                onPress={copySettingsFromPreviousYear}
+                                disabled={isAnyLoading || !previousYearlyLeague}
+                                theme="blue"
+                              >
+                                Copia dal {formatSeasonFromYear(currentYearIndex - 1)}
+                              </Button>
+                            </XStack>
+                            {!previousYearlyLeague && (
+                              <Text color="$orange10" fontSize="$2">
+                                Nessun setting disponibile per il {formatSeasonFromYear(currentYearIndex - 1)}.
+                              </Text>
+                            )}
+                          </YStack>
+                        </Card>
+                      )}
+
                       {/* Basic Settings */}
                       <YStack gap="$3">
                         <Text fontSize="$4" fontWeight="600" color="$color11">Impostazioni Generali</Text>
@@ -591,6 +651,38 @@ export default function GroupLeagueAdminScreen() {
                             </Select>
                           </YStack>
                         </XStack>
+
+                        <YStack gap="$2">
+                          <Label>Basket Associati</Label>
+                          <XStack gap="$2" flexWrap="wrap">
+                            {currentGroup.baskets.map(basket => {
+                              const isAssociated = selectedLeague.basketsId.includes(basket.id)
+                              return (
+                                <Button
+                                  key={basket.id}
+                                  size="$3"
+                                  variant="outlined"
+                                  borderColor={isAssociated ? '$blue8' : '$borderColor'}
+                                  backgroundColor={isAssociated ? '$blue2' : 'transparent'}
+                                  onPress={() => updateLeagueProperty(
+                                    'basketsId',
+                                    isAssociated
+                                      ? selectedLeague.basketsId.filter(id => id !== basket.id)
+                                      : [...selectedLeague.basketsId, basket.id]
+                                  )}
+                                  disabled={isAnyLoading}
+                                >
+                                  {basket.name}
+                                </Button>
+                              )
+                            })}
+                          </XStack>
+                          {currentGroup.baskets.length === 0 && (
+                            <Text color="$orange10" fontSize="$2">
+                              Crea prima almeno un basket nella Gestione Basket del Gruppo.
+                            </Text>
+                          )}
+                        </YStack>
                       </YStack>
 
                       <Separator />
@@ -777,10 +869,24 @@ export default function GroupLeagueAdminScreen() {
                         Operazioni Lega
                       </Text>
 
+                      {!canCreateCalendar && (
+                        <Text fontSize="$3" color="$orange10">
+                          {!isYearPersisted
+                            ? `Salva prima i settings del ${formatSeasonFromYear(currentYearIndex)}.`
+                            : hasPendingChanges
+                              ? 'Salva le modifiche prima di eseguire le operazioni.'
+                              : effectiveLeagueType === LeagueType.Null
+                                ? 'Seleziona un tipo lega valido e salva le impostazioni.'
+                                : hasDuplicateOwners
+                                  ? 'Lo stesso owner è presente in più basket associati. Seleziona basket senza owner duplicati.'
+                                  : `Servono almeno ${minimumCalendarTeams} team nei basket associati per il ${formatSeasonFromYear(currentYearIndex)}.`}
+                        </Text>
+                      )}
+
                       <Button
                         icon={isLoading('calendar') ? Spinner : Calculator}
                         onPress={createCalendarAndRank}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || !canCreateCalendar}
                         theme="blue"
                       >
                         Crea Calendario e Classifica
@@ -789,7 +895,7 @@ export default function GroupLeagueAdminScreen() {
                       <Button
                         icon={isLoading('randomize') ? Spinner : Shuffle}
                         onPress={randomizePlayers}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || !canRunOperations}
                         theme="purple"
                       >
                         Randomizza Giocatori per Asta
@@ -802,7 +908,7 @@ export default function GroupLeagueAdminScreen() {
                       <Button
                         icon={isLoading('recalcAll') ? Spinner : RefreshCw}
                         onPress={recalculateAll}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || !canRecalculate}
                         theme="orange"
                       >
                         Ricalcola Tutto
@@ -811,7 +917,7 @@ export default function GroupLeagueAdminScreen() {
                       <Button
                         icon={isLoading('recalcLast') ? Spinner : RefreshCw}
                         onPress={recalculateLastDay}
-                        disabled={isAnyLoading}
+                        disabled={isAnyLoading || !canRecalculate}
                         theme="orange"
                       >
                         Ricalcola Solo Ultima Giornata
@@ -829,13 +935,13 @@ export default function GroupLeagueAdminScreen() {
                               setDayToRecalculate(num)
                             }
                           }}
-                          disabled={isAnyLoading}
+                          disabled={isAnyLoading || !canRecalculate}
                         />
                         <Button
                           flex={1}
                           icon={isLoading('recalcDay') ? Spinner : RefreshCw}
                           onPress={recalculateSpecificDay}
-                          disabled={isAnyLoading || dayToRecalculate < 1 || dayToRecalculate > 38}
+                          disabled={isAnyLoading || !canRecalculate || dayToRecalculate < 1 || dayToRecalculate > 38}
                           theme="orange"
                         >
                           Ricalcola Giornata

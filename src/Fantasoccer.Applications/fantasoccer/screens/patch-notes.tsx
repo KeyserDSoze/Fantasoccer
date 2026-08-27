@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '1.3.1',
+    date: '27 Agosto 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Corretta la copia dei team dal basket dell\'anno precedente, con aggiornamento immediato della lista e conferma solo dopo il salvataggio effettivo'
+      },
+      {
+        category: 'Feature',
+        description: 'Aggiunta la configurazione delle nuove stagioni nelle leghe tramite settings di default o copia completa dall\'anno precedente'
+      },
+      {
+        category: 'Improvement',
+        description: 'Aggiunta la selezione dei basket associati alla lega e la validazione di team, owner e calendario prima delle operazioni amministrative'
+      },
+      {
+        category: 'Fix',
+        description: 'Allineato il cambio stagione tra frontend e backend e preservati i settings avanzati durante il salvataggio della lega'
+      }
+    ]
+  },
+  {
     version: '1.3.0',
     date: '4 Febbraio 2026',
     changes: [
@@ -381,7 +403,7 @@ const PatchNotesScreen: FC = () => {
           <YStack gap="$2">
             <H2>📝 Patch Notes</H2>
             <Text fontSize="$4" color="$color11">
-              Tutte le modifiche, miglioramenti e nuove funzionalità dell'app
+              Tutte le modifiche, miglioramenti e nuove funzionalità dell&apos;app
             </Text>
             <Text fontSize="$3" color="$color10">
               Versione attuale: v{APP_VERSION}
