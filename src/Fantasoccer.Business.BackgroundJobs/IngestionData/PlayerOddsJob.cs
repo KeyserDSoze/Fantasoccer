@@ -54,7 +54,14 @@ namespace Fantasoccer.Engine.IngestionData
                     var players = (await _repository.GetAsync(key).NoContext())?.Players ?? [];
                     if (players.Count == 0)
                     {
-                        foreach (var player in (await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext())!.Players)
+                        var realPlayers = await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext();
+                        if (realPlayers?.Players == null || realPlayers.Players.Count == 0)
+                        {
+                            await _logger.LogAsync<PlayerOddsJob>($"Giocatori reali non disponibili.").NoContext();
+                            return;
+                        }
+
+                        foreach (var player in realPlayers.Players)
                         {
                             players.Add(new ChancedRealPlayer
                             {
@@ -69,6 +76,7 @@ namespace Fantasoccer.Engine.IngestionData
                     }
                     foreach (var player in players)
                     {
+                        player.Chance ??= Chance.Default();
                         player.Chance.Fantagazzetta = false;
                         player.Chance.Gazzetta = false;
                         player.Chance.Mediaset = false;
@@ -76,14 +84,26 @@ namespace Fantasoccer.Engine.IngestionData
                     }
                     foreach (var parser in _parsers)
                     {
-                        var playersFromParser = await parser.GetPlayersAsync().NoContext();
+                        List<ChancedRealPlayer> playersFromParser;
+                        try
+                        {
+                            playersFromParser = await parser.GetPlayersAsync().NoContext() ?? [];
+                        }
+                        catch (Exception exception)
+                        {
+                            await _logger.LogErrorAsync<PlayerOddsJob>(exception).NoContext();
+                            continue;
+                        }
 
                         foreach (var parsedPlayer in playersFromParser)
                         {
+                            if (parsedPlayer.Chance == null || string.IsNullOrWhiteSpace(parsedPlayer.Name) || parsedPlayer.RealTeam == null)
+                                continue;
+
                             var chancedPlayer = players.FirstOrDefault(x => x.Key == parsedPlayer.Key);
                             if (chancedPlayer == default)
                             {
-                                chancedPlayer = players.FirstOrDefault(x => IsThisPlayer(parsedPlayer, x));
+                                chancedPlayer = players.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.Name) && x.RealTeam != null && IsThisPlayer(parsedPlayer, x));
                             }
                             if (chancedPlayer != default)
                             {
