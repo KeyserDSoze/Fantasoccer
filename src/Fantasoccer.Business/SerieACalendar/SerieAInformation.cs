@@ -46,14 +46,15 @@ namespace Fantasoccer.Business
                             string.IsNullOrWhiteSpace(match.homeTeam.teamName) || string.IsNullOrWhiteSpace(match.awayTeam.teamName))
                             continue;
 
+                        var isFinal = string.Equals(match.status, "FULL", StringComparison.OrdinalIgnoreCase);
                         realDay.Games.Add(new RealGame
                         {
                             Home = new RealTeam { Name = match.homeTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.homeTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Date = FantacalcioTime.ToItalyNow(match.utcDate),
-                            Delayed = false,
-                            HomeGoal = match.homeTeam.score,
-                            AwayGoal = match.awayTeam.score
+                            Delayed = string.Equals(match.status, "POSTPONED", StringComparison.OrdinalIgnoreCase),
+                            HomeGoal = isFinal ? match.homeTeam.score : null,
+                            AwayGoal = isFinal ? match.awayTeam.score : null
                         });
                     }
                 }
@@ -91,42 +92,6 @@ namespace Fantasoccer.Business
             await Task.Delay(10);
             return realDay;
         }
-
-        public async Task<RealRank> GetRankAsync()
-        {
-            var rank = await GetFromJsonAsync<RankRoot>(_serieAHttpClient, "stats/v3/live/overall?season_id=serie-a::Football_Season::5f0e080fc3a44073984b75b3a8e06a8a");
-            var realRank = new RealRank
-            {
-                Teams = [],
-            };
-            var teams = rank?.data?.standings?.FirstOrDefault()?.teams;
-            if (teams == null)
-                return realRank;
-
-            foreach (var team in teams)
-            {
-                if (string.IsNullOrWhiteSpace(team.officialName))
-                    continue;
-
-                var stats = team.stats ?? [];
-                realRank.Teams.Add(new RealRankedTeam
-                {
-                    Name = team.officialName,
-                    Goal = GetStat(stats, "goals-for"),
-                    SufferedGoal = GetStat(stats, "goals-against"),
-                    Defeats = GetStat(stats, "lose"),
-                    Draws = GetStat(stats, "draw"),
-                    Victories = GetStat(stats, "win"),
-                    Point = GetStat(stats, "points"),
-                    Played = GetStat(stats, "matches-played")
-                });
-            }
-            realRank.Teams = [.. realRank.Teams.OrderByDescending(x => x.Point)];
-            return realRank;
-        }
-
-        private static int GetStat(Stat[] stats, string id)
-            => int.TryParse(stats.FirstOrDefault(x => x.statsId == id)?.statsValue?.ToString(), out var value) ? value : 0;
 
         private static async Task<T?> GetFromJsonAsync<T>(HttpClient client, string requestUri)
         {
@@ -506,88 +471,6 @@ namespace Fantasoccer.Business
 
             [JsonPropertyName("code")]
             public int? Code { get; set; }
-        }
-
-        public class RankRoot
-        {
-            public bool success { get; set; }
-            public string message { get; set; }
-            public object[] errors { get; set; }
-            public Data data { get; set; }
-            public int code { get; set; }
-        }
-
-        public class Data
-        {
-            public DateTime apiCallRequestTime { get; set; }
-            public Standing[] standings { get; set; }
-        }
-
-        public class Standing
-        {
-            public DateTime apiCallRequestTime { get; set; }
-            public Competition competition { get; set; }
-            public Editorial[] editorials { get; set; }
-            public object[] legenda { get; set; }
-            public Team[] teams { get; set; }
-            public string type { get; set; }
-        }
-
-        public class Competition
-        {
-            public string acronymName { get; set; }
-            public string competitionId { get; set; }
-            public object endDateUtc { get; set; }
-            public string name { get; set; }
-            public string officialName { get; set; }
-            public string providerId { get; set; }
-            public string seasonId { get; set; }
-            public string seasonName { get; set; }
-            public string shortName { get; set; }
-            public object startDateUtc { get; set; }
-        }
-
-        public class Editorial
-        {
-            public string colour { get; set; }
-            public string label { get; set; }
-            public string standingPosition { get; set; }
-            public string standingType { get; set; }
-        }
-
-        public class Team
-        {
-            public object[] achievementStatuses { get; set; }
-            public string acronymName { get; set; }
-            public string acronymNameLocalized { get; set; }
-            public object countryCode { get; set; }
-            public bool isTeamFake { get; set; }
-            public string mediaName { get; set; }
-            public string mediaShortName { get; set; }
-            public string note { get; set; }
-            public string officialName { get; set; }
-            public string providerId { get; set; }
-            public object qualification { get; set; }
-            public string shortName { get; set; }
-            public object stadium { get; set; }
-            public Stat[] stats { get; set; }
-            public string teamId { get; set; }
-            public object teamType { get; set; }
-            public string team_active { get; set; }
-            public string team_id { get; set; }
-            public string team_image { get; set; }
-            public string team_image_secondary { get; set; }
-            public string team_slug { get; set; }
-        }
-
-        public class Stat
-        {
-            public string statsId { get; set; }
-            public string statsLabel { get; set; }
-            public string statsLabelAbbreviation { get; set; }
-            public object statsUnit { get; set; }
-            public object statsUnitAbbreviation { get; set; }
-            public object statsValue { get; set; }
         }
 
         public class GazzettaCalendario

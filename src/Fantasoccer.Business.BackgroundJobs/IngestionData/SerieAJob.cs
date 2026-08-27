@@ -70,12 +70,12 @@ namespace Fantasoccer.Engine.IngestionData
                     if (calendar?.Days?.Count > 0)
                         result = await _repository.InsertAsync(year, calendar, cancellationToken).NoContext();
                 }
-                var rank = await _serieA.GetRankAsync().NoContext();
-                if (rank?.Teams?.Count > 0 && await _rankRepository.ExistAsync(year, cancellationToken))
+                var rank = calendar == null ? null : BuildRank(calendar, italyNow);
+                if (rank?.Teams.Count > 0 && await _rankRepository.ExistAsync(year, cancellationToken))
                 {
                     await _rankRepository.UpdateAsync(year, rank, cancellationToken);
                 }
-                else if (rank?.Teams?.Count > 0)
+                else if (rank?.Teams.Count > 0)
                 {
                     await _rankRepository.InsertAsync(year, rank, cancellationToken);
                 }
@@ -86,6 +86,73 @@ namespace Fantasoccer.Engine.IngestionData
         private static RealDay? GetLiveDay(IEnumerable<RealDay> days, DateTime italyNow)
             => days.FirstOrDefault(day => day.Games?.Any(game =>
                 !game.Delayed && game.Date.HasValue && italyNow >= game.Date.Value && italyNow <= game.Date.Value.AddHours(10.25)) == true);
+
+        private static RealRank BuildRank(RealCalendar calendar, DateTime italyNow)
+        {
+            var teams = new Dictionary<string, RealRankedTeam>(StringComparer.OrdinalIgnoreCase);
+            foreach (var game in calendar.Days?.SelectMany(x => x.Games ?? []) ?? [])
+            {
+                if (string.IsNullOrWhiteSpace(game.Home?.Name) || string.IsNullOrWhiteSpace(game.Away?.Name))
+                    continue;
+
+                if (!teams.TryGetValue(game.Home.Name, out var home))
+                {
+                    home = new RealRankedTeam { Name = game.Home.Name };
+                    teams.Add(home.Name, home);
+                }
+                if (!teams.TryGetValue(game.Away.Name, out var away))
+                {
+                    away = new RealRankedTeam { Name = game.Away.Name };
+                    teams.Add(away.Name, away);
+                }
+
+                if (game.Delayed || !game.Date.HasValue || game.Date.Value > italyNow ||
+                    !game.HomeGoal.HasValue || !game.AwayGoal.HasValue)
+                    continue;
+
+                var homeGoal = game.HomeGoal.Value;
+                var awayGoal = game.AwayGoal.Value;
+                home.Played++;
+                away.Played++;
+                home.Goal += homeGoal;
+                home.SufferedGoal += awayGoal;
+                away.Goal += awayGoal;
+                away.SufferedGoal += homeGoal;
+
+                if (homeGoal > awayGoal)
+                {
+                    home.Victories++;
+                    away.Defeats++;
+                    home.Point += 3;
+                }
+                else if (homeGoal < awayGoal)
+                {
+                    away.Victories++;
+                    home.Defeats++;
+                    away.Point += 3;
+                }
+                else
+                {
+                    home.Draws++;
+                    away.Draws++;
+                    home.Point++;
+                    away.Point++;
+                }
+            }
+
+            return new RealRank
+            {
+                Teams =
+                [
+                    .. teams.Values
+                        .OrderByDescending(x => x.Point)
+                        .ThenByDescending(x => x.Goal - x.SufferedGoal)
+                        .ThenByDescending(x => x.Goal)
+                        .ThenBy(x => x.SufferedGoal)
+                        .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                ]
+            };
+        }
 
         public Task OnException(Exception exception)
              => _logger.LogErrorAsync<SerieAJob>(exception);

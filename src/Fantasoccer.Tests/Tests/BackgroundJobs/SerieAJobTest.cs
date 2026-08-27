@@ -42,7 +42,6 @@ public sealed class SerieAJobTest : IAsyncLifetime
             Year = year,
             Days = [new RealDay { Year = year, SerieADay = 1, Games = [] }]
         };
-        _serieA.Rank = new RealRank { Teams = [] };
         _serieA.CalendarRequest = null;
     }
 
@@ -61,23 +60,16 @@ public sealed class SerieAJobTest : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DoesNotOverwriteStoredDataWithEmptyResponses()
+    public async Task DoesNotOverwriteStoredCalendarWithEmptyResponse()
     {
         var year = FantacalcioTime.ActualYear;
         await _calendars.InsertAsync(year, CalendarWithCompletedDay(), TestContext.Current.CancellationToken);
-        await _ranks.InsertAsync(year, new RealRank
-        {
-            Teams = [new RealRankedTeam { Name = "Roma", Point = 3 }]
-        }, TestContext.Current.CancellationToken);
 
         await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
 
         var calendar = await _calendars.GetAsync(year, TestContext.Current.CancellationToken);
-        var rank = await _ranks.GetAsync(year, TestContext.Current.CancellationToken);
         Assert.NotNull(calendar);
         Assert.Single(calendar.Days);
-        Assert.NotNull(rank);
-        Assert.Equal(3, Assert.Single(rank.Teams).Point);
     }
 
     [Fact]
@@ -97,15 +89,15 @@ public sealed class SerieAJobTest : IAsyncLifetime
                 }
             ]
         };
-        _serieA.Rank = new RealRank
-        {
-            Teams = [new RealRankedTeam { Name = "Roma", Point = 3 }]
-        };
 
         await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
 
-        Assert.NotNull(await _calendars.GetAsync(year, TestContext.Current.CancellationToken));
-        Assert.NotNull(await _ranks.GetAsync(year, TestContext.Current.CancellationToken));
+        var calendar = await _calendars.GetAsync(year, TestContext.Current.CancellationToken);
+        var rank = await _ranks.GetAsync(year, TestContext.Current.CancellationToken);
+        Assert.NotNull(calendar);
+        Assert.NotNull(rank);
+        Assert.Equal("Roma", rank.Teams[0].Name);
+        Assert.Equal(3, rank.Teams[0].Point);
     }
 
     [Fact]
@@ -136,11 +128,6 @@ public sealed class SerieAJobTest : IAsyncLifetime
                 }
             ]
         };
-        _serieA.Rank = new RealRank
-        {
-            Teams = [new RealRankedTeam { Name = "Inter", Point = 6 }]
-        };
-
         await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
 
         var calendar = await _calendars.GetAsync(year, TestContext.Current.CancellationToken);
@@ -150,7 +137,51 @@ public sealed class SerieAJobTest : IAsyncLifetime
         Assert.True(calendar.Days[0].Games.Single(x => x.Home.Name == "Roma").Delayed);
         Assert.Equal((1, 4), _serieA.CalendarRequest);
         Assert.NotNull(rank);
-        Assert.Equal("Inter", Assert.Single(rank.Teams).Name);
+        Assert.Equal("Inter", rank.Teams[0].Name);
+        Assert.Equal(3, rank.Teams[0].Point);
+        Assert.Equal("Napoli", rank.Teams[1].Name);
+    }
+
+    [Fact]
+    public async Task CalculatesAndOrdersRankFromCompletedGames()
+    {
+        var year = FantacalcioTime.ActualYear;
+        _serieA.Calendar = new RealCalendar
+        {
+            Year = year,
+            Days =
+            [
+                new RealDay
+                {
+                    Year = year,
+                    SerieADay = 1,
+                    Games =
+                    [
+                        Game("Roma", "Milan", delayed: false, 3, 1),
+                        Game("Inter", "Juventus", delayed: false, 2, 0),
+                        Game("Napoli", "Torino", delayed: false, 1, 0),
+                        Game("Lazio", "Fiorentina", delayed: false, 1, 1),
+                        Game("Bologna", "Parma", delayed: false, 4, 0, new DateTime(2027, 5, 30)),
+                        Game("Genoa", "Como", delayed: true, 5, 0)
+                    ]
+                }
+            ]
+        };
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var rank = await _ranks.GetAsync(year, TestContext.Current.CancellationToken);
+        Assert.NotNull(rank);
+        Assert.Equal(["Roma", "Inter", "Napoli"], rank.Teams.Take(3).Select(x => x.Name));
+        var roma = rank.Teams.Single(x => x.Name == "Roma");
+        Assert.Equal(3, roma.Point);
+        Assert.Equal(1, roma.Victories);
+        Assert.Equal(3, roma.Goal);
+        Assert.Equal(1, roma.SufferedGoal);
+        Assert.Equal(1, roma.Played);
+        Assert.Equal(1, rank.Teams.Single(x => x.Name == "Lazio").Point);
+        Assert.Equal(0, rank.Teams.Single(x => x.Name == "Bologna").Played);
+        Assert.Equal(0, rank.Teams.Single(x => x.Name == "Genoa").Played);
     }
 
     private SerieAJob CreateJob()
@@ -180,20 +211,27 @@ public sealed class SerieAJobTest : IAsyncLifetime
             ]
         };
 
-    private static RealGame Game(string home, string away, bool delayed)
+    private static RealGame Game(
+        string home,
+        string away,
+        bool delayed,
+        int? homeGoal = 1,
+        int? awayGoal = 0,
+        DateTime? date = null)
         => new()
         {
             Home = new RealTeam { Name = home },
             Away = new RealTeam { Name = away },
-            Date = DateTime.UtcNow.AddDays(-1),
-            Delayed = delayed
+            Date = date ?? DateTime.UtcNow.AddDays(-1),
+            Delayed = delayed,
+            HomeGoal = homeGoal,
+            AwayGoal = awayGoal
         };
 }
 
 public sealed class TestSerieAInformation : ISerieAInformation
 {
     public RealCalendar Calendar { get; set; } = new() { Days = [] };
-    public RealRank Rank { get; set; } = new() { Teams = [] };
     public (int Min, int Max)? CalendarRequest { get; set; }
 
     public Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38)
@@ -201,9 +239,6 @@ public sealed class TestSerieAInformation : ISerieAInformation
         CalendarRequest = (min, max);
         return Task.FromResult(Calendar);
     }
-
-    public Task<RealRank> GetRankAsync()
-        => Task.FromResult(Rank);
 }
 
 public sealed class FixedTimeProvider : TimeProvider
