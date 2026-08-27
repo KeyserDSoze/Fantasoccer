@@ -56,7 +56,7 @@ namespace Fantasoccer.Application.Api.Controllers
             return team.Owner == email || team.AdditionalOwners.Contains(email);
         }
         [HttpPost]
-        public async ValueTask<bool> UploadLogoAsync([FromForm] IFormFile image, [FromQuery] string groupId, [FromQuery] int year, [FromQuery] string owner, [FromQuery] string basketId)
+        public async ValueTask<bool> UploadLogoAsync(IFormFile image, [FromQuery] string groupId, [FromQuery] int year, [FromQuery] string owner, [FromQuery] string basketId)
         {
             var group = await _groups.GetAsync(groupId);
             if (!CheckIsOwner(group!, year, owner, basketId))
