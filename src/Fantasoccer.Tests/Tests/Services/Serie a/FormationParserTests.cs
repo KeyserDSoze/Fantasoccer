@@ -150,10 +150,72 @@ public sealed class FormationParserTests : IDisposable
         Assert.Equal("www.fantacalcio.it", _handler.LastRequestUri?.Host);
     }
 
+    [Fact]
+    public async Task SkyParsesEmbeddedWidgetData()
+    {
+        _handler.Content = """
+            <ld-football-competition-predicted-lineups>
+              <script type="application/json" data-props="true">
+                {
+                  "matchList": [
+                    {
+                      "home": {
+                        "name": "Inter",
+                        "playerList": {
+                          "startingLineup": [
+                            { "name": "Lautaro", "surname": "Martínez", "fullName": "Lautaro Martínez" }
+                          ]
+                        }
+                      },
+                      "away": {
+                        "name": "Milan",
+                        "playerList": {
+                          "startingLineup": [
+                            { "name": "Luka", "surname": "Modric", "fullName": "Modric L." }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              </script>
+            </ld-football-competition-predicted-lineups>
+            """;
+
+        var players = await Parser("Sky").GetPlayersAsync();
+
+        Assert.Collection(players,
+            player =>
+            {
+                Assert.Equal("Lautaro Martínez", player.Name);
+                Assert.Equal("Inter", player.RealTeam.Name);
+                Assert.True(player.Chance.Sky);
+            },
+            player =>
+            {
+                Assert.Equal("Luka Modric", player.Name);
+                Assert.Equal("Milan", player.RealTeam.Name);
+            });
+        Assert.Equal("https://sport.sky.it/football/predicted-lineup-homepage/21/widget.html", _handler.LastRequestUri?.ToString());
+    }
+
+    [Fact]
+    public async Task SkyReturnsEmptyForMalformedEmbeddedJson()
+    {
+        _handler.Content = """
+            <script type="application/json" data-props="true">not-json</script>
+            """;
+
+        var players = await Parser("Sky").GetPlayersAsync();
+
+        Assert.Empty(players);
+    }
+
     [Theory]
     [InlineData("Fantagazzetta")]
     [InlineData("Gazzetta")]
     [InlineData("Injury")]
+    [InlineData("Sky")]
     public async Task ReturnsEmptyForEmptyProviderResponse(string parserName)
     {
         _handler.Content = string.Empty;
@@ -167,6 +229,7 @@ public sealed class FormationParserTests : IDisposable
     [InlineData("Fantagazzetta")]
     [InlineData("Gazzetta")]
     [InlineData("Injury")]
+    [InlineData("Sky")]
     public async Task PropagatesProviderHttpErrors(string parserName)
     {
         _handler.StatusCode = HttpStatusCode.NotFound;

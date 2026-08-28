@@ -73,7 +73,7 @@ namespace Fantasoccer.Business
             services.AddFactory<IFormationParser, Gazzetta>(nameof(Gazzetta));
             services.AddFactory<IFormationParser, Injury>(nameof(Injury));
             //services.AddFactory<IFormationParser, Mediaset>(nameof(Mediaset));
-            //services.AddFactory<IFormationParser, Sky>(nameof(Sky));
+            services.AddFactory<IFormationParser, Sky>(nameof(Sky));
             services.AddTransient<IAllPlayers, FantagazzettaAllPlayers>();
             services.AddTransient<ILiveVote, LiveVote>();
             //services.AddTransient<ILiveVote, LiveVoteWithHtml>();

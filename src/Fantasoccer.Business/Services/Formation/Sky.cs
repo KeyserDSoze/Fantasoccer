@@ -1,216 +1,98 @@
-﻿using System.Text.Json;
-using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Web;
 
 namespace Fantasoccer.Business.IngestionData
 {
-    internal class Sky : IFormationParser
+    internal sealed class Sky : IFormationParser
     {
-        private static readonly Regex s_playersRegex = new(@"<span[\s\S]*?<\/span>");
+        private const string PropsMarker = "<script type=\"application/json\" data-props=\"true\">";
         private readonly HttpClient _httpClient;
+
         public Sky(IHttpClientFactory httpClientFactory)
         {
             _httpClient = httpClientFactory.CreateClient("base");
         }
+
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
-            List<ChancedRealPlayer> players = new();
-            var returnedValue = await _httpClient.GetStringAsync("https://sport.sky.it/calcio/serie-a/probabili-formazioni").NoContext();
-            var json = returnedValue.Split("<ld-football-scores-competition-predicted-lineups live='false' model='")[1].Split('\'')[0];
-            var values = json.FromJson<Rootobject>();
-            foreach (var match in values.matchList)
+            var content = await _httpClient.GetStringAsync("https://sport.sky.it/football/predicted-lineup-homepage/21/widget.html").NoContext();
+            var start = content.IndexOf(PropsMarker, StringComparison.Ordinal);
+            if (start < 0)
+                return [];
+
+            start += PropsMarker.Length;
+            var end = content.IndexOf("</script>", start, StringComparison.Ordinal);
+            if (end < 0)
+                return [];
+
+            Root? root;
+            try
             {
-                foreach (var player in match.home.playerList.startingLineup)
-                {
-                    var chancedPlayer = new ChancedRealPlayer
-                    {
-                        Name = player.fullname,
-                        RealTeam = new RealTeam { Name = match.home.name },
-                        Chance = new Chance()
-                        {
-                            Sky = true
-                        }
-                    };
-                    players.Add(chancedPlayer);
-                }
-                foreach (var player in match.away.playerList.startingLineup)
-                {
-                    var chancedPlayer = new ChancedRealPlayer
-                    {
-                        Name = player.fullname,
-                        RealTeam = new RealTeam { Name = match.away.name },
-                        Chance = new Chance()
-                        {
-                            Sky = true
-                        }
-                    };
-                    players.Add(chancedPlayer);
-                }
+                root = JsonSerializer.Deserialize<Root>(HttpUtility.HtmlDecode(content[start..end]), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            }
+            catch (JsonException)
+            {
+                return [];
+            }
+
+            List<ChancedRealPlayer> players = [];
+            foreach (var match in root?.MatchList ?? [])
+            {
+                AddPlayers(match.Home);
+                AddPlayers(match.Away);
             }
             return players;
+
+            void AddPlayers(Team? team)
+            {
+                if (string.IsNullOrWhiteSpace(team?.Name))
+                    return;
+
+                foreach (var player in team.PlayerList?.StartingLineup ?? [])
+                {
+                    var name = $"{player.Name} {player.Surname}".Trim();
+                    if (string.IsNullOrWhiteSpace(name))
+                        name = player.FullName?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    players.Add(new ChancedRealPlayer
+                    {
+                        Name = name,
+                        RealTeam = new RealTeam { Name = team.Name },
+                        Chance = new Chance { Sky = true }
+                    });
+                }
+            }
         }
 
-        public class Rootobject
+        private sealed class Root
         {
-            public DateTime createdAt { get; set; }
-            public string competitionId { get; set; }
-            public int round { get; set; }
-            public Matchlist[] matchList { get; set; }
-            public string __typename { get; set; }
-            public DateTime updatedAt { get; set; }
+            public List<Match>? MatchList { get; set; }
         }
 
-        public class Matchlist
+        private sealed class Match
         {
-            public DateTime date { get; set; }
-            public Away away { get; set; }
-            public string lmpLink { get; set; }
-            public string matchId { get; set; }
-            public Home home { get; set; }
-            public string status { get; set; }
-            public string ctaUrlAway { get; set; }
-            public string ctaUrlHome { get; set; }
-            public string ctaLmpUrl { get; set; }
+            public Team? Home { get; set; }
+            public Team? Away { get; set; }
         }
 
-        public class Away
+        private sealed class Team
         {
-            public string ctaUrl { get; set; }
-            public string formation { get; set; }
-            public string id { get; set; }
-            public string logoUrl { get; set; }
-            public string name { get; set; }
-            public string seoName { get; set; }
-            public string shortname { get; set; }
-            public Playerlist playerList { get; set; }
+            public string? Name { get; set; }
+            public PlayerList? PlayerList { get; set; }
         }
 
-        public class Playerlist
+        private sealed class PlayerList
         {
-            public Disqualified[] disqualifieds { get; set; }
-            public Manager manager { get; set; }
-            public Potentialplayer[] potentialPlayers { get; set; }
-            public Substitute[] substitutes { get; set; }
-            public Unavailable[] unavailables { get; set; }
-            public Startinglineup[] startingLineup { get; set; }
+            public List<StartingPlayer>? StartingLineup { get; set; }
         }
 
-        public class Manager
+        private sealed class StartingPlayer
         {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
+            public string? Name { get; set; }
+            public string? Surname { get; set; }
+            public string? FullName { get; set; }
         }
-
-        public class Disqualified
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Potentialplayer
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Substitute
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Unavailable
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Startinglineup
-        {
-            public int jerseyNum { get; set; }
-            public string photoUrl { get; set; }
-            public string role { get; set; }
-            public string surname { get; set; }
-            public string formationPlace { get; set; }
-            public string name { get; set; }
-            public string fullName { get; set; }
-            public string id { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Home
-        {
-            public string ctaUrl { get; set; }
-            public string formation { get; set; }
-            public string id { get; set; }
-            public string logoUrl { get; set; }
-            public string name { get; set; }
-            public string seoName { get; set; }
-            public string shortname { get; set; }
-            public Playerlist1 playerList { get; set; }
-        }
-
-        public class Playerlist1
-        {
-            public Disqualified1[] disqualifieds { get; set; }
-            public Manager1 manager { get; set; }
-            public Potentialplayer1[] potentialPlayers { get; set; }
-            public Substitute1[] substitutes { get; set; }
-            public Unavailable1[] unavailables { get; set; }
-            public Startinglineup1[] startingLineup { get; set; }
-        }
-
-        public class Manager1
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Disqualified1
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Potentialplayer1
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Substitute1
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Unavailable1
-        {
-            public object id { get; set; }
-            public object role { get; set; }
-            public string fullname { get; set; }
-        }
-
-        public class Startinglineup1
-        {
-            public int jerseyNum { get; set; }
-            public string photoUrl { get; set; }
-            public string role { get; set; }
-            public string surname { get; set; }
-            public string formationPlace { get; set; }
-            public string name { get; set; }
-            public string fullName { get; set; }
-            public string id { get; set; }
-            public string fullname { get; set; }
-        }
-
     }
 }
