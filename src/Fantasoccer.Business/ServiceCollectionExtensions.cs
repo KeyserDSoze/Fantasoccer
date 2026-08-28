@@ -27,6 +27,7 @@ namespace Fantasoccer.Business
             });
             services.AddHttpClient("player-images", client =>
             {
+                client.BaseAddress = new Uri("https://api-sdp.legaseriea.it/v1/serie-a/football/");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7");
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Cache-Control", "no-cache");
