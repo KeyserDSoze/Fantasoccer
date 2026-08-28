@@ -10,6 +10,7 @@ on:
       - 'src/Fantasoccer.Business.Shared/**'
       - 'src/Fantasoccer.Domain/**'
       - 'src/Fantasoccer.Infrastructure.Storage/**'
+      - 'src/Fantasoccer.Tests/**'
       - 'Fantasoccer.sln'
       - '**/*.csproj'
       - 'ops/prod/api/**'
@@ -26,6 +27,7 @@ concurrency:
 env:
   DOTNET_VERSION: '10.x'
   API_PROJECT: 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/Fantasoccer.Application.Api.csproj'
+  TEST_PROJECT: 'src/Fantasoccer.Tests/Fantasoccer.Tests.csproj'
 
 jobs:
   deploy:
@@ -43,6 +45,21 @@ jobs:
 
       - name: Build API
         run: dotnet build "${{ env.API_PROJECT }}" --configuration Release --no-restore
+
+      - name: External parser smoke tests
+        id: external_parser_smoke
+        continue-on-error: true
+        env:
+          RUN_EXTERNAL_PARSER_TESTS: 'true'
+        run: >-
+          dotnet test "${{ env.TEST_PROJECT }}"
+          --configuration Release
+          --filter "Category=External"
+          --verbosity quiet
+
+      - name: Warn when external parser smoke tests fail
+        if: steps.external_parser_smoke.outcome == 'failure'
+        run: echo "::warning title=External parser smoke tests failed::Sky or Mediaset changed their public response. Deployment continues; inspect the failed smoke-test step."
 
       - name: Publish API
         run: dotnet publish "${{ env.API_PROJECT }}" --configuration Release --no-restore --output ./publish

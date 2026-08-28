@@ -1,0 +1,41 @@
+name: External Parser Smoke Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: external-parser-smoke
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '10.x'
+  TEST_PROJECT: 'src/Fantasoccer.Tests/Fantasoccer.Tests.csproj'
+  RUN_EXTERNAL_PARSER_TESTS: 'true'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run external parser smoke tests
+        id: external_parser_smoke
+        continue-on-error: true
+        run: >-
+          dotnet test "${{ env.TEST_PROJECT }}"
+          --configuration Release
+          --filter "Category=External"
+          --verbosity quiet
+
+      - name: Warn when an external provider changes
+        if: steps.external_parser_smoke.outcome == 'failure'
+        run: echo "::warning title=External parser smoke tests failed::Sky or Mediaset changed their public response. Review parser contracts and fixtures."
