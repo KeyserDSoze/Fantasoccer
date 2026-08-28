@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
+using System.Text.Json;
 using ProtoBuf;
 using RepositoryFramework;
 
@@ -13,6 +13,14 @@ namespace Fantasoccer.Business.IngestionData
             IRepository<RealCalendar, int> realCalendar)
         {
             _httpClient = httpClientFactory.CreateClient("base");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.fantacalcio.it");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.fantacalcio.it/live-serie-a");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Mode", "cors");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua", "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Google Chrome\";v=\"116\"");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Mobile", "?0");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Platform", "Windows");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-origin");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Dest", "empty");
             _realCalendar = realCalendar;
         }
         public async Task<List<VotedRealPlayer>> GetAsync(int year, int day)
@@ -21,7 +29,7 @@ namespace Fantasoccer.Business.IngestionData
             var protoData = await GetLiveAsync(year + 6, day);
             if (protoData != null)
             {
-                foreach (var game in protoData.ProtoData)
+                foreach (var game in protoData.ProtoData ?? [])
                 {
                     if (game.PlayersHome != null)
                         foreach (var player in game.PlayersHome)
@@ -34,7 +42,8 @@ namespace Fantasoccer.Business.IngestionData
 
             void SetPlayer(string teamName, PlayerProto playerProto)
             {
-                if (playerProto.Position == "ALL")
+                if (string.IsNullOrWhiteSpace(teamName) || string.IsNullOrWhiteSpace(playerProto.Name) ||
+                    string.IsNullOrWhiteSpace(playerProto.Position) || playerProto.Position == "ALL")
                     return;
                 VotedRealPlayer player = new()
                 {
@@ -60,6 +69,8 @@ namespace Fantasoccer.Business.IngestionData
                     "a" => Role.Forward,
                     _ => Role.Undefined
                 };
+                player.Role = role;
+                player.IsActive = true;
                 var vote = (float)playerProto.Vote;
                 player.Vote = new Vote
                 {
@@ -89,30 +100,47 @@ namespace Fantasoccer.Business.IngestionData
             }
             return players;
         }
-        private static readonly Regex s_regexForSplitting = new("signedUri");
-
         private async Task<LiveMessage?> GetLiveAsync(int year, int day)
         {
             var httpContent = new StringContent($"{{\"resourcesUri\":[\"https://api.fantacalcio.it/v1/st/{year}/matches/live/{day}.dat\"]}}", Encoding.UTF8, "application/json");
-            _httpClient.DefaultRequestHeaders.Add("Origin", "https://www.fantacalcio.it");
-            _httpClient.DefaultRequestHeaders.Add("Referer", "https://www.fantacalcio.it/live-serie-a");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua", "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Google Chrome\";v=\"116\"");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua-Mobile", "?0");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Ch-Ua-Platform", "Windows");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
-            _httpClient.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
-            var response = await _httpClient.PostAsync("https://www.fantacalcio.it/api/v1/SignedUri", httpContent);
+            using var response = await _httpClient.PostAsync("https://www.fantacalcio.it/api/v1/SignedUri", httpContent);
+            response.EnsureSuccessStatusCode();
             var responseAsString = await response.Content.ReadAsStringAsync();
-            if (!responseAsString.Contains("Not Found"))
-            {
-                var result = s_regexForSplitting.Split(responseAsString)[1].Split('"')[2];
-                var theResponse = await _httpClient.GetStreamAsync(result);
-                var liveMessage = Serializer.Deserialize<LiveMessage>(theResponse);
-                return liveMessage;
-            }
-            else
+            if (responseAsString.Contains("Not Found", StringComparison.OrdinalIgnoreCase))
                 return null;
+
+            using var document = JsonDocument.Parse(responseAsString);
+            var signedUri = FindSignedUri(document.RootElement);
+            if (!Uri.TryCreate(signedUri, UriKind.Absolute, out var uri))
+                return null;
+
+            await using var theResponse = await _httpClient.GetStreamAsync(uri);
+            return Serializer.Deserialize<LiveMessage>(theResponse);
+
+            static string? FindSignedUri(JsonElement element)
+            {
+                if (element.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        if (property.NameEquals("signedUri") && property.Value.ValueKind == JsonValueKind.String)
+                            return property.Value.GetString();
+                        var value = FindSignedUri(property.Value);
+                        if (value != null)
+                            return value;
+                    }
+                }
+                else if (element.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        var value = FindSignedUri(item);
+                        if (value != null)
+                            return value;
+                    }
+                }
+                return null;
+            }
         }
 
         [ProtoContract]
