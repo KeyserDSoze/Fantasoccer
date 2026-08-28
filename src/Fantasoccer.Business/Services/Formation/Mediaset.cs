@@ -1,108 +1,72 @@
-﻿using System.Net.Http.Json;
-using RepositoryFramework;
+using System.Text.RegularExpressions;
+using System.Web;
 
 namespace Fantasoccer.Business.IngestionData
 {
-    internal class Mediaset : IFormationParser
+    internal sealed class Mediaset : IFormationParser
     {
-        private readonly IRepository<RealCalendar, int> _repository;
-
+        private const string LineupsUrl = "https://www.sportmediaset.mediaset.it/probabili-formazioni/serie-a/";
+        private static readonly Regex s_matchLinkRegex = new("href=\"(?<url>[^\"]*\\?match=[^\"]+)\"", RegexOptions.IgnoreCase);
+        private static readonly Regex s_teamNameRegex = new("data-testid=\"team-info-title\"[^>]*>(?<name>[^<]+)<", RegexOptions.IgnoreCase);
+        private static readonly Regex s_teamBlockRegex = new("data-testid=\"team-eleven\"", RegexOptions.IgnoreCase);
+        private static readonly Regex s_playerNameRegex = new("data-testid=\"player-name\"[^>]*>(?<name>[^<]+)<", RegexOptions.IgnoreCase);
         private readonly HttpClient _httpClient;
-        public Mediaset(IHttpClientFactory httpClientFactory, IRepository<RealCalendar, int> repository)
+
+        public Mediaset(IHttpClientFactory httpClientFactory)
         {
             _httpClient = httpClientFactory.CreateClient("base");
-            _repository = repository;
         }
+
         public async Task<List<ChancedRealPlayer>> GetPlayersAsync()
         {
-            List<ChancedRealPlayer> players = new();
-            var teams = (await _repository.GetAsync(FantacalcioTime.ActualYear).NoContext()).Days.First().Games.SelectMany(x => new string[2] { x.Home.Name, x.Away.Name }).ToList();
-            foreach (var team in teams)
+            var index = await _httpClient.GetStringAsync(LineupsUrl).NoContext();
+            var matchUrls = s_matchLinkRegex.Matches(index)
+                .Select(x => HttpUtility.HtmlDecode(x.Groups["url"].Value))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => new Uri(new Uri(LineupsUrl), x).ToString())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            List<ChancedRealPlayer> players = [];
+            foreach (var matchUrl in matchUrls)
             {
-                var realTeam = team == "Juve" ? "Juventus" : team;
+                string content;
                 try
                 {
-                    var returnedValue = await _httpClient.
-                        GetFromJsonAsync<Rootobject>($"https://www.sportmediaset.mediaset.it/calcio/squadre/squadra-{realTeam.ToLower()}.json")
-                            .NoContext();
-                    foreach (var player in returnedValue.titolari.content.Tables[0].Rows)
-                    {
-                        var chancedPlayer = new ChancedRealPlayer
-                        {
-                            Name = KeyUtils.GetPlayerKey(player.giocatore.ToLower()),
-                            RealTeam = new() { Name = realTeam },
-                            Chance = new Chance()
-                            {
-                                Gazzetta = true
-                            }
-                        };
-                        players.Add(chancedPlayer);
-                    }
+                    content = await _httpClient.GetStringAsync(matchUrl).NoContext();
                 }
-                catch (Exception ex)
+                catch (HttpRequestException)
                 {
-                    string sasd = ex.Message;
+                    continue;
+                }
+
+                var teams = s_teamNameRegex.Matches(content)
+                    .Select(x => HttpUtility.HtmlDecode(x.Groups["name"].Value).Trim())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(2)
+                    .ToList();
+                var teamBlocks = s_teamBlockRegex.Split(content).Skip(1).Take(2).ToList();
+                if (teams.Count != 2 || teamBlocks.Count != 2)
+                    continue;
+
+                for (var teamIndex = 0; teamIndex < 2; teamIndex++)
+                {
+                    foreach (Match playerMatch in s_playerNameRegex.Matches(teamBlocks[teamIndex]).Take(11))
+                    {
+                        var name = HttpUtility.HtmlDecode(playerMatch.Groups["name"].Value).Trim();
+                        if (string.IsNullOrWhiteSpace(name))
+                            continue;
+
+                        players.Add(new ChancedRealPlayer
+                        {
+                            Name = name,
+                            RealTeam = new RealTeam { Name = teams[teamIndex] },
+                            Chance = new Chance { Mediaset = true }
+                        });
+                    }
                 }
             }
             return players;
         }
-        private class Rootobject
-        {
-            public Titolari titolari { get; set; }
-            public Sostituzioni sostituzioni { get; set; }
-            public string squalificati { get; set; }
-            public string indisponibiliformazione { get; set; }
-            public string modulo { get; set; }
-            public string ufficiali { get; set; }
-            public string allenatore { get; set; }
-            public string kpm3id { get; set; }
-            public string teamOptaId { get; set; }
-            public string urlSquadra { get; set; }
-        }
-        private class Titolari
-        {
-            public string title { get; set; }
-            public Content content { get; set; }
-        }
-
-        private class Content
-        {
-            public Table[] Tables { get; set; }
-        }
-
-        private class Table
-        {
-            public string id { get; set; }
-            public object[] didascalie { get; set; }
-            public Row[] Rows { get; set; }
-        }
-        private class Row
-        {
-            public string numeromaglia { get; set; }
-            public string giocatore { get; set; }
-        }
-        private class Sostituzioni
-        {
-            public string title { get; set; }
-            public Content1 content { get; set; }
-        }
-        private class Content1
-        {
-            public Table1[] Tables { get; set; }
-        }
-
-        private class Table1
-        {
-            public string id { get; set; }
-            public object[] didascalie { get; set; }
-            public Row1[] Rows { get; set; }
-        }
-
-        private class Row1
-        {
-            public string numeromaglia { get; set; }
-            public string giocatore { get; set; }
-        }
-
     }
 }
