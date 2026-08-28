@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
 using Microsoft.Extensions.Configuration;
@@ -52,7 +53,10 @@ public sealed class ExternalFormationParserSmokeTests : IDisposable
 
 public sealed class ExternalFactAttribute : FactAttribute
 {
-    public ExternalFactAttribute()
+    public ExternalFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("RUN_EXTERNAL_PARSER_TESTS"), "true", StringComparison.OrdinalIgnoreCase))
             Skip = "Set RUN_EXTERNAL_PARSER_TESTS=true to call external providers.";

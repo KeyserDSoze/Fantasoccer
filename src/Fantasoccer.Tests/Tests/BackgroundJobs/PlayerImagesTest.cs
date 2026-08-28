@@ -74,8 +74,8 @@ public sealed class PlayerImagesTest : IAsyncLifetime
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
-        var previous = await _images.DownloadAsync(PreviousPlayerImage);
-        var current = await _images.DownloadAsync(CurrentPlayerImage);
+        var previous = await _images.DownloadAsync(PreviousPlayerImage, cancellationToken: TestContext.Current.CancellationToken);
+        var current = await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(new byte[] { 1, 2, 3 }, previous?.Data);
         Assert.Equal(new byte[] { 4, 5, 6 }, current?.Data);
         Assert.Equal(2, _handler.Requests.Count(x => x.Host == "media-sdp.legaseriea.it"));
@@ -95,7 +95,7 @@ public sealed class PlayerImagesTest : IAsyncLifetime
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
-        var image = await _images.DownloadAsync(CurrentPlayerImage);
+        var image = await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(new byte[] { 9 }, image?.Data);
         Assert.DoesNotContain(_handler.Requests, x => x.Host == "media-sdp.legaseriea.it");
     }
