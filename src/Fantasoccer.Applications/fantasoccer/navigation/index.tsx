@@ -23,7 +23,6 @@ import GroupUsersAdminScreen from 'screens/group-users-admin';
 import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
 import GroupLeagueAdminScreen from 'screens/group-league-admin';
 import CardsAdminScreen from 'screens/cards-admin';
-import { webBasePath } from 'configurations/webConfig';
 import CardEditScreen from 'screens/card-edit';
 import AuctionCreateScreen from 'screens/auction-create';
 import AuctionLiveScreen from 'screens/auction-live';
@@ -133,14 +132,8 @@ function NavigationListener() {
 
 // Configurazione linking completa per URL sync
 const linking = {
-  prefixes: [
-    ...(typeof window !== 'undefined' ? [window.location.origin] : []),
-    'http://localhost:3000',
-    'https://fanta.zone',
-    'fantazone://',
-  ],
+  prefixes: ['http://localhost:3000', 'https://fanta.zone', 'fantazone://'],
   config: {
-    ...(webBasePath ? { path: webBasePath.slice(1) } : {}),
     screens: {
       Home: '',  // root path
       Login: 'login',

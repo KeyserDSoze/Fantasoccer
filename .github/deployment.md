@@ -28,7 +28,7 @@ The Entra service principal needs `Website Contributor` on the API App Service (
 
 ## GitHub Pages
 
-Configure `Settings > Pages > Build and deployment > Source` to use **GitHub Actions**. The frontend workflow reads the Pages base path automatically, so it works both at the repository URL and with a custom domain. Run the workflow again after configuring `fanta.zone` so the bundle is rebuilt for the root path.
+Configure `Settings > Pages > Build and deployment > Source` to use **GitHub Actions** and set `fanta.zone` as the custom domain. The frontend is built for the domain root and GitHub Pages manages the TLS certificate.
 
 The client secret should have an explicit expiration and be rotated. An infinite-duration secret is deliberately not recommended because it creates a permanent deployment credential.
 

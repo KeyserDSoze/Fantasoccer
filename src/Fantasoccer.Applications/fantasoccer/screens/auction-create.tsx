@@ -13,7 +13,6 @@ import {
   AuctionKindDescriptions
 } from 'types/auction'
 import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons-2'
-import { getWebUrl, toWebPath } from 'configurations/webConfig'
 
 export default function AuctionCreateScreen() {
   const media = useMedia()
@@ -54,7 +53,7 @@ export default function AuctionCreateScreen() {
   // Generate auction URL
   const getAuctionUrl = useCallback((id: string): string => {
     if (Platform.OS === 'web') {
-      return getWebUrl(`/auction/${id}`)
+      return `${window.location.origin}/auction/${id}`
     }
     return `https://fanta.zone/auction/${id}`
   }, [])
@@ -122,7 +121,7 @@ export default function AuctionCreateScreen() {
     if (!auctionId) return
     
     if (Platform.OS === 'web') {
-      window.location.href = toWebPath(`/auction/${auctionId}`)
+      window.location.href = `/auction/${auctionId}`
     } else {
       // React Navigation would handle this
       // navigation.navigate('AuctionLive', { auctionId })
