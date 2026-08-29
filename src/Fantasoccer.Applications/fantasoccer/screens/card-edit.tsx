@@ -449,8 +449,10 @@ export default function CardEditScreen() {
                         checked={hasMyCondition}
                         onCheckedChange={setHasMyCondition}
                         size="$4"
+                        backgroundColor={hasMyCondition ? '$green9' : '$color6'}
+                        borderColor={hasMyCondition ? '$green10' : '$color8'}
                       >
-                        <Switch.Thumb transition="quick" />
+                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
                       </Switch>
                     </XStack>
 
@@ -466,8 +468,10 @@ export default function CardEditScreen() {
                         checked={hasEnemyCondition}
                         onCheckedChange={setHasEnemyCondition}
                         size="$4"
+                        backgroundColor={hasEnemyCondition ? '$green9' : '$color6'}
+                        borderColor={hasEnemyCondition ? '$green10' : '$color8'}
                       >
-                        <Switch.Thumb transition="quick" />
+                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
                       </Switch>
                     </XStack>
                   </YStack>

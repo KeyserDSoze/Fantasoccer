@@ -1841,15 +1841,15 @@ export default function AuctionLiveScreen() {
                   <XStack gap="$2" alignItems="center">
                     {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
                     <Text fontSize="$3" color="$color11">Audio</Text>
-                    <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
-                      <Switch.Thumb transition="quick" />
+                      <Switch size="$2" backgroundColor={audioEnabled ? '$green9' : '$color6'} borderColor={audioEnabled ? '$green10' : '$color8'} checked={audioEnabled} onCheckedChange={setAudioEnabled}>
+                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
                     </Switch>
                     {Platform.OS !== 'web' && (
                       <XStack gap="$2" alignItems="center">
                         <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
                         <Text fontSize="$3" color="$color11">Vibrazione</Text>
-                        <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                          <Switch.Thumb transition="quick" />
+                        <Switch size="$2" backgroundColor={vibrationEnabled ? '$green9' : '$color6'} borderColor={vibrationEnabled ? '$green10' : '$color8'} checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
+                          <Switch.Thumb transition="quick" backgroundColor="$color12" />
                         </Switch>
                       </XStack>
                     )}

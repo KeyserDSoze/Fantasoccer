@@ -255,10 +255,15 @@ export function LeagueSettingsEditor({
             <YStack gap="$2" flexGrow={1} flexBasis={280} minWidth={240}>
               <Label>Classifica con fantapunteggio</Label>
               <Switch
+                size="$4"
+                backgroundColor={value.rankWithValuePoints ? '$green9' : '$color6'}
+                borderColor={value.rankWithValuePoints ? '$green10' : '$color8'}
                 checked={value.rankWithValuePoints}
                 onCheckedChange={checked => onChange({ ...value, rankWithValuePoints: checked })}
                 disabled={disabled}
-              />
+              >
+                <Switch.Thumb transition="quick" backgroundColor="$color12" />
+              </Switch>
               <Text fontSize="$2" color="$color10">Somma il fantapunteggio ai punti di vittoria, pareggio o sconfitta.</Text>
             </YStack>
           </XStack>

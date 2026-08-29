@@ -648,10 +648,15 @@ export default function GroupLeagueAdminScreen() {
                           <Label width={180}>Is Main</Label>
                           <XStack flex={1}>
                             <Switch
+                              size="$4"
+                              backgroundColor={selectedLeague.isMain ? '$green9' : '$color6'}
+                              borderColor={selectedLeague.isMain ? '$green10' : '$color8'}
                               checked={selectedLeague.isMain}
                               onCheckedChange={(checked) => updateLeagueProperty('isMain', checked)}
                               disabled={isAnyLoading}
-                            />
+                            >
+                              <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                            </Switch>
                           </XStack>
                         </XStack>
 
