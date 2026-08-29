@@ -105,7 +105,7 @@ export function useChancedRealPlayers(options: UseChancedRealPlayersOptions): Us
   })
 
   const mountedRef = useRef(true)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchPlayers = useCallback(async (isRefresh = false) => {
     if (!effectiveEnabled || day == null) {

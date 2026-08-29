@@ -106,7 +106,7 @@ export default function AuctionLiveScreen() {
   const [timerRunning, setTimerRunning] = useState<boolean>(false)
   const [timerExpired, setTimerExpired] = useState<boolean>(false)
   const [firstOfferHappened, setFirstOfferHappened] = useState<boolean>(false)
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
   const [selectedTeamForBid, setSelectedTeamForBid] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)

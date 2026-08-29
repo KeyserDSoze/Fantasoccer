@@ -43,7 +43,7 @@ export function useSerieACalendar(options: UseSerieACalendarOptions = {}) {
     lastUpdated: null
   })
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mountedRef = useRef(true)
 
   const fetchCalendar = useCallback(async (isRefresh = false) => {
@@ -194,7 +194,7 @@ export function useSerieARank(options: UseSerieARankOptions = {}) {
     lastUpdated: null
   })
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mountedRef = useRef(true)
 
   const fetchRank = useCallback(async (isRefresh = false) => {

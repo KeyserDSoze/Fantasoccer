@@ -9,7 +9,7 @@
       "android",
       "web"
     ],
-    "icon": "/android-chrome-512x512.png",
+    "icon": "./assets/android-chrome-512x512.png",
     "userInterfaceStyle": "dark",
     "web": {
       "favicon": "/favicon-32x32.png",
@@ -66,20 +66,18 @@
       "tsconfigPaths": true
     },
     "plugins": [
+      "expo-font",
       [
-        "expo-dev-menu",
+        "expo-splash-screen",
         {
-          "launchMode": "most-recent"
+          "image": "./assets/splash.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#0b153a"
         }
       ],
-      "expo-font"
+      "expo-status-bar"
     ],
     "orientation": "portrait",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#0b153a"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],

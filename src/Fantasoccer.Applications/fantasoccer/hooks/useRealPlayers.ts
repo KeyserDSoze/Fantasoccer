@@ -58,7 +58,7 @@ export function useRealPlayers(options: UseRealPlayersOptions = {}): UseRealPlay
 
   const [state, setState] = useState<BaseState>(() => createInitialState(enabled))
   const mountedRef = useRef(true)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchPlayers = useCallback(async (isRefresh = false) => {
     const canRun = enabled
@@ -222,7 +222,7 @@ export function useRandomizedRealPlayers(
   const effectiveEnabled = enabled && !!leagueKey
   const [state, setState] = useState<BaseState>(() => createInitialState(effectiveEnabled))
   const mountedRef = useRef(true)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const keySignature = leagueKey ? `${leagueKey.group}-${leagueKey.league}-${leagueKey.year}` : 'none'
 

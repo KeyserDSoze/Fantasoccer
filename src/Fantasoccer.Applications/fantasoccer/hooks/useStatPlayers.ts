@@ -54,7 +54,7 @@ export function useStatPlayers(options: UseStatPlayersOptions = {}): UseStatPlay
 
   const [state, setState] = useState<UseStatPlayersState>(() => createInitialState(enabled))
   const mountedRef = useRef(true)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchWrapper = useCallback(async (isRefresh = false) => {
     if (!enabled) {

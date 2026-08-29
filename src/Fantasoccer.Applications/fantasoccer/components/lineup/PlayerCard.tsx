@@ -163,7 +163,7 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
 
   // Effetto per gestire il lampeggiamento
   useEffect(() => {
-    let interval: NodeJS.Timeout
+    let interval: ReturnType<typeof setInterval>
     
     if (voteDisplayInfo?.shouldBlink) {
       interval = setInterval(() => {
