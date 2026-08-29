@@ -21,6 +21,7 @@ export interface TokenExchangeResponse {
 export interface PKCEOptions {
   isPKCE?: boolean
   codeVerifier?: string
+  redirectPath?: string
 }
 
 export class AuthService {
@@ -28,19 +29,22 @@ export class AuthService {
   async exchangeToken(authCode: string, options: PKCEOptions = {}): Promise<TokenExchangeResponse> {
     try {
       let url: string
+      const redirectPath = options.redirectPath ?? '/'
       
       if (options.isPKCE && options.codeVerifier) {
         // PKCE flow: include code_verifier
         url = buildApiUrl('/api/Authentication/Social/Token', {
           code: authCode,
           provider: '2',
+          redirectPath,
           code_verifier: options.codeVerifier
         })
       } else {
         // MSAL flow: send MSAL token directly
         url = buildApiUrl('/api/Authentication/Social/Token', {
           code: authCode,
-          provider: '2'
+          provider: '2',
+          redirectPath,
         })
       }
 
@@ -64,7 +68,7 @@ export class AuthService {
 
   // Exchange OAuth authorization code using PKCE flow
   async exchangeTokenWithPKCE(authCode: string, codeVerifier: string): Promise<TokenExchangeResponse> {
-    return this.exchangeToken(authCode, { isPKCE: true, codeVerifier })
+    return this.exchangeToken(authCode, { isPKCE: true, codeVerifier, redirectPath: '/' })
   }
 
   // Refresh access token using refresh token
