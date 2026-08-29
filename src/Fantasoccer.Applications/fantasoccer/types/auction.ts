@@ -332,6 +332,7 @@ export function mapRawAuctionWrapper(raw: AuctionWrapperRaw): AuctionWrapper {
     actual: raw.a ? mapRawActualAuction(raw.a) : null,
     winnings: raw.w.map(mapRawAuctionWin),
     status: raw.s as AuctionStatus,
+    listOfPlayers,
     participants: raw.pr.map(mapRawAnnualTeamToAnnualTeam),
     lastShow,
     secondsPerAuction: raw.sec ?? 10,

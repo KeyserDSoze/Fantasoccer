@@ -23,7 +23,7 @@ export function FloatingEmoji({ id, emoji, sender, onComplete }: FloatingEmojiPr
   return (
     <YStack
       key={id}
-      position="fixed"
+      position="absolute"
       left="50%"
       bottom={0}
       zIndex={10000}

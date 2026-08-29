@@ -1564,7 +1564,7 @@ export default function AuctionLiveScreen() {
                             {purchases.map((purchase, idx) => {
                               // Find player name from realPlayers
                               const player = auctionState.realPlayers.find(
-                                p => getPlayerKey(p.name, p.realTeam?.id || '') === purchase.playerKey
+                                p => getPlayerKey(p.name) === purchase.playerKey
                               )
                               const playerName = player?.name || purchase.playerKey
                               
@@ -1961,7 +1961,7 @@ export default function AuctionLiveScreen() {
                               borderRadius="$2" 
                               borderWidth="$0.5" 
                               borderColor={isSelected ? "$blue9" : "$blue7"}
-                              title={email}
+                              accessibilityLabel={email}
                               cursor={canTransferToThisUser ? "pointer" : "default"}
                               onPress={canTransferToThisUser ? () => setSelectedUserForTransfer(isSelected ? null : email) : undefined}
                             >

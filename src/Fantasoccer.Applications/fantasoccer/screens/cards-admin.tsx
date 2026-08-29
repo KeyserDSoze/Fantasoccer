@@ -16,7 +16,7 @@ import {
   Select,
   Sheet
 } from 'tamagui'
-import { Search, Plus, Edit, Trash2, Image as ImageIcon, Sparkles } from '@tamagui/lucide-icons'
+import { Search, Plus, Edit3, Trash2, Image as ImageIcon, Sparkles } from '@tamagui/lucide-icons'
 import { useToastController } from '@tamagui/toast'
 import { useNavigation } from '@react-navigation/native'
 import type { NavigationProp } from '../navigation'
@@ -316,7 +316,7 @@ export default function CardsAdminScreen() {
                               size="$3"
                               circular
                               backgroundColor="$blue4"
-                              icon={<Edit size={16} color="$blue11" />}
+                              icon={<Edit3 size={16} color="$blue11" />}
                               onPress={() => navigation.navigate('CardEdit', { cardId: card.id })}
                             />
                             <Button
