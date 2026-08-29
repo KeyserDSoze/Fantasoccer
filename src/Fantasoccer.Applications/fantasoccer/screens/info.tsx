@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Info } from '@tamagui/lucide-icons'
+import { AlertTriangle, Info } from '@tamagui/lucide-icons-2'
 import {
   Card,
   H3,

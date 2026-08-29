@@ -1,5 +1,5 @@
 import { Dialog, Button, Card, ScrollView, Select, Label, Input, Text, XStack, YStack } from 'tamagui'
-import { ChevronDown } from '@tamagui/lucide-icons'
+import { ChevronDown } from '@tamagui/lucide-icons-2'
 import { Role } from 'types/group'
 import { StatPlayer } from 'types/auction'
 import { getRoleLabel } from 'utils/auctionHelper'
@@ -71,17 +71,17 @@ export function PlayerSearchDialog({
       <Dialog.Portal>
         <Dialog.Overlay 
           key="overlay" 
-          animation="quick" 
+          transition="quick"
           opacity={0.5} 
           enterStyle={{ opacity: 0 }} 
           exitStyle={{ opacity: 0 }} 
         />
         <Dialog.Content 
           bordered 
-          elevate 
+          elevation="$2"
           key="content" 
           animateOnly={['transform', 'opacity']} 
-          animation={['quick', { opacity: { overshootClamping: true } }]} 
+          transition={['quick', { opacity: { overshootClamping: true } }]}
           enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} 
           exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} 
           gap="$4" 
@@ -109,7 +109,7 @@ export function PlayerSearchDialog({
                 <Select.Trigger iconAfter={ChevronDown}>
                   <Select.Value />
                 </Select.Trigger>
-                <Select.Content zIndex={200000}>
+                <Select.Content>
                   <Select.Viewport>
                     <Select.Item index={0} value={Role.GoalKeeper.toString()}>
                       <Select.ItemText>Portiere</Select.ItemText>

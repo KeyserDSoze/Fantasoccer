@@ -1,5 +1,5 @@
 import { type FC, useMemo } from 'react'
-import { AlertTriangle, CalendarRange, RefreshCw } from '@tamagui/lucide-icons'
+import { AlertTriangle, CalendarRange, RefreshCw } from '@tamagui/lucide-icons-2'
 import {
   Button,
   Card,
@@ -80,7 +80,7 @@ const GameRow: FC<{
   }
 
   return (
-    <Button onPress={onPress} chromeless bordered={false} paddingHorizontal={0} paddingVertical={0}>
+    <Button onPress={onPress} chromeless paddingHorizontal={0} paddingVertical={0}>
       <XStack
         alignItems="center"
         justifyContent="space-between"
@@ -257,7 +257,7 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   }, [days, cardsPerRow, hasDays])
 
   return (
-    <Card padding="$3" elevate backgroundColor="$color1" gap="$3" width="100%">
+    <Card padding="$3" elevation="$2" backgroundColor="$color1" gap="$3" width="100%">
       <XStack alignItems="center" gap="$2">
         <CalendarRange size="$1.5" color="$purple10" />
         <YStack gap="$1" flex={1}>

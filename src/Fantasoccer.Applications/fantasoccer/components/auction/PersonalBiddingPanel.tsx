@@ -3,7 +3,7 @@ import {
   Button, Card, Separator, Text, View, XStack, YStack, 
   useMedia 
 } from 'tamagui'
-import { DollarSign, Users } from '@tamagui/lucide-icons'
+import { DollarSign, Users } from '@tamagui/lucide-icons-2'
 import { Entity } from 'types/default'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { StatPlayer } from 'types/auction'
@@ -268,7 +268,7 @@ export function PersonalBiddingPanel({
             variant="outlined" 
             onPress={onSelectSubstitute}
             disabled={isSubstituteButtonDisabled}
-            animation="bouncy"
+            transition="bouncy"
             style={{
               ...(shouldShowGlow && {
                 borderColor: '#f97316',

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CalendarRange } from '@tamagui/lucide-icons'
+import { AlertTriangle, CalendarRange } from '@tamagui/lucide-icons-2'
 import {
   Card,
   H2,

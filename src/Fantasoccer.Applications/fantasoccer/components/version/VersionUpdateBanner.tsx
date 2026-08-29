@@ -1,6 +1,6 @@
 import { type FC, useEffect, useState } from 'react'
 import { YStack, XStack, Card, Text, Button } from 'tamagui'
-import { X, FileText } from '@tamagui/lucide-icons'
+import { X, FileText } from '@tamagui/lucide-icons-2'
 import { APP_VERSION } from 'config/version'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -52,7 +52,7 @@ export const VersionUpdateBanner: FC = () => {
       padding="$4"
       zIndex={9999}
       elevation={10}
-      animation="quick"
+      transition="quick"
       enterStyle={{ opacity: 0, scale: 0.9, y: 20 }}
       exitStyle={{ opacity: 0, scale: 0.9, y: 20 }}
     >

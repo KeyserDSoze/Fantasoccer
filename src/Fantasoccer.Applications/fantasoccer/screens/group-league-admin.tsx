@@ -13,7 +13,7 @@ import { calendarService } from 'services/calendarService'
 import type { League, LeagueSetting, AnnualLeague } from 'types/group'
 import type { Calendar } from 'types/calendar'
 import { DefaultLeagueSetting, LeagueType } from 'types/group'
-import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown, Copy } from '@tamagui/lucide-icons'
+import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown, Copy } from '@tamagui/lucide-icons-2'
 import { formatSeasonFromYear, getAvailableSeasonYears, getCurrentSeasonYear } from 'utils/season'
 import { cloneLeagueSetting, copyAnnualLeagueToYear, getAnnualLeagueForYear, isLeagueSettingValid, upsertAnnualLeague } from 'utils/groupAdmin'
 
@@ -665,7 +665,7 @@ export default function GroupLeagueAdminScreen() {
                               <Select.Trigger iconAfter={ChevronDown} disabled={isAnyLoading}>
                                 <Select.Value />
                               </Select.Trigger>
-                              <Select.Content zIndex={200000}>
+                              <Select.Content>
                                 <Select.Viewport>
                                   <Select.Item index={0} value="0">
                                     <Select.ItemText>Nessuno</Select.ItemText>
@@ -763,7 +763,7 @@ export default function GroupLeagueAdminScreen() {
                               <Select.Trigger iconAfter={ChevronDown} disabled={isAnyLoading}>
                                 <Select.Value placeholder={`Default: ${['Nessuno', 'Lega', 'Coppa', 'Nuova Coppa', 'Super Lega'][selectedLeague.type]}`} />
                               </Select.Trigger>
-                              <Select.Content zIndex={200000}>
+                              <Select.Content>
                                 <Select.Viewport>
                                   <Select.Item index={0} value="0">
                                     <Select.ItemText>Nessuno</Select.ItemText>

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { Dimensions } from 'react-native'
 import { Sheet, YStack, XStack, Text, Button, ScrollView, Card } from 'tamagui'
-import { X, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus, Clock, CheckCircle, Circle } from '@tamagui/lucide-icons'
+import { X, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus, Clock, CheckCircle, Circle } from '@tamagui/lucide-icons-2'
 import type { LivePlayer } from 'types/game'
 import type { StatPlayer } from 'types/stat'
 import type { Vote } from 'types/serieA'
@@ -198,7 +198,7 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
       position={0}
       zIndex={100000}
     >
-      <Sheet.Overlay backgroundColor="rgba(0,0,0,0.7)" animation="quick" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+      <Sheet.Overlay backgroundColor="rgba(0,0,0,0.7)" transition="quick" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
       <Sheet.Frame 
         padding={0} 
         backgroundColor="$background" 

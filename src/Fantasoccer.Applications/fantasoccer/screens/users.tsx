@@ -15,7 +15,7 @@ import {
 } from 'tamagui'
 import { useAllIdentities } from 'hooks/useAppIdentity'
 import { IdentityRole, getUserRoleNames } from 'types/identity'
-import { Users as UsersIcon, Search, Shield, Mail, Calendar } from '@tamagui/lucide-icons'
+import { Users as UsersIcon, Search, Shield, Mail, Calendar } from '@tamagui/lucide-icons-2'
 
 export default function UsersScreen() {
   const media = useMedia()

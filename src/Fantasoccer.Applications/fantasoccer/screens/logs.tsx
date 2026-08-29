@@ -24,7 +24,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 
 export default function LogsScreen() {
   const media = useMedia()

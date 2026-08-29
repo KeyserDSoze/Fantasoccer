@@ -46,7 +46,7 @@ export function Login() {
         </YStack>
 
         {/* Login Card */}
-        <Card padding="$6" width="100%" backgroundColor="$background" borderRadius="$6" elevate>
+        <Card padding="$6" width="100%" backgroundColor="$background" borderRadius="$6" elevation="$2">
           <YStack gap="$4" alignItems="center">
             
             <YStack alignItems="center" gap="$2">

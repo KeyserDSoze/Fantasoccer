@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui'
-import { ShieldCheck } from '@tamagui/lucide-icons'
+import { ShieldCheck } from '@tamagui/lucide-icons-2'
 import { useSerieACalendar } from 'hooks/useSerieACalendar'
 import { useFieldZoom } from 'hooks/useFieldZoom'
 import { SoccerField } from 'components/lineup'
@@ -546,4 +546,3 @@ export default function GameScreen() {
     </View>
   )
 }
-

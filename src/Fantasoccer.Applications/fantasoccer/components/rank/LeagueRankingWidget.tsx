@@ -1,5 +1,5 @@
 import { type FC, useEffect, useState } from 'react'
-import { AlertTriangle, RefreshCw, Info } from '@tamagui/lucide-icons'
+import { AlertTriangle, RefreshCw, Info } from '@tamagui/lucide-icons-2'
 import { Button, Card, ScrollView, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
 import { useWindowDimensions, Platform } from 'react-native'
 import type { EnhancedRankedTeam, TeamLuck } from 'types/rank'
@@ -327,7 +327,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   const rowMinHeight = isCompact ? 68 : 72
 
   return (
-    <Card padding="$3" elevate backgroundColor="$color1" gap="$3">
+    <Card padding="$3" elevation="$2" backgroundColor="$color1" gap="$3">
       <YStack gap="$1">
         {leagueName && (
           <Text fontSize="$5" fontWeight="700" color="$color12">

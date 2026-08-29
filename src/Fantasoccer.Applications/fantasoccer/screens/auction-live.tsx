@@ -26,7 +26,7 @@ import {
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
   Clock, Lock, RotateCcw, Search, DollarSign, 
   AlertCircle, Volume2, VolumeX, Vibrate, History, UserX
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
@@ -1520,14 +1520,14 @@ export default function AuctionLiveScreen() {
                     </Card>
                   )}
                 </XStack>
-                <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <Square transition="quick" rotate={open ? '180deg' : '0deg'}>
                   <ChevronDown size={20} color="$green11" />
                 </Square>
               </>
             )}
           </Accordion.Trigger>
           
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               padding="$4"
               paddingTop="$2"
@@ -1657,14 +1657,14 @@ export default function AuctionLiveScreen() {
                     Giocatori Cacciati/Venduti ({totalInactive})
                   </Text>
                 </XStack>
-                <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <Square transition="quick" rotate={open ? '180deg' : '0deg'}>
                   <ChevronDown size={20} color="$red11" />
                 </Square>
               </>
             )}
           </Accordion.Trigger>
           
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content
               padding="$4"
               paddingTop="$2"
@@ -1812,7 +1812,7 @@ export default function AuctionLiveScreen() {
                       🎯 {getRoleLabel(selectedRole)}
                     </Text>
                   </Card>
-                  <Square animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <Square transition="quick" rotate={open ? '180deg' : '0deg'}>
                     <ChevronDown size={20} color="$blue11" />
                   </Square>
                 </XStack>
@@ -1820,7 +1820,7 @@ export default function AuctionLiveScreen() {
             )}
           </Accordion.Trigger>
           
-          <Accordion.HeightAnimator animation="quick">
+          <Accordion.HeightAnimator transition="quick">
             <Accordion.Content 
               padding="$4" 
               paddingTop="$2"
@@ -1842,14 +1842,14 @@ export default function AuctionLiveScreen() {
                     {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
                     <Text fontSize="$3" color="$color11">Audio</Text>
                     <Switch size="$2" checked={audioEnabled} onCheckedChange={setAudioEnabled}>
-                      <Switch.Thumb animation="quick" />
+                      <Switch.Thumb transition="quick" />
                     </Switch>
                     {Platform.OS !== 'web' && (
                       <XStack gap="$2" alignItems="center">
                         <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
                         <Text fontSize="$3" color="$color11">Vibrazione</Text>
                         <Switch size="$2" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                       </XStack>
                     )}
@@ -1864,7 +1864,7 @@ export default function AuctionLiveScreen() {
                       {myTeam && (
                         <XStack gap="$1" alignItems="center">
                           <Switch size="$2" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel}>
-                            <Switch.Thumb animation="quick" />
+                            <Switch.Thumb transition="quick" />
                           </Switch>
                           <Text fontSize="$2" color="$blue11">Pulsantiera</Text>
                         </XStack>
@@ -1872,58 +1872,58 @@ export default function AuctionLiveScreen() {
                       {isAuctioneer && (
                         <XStack gap="$1" alignItems="center">
                           <Switch size="$2" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel}>
-                            <Switch.Thumb animation="quick" />
+                            <Switch.Thumb transition="quick" />
                           </Switch>
                           <Text fontSize="$2" color="$blue11">Pulsantiera Banditore</Text>
                         </XStack>
                       )}
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showPlayerStats} onCheckedChange={setShowPlayerStats}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Statistiche Giocatore</Text>
                       </XStack>
                       {myTeam && (
                         <XStack gap="$1" alignItems="center">
                           <Switch size="$2" checked={showMyTeamStats} onCheckedChange={setShowMyTeamStats}>
-                            <Switch.Thumb animation="quick" />
+                            <Switch.Thumb transition="quick" />
                           </Switch>
                           <Text fontSize="$2" color="$blue11">Statistiche Mia Squadra</Text>
                         </XStack>
                       )}
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Squadre Partecipanti</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showTeamDetails} onCheckedChange={setShowTeamDetails}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Dettagli Squadre</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Storico Acquisti</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Giocatori Cacciati/Venduti</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={showEmojis} onCheckedChange={setShowEmojis}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Reazioni Emoji</Text>
                       </XStack>
                       <XStack gap="$1" alignItems="center">
                         <Switch size="$2" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled}>
-                          <Switch.Thumb animation="quick" />
+                          <Switch.Thumb transition="quick" />
                         </Switch>
                         <Text fontSize="$2" color="$blue11">Audio Emoji</Text>
                       </XStack>

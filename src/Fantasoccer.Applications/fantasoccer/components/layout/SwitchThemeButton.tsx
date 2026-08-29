@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, XStack, Text } from 'tamagui'
-import { Moon, Sun } from '@tamagui/lucide-icons'
+import { Moon, Sun } from '@tamagui/lucide-icons-2'
 import { useAppTheme } from 'providers/ThemeProvider'
 
 export const SwitchThemeButton = () => {

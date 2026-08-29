@@ -28,7 +28,7 @@ import {
   DollarSign,
   Filter,
   Calendar,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { useApp } from 'providers/AppProvider'
 import { useAuth } from 'providers/AuthProvider'
@@ -511,7 +511,7 @@ export default function MarketTradesScreen() {
                       <Sheet
                         modal
                         dismissOnSnapToBottom
-                        animationConfig={{
+                        transitionConfig={{
                           type: 'spring',
                           damping: 20,
                           mass: 1.2,
@@ -524,14 +524,14 @@ export default function MarketTradesScreen() {
                           </Sheet.ScrollView>
                         </Sheet.Frame>
                         <Sheet.Overlay
-                          animation="lazy"
+                          transition="lazy"
                           enterStyle={{ opacity: 0 }}
                           exitStyle={{ opacity: 0 }}
                         />
                       </Sheet>
                     </Adapt>
 
-                    <Select.Content zIndex={200000}>
+                    <Select.Content>
                       <Select.ScrollUpButton />
                       <Select.Viewport minWidth={200}>
                         <Select.Item index={0} value="all">
@@ -606,7 +606,7 @@ export default function MarketTradesScreen() {
           snapPointsMode="percent"
           dismissOnSnapToBottom
         >
-          <Sheet.Overlay animation="lazy" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+          <Sheet.Overlay transition="lazy" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
           <Sheet.Frame padding="$4" backgroundColor="$background">
             <Sheet.Handle />
             <ScrollView>

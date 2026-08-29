@@ -84,7 +84,7 @@ export function FloatingPlayerWidget({
           elevation={8}
           pressStyle={!disabled ? { scale: 1, opacity: 0.8 } : undefined}
           onPress={disabled ? undefined : onIncrementBid}
-          animation="quick"
+          transition="quick"
           cursor={disabled ? 'default' : 'pointer'}
           opacity={disabled ? 0.6 : 1}
         >

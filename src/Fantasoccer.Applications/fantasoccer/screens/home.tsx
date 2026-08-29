@@ -2,7 +2,7 @@ import { ScreenContent } from 'components/layout/ScreenContent';
 import { StyleSheet, View } from 'react-native';
 
 import { H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
-import { Calendar, TrendingUp, Users, ShieldCheck } from '@tamagui/lucide-icons';
+import { Calendar, TrendingUp, Users, ShieldCheck } from '@tamagui/lucide-icons-2';
 import { LoginButton } from 'features/LoginButton';
 import { useAuth } from 'providers/AuthProvider';
 import type { AuthUser } from 'providers/AuthProvider';

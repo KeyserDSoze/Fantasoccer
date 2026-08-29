@@ -23,7 +23,7 @@ import {
   Medal,
   Crown,
   Target,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'

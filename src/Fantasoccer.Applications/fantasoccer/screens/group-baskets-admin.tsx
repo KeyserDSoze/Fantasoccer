@@ -27,7 +27,7 @@ import {
   UserPlus,
   AlertCircle,
   CheckCircle
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { formatSeasonFromYear, getAvailableSeasonYears } from 'utils/season'
 import { copyMissingTeams } from 'utils/groupAdmin'
 

@@ -1,5 +1,5 @@
 import { type FC } from 'react'
-import { AlertCircle, TrendingDown, TrendingUp } from '@tamagui/lucide-icons'
+import { AlertCircle, TrendingDown, TrendingUp } from '@tamagui/lucide-icons-2'
 import { Button, Card, Dialog, ScrollView, Separator, Text, XStack, YStack } from 'tamagui'
 import type { TeamLuck, LuckEvent } from 'types/rank'
 import { LuckCalculator } from 'utils/luckCalculator'
@@ -86,16 +86,16 @@ export const LuckDetailModal: FC<LuckDetailModalProps> = ({ teamLuck, open, onCl
       <Dialog.Portal>
         <Dialog.Overlay
           key="overlay"
-          animation="quick"
+          transition="quick"
           opacity={0.5}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
         />
         <Dialog.Content
           bordered
-          elevate
+          elevation="$2"
           key="content"
-          animation={[
+          transition={[
             'quick',
             {
               opacity: {

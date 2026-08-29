@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons'
+import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons-2'
 import {
   Button,
   Card,
@@ -614,17 +614,17 @@ export default function SettingsScreen() {
         <Dialog.Portal>
           <Dialog.Overlay
             key="overlay"
-            animation="quick"
+            transition="quick"
             opacity={0.5}
             enterStyle={{ opacity: 0 }}
             exitStyle={{ opacity: 0 }}
           />
           <Dialog.Content
             bordered
-            elevate
+            elevation="$2"
             key="content"
             animateOnly={['transform', 'opacity']}
-            animation={[
+            transition={[
               'quick',
               {
                 opacity: {

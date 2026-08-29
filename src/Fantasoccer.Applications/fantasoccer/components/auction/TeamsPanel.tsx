@@ -1,5 +1,5 @@
 import { Card, Text, XStack, YStack } from 'tamagui'
-import { Users } from '@tamagui/lucide-icons'
+import { Users } from '@tamagui/lucide-icons-2'
 import { Entity } from 'types/default'
 import { Team, TeamKey, TeamHelper } from 'types/team'
 import { Role } from 'types/group'

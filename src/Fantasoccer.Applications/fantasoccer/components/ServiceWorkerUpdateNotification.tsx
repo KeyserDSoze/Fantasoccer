@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Text, XStack, YStack } from 'tamagui'
-import { RefreshCw } from '@tamagui/lucide-icons'
+import { RefreshCw } from '@tamagui/lucide-icons-2'
 import { Platform } from 'react-native'
 
 export function ServiceWorkerUpdateNotification() {
@@ -92,7 +92,7 @@ export function ServiceWorkerUpdateNotification() {
       shadowOpacity={0.3}
       shadowRadius={8}
       elevation={5}
-      animation="quick"
+      transition="quick"
       enterStyle={{
         opacity: 0,
         y: 20,

@@ -25,7 +25,7 @@ import {
   SquareCheck,
   Trash2,
   TriangleAlert
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import {
   useCurrentUserPushNotifications
@@ -297,7 +297,7 @@ const PushNotificationScreen = () => {
                         checked={value}
                         onCheckedChange={(checked) => handleToggle(toggle.key, Boolean(checked))}
                       >
-                        <Switch.Thumb animation="quick" backgroundColor={value ? '$blue10' : '$color6'} />
+                        <Switch.Thumb transition="quick" backgroundColor={value ? '$blue10' : '$color6'} />
                       </Switch>
                     </XStack>
                   </Card>

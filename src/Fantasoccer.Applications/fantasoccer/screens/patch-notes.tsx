@@ -1,6 +1,6 @@
 import { type FC } from 'react'
 import { ScrollView, YStack, Card, Text, XStack, Separator, H2, H3 } from 'tamagui'
-import { GitCommit, Calendar as CalendarIcon } from '@tamagui/lucide-icons'
+import { GitCommit, Calendar as CalendarIcon } from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { APP_VERSION } from 'config/version'
 
@@ -372,7 +372,7 @@ const getCategoryBgColor = (category: PatchNote['changes'][0]['category']) => {
 
 const PatchNoteCard: FC<{ note: PatchNote }> = ({ note }) => {
   return (
-    <Card elevate bordered padding="$4" backgroundColor="$background">
+    <Card elevation="$2" borderWidth={1} borderColor="$borderColor" padding="$4" backgroundColor="$background">
       <YStack gap="$3">
         {/* Header */}
         <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$2">

@@ -18,7 +18,7 @@ import {
   Switch,
   ScrollView
 } from 'tamagui'
-import { Save, X, Upload, Image as ImageIcon, AlertCircle } from '@tamagui/lucide-icons'
+import { Save, X, Upload, Image as ImageIcon, AlertCircle } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native'
 import type { RootStackParamList } from '../navigation'
@@ -450,7 +450,7 @@ export default function CardEditScreen() {
                         onCheckedChange={setHasMyCondition}
                         size="$4"
                       >
-                        <Switch.Thumb animation="quick" />
+                        <Switch.Thumb transition="quick" />
                       </Switch>
                     </XStack>
 
@@ -467,7 +467,7 @@ export default function CardEditScreen() {
                         onCheckedChange={setHasEnemyCondition}
                         size="$4"
                       >
-                        <Switch.Thumb animation="quick" />
+                        <Switch.Thumb transition="quick" />
                       </Switch>
                     </XStack>
                   </YStack>

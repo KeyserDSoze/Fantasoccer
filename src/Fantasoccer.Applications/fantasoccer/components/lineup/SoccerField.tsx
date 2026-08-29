@@ -1,7 +1,7 @@
 import { memo, useMemo, useState, useEffect } from 'react'
 import { YStack, XStack, Text, ScrollView, Button } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
-import { Save, Sparkles, Undo2 } from '@tamagui/lucide-icons'
+import { Save, Sparkles, Undo2 } from '@tamagui/lucide-icons-2'
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game'
 import type { StatPlayer } from 'types/stat'
 import { FantaSoccerRole, Team } from 'types/team'
@@ -1039,4 +1039,3 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
 })
 
 export default SoccerField
-

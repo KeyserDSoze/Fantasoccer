@@ -2,7 +2,7 @@
 import { 
   Card, Separator, Text, XStack, YStack, useMedia
 } from 'tamagui'
-import { Users, Clock, ArrowRightLeft } from '@tamagui/lucide-icons'
+import { Users, Clock, ArrowRightLeft } from '@tamagui/lucide-icons-2'
 import { StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'

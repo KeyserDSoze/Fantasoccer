@@ -6,7 +6,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Info,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 
 import type { LivePlayer } from 'types/game'
 import type { StatPlayer } from 'types/stat'
@@ -433,7 +433,7 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
           borderWidth={3}
           borderColor={currentRainbowColor}
           zIndex={0}
-          animation="bouncy"
+          transition="bouncy"
           animateOnly={['borderColor']}
           style={{
             shadowColor: currentRainbowColor,

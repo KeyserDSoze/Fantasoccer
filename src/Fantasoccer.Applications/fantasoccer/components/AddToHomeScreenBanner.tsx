@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Platform } from 'react-native'
 import { YStack, XStack, Text, Button, Card } from 'tamagui'
-import { Home, X, Share } from '@tamagui/lucide-icons'
+import { Home, X, Share } from '@tamagui/lucide-icons-2'
 
 // Definizione del tipo per l'evento beforeinstallprompt
 interface BeforeInstallPromptEvent extends Event {

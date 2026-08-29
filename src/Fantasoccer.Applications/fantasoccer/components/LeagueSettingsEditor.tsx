@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Input, Label, Separator, Switch, Text, XStack, YStack } from 'tamagui'
-import { Plus, Trash2 } from '@tamagui/lucide-icons'
+import { Plus, Trash2 } from '@tamagui/lucide-icons-2'
 import {
   DefaultLeagueSetting,
   Role,

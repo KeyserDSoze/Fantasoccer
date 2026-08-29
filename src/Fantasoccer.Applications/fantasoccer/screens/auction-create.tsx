@@ -12,7 +12,7 @@ import {
   AuctionKindLabels,
   AuctionKindDescriptions
 } from 'types/auction'
-import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons'
+import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons-2'
 
 export default function AuctionCreateScreen() {
   const media = useMedia()
