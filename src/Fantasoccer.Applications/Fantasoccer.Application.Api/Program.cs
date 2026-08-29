@@ -45,7 +45,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors",
         policy => policy
-            .WithOrigins("http://localhost:3000", "https://fanta.zone") // no trailing slash, include scheme
+            .WithOrigins("http://localhost:3000", "https://keyserdsoze.github.io", "https://fanta.zone") // no trailing slash, include scheme
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());

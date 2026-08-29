@@ -1,6 +1,6 @@
 # GitHub deployment setup
 
-Both workflows use the `production` GitHub Environment and deploy from `main`.
+Both workflows deploy from `main`. The API build uses the `production` GitHub Environment; the frontend deploy uses the GitHub-managed `github-pages` environment.
 
 The API workflow currently skips the solution test step while the test project is being repaired. Re-enable it before treating the production deployment as fully validated.
 
@@ -15,7 +15,6 @@ Create these **Variables** in `Settings > Environments > production`:
 Create these **Secrets** in the same environment:
 
 - `AZURE_CREDENTIALS`: JSON containing `clientId`, `clientSecret`, `tenantId`, and `subscriptionId` for the Entra application
-- `STATIC_WEB_APP_DEPLOYMENT_TOKEN`: deployment token from the Static Web App
 - `API_STORAGE_CONNECTION_STRING`: Azure Storage connection string
 - `API_APPINSIGHTS_CONNECTION_STRING`: Application Insights connection string
 - `MICROSOFT_CLIENT_SECRET`: Microsoft social-login client secret
@@ -23,9 +22,13 @@ Create these **Secrets** in the same environment:
 - `ENCRYPTION_KEY`: application encryption key
 - `ENCRYPTION_IV`: application encryption IV
 
-For the current Azure target, set `API_APP_NAME=apifc`, `API_RESOURCE_GROUP=fc`, and `FRONTEND_API_URL=https://apifc.azurewebsites.net`.
+For the current targets, set `API_APP_NAME=apifc`, `API_RESOURCE_GROUP=fc`, and `FRONTEND_API_URL=https://apifc.azurewebsites.net`.
 
-The Entra service principal needs `Website Contributor` on the API App Service (or its resource group). The Static Web App token is scoped to that Static Web App and is only used by the static-app workflow.
+The Entra service principal needs `Website Contributor` on the API App Service (or its resource group).
+
+## GitHub Pages
+
+Configure `Settings > Pages > Build and deployment > Source` to use **GitHub Actions**. The frontend workflow reads the Pages base path automatically, so it works both at the repository URL and with a custom domain. Run the workflow again after configuring `fanta.zone` so the bundle is rebuilt for the root path.
 
 The client secret should have an explicit expiration and be rotated. An infinite-duration secret is deliberately not recommended because it creates a permanent deployment credential.
 

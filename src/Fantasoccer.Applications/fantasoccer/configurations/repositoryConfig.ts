@@ -10,6 +10,7 @@ import { PushNotificationSettingsRaw } from "types/pushNotification";
 import { CalendarRaw } from "types/calendar";
 import { FantasoccerLogRaw } from "types/log";
 import { buildApiUrl } from "./apiConfig";
+import { stripWebBasePath, toWebPath } from './webConfig';
 import { GroupRaw } from "types/group";
 import { LiveGroupRaw } from "types/liveGroup";
 import { RankRaw, LeagueKeyRaw, YearDayLeagueRaw } from "types/rank";
@@ -222,12 +223,15 @@ const handleAuthError = async (endpoint: any, uri: string, method: string, heade
 const handleAuthenticationFailure = async () => {
   try {
     // Save current location for redirect after login
-    if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '/login') {
-      const returnUrl = window.location.pathname + window.location.search;
+    if (typeof window !== 'undefined') {
+      const currentPath = stripWebBasePath(window.location.pathname);
+      if (currentPath !== '/' && currentPath !== '/login') {
+        const returnUrl = currentPath + window.location.search;
       
-      // Use returnUrlService for proper cross-platform support
-      const { returnUrlService } = await import('../services/returnUrlService');
-      await returnUrlService.saveReturnUrl(returnUrl);
+        // Use returnUrlService for proper cross-platform support
+        const { returnUrlService } = await import('../services/returnUrlService');
+        await returnUrlService.saveReturnUrl(returnUrl);
+      }
     }
     
     // Clear all stored tokens
@@ -241,8 +245,9 @@ const handleAuthenticationFailure = async () => {
       // Fallback: try client-side navigation for web
       setTimeout(() => {
         try {
-          if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
-            window.history.pushState({}, '', '/');
+          const currentPath = stripWebBasePath(window.location.pathname);
+          if (currentPath !== '/' && currentPath !== '/login') {
+            window.history.pushState({}, '', toWebPath('/'));
             window.dispatchEvent(new PopStateEvent('popstate'));
           }
         } catch (err) {

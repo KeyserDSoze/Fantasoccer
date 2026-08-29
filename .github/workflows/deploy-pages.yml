@@ -1,0 +1,73 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/Fantasoccer.Applications/fantasoccer/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: src/Fantasoccer.Applications/fantasoccer
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: src/Fantasoccer.Applications/fantasoccer/package-lock.json
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+        env:
+          CI: "1"
+
+      - name: Build Expo web bundle
+        run: npx expo export --platform web --output-dir dist --dump-sourcemap
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_NONINTERACTIVE: "1"
+          EXPO_PUBLIC_API_URL: ${{ vars.FRONTEND_API_URL }}
+          EXPO_PUBLIC_BASE_URL: ${{ steps.pages.outputs.base_path }}
+
+      - name: Prepare GitHub Pages artifact
+        run: node scripts/prepare-github-pages.mjs dist
+        env:
+          EXPO_PUBLIC_BASE_URL: ${{ steps.pages.outputs.base_path }}
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: src/Fantasoccer.Applications/fantasoccer/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -69,8 +69,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: value.Body,
     data: value.Data,
-    icon: value.Icon ?? 'https://fanta.zone/android-chrome-192x192.png',
-    badge: value.Badge ?? 'https://fanta.zone/favicon-32x32.png',
+    icon: value.Icon ?? new URL('android-chrome-192x192.png', self.registration.scope).href,
+    badge: value.Badge ?? new URL('favicon-32x32.png', self.registration.scope).href,
     vibrate: value.Vibrate ?? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
     requireInteraction: value.RequireInteraction ?? false
   }

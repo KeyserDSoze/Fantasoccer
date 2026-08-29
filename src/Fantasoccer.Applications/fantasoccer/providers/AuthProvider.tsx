@@ -6,6 +6,7 @@ import { tokenStorageService } from '../services/tokenStorageService'
 import { PKCEHelper } from '../utils/pkceHelper'
 import { useGlobalLoading } from '../providers/LoadingProvider'
 import { useToastController } from '@tamagui/toast'
+import { getWebUrl } from '../configurations/webConfig'
 
 // Helper function to convert backend user data to AuthUser
 const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {
@@ -90,7 +91,7 @@ const getMsalConfig = () => ({
     clientId: "95de3061-5eab-437d-a2cc-6d71cfaef4d1",
     authority: 'https://login.microsoftonline.com/consumers',
     redirectUri: Platform.select({
-      web: typeof window !== 'undefined' ? window.location.origin + '/' : 'http://localhost:3000',
+      web: getWebUrl('/'),
       default: 'msauth://com.keyserdsoze.fantasoccer/auth'
     }),
   },
