@@ -15,6 +15,52 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.0',
+    date: '29 Agosto 2026',
+    changes: [
+      {
+        category: 'Breaking',
+        description: 'Frontend aggiornato a Expo 57, React 19.2, React Native 0.86 e TypeScript 6'
+      },
+      {
+        category: 'Breaking',
+        description: 'Design system migrato a Tamagui 2 con Config v5, nuovi temi, token e animazioni cross-platform'
+      },
+      {
+        category: 'Improvement',
+        description: 'Deploy web trasferito da Azure Static Web Apps a GitHub Pages con dominio fanta.zone, HTTPS e fallback per le route SPA'
+      },
+      {
+        category: 'Improvement',
+        description: 'Aggiornati SignalR, MSAL, React Navigation, strumenti di sviluppo e workflow GitHub Actions alle versioni compatibili più recenti'
+      },
+      {
+        category: 'Feature',
+        description: 'Nuova gestione delle regole annuali di lega con configurazione completa, validazione e copia dalla stagione precedente'
+      },
+      {
+        category: 'Feature',
+        description: 'Nuovo mercato con proposte di scambio, votazioni, controllo budget, validazione dei ruoli e aggiornamenti in tempo reale'
+      },
+      {
+        category: 'Improvement',
+        description: 'Parser delle formazioni Sky e Mediaset aggiornati e protetti da test automatici e smoke test periodici non bloccanti'
+      },
+      {
+        category: 'Fix',
+        description: 'Corretto lo scambio del token Microsoft su fanta.zone allineando esattamente il redirect URI OAuth'
+      },
+      {
+        category: 'Fix',
+        description: 'Corrette violazioni delle Rules of Hooks, stringhe JSX e gestione del Service Worker rilevate dal nuovo lint'
+      },
+      {
+        category: 'Improvement',
+        description: 'Rimossi il precedente frontend Blazor, il migratore storico, ClientStorage e le configurazioni di deploy obsolete'
+      }
+    ]
+  },
+  {
     version: '1.4.0',
     date: '27 Agosto 2026',
     changes: [
