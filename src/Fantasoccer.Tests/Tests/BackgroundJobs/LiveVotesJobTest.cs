@@ -13,6 +13,7 @@ public sealed class LiveVotesJobTest : IAsyncLifetime
     private readonly TestLiveVote _liveVote;
     private readonly IRepository<RealCalendar, int> _calendars;
     private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _votes;
+    private readonly Dictionary<int, VotedRealPlayerWrapper?> _voteSnapshots = [];
     private RealCalendar? _calendarSnapshot;
 
     public LiveVotesJobTest(
@@ -24,14 +25,20 @@ public sealed class LiveVotesJobTest : IAsyncLifetime
         _job = job;
         _liveVote = liveVote;
         _calendars = calendars;
-        _votes = factory.Create("live");
+        _votes = factory.Create("live")!;
     }
 
     public async ValueTask InitializeAsync()
     {
         var year = FantacalcioTime.ActualYear;
-        _calendarSnapshot = await _calendars.GetAsync(year);
-        await _calendars.DeleteAsync(year);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        _calendarSnapshot = await _calendars.GetAsync(year, cancellationToken);
+        await _calendars.DeleteAsync(year, cancellationToken);
+        foreach (var day in new[] { 2, 3, 4, 5 })
+        {
+            _voteSnapshots[day] = await _votes.GetAsync(Key(day), cancellationToken);
+            await _votes.DeleteAsync(Key(day), cancellationToken);
+        }
         _liveVote.Players = [];
         _liveVote.Calls = 0;
     }
@@ -39,9 +46,16 @@ public sealed class LiveVotesJobTest : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         var year = FantacalcioTime.ActualYear;
-        await _calendars.DeleteAsync(year);
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _calendars.DeleteAsync(year, cancellationToken);
         if (_calendarSnapshot != null)
-            await _calendars.InsertAsync(year, _calendarSnapshot);
+            await _calendars.InsertAsync(year, _calendarSnapshot, cancellationToken);
+        foreach (var snapshot in _voteSnapshots)
+        {
+            await _votes.DeleteAsync(Key(snapshot.Key), cancellationToken);
+            if (snapshot.Value != null)
+                await _votes.InsertAsync(Key(snapshot.Key), snapshot.Value, cancellationToken);
+        }
     }
 
     [Fact]
@@ -55,8 +69,8 @@ public sealed class LiveVotesJobTest : IAsyncLifetime
     [Fact]
     public async Task DoesNothingWhenThereIsNoLiveDay()
     {
-        var day = RandomDay();
-        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(3)));
+        const int day = 2;
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(3)), TestContext.Current.CancellationToken);
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
@@ -66,37 +80,48 @@ public sealed class LiveVotesJobTest : IAsyncLifetime
     [Fact]
     public async Task DoesNotPersistEmptyLiveVoteResponse()
     {
-        var day = RandomDay();
-        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(-1)));
+        const int day = 3;
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(-1)), TestContext.Current.CancellationToken);
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, _liveVote.Calls);
-        Assert.Null(await _votes.GetAsync(Key(day)));
+        Assert.Null(await _votes.GetAsync(Key(day), TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task UpdatesExistingPlayersAndAddsNewPlayers()
     {
-        var day = RandomDay();
+        const int day = 4;
         var existing = CreatePlayer("Existing", 4);
         var added = CreatePlayer("Added", 7);
         var key = Key(day);
-        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(-1)));
-        await _votes.InsertAsync(key, new VotedRealPlayerWrapper { Players = [CreatePlayer("Existing", 1)] });
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(-1)), TestContext.Current.CancellationToken);
+        await _votes.InsertAsync(key, new VotedRealPlayerWrapper { Players = [CreatePlayer("Existing", 1)] }, TestContext.Current.CancellationToken);
         _liveVote.Players = [existing, added];
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
-        var result = await _votes.GetAsync(key);
+        var result = await _votes.GetAsync(key, TestContext.Current.CancellationToken);
         Assert.NotNull(result);
         Assert.Equal(2, result.Players.Count);
         Assert.Equal(4, result.Players.Single(x => x.Name == "Existing").Vote.Value);
         Assert.Equal(7, result.Players.Single(x => x.Name == "Added").Vote.Value);
     }
 
-    private static int RandomDay()
-        => Random.Shared.Next(1, 39);
+    [Fact]
+    public async Task PersistsPlayersWhenLiveVoteStoreIsMissing()
+    {
+        const int day = 5;
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, CreateCalendar(day, FantacalcioTime.ItalyNow.AddHours(-1)), TestContext.Current.CancellationToken);
+        _liveVote.Players = [CreatePlayer("First live player", 7)];
+
+        await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var result = await _votes.GetAsync(Key(day), TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+        Assert.Equal(7, Assert.Single(result.Players).Vote.Value);
+    }
 
     private static YearDayKey Key(int day)
         => new() { Year = FantacalcioTime.ActualYear, Day = day };

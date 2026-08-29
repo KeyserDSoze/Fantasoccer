@@ -265,7 +265,7 @@ public sealed class SerieAJobTest : IAsyncLifetime
         {
             Home = new RealTeam { Name = home },
             Away = new RealTeam { Name = away },
-            Date = date ?? DateTime.UtcNow.AddDays(-1),
+            Date = date ?? new DateTime(2026, 8, 26, 12, 0, 0),
             Delayed = delayed,
             HomeGoal = homeGoal,
             AwayGoal = awayGoal

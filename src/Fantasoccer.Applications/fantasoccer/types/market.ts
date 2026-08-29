@@ -41,6 +41,8 @@ export const MarketStatusHelper = {
     status === MarketStatus.Approved || 
     status === MarketStatus.Denied || 
     status === MarketStatus.Cancelled ||
+    status === MarketStatus.NoMoney ||
+    status === MarketStatus.NoPlayers ||
     status === MarketStatus.Expired,
   isSuccessful: (status: MarketStatus): boolean => status === MarketStatus.Approved,
   canBeModified: (status: MarketStatus): boolean => status === MarketStatus.Pending

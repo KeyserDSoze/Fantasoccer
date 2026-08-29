@@ -16,19 +16,23 @@ namespace Fantasoccer.Business
         private const string EuropaLeagueFinals = "Europa League";
         //todo: super cup to add
         private const string SuperCup = "Supercoppa";
-        private static readonly List<string> s_avoidCalculationRounds = new() { ChampionsFinals, EuropaLeagueFinals };
+        private static readonly List<string> s_finalRounds = new() { ChampionsFinals, EuropaLeagueFinals };
+        private static readonly List<string> s_avoidCalculationRounds = new() { ChampionsFinals, EuropaLeagueFinals, SuperCup };
         private static readonly int s_multiplier = 1;
         public Calendar AddDaysInLeague(int year, AnnualLeague league, List<AnnualTeam> teams, Rank rank, Calendar calendar)
         {
-            var toPlayGames = calendar.Rounds.SelectMany(x => x.Value).SelectMany(x => x.Games).Count(x => x.Result == null || !x.Result.HasValue);
+            if (calendar.Rounds.ContainsKey(SuperCup))
+                return calendar;
+            var toPlayGames = calendar.Rounds.SelectMany(x => x.Value).SelectMany(x => x.Games)
+                .Count(x => x.Result == null || (!x.Result.IsCancelled && !x.Result.HasValue));
             var serieADay = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.SerieADay);
             var numberOfDaysUntilNow = calendar.Rounds.SelectMany(x => x.Value).Max(x => x.Number);
             if (toPlayGames == 0)
             {
                 List<Team> winners = [];
-                for (var i = 0; i < s_avoidCalculationRounds.Count; i++)
+                for (var i = 0; i < s_finalRounds.Count; i++)
                 {
-                    var theWinner = Calculate(i, s_avoidCalculationRounds[i], serieADay, calendar, rank, numberOfDaysUntilNow);
+                    var theWinner = Calculate(i, s_finalRounds[i], serieADay, calendar, rank, numberOfDaysUntilNow);
                     if (theWinner != null)
                     {
                         winners.Add(theWinner);
@@ -63,14 +67,19 @@ namespace Fantasoccer.Business
                             nextTeams.AddRange(teamInGroup.Value.Skip(index * 8).Take(8).Select(x => new Team { Owner = x.Owner, Name = x.Name }));
                         calendar.Rounds.Add(roundName, new());
                     }
-                    else if (!calendar.Rounds.ContainsKey(SuperCup) && calendar.Rounds[roundName].Any(x => x.Games.Count == 1 && x.Games.All(t => t.Result != null)))
+                    else if (calendar.Rounds[roundName]
+                        .Where(x => x.Games.Count == 1 && x.Games[0].Result?.HasValue == true)
+                        .OrderByDescending(x => x.Number)
+                        .FirstOrDefault() is { } finalDay)
                     {
-                        var theFinal = calendar.Rounds[roundName].Last().Games.First();
-                        if (theFinal.Result!.HomeGoal > theFinal.Result.AwayGoal
-                            || theFinal.Result.Home.Value > theFinal.Result.Away.Value)
+                        var theFinal = finalDay.Games[0];
+                        if (theFinal.Result!.HomeGoal > theFinal.Result.AwayGoal)
                             return new Team { Owner = theFinal.HomeOwner, Name = theFinal.Home };
-                        else if (theFinal.Result.AwayGoal > theFinal.Result.HomeGoal
-                            || theFinal.Result.Away.Value > theFinal.Result.Home.Value)
+                        if (theFinal.Result.AwayGoal > theFinal.Result.HomeGoal)
+                            return new Team { Owner = theFinal.AwayOwner, Name = theFinal.Away };
+                        if (theFinal.Result.Home.Value > theFinal.Result.Away.Value)
+                            return new Team { Owner = theFinal.HomeOwner, Name = theFinal.Home };
+                        if (theFinal.Result.Away.Value > theFinal.Result.Home.Value)
                             return new Team { Owner = theFinal.AwayOwner, Name = theFinal.Away };
                     }
                     else if (calendar.Rounds[roundName].Count > 1)
@@ -106,7 +115,7 @@ namespace Fantasoccer.Business
                                     var valueB = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == game.AwayOwner).ValuePoint;
                                     if (valueA > valueB)
                                         nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
-                                    else if (pointB > pointA)
+                                    else if (valueB > valueA)
                                         nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
                                     else if (RandomNumberGenerator.GetInt32(100) < 50)
                                         nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
@@ -206,13 +215,10 @@ namespace Fantasoccer.Business
 
         public Rank GetRank(LeagueSetting leagueSetting, Calendar calendar, List<string>? avoidCalculationRounds = null)
         {
-            if (avoidCalculationRounds != null)
-            {
-                avoidCalculationRounds.AddRange(s_avoidCalculationRounds);
-                return _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, avoidCalculationRounds);
-            }
-            else
-                return _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, s_avoidCalculationRounds);
+            var excludedRounds = avoidCalculationRounds == null
+                ? [.. s_avoidCalculationRounds]
+                : avoidCalculationRounds.Concat(s_avoidCalculationRounds).Distinct().ToList();
+            return _defaultLeagueCalculator!.GetRank(leagueSetting, calendar, excludedRounds);
         }
 
         public IEnumerable<EnrichedPlayer> GetRightFormation(IEnumerable<Player> players, ITeamCalculator teamCalculator)
@@ -231,8 +237,12 @@ namespace Fantasoccer.Business
             {
                 if (calendar.Rounds.ContainsKey(ChampionsFinals) && calendar.Rounds[ChampionsFinals].Any())
                 {
-                    var champions = calendar.Rounds[ChampionsFinals].OrderByDescending(x => x.Number).Last().Games.First();
-                    var championsWinner = GetWinner(champions);
+                    var champions = calendar.Rounds[ChampionsFinals]
+                        .Where(x => x.Games.Count == 1)
+                        .OrderByDescending(x => x.Number)
+                        .FirstOrDefault()?
+                        .Games[0];
+                    var championsWinner = champions == null ? null : GetWinner(champions);
                     if (championsWinner != null)
                         winners.Add(new LeagueWinner
                         {
@@ -242,8 +252,12 @@ namespace Fantasoccer.Business
                 }
                 if (calendar.Rounds.ContainsKey(EuropaLeagueFinals) && calendar.Rounds[EuropaLeagueFinals].Any())
                 {
-                    var europaLeague = calendar.Rounds[EuropaLeagueFinals].OrderByDescending(x => x.Number).Last().Games.First();
-                    var europaWinner = GetWinner(europaLeague);
+                    var europaLeague = calendar.Rounds[EuropaLeagueFinals]
+                        .Where(x => x.Games.Count == 1)
+                        .OrderByDescending(x => x.Number)
+                        .FirstOrDefault()?
+                        .Games[0];
+                    var europaWinner = europaLeague == null ? null : GetWinner(europaLeague);
                     if (europaWinner != null)
                         winners.Add(new LeagueWinner
                         {
@@ -256,15 +270,15 @@ namespace Fantasoccer.Business
 
             string? GetWinner(CalendarGame game)
             {
-                if (!game.HasNoResult)
+                if (game.Result is { HasValue: true } result)
                 {
-                    if (game.Result.HomeGoal > game.Result.AwayGoal)
+                    if (result.HomeGoal > result.AwayGoal)
                         return game.HomeOwner;
-                    else if (game.Result.AwayGoal > game.Result.HomeGoal)
+                    else if (result.AwayGoal > result.HomeGoal)
                         return game.AwayOwner;
-                    else if (game.Result.Home.Value > game.Result.Away.Value)
+                    else if (result.Home.Value > result.Away.Value)
                         return game.HomeOwner;
-                    else if (game.Result.Away.Value > game.Result.Home.Value)
+                    else if (result.Away.Value > result.Home.Value)
                         return game.AwayOwner;
                     else if (RandomNumberGenerator.GetInt32(100) < 50)
                         return game.HomeOwner;

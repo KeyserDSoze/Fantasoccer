@@ -161,6 +161,38 @@ public sealed class PlayerOddsJobTest : IAsyncLifetime
         Assert.True(Assert.Single(wrapper.Players).Chance.Fantagazzetta);
     }
 
+    [Fact]
+    public async Task ClearsStaleChancesWhenParsersReturnNoData()
+    {
+        await InsertNextDayCalendarAsync();
+        await _odds.InsertAsync(Key(1), new ChancedRealPlayerWrapper
+        {
+            Players =
+            [
+                CreateChancedPlayer("Mario Rossi", "Roma", new Chance
+                {
+                    Fantagazzetta = true,
+                    Gazzetta = true,
+                    Mediaset = true,
+                    Sky = true,
+                    Status = ChanceType.Injury,
+                    Description = "Infortunato"
+                })
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var wrapper = await _odds.GetAsync(Key(1), TestContext.Current.CancellationToken);
+        var chance = Assert.Single(wrapper!.Players).Chance;
+        Assert.False(chance.Fantagazzetta);
+        Assert.False(chance.Gazzetta);
+        Assert.False(chance.Mediaset);
+        Assert.False(chance.Sky);
+        Assert.Equal(ChanceType.Normal, chance.Status);
+        Assert.Null(chance.Description);
+    }
+
     private PlayerOddsJob CreateJob(TestFormationFactory? factory = null)
         => new(_logger, factory ?? new TestFormationFactory(), _odds, _calendars, _players);
 

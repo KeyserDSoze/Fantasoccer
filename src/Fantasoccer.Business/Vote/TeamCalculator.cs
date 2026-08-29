@@ -96,7 +96,10 @@ namespace Fantasoccer.Business
             var point = 0F;
             var defensiveBonus = true;
             var defensorCount = 0;
-            var leagueCalculator = _leagueCalculator.Create(LeagueType.ToString())!;
+            var calculatorType = LeagueSetting.Formation == FormationType.Best
+                ? global::Fantasoccer.LeagueType.SuperLeague
+                : LeagueType;
+            var leagueCalculator = _leagueCalculator.Create(calculatorType.ToString())!;
             var goodPeople = true;
             foreach (var player in leagueCalculator.GetRightFormation(players).Where(x => x.CurrentPosition <= FantaSoccerRole.Forward))
             {

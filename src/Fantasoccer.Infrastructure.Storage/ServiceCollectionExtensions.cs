@@ -70,7 +70,14 @@ namespace Fantasoccer.Infrastructure
             await services.AddBlobStorage<HallOfFame, GeneralLeagueKey>(storageConnectionString);
             await services.AddBlobStorage<LiveGroup, string>(storageConnectionString);
             await services.AddBlobStorage<Rank, LeagueKey>(storageConnectionString);
-            await services.AddBlobStorage<MarketWrapper, LeagueKey>(storageConnectionString);
+            await services.AddRepositoryAsync<MarketWrapper, LeagueKey>(async builder =>
+            {
+                await builder.WithBlobStorageAsync(storageBuilder =>
+                {
+                    storageBuilder.Settings.ConnectionString = storageConnectionString;
+                });
+                builder.SetNotExposable();
+            });
             await services.AddBlobStorage<Rank, YearDayLeague>(storageConnectionString, "day", "dailyrank");
             await services.AddBlobStorage<Calendar, LeagueKey>(storageConnectionString);
             await services.AddBlobStorage<RealTeamWrapper, int>(storageConnectionString);

@@ -25,7 +25,7 @@ namespace Fantasoccer.Engine.IngestionData
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
             var actualYear = FantacalcioTime.ActualYear;
-            var realCalendar = await _serieACalendar.GetAsync(actualYear).NoContext();
+            var realCalendar = await _serieACalendar.GetAsync(actualYear, cancellationToken).NoContext();
             if (realCalendar != null)
             {
                 var liveDay = realCalendar.LiveDay;
@@ -35,7 +35,8 @@ namespace Fantasoccer.Engine.IngestionData
                     if (players.Any())
                     {
                         var key = new YearDayKey { Year = FantacalcioTime.ActualYear, Day = liveDay.SerieADay };
-                        var parsedPlayers = await _repository.GetAsync(key).NoContext() ?? new VotedRealPlayerWrapper() { Players = new() };
+                        var storedPlayers = await _repository.GetAsync(key, cancellationToken).NoContext();
+                        var parsedPlayers = storedPlayers ?? new VotedRealPlayerWrapper() { Players = new() };
                         foreach (var player in players)
                         {
                             var currentPlayer = parsedPlayers.Players.FirstOrDefault(x => x.Key == player.Key);
@@ -48,7 +49,10 @@ namespace Fantasoccer.Engine.IngestionData
                                 parsedPlayers.Players.Add(player);
                             }
                         }
-                        await _repository.UpdateAsync(key, parsedPlayers).NoContext();
+                        if (storedPlayers == null)
+                            await _repository.InsertAsync(key, parsedPlayers, cancellationToken).NoContext();
+                        else
+                            await _repository.UpdateAsync(key, parsedPlayers, cancellationToken).NoContext();
                     }
                     await _logger.LogAsync<LiveVotesJob>($"Players {players.Count} parsati.").NoContext();
                 }

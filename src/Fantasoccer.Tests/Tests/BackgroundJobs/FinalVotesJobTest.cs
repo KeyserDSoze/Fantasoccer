@@ -121,6 +121,23 @@ public sealed class FinalVotesJobTest : IAsyncLifetime
         Assert.Equal((FantacalcioTime.ActualYear, 8), _stats.Request);
     }
 
+    [Fact]
+    public async Task IgnoresDelayedPastGame()
+    {
+        var delayedGame = Game(FantacalcioTime.ItalyNow.AddHours(-12));
+        delayedGame.Delayed = true;
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar
+        {
+            Year = FantacalcioTime.ActualYear,
+            Days = [new RealDay { SerieADay = 7, Games = [delayedGame] }]
+        }, TestContext.Current.CancellationToken);
+
+        await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(_votes.Request);
+        Assert.Null(_stats.Request);
+    }
+
     private async Task InsertCompletedDayAsync(int day, int dayYear)
     {
         await _calendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar

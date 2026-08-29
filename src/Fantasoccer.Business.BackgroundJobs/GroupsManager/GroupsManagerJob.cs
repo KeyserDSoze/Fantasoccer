@@ -61,6 +61,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                         if (calendar != null)
                         {
                             var rank = await _rankRepository.GetAsync(leagueKey).NoContext();
+                            var rankExists = rank != null;
                             if (rank == null || rank.SerieADay < lastDaySerieA)
                             {
                                 foreach (var round in calendar.Rounds.Where(x => x.Value.Any(t => t.SerieADay == lastDaySerieA)))
@@ -79,14 +80,21 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                 var teams = group!.Baskets.SelectMany(x => x.Years).Where(x => x.Year == actualYear).SelectMany(x => x.Teams).ToList();
                                 leagueCalculator.AddDaysInLeague(actualYear, annualLeague, teams, rank, calendar);
                                 await _calendarRepository.UpdateAsync(leagueKey, calendar);
-                                await _rankRepository.UpdateAsync(leagueKey, rank);
-                                await _rankDayRepository.UpdateAsync(new YearDayLeague
+                                if (rankExists)
+                                    await _rankRepository.UpdateAsync(leagueKey, rank);
+                                else
+                                    await _rankRepository.InsertAsync(leagueKey, rank);
+                                var dailyRankKey = new YearDayLeague
                                 {
                                     Group = group.Id,
                                     League = league.Id,
                                     Year = actualYear,
                                     Day = rank.SerieADay,
-                                }, rank);
+                                };
+                                if (await _rankDayRepository.ExistAsync(dailyRankKey))
+                                    await _rankDayRepository.UpdateAsync(dailyRankKey, rank);
+                                else
+                                    await _rankDayRepository.InsertAsync(dailyRankKey, rank);
                             }
                         }
                     }
@@ -125,7 +133,9 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                     Email = game.AwayOwner
                 };
                 var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey);
-                var homePoint = homeTeam != null ? teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
+                var homePoint = homeTeam != null
+                    ? AddHomeAdvantage(teamCalculator.CalculatePoint(homeTeam.ActivePlayers), settings.PointInHome)
+                    : Point.Zero;
                 var awayPoint = awayTeam != null ? teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
                 game.Result = new GameResult
                 {
@@ -134,6 +144,9 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                 };
                 game.Result.CalculateGoals(settings);
             }
+
+            static Point AddHomeAdvantage(Point point, int homeAdvantage)
+                => new(point.Value + homeAdvantage, point.DefensiveBonus, point.GoodPeople, point.OwnGoal);
         }
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<GroupsManagerJob>(exception);

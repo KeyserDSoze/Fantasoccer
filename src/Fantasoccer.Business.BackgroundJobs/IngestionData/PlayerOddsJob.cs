@@ -40,7 +40,7 @@ namespace Fantasoccer.Engine.IngestionData
         }
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
         {
-            var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear).NoContext();
+            var calendar = await _calendar.GetAsync(FantacalcioTime.ActualYear, cancellationToken).NoContext();
             if (calendar != null)
             {
                 var day = (calendar.LiveDay ?? calendar.NextDay)?.SerieADay ?? 0;
@@ -51,10 +51,10 @@ namespace Fantasoccer.Engine.IngestionData
                         Year = FantacalcioTime.ActualYear,
                         Day = day
                     };
-                    var players = (await _repository.GetAsync(key).NoContext())?.Players ?? [];
+                    var players = (await _repository.GetAsync(key, cancellationToken).NoContext())?.Players ?? [];
                     if (players.Count == 0)
                     {
-                        var realPlayers = await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear).NoContext();
+                        var realPlayers = await _realPlayersRepository.GetAsync(FantacalcioTime.ActualYear, cancellationToken).NoContext();
                         if (realPlayers?.Players == null || realPlayers.Players.Count == 0)
                         {
                             await _logger.LogAsync<PlayerOddsJob>($"Giocatori reali non disponibili.").NoContext();
@@ -81,6 +81,8 @@ namespace Fantasoccer.Engine.IngestionData
                         player.Chance.Gazzetta = false;
                         player.Chance.Mediaset = false;
                         player.Chance.Sky = false;
+                        player.Chance.Status = ChanceType.Normal;
+                        player.Chance.Description = null;
                     }
                     foreach (var parser in _parsers)
                     {
@@ -116,13 +118,13 @@ namespace Fantasoccer.Engine.IngestionData
                             }
                         }
                     }
-                    if (await _repository.ExistAsync(key))
+                    if (await _repository.ExistAsync(key, cancellationToken))
                     {
-                        await _repository.UpdateAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                        await _repository.UpdateAsync(key, new ChancedRealPlayerWrapper { Players = players }, cancellationToken).NoContext();
                     }
                     else
                     {
-                        await _repository.InsertAsync(key, new ChancedRealPlayerWrapper { Players = players }).NoContext();
+                        await _repository.InsertAsync(key, new ChancedRealPlayerWrapper { Players = players }, cancellationToken).NoContext();
                     }
                     await _logger.LogAsync<PlayerOddsJob>($"Players {players.Count} parsate.").NoContext();
                 }

@@ -131,6 +131,43 @@ public sealed class LiveJobTest : IAsyncLifetime
         Assert.Equal(1, _teamCalculator.SettingsChanges);
     }
 
+    [Fact]
+    public async Task UsesNextDayWhenNoDayIsLive()
+    {
+        var year = FantacalcioTime.ActualYear;
+        await _realCalendars.InsertAsync(year, new RealCalendar
+        {
+            Year = year,
+            Days =
+            [
+                new RealDay
+                {
+                    Year = year,
+                    SerieADay = 7,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(-12), Delayed = false }]
+                },
+                new RealDay
+                {
+                    Year = year,
+                    SerieADay = 8,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(3), Delayed = false }]
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+        await _groups.InsertAsync(GroupId, CreateGroup(year), TestContext.Current.CancellationToken);
+        await _calendars.InsertAsync(LeagueKey(), CreateLeagueCalendar(8), TestContext.Current.CancellationToken);
+        await _ranks.InsertAsync(LeagueKey(), CreateRank(), TestContext.Current.CancellationToken);
+        await _teams.InsertAsync(TeamKey(HomeOwner, 8), CreateTeam(HomeOwner, "Home player"), TestContext.Current.CancellationToken);
+        await _teams.InsertAsync(TeamKey(AwayOwner, 8), CreateTeam(AwayOwner, "Away player"), TestContext.Current.CancellationToken);
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal((year, 8), _teamCalculator.BuildRequest);
+        var liveGroup = await _liveGroups.GetAsync(GroupId, TestContext.Current.CancellationToken);
+        Assert.NotNull(liveGroup);
+        Assert.Equal(8, liveGroup.Leagues.Single().Rounds["Regular"].SerieADay);
+    }
+
     private LiveJob CreateJob()
         => new(
             _services.GetRequiredService<IFantasoccerLogger>(),
@@ -207,7 +244,7 @@ public sealed class LiveJobTest : IAsyncLifetime
             ]
         };
 
-    private static Calendar CreateLeagueCalendar()
+    private static Calendar CreateLeagueCalendar(int day = 1)
         => new()
         {
             Year = FantacalcioTime.ActualYear,
@@ -217,8 +254,8 @@ public sealed class LiveJobTest : IAsyncLifetime
                 [
                     new Day
                     {
-                        SerieADay = 1,
-                        Number = 1,
+                        SerieADay = day,
+                        Number = day,
                         Games =
                         [
                             new CalendarGame
@@ -270,13 +307,13 @@ public sealed class LiveJobTest : IAsyncLifetime
     private static LeagueKey LeagueKey()
         => new() { Group = GroupId, League = LeagueId, Year = FantacalcioTime.ActualYear };
 
-    private static TeamDayKey TeamKey(string owner)
+    private static TeamDayKey TeamKey(string owner, int day = 1)
         => new()
         {
             Group = GroupId,
             Year = FantacalcioTime.ActualYear,
             BasketId = BasketId,
-            Day = 1,
+            Day = day,
             Email = owner
         };
 
@@ -286,6 +323,8 @@ public sealed class LiveJobTest : IAsyncLifetime
         await _ranks.DeleteAsync(LeagueKey(), cancellationToken);
         await _teams.DeleteAsync(TeamKey(HomeOwner), cancellationToken);
         await _teams.DeleteAsync(TeamKey(AwayOwner), cancellationToken);
+        await _teams.DeleteAsync(TeamKey(HomeOwner, 8), cancellationToken);
+        await _teams.DeleteAsync(TeamKey(AwayOwner, 8), cancellationToken);
     }
 }
 

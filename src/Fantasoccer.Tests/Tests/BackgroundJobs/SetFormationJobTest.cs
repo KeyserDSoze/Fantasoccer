@@ -148,6 +148,37 @@ public sealed class SetFormationJobTest : IAsyncLifetime
         Assert.Null(await _teams.GetAsync(Key(8), TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task PrefersLiveFormationOverLastCompletedDay()
+    {
+        await _calendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar
+        {
+            Year = FantacalcioTime.ActualYear,
+            Days =
+            [
+                new RealDay
+                {
+                    SerieADay = 7,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(-12), Delayed = false }]
+                },
+                new RealDay
+                {
+                    SerieADay = 8,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddMinutes(-10), Delayed = false }]
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+        await InsertGroupAsync();
+        await _teams.InsertAsync(Key(7), Team("Completed formation"), TestContext.Current.CancellationToken);
+        await _teams.InsertAsync(Key(8), Team("Live formation"), TestContext.Current.CancellationToken);
+
+        await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var nextFormation = await _teams.GetAsync(Key(9), TestContext.Current.CancellationToken);
+        Assert.NotNull(nextFormation);
+        Assert.Equal("Live formation", nextFormation.Name);
+    }
+
     private async Task InsertCompletedCalendarAsync(int day)
     {
         await _calendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar
@@ -230,7 +261,7 @@ public sealed class SetFormationJobTest : IAsyncLifetime
 
     private async Task CleanupTeamsAsync(CancellationToken cancellationToken)
     {
-        foreach (var day in new[] { 7, 8, 38, 39 })
+        foreach (var day in new[] { 7, 8, 9, 38, 39 })
             await _teams.DeleteAsync(Key(day), cancellationToken);
     }
 }

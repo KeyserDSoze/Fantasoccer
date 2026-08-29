@@ -24,12 +24,12 @@ namespace Fantasoccer.Business
                 return Array.Empty<EnrichedPlayer>();
             var allPlayers = players.OrderByDescending(x => x.FinalValue?.Value ?? -1000).ThenByDescending(x => x.Vote?.Value ?? -1000).ToList();
             var goalkeepers = allPlayers.Where(x => x.Current.Role == Role.GoalKeeper).ToList();
-            goalkeepers[0].CurrentPosition = FantaSoccerRole.GoalKeeper;
-            goalkeepers[0].Current.Position = FantaSoccerRole.GoalKeeper;
-            goalkeepers[1].CurrentPosition = FantaSoccerRole.BackupGoalKeeper;
-            goalkeepers[1].Current.Position = FantaSoccerRole.BackupGoalKeeper;
-            goalkeepers[2].CurrentPosition = FantaSoccerRole.Tribune;
-            goalkeepers[2].Current.Position = FantaSoccerRole.Tribune;
+            if (goalkeepers.Count > 0)
+                SetPosition(goalkeepers[0], FantaSoccerRole.GoalKeeper);
+            if (goalkeepers.Count > 1)
+                SetPosition(goalkeepers[1], FantaSoccerRole.BackupGoalKeeper);
+            foreach (var goalkeeper in goalkeepers.Skip(2))
+                SetPosition(goalkeeper, FantaSoccerRole.Tribune);
             List<EnrichedPlayer> refactoredTeam = [.. goalkeepers];
             Change(allPlayers.Where(x => x.Current.Role == Role.Defensor).Take(3), FantaSoccerRole.Defensor);
             Change(allPlayers.Where(x => x.Current.Role == Role.Midfielder).Take(3), FantaSoccerRole.Midfielder);
@@ -94,30 +94,23 @@ namespace Fantasoccer.Business
                     allPlayers.Remove(player);
                 }
             }
-            var firstBackupDefensor = allPlayers.Where(x => x.Current.Role == Role.Defensor).First();
-            var secondBackupDefensor = allPlayers.Where(x => x.Current.Role == Role.Defensor).Skip(1).First();
-            var firstBackupMidfielder = allPlayers.Where(x => x.Current.Role == Role.Midfielder).First();
-            var secondBackupMidfielder = allPlayers.Where(x => x.Current.Role == Role.Midfielder).Skip(1).First();
-            var firstBackupForward = allPlayers.Where(x => x.Current.Role == Role.Forward).First();
-            var secondBackupForward = allPlayers.Where(x => x.Current.Role == Role.Forward).Skip(1).First();
-            firstBackupDefensor.CurrentPosition = FantaSoccerRole.FirstBackupDefensor;
-            firstBackupDefensor.Current.Position = FantaSoccerRole.FirstBackupDefensor;
-            refactoredTeam.Add(firstBackupDefensor);
-            secondBackupDefensor.CurrentPosition = FantaSoccerRole.SecondBackupDefensor;
-            secondBackupDefensor.Current.Position = FantaSoccerRole.SecondBackupDefensor;
-            refactoredTeam.Add(secondBackupDefensor);
-            firstBackupMidfielder.CurrentPosition = FantaSoccerRole.FirstBackupMidfielder;
-            firstBackupMidfielder.Current.Position = FantaSoccerRole.FirstBackupMidfielder;
-            refactoredTeam.Add(firstBackupMidfielder);
-            secondBackupMidfielder.CurrentPosition = FantaSoccerRole.SecondBackupMidfielder;
-            secondBackupMidfielder.Current.Position = FantaSoccerRole.SecondBackupMidfielder;
-            refactoredTeam.Add(secondBackupMidfielder);
-            firstBackupForward.CurrentPosition = FantaSoccerRole.FirstBackupForward;
-            firstBackupForward.Current.Position = FantaSoccerRole.FirstBackupForward;
-            refactoredTeam.Add(firstBackupForward);
-            secondBackupForward.CurrentPosition = FantaSoccerRole.SecondBackupForward;
-            secondBackupForward.Current.Position = FantaSoccerRole.SecondBackupForward;
-            refactoredTeam.Add(secondBackupForward);
+            AddBackups(Role.Defensor, FantaSoccerRole.FirstBackupDefensor, FantaSoccerRole.SecondBackupDefensor);
+            AddBackups(Role.Midfielder, FantaSoccerRole.FirstBackupMidfielder, FantaSoccerRole.SecondBackupMidfielder);
+            AddBackups(Role.Forward, FantaSoccerRole.FirstBackupForward, FantaSoccerRole.SecondBackupForward);
+            void AddBackups(Role role, FantaSoccerRole firstPosition, FantaSoccerRole secondPosition)
+            {
+                var backups = allPlayers.Where(x => x.Current.Role == role).Take(2).ToList();
+                if (backups.Count > 0)
+                {
+                    SetPosition(backups[0], firstPosition);
+                    refactoredTeam.Add(backups[0]);
+                }
+                if (backups.Count > 1)
+                {
+                    SetPosition(backups[1], secondPosition);
+                    refactoredTeam.Add(backups[1]);
+                }
+            }
             foreach (var player in refactoredTeam)
             {
                 allPlayers.Remove(player);
@@ -129,6 +122,12 @@ namespace Fantasoccer.Business
                 refactoredTeam.Add(player);
             }
             return refactoredTeam;
+
+            static void SetPosition(EnrichedPlayer player, FantaSoccerRole position)
+            {
+                player.CurrentPosition = position;
+                player.Current.Position = position;
+            }
         }
         public Calendar GetRandomCalendar(int year, AnnualLeague league, IEnumerable<AnnualTeam> teams)
             => _defaultLeagueCalculator!.GetRandomCalendar(year, league, teams);

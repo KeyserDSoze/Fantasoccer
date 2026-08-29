@@ -108,7 +108,9 @@ namespace Fantasoccer.Engine.IngestionData
                                                 Email = game.AwayOwner
                                             };
                                             var awayTeam = await _teamDayRepository.GetAsync(awayTeamKey, cancellationToken);
-                                            var homePoint = homeTeam?.Players != null ? _teamCalculator.CalculatePoint(homeTeam.ActivePlayers) : Point.Zero;
+                                            var homePoint = homeTeam?.Players != null
+                                                ? AddHomeAdvantage(_teamCalculator.CalculatePoint(homeTeam.ActivePlayers), leagueSettings.PointInHome)
+                                                : Point.Zero;
                                             var awayPoint = awayTeam?.Players != null ? _teamCalculator.CalculatePoint(awayTeam.ActivePlayers) : Point.Zero;
                                             game.Result = new GameResult
                                             {
@@ -142,6 +144,9 @@ namespace Fantasoccer.Engine.IngestionData
                     await _logger.LogAsync<LiveJob>($"Live parsati.").NoContext();
                 }
             }
+
+            static Point AddHomeAdvantage(Point point, int homeAdvantage)
+                => new(point.Value + homeAdvantage, point.DefensiveBonus, point.GoodPeople, point.OwnGoal);
         }
         private const string Finals = "Finals";
         private static bool CanCalculateRank(Rank rank, Dictionary<string, Day> rounds)

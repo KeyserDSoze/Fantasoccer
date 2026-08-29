@@ -58,7 +58,8 @@ namespace Fantasoccer.Engine.GroupsManager
                     var liveVotes = await _liveVoteRepository.GetAsync(yearDayKey);
                     if (liveVotes != null)
                     {
-                        var notificationVotes = await _notificationVoteRepository.GetAsync(yearDayKey) ?? new VotedRealPlayerWrapper() { Players = new() };
+                        var storedNotificationVotes = await _notificationVoteRepository.GetAsync(yearDayKey);
+                        var notificationVotes = storedNotificationVotes ?? new VotedRealPlayerWrapper() { Players = new() };
                         var toNotifyPlayers = new List<VotedRealPlayer>();
                         var notificationsToSend = new List<NotificationToSend>();
                         foreach (var player in liveVotes.Players)
@@ -68,7 +69,10 @@ namespace Fantasoccer.Engine.GroupsManager
                             if (notificationToSend != null)
                                 notificationsToSend.Add(notificationToSend);
                         }
-                        await _notificationVoteRepository.UpdateAsync(yearDayKey, liveVotes);
+                        if (storedNotificationVotes == null)
+                            await _notificationVoteRepository.InsertAsync(yearDayKey, liveVotes);
+                        else
+                            await _notificationVoteRepository.UpdateAsync(yearDayKey, liveVotes);
                         if (notificationsToSend.Any())
                         {
                             var notificationUsers = await _pushNotificationRepository.Where(x => x.MatchEvents || x.OpponentMatchEvents).ToListAsync();

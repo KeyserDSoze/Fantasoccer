@@ -20,13 +20,14 @@ namespace Fantasoccer.InMemory
             services.AddRepository<VotedRealPlayerWrapper, YearDayKey>(builder =>
             {
                 builder.WithInMemory(name: "live");
+                builder.WithInMemory(name: "notification");
                 builder.WithInMemory(name: "official");
                 builder.SetOnlyQueryExposable();
             });
             services.AddInMemoryInfrastructure<Group, string>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Rank, LeagueKey>(onlyQuery: false);
             services.AddInMemoryInfrastructure<Calendar, LeagueKey>(onlyQuery: false);
-            services.AddInMemoryInfrastructure<MarketWrapper, LeagueKey>(onlyQuery: false);
+            services.AddInMemoryInfrastructure<MarketWrapper, LeagueKey>(notExposable: true);
             services.AddInMemoryInfrastructure<PlayedGame, GameKey>();
             services.AddInMemoryInfrastructure<StatPlayersWrapper, int>();
             services.AddInMemoryInfrastructure<RealTeamWrapper, int>();

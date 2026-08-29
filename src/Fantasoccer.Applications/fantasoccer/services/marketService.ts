@@ -1,21 +1,12 @@
 // Market service using Repository Framework
-import { RepositoryServices } from 'rystem.repository.client'
+import { buildApiUrl, getCommonHeaders } from '../configurations/apiConfig'
+import { tokenStorageService } from './tokenStorageService'
 import { 
   Market, 
   MarketRaw, 
-  MarketWrapper,
-  MarketWrapperRaw,
-  MarketKey,
-  MarketKeyRaw,
-  MarketStatus,
-  mapRawMarketToMarket,
   mapRawMarketWrapperToMarketWrapper,
   mapMarketToRawMarket,
-  mapMarketWrapperToRawMarketWrapper,
-  mapRawMarketKeyToMarketKey,
-  mapMarketKeyToRawMarketKey,
-  MarketHelper,
-  MarketStatusHelper
+  MarketHelper
 } from 'types/market'
 
 export class MarketService {
@@ -33,20 +24,13 @@ export class MarketService {
     leagueId: string
   ): Promise<Market[]> {
     try {
-      // Create the key for the repository query
-      const key: MarketKeyRaw = {
-        g: groupId,
-        y: year,
-        l: leagueId,
-        i: '' // Empty string for listing all markets
-      }
-
-      // Get the repository instance
-      const repository = RepositoryServices
-        .Repository<MarketWrapperRaw, MarketKeyRaw>("Market")
-      
-      // Fetch the market data
-      const result = await repository.get(key)
+      const token = await tokenStorageService.ensureValidToken()
+      if (!token) return []
+      const response = await fetch(buildApiUrl('/Market/Get', { groupId, year, leagueId }), {
+        headers: getCommonHeaders(true, token)
+      })
+      if (!response.ok) return []
+      const result = await response.json()
       
       if (result && result.m) {
         // Map raw data to clean interface
@@ -88,54 +72,7 @@ export class MarketService {
     leagueId: string,
     market: Market
   ): Promise<boolean> {
-    try {
-      // Create the key
-      const key: MarketKeyRaw = {
-        g: groupId,
-        y: year,
-        l: leagueId,
-        i: market.id
-      }
-
-      // Get the repository instance
-      const repository = RepositoryServices
-        .Repository<MarketWrapperRaw, MarketKeyRaw>("Market")
-
-      // Get existing markets
-      const existingWrapper = await repository.get({
-        g: groupId,
-        y: year,
-        l: leagueId,
-        i: ''
-      })
-
-      let markets: MarketRaw[] = existingWrapper?.m ?? []
-
-      // Find if market already exists
-      const existingIndex = markets.findIndex(m => m.i === market.id)
-
-      // Convert market to raw format
-      const rawMarket = mapMarketToRawMarket(market)
-
-      if (existingIndex >= 0) {
-        // Update existing market
-        markets[existingIndex] = rawMarket
-      } else {
-        // Add new market
-        markets.push(rawMarket)
-      }
-
-      // Create wrapper
-      const wrapper: MarketWrapperRaw = { m: markets }
-
-      // Update the repository
-      await repository.update(key, wrapper)
-
-      return true
-    } catch (error) {
-      console.error('Error updating market:', error)
-      return false
-    }
+    return this.executeCommand('/Market/Create', { groupId, year, leagueId }, mapMarketToRawMarket(market))
   }
 
   /**
@@ -147,40 +84,7 @@ export class MarketService {
     leagueId: string,
     marketId: string
   ): Promise<boolean> {
-    try {
-      // Create the key
-      const key: MarketKeyRaw = {
-        g: groupId,
-        y: year,
-        l: leagueId,
-        i: ''
-      }
-
-      // Get the repository instance
-      const repository = RepositoryServices
-        .Repository<MarketWrapperRaw, MarketKeyRaw>("Market")
-
-      // Get existing markets
-      const existingWrapper = await repository.get(key)
-
-      if (!existingWrapper || !existingWrapper.m) {
-        return false
-      }
-
-      // Filter out the market to delete
-      const markets = existingWrapper.m.filter(m => m.i !== marketId)
-
-      // Create wrapper
-      const wrapper: MarketWrapperRaw = { m: markets }
-
-      // Update the repository
-      await repository.update(key, wrapper)
-
-      return true
-    } catch (error) {
-      console.error('Error deleting market:', error)
-      return false
-    }
+    return this.executeCommand('/Market/Cancel', { groupId, year, leagueId, marketId })
   }
 
   // ============================================
@@ -194,26 +98,10 @@ export class MarketService {
     groupId: string, 
     year: number, 
     leagueId: string,
-    marketId: string,
-    userEmail: string
+    marketId: string
   ): Promise<boolean> {
     try {
-      const market = await this.getMarket(groupId, year, leagueId, marketId)
-      
-      if (!market || !MarketStatusHelper.canBeModified(market.status)) {
-        return false
-      }
-
-      // Remove from deniers if present (changing vote)
-      market.deniers = market.deniers.filter(d => d.toLowerCase() !== userEmail.toLowerCase())
-
-      // Add to approvers if not already present
-      if (!market.approvers.some(a => a.toLowerCase() === userEmail.toLowerCase())) {
-        market.approvers.push(userEmail)
-      }
-
-      // Update market
-      return await this.updateMarket(groupId, year, leagueId, market)
+      return await this.executeCommand('/Market/Approve', { groupId, year, leagueId, marketId })
     } catch (error) {
       console.error('Error approving market:', error)
       return false
@@ -227,26 +115,10 @@ export class MarketService {
     groupId: string, 
     year: number, 
     leagueId: string,
-    marketId: string,
-    userEmail: string
+    marketId: string
   ): Promise<boolean> {
     try {
-      const market = await this.getMarket(groupId, year, leagueId, marketId)
-      
-      if (!market || !MarketStatusHelper.canBeModified(market.status)) {
-        return false
-      }
-
-      // Remove from approvers if present (changing vote)
-      market.approvers = market.approvers.filter(a => a.toLowerCase() !== userEmail.toLowerCase())
-
-      // Add to deniers if not already present
-      if (!market.deniers.some(d => d.toLowerCase() === userEmail.toLowerCase())) {
-        market.deniers.push(userEmail)
-      }
-
-      // Update market
-      return await this.updateMarket(groupId, year, leagueId, market)
+      return await this.executeCommand('/Market/Deny', { groupId, year, leagueId, marketId })
     } catch (error) {
       console.error('Error denying market:', error)
       return false
@@ -260,27 +132,10 @@ export class MarketService {
     groupId: string, 
     year: number, 
     leagueId: string,
-    marketId: string,
-    userEmail: string
+    marketId: string
   ): Promise<boolean> {
     try {
-      const market = await this.getMarket(groupId, year, leagueId, marketId)
-      
-      if (!market || !MarketStatusHelper.canBeModified(market.status)) {
-        return false
-      }
-
-      // Check if user is involved in the market
-      if (!MarketHelper.isUserInvolved(market, userEmail)) {
-        console.warn('User is not involved in this market')
-        return false
-      }
-
-      // Update status to cancelled
-      market.status = MarketStatus.Cancelled
-
-      // Update market
-      return await this.updateMarket(groupId, year, leagueId, market)
+      return await this.executeCommand('/Market/Cancel', { groupId, year, leagueId, marketId })
     } catch (error) {
       console.error('Error cancelling market:', error)
       return false
@@ -358,6 +213,31 @@ export class MarketService {
     } catch (error) {
       console.error('Error fetching completed markets:', error)
       return []
+    }
+  }
+
+  private async executeCommand(
+    path: string,
+    parameters: Record<string, string | number>,
+    body?: MarketRaw
+  ): Promise<boolean> {
+    try {
+      const token = await tokenStorageService.ensureValidToken()
+      if (!token) return false
+      const response = await fetch(buildApiUrl(path, parameters), {
+        method: 'POST',
+        headers: {
+          ...getCommonHeaders(true, token),
+          'Content-Type': 'application/json'
+        },
+        body: body ? JSON.stringify(body) : undefined
+      })
+      if (!response.ok) return false
+      const result = await response.json() as { isOk?: boolean }
+      return result.isOk === true
+    } catch (error) {
+      console.error(`Error executing ${path}:`, error)
+      return false
     }
   }
 }

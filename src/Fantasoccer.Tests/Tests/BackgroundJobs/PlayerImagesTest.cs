@@ -100,6 +100,23 @@ public sealed class PlayerImagesTest : IAsyncLifetime
         Assert.DoesNotContain(_handler.Requests, x => x.Host == "media-sdp.legaseriea.it");
     }
 
+    [Fact]
+    public async Task ContinuesWhenOneImageDownloadFails()
+    {
+        await InsertPlayersAsync(
+            CreatePlayer("Previous Image Player", "Roma", Role.Forward),
+            CreatePlayer("Current Image Player", "Milan", Role.Defensor));
+        _handler.Response = request => request.RequestUri!.AbsolutePath.EndsWith("previous-player.webp")
+            ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            : Response(request);
+
+        await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(await _images.ExistAsync(PreviousPlayerImage, TestContext.Current.CancellationToken));
+        var current = await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(new byte[] { 4, 5, 6 }, current?.Data);
+    }
+
     private HttpResponseMessage Response(HttpRequestMessage request)
     {
         var uri = request.RequestUri!;

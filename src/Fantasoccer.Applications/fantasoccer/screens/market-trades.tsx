@@ -230,16 +230,14 @@ export default function MarketTradesScreen() {
           currentGroup.id,
           selectedYear,
           selectedLeagueId,
-          market.id,
-          user.email
+          market.id
         )
       } else {
         success = await marketService.denyMarket(
           currentGroup.id,
           selectedYear,
           selectedLeagueId,
-          market.id,
-          user.email
+          market.id
         )
       }
 

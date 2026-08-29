@@ -1,11 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { marketService } from '../services/marketService'
-import {
-  Market,
-  MarketStatus,
-  MarketHelper,
-  MarketStatusHelper
-} from '../types/market'
+import { Market } from '../types/market'
 
 // ============================================
 // LEAGUE MARKETS HOOK
@@ -237,9 +232,9 @@ export interface UseMarketResult {
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
-  approve: (userEmail: string) => Promise<boolean>
-  deny: (userEmail: string) => Promise<boolean>
-  cancel: (userEmail: string) => Promise<boolean>
+  approve: () => Promise<boolean>
+  deny: () => Promise<boolean>
+  cancel: () => Promise<boolean>
   update: (market: Market) => Promise<boolean>
 }
 
@@ -282,13 +277,13 @@ export function useMarket(
   }, [groupId, year, leagueId, marketId, enabled])
 
   // Approve market
-  const approve = useCallback(async (userEmail: string): Promise<boolean> => {
+  const approve = useCallback(async (): Promise<boolean> => {
     if (!groupId || !year || !leagueId || !marketId) {
       return false
     }
 
     try {
-      const success = await marketService.approveMarket(groupId, year, leagueId, marketId, userEmail)
+      const success = await marketService.approveMarket(groupId, year, leagueId, marketId)
       if (success) {
         await fetchMarket() // Refresh data
       }
@@ -300,13 +295,13 @@ export function useMarket(
   }, [groupId, year, leagueId, marketId, fetchMarket])
 
   // Deny market
-  const deny = useCallback(async (userEmail: string): Promise<boolean> => {
+  const deny = useCallback(async (): Promise<boolean> => {
     if (!groupId || !year || !leagueId || !marketId) {
       return false
     }
 
     try {
-      const success = await marketService.denyMarket(groupId, year, leagueId, marketId, userEmail)
+      const success = await marketService.denyMarket(groupId, year, leagueId, marketId)
       if (success) {
         await fetchMarket() // Refresh data
       }
@@ -318,13 +313,13 @@ export function useMarket(
   }, [groupId, year, leagueId, marketId, fetchMarket])
 
   // Cancel market
-  const cancel = useCallback(async (userEmail: string): Promise<boolean> => {
+  const cancel = useCallback(async (): Promise<boolean> => {
     if (!groupId || !year || !leagueId || !marketId) {
       return false
     }
 
     try {
-      const success = await marketService.cancelMarket(groupId, year, leagueId, marketId, userEmail)
+      const success = await marketService.cancelMarket(groupId, year, leagueId, marketId)
       if (success) {
         await fetchMarket() // Refresh data
       }

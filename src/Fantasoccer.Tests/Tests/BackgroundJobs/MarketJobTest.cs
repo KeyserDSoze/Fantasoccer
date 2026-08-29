@@ -4,6 +4,7 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Tests.Tests.BackgroundJobs;
 
+[Collection("InMemoryRepository")]
 public sealed class MarketJobTest
 {
     private readonly MarketJob _marketJob;
@@ -33,13 +34,13 @@ public sealed class MarketJobTest
                 Leagues = null!,
                 Users = [],
                 Baskets = []
-            });
+            }, TestContext.Current.CancellationToken);
 
-            await _marketJob.ActionToDoAsync(default);
+            await _marketJob.ActionToDoAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
-            await _groups.DeleteAsync(groupId);
+            await _groups.DeleteAsync(groupId, TestContext.Current.CancellationToken);
         }
     }
 
@@ -50,28 +51,28 @@ public sealed class MarketJobTest
         var leagueId = Guid.NewGuid().ToString();
         try
         {
-            await _groups.InsertAsync(groupId, CreateGroup(groupId, leagueId));
+            await _groups.InsertAsync(groupId, CreateGroup(groupId, leagueId), TestContext.Current.CancellationToken);
 
-            await _marketJob.ActionToDoAsync(default);
+            await _marketJob.ActionToDoAsync(TestContext.Current.CancellationToken);
 
             var market = await _markets.GetAsync(new LeagueKey
             {
                 Group = groupId,
                 League = leagueId,
                 Year = FantacalcioTime.ActualYear
-            });
+            }, TestContext.Current.CancellationToken);
             Assert.NotNull(market);
             Assert.NotNull(market.Markets);
         }
         finally
         {
-            await _groups.DeleteAsync(groupId);
+            await _groups.DeleteAsync(groupId, TestContext.Current.CancellationToken);
             await _markets.DeleteAsync(new LeagueKey
             {
                 Group = groupId,
                 League = leagueId,
                 Year = FantacalcioTime.ActualYear
-            });
+            }, TestContext.Current.CancellationToken);
         }
     }
 
@@ -88,7 +89,7 @@ public sealed class MarketJobTest
         };
         try
         {
-            await _groups.InsertAsync(groupId, CreateGroup(groupId, leagueId));
+            await _groups.InsertAsync(groupId, CreateGroup(groupId, leagueId), TestContext.Current.CancellationToken);
             await _markets.InsertAsync(key, new MarketWrapper
             {
                 Markets =
@@ -100,18 +101,65 @@ public sealed class MarketJobTest
                         CreationTime = DateTime.UtcNow.AddDays(-15)
                     }
                 ]
-            });
+            }, TestContext.Current.CancellationToken);
 
-            await _marketJob.ActionToDoAsync(default);
+            await _marketJob.ActionToDoAsync(TestContext.Current.CancellationToken);
 
-            var market = await _markets.GetAsync(key);
+            var market = await _markets.GetAsync(key, TestContext.Current.CancellationToken);
             Assert.NotNull(market);
             Assert.Equal(MarketStatus.Expired, Assert.Single(market.Markets).Status);
         }
         finally
         {
-            await _groups.DeleteAsync(groupId);
-            await _markets.DeleteAsync(key);
+            await _groups.DeleteAsync(groupId, TestContext.Current.CancellationToken);
+            await _markets.DeleteAsync(key, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task PreservesRecentPendingAndApprovedMarkets()
+    {
+        var groupId = Guid.NewGuid().ToString();
+        var leagueId = Guid.NewGuid().ToString();
+        var key = new LeagueKey
+        {
+            Group = groupId,
+            League = leagueId,
+            Year = FantacalcioTime.ActualYear
+        };
+        try
+        {
+            await _groups.InsertAsync(groupId, CreateGroup(groupId, leagueId), TestContext.Current.CancellationToken);
+            await _markets.InsertAsync(key, new MarketWrapper
+            {
+                Markets =
+                [
+                    new Market
+                    {
+                        Id = "recent",
+                        Status = MarketStatus.Pending,
+                        CreationTime = DateTime.UtcNow.AddDays(-13)
+                    },
+                    new Market
+                    {
+                        Id = "approved",
+                        Status = MarketStatus.Approved,
+                        CreationTime = DateTime.UtcNow.AddDays(-30)
+                    }
+                ]
+            }, TestContext.Current.CancellationToken);
+
+            await _marketJob.ActionToDoAsync(TestContext.Current.CancellationToken);
+
+            var market = await _markets.GetAsync(key, TestContext.Current.CancellationToken);
+            Assert.NotNull(market);
+            Assert.Equal(MarketStatus.Pending, market.Markets.Single(x => x.Id == "recent").Status);
+            Assert.Equal(MarketStatus.Approved, market.Markets.Single(x => x.Id == "approved").Status);
+        }
+        finally
+        {
+            await _groups.DeleteAsync(groupId, TestContext.Current.CancellationToken);
+            await _markets.DeleteAsync(key, TestContext.Current.CancellationToken);
         }
     }
 

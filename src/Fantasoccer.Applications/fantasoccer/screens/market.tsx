@@ -28,7 +28,7 @@ import { useAuth } from 'providers/AuthProvider'
 import { teamService } from 'services/teamService'
 import { marketService } from 'services/marketService'
 import { EnhancedTeam, Player } from 'types/team'
-import { Role } from 'types/group'
+import { MarketType, Role } from 'types/group'
 import { MarketStatus } from 'types/market'
 import { formatSeasonFromYear } from 'utils/season'
 
@@ -83,7 +83,6 @@ export default function MarketScreen() {
 
   // Check if current year is the latest
   const isCurrentYearLatest = selectedYear === latestYear
-  const canCreateTrade = isCurrentYearLatest && selectedYear != null && selectedLeagueId != null
 
   // Get league settings
   const leagueSettings = useMemo(() => {
@@ -95,11 +94,15 @@ export default function MarketScreen() {
     const annualLeague = league.years?.find((y: any) => y.year === selectedYear)
     return annualLeague?.settings ?? null
   }, [currentGroup, selectedLeagueId, selectedYear])
+  const canCreateTrade = isCurrentYearLatest &&
+    selectedYear != null &&
+    selectedLeagueId != null &&
+    leagueSettings?.market !== MarketType.Denied
 
   // Calculate team budget: startingMoney - totalCost + moneyFromRank
   const getTeamBudget = useCallback((team: EnhancedTeam): number => {
     if (!leagueSettings) return 0
-    return leagueSettings.startingMoney - team.totalCost + team.moneyFromRank
+    return leagueSettings.startingMoney - team.cost
   }, [leagueSettings])
 
   // Get available budget for my team (considering current money offer)
@@ -363,7 +366,7 @@ export default function MarketScreen() {
               <DollarSign size={28} /> Crea Nuovo Scambio
             </H3>
             <Text color="$color11" textAlign="center" fontSize="$3">
-              Proponi uno scambio di giocatori con un'altra squadra
+              Proponi uno scambio di giocatori con un&apos;altra squadra
             </Text>
           </YStack>
 
@@ -379,7 +382,9 @@ export default function MarketScreen() {
                     Mercato chiuso per questo anno
                   </Text>
                   <Text color="$orange10" fontSize="$2" marginTop="$1">
-                    {!isCurrentYearLatest && selectedYear 
+                    {leagueSettings?.market === MarketType.Denied
+                      ? 'Il mercato è disabilitato nelle impostazioni di questa lega.'
+                      : !isCurrentYearLatest && selectedYear
                       ? `Anno selezionato: ${formatSeasonFromYear(selectedYear)}. Il mercato è disponibile solo per l'anno corrente (${latestYear ? formatSeasonFromYear(latestYear) : 'N/A'}).`
                       : 'Seleziona un gruppo e una lega dalla barra di navigazione per accedere al mercato.'}
                   </Text>

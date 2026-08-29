@@ -73,7 +73,9 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                         var leagueYearlyKey = new LeagueKey { Group = group.Id, League = league.Id, Year = yearlyLeague.Year };
                         var rank = await _rankRepository.GetAsync(leagueYearlyKey).NoContext();
                         var calendar = await _calendarRepository.GetAsync(leagueYearlyKey).NoContext();
-                        foreach (var round in rank!.RankedTeams)
+                        if (rank == null || calendar == null)
+                            continue;
+                        foreach (var round in rank.RankedTeams)
                         {
                             foreach (var team in round.Value)
                             {
@@ -99,7 +101,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                                 rankedTeam.Victories += team.Victories;
                             }
                         }
-                        foreach (var round in calendar!.Rounds)
+                        foreach (var round in calendar.Rounds)
                         {
                             foreach (var day in round.Value)
                             {
@@ -126,7 +128,7 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                         if (yearlyLeague.Year < actualYear || calendar.Rounds.SelectMany(x => x.Value).OrderByDescending(x => x.Number).First().Games.All(x => x.Result != null && x.Result.HasValue))
                         {
                             var leagueCalculator = _leagueCalculatorFactory.Create(league.GetAnnualType(yearlyLeague.Year).ToString())!;
-                            var winners = leagueCalculator.GetTheYearlyWinners(rank!, calendar!);
+                            var winners = leagueCalculator.GetTheYearlyWinners(rank, calendar);
                             foreach (var officialWinner in winners)
                             {
                                 var winningTeam = group.Baskets.SelectMany(x => x.Years).Where(x => x.Year == yearlyLeague.Year).SelectMany(x => x.Teams).First(x => x.Owner == officialWinner.Owner);
