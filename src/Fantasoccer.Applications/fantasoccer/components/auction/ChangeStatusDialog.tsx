@@ -114,7 +114,7 @@ export function ChangeStatusDialog({
                   • <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell'allenatore
+                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell&apos;allenatore
                 </Text>
                 <Text fontSize="$2" color="$blue11">
                   • <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)

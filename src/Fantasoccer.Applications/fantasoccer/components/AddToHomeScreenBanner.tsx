@@ -161,7 +161,7 @@ export const AddToHomeScreenBanner: React.FC = () => {
             <Home size={24} color="$blue10" />
             <YStack flex={1}>
               <Text fontSize="$5" fontWeight="bold" color="$blue11">
-                Installa l'App
+                Installa l&apos;App
               </Text>
               <Text fontSize="$3" color="$blue10" marginTop="$1">
                 {isIOS 
@@ -197,7 +197,7 @@ export const AddToHomeScreenBanner: React.FC = () => {
                 <XStack gap="$2" alignItems="center">
                   <Home size={16} color="$blue10" />
                   <Text fontSize="$2" color="$blue10">
-                    2. Scorri e seleziona "Aggiungi a Home"
+                    2. Scorri e seleziona &quot;Aggiungi a Home&quot;
                   </Text>
                 </XStack>
               </YStack>

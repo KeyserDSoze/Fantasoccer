@@ -665,7 +665,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
               disabled={isSaving}
               opacity={isSaving ? 0.6 : 1}
             >
-              Usa l'AIgoritmo
+              Usa l&apos;AIgoritmo
             </Button>
           )}
           

@@ -366,7 +366,7 @@ export default function CardEditScreen() {
                           keyboardType="numeric"
                           size="$4"
                         />
-                        <Text fontSize="$1" color="$color10">Punti dati all'avversario se soddisfatti</Text>
+                        <Text fontSize="$1" color="$color10">Punti dati all&apos;avversario se soddisfatti</Text>
                       </YStack>
                     </XStack>
                   </YStack>

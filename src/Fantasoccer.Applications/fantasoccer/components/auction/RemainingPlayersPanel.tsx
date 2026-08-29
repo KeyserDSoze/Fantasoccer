@@ -120,7 +120,7 @@ export function RemainingPlayersPanel({
       {isExpanded && (
         <>
           <Text fontSize="$2" color="$blue10">
-            {getRoleLabel(selectedRole)} che non sono ancora usciti nell'asta
+            {getRoleLabel(selectedRole)} che non sono ancora usciti nell&apos;asta
           </Text>
           <Input
             placeholder="Cerca giocatore rimanente..."

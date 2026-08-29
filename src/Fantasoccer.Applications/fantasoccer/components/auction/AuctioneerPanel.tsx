@@ -312,7 +312,7 @@ export function AuctioneerPanel({
             Riapri Asta
           </Button>
           <Text fontSize="$2" color="$blue10" textAlign="center">
-            Riapre l'asta in stato Pausa per poterla modificare e ri-finalizzare
+            Riapre l&apos;asta in stato Pausa per poterla modificare e ri-finalizzare
           </Text>
         </>
       ) : (
@@ -331,7 +331,7 @@ export function AuctioneerPanel({
             Finalizza e Salva Tutte le Squadre
           </Button>
           <Text fontSize="$2" color="$red10" textAlign="center">
-            ⚠️ Chiude l'asta e salva automaticamente tutte le squadre con la formazione della prossima giornata
+            ⚠️ Chiude l&apos;asta e salva automaticamente tutte le squadre con la formazione della prossima giornata
           </Text>
         </>
       )}

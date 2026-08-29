@@ -297,7 +297,7 @@ export default function SettingsScreen() {
               </Text>
             </XStack>
             <Paragraph marginTop="$2" color="$yellow11">
-              Non hai una squadra registrata in questo gruppo per l'anno corrente ({currentYear}).
+              Non hai una squadra registrata in questo gruppo per l&apos;anno corrente ({currentYear}).
             </Paragraph>
           </Card>
         ) : (
@@ -659,12 +659,12 @@ export default function SettingsScreen() {
 
             <XStack gap="$3" justifyContent="flex-end">
               <Dialog.Close displayWhenAdapted asChild>
-                <Button theme="alt2" aria-label="Annulla">
+                <Button theme="gray" aria-label="Annulla">
                   Annulla
                 </Button>
               </Dialog.Close>
               <Button
-                theme="active"
+                theme="blue"
                 onPress={handleConfirmCopyLogo}
                 disabled={copyingLogo}
                 icon={copyingLogo ? <Spinner /> : Copy}

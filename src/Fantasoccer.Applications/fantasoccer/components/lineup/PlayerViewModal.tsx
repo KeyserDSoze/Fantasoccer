@@ -50,12 +50,10 @@ const BEHAVIOUR_CONFIG = {
 export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: PlayerViewModalProps) {
   const screenHeight = Dimensions.get('window').height
 
-  if (!player) return null
-
-  const current = player.current
-  const vote: Vote | null | undefined = player.vote
-  const chance: Chance | null | undefined = player.chance
-  const realGame: RealGame | null | undefined = player.realGame
+  const current = player?.current
+  const vote: Vote | null | undefined = player?.vote
+  const chance: Chance | null | undefined = player?.chance
+  const realGame: RealGame | null | undefined = player?.realGame
 
   const playerName = current?.name ?? 'Giocatore'
   const playerRole = current?.role ?? Role.Undefined
@@ -187,6 +185,8 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
       isPlayerInHomeTeam
     }
   }, [realGame, teamName])
+
+  if (!player) return null
 
   return (
     <Sheet

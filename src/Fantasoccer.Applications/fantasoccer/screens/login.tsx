@@ -96,7 +96,7 @@ export function Login() {
 
             {/* Info Text */}
             <Text fontSize="$2" color="#666" textAlign="center" maxWidth="90%">
-              Utilizzando l'accesso Microsoft, accetti i nostri termini di servizio e la privacy policy.
+              Utilizzando l&apos;accesso Microsoft, accetti i nostri termini di servizio e la privacy policy.
             </Text>
           </YStack>
         </Card>

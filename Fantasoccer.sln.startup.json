@@ -9,10 +9,9 @@
   /*  Create an item in the dropdown list for each project in the solution?  */
   "ListAllProjects": true,
   "MultiProjectConfigurations": {
-    "Api+App": {
+    "Api": {
       "Projects": {
-        "Fantasoccer.Application.Api": {},
-        "Fantasoccer.Application.App": {}
+        "Fantasoccer.Application.Api": {}
       }
     }
   }

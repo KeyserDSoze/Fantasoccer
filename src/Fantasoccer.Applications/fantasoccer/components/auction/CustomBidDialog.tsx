@@ -35,7 +35,7 @@ export function CustomBidDialog({ open, currentBid, onOpenChange, onConfirm }: C
         >
           <Dialog.Title fontSize="$6" fontWeight="700">Offerta Personalizzata</Dialog.Title>
           <Dialog.Description>
-            Inserisci l'importo della tua offerta (deve essere superiore a €{currentBid})
+            Inserisci l&apos;importo della tua offerta (deve essere superiore a €{currentBid})
           </Dialog.Description>
           
           <YStack gap="$3">

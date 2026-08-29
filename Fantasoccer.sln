@@ -19,7 +19,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Applications", "Application
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6422E4BC-A343-4EB2-B156-85D7686D6BB6}"
 	ProjectSection(SolutionItems) = preProject
-		ops\template\angular-build.yml = ops\template\angular-build.yml
 		ops\template\dotnet-build-docker.yml = ops\template\dotnet-build-docker.yml
 		ops\template\dotnet-build.yml = ops\template\dotnet-build.yml
 		ops\template\node-build-docker.yml = ops\template\node-build-docker.yml
@@ -34,7 +33,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prod", "Prod", "{813E55E5-9
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{FDDE1887-6152-4DFC-9819-8A1338011A4D}"
 	ProjectSection(SolutionItems) = preProject
-		ops\template\angular-build.yml = ops\template\angular-build.yml
 		ops\template\dotnet-build-docker.yml = ops\template\dotnet-build-docker.yml
 		ops\template\dotnet-build.yml = ops\template\dotnet-build.yml
 		ops\template\node-build-docker.yml = ops\template\node-build-docker.yml
@@ -45,13 +43,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Api", "Api", "{34FF582F-388
 		ops\prod\api\appsettings.json = ops\prod\api\appsettings.json
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "App", "App", "{D5A54E23-3A99-4C7A-A254-FC5DB5C50506}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Fantasoccer.Infrastructure.InMemory", "src\Fantasoccer.Infrastructure.InMemory\Fantasoccer.Infrastructure.InMemory.csproj", "{B796A215-C3CC-42C0-B778-AAA129D86AB9}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Wasm", "Wasm", "{0288F6D0-C2F2-41D5-866F-0766706AF4EB}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Infrastructure.ClientStorage", "src\Fantasoccer.Infrastructure.ClientStorage\Fantasoccer.Infrastructure.ClientStorage.csproj", "{57A5307D-DFBD-43F0-8FF9-E066701BD597}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fantasoccer.Application.Api", "src\Fantasoccer.Applications\Fantasoccer.Application.Api\Fantasoccer.Application.Api.csproj", "{96574AA2-1B20-41B7-B837-4EBAD3010DC8}"
 EndProject
@@ -85,10 +77,6 @@ Global
 		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B796A215-C3CC-42C0-B778-AAA129D86AB9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{57A5307D-DFBD-43F0-8FF9-E066701BD597}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{57A5307D-DFBD-43F0-8FF9-E066701BD597}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{57A5307D-DFBD-43F0-8FF9-E066701BD597}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{57A5307D-DFBD-43F0-8FF9-E066701BD597}.Release|Any CPU.Build.0 = Release|Any CPU
 		{96574AA2-1B20-41B7-B837-4EBAD3010DC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{96574AA2-1B20-41B7-B837-4EBAD3010DC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{96574AA2-1B20-41B7-B837-4EBAD3010DC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -107,10 +95,7 @@ Global
 		{813E55E5-9349-4602-870F-C1954A89E06F} = {7733D513-280E-4364-BC1B-E2751594E315}
 		{FDDE1887-6152-4DFC-9819-8A1338011A4D} = {7733D513-280E-4364-BC1B-E2751594E315}
 		{34FF582F-3885-44DA-B940-3F8D1E52FFBB} = {813E55E5-9349-4602-870F-C1954A89E06F}
-		{D5A54E23-3A99-4C7A-A254-FC5DB5C50506} = {813E55E5-9349-4602-870F-C1954A89E06F}
 		{B796A215-C3CC-42C0-B778-AAA129D86AB9} = {91114266-E644-452D-8132-7D762C9B8968}
-		{0288F6D0-C2F2-41D5-866F-0766706AF4EB} = {813E55E5-9349-4602-870F-C1954A89E06F}
-		{57A5307D-DFBD-43F0-8FF9-E066701BD597} = {91114266-E644-452D-8132-7D762C9B8968}
 		{96574AA2-1B20-41B7-B837-4EBAD3010DC8} = {7AB3AB4C-88B6-4746-ACD6-BEC3BCC14CC9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution

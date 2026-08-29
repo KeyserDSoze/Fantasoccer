@@ -1,41 +1,8 @@
-import { createAnimations } from '@tamagui/animations-react-native';
+import { defaultConfig } from '@tamagui/config/v5';
+import { animations } from '@tamagui/config/v5-rn';
 import { createInterFont } from '@tamagui/font-inter';
 import { createMedia } from '@tamagui/react-native-media-driver';
-import { shorthands } from '@tamagui/shorthands';
-import { themes, tokens } from '@tamagui/themes';
-
-// Ensure we provide an outlineColor token so components referencing $outlineColor resolve.
-// Merge with the upstream tokens so we don't drop existing values.
-const mergedTokens = {
-  ...(tokens as any),
-  color: {
-    ...((tokens as any)?.color ?? {}),
-    // prefer an existing border token if available, otherwise fallback to a neutral gray
-    outlineColor: ((tokens as any)?.color?.border ?? '#94a3b8') as string,
-  },
-}
-
 import { createTamagui, styled, SizableText, H1, YStack, Button as ButtonTamagui } from 'tamagui';
-
-const animations = createAnimations({
-  bouncy: {
-    damping: 10,
-    mass: 0.9,
-    stiffness: 100,
-    type: 'spring',
-  },
-  lazy: {
-    damping: 20,
-    type: 'spring',
-    stiffness: 60,
-  },
-  quick: {
-    damping: 20,
-    mass: 1.2,
-    stiffness: 250,
-    type: 'spring',
-  },
-});
 
 const headingFont = createInterFont();
 
@@ -89,23 +56,13 @@ export const Button = styled(ButtonTamagui, {
 });
 
 const config = createTamagui({
-  light: {
-    color: {
-      background: 'gray',
-      text: 'black',
-    },
-  },
-  defaultFont: 'body',
+  ...defaultConfig,
   animations,
-  shouldAddPrefersColorThemes: true,
-  themeClassNameOnRoot: true,
-  shorthands,
   fonts: {
+    ...defaultConfig.fonts,
     body: bodyFont,
     heading: headingFont,
   },
-  themes,
-  tokens: mergedTokens,
   media: createMedia({
     xs: { maxWidth: 660 },
     sm: { maxWidth: 800 },
@@ -122,6 +79,15 @@ const config = createTamagui({
     hoverNone: { hover: 'none' },
     pointerCoarse: { pointer: 'coarse' },
   }),
+  settings: {
+    ...defaultConfig.settings,
+    allowedStyleValues: false,
+    disableSSR: true,
+    defaultPosition: 'relative',
+    mediaQueryDefaultActive: {},
+    onlyAllowShorthands: false,
+    styleCompat: 'legacy',
+  },
 });
 
 type AppConfig = typeof config;

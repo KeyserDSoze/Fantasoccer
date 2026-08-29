@@ -259,7 +259,7 @@ export default function HallOfFameScreen() {
                 <XStack gap="$2" alignItems="center">
                   <Medal size={24} color="$green10" />
                   <H5 color="$color12" fontWeight="700">
-                    Albo d'Oro
+                    Albo d&apos;Oro
                   </H5>
                 </XStack>
 

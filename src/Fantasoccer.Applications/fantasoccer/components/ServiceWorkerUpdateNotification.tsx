@@ -107,7 +107,7 @@ export function ServiceWorkerUpdateNotification() {
         </XStack>
         
         <Text fontSize="$3" color="rgba(255, 255, 255, 0.9)">
-          È disponibile una nuova versione dell'app. Aggiorna ora per ottenere le ultime funzionalità e correzioni.
+          È disponibile una nuova versione dell&apos;app. Aggiorna ora per ottenere le ultime funzionalità e correzioni.
         </Text>
 
         <XStack gap="$2" justifyContent="flex-end">

@@ -49,31 +49,31 @@ const notificationToggles: Array<{
     key: 'matchEvents',
     title: 'Partita in tempo reale',
     description: 'Ricevi aggiornamenti sulla tua partita principale.',
-    icon: <Bell size="$1.25" color="$blue10" />
+    icon: <Bell size={22} color="$blue10" />
   },
   {
     key: 'opponentMatchEvents',
     title: 'Partite avversari',
     description: 'Tieniti informato sui risultati dei tuoi rivali diretti.',
-    icon: <BellRing size="$1.25" color="$purple10" />
+    icon: <BellRing size={22} color="$purple10" />
   },
   {
     key: 'marketEvents',
     title: 'Movimenti di mercato',
     description: 'Notifiche sulle offerte e sugli scambi della tua lega.',
-    icon: <SquareCheck size="$1.25" color="$green10" />
+    icon: <SquareCheck size={22} color="$green10" />
   },
   {
     key: 'deploymentReminder',
     title: 'Promemoria formazione',
     description: 'Ricevi un alert prima della deadline per schierare la tua squadra.',
-    icon: <Clock size="$1.25" color="$yellow10" />
+    icon: <Clock size={22} color="$yellow10" />
   },
   {
     key: 'endDay',
     title: 'Fine giornata',
     description: 'Riepilogo risultati a chiusura dell’ultima partita della giornata.',
-    icon: <CheckCircle2 size="$1.25" color="$blue10" />
+    icon: <CheckCircle2 size={22} color="$blue10" />
   }
 ]
 
