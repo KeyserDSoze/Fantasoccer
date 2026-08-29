@@ -25,7 +25,7 @@ parameters:
 
   - name: sdkVersion
     type: string
-    default: "7.x"
+    default: "10.x"
 
   - name: artifactName
     type: string
@@ -45,7 +45,7 @@ steps:
       packageType: "sdk"
       version: "${{parameters.sdkVersion}}"
 
-  - task: NuGetAuthenticate@0
+  - task: NuGetAuthenticate@1
 
   - script: dotnet restore ${{ parameters.projects }}
     workingDirectory: "${{ parameters.workingDirectory }}"

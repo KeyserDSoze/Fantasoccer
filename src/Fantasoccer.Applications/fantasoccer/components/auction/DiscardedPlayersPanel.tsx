@@ -1,7 +1,7 @@
 // DiscardedPlayersPanel - Lista giocatori scartati durante l'asta (visibile a tutti)
 import { useState, useMemo, useEffect } from 'react'
 import { Button, Card, Input, ScrollView, Separator, Text, XStack, YStack } from 'tamagui'
-import { List, ChevronDown, ChevronUp, Calendar, UserX } from '@tamagui/lucide-icons'
+import { List, ChevronDown, ChevronUp, Calendar, UserX } from '@tamagui/lucide-icons-2'
 import { Role } from 'types/group'
 import { AuctionState, StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'

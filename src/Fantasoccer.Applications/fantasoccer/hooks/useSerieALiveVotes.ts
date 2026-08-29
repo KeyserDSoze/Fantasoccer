@@ -28,7 +28,7 @@ export function useSerieALiveVotes({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Determina se c'è almeno una partita live
   const hasLiveGames = useCallback(() => {

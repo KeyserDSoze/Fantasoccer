@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Info } from '@tamagui/lucide-icons'
+import { AlertTriangle, Info } from '@tamagui/lucide-icons-2'
 import {
   Card,
   H3,
@@ -258,7 +258,7 @@ export default function InfoScreen() {
                 <YStack gap="$2" paddingLeft="$2">
                   <H4 fontSize="$3" color="$color11">📈 Badge Forma (in alto a sinistra):</H4>
                   <Text fontSize="$2" color="$color10" paddingLeft="$3">
-                    Mostra la forma del giocatore con un numero che può andare da -5 a +25 (in base ai bonus dell'ultima partita) e una freccia direzionale che rappresenta le ultime 5 partite che ha giocato il giocatore:
+                    Mostra la forma del giocatore con un numero che può andare da -5 a +25 (in base ai bonus dell&apos;ultima partita) e una freccia direzionale che rappresenta le ultime 5 partite che ha giocato il giocatore:
                   </Text>
                   <YStack gap="$1" paddingLeft="$3">
                     <XStack alignItems="center" gap="$2">
@@ -350,7 +350,7 @@ export default function InfoScreen() {
                 </YStack>
 
                 <Text fontSize="$2" color="$color11" fontStyle="italic" paddingLeft="$3">
-                  Nota: l'autogol viene mostrato solo se entrambe le squadre hanno meno di 66 punti e la differenza è di almeno 6 punti. Questa regola può variare in base alla lega e alle opzioni di lega che sono state impostate, puoi vedere la sezione regole per capire come funziona la tua lega.
+                  Nota: l&apos;autogol viene mostrato solo se entrambe le squadre hanno meno di 66 punti e la differenza è di almeno 6 punti. Questa regola può variare in base alla lega e alle opzioni di lega che sono state impostate, puoi vedere la sezione regole per capire come funziona la tua lega.
                 </Text>
               </YStack>
             </Card>

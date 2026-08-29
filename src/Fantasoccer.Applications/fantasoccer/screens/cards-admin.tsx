@@ -16,7 +16,7 @@ import {
   Select,
   Sheet
 } from 'tamagui'
-import { Search, Plus, Edit3, Trash2, Image as ImageIcon, Sparkles } from '@tamagui/lucide-icons'
+import { Search, Plus, Edit3, Trash2, Image as ImageIcon, Sparkles } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
 import { useNavigation } from '@react-navigation/native'
 import type { NavigationProp } from '../navigation'

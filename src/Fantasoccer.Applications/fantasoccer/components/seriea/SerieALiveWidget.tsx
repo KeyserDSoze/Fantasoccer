@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CalendarRange, RefreshCw, User, ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
+import { AlertTriangle, CalendarRange, RefreshCw, User, ChevronDown, ChevronUp } from '@tamagui/lucide-icons-2'
 import {
   Button,
   Card,
@@ -174,7 +174,7 @@ export function SerieALiveWidget({
   const showLiveEvents = isLive && liveEvents.length > 0
 
   const calendarCard = (
-    <Card elevate backgroundColor="$color1" gap="$3">
+    <Card elevation="$2" backgroundColor="$color1" gap="$3">
       {showErrorState ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
           <AlertTriangle size={32} color="$red10" />
@@ -765,4 +765,3 @@ function LiveEventRow({ player }: LiveEventRowProps) {
     </Card>
   )
 }
-

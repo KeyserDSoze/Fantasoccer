@@ -1,6 +1,6 @@
 import { type FC } from 'react'
 import { XStack, Button, Text } from 'tamagui'
-import { ZoomIn, ZoomOut, RotateCcw } from '@tamagui/lucide-icons'
+import { ZoomIn, ZoomOut, RotateCcw } from '@tamagui/lucide-icons-2'
 
 interface ZoomControlsProps {
   zoomLevel: number

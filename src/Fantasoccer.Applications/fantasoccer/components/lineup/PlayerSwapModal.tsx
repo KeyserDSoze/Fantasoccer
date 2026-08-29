@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { Dialog, YStack, XStack, Text, Button, ScrollView, Sheet } from 'tamagui'
-import { X, ArrowLeftRight, Plus, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus } from '@tamagui/lucide-icons'
+import { X, ArrowLeftRight, Plus, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus } from '@tamagui/lucide-icons-2'
 import { Dimensions } from 'react-native'
 import type { LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
@@ -171,7 +171,7 @@ export function PlayerSwapModal({
       position={0}
       zIndex={100000}
     >
-      <Sheet.Overlay backgroundColor="rgba(0,0,0,0.7)" animation="quick" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
+      <Sheet.Overlay backgroundColor="rgba(0,0,0,0.7)" transition="quick" enterStyle={{ opacity: 0 }} exitStyle={{ opacity: 0 }} />
       <Sheet.Frame 
         padding={0} 
         backgroundColor="$background" 

@@ -1,7 +1,7 @@
 // RemainingPlayersPanel - Lista giocatori che non sono ancora usciti nell'asta (visibile a tutti)
 import { useState, useMemo, useEffect } from 'react'
 import { Button, Card, Input, ScrollView, Separator, Text, XStack, YStack } from 'tamagui'
-import { List, ChevronDown, ChevronUp, Calendar } from '@tamagui/lucide-icons'
+import { List, ChevronDown, ChevronUp, Calendar } from '@tamagui/lucide-icons-2'
 import { Role } from 'types/group'
 import { AuctionState, StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
@@ -120,7 +120,7 @@ export function RemainingPlayersPanel({
       {isExpanded && (
         <>
           <Text fontSize="$2" color="$blue10">
-            {getRoleLabel(selectedRole)} che non sono ancora usciti nell'asta
+            {getRoleLabel(selectedRole)} che non sono ancora usciti nell&apos;asta
           </Text>
           <Input
             placeholder="Cerca giocatore rimanente..."

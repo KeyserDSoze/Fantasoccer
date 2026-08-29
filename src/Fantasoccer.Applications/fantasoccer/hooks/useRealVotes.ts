@@ -83,7 +83,7 @@ export function useRealVotes(type: VoteType, options: UseRealVotesOptions): UseR
 
   const [state, setState] = useState<BaseState>(() => createInitialState(enabled))
   const mountedRef = useRef(true)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchVotes = useCallback(async (isRefresh = false) => {
     const canRun = enabled && day != null

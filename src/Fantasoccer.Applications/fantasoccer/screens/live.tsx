@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, RefreshCw, Zap } from '@tamagui/lucide-icons'
+import { AlertTriangle, RefreshCw, Zap } from '@tamagui/lucide-icons-2'
 import { Button, Card, Paragraph, Spinner, Text, XStack, YStack, useMedia } from 'tamagui'
 
 import { ScreenContent } from 'components/layout/ScreenContent'

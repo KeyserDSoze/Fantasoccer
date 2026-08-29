@@ -8,7 +8,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import {
   Button,
   Card,

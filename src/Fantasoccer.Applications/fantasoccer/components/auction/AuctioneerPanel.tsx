@@ -7,7 +7,7 @@ import {
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
   Clock, RotateCcw, Search, Check, Unlock, Filter 
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { Role } from 'types/group'
 import { AuctionStatus, StatPlayer, AuctionState } from 'types/auction'
 import { Entity } from 'types/default'
@@ -116,7 +116,7 @@ export function AuctioneerPanel({
           <Label htmlFor="team-select" fontSize="$4" color="$orange11">Fai offerta per squadra:</Label>
           <Select id="team-select" value={selectedTeamForBid} onValueChange={onSelectedTeamForBidChange}>
             <Select.Trigger iconAfter={ChevronDown} disabled={!currentPlayer}><Select.Value placeholder="Seleziona Squadra" /></Select.Trigger>
-            <Select.Content zIndex={200000}>
+            <Select.Content>
               <Select.Viewport>
                 {teams.map((team, idx) => (
                   <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
@@ -186,7 +186,7 @@ export function AuctioneerPanel({
         <YStack flex={1}>
           <Select value={selectedRole.toString()} onValueChange={(val) => onSelectedRoleChange(Number(val) as Role)}>
             <Select.Trigger iconAfter={ChevronDown}><Select.Value /></Select.Trigger>
-            <Select.Content zIndex={200000}>
+            <Select.Content>
               <Select.Viewport>
                 {[Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward].map((role, idx) => (
                   <Select.Item key={role} index={idx} value={role.toString()}>
@@ -250,7 +250,7 @@ export function AuctioneerPanel({
             onValueChange={(val) => onChangeTimer(Number(val))}
           >
             <Select.Trigger width={70} size="$3"><Select.Value /></Select.Trigger>
-            <Select.Content zIndex={200000}>
+            <Select.Content>
               <Select.Viewport>
                 {[5, 10, 15, 20, 30, 45, 60].map((secs, idx) => (
                   <Select.Item key={secs} index={idx} value={secs.toString()}>
@@ -312,7 +312,7 @@ export function AuctioneerPanel({
             Riapri Asta
           </Button>
           <Text fontSize="$2" color="$blue10" textAlign="center">
-            Riapre l'asta in stato Pausa per poterla modificare e ri-finalizzare
+            Riapre l&apos;asta in stato Pausa per poterla modificare e ri-finalizzare
           </Text>
         </>
       ) : (
@@ -331,7 +331,7 @@ export function AuctioneerPanel({
             Finalizza e Salva Tutte le Squadre
           </Button>
           <Text fontSize="$2" color="$red10" textAlign="center">
-            ⚠️ Chiude l'asta e salva automaticamente tutte le squadre con la formazione della prossima giornata
+            ⚠️ Chiude l&apos;asta e salva automaticamente tutte le squadre con la formazione della prossima giornata
           </Text>
         </>
       )}

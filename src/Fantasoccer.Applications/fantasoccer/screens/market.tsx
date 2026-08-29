@@ -21,7 +21,7 @@ import {
   Minus,
   CheckCircle,
   XCircle,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { useApp } from 'providers/AppProvider'
 import { useAuth } from 'providers/AuthProvider'

@@ -25,9 +25,10 @@ export function FloatingPlayerWidget({
   onIncrementBid,
   disabled = false
 }: FloatingPlayerWidgetProps) {
+  const [useFallbackImage, setUseFallbackImage] = useState(false)
+
   if (!currentPlayer) return null
 
-  const [useFallbackImage, setUseFallbackImage] = useState(false)
   const winningTeam = teams.find(t => t.value.owner === currentBidder)
   
   // Usa la stessa logica di PlayerCard per le immagini
@@ -84,7 +85,7 @@ export function FloatingPlayerWidget({
           elevation={8}
           pressStyle={!disabled ? { scale: 1, opacity: 0.8 } : undefined}
           onPress={disabled ? undefined : onIncrementBid}
-          animation="quick"
+          transition="quick"
           cursor={disabled ? 'default' : 'pointer'}
           opacity={disabled ? 0.6 : 1}
         >

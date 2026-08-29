@@ -12,7 +12,7 @@ import {
   AuctionKindLabels,
   AuctionKindDescriptions
 } from 'types/auction'
-import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons'
+import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons-2'
 
 export default function AuctionCreateScreen() {
   const media = useMedia()
@@ -283,7 +283,7 @@ export default function AuctionCreateScreen() {
                   <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
                     <YStack gap="$3">
                       <Text fontSize="$4" fontWeight="600" color="$color11">
-                        Condividi l'asta con i partecipanti
+                        Condividi l&apos;asta con i partecipanti
                       </Text>
 
                       <Button
@@ -329,8 +329,8 @@ export default function AuctionCreateScreen() {
                   {/* Info */}
                   <Card padding="$3" backgroundColor="$blue2" borderRadius="$4" borderWidth="$0.5" borderColor="$blue8">
                     <Text fontSize="$2" color="$blue10">
-                      💡 <Text fontWeight="600">Suggerimento:</Text> Condividi il link con tutti i partecipanti prima di avviare l'asta. 
-                      Potranno unirsi in qualsiasi momento durante l'asta.
+                      💡 <Text fontWeight="600">Suggerimento:</Text> Condividi il link con tutti i partecipanti prima di avviare l&apos;asta.
+                      Potranno unirsi in qualsiasi momento durante l&apos;asta.
                     </Text>
                   </Card>
                 </>

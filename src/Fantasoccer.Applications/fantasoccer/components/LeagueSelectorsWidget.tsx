@@ -1,6 +1,6 @@
 import { type FC, type ReactNode, useMemo, useState } from 'react'
 import { Button, Card, Text, XStack, YStack } from 'tamagui'
-import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons'
+import { ChevronDown, ChevronUp } from '@tamagui/lucide-icons-2'
 
 type LeagueOption = {
   id: string

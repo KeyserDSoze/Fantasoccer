@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Text, XStack, YStack } from 'tamagui'
-import { RefreshCw } from '@tamagui/lucide-icons'
+import { RefreshCw } from '@tamagui/lucide-icons-2'
 import { Platform } from 'react-native'
 
 export function ServiceWorkerUpdateNotification() {
@@ -92,7 +92,7 @@ export function ServiceWorkerUpdateNotification() {
       shadowOpacity={0.3}
       shadowRadius={8}
       elevation={5}
-      animation="quick"
+      transition="quick"
       enterStyle={{
         opacity: 0,
         y: 20,
@@ -107,7 +107,7 @@ export function ServiceWorkerUpdateNotification() {
         </XStack>
         
         <Text fontSize="$3" color="rgba(255, 255, 255, 0.9)">
-          È disponibile una nuova versione dell'app. Aggiorna ora per ottenere le ultime funzionalità e correzioni.
+          È disponibile una nuova versione dell&apos;app. Aggiorna ora per ottenere le ultime funzionalità e correzioni.
         </Text>
 
         <XStack gap="$2" justifyContent="flex-end">

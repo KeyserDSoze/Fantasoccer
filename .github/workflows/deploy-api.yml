@@ -7,7 +7,6 @@ on:
       - 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/**'
       - 'src/Fantasoccer.Business/**'
       - 'src/Fantasoccer.Business.BackgroundJobs/**'
-      - 'src/Fantasoccer.Business.Shared/**'
       - 'src/Fantasoccer.Domain/**'
       - 'src/Fantasoccer.Infrastructure.Storage/**'
       - 'src/Fantasoccer.Tests/**'
@@ -34,9 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -65,12 +64,12 @@ jobs:
         run: dotnet publish "${{ env.API_PROJECT }}" --configuration Release --no-restore --output ./publish
 
       - name: Azure login with client secret
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Configure App Service settings
-        uses: azure/cli@v2
+        uses: azure/cli@v3
         env:
           API_RESOURCE_GROUP: ${{ vars.API_RESOURCE_GROUP }}
           API_APP_NAME: ${{ vars.API_APP_NAME }}

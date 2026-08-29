@@ -34,7 +34,7 @@ import {
   Bell,
   FileText,
   Sparkles,
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 import { useAuth } from 'providers/AuthProvider'
 import { useApp } from 'providers/AppProvider'
 import { hasRole, IdentityRole } from '../../types/identity'
@@ -261,7 +261,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       <Sheet {...sheetProps}>
         <Sheet.Overlay 
           backgroundColor="rgba(0, 0, 0, 0.5)" 
-          animation="lazy" 
+          transition="lazy"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
         />

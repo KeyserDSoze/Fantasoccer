@@ -27,7 +27,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activating new version...')
   event.waitUntil(
-    clients.claim().then(() => {
+    self.clients.claim().then(() => {
       console.log('[Service Worker] Claiming all clients')
     })
   )
@@ -88,7 +88,7 @@ self.addEventListener('notificationclick', (event) => {
     return
   }
 
-  event.waitUntil(clients.openWindow(target))
+  event.waitUntil(self.clients.openWindow(target))
 })
 
 self.addEventListener('pushsubscriptionchange', (event) => {

@@ -29,7 +29,7 @@ import {
   Save,
   Calculator,
   BarChart3
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 
 export default function SerieAAdminScreen() {
   const media = useMedia()

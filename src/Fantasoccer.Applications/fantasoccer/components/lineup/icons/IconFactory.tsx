@@ -2,7 +2,7 @@ import React from 'react'
 import { SoccerBallSVG } from './SoccerBallSVG'
 import { AssistSVG } from './AssistSVG'
 import { BehaviourCardSVG } from './BehaviourCardSVG'
-import { AlertTriangle } from '@tamagui/lucide-icons'
+import { AlertTriangle } from '@tamagui/lucide-icons-2'
 
 export type IconType =
   | 'goal'

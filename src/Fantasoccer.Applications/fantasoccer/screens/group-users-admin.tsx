@@ -29,7 +29,7 @@ import {
   CheckCircle,
   AlertCircle,
   Mail
-} from '@tamagui/lucide-icons'
+} from '@tamagui/lucide-icons-2'
 
 // Email regex pattern
 const EMAIL_PATTERN = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$/

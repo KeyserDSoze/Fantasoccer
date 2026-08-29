@@ -1,5 +1,5 @@
 import { Dialog, Button, Card, Select, Label, Input, Text, XStack, YStack } from 'tamagui'
-import { ChevronDown } from '@tamagui/lucide-icons'
+import { ChevronDown } from '@tamagui/lucide-icons-2'
 import { useState } from 'react'
 
 export interface ChangeStatusDialogProps {
@@ -35,17 +35,17 @@ export function ChangeStatusDialog({
       <Dialog.Portal>
         <Dialog.Overlay 
           key="overlay" 
-          animation="quick" 
+          transition="quick"
           opacity={0.5} 
           enterStyle={{ opacity: 0 }} 
           exitStyle={{ opacity: 0 }} 
         />
         <Dialog.Content 
           bordered 
-          elevate 
+          elevation="$2"
           key="content" 
           animateOnly={['transform', 'opacity']} 
-          animation={['quick', { opacity: { overshootClamping: true } }]} 
+          transition={['quick', { opacity: { overshootClamping: true } }]}
           enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }} 
           exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }} 
           gap="$4" 
@@ -66,7 +66,7 @@ export function ChangeStatusDialog({
                 <Select.Trigger iconAfter={ChevronDown}>
                   <Select.Value />
                 </Select.Trigger>
-                <Select.Content zIndex={200000}>
+                <Select.Content>
                   <Select.Viewport>
                     <Select.Item index={0} value="0">
                       <Select.ItemText>Attivo (ripristina)</Select.ItemText>
@@ -114,7 +114,7 @@ export function ChangeStatusDialog({
                   • <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell'allenatore
+                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell&apos;allenatore
                 </Text>
                 <Text fontSize="$2" color="$blue11">
                   • <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)
