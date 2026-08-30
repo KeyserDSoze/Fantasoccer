@@ -4,7 +4,11 @@ using Fantasoccer.Business;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
 using Fantasoccer.InMemory;
+using Fantasoccer.Domain;
+using Fantasoccer;
 using Microsoft.AspNetCore.ResponseCompression;
+using RepositoryFramework;
+using RepositoryFramework.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
@@ -29,6 +33,14 @@ builder.Services.AddEndpointsApiExplorer();
 if (isInMemory)
 {
     builder.Services.AddInMemoryInfrastructures();
+    builder.Services.AddRepository<AuctionWrapper, string>(x => x.WithInMemory());
+    builder.Services.AddRepository<PushNotificationSettings, string>(x => x.WithInMemory());
+    builder.Services.AddRepository<PushNotificationSent, YearDayKey>(x => x.WithInMemory());
+    builder.Services.AddRepository<RealRank, int>(x => x.WithInMemory());
+    builder.Services.AddRepository<LiveGroup, string>(x => x.WithInMemory());
+    builder.Services.AddRepository<Rank, YearDayLeague>(x => x.WithInMemory());
+    builder.Services.AddRepository<HallOfFame, GeneralLeagueKey>(x => x.WithInMemory());
+    builder.Services.AddRepository<CardWrapper, string>(x => x.WithInMemory());
     builder.Services.AddPreDefaultValues();
 }
 else
@@ -36,7 +48,8 @@ else
     await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 }
 builder.Services.AddFantasoccerBusiness(builder.Configuration);
-builder.Services.AddFantasoccerBackgroundWork();
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddFantasoccerBackgroundWork();
 builder.Services.AddSharedBusiness();
 builder.Services.AddApiFromRepositoryFramework()
     .WithSwagger()
@@ -63,7 +76,8 @@ if (isInMemory)
 builder.Services.AddLock();
 
 var app = builder.Build();
-await app.Services.WarmUpAsync();
+if (!app.Environment.IsEnvironment("Testing"))
+    await app.Services.WarmUpAsync();
 app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
@@ -78,3 +92,5 @@ app.UseApiFromRepositoryFramework()
     .Build();
 app.MapHub<AuctionHub>("/auctionhub");
 app.Run();
+
+public partial class Program;

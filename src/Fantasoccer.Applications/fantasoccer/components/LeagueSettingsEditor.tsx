@@ -262,7 +262,7 @@ export function LeagueSettingsEditor({
                 onCheckedChange={checked => onChange({ ...value, rankWithValuePoints: checked })}
                 disabled={disabled}
               >
-                <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
               </Switch>
               <Text fontSize="$2" color="$color10">Somma il fantapunteggio ai punti di vittoria, pareggio o sconfitta.</Text>
             </YStack>

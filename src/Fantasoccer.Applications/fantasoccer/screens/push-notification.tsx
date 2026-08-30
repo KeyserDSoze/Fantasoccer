@@ -299,7 +299,7 @@ const PushNotificationScreen = () => {
                         checked={value}
                         onCheckedChange={(checked) => handleToggle(toggle.key, Boolean(checked))}
                       >
-                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
                       </Switch>
                     </XStack>
                   </Card>

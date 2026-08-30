@@ -655,7 +655,7 @@ export default function GroupLeagueAdminScreen() {
                               onCheckedChange={(checked) => updateLeagueProperty('isMain', checked)}
                               disabled={isAnyLoading}
                             >
-                              <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                              <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
                             </Switch>
                           </XStack>
                         </XStack>

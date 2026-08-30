@@ -452,7 +452,7 @@ export default function CardEditScreen() {
                         backgroundColor={hasMyCondition ? '$green9' : '$color6'}
                         borderColor={hasMyCondition ? '$green10' : '$color8'}
                       >
-                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
                       </Switch>
                     </XStack>
 
@@ -471,7 +471,7 @@ export default function CardEditScreen() {
                         backgroundColor={hasEnemyCondition ? '$green9' : '$color6'}
                         borderColor={hasEnemyCondition ? '$green10' : '$color8'}
                       >
-                        <Switch.Thumb transition="quick" backgroundColor="$color12" />
+                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
                       </Switch>
                     </XStack>
                   </YStack>
