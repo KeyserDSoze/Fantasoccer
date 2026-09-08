@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Platform, Vibration } from 'react-native'
 import { 
   Button, Card, Input, Select, Separator, Text, XStack, YStack, 
-  useMedia, Spinner, Label, Switch, Dialog, ScrollView, Accordion, Square
+  useMedia, Spinner, Label, Dialog, ScrollView, Accordion, Square
 } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
@@ -25,7 +25,7 @@ import { Role } from 'types/group'
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
   Clock, Lock, RotateCcw, Search, DollarSign, 
-  AlertCircle, Volume2, VolumeX, Vibrate, History, UserX
+  AlertCircle, History, UserX
 } from '@tamagui/lucide-icons-2'
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native'
 import { RootStackParamList } from 'navigation'
@@ -53,10 +53,10 @@ import {
   ChangeStatusDialog,
   SubstituteSelectionDialog,
   PlayerSearchDialog,
-  FloatingPlayerWidget,
-  SectionToggleChip
+  FloatingPlayerWidget
 } from 'components/auction'
 import { FloatingEmoji } from 'components/auction/FloatingEmoji'
+import { ToggleChip } from 'components/ToggleChip'
 
 type AuctionLiveRouteProp = RouteProp<RootStackParamList, 'AuctionLive'>
 
@@ -1839,20 +1839,10 @@ export default function AuctionLiveScreen() {
                       <Text fontSize="$3" color="$blue11" fontWeight="600">Lista: {auctionTypeLabel}</Text>
                     </Card>
                   </XStack>
-                  <XStack gap="$2" alignItems="center">
-                    {audioEnabled ? <Volume2 size={18} color="$color11" /> : <VolumeX size={18} color="$color10" />}
-                    <Text fontSize="$3" color="$color11">Audio</Text>
-                      <Switch size="$2" backgroundColor={audioEnabled ? '$green9' : '$color6'} borderColor={audioEnabled ? '$green10' : '$color8'} checked={audioEnabled} onCheckedChange={setAudioEnabled}>
-                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                    </Switch>
+                  <XStack gap="$2" alignItems="center" flexWrap="wrap">
+                    <ToggleChip label="Audio" accent="green" checked={audioEnabled} onCheckedChange={setAudioEnabled} />
                     {Platform.OS !== 'web' && (
-                      <XStack gap="$2" alignItems="center">
-                        <Vibrate size={18} color={vibrationEnabled ? '$color11' : '$color10'} />
-                        <Text fontSize="$3" color="$color11">Vibrazione</Text>
-                        <Switch size="$2" backgroundColor={vibrationEnabled ? '$green9' : '$color6'} borderColor={vibrationEnabled ? '$green10' : '$color8'} checked={vibrationEnabled} onCheckedChange={setVibrationEnabled}>
-                          <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                        </Switch>
-                      </XStack>
+                      <ToggleChip label="Vibrazione" accent="green" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled} />
                     )}
                   </XStack>
                 </XStack>
@@ -1863,21 +1853,21 @@ export default function AuctionLiveScreen() {
                     <Text fontSize="$2" color="$blue11" fontWeight="600">Mostra/Nascondi Sezioni:</Text>
                     <XStack gap="$2" flexWrap="wrap">
                       {myTeam && (
-                        <SectionToggleChip label="Pulsantiera" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel} />
+                        <ToggleChip label="Pulsantiera" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel} />
                       )}
                       {isAuctioneer && (
-                        <SectionToggleChip label="Pulsantiera Banditore" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel} />
+                        <ToggleChip label="Pulsantiera Banditore" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel} />
                       )}
-                      <SectionToggleChip label="Statistiche Giocatore" checked={showPlayerStats} onCheckedChange={setShowPlayerStats} />
+                      <ToggleChip label="Statistiche Giocatore" checked={showPlayerStats} onCheckedChange={setShowPlayerStats} />
                       {myTeam && (
-                        <SectionToggleChip label="Statistiche Mia Squadra" checked={showMyTeamStats} onCheckedChange={setShowMyTeamStats} />
+                        <ToggleChip label="Statistiche Mia Squadra" checked={showMyTeamStats} onCheckedChange={setShowMyTeamStats} />
                       )}
-                      <SectionToggleChip label="Squadre Partecipanti" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel} />
-                      <SectionToggleChip label="Dettagli Squadre" checked={showTeamDetails} onCheckedChange={setShowTeamDetails} />
-                      <SectionToggleChip label="Storico Acquisti" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory} />
-                      <SectionToggleChip label="Giocatori Cacciati/Venduti" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers} />
-                      <SectionToggleChip label="Reazioni Emoji" checked={showEmojis} onCheckedChange={setShowEmojis} />
-                      <SectionToggleChip label="Audio Emoji" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled} />
+                      <ToggleChip label="Squadre Partecipanti" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel} />
+                      <ToggleChip label="Dettagli Squadre" checked={showTeamDetails} onCheckedChange={setShowTeamDetails} />
+                      <ToggleChip label="Storico Acquisti" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory} />
+                      <ToggleChip label="Giocatori Cacciati/Venduti" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers} />
+                      <ToggleChip label="Reazioni Emoji" checked={showEmojis} onCheckedChange={setShowEmojis} />
+                      <ToggleChip label="Audio Emoji" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled} />
                     </XStack>
                   </YStack>
                 </Card>

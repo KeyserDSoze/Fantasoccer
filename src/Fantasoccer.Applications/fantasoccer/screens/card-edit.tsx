@@ -15,7 +15,6 @@ import {
   useMedia,
   TextArea,
   Label,
-  Switch,
   ScrollView
 } from 'tamagui'
 import { Save, X, Upload, Image as ImageIcon, AlertCircle } from '@tamagui/lucide-icons-2'
@@ -23,6 +22,7 @@ import { useToastController } from '@tamagui/toast'
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native'
 import type { RootStackParamList } from '../navigation'
 import cardService from 'services/cardService'
+import { ToggleChip } from 'components/ToggleChip'
 import {
   Card as CardType,
   CardType as CardTypeEnum,
@@ -445,15 +445,12 @@ export default function CardEditScreen() {
                           Attiva per aggiungere condizioni sui tuoi giocatori
                         </Text>
                       </YStack>
-                      <Switch
+                      <ToggleChip
+                        label={hasMyCondition ? 'Attiva' : 'Disattiva'}
+                        accent="green"
                         checked={hasMyCondition}
                         onCheckedChange={setHasMyCondition}
-                        size="$4"
-                        backgroundColor={hasMyCondition ? '$green9' : '$color6'}
-                        borderColor={hasMyCondition ? '$green10' : '$color8'}
-                      >
-                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                      </Switch>
+                      />
                     </XStack>
 
                     {/* Enemy Condition Toggle */}
@@ -464,15 +461,12 @@ export default function CardEditScreen() {
                           Attiva per aggiungere condizioni sui giocatori avversari
                         </Text>
                       </YStack>
-                      <Switch
+                      <ToggleChip
+                        label={hasEnemyCondition ? 'Attiva' : 'Disattiva'}
+                        accent="green"
                         checked={hasEnemyCondition}
                         onCheckedChange={setHasEnemyCondition}
-                        size="$4"
-                        backgroundColor={hasEnemyCondition ? '$green9' : '$color6'}
-                        borderColor={hasEnemyCondition ? '$green10' : '$color8'}
-                      >
-                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                      </Switch>
+                      />
                     </XStack>
                   </YStack>
                 </Card>

@@ -8,7 +8,6 @@ import {
   Paragraph,
   Separator,
   Spinner,
-  Switch,
   Text,
   XStack,
   YStack
@@ -27,6 +26,7 @@ import {
   TriangleAlert
 } from '@tamagui/lucide-icons-2'
 import { ScreenContent } from 'components/layout/ScreenContent'
+import { ToggleChip } from 'components/ToggleChip'
 import {
   useCurrentUserPushNotifications
 } from 'hooks/usePushNotifications'
@@ -291,16 +291,13 @@ const PushNotificationScreen = () => {
                           </Paragraph>
                         </YStack>
                       </XStack>
-                      <Switch
-                        size="$3"
-                        backgroundColor={value ? '$green9' : '$color6'}
-                        borderColor={value ? '$green10' : '$color8'}
-                        disabled={isBusy}
+                      <ToggleChip
+                        label={value ? 'Attiva' : 'Disattiva'}
+                        accent="green"
                         checked={value}
-                        onCheckedChange={(checked) => handleToggle(toggle.key, Boolean(checked))}
-                      >
-                        <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                      </Switch>
+                        disabled={isBusy}
+                        onCheckedChange={(checked) => handleToggle(toggle.key, checked)}
+                      />
                     </XStack>
                   </Card>
                 )

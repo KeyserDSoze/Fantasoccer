@@ -1,11 +1,12 @@
 // Group League Admin Screen - Super Admin management of league settings and calculations
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Platform, View, ScrollView } from 'react-native'
-import { Button, Card, Input, Separator, Text, XStack, YStack, useMedia, Switch, Label, Select, Spinner } from 'tamagui'
+import { Button, Card, Input, Separator, Text, XStack, YStack, useMedia, Label, Select, Spinner } from 'tamagui'
 import { useToastController } from '@tamagui/toast'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueSettingsEditor } from 'components/LeagueSettingsEditor'
+import { ToggleChip } from 'components/ToggleChip'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
 import { leagueManagerService } from 'services/leagueManagerService'
@@ -647,16 +648,13 @@ export default function GroupLeagueAdminScreen() {
                         <XStack gap="$3" alignItems="center">
                           <Label width={180}>Is Main</Label>
                           <XStack flex={1}>
-                            <Switch
-                              size="$4"
-                              backgroundColor={selectedLeague.isMain ? '$green9' : '$color6'}
-                              borderColor={selectedLeague.isMain ? '$green10' : '$color8'}
+                            <ToggleChip
+                              label={selectedLeague.isMain ? 'Principale' : 'Secondaria'}
+                              accent="green"
                               checked={selectedLeague.isMain}
-                              onCheckedChange={(checked) => updateLeagueProperty('isMain', checked)}
                               disabled={isAnyLoading}
-                            >
-                              <Switch.Thumb transition="quick" backgroundColor="#FFFFFF" borderWidth={1} borderColor="#D1D5DB" shadowColor="#000000" shadowOpacity={0.25} shadowRadius={2} />
-                            </Switch>
+                              onCheckedChange={(checked) => updateLeagueProperty('isMain', checked)}
+                            />
                           </XStack>
                         </XStack>
 

@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.3',
+    date: '8 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description: 'Uniformati tutti i controlli booleani del sito con nuovi toggle a chip leggibili, accessibili e coerenti'
+      }
+    ]
+  },
+  {
     version: '2.0.2',
     date: '8 Settembre 2026',
     changes: [
