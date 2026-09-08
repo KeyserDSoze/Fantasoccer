@@ -17,7 +17,7 @@ export class LeagueManagerService {
         throw new ApiError('No authentication token available', 401)
       }
 
-      const url = buildApiUrl('/LeagueManager/CreateCalendarAndRankAsync', {
+      const url = buildApiUrl('/LeagueManager/CreateCalendarAndRank', {
         groupId,
         leagueId,
         year: year.toString()
