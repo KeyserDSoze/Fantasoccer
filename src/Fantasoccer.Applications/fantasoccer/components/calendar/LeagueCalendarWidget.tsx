@@ -70,6 +70,20 @@ const GameRow: FC<{
   const navigation = useNavigation()
   const logoSize = 28
 
+  const findOwner = (teamName: string, owner: string | undefined) => {
+    if (owner) return owner
+    for (const basket of currentGroup?.baskets ?? []) {
+      for (const basketYear of basket.years ?? []) {
+        const team = basketYear.teams?.find(team => team.name === teamName)
+        if (team?.owner) return team.owner
+      }
+    }
+    return undefined
+  }
+
+  const homeOwner = findOwner(game.home, game.homeOwner)
+  const awayOwner = findOwner(game.away, game.awayOwner)
+
   const onPress = () => {
     navigation.navigate("Game", { 
       gameId: game.id, 
@@ -90,12 +104,12 @@ const GameRow: FC<{
       >
         {/* Home team - logo + name */}
         <XStack flex={1} gap="$2" alignItems="center" minWidth={0}>
-          {group && year && game.homeOwner && (
+          {group && year && homeOwner && (
             <YStack flexShrink={0}>
               <TeamLogo
                 groupId={group}
                 year={year}
-                ownerEmail={game.homeOwner}
+                 ownerEmail={homeOwner}
                 size={logoSize}
               />
             </YStack>
@@ -134,12 +148,12 @@ const GameRow: FC<{
           >
             {game.away}
           </Text>
-          {group && year && game.awayOwner && (
+          {group && year && awayOwner && (
             <YStack flexShrink={0}>
               <TeamLogo
                 groupId={group}
                 year={year}
-                ownerEmail={game.awayOwner}
+                 ownerEmail={awayOwner}
                 size={logoSize}
               />
             </YStack>
