@@ -34,3 +34,6 @@ export type { PlayerSearchDialogProps } from './PlayerSearchDialog'
 
 export { FloatingPlayerWidget } from './FloatingPlayerWidget'
 export type { FloatingPlayerWidgetProps } from './FloatingPlayerWidget'
+
+export { SectionToggleChip } from './SectionToggleChip'
+export type { SectionToggleChipProps } from './SectionToggleChip'

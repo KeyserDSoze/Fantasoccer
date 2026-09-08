@@ -53,7 +53,8 @@ import {
   ChangeStatusDialog,
   SubstituteSelectionDialog,
   PlayerSearchDialog,
-  FloatingPlayerWidget
+  FloatingPlayerWidget,
+  SectionToggleChip
 } from 'components/auction'
 import { FloatingEmoji } from 'components/auction/FloatingEmoji'
 
@@ -1858,75 +1859,25 @@ export default function AuctionLiveScreen() {
                 
                 {/* UI Visibility Toggles */}
                 <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
-                  <YStack gap="$2">
+                  <YStack gap="$2.5">
                     <Text fontSize="$2" color="$blue11" fontWeight="600">Mostra/Nascondi Sezioni:</Text>
-                    <XStack gap="$3" flexWrap="wrap">
+                    <XStack gap="$2" flexWrap="wrap">
                       {myTeam && (
-                        <XStack gap="$1" alignItems="center">
-                          <Switch size="$2" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel}>
-                            <Switch.Thumb transition="quick" />
-                          </Switch>
-                          <Text fontSize="$2" color="$blue11">Pulsantiera</Text>
-                        </XStack>
+                        <SectionToggleChip label="Pulsantiera" checked={showMyTeamPanel} onCheckedChange={setShowMyTeamPanel} />
                       )}
                       {isAuctioneer && (
-                        <XStack gap="$1" alignItems="center">
-                          <Switch size="$2" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel}>
-                            <Switch.Thumb transition="quick" />
-                          </Switch>
-                          <Text fontSize="$2" color="$blue11">Pulsantiera Banditore</Text>
-                        </XStack>
+                        <SectionToggleChip label="Pulsantiera Banditore" checked={showAuctioneerPanel} onCheckedChange={setShowAuctioneerPanel} />
                       )}
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showPlayerStats} onCheckedChange={setShowPlayerStats}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Statistiche Giocatore</Text>
-                      </XStack>
+                      <SectionToggleChip label="Statistiche Giocatore" checked={showPlayerStats} onCheckedChange={setShowPlayerStats} />
                       {myTeam && (
-                        <XStack gap="$1" alignItems="center">
-                          <Switch size="$2" checked={showMyTeamStats} onCheckedChange={setShowMyTeamStats}>
-                            <Switch.Thumb transition="quick" />
-                          </Switch>
-                          <Text fontSize="$2" color="$blue11">Statistiche Mia Squadra</Text>
-                        </XStack>
+                        <SectionToggleChip label="Statistiche Mia Squadra" checked={showMyTeamStats} onCheckedChange={setShowMyTeamStats} />
                       )}
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Squadre Partecipanti</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showTeamDetails} onCheckedChange={setShowTeamDetails}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Dettagli Squadre</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Storico Acquisti</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Giocatori Cacciati/Venduti</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={showEmojis} onCheckedChange={setShowEmojis}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Reazioni Emoji</Text>
-                      </XStack>
-                      <XStack gap="$1" alignItems="center">
-                        <Switch size="$2" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled}>
-                          <Switch.Thumb transition="quick" />
-                        </Switch>
-                        <Text fontSize="$2" color="$blue11">Audio Emoji</Text>
-                      </XStack>
+                      <SectionToggleChip label="Squadre Partecipanti" checked={showTeamsPanel} onCheckedChange={setShowTeamsPanel} />
+                      <SectionToggleChip label="Dettagli Squadre" checked={showTeamDetails} onCheckedChange={setShowTeamDetails} />
+                      <SectionToggleChip label="Storico Acquisti" checked={showPurchaseHistory} onCheckedChange={setShowPurchaseHistory} />
+                      <SectionToggleChip label="Giocatori Cacciati/Venduti" checked={showInactivePlayers} onCheckedChange={setShowInactivePlayers} />
+                      <SectionToggleChip label="Reazioni Emoji" checked={showEmojis} onCheckedChange={setShowEmojis} />
+                      <SectionToggleChip label="Audio Emoji" checked={emojiSoundEnabled} onCheckedChange={setEmojiSoundEnabled} />
                     </XStack>
                   </YStack>
                 </Card>

@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.2',
+    date: '8 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description: 'Ridisegnati i controlli Mostra/Nascondi della sala asta con chip compatti, leggibili e accessibili'
+      }
+    ]
+  },
+  {
     version: '2.0.1',
     date: '8 Settembre 2026',
     changes: [
