@@ -6,7 +6,7 @@
  * Pattern: https://fasostorage.blob.core.windows.net/logos/{groupId}/{year}/{email}.png
  */
 export const getTeamLogoUrl = (groupId: string, year: number, email: string): string => {
-  return `https://fasostorage.blob.core.windows.net/logos/${groupId}/${year}/${email}.png`
+  return `https://fasostorage.blob.core.windows.net/logos/${encodeURIComponent(groupId)}/${encodeURIComponent(year)}/${encodeURIComponent(email)}.png`
 }
 
 /**

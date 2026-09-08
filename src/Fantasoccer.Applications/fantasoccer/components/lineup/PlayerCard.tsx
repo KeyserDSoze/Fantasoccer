@@ -460,9 +460,10 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
       >
       {/* IMMAGINE GIOCATORE - SFONDO COMPLETO della card con bordi arrotondati */}
       <Image
-        source={{ uri: imageUri }}
+        src={imageUri}
         width={cardWidth}
         height={cardHeight}
+        objectFit="cover"
         onError={() => setUseFallbackImage(true)}
         position="absolute"
         top={0}

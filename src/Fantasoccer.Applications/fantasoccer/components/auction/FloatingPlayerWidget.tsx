@@ -90,10 +90,10 @@ export function FloatingPlayerWidget({
           opacity={disabled ? 0.6 : 1}
         >
           <Image
-            source={{ uri: playerImageUrl }}
+            src={playerImageUrl}
             width={110}
             height={110}
-            resizeMode="cover"
+            objectFit="cover"
             onError={() => setUseFallbackImage(true)}
           />
         </Circle>

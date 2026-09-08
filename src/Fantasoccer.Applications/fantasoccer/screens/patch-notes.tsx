@@ -15,6 +15,24 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.1',
+    date: '8 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Ripristinato il caricamento dei loghi delle squadre e delle immagini remote con Tamagui 2'
+      },
+      {
+        category: 'Fix',
+        description: 'Corretti gli endpoint per creare calendario e classifica e per randomizzare i giocatori dell’asta'
+      },
+      {
+        category: 'Improvement',
+        description: 'Migliorata la visibilità dei controlli toggle nelle schermate di amministrazione e asta'
+      }
+    ]
+  },
+  {
     version: '2.0.0',
     date: '29 Agosto 2026',
     changes: [

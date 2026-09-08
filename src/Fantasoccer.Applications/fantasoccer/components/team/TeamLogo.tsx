@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Image } from 'tamagui'
 import { View } from 'react-native'
+import { getTeamLogoUrl } from '../../utils/teamLogo'
 
 interface TeamLogoProps {
   groupId: string
@@ -10,8 +11,6 @@ interface TeamLogoProps {
   fallbackColor?: string
   cacheBuster?: number // Optional timestamp to force cache refresh
 }
-
-const BASE_URL = 'https://fasostorage.blob.core.windows.net/logos'
 
 // SVG fallback logo
 const FallbackLogo: React.FC<{ size: number; color: string }> = ({ size, color }) => (
@@ -61,7 +60,11 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   
   // Use provided cacheBuster or generate one based on current day (updates daily)
   const effectiveCacheBuster = cacheBuster ?? Math.floor(Date.now() / (1000 * 60 * 60 * 24))
-  const logoUrl = `${BASE_URL}/${groupId}/${year}/${ownerEmail}.png?t=${effectiveCacheBuster}`
+  const logoUrl = `${getTeamLogoUrl(groupId, Number(year), ownerEmail)}?t=${effectiveCacheBuster}`
+
+  useEffect(() => {
+    setImageError(false)
+  }, [logoUrl])
   
   if (imageError) {
     return <FallbackLogo size={size} color={fallbackColor} />
@@ -69,9 +72,11 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   
   return (
     <Image
-      source={{ uri: logoUrl }}
+      src={logoUrl}
       width={size}
       height={size}
+      objectFit="cover"
+      alt={`Logo ${ownerEmail}`}
       onError={() => setImageError(true)}
     />
   )
