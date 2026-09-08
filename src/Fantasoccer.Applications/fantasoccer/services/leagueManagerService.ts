@@ -64,7 +64,7 @@ export class LeagueManagerService {
         throw new ApiError('No authentication token available', 401)
       }
 
-      const url = buildApiUrl('/LeagueManager/RandomizePlayerForAuctionsAsync', {
+      const url = buildApiUrl('/LeagueManager/RandomizePlayerForAuctions', {
         groupId,
         leagueId,
         year: year.toString()
