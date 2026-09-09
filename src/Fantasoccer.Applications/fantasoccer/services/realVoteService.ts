@@ -1,6 +1,7 @@
 import { RepositoryServices } from 'rystem.repository.client'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
+import { getCurrentSeasonYear } from 'utils/season'
 import {
   EnhancedVotedRealPlayerWrapper,
   VotedRealPlayer,
@@ -37,13 +38,7 @@ export class RealVoteService {
       }
 
       const user = await authService.getUserInfo(accessToken)
-      const year = user?.state?.year
-      if (!year) {
-        console.warn('User year not available')
-        return null
-      }
-
-      return year
+       return user?.state?.year ?? getCurrentSeasonYear()
     } catch (error) {
       console.error('Error retrieving user year:', error)
       return null

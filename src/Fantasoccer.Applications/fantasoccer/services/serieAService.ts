@@ -12,6 +12,7 @@ import {
   mapRawRankToRank 
 } from 'types/serieA';
 import { RepositoryServices } from 'rystem.repository.client';
+import { getCurrentSeasonYear } from 'utils/season';
 
 export class SerieAService {
   private async getCurrentUserYear(): Promise<number | null> {
@@ -23,12 +24,7 @@ export class SerieAService {
       }
 
       const user = await authService.getUserInfo(accessToken);
-      const year = user?.state?.year;
-
-      if (!year) {
-        console.warn('User year not available');
-        return null;
-      }
+      const year = user?.state?.year ?? getCurrentSeasonYear();
 
       return year;
     } catch (error) {

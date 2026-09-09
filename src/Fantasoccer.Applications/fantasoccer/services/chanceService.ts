@@ -12,6 +12,7 @@ import {
   ChancedRealPlayerHelper,
 } from 'types/chance'
 import { YearDayKey, YearDayKeyRaw, mapYearDayKeyToRawYearDayKey } from 'types/serieA'
+import { getCurrentSeasonYear } from 'utils/season'
 
 export interface ChanceLookupOptions {
   year: number
@@ -44,13 +45,7 @@ export class ChanceService {
       }
 
       const user = await authService.getUserInfo(accessToken)
-      const year = user?.state?.year
-      if (!year) {
-        console.warn('User year not available')
-        return null
-      }
-
-      return year
+       return user?.state?.year ?? getCurrentSeasonYear()
     } catch (error) {
       console.error('Error retrieving user year:', error)
       return null

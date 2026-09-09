@@ -14,6 +14,7 @@ import {
 } from 'types/serieA'
 import { LeagueKey, LeagueKeyRaw, mapLeagueKeyToRawLeagueKey } from 'types/rank'
 import { Role } from 'types/group'
+import { getCurrentSeasonYear } from 'utils/season'
 
 export interface SearchPlayersOptions {
   /** If provided the year repository will be queried instead of using the current user year */
@@ -46,14 +47,7 @@ export class RealPlayerService {
       }
 
       const user = await authService.getUserInfo(accessToken)
-      const year = user?.state?.year
-
-      if (!year) {
-        console.warn('User year not available')
-        return null
-      }
-
-      return year
+       return user?.state?.year ?? getCurrentSeasonYear()
     } catch (error) {
       console.error('Error retrieving user year:', error)
       return null

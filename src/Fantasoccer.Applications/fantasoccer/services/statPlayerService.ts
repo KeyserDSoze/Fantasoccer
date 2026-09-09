@@ -11,6 +11,7 @@ import {
   StatPlayerHelper,
 } from 'types/stat'
 import { Role } from 'types/group'
+import { getCurrentSeasonYear } from 'utils/season'
 
 export interface StatPlayersLookupOptions {
   /** Optional override for the season year (defaults to current user year) */
@@ -37,14 +38,7 @@ export class StatPlayerService {
       }
 
       const user = await authService.getUserInfo(accessToken)
-      const year = user?.state?.year
-
-      if (!year) {
-        console.warn('User year not available')
-        return null
-      }
-
-      return year
+       return user?.state?.year ?? getCurrentSeasonYear()
     } catch (error) {
       console.error('Error retrieving user year for stat players:', error)
       return null
