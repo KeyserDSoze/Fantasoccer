@@ -30,7 +30,11 @@ export function TeamDetailDialog({
   if (!team) return null
   
   const budget = calculateBudgetRemaining(team)
-  const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
+  const normalizedEmail = user?.email?.toLowerCase()
+  const isMyTeam = normalizedEmail && (
+    team?.value?.owner?.toLowerCase() === normalizedEmail ||
+    team?.value?.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail)
+  )
   
   // Count only active players
   const activePlayers = TeamHelper.getActivePlayers(team.value)

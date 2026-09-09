@@ -528,7 +528,10 @@ export function mapGroupToRaw(group: Group): GroupRaw {
 export class GroupHelper {
   // AnnualTeam helper methods
   static isOwner(team: AnnualTeam, email: string): boolean {
-    return email != null && (team.owner === email || team.additionalOwners?.includes(email) === true)
+    const normalizedEmail = email?.toLowerCase()
+    return normalizedEmail != null &&
+      (team.owner.toLowerCase() === normalizedEmail ||
+        team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true)
   }
 
   // League helper methods

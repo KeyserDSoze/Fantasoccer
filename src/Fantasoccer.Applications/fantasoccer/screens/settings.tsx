@@ -49,7 +49,7 @@ export default function SettingsScreen() {
       if (!yearData) continue
 
       const team = yearData.teams?.find(
-        (t) => t.owner === userEmail || t.additionalOwners?.includes(userEmail)
+        (t) => t.owner.toLowerCase() === userEmail || t.additionalOwners?.some(owner => owner.toLowerCase() === userEmail)
       )
 
       if (team) {

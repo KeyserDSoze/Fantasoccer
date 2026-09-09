@@ -11,6 +11,7 @@ namespace Fantasoccer
         [JsonPropertyName("a")]
         public List<string> AdditionalOwners { get; set; }
         public bool IsOwner(string email)
-            => email != null && (Owner == email || AdditionalOwners?.Contains(email) == true);
+            => email != null && (string.Equals(Owner, email, StringComparison.OrdinalIgnoreCase) ||
+                AdditionalOwners?.Any(x => string.Equals(x, email, StringComparison.OrdinalIgnoreCase)) == true);
     }
 }

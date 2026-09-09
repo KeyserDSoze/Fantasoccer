@@ -91,7 +91,11 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
         
         <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
           {sortedTeams.map((team) => {
-            const isMyTeam = user?.email && team?.value?.owner?.toLowerCase() === user.email.toLowerCase()
+            const normalizedEmail = user?.email?.toLowerCase()
+            const isMyTeam = normalizedEmail && (
+              team?.value?.owner?.toLowerCase() === normalizedEmail ||
+              team?.value?.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail)
+            )
             const budget = calculateBudgetRemaining(team)
             const hasLowBudget = budget < 100
             

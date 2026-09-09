@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.8',
+    date: '9 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Uniformata la gestione di owner e co-owner in formazione, asta, impostazioni e servizi condivisi'
+      },
+      {
+        category: 'Fix',
+        description: 'Risolti i confronti email sensibili a maiuscole e minuscole per evitare che un co-owner perda l’accesso alla squadra'
+      }
+    ]
+  },
+  {
     version: '2.0.7',
     date: '9 Settembre 2026',
     changes: [
