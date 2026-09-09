@@ -54,16 +54,17 @@ namespace Fantasoccer.Application.Api.Controllers
             var groupForIdentity = user.Groups.FirstOrDefault(x => x.Id == groupId);
             if (groupForIdentity == null)
                 return new TeamResponse(false, "Non fai parte del gruppo.");
-            if (!(team.Owner == User.Identity.Name || team.AdditionalOwners?.Contains(User.Identity.Name!) == true || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
-                return new TeamResponse(false, "Non sei l'owner della squadra.");
             var group = await _groups.GetAsync(groupId);
             if (group != null)
             {
                 foreach (var basket in group.Baskets)
                 {
                     var lastBasketOverYear = basket.Years.OrderByDescending(x => x.Year).First();
-                    if (lastBasketOverYear.Teams.Any(x => x.Owner == team.Owner))
+                    var annualTeam = lastBasketOverYear.Teams.FirstOrDefault(x => x.Owner == team.Owner);
+                    if (annualTeam != null)
                     {
+                        if (!(annualTeam.IsOwner(User.Identity.Name!) || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
+                            return new TeamResponse(false, "Non sei l'owner della squadra.");
                         var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
                         var nextSerieA = asAdmin == true ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay;
                         if (nextSerieA == null)
@@ -90,6 +91,7 @@ namespace Fantasoccer.Application.Api.Controllers
                         }
                         if (actualTeam == null)
                             return new TeamResponse(false, "Squadra non trovata.");
+                        actualTeam.AdditionalOwners = annualTeam.AdditionalOwners ?? [];
                         foreach (var player in actualTeam.ActivePlayers)
                         {
                             var playerToSave = team.ActivePlayers.FirstOrDefault(x => x.Key == player.Key);

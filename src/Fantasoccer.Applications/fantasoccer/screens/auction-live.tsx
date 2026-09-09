@@ -258,6 +258,17 @@ export default function AuctionLiveScreen() {
     return startingMoney - cost
   }, [startingMoney])
 
+  const isEmailForTeam = useCallback((team: Team | null | undefined, email: string | null | undefined): boolean => {
+    if (!team || !email) return false
+    const normalizedEmail = email.toLowerCase()
+    return team.owner.toLowerCase() === normalizedEmail ||
+      team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true
+  }, [])
+
+  const getTeamByUserEmail = useCallback((email: string | null | undefined, sourceTeams: Entity<Team, TeamKey>[] = teams): Entity<Team, TeamKey> | undefined => {
+    return sourceTeams.find(team => isEmailForTeam(team.value, email))
+  }, [isEmailForTeam, teams])
+
   // Helper: Check if auction is repair auction (requires substitution)
   const isRepairAuction = useCallback((): boolean => {
     return auctionState?.wrapper.king === 1 // 1 = Repair auction (based on AuctionKind enum)
@@ -284,7 +295,7 @@ export default function AuctionLiveScreen() {
     setOfferTimeoutSeconds(auctionTimer)
     offerTimeoutSecondsRef.current = auctionTimer // Keep ref in sync
     
-    const myTeamEntity = state.teams.find(t => t.value.owner.toLowerCase() === user?.email?.toLowerCase())
+    const myTeamEntity = getTeamByUserEmail(user?.email, state.teams)
     if (myTeamEntity) {
       setMyTeam(myTeamEntity)
       const budget = leagueStartingMoney - TeamHelper.getCost(myTeamEntity.value)
@@ -298,7 +309,7 @@ export default function AuctionLiveScreen() {
       setCurrentSubstitute(state.wrapper.actual.substituted)
     }
     
-  }, [user?.email])
+  }, [getTeamByUserEmail, user?.email])
 
   // ============================================
   // TIMER LOGIC
@@ -389,7 +400,7 @@ export default function AuctionLiveScreen() {
       toast.show(`❌ L'offerta deve essere superiore a €${currentBid}`, { variant: 'error' })
       return
     }
-    if (!isAuctioneer && currentBidder?.toLowerCase() === user?.email?.toLowerCase()) {
+    if (!isAuctioneer && myTeam && currentBidder?.toLowerCase() === myTeam.value.owner.toLowerCase()) {
       toast.show('❌ Sei già il miglior offerente', { variant: 'error' })
       return
     }
@@ -510,7 +521,7 @@ export default function AuctionLiveScreen() {
     if (tempBlockButtons) return { disabled: true, reason: null }
     if (isLocked && !isAuctioneer) return { disabled: true, reason: 'Asta in pausa' }
     if (timerExpired && !isAuctioneer) return { disabled: true, reason: 'Tempo scaduto - Solo il banditore può agire' }
-    if (!isAuctioneer && currentBidder?.toLowerCase() === user?.email?.toLowerCase()) {
+    if (!isAuctioneer && myTeam && currentBidder?.toLowerCase() === myTeam.value.owner.toLowerCase()) {
       return { disabled: true, reason: 'Sei già il miglior offerente' }
     }
     
@@ -532,7 +543,7 @@ export default function AuctionLiveScreen() {
     }
     
     return { disabled: false, reason: null }
-  }, [currentPlayer, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, user?.email, myTeam, getRoleLabel, mySelectedSubstitute, isRepairAuction])
+  }, [currentPlayer, tempBlockButtons, isLocked, isAuctioneer, timerExpired, currentBidder, myTeam, getRoleLabel, mySelectedSubstitute, isRepairAuction])
 
   // Check if auctioneer bidding buttons should be disabled (for selectedTeamForBid)
   const areAuctioneerBidButtonsDisabled = useCallback((): { disabled: boolean; reason: string | null } => {
@@ -708,7 +719,7 @@ export default function AuctionLiveScreen() {
                 // Get fresh teams state from ref
                 setActiveEmojis(prev => {
                   // Find sender name (team name if player, email otherwise)
-                  const team = teamsRef.current.find(t => t.value.owner.toLowerCase() === data.sender.toLowerCase())
+                  const team = getTeamByUserEmail(data.sender, teamsRef.current)
                   const senderName = team?.value.name || data.sender.split('@')[0]
                   
                   console.log('Emoji received:', { sender: data.sender, team: team?.value.name, senderName })
@@ -736,7 +747,7 @@ export default function AuctionLiveScreen() {
               setIsAuctioneer(isNewAuctioneer)
               
               // Show success toast with the new auctioneer name
-              const newAuctioneerName = teams.find(t => t.value.owner.toLowerCase() === data.newAuctioneer.toLowerCase())?.value.name || data.newAuctioneer
+              const newAuctioneerName = getTeamByUserEmail(data.newAuctioneer)?.value.name || data.newAuctioneer
               toast.show(`✅ Ruolo trasferito a: ${newAuctioneerName}`, { type: 'success' })
             }
           },
@@ -793,7 +804,7 @@ export default function AuctionLiveScreen() {
           onPlayerAssigned: (data: PlayerAssignedMessage) => {
             if (isSubscribed) {
               // Determina se ho vinto io l'asta
-              const iWon = user?.email && data.playerAssignedInAuction?.owner.toLowerCase() === user.email.toLowerCase()
+              const iWon = myTeam && data.playerAssignedInAuction?.owner.toLowerCase() === myTeam.value.owner.toLowerCase()
               playSound(iWon ? AuctionSoundType.MyWin : AuctionSoundType.OtherWin)
               vibrateOnBid()
               toast.show(`✅ Giocatore assegnato: ${data.playerAssignedInAuction?.playerName} a ${data.playerAssignedInAuction?.teamName} per €${data.playerAssignedInAuction?.price}. Ha preso ${data.playerAssignedInAuction?.teamPlayersCount} giocatori nella squadra.`, { variant: 'success', duration: 4000 })
@@ -809,7 +820,7 @@ export default function AuctionLiveScreen() {
                 })
                 
                 // Update myTeam if I won the auction
-                if (user?.email && data.team.value.owner.toLowerCase() === user.email.toLowerCase()) {
+                if (isEmailForTeam(data.team.value, user?.email)) {
                   setMyTeam(data.team)
                   const budget = startingMoney - TeamHelper.getCost(data.team.value)
                   setMyTeamBudget(budget)
@@ -819,7 +830,7 @@ export default function AuctionLiveScreen() {
               // Reset substitute for the winner (player is no longer available - was removed/substituted)
               // Check if winner is myTeam or selectedTeamForBid
               // If I won the auction, reset my substitute
-              if (user?.email && data.playerAssignedInAuction?.owner.toLowerCase() === user.email.toLowerCase()) {
+              if (myTeam && data.playerAssignedInAuction?.owner.toLowerCase() === myTeam.value.owner.toLowerCase()) {
                 setMySelectedSubstitute(null)
               }
               // If auctioneer's selected team won, reset auctioneer substitute
@@ -845,7 +856,7 @@ export default function AuctionLiveScreen() {
               setCurrentBidder(data.bidderEmail)
               setCurrentSubstitute(data.substituted)
               // Determina se sono io a fare l'offerta
-              const isMyBid = user?.email && data.bidderEmail.toLowerCase() === user.email.toLowerCase()
+              const isMyBid = myTeam && data.bidderEmail.toLowerCase() === myTeam.value.owner.toLowerCase()
               playSound(isMyBid ? AuctionSoundType.MyBid : AuctionSoundType.OtherBid)
               vibrateOnBid()
               startTimer()
@@ -905,7 +916,7 @@ export default function AuctionLiveScreen() {
               })
               
               // Update myTeam if it's my team
-              if (user?.email && team.value.owner.toLowerCase() === user.email.toLowerCase()) {
+              if (isEmailForTeam(team.value, user?.email)) {
                 setMyTeam(team)
                 const budget = startingMoney - TeamHelper.getCost(team.value)
                 setMyTeamBudget(budget)
@@ -1180,7 +1191,7 @@ export default function AuctionLiveScreen() {
         }}
         arePersonalBidButtonsDisabled={arePersonalBidButtonsDisabled}
         currentBidder={currentBidder}
-        userEmail={user?.email || null}
+        userEmail={myTeam.value.owner}
         chancedPlayersMap={chancedPlayersMap}
         showStats={showMyTeamStats}
       />
@@ -1882,7 +1893,7 @@ export default function AuctionLiveScreen() {
                       <XStack gap="$2" flexWrap="wrap">
                         {connectedUsers.map(email => {
                           const isThisAuctioneer = email === auctionState.userEmail && auctionState.isAuctioneer
-                          const team = teams.find(t => t.value.owner.toLowerCase() === email.toLowerCase())
+                          const team = getTeamByUserEmail(email)
                           const displayName = team?.value.name || email
                           
                           // Show transfer button if:

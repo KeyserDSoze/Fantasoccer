@@ -26,13 +26,19 @@ namespace Fantasoccer.Business.Authorization
             if (method == RepositoryMethods.Insert || method == RepositoryMethods.Update || method == RepositoryMethods.Delete)
             {
                 var email = httpContextAccessor.GetEmail();
-                if (email != null && value?.Owner == email)
-                {
-                    return s_authorized;
-                }
-                else
+                if (email != null)
                 {
                     var group = await _groupRepository.GetAsync(key.Group);
+                    var annualTeam = group?.Baskets?
+                        .FirstOrDefault(x => x.Id == key.BasketId)?
+                        .Years?.FirstOrDefault(x => x.Year == key.Year)?
+                        .Teams?.FirstOrDefault(x => x.Owner == key.Email);
+
+                    if (annualTeam?.IsOwner(email) == true || value?.Owner == email)
+                    {
+                        return s_authorized;
+                    }
+
                     if (group?.AdminUsers.Any(x => x.Email == email) == true)
                     {
                         return s_authorized;

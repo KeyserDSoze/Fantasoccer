@@ -194,14 +194,21 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   // Determina quale team è modificabile (owner === email o modalità admin)
   const canEdit = gameWrapper?.canEdit ?? false
   const userEmail = user?.email ?? ''
+  const isOwnerOrCoOwner = (team?: LiveTeam | null) => {
+    const normalizedEmail = userEmail.toLowerCase()
+    return !!normalizedEmail && !!team && (
+      team.owner.toLowerCase() === normalizedEmail ||
+      team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true
+    )
+  }
   
   // Determina se siamo in modalità admin per qualsiasi squadra
   const isAdminMode = adminEditingTeam !== null
   
   // In modalità admin, ignora canEdit e permetti modifica basata solo su adminEditingTeam
   // In modalità normale, richiedi canEdit E ownership
-  const homeIsMyTeam = adminEditingTeam === 'home' || (canEdit && (home?.owner ?? '').toLowerCase() === userEmail.toLowerCase())
-  const awayIsMyTeam = adminEditingTeam === 'away' || (canEdit && (away?.owner ?? '').toLowerCase() === userEmail.toLowerCase())
+  const homeIsMyTeam = adminEditingTeam === 'home' || (canEdit && isOwnerOrCoOwner(home))
+  const awayIsMyTeam = adminEditingTeam === 'away' || (canEdit && isOwnerOrCoOwner(away))
 
   // Determina se almeno una partita è iniziata (per mostrare view modal invece di edit modal)
   const hasGameStarted = useMemo(() => {

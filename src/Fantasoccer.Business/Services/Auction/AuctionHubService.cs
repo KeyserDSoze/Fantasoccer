@@ -97,8 +97,12 @@ namespace Fantasoccer.Business
                                         var team = _team.GetAsync(teamKey).ToResult();
                                         if (team == null)
                                         {
-                                            team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
+                                            team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, AdditionalOwners = teamInYear.AdditionalOwners ?? [], Players = [] };
                                             _team.UpdateAsync(teamKey, team).ToResult();
+                                        }
+                                        else
+                                        {
+                                            team.AdditionalOwners = teamInYear.AdditionalOwners ?? [];
                                         }
                                         var teamInRank = rank?.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == teamInYear.Owner);
                                         if (teamInRank != null && (league.Settings.MoneyForGoal > 0 || league.Settings.MoneyForSufferedGoal > 0))

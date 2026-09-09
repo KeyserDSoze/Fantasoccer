@@ -105,6 +105,13 @@ export default function MarketScreen() {
     return leagueSettings.startingMoney - team.cost
   }, [leagueSettings])
 
+  const isEmailForTeam = useCallback((team: EnhancedTeam, email: string | null | undefined): boolean => {
+    if (!email) return false
+    const normalizedEmail = email.toLowerCase()
+    return team.owner.toLowerCase() === normalizedEmail ||
+      team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true
+  }, [])
+
   // Get available budget for my team (considering current money offer)
   const getMyAvailableBudget = useMemo(() => {
     if (!myTeam) return 0
@@ -120,7 +127,7 @@ export default function MarketScreen() {
   // Load teams
   useEffect(() => {
     loadTeams()
-  }, [currentGroup, selectedLeagueId, selectedYear, user?.email])
+  }, [currentGroup, selectedLeagueId, selectedYear, user?.email, isEmailForTeam])
 
   const loadTeams = async () => {
     if (!currentGroup || !selectedLeagueId || !selectedYear || !user?.email) {
@@ -178,9 +185,7 @@ export default function MarketScreen() {
       setTeams(fetchedTeams)
       
       // Find my team
-      const myTeamData = fetchedTeams.find(t => 
-        t.owner.toLowerCase() === user.email.toLowerCase()
-      )
+      const myTeamData = fetchedTeams.find(t => isEmailForTeam(t, user.email))
       setMyTeam(myTeamData ?? null)
 
     } catch (err: any) {
@@ -307,7 +312,7 @@ export default function MarketScreen() {
     try {
       const market = {
         id: `${Date.now()}-${user.email}`, // Generate unique ID
-        buyer: user.email,
+        buyer: myTeam.owner,
         seller: selectedTargetTeam.owner,
         buyerPlayers: mySelectedPlayers,
         sellerPlayers: targetSelectedPlayers,
@@ -460,7 +465,7 @@ export default function MarketScreen() {
                 
                 <YStack gap="$2">
                   {teams
-                    .filter(t => t.owner.toLowerCase() !== user?.email?.toLowerCase())
+                    .filter(t => !isEmailForTeam(t, user?.email))
                     .map((team) => (
                       <Button
                         key={team.owner}

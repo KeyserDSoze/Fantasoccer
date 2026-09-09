@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { View } from 'react-native'
 import {
   YStack,
@@ -117,6 +117,17 @@ export default function MarketTradesScreen() {
   const quorum = useMemo(() => {
     return MarketHelper.calculateQuorum(leagueSize)
   }, [leagueSize])
+
+  const isEmailForTeam = useCallback((team: Team, email: string | null | undefined): boolean => {
+    if (!email) return false
+    const normalizedEmail = email.toLowerCase()
+    return team.owner.toLowerCase() === normalizedEmail ||
+      team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true
+  }, [])
+
+  const myOwner = useMemo(() => {
+    return teams.find(team => isEmailForTeam(team, user?.email))?.owner ?? user?.email ?? ''
+  }, [teams, user?.email, isEmailForTeam])
 
   // Load data
   useEffect(() => {
@@ -286,8 +297,8 @@ export default function MarketTradesScreen() {
   // Render market card
   const renderMarketCard = (market: Market) => {
     const isPending = MarketStatusHelper.isPending(market.status)
-    const userVote = MarketHelper.getUserVote(market, user?.email ?? '')
-    const isUserInvolved = MarketHelper.isUserInvolved(market, user?.email ?? '')
+    const userVote = MarketHelper.getUserVote(market, myOwner)
+    const isUserInvolved = MarketHelper.isUserInvolved(market, myOwner)
     const hasReachedApprovalQuorum = MarketHelper.hasReachedApprovalQuorum(market, leagueSize)
     const hasReachedDenialQuorum = MarketHelper.hasReachedDenialQuorum(market, leagueSize)
 
@@ -799,7 +810,7 @@ export default function MarketTradesScreen() {
                           Il tuo voto
                         </Text>
                         
-                        {MarketHelper.getUserVote(selectedMarket, user?.email ?? '') && (
+                        {MarketHelper.getUserVote(selectedMarket, myOwner) && (
                           <Text fontSize="$2" color="$color10" marginBottom="$2">
                             Hai già votato, ma puoi cambiare idea
                           </Text>

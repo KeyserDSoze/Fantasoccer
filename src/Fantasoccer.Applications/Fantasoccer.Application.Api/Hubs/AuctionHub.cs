@@ -186,7 +186,13 @@ namespace Fantasoccer.Application.Api.Hubs
         /// </summary>
         private bool IsParticipant(AuctionHubWrapper wrapper, string userEmail)
         {
-            return wrapper.Teams.Any(x => x.Key.Email == userEmail);
+            return GetTeamForUser(wrapper, userEmail) != null;
+        }
+        private Entity<Team, TeamKey>? GetTeamForUser(AuctionHubWrapper wrapper, string userEmail)
+        {
+            return wrapper.Teams.FirstOrDefault(x =>
+                string.Equals(x.Value?.Owner, userEmail, StringComparison.OrdinalIgnoreCase) ||
+                x.Value?.AdditionalOwners?.Any(owner => string.Equals(owner, userEmail, StringComparison.OrdinalIgnoreCase)) == true);
         }
         private async ValueTask<bool> IsViewer(AuctionHubWrapper wrapper, string userEmail)
         {
@@ -227,10 +233,10 @@ namespace Fantasoccer.Application.Api.Hubs
                     if (!canAccessResult.CanAccess)
                         return new ConcurrencyResponse(false, "You don't have access to this auction");
 
-                    // Add to participants if not already there
+                    // Track connected users by login email. Bids still use the canonical team owner.
                     if (!canAccessResult.IsViewer && !wrapper.Wrapper.Participants.Any(x => x.Owner == email))
                     {
-                        var team = wrapper.Teams.FirstOrDefault(x => x.Key.Email == email);
+                        var team = GetTeamForUser(wrapper, email);
                         if (team?.Value != null)
                         {
                             wrapper.Wrapper.Participants.Add(new AnnualTeam
@@ -421,8 +427,13 @@ namespace Fantasoccer.Application.Api.Hubs
                 }
                 else
                 {
-                    // Regular participant bidding for themselves
-                    actualBidder = email;
+                    // Regular participant bidding for their team. Co-owners bid using the canonical owner.
+                    var userTeam = GetTeamForUser(wrapper, email);
+                    if (userTeam?.Key == null || userTeam.Value == null)
+                    {
+                        return new ConcurrencyResponse(false, "Team not found");
+                    }
+                    actualBidder = userTeam.Key.Email;
                 }
 
                 if (wrapper.Wrapper.Actual.Owner == actualBidder)

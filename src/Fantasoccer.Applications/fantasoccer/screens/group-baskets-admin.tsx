@@ -17,7 +17,9 @@ import {
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
+import { appIdentityService } from 'services/appIdentityService'
 import { Basket, AnnualTeam } from 'types/group'
+import { IdentityRole } from 'types/identity'
 import { 
   Package,
   Plus,
@@ -31,6 +33,8 @@ import {
 import { formatSeasonFromYear, getAvailableSeasonYears } from 'utils/season'
 import { copyMissingTeams } from 'utils/groupAdmin'
 
+const EMAIL_PATTERN = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,6}$/
+
 export default function GroupBasketsAdminScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
@@ -41,6 +45,7 @@ export default function GroupBasketsAdminScreen() {
   const [newBasketName, setNewBasketName] = useState('')
   const [newTeamName, setNewTeamName] = useState('')
   const [newTeamOwner, setNewTeamOwner] = useState<string | null>(null)
+  const [coOwnerEmailByTeam, setCoOwnerEmailByTeam] = useState<Record<string, string>>({})
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -370,6 +375,99 @@ export default function GroupBasketsAdminScreen() {
     }
   }, [currentGroup, selectedBasket, currentYearIndex, applyGroupUpdate])
 
+  const addCoOwnerByEmail = useCallback(async (teamOwner: string) => {
+    if (!currentGroup || !selectedBasket) return
+
+    const coOwner = coOwnerEmailByTeam[teamOwner]?.trim().toLowerCase()
+    if (!coOwner || !EMAIL_PATTERN.test(coOwner)) {
+      setError('Inserisci una email valida per il co-owner')
+      return
+    }
+    if (coOwner === teamOwner.toLowerCase()) {
+      setError('Il co-owner non può coincidere con l\'owner principale')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      let userIdentity = await appIdentityService.getAppIdentity(coOwner)
+      if (!userIdentity) {
+        userIdentity = {
+          email: coOwner,
+          username: coOwner,
+          state: { raw: {} },
+          groups: [{
+            id: currentGroup.id,
+            name: currentGroup.name,
+            role: IdentityRole.Reader,
+            raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
+          }],
+          raw: {
+            e: coOwner,
+            u: coOwner,
+            s: {},
+            g: [{ i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }]
+          }
+        }
+        await appIdentityService.insertAppIdentity(userIdentity)
+      } else {
+        const groupIndex = userIdentity.groups.findIndex(g => g.id === currentGroup.id)
+        if (groupIndex === -1) {
+          userIdentity.groups.push({
+            id: currentGroup.id,
+            name: currentGroup.name,
+            role: IdentityRole.Reader,
+            raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
+          })
+        } else if (userIdentity.groups[groupIndex].role === IdentityRole.None) {
+          userIdentity.groups[groupIndex].role = IdentityRole.Reader
+          userIdentity.groups[groupIndex].raw.r = IdentityRole.Reader
+        }
+        await appIdentityService.updateAppIdentity(userIdentity.email, userIdentity)
+      }
+
+      const users = currentGroup.users?.some(user => user.email.toLowerCase() === coOwner)
+        ? currentGroup.users.map(user => user.email.toLowerCase() === coOwner && user.role === IdentityRole.None
+          ? { ...user, role: IdentityRole.Reader }
+          : user)
+        : [...(currentGroup.users || []), { email: coOwner, username: userIdentity.username || coOwner, role: IdentityRole.Reader }]
+
+      const updatedBasket: Basket = {
+        ...selectedBasket,
+        years: selectedBasket.years.map(y => y.year === currentYearIndex
+          ? {
+              ...y,
+              teams: y.teams.map(t => {
+                if (t.owner !== teamOwner) return t
+                const additionalOwners = t.additionalOwners || []
+                return additionalOwners.some(owner => owner.toLowerCase() === coOwner)
+                  ? t
+                  : { ...t, additionalOwners: [...additionalOwners, coOwner] }
+              })
+            }
+          : y)
+      }
+
+      const updatedGroup = {
+        ...currentGroup,
+        users,
+        baskets: (currentGroup.baskets || []).map(b => b.id === selectedBasket.id ? updatedBasket : b)
+      }
+
+      const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
+      applyGroupUpdate(savedGroup)
+      setCoOwnerEmailByTeam(prev => ({ ...prev, [teamOwner]: '' }))
+      setSuccess(`Co-owner ${coOwner} aggiunto con successo`)
+    } catch (err) {
+      setError(`Errore nell'aggiunta del co-owner: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentGroup, selectedBasket, coOwnerEmailByTeam, currentYearIndex, applyGroupUpdate])
+
   // Copy teams from previous year
   const copyFromPreviousYear = useCallback(async () => {
     if (!currentGroup || !selectedBasket) return
@@ -698,6 +796,28 @@ export default function GroupBasketsAdminScreen() {
                                   </Button>
                                 )
                               })}
+                          </XStack>
+                          <XStack gap="$2" flexWrap="wrap" alignItems="center">
+                            <Input
+                              flex={1}
+                              minWidth={240}
+                              placeholder="Email nuovo co-owner"
+                              value={coOwnerEmailByTeam[team.owner] || ''}
+                              onChangeText={(value) => setCoOwnerEmailByTeam(prev => ({ ...prev, [team.owner]: value }))}
+                              keyboardType="email-address"
+                              autoCapitalize="none"
+                              autoCorrect={false}
+                              borderColor={coOwnerEmailByTeam[team.owner] && !EMAIL_PATTERN.test(coOwnerEmailByTeam[team.owner].trim()) ? '$red8' : '$borderColor'}
+                            />
+                            <Button
+                              size="$2"
+                              backgroundColor="$green9"
+                              onPress={() => addCoOwnerByEmail(team.owner)}
+                              disabled={loading || !EMAIL_PATTERN.test((coOwnerEmailByTeam[team.owner] || '').trim())}
+                              icon={loading ? <Spinner size="small" /> : <UserPlus size="$0.75" />}
+                            >
+                              Aggiungi co-owner
+                            </Button>
                           </XStack>
                         </YStack>
                       </YStack>

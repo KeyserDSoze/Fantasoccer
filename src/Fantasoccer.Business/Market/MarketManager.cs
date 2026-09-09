@@ -46,7 +46,8 @@ internal sealed class MarketManager : IMarketManager
                 return Failed("Lega non valida.");
             if (context.Settings.Market == MarketType.Denied)
                 return Failed("Il mercato non è abilitato per questa lega.");
-            if (!Same(requester, proposal.Buyer))
+            var requesterOwner = ResolveOwner(context, requester);
+            if (!Same(requesterOwner, proposal.Buyer))
                 return Failed("Solo il compratore può creare la proposta.");
             if (Same(proposal.Buyer, proposal.Seller) || !context.Owners.Contains(proposal.Buyer) || !context.Owners.Contains(proposal.Seller))
                 return Failed("Compratore o venditore non validi.");
@@ -113,11 +114,15 @@ internal sealed class MarketManager : IMarketManager
         {
             if (key.Year != FantacalcioTime.ActualYear)
                 return Failed("Il mercato è disponibile solo per la stagione corrente.");
+            var context = await GetContextAsync(key, cancellationToken);
+            if (context == null)
+                return Failed("Lega non valida.");
             var wrapper = await _markets.GetAsync(key, cancellationToken);
             var market = wrapper?.Markets?.FirstOrDefault(x => x.Id == marketId);
             if (market == null || market.Status != MarketStatus.Pending)
                 return Failed("Proposta non modificabile.", market);
-            if (!Same(requester, market.Buyer) && !Same(requester, market.Seller))
+            var requesterOwner = ResolveOwner(context, requester);
+            if (!Same(requesterOwner, market.Buyer) && !Same(requesterOwner, market.Seller))
                 return Failed("Solo le squadre coinvolte possono annullare la proposta.", market);
             market.Status = MarketStatus.Cancelled;
             await _markets.UpdateAsync(key, wrapper!, cancellationToken);
@@ -141,12 +146,13 @@ internal sealed class MarketManager : IMarketManager
             var market = wrapper?.Markets?.FirstOrDefault(x => x.Id == marketId);
             if (market == null || market.Status != MarketStatus.Pending)
                 return Failed("Proposta non modificabile.", market);
-            if (!context.Owners.Contains(requester) || Same(requester, market.Buyer) || Same(requester, market.Seller))
+            var requesterOwner = ResolveOwner(context, requester);
+            if (requesterOwner == null || Same(requesterOwner, market.Buyer) || Same(requesterOwner, market.Seller))
                 return Failed("Utente non abilitato alla votazione.", market);
 
-            market.Approvers.RemoveAll(x => Same(x, requester));
-            market.Deniers.RemoveAll(x => Same(x, requester));
-            (approve ? market.Approvers : market.Deniers).Add(requester);
+            market.Approvers.RemoveAll(x => Same(x, requesterOwner));
+            market.Deniers.RemoveAll(x => Same(x, requesterOwner));
+            (approve ? market.Approvers : market.Deniers).Add(requesterOwner);
             if (HasQuorum(market.Deniers.Count, context.TeamCount))
                 market.Status = MarketStatus.Denied;
             else if (HasQuorum(market.Approvers.Count, context.TeamCount))
@@ -213,13 +219,20 @@ internal sealed class MarketManager : IMarketManager
             .Where(x => !string.IsNullOrWhiteSpace(x.Team.Owner))
             .ToList();
         var teamBaskets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var userOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var team in annualTeams)
+        {
             teamBaskets.TryAdd(team.Team.Owner, team.BasketId);
+            userOwners.TryAdd(team.Team.Owner, team.Team.Owner);
+            foreach (var additionalOwner in team.Team.AdditionalOwners ?? [])
+                userOwners.TryAdd(additionalOwner, team.Team.Owner);
+        }
         return new MarketContext(
             group,
             annualLeague.Settings ?? LeagueSetting.Default,
             teamBaskets.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
             teamBaskets,
+            userOwners,
             annualTeams.Count);
     }
 
@@ -299,6 +312,9 @@ internal sealed class MarketManager : IMarketManager
     private static bool Same(string? first, string? second)
         => string.Equals(first, second, StringComparison.OrdinalIgnoreCase);
 
+    private static string? ResolveOwner(MarketContext context, string requester)
+        => context.UserOwners.TryGetValue(requester, out var owner) ? owner : null;
+
     private static Player ClonePlayer(Player player)
         => new()
         {
@@ -329,5 +345,6 @@ internal sealed class MarketManager : IMarketManager
         LeagueSetting Settings,
         HashSet<string> Owners,
         Dictionary<string, string> TeamBaskets,
+        Dictionary<string, string> UserOwners,
         int TeamCount);
 }

@@ -109,8 +109,12 @@ namespace Fantasoccer.Application.Api.Controllers
                         var team = _team.GetAsync(teamKey).ToResult();
                         if (team == null)
                         {
-                            team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, Players = [] };
+                            team = new() { Name = teamInYear.Name, Owner = teamInYear.Owner, AdditionalOwners = teamInYear.AdditionalOwners ?? [], Players = [] };
                             _team.UpdateAsync(teamKey, team).ToResult();
+                        }
+                        else
+                        {
+                            team.AdditionalOwners = teamInYear.AdditionalOwners ?? [];
                         }
                         teams.Add(team);
                     }
