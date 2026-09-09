@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.7',
+    date: '9 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Corretta la schermata La mia formazione: ora anche i co-owner vedono e possono aprire la squadra condivisa'
+      }
+    ]
+  },
+  {
     version: '2.0.6',
     date: '9 Settembre 2026',
     changes: [

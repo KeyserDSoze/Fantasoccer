@@ -68,9 +68,17 @@ export default function EditTeamScreen() {
         return
       }
 
-      // 4. Trova tutte le partite dell'utente (basandosi sull'email come owner)
-      const userEmail = user.email.toLowerCase()
-      const allGames: CalendarGame[] = []
+       // 4. Trova la squadra dell'utente, includendo owner principale e co-owner.
+       const userEmail = user.email.toLowerCase()
+       const userTeamOwners = currentGroup.baskets
+         .flatMap(basket => basket.years
+           .filter(year => year.year === selectedYear)
+           .flatMap(year => year.teams))
+         .filter(team =>
+           team.owner.toLowerCase() === userEmail ||
+           team.additionalOwners?.some(owner => owner.toLowerCase() === userEmail) === true)
+         .map(team => team.owner.toLowerCase())
+       const allGames: CalendarGame[] = []
       
       for (const roundDays of Object.values(calendar.rounds)) {
         for (const day of roundDays) {
@@ -78,8 +86,8 @@ export default function EditTeamScreen() {
             continue;
           for (const game of day.games) {
             if (
-              game.homeOwner.toLowerCase() === userEmail ||
-              game.awayOwner.toLowerCase() === userEmail
+              userTeamOwners.includes(game.homeOwner.toLowerCase()) ||
+              userTeamOwners.includes(game.awayOwner.toLowerCase())
             ) {
               allGames.push(game)
             }
