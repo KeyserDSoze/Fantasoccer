@@ -65,17 +65,36 @@ namespace Fantasoccer.Application.Api.Controllers
                     {
                         if (!(annualTeam.IsOwner(User.Identity.Name!) || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
                             return new TeamResponse(false, "Non sei l'owner della squadra.");
-                        var realCalendar = await _realCalendar.GetAsync(lastBasketOverYear.Year);
-                        var nextSerieA = asAdmin == true ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay;
-                        if (nextSerieA == null)
+                        var year = lastBasketOverYear.Year;
+                        var realCalendar = await _realCalendar.GetAsync(year);
+                        var leagueSettings = group.Leagues
+                            .Where(x => x.BasketsId.Contains(basket.Id))
+                            .Select(x => x.Years.FirstOrDefault(y => y.Year == year)?.Settings)
+                            .FirstOrDefault(x => x != null) ?? LeagueSetting.Default;
+                        var liveDay = leagueSettings.LiveFormationChanges > 0
+                            ? realCalendar?.Days?
+                                .Where(day => day.Games?.Any(game => !game.Delayed && game.Date.HasValue) == true)
+                                .Where(day =>
+                                {
+                                    var games = day.Games!.Where(x => !x.Delayed && x.Date.HasValue).OrderBy(x => x.Date).ToList();
+                                    return games.Count > 0 && FantacalcioTime.ItalyNow >= games[0].Date!.Value && FantacalcioTime.ItalyNow <= games[^1].Date!.Value.AddHours(4);
+                                })
+                                .OrderByDescending(x => x.SerieADay)
+                                .FirstOrDefault()
+                            : null;
+                        var isLiveFormationChange = liveDay != null;
+                        var targetDay = isLiveFormationChange
+                            ? liveDay!.SerieADay
+                            : (asAdmin == true ? (realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay) : realCalendar?.NextDay?.SerieADay);
+                        if (targetDay == null)
                             return new TeamResponse(false, "Campionato terminato.");
                         var teamDayKey = new TeamDayKey
                         {
-                            Year = lastBasketOverYear.Year,
+                            Year = year,
                             Email = team.Owner,
                             Group = groupId,
                             BasketId = basket.Id,
-                            Day = nextSerieA.Value
+                            Day = targetDay.Value
                         };
                         var actualTeam = await _teamDayRepository.GetAsync(teamDayKey);
                         if (actualTeam == null)
@@ -92,6 +111,33 @@ namespace Fantasoccer.Application.Api.Controllers
                         if (actualTeam == null)
                             return new TeamResponse(false, "Squadra non trovata.");
                         actualTeam.AdditionalOwners = annualTeam.AdditionalOwners ?? [];
+                        var changedPlayers = actualTeam.ActivePlayers
+                            .Select(player => (player, submitted: team.ActivePlayers.FirstOrDefault(x => x.Key == player.Key)))
+                            .Where(x => x.submitted != null && x.player.Position != x.submitted!.Position)
+                            .ToList();
+                        if (isLiveFormationChange && changedPlayers.Count > 0)
+                        {
+                            if (actualTeam.FormationChanges >= leagueSettings.LiveFormationChanges)
+                                return new TeamResponse(false, "Hai raggiunto il numero massimo di modifiche per questa giornata.");
+
+                            if (changedPlayers.Count != 2)
+                                return new TeamResponse(false, "Durante la giornata puoi invertire solo due giocatori.");
+
+                            var oldPositions = changedPlayers.Select(x => x.player.Position).OrderBy(x => x).ToArray();
+                            var newPositions = changedPlayers.Select(x => x.submitted!.Position).OrderBy(x => x).ToArray();
+                            if (!oldPositions.SequenceEqual(newPositions))
+                                return new TeamResponse(false, "La modifica deve essere uno scambio tra due giocatori.");
+
+                            if (!leagueSettings.AllowLiveModuleChange)
+                            {
+                                static bool IsStarter(FantaSoccerRole position) => position is FantaSoccerRole.GoalKeeper or FantaSoccerRole.Defensor or FantaSoccerRole.Midfielder or FantaSoccerRole.Forward;
+                                var oldModule = actualTeam.ActivePlayers.Where(x => IsStarter(x.Position)).GroupBy(x => x.Position).ToDictionary(x => x.Key, x => x.Count());
+                                var newModule = actualTeam.ActivePlayers.Select(x => changedPlayers.FirstOrDefault(y => y.player.Key == x.Key).submitted?.Position ?? x.Position).Where(IsStarter).GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
+                                if (!oldModule.OrderBy(x => x.Key).SequenceEqual(newModule.OrderBy(x => x.Key)))
+                                    return new TeamResponse(false, "Il modulo non può essere modificato durante la giornata.");
+                            }
+                            actualTeam.FormationChanges++;
+                        }
                         foreach (var player in actualTeam.ActivePlayers)
                         {
                             var playerToSave = team.ActivePlayers.FirstOrDefault(x => x.Key == player.Key);
@@ -139,7 +185,23 @@ namespace Fantasoccer.Application.Api.Controllers
                             var realCalendar = await _realCalendar.GetAsync(year);
                             var nextSerieA = realCalendar?.NextDay?.SerieADay ?? 39;
                             var hasNoResult = game.Value.HasNoResult == true;
-                            var canEdit = game.SerieADay >= nextSerieA;
+                            var liveEditDay = leagueSettings?.LiveFormationChanges > 0
+                                ? realCalendar?.Days?
+                                    .Where(day => day.Games?.Any(x => !x.Delayed && x.Date.HasValue) == true)
+                                    .Where(day =>
+                                    {
+                                        var games = day.Games!.Where(x => !x.Delayed && x.Date.HasValue).OrderBy(x => x.Date).ToList();
+                                        return games.Count > 0 && FantacalcioTime.ItalyNow >= games[0].Date!.Value && FantacalcioTime.ItalyNow <= games[^1].Date!.Value.AddHours(4);
+                                    })
+                                    .OrderByDescending(x => x.SerieADay)
+                                    .FirstOrDefault()?.SerieADay
+                                : null;
+                            var canEdit = game.SerieADay >= nextSerieA || game.SerieADay == liveEditDay;
+                            var liveFormationDeadline = liveEditDay == game.SerieADay
+                                ? realCalendar!.Days!.First(x => x.SerieADay == liveEditDay).Games!
+                                    .Where(x => !x.Delayed && x.Date.HasValue).Max(x => x.Date!.Value).AddHours(4)
+                                : (DateTime?)null;
+                            int? liveFormationChangesRemaining = null;
                             await _teamCalculator.BuildRequestAsync(year, game.SerieADay, leagueType, leagueSettings!, true, !canEdit, true);
                             var isLive = game.SerieADay == realCalendar?.LiveSerieADay;
                             var teams = new List<LiveTeam>();
@@ -166,6 +228,10 @@ namespace Fantasoccer.Application.Api.Controllers
                                         BasketId = basketId
                                     });
                                 }
+                                var annualTeam = group.Baskets.SelectMany(x => x.Years.Where(y => y.Year == year).SelectMany(y => y.Teams))
+                                    .FirstOrDefault(x => x.Owner == owner);
+                                if (liveEditDay == game.SerieADay && annualTeam?.IsOwner(User.Identity?.Name ?? string.Empty) == true)
+                                    liveFormationChangesRemaining = Math.Max(0, (leagueSettings?.LiveFormationChanges ?? 0) - (team?.FormationChanges ?? 0));
                                 var currentPlayers = _teamCalculator.Enrich(team?.ActivePlayers ?? []) ?? [];
                                 if (!canEdit)
                                     currentPlayers = leagueCalculator?.GetRightFormation(currentPlayers) ?? [];
@@ -219,6 +285,9 @@ namespace Fantasoccer.Application.Api.Controllers
                                 SerieADay = game.SerieADay,
                                 Teams = teams,
                                 CanEdit = canEdit,
+                                IsLiveFormationWindow = liveEditDay == game.SerieADay,
+                                LiveFormationDeadline = liveFormationDeadline,
+                                LiveFormationChangesRemaining = liveFormationChangesRemaining,
                             };
                         }
                     }

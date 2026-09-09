@@ -14,6 +14,7 @@ type NumberSettingKey =
   | 'startingMoney'
   | 'delayedDay'
   | 'cancelledDay'
+  | 'liveFormationChanges'
   | 'pointForFirstGoal'
   | 'pointForNextGoal'
   | 'pointForOwnGoal'
@@ -69,7 +70,8 @@ interface LeagueSettingsEditorProps {
 const generalFields: NumberFieldDefinition[] = [
   { key: 'startingMoney', label: 'Crediti iniziali', description: 'Budget disponibile a inizio stagione.', min: 25 },
   { key: 'delayedDay', label: 'Ritardo prima giornata', description: 'Numero di giornate di Serie A da saltare.', min: 0, max: 37 },
-  { key: 'cancelledDay', label: 'Giornate annullate', description: 'Prime giornate fantasy considerate annullate.', min: 0, max: 38 }
+  { key: 'cancelledDay', label: 'Giornate annullate', description: 'Prime giornate fantasy considerate annullate.', min: 0, max: 38 },
+  { key: 'liveFormationChanges', label: 'Modifiche a giornata iniziata', description: 'Modifiche massime dopo l’inizio delle partite. 0 disabilita la regola.', min: 0, max: 11 }
 ]
 
 const resultFields: NumberFieldDefinition[] = [
@@ -263,6 +265,17 @@ export function LeagueSettingsEditor({
                 onCheckedChange={checked => onChange({ ...value, rankWithValuePoints: checked })}
               />
               <Text fontSize="$2" color="$color10">Somma il fantapunteggio ai punti di vittoria, pareggio o sconfitta.</Text>
+            </YStack>
+            <YStack gap="$2" flexGrow={1} flexBasis={280} minWidth={240}>
+              <Label>Cambio modulo a giornata iniziata</Label>
+              <ToggleChip
+                label={value.allowLiveModuleChange ? 'Attivo' : 'Disattivo'}
+                accent="green"
+                checked={value.allowLiveModuleChange}
+                disabled={disabled}
+                onCheckedChange={checked => onChange({ ...value, allowLiveModuleChange: checked })}
+              />
+              <Text fontSize="$2" color="$color10">Consente di cambiare modulo durante la finestra delle modifiche.</Text>
             </YStack>
           </XStack>
         </YStack>

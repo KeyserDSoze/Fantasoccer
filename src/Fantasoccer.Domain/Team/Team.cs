@@ -16,6 +16,8 @@ namespace Fantasoccer
         public int MoneyFromRank { get; set; }
         [JsonPropertyName("d")]
         public DateTime LastUpdate { get; set; }
+        [JsonPropertyName("fc")]
+        public int FormationChanges { get; set; }
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
         [JsonIgnore]

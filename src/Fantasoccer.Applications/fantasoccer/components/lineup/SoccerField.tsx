@@ -463,7 +463,11 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       const response = await gameService.saveTeam(groupId, teamData, isAdminMode)
       
       if (response?.i) {
-        toast.show('✅ Formazione salvata con successo!', { variant: 'success' })
+        const remaining = gameWrapper?.liveFormationChangesRemaining
+        const liveMessage = gameWrapper?.isLiveFormationWindow && remaining != null
+          ? ` Finestra live: rimangono ${Math.max(0, remaining - 1)} cambi.`
+          : ''
+        toast.show(`✅ Formazione salvata con successo!${liveMessage}`, { variant: 'success' })
         setHasLocalChanges(false)
         setFormationBackup(null) // Pulisce il backup dopo il salvataggio
         
@@ -692,8 +696,32 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
             </Button>
           )}
           
-          {/* Pulsante Salva */}
-          {showSaveButton && (
+      {/* Pulsante Salva */}
+      {gameWrapper?.isLiveFormationWindow && gameWrapper.liveFormationDeadline && (homeIsMyTeam || awayIsMyTeam) && (
+        <YStack
+          backgroundColor="$orange2"
+          borderColor="$orange8"
+          borderWidth={1}
+          borderRadius="$3"
+          padding="$3"
+          marginBottom="$2"
+          width="100%"
+        >
+          <Text color="$orange11" fontWeight="700">
+            MODIFICA LIVE ATTIVA
+          </Text>
+          <Text color="$orange11" fontSize="$3">
+            Puoi salvare fino alle {new Date(gameWrapper.liveFormationDeadline).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}.
+            {gameWrapper.liveFormationChangesRemaining != null
+              ? ` Ti rimangono ${gameWrapper.liveFormationChangesRemaining} cambi.`
+              : ''}
+          </Text>
+          <Text color="$orange11" fontSize="$2">
+            Ogni salvataggio valido consuma un cambio. Il modulo non può essere modificato durante questa finestra.
+          </Text>
+        </YStack>
+      )}
+      {showSaveButton && (
             <Button
               backgroundColor="$green10"
               color="#fff"

@@ -148,6 +148,8 @@ export interface LeagueSettingRaw {
   q: boolean   // RandomAuction
   vp: boolean  // RankWithValuePoints
   mk: MarketType // Market
+  lch?: number  // LiveFormationChanges
+  lcm?: boolean // AllowLiveModuleChange
 }
 
 export interface AnnualLeagueRaw {
@@ -255,6 +257,8 @@ export interface LeagueSetting {
   randomAuction: boolean
   rankWithValuePoints: boolean
   market: MarketType
+  liveFormationChanges: number
+  allowLiveModuleChange: boolean
 }
 
 export interface AnnualLeague {
@@ -367,7 +371,9 @@ export function mapRawLeagueSettingToLeagueSetting(raw: LeagueSettingRaw): Leagu
     moneyForSufferedGoal: raw.n,
     randomAuction: raw.q,
     rankWithValuePoints: raw.vp,
-    market: raw.mk
+    market: raw.mk,
+    liveFormationChanges: raw.lch ?? 0,
+    allowLiveModuleChange: raw.lcm ?? false
   }
 }
 
@@ -615,7 +621,9 @@ export const DefaultLeagueSetting: LeagueSetting = {
   pointForGoodPeople: 2,
   randomAuction: false,
   rankWithValuePoints: false,
-  market: MarketType.WithVote
+   market: MarketType.WithVote,
+   liveFormationChanges: 0,
+   allowLiveModuleChange: false
 }
 
 // Enhanced Group interface with computed properties

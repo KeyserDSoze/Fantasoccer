@@ -164,9 +164,15 @@ namespace Fantasoccer
         public bool RankWithValuePoints { get; set; }
         [JsonPropertyName("mk")]
         public MarketType Market { get; set; }
+        [JsonPropertyName("lch")]
+        public int LiveFormationChanges { get; set; }
+        [JsonPropertyName("lcm")]
+        public bool AllowLiveModuleChange { get; set; }
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,
+            LiveFormationChanges = 0,
+            AllowLiveModuleChange = false,
             Votes = new Dictionary<Role, VoteLeagueSetting>() { { Role.Undefined, new VoteLeagueSetting()
             {
                  Assist = 1,

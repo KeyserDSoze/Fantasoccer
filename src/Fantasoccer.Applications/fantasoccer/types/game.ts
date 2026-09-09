@@ -36,6 +36,9 @@ export interface GameWrapperRaw {
   g?: CalendarGameRaw | null
   s?: number
   c?: boolean
+  l?: boolean
+  e?: string | null
+  r?: number | null
 }
 
 // CLEANED interfaces used in the client
@@ -67,6 +70,9 @@ export interface GameWrapper {
   game?: CalendarGame | null
   serieADay?: number
   canEdit?: boolean
+  isLiveFormationWindow?: boolean
+  liveFormationDeadline?: string | null
+  liveFormationChangesRemaining?: number | null
 }
 
 // MAPPERS
@@ -96,7 +102,10 @@ export const mapRawGameWrapperToGameWrapper = (raw: GameWrapperRaw): GameWrapper
   teams: (raw.t ?? []).map(mapRawLiveTeamToLiveTeam),
   game: raw.g ? mapRawCalendarGameToCalendarGame(raw.g) : undefined,
   serieADay: raw.s ?? undefined,
-  canEdit: raw.c ?? undefined
+  canEdit: raw.c ?? undefined,
+  isLiveFormationWindow: raw.l ?? false,
+  liveFormationDeadline: raw.e ?? null,
+  liveFormationChangesRemaining: raw.r ?? null
 })
 
 export default GameWrapper

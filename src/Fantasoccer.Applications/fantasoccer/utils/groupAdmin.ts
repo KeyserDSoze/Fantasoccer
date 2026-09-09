@@ -70,13 +70,15 @@ export const isLeagueSettingValid = (setting: LeagueSetting): boolean => {
     setting.pointForGoodPeople,
     setting.pointForCleanSheet,
     setting.moneyForGoal,
-    setting.moneyForSufferedGoal
+    setting.moneyForSufferedGoal,
+    setting.liveFormationChanges ?? 0
   ]
 
   if (!integerValues.every(Number.isInteger)) return false
   if (setting.startingMoney < 25) return false
   if (setting.delayedDay < 0 || setting.delayedDay > 37) return false
   if (setting.cancelledDay < 0 || setting.cancelledDay > 38) return false
+  if ((setting.liveFormationChanges ?? 0) < 0) return false
   if (setting.pointForFirstGoal < 1 || setting.pointForNextGoal < 1) return false
   if (setting.pointForOwnGoal < 0 || setting.differencePointForOwnGoal < 0) return false
   if (setting.pointForCleanSheet < 0) return false
@@ -151,5 +153,7 @@ export const preserveRawLeagueSetting = (
   n: setting.moneyForSufferedGoal,
   q: setting.randomAuction,
   vp: setting.rankWithValuePoints,
-  mk: setting.market
+   mk: setting.market,
+   lch: setting.liveFormationChanges,
+   lcm: setting.allowLiveModuleChange
 })

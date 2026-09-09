@@ -12,5 +12,11 @@ namespace Fantasoccer
         public int SerieADay { get; set; }
         [JsonPropertyName("c")]
         public bool CanEdit { get; set; }
+        [JsonPropertyName("l")]
+        public bool IsLiveFormationWindow { get; set; }
+        [JsonPropertyName("e")]
+        public DateTime? LiveFormationDeadline { get; set; }
+        [JsonPropertyName("r")]
+        public int? LiveFormationChangesRemaining { get; set; }
     }
 }

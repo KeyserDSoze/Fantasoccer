@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.6',
+    date: '9 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunte le modifiche alla formazione durante la giornata live, configurabili per ogni lega annuale con numero massimo di cambi e abilitazione del cambio modulo'
+      },
+      {
+        category: 'Improvement',
+        description: 'Durante il salvataggio live vengono mostrati scadenza precisa, cambi residui e avviso sul consumo del cambio'
+      }
+    ]
+  },
+  {
     version: '2.0.3',
     date: '8 Settembre 2026',
     changes: [
