@@ -123,6 +123,17 @@ export interface LeagueTypeSettingsRaw {
   ct: CardTrainerSettingsRaw
 }
 
+export interface OpeningCompetitionPrizeRaw {
+  p: number
+  c: number
+}
+
+export interface OpeningCompetitionSettingsRaw {
+  e?: boolean
+  d?: number
+  p?: OpeningCompetitionPrizeRaw[]
+}
+
 export interface LeagueSettingRaw {
   v: Record<string, VoteLeagueSettingRaw>  // Votes (Role -> VoteLeagueSetting)
   frm: FormationType
@@ -150,6 +161,7 @@ export interface LeagueSettingRaw {
   mk: MarketType // Market
   lch?: number  // LiveFormationChanges
   lcm?: boolean // AllowLiveModuleChange
+  oc?: OpeningCompetitionSettingsRaw
 }
 
 export interface AnnualLeagueRaw {
@@ -259,6 +271,18 @@ export interface LeagueSetting {
   market: MarketType
   liveFormationChanges: number
   allowLiveModuleChange: boolean
+  openingCompetition: OpeningCompetitionSettings
+}
+
+export interface OpeningCompetitionPrize {
+  position: number
+  credits: number
+}
+
+export interface OpeningCompetitionSettings {
+  enabled: boolean
+  serieADays: number
+  prizes: OpeningCompetitionPrize[]
 }
 
 export interface AnnualLeague {
@@ -374,6 +398,14 @@ export function mapRawLeagueSettingToLeagueSetting(raw: LeagueSettingRaw): Leagu
     market: raw.mk,
     liveFormationChanges: raw.lch ?? 0,
     allowLiveModuleChange: raw.lcm ?? false
+    ,openingCompetition: {
+      enabled: raw.oc?.e ?? false,
+      serieADays: raw.oc?.d ?? 2,
+      prizes: (raw.oc?.p ?? [{ p: 1, c: 50 }, { p: 2, c: 30 }, { p: 3, c: 20 }]).map(prize => ({
+        position: prize.p,
+        credits: prize.c
+      }))
+    }
   }
 }
 
@@ -627,6 +659,15 @@ export const DefaultLeagueSetting: LeagueSetting = {
    market: MarketType.WithVote,
    liveFormationChanges: 0,
    allowLiveModuleChange: false
+   ,openingCompetition: {
+     enabled: false,
+     serieADays: 2,
+     prizes: [
+       { position: 1, credits: 50 },
+       { position: 2, credits: 30 },
+       { position: 3, credits: 20 }
+     ]
+   }
 }
 
 // Enhanced Group interface with computed properties

@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.9',
+    date: '9 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunto il Campionato iniziale per le leghe principali, con rose della stagione precedente, giornate configurabili e classifica a fantapunteggio'
+      },
+      {
+        category: 'Feature',
+        description: 'Aggiunti premi configurabili per posizione, gestione dei pari merito e accredito separato dei premi nell’asta iniziale'
+      },
+      {
+        category: 'Feature',
+        description: 'Aggiunta la gestione delle formazioni iniziali per giornata, con modifica, salvataggio e ricalcolo automatico della classifica'
+      },
+      {
+        category: 'Fix',
+        description: 'Corretta la gestione dei pari merito nel calcolo dei premi e aggiunti test automatici dedicati'
+      }
+    ]
+  },
+  {
     version: '2.0.8',
     date: '9 Settembre 2026',
     changes: [

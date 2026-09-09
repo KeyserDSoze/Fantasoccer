@@ -250,6 +250,72 @@ export function LeagueSettingsEditor({
     <YStack gap="$4">
       <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
         <YStack gap="$3">
+          <Text fontSize="$4" fontWeight="700" color="$color12">Campionato iniziale</Text>
+          <Text fontSize="$2" color="$color10">
+            Usa le rose della stagione precedente nelle prime giornate e assegna crediti premio prima dell&apos;asta.
+          </Text>
+          <Separator />
+          <XStack gap="$3" flexWrap="wrap" alignItems="flex-start">
+            <YStack gap="$2" flexGrow={1} flexBasis={280} minWidth={240}>
+              <Label>Regola attiva</Label>
+              <ToggleChip
+                label={value.openingCompetition.enabled ? 'Attiva' : 'Disattiva'}
+                accent="green"
+                checked={value.openingCompetition.enabled}
+                disabled={disabled}
+                onCheckedChange={checked => onChange({
+                  ...value,
+                  openingCompetition: { ...value.openingCompetition, enabled: checked }
+                })}
+              />
+            </YStack>
+            <YStack gap="$1.5" flexGrow={1} flexBasis={280} minWidth={240}>
+              <Label htmlFor={`${resetKey}-opening-days`}>Giornate di Serie A</Label>
+              <Input
+                id={`${resetKey}-opening-days`}
+                value={String(value.openingCompetition.serieADays)}
+                onChangeText={text => {
+                  const days = Number(text)
+                  if (Number.isInteger(days) && days > 0 && days <= 5) {
+                    onChange({
+                      ...value,
+                      openingCompetition: { ...value.openingCompetition, serieADays: days }
+                    })
+                  }
+                }}
+                keyboardType="number-pad"
+                disabled={disabled}
+              />
+              <Text fontSize="$2" color="$color10">Classifica per somma dei fantapunteggi, senza gol o risultati.</Text>
+            </YStack>
+          </XStack>
+          <YStack gap="$2">
+            <Text fontWeight="600" color="$color12">Premi per posizione</Text>
+            {value.openingCompetition.prizes.map((prize, index) => (
+              <XStack key={`${resetKey}-opening-prize-${index}`} gap="$2" alignItems="center">
+                <Text width={70} color="$color11">Posizione {prize.position}</Text>
+                <Input
+                  flex={1}
+                  value={String(prize.credits)}
+                  onChangeText={text => {
+                    const credits = Number(text)
+                    if (Number.isInteger(credits) && credits >= 0) {
+                      const prizes = value.openingCompetition.prizes.map((item, itemIndex) => itemIndex === index ? { ...item, credits } : item)
+                      onChange({ ...value, openingCompetition: { ...value.openingCompetition, prizes } })
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  disabled={disabled}
+                />
+                <Text color="$color10">crediti</Text>
+              </XStack>
+            ))}
+          </YStack>
+        </YStack>
+      </Card>
+
+      <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
+        <YStack gap="$3">
           <Text fontSize="$4" fontWeight="700" color="$color12">Stagione e classifica</Text>
           <Text fontSize="$2" color="$color10">Budget, avvio della stagione e punti assegnati in classifica.</Text>
           <Separator />

@@ -14,6 +14,8 @@ namespace Fantasoccer
         public List<Player> Players { get; set; }
         [JsonPropertyName("m")]
         public int MoneyFromRank { get; set; }
+        [JsonPropertyName("op")]
+        public int OpeningCompetitionPrize { get; set; }
         [JsonPropertyName("d")]
         public DateTime LastUpdate { get; set; }
         [JsonPropertyName("fc")]
@@ -29,6 +31,6 @@ namespace Fantasoccer
         [JsonIgnore]
         public int TotalCostForPlayers => Players.Sum(x => x.Price);
         [JsonIgnore]
-        public int Cost => TotalCostForPlayers - RevenueMoney - MoneyFromRank - MoneyFromSoldWithOneHalfReturnedPrice;
+        public int Cost => TotalCostForPlayers - RevenueMoney - MoneyFromRank - OpeningCompetitionPrize - MoneyFromSoldWithOneHalfReturnedPrice;
     }
 }

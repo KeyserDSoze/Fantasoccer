@@ -249,6 +249,7 @@ export interface TeamRaw {
   a?: string[] | null
   p: PlayerRaw[]
   m: number
+  op?: number
   d?: string | null
 }
 
@@ -258,6 +259,7 @@ export interface Team {
   additionalOwners: string[]
   players: Player[]
   moneyFromRank: number
+  openingCompetitionPrize: number
   lastUpdate: Date | null
 }
 
@@ -278,6 +280,7 @@ export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
   additionalOwners: raw?.a ?? [],
   players: raw?.p?.map(mapRawPlayerToPlayer) ?? [],
   moneyFromRank: raw?.m ?? 0,
+  openingCompetitionPrize: raw?.op ?? 0,
   lastUpdate: raw?.d ? new Date(raw.d) : null
 })
 
@@ -288,6 +291,7 @@ export const mapTeamToRawTeam = (team: Team): TeamRaw => ({
   a: team.additionalOwners?.length ? team.additionalOwners : [],
   p: team.players.map(mapPlayerToRawPlayer),
   m: team.moneyFromRank,
+  op: team.openingCompetitionPrize,
   d: team.lastUpdate ? team.lastUpdate.toISOString() : undefined
 })
 
@@ -335,6 +339,7 @@ export class TeamHelper {
     return TeamHelper.getTotalCostForPlayers(team)
       - TeamHelper.getRevenueMoney(team)
       - team.moneyFromRank
+      - team.openingCompetitionPrize
       - TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
   }
 

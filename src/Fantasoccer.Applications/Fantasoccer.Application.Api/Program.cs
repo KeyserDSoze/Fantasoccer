@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Fantasoccer.Application.Api.Hubs;
+using Fantasoccer.Application.Api.Controllers;
 using Fantasoccer.Business;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
@@ -29,6 +30,7 @@ builder.Services.AddApplicationInsightsTelemetry(x =>
     x.ConnectionString = builder.Configuration["ConnectionStrings:AppInsights"];
 });
 builder.Services.AddControllers();
+builder.Services.AddTransient<OpeningCompetitionController>();
 builder.Services.AddEndpointsApiExplorer();
 if (isInMemory)
 {

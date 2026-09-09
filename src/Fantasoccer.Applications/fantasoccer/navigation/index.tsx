@@ -31,6 +31,7 @@ import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
 import PushNotificationScreen from 'screens/push-notification';
 import { VersionUpdateBanner } from 'components/version/VersionUpdateBanner';
+import OpeningCompetitionScreen from 'screens/opening-competition';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   Login: undefined;
   Details: { name?: string };
   Ranking: undefined;
+  OpeningCompetition: undefined;
   Calendar: undefined;
   Players: undefined;
   Teams: undefined;
@@ -189,7 +191,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
             headerLeft: () => <BackButton onPress={() => {}} />,
           }}
         />
-        <Stack.Screen name="Ranking" component={Ranking} />
+       <Stack.Screen name="Ranking" component={Ranking} />
+        <Stack.Screen name="OpeningCompetition" component={OpeningCompetitionScreen} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />
         <Stack.Screen name="Players" component={PlayersScreen} />
         <Stack.Screen name="Teams" component={TeamsScreen} />

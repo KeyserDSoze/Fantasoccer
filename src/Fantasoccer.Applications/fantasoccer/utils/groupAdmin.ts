@@ -156,4 +156,10 @@ export const preserveRawLeagueSetting = (
    mk: setting.market,
    lch: setting.liveFormationChanges,
    lcm: setting.allowLiveModuleChange
+    ,oc: {
+      ...setting.raw?.oc,
+      e: setting.openingCompetition?.enabled ?? false,
+      d: setting.openingCompetition?.serieADays ?? 0,
+      p: (setting.openingCompetition?.prizes ?? []).map(prize => ({ p: prize.position, c: prize.credits }))
+    }
 })

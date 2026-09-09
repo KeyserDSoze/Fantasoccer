@@ -177,6 +177,8 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   
   const isSuperAdmin = currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.SuperAdmin)
   const isAdmin = isSuperAdmin || currentUserInGroup && hasRole(currentUserInGroup.role, IdentityRole.Admin)
+  const selectedAnnualLeague = currentGroup?.leagues.find(l => l.id === selectedLeagueId)?.years.find(y => y.year === selectedYear)
+  const openingCompetitionEnabled = currentGroup?.leagues.find(l => l.id === selectedLeagueId)?.isMain === true && selectedAnnualLeague?.settings.openingCompetition.enabled === true
   // For now, super admin logic would need backend implementation
 
   // Responsive sheet settings
@@ -445,7 +447,8 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
               <Separator />
 
               {/* Main Navigation */}
-              {navigationItems.map(renderSection)}
+               {navigationItems.map((section) => renderSection(section))}
+               {openingCompetitionEnabled && renderSection({ section: 'Competizioni', items: [{ type: 'route', route: 'OpeningCompetition', label: 'Competizione d’apertura', icon: Trophy, description: 'Classifica e premi della competizione' }] })}
 
               {/* Admin Navigation */}
               {isAdmin && (

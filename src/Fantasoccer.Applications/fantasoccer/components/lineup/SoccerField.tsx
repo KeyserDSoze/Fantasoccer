@@ -454,6 +454,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
         additionalOwners: teamToSave.additionalOwners,
         lastUpdate: new Date(),
         moneyFromRank: 0,
+        openingCompetitionPrize: 0,
         players: teamToSave.players.map(p => ({
           ...(p.current as any),
           position: p.currentPosition

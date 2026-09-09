@@ -21,11 +21,13 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<RealPlayersWrapper, int> _realPlayers;
         private readonly IRepository<Team, TeamKey> _team;
         private IRepository<Group, string> Groups { get; }
+        private readonly OpeningCompetitionController _openingCompetitionController;
         public AuctionController(AuctionHubService auctionHubService, IRepository<AuctionWrapper, string> auctionRepository,
             IRepository<AppIdentity, string> identityRepository,
             IHttpContextAccessor httpContextAccessor,
             EncryptionService encryptionService,
-            IRepository<RealPlayersWrapper, int> realPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups)
+            IRepository<RealPlayersWrapper, int> realPlayers, IRepository<Team, TeamKey> team, IRepository<Group, string> groups,
+            OpeningCompetitionController openingCompetitionController)
         {
             _auctionHubService = auctionHubService;
             _auctionRepository = auctionRepository;
@@ -35,6 +37,7 @@ namespace Fantasoccer.Application.Api.Controllers
             _realPlayers = realPlayers;
             _team = team;
             Groups = groups;
+            _openingCompetitionController = openingCompetitionController;
         }
         [HttpGet]
         public async Task<string> CreateAuctionAsync([FromQuery] AuctionType auctionType, [FromQuery] AuctionKind auctionKind)
@@ -54,6 +57,8 @@ namespace Fantasoccer.Application.Api.Controllers
                             //if the user is admin or superadmin of the group
                             if (group.Participants.Any(x => x.Email == identity.Email && (x.Role.HasFlag(IdentityRole.Admin) || x.Role.HasFlag(IdentityRole.SuperAdmin))))
                             {
+                                if (auctionKind == AuctionKind.Starting)
+                                    await _openingCompetitionController.PrepareAsync(group.Id, identity.State.LeagueId, FantacalcioTime.ActualYear);
                                 var auction = new AuctionWrapper
                                 {
                                     Id = Guid.NewGuid().ToString(),

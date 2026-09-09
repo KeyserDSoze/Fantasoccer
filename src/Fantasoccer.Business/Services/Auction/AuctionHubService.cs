@@ -17,12 +17,14 @@ namespace Fantasoccer.Business
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
+        private readonly IRepository<OpeningCompetitionStandings, OpeningCompetitionKey> _openingStandings;
 
         public AuctionHubService(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
              IRepository<AppIdentity, string> identityRepository,
              IRepository<RealCalendar, int> realCalendarRepository,
             IRepository<Rank, LeagueKey> rankRepository,
-           IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers)
+            IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers,
+            IRepository<OpeningCompetitionStandings, OpeningCompetitionKey> openingStandings)
         {
             _lock = @lock;
             _auctionRepository = auctionRepository;
@@ -32,6 +34,7 @@ namespace Fantasoccer.Business
             _team = team;
             _groups = groups;
             _statsPlayers = statsPlayers;
+            _openingStandings = openingStandings;
         }
         public async ValueTask ExecuteOperationAsync(string auctionId, Action<AuctionHubWrapper> concurrentAction)
         {
@@ -78,7 +81,9 @@ namespace Fantasoccer.Business
                             if (league != null && leagueWrapper != null)
                             {
                                 var calendar = await _realCalendarRepository.GetAsync(auction.LeagueKey.Year);
-                                var rank = await _rankRepository.GetAsync(auction.LeagueKey);
+                                 var rank = await _rankRepository.GetAsync(auction.LeagueKey);
+                                 var opening = auction.Kind == AuctionKind.Starting && leagueWrapper.IsMain && league.Settings.OpeningCompetition?.Enabled == true
+                                     ? await _openingStandings.GetAsync(new OpeningCompetitionKey { Group = auction.LeagueKey.Group, League = auction.LeagueKey.League, Year = auction.LeagueKey.Year }) : null;
                                 var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
                                 var teams = new List<Entity<Team, TeamKey>>();
                                 foreach (var basketId in leagueWrapper.BasketsId)
@@ -105,10 +110,15 @@ namespace Fantasoccer.Business
                                             team.AdditionalOwners = teamInYear.AdditionalOwners ?? [];
                                         }
                                         var teamInRank = rank?.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == teamInYear.Owner);
-                                        if (teamInRank != null && (league.Settings.MoneyForGoal > 0 || league.Settings.MoneyForSufferedGoal > 0))
+                                         if (teamInRank != null && (league.Settings.MoneyForGoal > 0 || league.Settings.MoneyForSufferedGoal > 0))
                                         {
                                             team.MoneyFromRank = teamInRank.Goal * league.Settings.MoneyForGoal + teamInRank.SufferedGoal * league.Settings.MoneyForSufferedGoal;
-                                        }
+                                         }
+                                         if (opening != null)
+                                         {
+                                             team.OpeningCompetitionPrize = opening.Teams.FirstOrDefault(x => string.Equals(x.Owner, teamInYear.Owner, StringComparison.OrdinalIgnoreCase))?.Prize ?? 0;
+                                             await _team.UpdateAsync(teamKey, team);
+                                         }
                                         teams.Add(new(team, teamKey));
                                     }
                                 }

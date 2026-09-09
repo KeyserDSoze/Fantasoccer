@@ -53,6 +53,33 @@ namespace Fantasoccer
         [JsonPropertyName("c")]
         public Dictionary<CardType, int> MaxCardsPerType { get; set; } = [];
     }
+    public sealed class OpeningCompetitionPrize
+    {
+        [JsonPropertyName("p")]
+        public int Position { get; set; }
+        [JsonPropertyName("c")]
+        public int Credits { get; set; }
+    }
+    public sealed class OpeningCompetitionSettings
+    {
+        [JsonPropertyName("e")]
+        public bool Enabled { get; set; }
+        [JsonPropertyName("d")]
+        public int SerieADays { get; set; }
+        [JsonPropertyName("p")]
+        public List<OpeningCompetitionPrize> Prizes { get; set; } = [];
+        public static OpeningCompetitionSettings Default => new()
+        {
+            Enabled = false,
+            SerieADays = 2,
+            Prizes =
+            [
+                new() { Position = 1, Credits = 50 },
+                new() { Position = 2, Credits = 30 },
+                new() { Position = 3, Credits = 20 }
+            ]
+        };
+    }
     public sealed class LeagueTypeSettings
     {
         [JsonPropertyName("t")]
@@ -168,11 +195,14 @@ namespace Fantasoccer
         public int LiveFormationChanges { get; set; }
         [JsonPropertyName("lcm")]
         public bool AllowLiveModuleChange { get; set; }
+        [JsonPropertyName("oc")]
+        public OpeningCompetitionSettings OpeningCompetition { get; set; } = OpeningCompetitionSettings.Default;
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,
             LiveFormationChanges = 0,
             AllowLiveModuleChange = false,
+            OpeningCompetition = OpeningCompetitionSettings.Default,
             Votes = new Dictionary<Role, VoteLeagueSetting>() { { Role.Undefined, new VoteLeagueSetting()
             {
                  Assist = 1,
