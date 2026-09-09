@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.10',
+    date: '9 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Rafforzate le autorizzazioni owner/co-owner e rimossa la possibilità di autorizzare una squadra usando dati modificati dal client'
+      },
+      {
+        category: 'Fix',
+        description: 'Protette le formazioni iniziali contro giocatori estranei o duplicati e aggiunta la posizione esplicita per la gestione corretta dei pari merito'
+      },
+      {
+        category: 'Fix',
+        description: 'Reso atomico il salvataggio delle modifiche live tramite lo stesso lock Rystem utilizzato dalle operazioni d’asta'
+      },
+      {
+        category: 'Improvement',
+        description: 'Centralizzato il calcolo della finestra live e aggiunta la validazione dei settings del Campionato iniziale'
+      }
+    ]
+  },
+  {
     version: '2.0.9',
     date: '9 Settembre 2026',
     changes: [

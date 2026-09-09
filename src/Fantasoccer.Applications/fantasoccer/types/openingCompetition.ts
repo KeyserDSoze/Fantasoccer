@@ -3,6 +3,7 @@ export interface OpeningCompetitionStanding {
   name: string | null
   score: number
   prize: number
+  position: number
 }
 
 export interface OpeningCompetitionStandings {
@@ -18,7 +19,7 @@ export interface OpeningCompetitionStandingsRaw {
   l: string
   y: number
   d: number
-  t: Array<{ o: string; n?: string | null; s: number; p: number }>
+  t: Array<{ o: string; n?: string | null; s: number; p: number; r?: number }>
 }
 
 export const mapOpeningCompetitionStandings = (raw: OpeningCompetitionStandingsRaw): OpeningCompetitionStandings => ({
@@ -26,5 +27,5 @@ export const mapOpeningCompetitionStandings = (raw: OpeningCompetitionStandingsR
   league: raw.l,
   year: raw.y,
   serieADays: raw.d,
-  teams: raw.t.map(team => ({ owner: team.o, name: team.n ?? null, score: team.s, prize: team.p }))
+  teams: raw.t.map(team => ({ owner: team.o, name: team.n ?? null, score: team.s, prize: team.p, position: team.r ?? 0 }))
 })

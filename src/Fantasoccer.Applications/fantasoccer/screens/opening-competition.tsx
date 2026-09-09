@@ -51,7 +51,7 @@ export default function OpeningCompetition() {
       {error && <Card padding="$4" backgroundColor="$red3"><XStack gap="$2"><AlertTriangle color="$red10" /><Text color="$red11">{error}</Text></XStack></Card>}
       {!loading && !error && data && <Card padding="$0" overflow="hidden"><YStack>
         <XStack padding="$3" backgroundColor="$color3" justifyContent="space-between"><Text fontWeight="bold">Squadra</Text><Text fontWeight="bold">Punti</Text><Text fontWeight="bold">Premio</Text></XStack>
-        {data.teams.map((team, index) => <XStack key={team.owner} padding="$3" borderBottomWidth={index === data.teams.length - 1 ? 0 : 1} borderColor="$borderColor" alignItems="center" gap="$2"><Text width={28} fontWeight="bold">{index + 1}</Text><Text flex={1}>{team.name || team.owner}</Text><Text width={70} textAlign="right">{team.score.toFixed(2)}</Text><XStack width={70} justifyContent="flex-end" gap="$1">{team.prize > 0 && <Gift size="$1" color="$orange10" />}<Text>{team.prize > 0 ? `${team.prize} cr` : '-'}</Text></XStack></XStack>)}
+         {data.teams.map((team, index) => <XStack key={team.owner} padding="$3" borderBottomWidth={index === data.teams.length - 1 ? 0 : 1} borderColor="$borderColor" alignItems="center" gap="$2"><Text width={28} fontWeight="bold">{team.position || index + 1}</Text><Text flex={1}>{team.name || team.owner}</Text><Text width={70} textAlign="right">{team.score.toFixed(2)}</Text><XStack width={70} justifyContent="flex-end" gap="$1">{team.prize > 0 && <Gift size="$1" color="$orange10" />}<Text>{team.prize > 0 ? `${team.prize} cr` : '-'}</Text></XStack></XStack>)}
       </YStack></Card>}
       {!loading && !error && data && data.teams.length === 0 && <Text>Nessuna squadra disponibile.</Text>}
     </YStack>

@@ -50,10 +50,10 @@ namespace Fantasoccer.Application.Api.Controllers
                 return false;
             var basket = group.Baskets.First(x => x.Id == basketId);
             var yearlyBasket = basket.Years.First(x => x.Year == year);
-            var team = yearlyBasket.Teams.FirstOrDefault(x => x.Owner == owner);
+            var team = yearlyBasket.Teams.FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
             if (team == null)
                 return false;
-            return team.Owner == email || team.AdditionalOwners.Contains(email);
+            return team.IsOwner(email);
         }
         [HttpPost]
         public async ValueTask<bool> UploadLogoAsync(IFormFile image, [FromQuery] string groupId, [FromQuery] int year, [FromQuery] string owner, [FromQuery] string basketId)

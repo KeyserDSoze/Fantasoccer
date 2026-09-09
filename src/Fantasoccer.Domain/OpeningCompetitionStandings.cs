@@ -8,6 +8,7 @@ namespace Fantasoccer
         [JsonPropertyName("n")] public string? Name { get; set; }
         [JsonPropertyName("s")] public float Score { get; set; }
         [JsonPropertyName("p")] public int Prize { get; set; }
+        [JsonPropertyName("r")] public int Position { get; set; }
     }
 
     public sealed class OpeningCompetitionStandings

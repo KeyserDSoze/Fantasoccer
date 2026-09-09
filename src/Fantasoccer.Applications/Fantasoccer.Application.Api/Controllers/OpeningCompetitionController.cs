@@ -52,6 +52,10 @@ namespace Fantasoccer.Application.Api.Controllers
                 return NotFound();
             if (team == null || !resolved.IsOwner)
                 return new TeamResponse(false, "Non sei il proprietario della squadra.");
+            var sourcePlayers = resolved.Team.Players.Select(x => x.Key).ToHashSet();
+            var submittedPlayers = team.Players.Select(x => x.Key).ToList();
+            if (submittedPlayers.Count != submittedPlayers.Distinct().Count() || submittedPlayers.Any(x => !sourcePlayers.Contains(x)))
+                return new TeamResponse(false, "La formazione contiene giocatori non appartenenti alla rosa iniziale.");
             team.Owner = resolved.Owner;
             team.AdditionalOwners = resolved.Team.AdditionalOwners;
             var validation = _teamChecker.Validate(team);
@@ -96,6 +100,8 @@ namespace Fantasoccer.Application.Api.Controllers
             var settings = annual?.Settings?.OpeningCompetition;
             if (group == null || league == null || annual == null || !league.IsMain || settings?.Enabled != true)
                 return NotFound();
+            if (settings.SerieADays is < 1 or > 39 || settings.Prizes.Any(x => x.Position < 1 || x.Credits < 0) || settings.Prizes.Select(x => x.Position).Distinct().Count() != settings.Prizes.Count)
+                return BadRequest("Configurazione del campionato iniziale non valida.");
 
             var key = new OpeningCompetitionKey { Group = groupId, League = leagueId, Year = year };
             var previousYear = year - 1;
@@ -134,13 +140,14 @@ namespace Fantasoccer.Application.Api.Controllers
             var owners = members.Select(x => (x.Owner, Score: scores[x.Owner])).ToList();
             var prizes = OpeningCompetitionPrizeCalculator.Calculate(
                 settings.Prizes.Select(x => new OpeningCompetitionPrizeRule(x.Position, x.Credits)), owners);
+            var rankedOwners = owners.Select(x => new { x.Owner, Position = owners.Count(y => y.Score > x.Score) + 1 }).ToDictionary(x => x.Owner, x => x.Position, StringComparer.OrdinalIgnoreCase);
             var result = new OpeningCompetitionStandings
             {
                 Group = groupId, League = leagueId, Year = year, SerieADays = settings.SerieADays,
                 Teams = members.Select(x => new OpeningCompetitionStanding
                 {
                     Owner = x.Owner, Name = x.Name, Score = scores[x.Owner],
-                    Prize = prizes.GetValueOrDefault(x.Owner)
+                    Prize = prizes.GetValueOrDefault(x.Owner), Position = rankedOwners[x.Owner]
                 }).OrderByDescending(x => x.Score).ToList()
             };
 

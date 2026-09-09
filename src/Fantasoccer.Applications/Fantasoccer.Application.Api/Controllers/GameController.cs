@@ -1,4 +1,5 @@
 ﻿using Fantasoccer.Business;
+using System.Threading.Concurrent;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RepositoryFramework;
@@ -20,6 +21,7 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly ITeamChecker _teamChecker;
         private readonly IFantasoccerLogger _logger;
+        private readonly ILock _lock;
 
         public GameController(IFactory<ILeagueCalculator> leagueCalculatorFactory,
             ITeamCalculator teamCalculator,
@@ -30,7 +32,8 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<Team, TeamDayKey> teamDayRepository,
             ITeamChecker teamChecker,
             IRepository<AppIdentity, string> users,
-            IFantasoccerLogger logger)
+            IFantasoccerLogger logger,
+            ILock @lock)
         {
             _leagueCalculatorFactory = leagueCalculatorFactory;
             _teamCalculator = teamCalculator;
@@ -42,10 +45,24 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamChecker = teamChecker;
             _users = users;
             _logger = logger;
+            _lock = @lock;
         }
         [HttpPost]
-        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team team, [FromQuery] bool? asAdmin = false)
+        public async Task<TeamResponse> SaveTeamAsync([FromQuery] string groupId, [FromBody] Team? team, [FromQuery] bool? asAdmin = false)
         {
+            var owner = team?.Owner ?? User.Identity?.Name ?? "unknown";
+            TeamResponse? result = null;
+            await _lock.ExecuteAsync(async () =>
+            {
+                result = await SaveTeamCoreAsync(groupId, team, asAdmin);
+            }, $"live-formation:{groupId}:{owner.ToUpperInvariant()}");
+            return result ?? new TeamResponse(false, "Impossibile salvare la formazione.");
+        }
+
+        private async Task<TeamResponse> SaveTeamCoreAsync([FromQuery] string groupId, [FromBody] Team? team, [FromQuery] bool? asAdmin = false)
+        {
+            if (team == null)
+                return new TeamResponse(false, "Formazione non valida.");
             if (User.Identity == null)
                 return new TeamResponse(false, "Utente non autenticato.");
             var user = await _users.GetAsync(User.Identity.Name!);
@@ -60,7 +77,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 foreach (var basket in group.Baskets)
                 {
                     var lastBasketOverYear = basket.Years.OrderByDescending(x => x.Year).First();
-                    var annualTeam = lastBasketOverYear.Teams.FirstOrDefault(x => x.Owner == team.Owner);
+                    var annualTeam = lastBasketOverYear.Teams.FirstOrDefault(x => string.Equals(x.Owner, team.Owner, StringComparison.OrdinalIgnoreCase));
                     if (annualTeam != null)
                     {
                         if (!(annualTeam.IsOwner(User.Identity.Name!) || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
@@ -71,17 +88,7 @@ namespace Fantasoccer.Application.Api.Controllers
                             .Where(x => x.BasketsId.Contains(basket.Id))
                             .Select(x => x.Years.FirstOrDefault(y => y.Year == year)?.Settings)
                             .FirstOrDefault(x => x != null) ?? LeagueSetting.Default;
-                        var liveDay = leagueSettings.LiveFormationChanges > 0
-                            ? realCalendar?.Days?
-                                .Where(day => day.Games?.Any(game => !game.Delayed && game.Date.HasValue) == true)
-                                .Where(day =>
-                                {
-                                    var games = day.Games!.Where(x => !x.Delayed && x.Date.HasValue).OrderBy(x => x.Date).ToList();
-                                    return games.Count > 0 && FantacalcioTime.ItalyNow >= games[0].Date!.Value && FantacalcioTime.ItalyNow <= games[^1].Date!.Value.AddHours(4);
-                                })
-                                .OrderByDescending(x => x.SerieADay)
-                                .FirstOrDefault()
-                            : null;
+                        var liveDay = leagueSettings.LiveFormationChanges > 0 ? GetLiveDay(realCalendar) : null;
                         var isLiveFormationChange = liveDay != null;
                         var targetDay = isLiveFormationChange
                             ? liveDay!.SerieADay
@@ -185,17 +192,7 @@ namespace Fantasoccer.Application.Api.Controllers
                             var realCalendar = await _realCalendar.GetAsync(year);
                             var nextSerieA = realCalendar?.NextDay?.SerieADay ?? 39;
                             var hasNoResult = game.Value.HasNoResult == true;
-                            var liveEditDay = leagueSettings?.LiveFormationChanges > 0
-                                ? realCalendar?.Days?
-                                    .Where(day => day.Games?.Any(x => !x.Delayed && x.Date.HasValue) == true)
-                                    .Where(day =>
-                                    {
-                                        var games = day.Games!.Where(x => !x.Delayed && x.Date.HasValue).OrderBy(x => x.Date).ToList();
-                                        return games.Count > 0 && FantacalcioTime.ItalyNow >= games[0].Date!.Value && FantacalcioTime.ItalyNow <= games[^1].Date!.Value.AddHours(4);
-                                    })
-                                    .OrderByDescending(x => x.SerieADay)
-                                    .FirstOrDefault()?.SerieADay
-                                : null;
+                                var liveEditDay = leagueSettings?.LiveFormationChanges > 0 ? GetLiveDay(realCalendar)?.SerieADay : null;
                             var canEdit = game.SerieADay >= nextSerieA || game.SerieADay == liveEditDay;
                             var liveFormationDeadline = liveEditDay == game.SerieADay
                                 ? realCalendar!.Days!.First(x => x.SerieADay == liveEditDay).Games!
@@ -239,6 +236,7 @@ namespace Fantasoccer.Application.Api.Controllers
                                 {
                                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
                                     Owner = team?.Owner ?? owner,
+                                    AdditionalOwners = team?.AdditionalOwners ?? annualTeam?.AdditionalOwners ?? [],
                                     Players = [.. currentPlayers.Select(x => new LivePlayer
                                     {
                                         Current = x.Current,
@@ -295,5 +293,7 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             return default;
         }
+
+        private static RealDay? GetLiveDay(RealCalendar? calendar) => calendar?.LiveDay;
     }
 }

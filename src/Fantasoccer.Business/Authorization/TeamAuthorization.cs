@@ -32,14 +32,14 @@ namespace Fantasoccer.Business.Authorization
                     var annualTeam = group?.Baskets?
                         .FirstOrDefault(x => x.Id == key.BasketId)?
                         .Years?.FirstOrDefault(x => x.Year == key.Year)?
-                        .Teams?.FirstOrDefault(x => x.Owner == key.Email);
+                        .Teams?.FirstOrDefault(x => string.Equals(x.Owner, key.Email, StringComparison.OrdinalIgnoreCase));
 
-                    if (annualTeam?.IsOwner(email) == true || value?.Owner == email)
+                    if (annualTeam?.IsOwner(email) == true)
                     {
                         return s_authorized;
                     }
 
-                    if (group?.AdminUsers.Any(x => x.Email == email) == true)
+                    if (group?.AdminUsers.Any(x => string.Equals(x.Email, email, StringComparison.OrdinalIgnoreCase)) == true)
                     {
                         return s_authorized;
                     }
