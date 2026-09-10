@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.13',
+    date: '10 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Corretto il riconoscimento del banditore quando l’admin o super admin non possiede una squadra partecipante all’asta'
+      }
+    ]
+  },
+  {
     version: '2.0.12',
     date: '10 Settembre 2026',
     changes: [

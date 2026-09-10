@@ -175,7 +175,7 @@ namespace Fantasoccer.Application.Api.Hubs
         {
             if (wrapper.Group == null) return false;
 
-            var participant = wrapper.Group.Participants.FirstOrDefault(x => x.Email == userEmail);
+            var participant = wrapper.Group.Users?.FirstOrDefault(x => string.Equals(x.Email, userEmail, StringComparison.OrdinalIgnoreCase));
             if (participant == null) return false;
 
             return participant.Role.HasFlag(IdentityRole.Admin) ||
