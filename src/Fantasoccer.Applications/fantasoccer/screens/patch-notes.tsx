@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.12',
+    date: '10 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description: 'Nella modalità TV i contatori dei giocatori mancanti mostrano ora i titolari Fantacalcio.it come numero principale e il totale dei mancanti tra parentesi'
+      }
+    ]
+  },
+  {
     version: '2.0.11',
     date: '10 Settembre 2026',
     changes: [

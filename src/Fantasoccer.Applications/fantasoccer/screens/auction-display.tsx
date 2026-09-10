@@ -118,7 +118,10 @@ export default function AuctionDisplayScreen() {
   const currentRole = state?.wrapper.currentRole ?? actual?.player.role ?? Role.Undefined
   const roleRemaining = remaining.filter(player => player.role === currentRole)
   const startersRemaining = roleRemaining.filter(player => starterKeys.has(player.key)).length
-  const tierCounts = [TeamTier.T1, TeamTier.T2, TeamTier.T3, TeamTier.T4].map(tier => ({ tier, count: roleRemaining.filter(player => getTeamTier(player.realTeam?.name) === tier).length }))
+  const tierCounts = [TeamTier.T1, TeamTier.T2, TeamTier.T3, TeamTier.T4].map(tier => {
+    const players = roleRemaining.filter(player => getTeamTier(player.realTeam?.name) === tier)
+    return { tier, count: players.length, starters: players.filter(player => starterKeys.has(player.key)).length }
+  })
   const startingMoney = state?.league?.settings?.startingMoney ?? 1000
 
   if (error) return <View style={{ flex: 1, backgroundColor: '#080b12', alignItems: 'center', justifyContent: 'center', padding: 32 }}><AlertCircle color="$red10" size={48} /><Text color="white" fontSize="$6" textAlign="center">{error}</Text></View>
@@ -144,9 +147,12 @@ export default function AuctionDisplayScreen() {
         </XStack>
 
         <XStack gap="$3" flexWrap="wrap">
-          <Metric label="Totale rimasti" value={remaining.length} />
-          {ROLES.map(role => <Metric key={role} label={getRoleLabel(role)} value={remaining.filter(player => player.role === role).length} active={role === currentRole} />)}
-          {tierCounts.map(item => <Metric key={item.tier} label={`T${item.tier} ${getRoleLabel(currentRole)}`} value={item.count} active={item.tier === TeamTier.T1} />)}
+          <Metric label="Totale rimasti" value={remaining.filter(player => starterKeys.has(player.key)).length} secondary={remaining.length} />
+          {ROLES.map(role => {
+            const players = remaining.filter(player => player.role === role)
+            return <Metric key={role} label={getRoleLabel(role)} value={players.filter(player => starterKeys.has(player.key)).length} secondary={players.length} active={role === currentRole} />
+          })}
+          {tierCounts.map(item => <Metric key={item.tier} label={`T${item.tier} ${getRoleLabel(currentRole)}`} value={item.starters} secondary={item.count} active={item.tier === TeamTier.T1} />)}
         </XStack>
 
         <XStack gap="$2" alignItems="center"><Users color="$blue9" /><Text color="white" fontSize="$6" fontWeight="800">Situazione squadre</Text></XStack>
@@ -166,6 +172,6 @@ export default function AuctionDisplayScreen() {
   </View>
 }
 
-function Metric({ label, value, active = false }: { label: string; value: number; active?: boolean }) {
-  return <Card minWidth={135} flexGrow={1} padding="$3" backgroundColor={active ? '$blue4' : '$color2'} borderColor={active ? '$blue8' : '$borderColor'} borderWidth={1}><Text color="$color10" textAlign="center">{label}</Text><Text fontSize="$7" fontWeight="900" textAlign="center">{value}</Text></Card>
+function Metric({ label, value, secondary, active = false }: { label: string; value: number; secondary?: number; active?: boolean }) {
+  return <Card minWidth={135} flexGrow={1} padding="$3" backgroundColor={active ? '$blue4' : '$color2'} borderColor={active ? '$blue8' : '$borderColor'} borderWidth={1}><Text color="$color10" textAlign="center">{label}</Text><Text fontSize="$7" fontWeight="900" textAlign="center">{value}{secondary !== undefined && <Text fontSize="$4" color="$color10"> ({secondary})</Text>}</Text>{secondary !== undefined && <Text fontSize="$1" color="$color10" textAlign="center">titolari (totali)</Text>}</Card>
 }
