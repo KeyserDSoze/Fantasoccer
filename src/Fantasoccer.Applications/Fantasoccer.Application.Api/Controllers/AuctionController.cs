@@ -181,7 +181,10 @@ namespace Fantasoccer.Application.Api.Controllers
             var name = _httpContextAccessor.HttpContext?.User?.Identity?.Name;
             if (name != null)
             {
-                return await _auctionHubService.GetCurrentWrapperAsync(auctionId);
+                var wrapper = await _auctionHubService.GetCurrentWrapperAsync(auctionId);
+                var identity = await _identityRepository.GetAsync(name);
+                if (wrapper?.Group != null && identity?.Groups.Any(x => string.Equals(x.Id, wrapper.Group.Id, StringComparison.OrdinalIgnoreCase)) == true)
+                    return wrapper;
             }
             return null;
         }

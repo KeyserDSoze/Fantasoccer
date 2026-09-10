@@ -76,7 +76,7 @@ export const returnUrlService = {
       // Handle different URL patterns
       if (urlParts[0] === 'auction' && urlParts[1]) {
         return {
-          routeName: 'AuctionLive',
+          routeName: urlParts[2] === 'display' ? 'AuctionDisplay' : 'AuctionLive',
           params: { auctionId: urlParts[1] },
         }
       }

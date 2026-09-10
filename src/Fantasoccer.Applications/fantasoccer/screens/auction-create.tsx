@@ -12,7 +12,7 @@ import {
   AuctionKindLabels,
   AuctionKindDescriptions
 } from 'types/auction'
-import { Gavel, Share2, Play, Copy, Check } from '@tamagui/lucide-icons-2'
+import { Gavel, Share2, Play, Copy, Check, Monitor } from '@tamagui/lucide-icons-2'
 
 export default function AuctionCreateScreen() {
   const media = useMedia()
@@ -25,6 +25,7 @@ export default function AuctionCreateScreen() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [displayCopied, setDisplayCopied] = useState(false)
 
   // Create auction
   const handleCreateAuction = useCallback(async () => {
@@ -57,6 +58,23 @@ export default function AuctionCreateScreen() {
     }
     return `https://fanta.zone/auction/${id}`
   }, [])
+
+  const getDisplayUrl = useCallback((id: string): string => `${getAuctionUrl(id)}/display`, [getAuctionUrl])
+
+  const handleCopyDisplayLink = useCallback(async () => {
+    if (!auctionId) return
+    const url = getDisplayUrl(auctionId)
+    if (Platform.OS === 'web') await navigator.clipboard.writeText(url)
+    setDisplayCopied(true)
+    setTimeout(() => setDisplayCopied(false), 2000)
+  }, [auctionId, getDisplayUrl])
+
+  const handleOpenDisplay = useCallback(async () => {
+    if (!auctionId) return
+    const url = getDisplayUrl(auctionId)
+    if (Platform.OS === 'web') window.open(url, '_blank')
+    else await Linking.openURL(url)
+  }, [auctionId, getDisplayUrl])
 
   // Copy link to clipboard
   const handleCopyLink = useCallback(async () => {
@@ -267,6 +285,11 @@ export default function AuctionCreateScreen() {
                       </YStack>
 
                       <YStack gap="$2">
+                        <Text fontSize="$3" fontWeight="600" color="$green11">Link modalità TV:</Text>
+                        <Card padding="$3" backgroundColor="$color1" borderRadius="$3"><Text fontSize="$2" color="$color11" selectable>{getDisplayUrl(auctionId)}</Text></Card>
+                      </YStack>
+
+                      <YStack gap="$2">
                         <Text fontSize="$3" fontWeight="600" color="$green11">
                           Link Asta:
                         </Text>
@@ -294,6 +317,12 @@ export default function AuctionCreateScreen() {
                       >
                         {copied ? 'Link Copiato!' : 'Copia Link'}
                       </Button>
+
+                      <Button icon={displayCopied ? Check : Copy} onPress={handleCopyDisplayLink} theme={displayCopied ? 'green' : 'blue'} variant="outlined">
+                        {displayCopied ? 'Link TV copiato!' : 'Copia link modalità TV'}
+                      </Button>
+
+                      <Button icon={Monitor} onPress={handleOpenDisplay} theme="blue">Apri modalità TV</Button>
 
                       <Button
                         icon={Share2}

@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.11',
+    date: '10 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunta la modalità TV read-only per seguire un’asta in tempo reale con giocatore corrente, timer, offerte, squadre e stato della sessione'
+      },
+      {
+        category: 'Feature',
+        description: 'La dashboard TV mostra giocatori rimasti per ruolo, tier 1-4, titolari Fantacalcio.it disponibili, crediti e posti mancanti per ogni squadra'
+      },
+      {
+        category: 'Improvement',
+        description: 'Aggiunti link, copia link e apertura diretta della modalità TV dopo la creazione e durante l’asta live'
+      },
+      {
+        category: 'Fix',
+        description: 'Corretta la risoluzione del deep link /auction/{auctionId}/display e limitato il caricamento dell’asta agli utenti appartenenti al gruppo'
+      }
+    ]
+  },
+  {
     version: '2.0.10',
     date: '9 Settembre 2026',
     changes: [

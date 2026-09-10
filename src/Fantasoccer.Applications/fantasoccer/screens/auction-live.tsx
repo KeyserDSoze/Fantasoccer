@@ -1,6 +1,6 @@
 // Auction Live Screen - Real-time auction management with bidding interface (Pulsantiera)
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { View, Platform, Vibration } from 'react-native'
+import { View, Platform, Vibration, Linking } from 'react-native'
 import { 
   Button, Card, Input, Select, Separator, Text, XStack, YStack, 
   useMedia, Spinner, Label, Dialog, ScrollView, Accordion, Square
@@ -24,7 +24,7 @@ import {
 import { Role } from 'types/group'
 import { 
   Gavel, Users, TrendingUp, Pause, Play, XCircle, ChevronDown, 
-  Clock, Lock, RotateCcw, Search, DollarSign, 
+  Clock, Lock, RotateCcw, Search, DollarSign, Monitor,
   AlertCircle, History, UserX
 } from '@tamagui/lucide-icons-2'
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native'
@@ -1851,6 +1851,15 @@ export default function AuctionLiveScreen() {
                     </Card>
                   </XStack>
                   <XStack gap="$2" alignItems="center" flexWrap="wrap">
+                    {Platform.OS === 'web' && <Button size="$3" variant="outlined" onPress={async () => {
+                      await navigator.clipboard.writeText(`${window.location.origin}/auction/${auctionId}/display`)
+                      toast.show('Link modalità TV copiato')
+                    }}>Copia link TV</Button>}
+                    <Button size="$3" icon={Monitor} onPress={() => {
+                      const url = Platform.OS === 'web' ? `${window.location.origin}/auction/${auctionId}/display` : `https://fanta.zone/auction/${auctionId}/display`
+                      if (Platform.OS === 'web') window.open(url, '_blank')
+                      else void Linking.openURL(url)
+                    }}>Modalità TV</Button>
                     <ToggleChip label="Audio" accent="green" checked={audioEnabled} onCheckedChange={setAudioEnabled} />
                     {Platform.OS !== 'web' && (
                       <ToggleChip label="Vibrazione" accent="green" checked={vibrationEnabled} onCheckedChange={setVibrationEnabled} />

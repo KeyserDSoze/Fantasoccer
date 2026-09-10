@@ -26,6 +26,7 @@ import CardsAdminScreen from 'screens/cards-admin';
 import CardEditScreen from 'screens/card-edit';
 import AuctionCreateScreen from 'screens/auction-create';
 import AuctionLiveScreen from 'screens/auction-live';
+import AuctionDisplayScreen from 'screens/auction-display';
 import PatchNotesScreen from 'screens/patch-notes';
 import { BackButton } from '../components/layout/BackButton';
 import { Login } from 'screens/login';
@@ -75,6 +76,7 @@ export type RootStackParamList = {
   PushNotification: undefined;
   AuctionCreate: undefined;
   AuctionLive: { auctionId: string };
+  AuctionDisplay: { auctionId: string };
 };
 
 // Tipo per la navigazione
@@ -165,6 +167,7 @@ const linking = {
       PushNotification: 'push-notification',
       AuctionCreate: 'auction/create',
       AuctionLive: 'auction/:auctionId',
+      AuctionDisplay: 'auction/:auctionId/display',
     },
   },
 };
@@ -217,6 +220,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="PushNotification" component={PushNotificationScreen} />
         <Stack.Screen name="AuctionCreate" component={AuctionCreateScreen} />
         <Stack.Screen name="AuctionLive" component={AuctionLiveScreen} />
+        <Stack.Screen name="AuctionDisplay" component={AuctionDisplayScreen} />
       </Stack.Navigator>
       {/* Listen for auth failures and redirect to Home */}
       <NavigationListener />
