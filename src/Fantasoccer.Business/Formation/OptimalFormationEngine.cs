@@ -18,7 +18,11 @@ namespace Fantasoccer.Business
             ArgumentNullException.ThrowIfNull(input);
             var players = input.Players
                 .Where(x => x != null && x.IsActive && x.Role != Role.Undefined)
-                .Select(x => new Candidate(x, CalculateProjection(x, input.Projections)))
+                .Select(x =>
+                {
+                    input.Projections.TryGetValue(x.Key, out var projection);
+                    return new Candidate(x, CalculateProjection(x, input.Projections), projection == null || projection.Availability > 0);
+                })
                 .OrderByDescending(x => x.Projection)
                 .ThenBy(x => x.Player.Key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -71,7 +75,7 @@ namespace Fantasoccer.Business
                     Role.Forward => formation.Forwards,
                     _ => 0
                 };
-                var candidates = players.Where(x => x.Player.Role == role).Take(count).ToList();
+                var candidates = players.Where(x => x.CanStart && x.Player.Role == role).Take(count).ToList();
                 if (candidates.Count != count)
                     return null;
                 selected.AddRange(candidates.Select((x, index) => new SelectedCandidate(x, ToPosition(role), index)));
@@ -123,7 +127,7 @@ namespace Fantasoccer.Business
         };
 
         private sealed record Formation(string Name, int Defenders, int Midfielders, int Forwards);
-        private sealed record Candidate(Player Player, float Projection)
+        private sealed record Candidate(Player Player, float Projection, bool CanStart)
         {
             public float Confidence => 0.5f;
         }

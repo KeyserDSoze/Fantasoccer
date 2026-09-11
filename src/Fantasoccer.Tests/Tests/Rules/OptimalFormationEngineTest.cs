@@ -39,6 +39,27 @@ namespace Fantasoccer.Tests.Tests.Rules
             Assert.NotEmpty(result.Warnings);
         }
 
+        [Fact]
+        public void DoesNotStartUnavailablePlayerEvenWhenProjectionIsHigher()
+        {
+            var players = CreatePlayers(1, 4, 4, 3);
+            var unavailable = players.Single(x => x.Role == Role.Defensor && x.Name.EndsWith("A"));
+            var result = new OptimalFormationEngine().Calculate(new OptimalFormationInput
+            {
+                Players = players,
+                Projections = new Dictionary<string, OptimalPlayerProjection>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [unavailable.Key] = new(FantaAverage: 10, Availability: 0)
+                }
+            });
+
+            Assert.DoesNotContain(result.Players, x => x.PlayerKey == unavailable.Key && IsStartingPosition(x.Position));
+            Assert.Contains(result.Players, x => x.PlayerKey == unavailable.Key);
+        }
+
+        private static bool IsStartingPosition(FantaSoccerRole position)
+            => position is FantaSoccerRole.GoalKeeper or FantaSoccerRole.Defensor or FantaSoccerRole.Midfielder or FantaSoccerRole.Forward;
+
         private static List<Player> CreatePlayers(int goalkeepers, int defenders, int midfielders, int forwards)
         {
             var players = new List<Player>();

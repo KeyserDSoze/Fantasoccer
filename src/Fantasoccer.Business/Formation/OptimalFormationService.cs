@@ -39,6 +39,8 @@ namespace Fantasoccer.Business
                 .Where(x => x.Status == PlayerInTeamStatus.Active)
                 .ToList();
             var enrichedPlayers = _teamCalculator.Enrich(activePlayers).ToList();
+            var hasProbableLineupData = enrichedPlayers.Any(x =>
+                x.Chance != null && (x.Chance.Fantagazzetta || x.Chance.Gazzetta));
             var stats = (await _statsRepository.GetAsync(year, cancellationToken))?.Players ?? [];
             var rank = (await _rankRepository.GetAsync(year, cancellationToken))?.Teams ?? [];
             var projections = enrichedPlayers
@@ -46,7 +48,7 @@ namespace Fantasoccer.Business
                 .GroupBy(x => x.Current.Key, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                 x => x.Key,
-                x => ToProjection(x.First(), stats, rank),
+                x => ToProjection(x.First(), stats, rank, hasProbableLineupData),
                 StringComparer.OrdinalIgnoreCase);
 
             return _engine.Calculate(new OptimalFormationInput
@@ -59,7 +61,8 @@ namespace Fantasoccer.Business
         private static OptimalPlayerProjection ToProjection(
             EnrichedPlayer player,
             IReadOnlyList<StatPlayer> stats,
-            IReadOnlyList<RealRankedTeam> rank)
+            IReadOnlyList<RealRankedTeam> rank,
+            bool hasProbableLineupData)
         {
             var stat = stats.FirstOrDefault(x => string.Equals(x.Key, player.Current.Key, StringComparison.OrdinalIgnoreCase));
             var vote = player.Vote?.Value ?? 0;
@@ -69,6 +72,9 @@ namespace Fantasoccer.Business
                 ChanceType.Maybe => 0.5f,
                 _ => 1
             };
+            if (hasProbableLineupData && player.Chance != null &&
+                !player.Chance.Fantagazzetta && !player.Chance.Gazzetta)
+                availability = 0;
             var average = stat?.Average ?? 0;
             var fantaAverage = stat?.FantaAverage ?? 0;
             var recentAverage = stat?.AllGames?

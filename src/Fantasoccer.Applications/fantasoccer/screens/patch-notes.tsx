@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.21',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'La formazione ottimale ora esclude dall’undici titolare i giocatori indicati fuori da Fantagazzetta e Gazzetta, mantenendoli disponibili per panchina o tribuna'
+      }
+    ]
+  },
+  {
     version: '2.0.20',
     date: '11 Settembre 2026',
     changes: [
