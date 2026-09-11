@@ -114,6 +114,52 @@ export default function InfoScreen() {
         alignItems="stretch"
         alignSelf="center"
       >
+            {media.gtMd && (
+              <Card
+                padding="$4"
+                backgroundColor="$purple2"
+                borderRadius="$4"
+                borderWidth={1}
+                borderColor="$purple8"
+                gap="$3"
+              >
+                <XStack alignItems="center" gap="$2">
+                  <Info size="$1" color="$purple10" />
+                  <H3 color="$purple11">Comandi rapidi desktop</H3>
+                </XStack>
+                <Separator />
+                <Paragraph fontSize="$3" color="$purple11">
+                  Nella formazione da PC puoi usare il click destro o la tastiera per fare modifiche rapide senza aprire ogni volta la scheda del giocatore.
+                </Paragraph>
+                <YStack gap="$2">
+                  <Text fontSize="$3" fontWeight="700" color="$purple11">Click destro</Text>
+                  <Text fontSize="$2" color="$purple10">
+                    Il menu si apre sopra al punto del click e permette di scegliere titolari, primo o secondo panchinaro e tribuna. Se la posizione è occupata, i due giocatori vengono scambiati automaticamente.
+                  </Text>
+                </YStack>
+                <YStack gap="$2">
+                  <Text fontSize="$3" fontWeight="700" color="$purple11">Legenda ruoli</Text>
+                  <XStack gap="$2" flexWrap="wrap">
+                    <Text backgroundColor="$green4" color="$green11" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">A = attaccanti</Text>
+                    <Text backgroundColor="$blue4" color="$blue11" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">D = difensori</Text>
+                    <Text backgroundColor="$orange4" color="$orange11" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">C = centrocampisti</Text>
+                    <Text backgroundColor="$purple4" color="$purple11" paddingHorizontal="$2" paddingVertical="$1" borderRadius="$2">P = portieri</Text>
+                  </XStack>
+                </YStack>
+                <YStack gap="$2">
+                  <Text fontSize="$3" fontWeight="700" color="$purple11">Numeri destinazione</Text>
+                  <Text fontSize="$2" color="$purple10">
+                    1, 2, 3 = titolari · 4 = primo panchinaro · 5 = secondo panchinaro · 6 = tribuna. Il portiere adatta automaticamente i comandi agli slot disponibili.
+                  </Text>
+                </YStack>
+                <YStack gap="$2">
+                  <Text fontSize="$3" fontWeight="700" color="$purple11">Sequenza tastiera</Text>
+                  <Text fontSize="$2" color="$purple10">
+                    Ctrl + ruolo + numero seleziona un giocatore, ad esempio Ctrl + A + 1. Poi Shift + ruolo + numero applica lo spostamento, ad esempio Shift + A + 4. Se non hai ancora una selezione, una combinazione senza Ctrl seleziona il giocatore.
+                  </Text>
+                </YStack>
+              </Card>
+            )}
             {/* Sezione Spiegazione Icone */}
             <Card
               padding="$4"

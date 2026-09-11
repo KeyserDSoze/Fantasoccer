@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.30',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Aggiunta nella Guida al sito una legenda desktop con istruzioni per il click destro e per le scorciatoie Ctrl e Shift della formazione',
+      },
+    ],
+  },
+  {
     version: '2.0.29',
     date: '11 Settembre 2026',
     changes: [
