@@ -106,6 +106,7 @@ export default function SettingsScreen() {
   const [logoSuccess, setLogoSuccess] = useState(false);
   const [copyLogoSuccess, setCopyLogoSuccess] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
+  const [optimalFormationInfoOpen, setOptimalFormationInfoOpen] = useState(false);
   const [showCopyLogoModal, setShowCopyLogoModal] = useState(false);
 
   // Local state for updated team name (to avoid full page refresh)
@@ -343,6 +344,54 @@ export default function SettingsScreen() {
                     {userSettings.autoOptimalFormation ? 'Disattiva' : 'Attiva'}
                   </Button>
                 </XStack>
+                <XStack
+                  alignItems="center"
+                  justifyContent="space-between"
+                  paddingVertical="$2"
+                  pressStyle={{ opacity: 0.75 }}
+                  onPress={() => setOptimalFormationInfoOpen((open) => !open)}>
+                  <Text color="$purple10" fontWeight="600">
+                    Come funziona la formazione ottimale?
+                  </Text>
+                  {optimalFormationInfoOpen ? (
+                    <ChevronUp size="$1.5" color="$purple10" />
+                  ) : (
+                    <ChevronDown size="$1.5" color="$purple10" />
+                  )}
+                </XStack>
+                {optimalFormationInfoOpen && (
+                  <Card
+                    padding="$3"
+                    backgroundColor="$color3"
+                    borderRadius="$3"
+                    borderWidth="$0.5"
+                    borderColor="$purple7">
+                    <YStack gap="$3">
+                      <Text color="$color12" fontWeight="600">
+                        L&apos;algoritmo sceglie la formazione per ogni nuova giornata.
+                      </Text>
+                      <Text color="$color11" fontSize="$2">
+                        1. Considera solo i giocatori attivi e verifica chi è indicato titolare da
+                        Fantagazzetta o Gazzetta. Gli indisponibili e chi non è previsto titolare
+                        non entrano nell&apos;undici, ma possono restare in panchina o in tribuna.
+                      </Text>
+                      <Text color="$color11" fontSize="$2">
+                        2. Valuta media fantavoto, rendimento recente, voto atteso, stato di
+                        disponibilità e forza della squadra.
+                      </Text>
+                      <Text color="$color11" fontSize="$2">
+                        3. Considera la partita: casa o trasferta, avversario e tier dinamico della
+                        classifica ufficiale di Serie A. Le prime 5 squadre sono T1, le successive 5
+                        T2, poi T3 e T4. Affrontare in trasferta una squadra di tier superiore pesa
+                        negativamente in modo significativo.
+                      </Text>
+                      <Text color="$color11" fontSize="$2">
+                        4. Confronta i moduli validi e sceglie quello con il punteggio complessivo
+                        migliore. A parità di punteggio privilegia il 3-4-3.
+                      </Text>
+                    </YStack>
+                  </Card>
+                )}
               </YStack>
             </Card>
 

@@ -105,7 +105,7 @@ namespace Fantasoccer.Business
             var baseValue = value.FantaAverage > 0 ? value.FantaAverage : value.Average;
             var recent = value.RecentAverage > 0 ? value.RecentAverage : baseValue;
             var availability = Math.Clamp(value.Availability, 0, 1);
-            return baseValue * 0.40f + recent * 0.25f + value.Matchup * 0.15f + value.HomeAway * 0.05f + value.Rank * 0.05f + availability * 0.10f;
+            return baseValue * 0.35f + recent * 0.20f + value.Matchup * 0.30f + value.HomeAway * 0.05f + value.Rank * 0.05f + availability * 0.05f;
         }
 
         private static FantaSoccerRole ToPosition(Role role) => role switch

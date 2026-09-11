@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.22',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Aggiunta nei settings una spiegazione apribile del funzionamento della formazione ottimale, inclusi pesi, filtri e tier'
+      },
+      {
+        category: 'Improvement',
+        description: 'I tier della formazione ora vengono calcolati dinamicamente dalla classifica ufficiale di Serie A e il matchup casa/trasferta contro squadre di tier superiore ha un peso maggiore'
+      }
+    ]
+  },
+  {
     version: '2.0.21',
     date: '11 Settembre 2026',
     changes: [

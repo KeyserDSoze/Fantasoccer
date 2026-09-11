@@ -105,15 +105,38 @@ namespace Fantasoccer.Business
                 return 0;
             var ownName = player.Current.RealTeam?.Name;
             var opponent = IsHome(player) ? player.RealGame.Away?.Name : player.RealGame.Home?.Name;
-            var own = rank.FirstOrDefault(x => string.Equals(x.Name, ownName, StringComparison.OrdinalIgnoreCase))?.Point;
-            var other = rank.FirstOrDefault(x => string.Equals(x.Name, opponent, StringComparison.OrdinalIgnoreCase))?.Point;
-            return own.HasValue && other.HasValue ? Math.Clamp((own.Value - other.Value) / 20f, -1, 1) : 0;
+            var ownTeam = rank.FirstOrDefault(x => string.Equals(x.Name, ownName, StringComparison.OrdinalIgnoreCase));
+            var opponentTeam = rank.FirstOrDefault(x => string.Equals(x.Name, opponent, StringComparison.OrdinalIgnoreCase));
+            if (ownTeam == null || opponentTeam == null)
+                return 0;
+
+            var ownTier = TierOf(ownTeam.Name, rank);
+            var opponentTier = TierOf(opponentTeam.Name, rank);
+            var tierAdvantage = (opponentTier - ownTier) / 3f;
+            var pointsAdvantage = Math.Clamp((ownTeam.Point - opponentTeam.Point) / 30f, -1, 1);
+            var homeAdvantage = IsHome(player) ? 0.15f : -0.15f;
+            return Math.Clamp(tierAdvantage * 0.7f + pointsAdvantage * 0.3f + homeAdvantage, -1, 1);
         }
 
         private static float RankValue(EnrichedPlayer player, IReadOnlyList<RealRankedTeam> rank)
         {
-            var point = rank.FirstOrDefault(x => string.Equals(x.Name, player.Current.RealTeam?.Name, StringComparison.OrdinalIgnoreCase))?.Point;
-            return point.HasValue ? Math.Clamp(point.Value / 100f, -1, 1) : 0;
+            var team = rank.FirstOrDefault(x => string.Equals(x.Name, player.Current.RealTeam?.Name, StringComparison.OrdinalIgnoreCase));
+            if (team == null)
+                return 0;
+
+            var tier = TierOf(team.Name, rank);
+            return Math.Clamp((4 - tier) / 3f, -1, 1);
+        }
+
+        private static int TierOf(string? teamName, IReadOnlyList<RealRankedTeam> rank)
+        {
+            if (string.IsNullOrWhiteSpace(teamName))
+                return 4;
+
+            var position = rank
+                .Select((team, index) => new { team, index })
+                .FirstOrDefault(x => string.Equals(x.team.Name, teamName, StringComparison.OrdinalIgnoreCase))?.index;
+            return position.HasValue ? Math.Min(position.Value / 5 + 1, 4) : 4;
         }
 
         private static bool IsHome(EnrichedPlayer player)
