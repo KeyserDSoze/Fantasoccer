@@ -85,7 +85,10 @@ namespace Fantasoccer.Business
             var bench = players
                 .Where(x => !selectedKeys.Contains(x.Player.Key))
                 .GroupBy(x => x.Player.Role)
-                .SelectMany(x => x.Take(2))
+                .SelectMany(x => x
+                    .OrderByDescending(player => player.CanStart)
+                    .ThenByDescending(player => player.Projection)
+                    .Take(2))
                 .Take(7)
                 .Select((x, index) => new SelectedCandidate(x, BenchPosition(x.Player.Role, index), index))
                 .ToList();
@@ -94,9 +97,18 @@ namespace Fantasoccer.Business
                 .Where(x => !selectedKeys.Contains(x.Player.Key) && !benchKeys.Contains(x.Player.Key))
                 .Select(x => new SelectedCandidate(x, FantaSoccerRole.Tribune, 0));
             var result = selected.Concat(bench).Concat(tribune).ToList();
-            var score = selected.Sum(x => x.Candidate.Projection);
+            var score = selected.Sum(x => x.Candidate.Projection) + OffensiveBonus(formation);
+            foreach (var role in new[] { Role.Defensor, Role.Midfielder, Role.Forward })
+            {
+                var hasPlayableBackup = players.Any(x =>
+                    x.CanStart && x.Player.Role == role && !selectedKeys.Contains(x.Player.Key));
+                score += hasPlayableBackup ? 0.12f : -0.45f;
+            }
             return new Solution(formation, result, score);
         }
+
+        private static float OffensiveBonus(Formation formation)
+            => formation.Forwards * 0.15f + formation.Midfielders * 0.03f - formation.Defenders * 0.05f;
 
         private static float CalculateProjection(Player player, IReadOnlyDictionary<string, OptimalPlayerProjection> projections)
         {

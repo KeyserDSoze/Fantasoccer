@@ -57,6 +57,26 @@ namespace Fantasoccer.Tests.Tests.Rules
             Assert.Contains(result.Players, x => x.PlayerKey == unavailable.Key);
         }
 
+        [Fact]
+        public void PrefersThreeFourThreeWhenEveryRoleHasPlayableBackup()
+        {
+            var players = CreatePlayers(2, 5, 5, 4);
+
+            var result = new OptimalFormationEngine().Calculate(new OptimalFormationInput { Players = players });
+
+            Assert.Equal("3-4-3", result.Module);
+        }
+
+        [Fact]
+        public void AvoidsThreeFourThreeWhenItLeavesNoPlayableMidfielderBackup()
+        {
+            var players = CreatePlayers(2, 5, 4, 4);
+
+            var result = new OptimalFormationEngine().Calculate(new OptimalFormationInput { Players = players });
+
+            Assert.Equal("4-3-3", result.Module);
+        }
+
         private static bool IsStartingPosition(FantaSoccerRole position)
             => position is FantaSoccerRole.GoalKeeper or FantaSoccerRole.Defensor or FantaSoccerRole.Midfielder or FantaSoccerRole.Forward;
 

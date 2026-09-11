@@ -387,7 +387,8 @@ export default function SettingsScreen() {
                       </Text>
                       <Text color="$color11" fontSize="$2">
                         4. Confronta i moduli validi e sceglie quello con il punteggio complessivo
-                        migliore. A parità di punteggio privilegia il 3-4-3.
+                        migliore. Privilegia moduli offensivi come il 3-4-3, ma riduce il rischio se
+                        un reparto non avrebbe almeno una riserva indicata come probabile titolare.
                       </Text>
                     </YStack>
                   </Card>

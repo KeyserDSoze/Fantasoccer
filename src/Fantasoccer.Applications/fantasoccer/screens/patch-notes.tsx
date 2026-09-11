@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.23',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description: 'La formazione ottimale privilegia i moduli offensivi, in particolare il 3-4-3, solo quando ogni reparto mantiene almeno una riserva indicata come probabile titolare'
+      },
+      {
+        category: 'Improvement',
+        description: 'La panchina viene ora ordinata dando priorità ai giocatori con maggiore probabilità di giocare'
+      }
+    ]
+  },
+  {
     version: '2.0.22',
     date: '11 Settembre 2026',
     changes: [
