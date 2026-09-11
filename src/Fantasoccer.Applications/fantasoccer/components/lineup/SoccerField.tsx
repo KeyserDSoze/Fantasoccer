@@ -10,6 +10,7 @@ import { PlayerCard, PLAYER_CARD_HEIGHT, PLAYER_CARD_WIDTH } from './PlayerCard'
 import { PlayerSwapModal } from './PlayerSwapModal';
 import { PlayerViewModal } from './PlayerViewModal';
 import { QuickPlayerMenu } from './QuickPlayerMenu';
+import { MobileQuickFormationView, type QuickFormationStatus } from './MobileQuickFormationView';
 import { ZoomControls } from '../field/ZoomControls';
 import { useResponsiveField } from '../../hooks/useResponsiveField';
 import { useAuth } from '../../providers/AuthProvider';
@@ -274,6 +275,8 @@ export const SoccerField = memo(
       teamIndex: number;
       anchor: { x: number; y: number };
     } | null>(null);
+    const [showQuickFormation, setShowQuickFormation] = useState(false);
+    const [quickFormationResetKey, setQuickFormationResetKey] = useState(0);
     const [keyboardSelection, setKeyboardSelection] = useState<{
       player: LivePlayer;
       teamIndex: number;
@@ -938,6 +941,82 @@ export const SoccerField = memo(
       toast.show('↩️ Formazione ripristinata', { variant: 'info' });
     };
 
+    const handleQuickFormationMove = (
+      player: LivePlayer,
+      status: QuickFormationStatus,
+      teamIndex: number
+    ) => {
+      const currentTeam = teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      const role = (player.current as any)?.role ?? Role.Undefined;
+      const targetPosition =
+        role === Role.GoalKeeper
+          ? status === 'starter'
+            ? FantaSoccerRole.GoalKeeper
+            : status === 'firstBench'
+              ? FantaSoccerRole.BackupGoalKeeper
+              : status === 'tribune'
+                ? FantaSoccerRole.Tribune
+                : undefined
+          : status === 'starter'
+            ? role === Role.Defensor
+              ? FantaSoccerRole.Defensor
+              : role === Role.Midfielder
+                ? FantaSoccerRole.Midfielder
+                : FantaSoccerRole.Forward
+            : status === 'firstBench'
+              ? role === Role.Defensor
+                ? FantaSoccerRole.FirstBackupDefensor
+                : role === Role.Midfielder
+                  ? FantaSoccerRole.FirstBackupMidfielder
+                  : FantaSoccerRole.FirstBackupForward
+              : status === 'secondBench'
+                ? role === Role.Defensor
+                  ? FantaSoccerRole.SecondBackupDefensor
+                  : role === Role.Midfielder
+                    ? FantaSoccerRole.SecondBackupMidfielder
+                    : FantaSoccerRole.SecondBackupForward
+                : FantaSoccerRole.Tribune;
+
+      if (targetPosition === undefined || player.currentPosition === targetPosition) return;
+
+      const isUniquePosition =
+        targetPosition === FantaSoccerRole.GoalKeeper ||
+        targetPosition === FantaSoccerRole.BackupGoalKeeper ||
+        targetPosition === FantaSoccerRole.FirstBackupDefensor ||
+        targetPosition === FantaSoccerRole.SecondBackupDefensor ||
+        targetPosition === FantaSoccerRole.FirstBackupMidfielder ||
+        targetPosition === FantaSoccerRole.SecondBackupMidfielder ||
+        targetPosition === FantaSoccerRole.FirstBackupForward ||
+        targetPosition === FantaSoccerRole.SecondBackupForward;
+      const targetPlayer = isUniquePosition
+        ? currentTeam.players.find(
+            (candidate) =>
+              candidate.current.name !== player.current.name &&
+              candidate.currentPosition === targetPosition
+          )
+        : undefined;
+      const players = currentTeam.players.map((candidate) => {
+        if (candidate.current.name === player.current.name)
+          return {
+            ...candidate,
+            currentPosition: targetPlayer?.currentPosition ?? targetPosition,
+          };
+        if (targetPlayer && candidate.current.name === targetPlayer.current.name)
+          return { ...candidate, currentPosition: player.currentPosition };
+        return candidate;
+      });
+
+      setFormationBackup((current) => current ?? { home, away });
+      setLocalTeams((prev) => ({
+        ...prev,
+        [teamIndex === 0 ? 'home' : 'away']: { ...currentTeam, players },
+      }));
+      setHasLocalChanges(true);
+      setModifiedTeamIndex(teamIndex);
+    };
+
     // Funzione per salvare il team modificato
     const handleSave = async () => {
       if (!groupId || !leagueId || year == null || !gameId || !hasLocalChanges) return;
@@ -985,6 +1064,7 @@ export const SoccerField = memo(
           if (onRefresh) {
             await onRefresh();
           }
+          setQuickFormationResetKey((current) => current + 1);
         } else {
           toast.show(`Errore: ${response?.m || 'Salvataggio fallito'}`, { variant: 'error' });
         }
@@ -1177,6 +1257,10 @@ export const SoccerField = memo(
 
     // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
     const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges;
+    const quickFormationTeamIndex = homeIsMyTeam ? 0 : awayIsMyTeam ? 1 : null;
+    const quickFormationTeam = quickFormationTeamIndex === 0 ? home : away;
+    const showQuickFormationButton =
+      isMobile && editMode === 'formation' && !hasGameStarted && quickFormationTeamIndex !== null;
     // L'AI manuale resta sempre disponibile per una squadra modificabile.
     const showOptimalButton = homeIsMyTeam || awayIsMyTeam;
     // Mostra la toolbar se c'è almeno un pulsante da visualizzare
@@ -1379,6 +1463,16 @@ export const SoccerField = memo(
                             {isSaving ? 'Salvataggio...' : 'Salva Formazione'}
                           </Button>
                         )}
+                        {showQuickFormationButton && (
+                          <Button
+                            backgroundColor="$blue10"
+                            color="#fff"
+                            size="$4"
+                            fontWeight="700"
+                            onPress={() => setShowQuickFormation((current) => !current)}>
+                            {showQuickFormation ? 'Chiudi vista rapida' : 'Vista rapida'}
+                          </Button>
+                        )}
                       </XStack>
                     )}
                     {zoomControls && (
@@ -1400,6 +1494,20 @@ export const SoccerField = memo(
           </Accordion>
         )}
 
+        {showQuickFormation && quickFormationTeam && quickFormationTeamIndex !== null && (
+          <MobileQuickFormationView
+            key={`${quickFormationTeam.name}-${quickFormationResetKey}`}
+            team={quickFormationTeam}
+            hasLocalChanges={hasLocalChanges}
+            isSaving={isSaving}
+            onMove={(player, status) =>
+              handleQuickFormationMove(player, status, quickFormationTeamIndex)
+            }
+            onSave={handleSave}
+            onClose={() => setShowQuickFormation(false)}
+          />
+        )}
+        <YStack display={showQuickFormation ? 'none' : 'flex'}>
         {/* CAMPO DA CALCIO */}
         <YStack position="relative" width="100%" height={height} maxWidth="100%">
           {/* SVG field background with responsive orientation */}
@@ -1815,6 +1923,7 @@ export const SoccerField = memo(
             </YStack>
           </YStack>
         )}
+        </YStack>
 
         {/* MODALE PER EDITING */}
         <QuickPlayerMenu
