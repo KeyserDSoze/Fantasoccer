@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.19',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Aggiunte ulteriori protezioni nel calcolo OptimalFormation per dati annidati mancanti, liste di voti/calendario assenti e chiavi giocatore duplicate'
+      },
+      {
+        category: 'Fix',
+        description: 'Regolata a 28 la distanza della fascia partita dal fondo della scheda giocatore per ridurre lo spazio con il nome mantenendo visibili partita e orario'
+      }
+    ]
+  },
+  {
     version: '2.0.18',
     date: '11 Settembre 2026',
     changes: [

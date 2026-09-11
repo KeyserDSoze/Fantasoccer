@@ -664,7 +664,7 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
       {gameInfo && (
         <YStack
           position="absolute"
-          bottom={30}
+          bottom={28}
           left={0}
           right={0}
           backgroundColor="rgba(0, 0, 0, 0.85)"
