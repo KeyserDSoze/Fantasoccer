@@ -121,6 +121,20 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Save_incomplete_formation_returns_formation_validation_error()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var submitted = CreateTeam(Owner, "Home");
+        submitted.Players.First(player => player.Position == FantaSoccerRole.GoalKeeper).Position = FantaSoccerRole.Tribune;
+
+        var response = await SaveAsync(submitted, "formation");
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("Meno di 11 giocatori titolari schierati", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Save_live_team_rejects_changes_after_deadline()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-5));

@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.28',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Aggiunto su desktop il menu rapido con click destro per spostare i giocatori tra titolari, panchina e tribuna, effettuando automaticamente lo scambio quando la posizione è occupata',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Le formazioni incomplete continuano a essere rifiutate dal salvataggio con un errore esplicito di validazione della formazione',
+      },
+    ],
+  },
+  {
     version: '2.0.27',
     date: '11 Settembre 2026',
     changes: [

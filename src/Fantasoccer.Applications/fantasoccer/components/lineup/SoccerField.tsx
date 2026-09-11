@@ -9,6 +9,7 @@ import { Role } from 'types/group';
 import { PlayerCard, PLAYER_CARD_HEIGHT, PLAYER_CARD_WIDTH } from './PlayerCard';
 import { PlayerSwapModal } from './PlayerSwapModal';
 import { PlayerViewModal } from './PlayerViewModal';
+import { QuickPlayerMenu } from './QuickPlayerMenu';
 import { ZoomControls } from '../field/ZoomControls';
 import { useResponsiveField } from '../../hooks/useResponsiveField';
 import { useAuth } from '../../providers/AuthProvider';
@@ -268,6 +269,10 @@ export const SoccerField = memo(
     const [isSaving, setIsSaving] = useState(false);
     const [isCalculatingOptimal, setIsCalculatingOptimal] = useState(false);
     const [currentTime, setCurrentTime] = useState(Date.now());
+    const [quickMenu, setQuickMenu] = useState<{
+      player: LivePlayer;
+      teamIndex: number;
+    } | null>(null);
 
     // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
     const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({});
@@ -415,6 +420,66 @@ export const SoccerField = memo(
     }, [home, away]);
     const controlsDefaultOpen =
       editMode === 'formation' || (editMode === 'live' && !hasGameStarted);
+
+    const handlePlayerContextMenu = (
+      event: any,
+      player: LivePlayer,
+      teamIndex: number,
+      isMyTeam: boolean
+    ) => {
+      if (isMobile || !canEdit || !isMyTeam || isLiveEdit) return;
+      event?.preventDefault?.();
+      setQuickMenu({ player, teamIndex });
+    };
+
+    const closeQuickMenu = () => setQuickMenu(null);
+
+    const commitQuickTeamChange = (teamIndex: number, players: LivePlayer[]) => {
+      const currentTeam = teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      setFormationBackup((current) => current ?? { home, away });
+      setLocalTeams((prev) => ({
+        ...prev,
+        [teamIndex === 0 ? 'home' : 'away']: { ...currentTeam, players },
+      }));
+      setHasLocalChanges(true);
+      setModifiedTeamIndex(teamIndex);
+      closeQuickMenu();
+    };
+
+    const handleQuickMoveToPosition = (targetPosition: FantaSoccerRole) => {
+      if (!quickMenu) return;
+      const currentTeam = quickMenu.teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      const selectedName = quickMenu.player.current.name;
+      const players = currentTeam.players.map((candidate) =>
+        candidate.current.name === selectedName
+          ? { ...candidate, currentPosition: targetPosition }
+          : candidate
+      );
+      commitQuickTeamChange(quickMenu.teamIndex, players);
+    };
+
+    const handleQuickSwap = (targetPlayer: LivePlayer) => {
+      if (!quickMenu) return;
+      const currentTeam = quickMenu.teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      const selectedName = quickMenu.player.current.name;
+      const targetName = targetPlayer.current.name;
+      const selectedPosition = quickMenu.player.currentPosition;
+      const targetPosition = targetPlayer.currentPosition;
+      const players = currentTeam.players.map((candidate) => {
+        if (candidate.current.name === selectedName)
+          return { ...candidate, currentPosition: targetPosition };
+        if (candidate.current.name === targetName)
+          return { ...candidate, currentPosition: selectedPosition };
+        return candidate;
+      });
+      commitQuickTeamChange(quickMenu.teamIndex, players);
+    };
 
     // Funzione per gestire click su un giocatore
     const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
@@ -859,6 +924,9 @@ export const SoccerField = memo(
                   key={`${sectionKey}-${i}`}
                   player={player}
                   onPress={() => handlePlayerClick(player, teamIndex)}
+                  onContextMenu={(event) =>
+                    handlePlayerContextMenu(event, player, teamIndex, isMyTeam)
+                  }
                   statPlayersMap={statPlayersMap}
                 />
               ))}
@@ -1176,6 +1244,9 @@ export const SoccerField = memo(
                         key={`${p.current?.name ?? ''}-${i}`}
                         player={p}
                         onPress={() => handlePlayerClick(p, teamIndex)}
+                        onContextMenu={(event) =>
+                          handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
+                        }
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1211,6 +1282,9 @@ export const SoccerField = memo(
                         key={`${p.current?.name ?? ''}-${i}`}
                         player={p}
                         onPress={() => handlePlayerClick(p, teamIndex)}
+                        onContextMenu={(event) =>
+                          handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
+                        }
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1478,6 +1552,9 @@ export const SoccerField = memo(
                         key={`home-tribune-${i}`}
                         player={player}
                         onPress={() => handlePlayerClick(player, 0)}
+                        onContextMenu={(event) =>
+                          handlePlayerContextMenu(event, player, 0, homeIsMyTeam)
+                        }
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1520,6 +1597,9 @@ export const SoccerField = memo(
                         key={`away-tribune-${i}`}
                         player={player}
                         onPress={() => handlePlayerClick(player, 1)}
+                        onContextMenu={(event) =>
+                          handlePlayerContextMenu(event, player, 1, awayIsMyTeam)
+                        }
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1536,6 +1616,14 @@ export const SoccerField = memo(
         )}
 
         {/* MODALE PER EDITING */}
+        <QuickPlayerMenu
+          open={quickMenu !== null}
+          player={quickMenu?.player ?? null}
+          allPlayers={quickMenu?.teamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])}
+          onClose={closeQuickMenu}
+          onMoveToPosition={handleQuickMoveToPosition}
+          onSwap={handleQuickSwap}
+        />
         <PlayerSwapModal
           isOpen={modalOpen}
           onClose={() => {
