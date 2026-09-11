@@ -67,11 +67,26 @@ namespace Fantasoccer.Engine.IngestionData
                                 var oldTeam = await _repository.GetAsync(key, cancellationToken).NoContext();
                                 if (oldTeam != null)
                                 {
-                                    await _repository.InsertAsync(nextKey, oldTeam, cancellationToken).NoContext();
+                                    // La formazione passa alla nuova giornata, i cambi live e il relativo storico no.
+                                    var nextTeam = oldTeam.Clone();
+                                    nextTeam.FormationChanges = 0;
+                                    nextTeam.FormationChangeHistory = [];
+                                    await _repository.InsertAsync(nextKey, nextTeam, cancellationToken).NoContext();
                                     listUpdated.Add(owner);
                                 }
                                 else
                                     await _logger.LogAsync<SetFormationJob>($"Impossible to set formation for {owner}").NoContext();
+                            }
+                            else
+                            {
+                                var nextTeam = await _repository.GetAsync(nextKey, cancellationToken).NoContext();
+                                if (nextTeam != null && (nextTeam.FormationChanges > 0 || (nextTeam.FormationChangeHistory?.Count ?? 0) > 0))
+                                {
+                                    nextTeam = nextTeam.Clone();
+                                    nextTeam.FormationChanges = 0;
+                                    nextTeam.FormationChangeHistory = [];
+                                    await _repository.UpdateAsync(nextKey, nextTeam, cancellationToken).NoContext();
+                                }
                             }
                         }
                     }

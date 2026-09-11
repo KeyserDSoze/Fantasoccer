@@ -35,6 +35,7 @@ export type LeagueCalendarWidgetProps = {
   groupId?: string | null
   leagueId?: string | null
   year?: number | null
+  editMode?: 'live' | 'view'
 }
 
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare il calendario.'
@@ -49,7 +50,8 @@ const GameRow: FC<{
   groupId?: string | null
   leagueId?: string | null
   year?: number | null
-}> = ({ game, dayNumber, groupId: propGroupId, leagueId: propLeagueId, year: propYear }) => {
+  editMode?: 'live' | 'view'
+}> = ({ game, dayNumber, groupId: propGroupId, leagueId: propLeagueId, year: propYear, editMode = 'view' }) => {
   let hasResult = Boolean(game.result)
   const homeGoals = game.result?.homeGoals ?? '—'
   const awayGoals = game.result?.awayGoals ?? '—'
@@ -89,7 +91,8 @@ const GameRow: FC<{
       gameId: game.id, 
       leagueId: leagueId, 
       year: year?.toString(), 
-      groupId: group 
+      groupId: group,
+      editMode
     })
   }
 
@@ -169,7 +172,8 @@ const DayCard: FC<{
   groupId?: string | null
   leagueId?: string | null
   year?: number | null
-}> = ({ day, groupId, leagueId, year }) => (
+  editMode?: 'live' | 'view'
+}> = ({ day, groupId, leagueId, year, editMode }) => (
   <Card
     padding="$3"
     backgroundColor="$color2"
@@ -213,6 +217,7 @@ const DayCard: FC<{
             groupId={groupId}
             leagueId={leagueId}
             year={year}
+            editMode={editMode}
           />
         </Card>
       ))}
@@ -238,6 +243,7 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   groupId,
   leagueId,
   year,
+  editMode = 'view',
 }) => {
   const showSelectionIncomplete = Boolean(isSelectionIncomplete)
   const showError = Boolean(error)
@@ -350,6 +356,7 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
                   groupId={groupId}
                   leagueId={leagueId}
                   year={year}
+                  editMode={editMode}
                 />
               ))}
             </XStack>

@@ -363,6 +363,7 @@ export default function LiveScreen() {
                     groupId={groupId}
                     leagueId={localLeagueId}
                     year={liveYear}
+                    editMode="live"
                   />
                 </YStack>
                 <YStack flex={1} minWidth={0} gap="$4">
@@ -412,6 +413,7 @@ export default function LiveScreen() {
                   groupId={groupId}
                   leagueId={localLeagueId}
                   year={liveYear}
+                  editMode="live"
                 />
 
                 <LeagueRankingWidget

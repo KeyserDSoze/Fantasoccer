@@ -90,4 +90,47 @@ public sealed class RealCalendarTest
         Assert.Null(calendar.LiveDay);
         Assert.Null(calendar.LiveGames);
     }
+
+    [Fact]
+    public void LiveFormationWindowEndsFourHoursAfterLastGameStarts()
+    {
+        var lastGameStart = FantacalcioTime.ItalyNow.AddHours(-1);
+        var calendar = new RealCalendar
+        {
+            Days =
+            [
+                new RealDay
+                {
+                    SerieADay = 1,
+                    Games =
+                    [
+                        new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(-2) },
+                        new RealGame { Date = lastGameStart }
+                    ]
+                }
+            ]
+        };
+
+        Assert.Equal(lastGameStart.AddHours(4), calendar.LiveFormationDeadline);
+        Assert.True(calendar.IsLiveFormationWindowOpen);
+    }
+
+    [Fact]
+    public void LiveFormationWindowClosesAfterDeadline()
+    {
+        var calendar = new RealCalendar
+        {
+            Days =
+            [
+                new RealDay
+                {
+                    SerieADay = 1,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(-5) }]
+                }
+            ]
+        };
+
+        Assert.NotNull(calendar.LiveDay);
+        Assert.False(calendar.IsLiveFormationWindowOpen);
+    }
 }

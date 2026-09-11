@@ -14,6 +14,14 @@ namespace Fantasoccer
         public List<LivePlayer> Players { get; set; }
         [JsonPropertyName("d")]
         public DateTime? LastUpdate { get; set; }
+        [JsonPropertyName("fm")]
+        public int? FormationChangesMaximum { get; set; }
+        [JsonPropertyName("fu")]
+        public int? FormationChangesUsed { get; set; }
+        [JsonPropertyName("fr")]
+        public int? FormationChangesRemaining { get; set; }
+        [JsonPropertyName("fh")]
+        public List<LiveFormationChange> FormationChangeHistory { get; set; } = [];
     }
 
 }

@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.14',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Ripristinati in alto i nomi delle squadre avversarie, la giornata e la data di inizio quando il risultato non è ancora disponibile'
+      },
+      {
+        category: 'Improvement',
+        description: 'La mia formazione mostra sempre la prossima giornata non iniziata, anche quando una giornata è già live'
+      },
+      {
+        category: 'Feature',
+        description: 'Nel live sono visibili per entrambe le squadre cambi usati e disponibili, scadenza, autore e giocatori coinvolti in ogni cambio'
+      },
+      {
+        category: 'Fix',
+        description: 'Le modifiche live sono consentite e salvabili soltanto dalla partita aperta tramite Live e vengono bloccate dal server alla scadenza'
+      }
+    ]
+  },
+  {
     version: '2.0.13',
     date: '10 Settembre 2026',
     changes: [

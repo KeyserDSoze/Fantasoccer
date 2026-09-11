@@ -4,20 +4,29 @@ import { Team, mapTeamToRawTeam } from 'types/team'
 import { tokenStorageService } from './tokenStorageService';
 
 export const gameEndpoints = {
-  getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string }) =>
+  getGame: (params: { groupId: string; leagueId: string; year: number; gameId: string; editMode?: GameEditMode }) =>
     buildApiUrl('/Game/Get', params as any),
   saveFormation: () => buildApiUrl('/Game/SaveFormation'),
-  saveTeam: (groupId: string, asAdmin?: boolean) => {
-    const params: any = { groupId }
-    if (asAdmin !== undefined) {
-      params.asAdmin = asAdmin
-    }
-    return buildApiUrl('/Game/SaveTeam', params)
+  saveTeam: (params: GameContext & { asAdmin?: boolean }) => {
+    const { asAdmin, ...context } = params
+    const query: any = context
+    if (asAdmin !== undefined) query.asAdmin = asAdmin
+    return buildApiUrl('/Game/SaveTeam', query)
   }
 }
 
+export type GameEditMode = 'formation' | 'live' | 'view'
+
+export interface GameContext {
+  groupId: string
+  leagueId: string
+  year: number
+  gameId: string
+  editMode: GameEditMode
+}
+
 export const gameService = {
-  async getGame(params: { groupId: string; leagueId: string; year: number; gameId: string }) {
+  async getGame(params: { groupId: string; leagueId: string; year: number; gameId: string; editMode?: GameEditMode }) {
     const url = gameEndpoints.getGame(params)
     const accessToken = await tokenStorageService.getTokenString()
     if (!accessToken) {
@@ -55,8 +64,8 @@ export const gameService = {
     return await res.json()
   },
 
-  async saveTeam(groupId: string, team: Team, asAdmin?: boolean) {
-    const url = gameEndpoints.saveTeam(groupId, asAdmin)
+  async saveTeam(context: GameContext, team: Team, asAdmin?: boolean) {
+    const url = gameEndpoints.saveTeam({ ...context, asAdmin })
     const accessToken = await tokenStorageService.getTokenString()
     if (!accessToken) {
       console.warn('No valid access token available')

@@ -13,7 +13,7 @@ import { ZoomControls } from '../field/ZoomControls'
 import { useResponsiveField } from '../../hooks/useResponsiveField'
 import { useAuth } from '../../providers/AuthProvider'
 import { canRemovePlayer, getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
-import gameService from '../../services/gameService'
+import gameService, { type GameEditMode } from '../../services/gameService'
 import formationService from '../../services/formationService'
 
 // SVG field background as a React component with responsive orientation
@@ -86,7 +86,12 @@ const SoccerFieldSVG = memo(({ orientation }: SoccerFieldSVGProps) => {
 export interface SoccerFieldProps {
   gameWrapper?: GameWrapper | null
   groupId?: string // ID del gruppo per salvare il team
+  leagueId?: string
+  year?: number
+  gameId?: string
+  editMode: GameEditMode
   onRefresh?: () => void | Promise<void> // Callback per ricaricare i dati dopo il salvataggio
+  onEditingChange?: (isEditing: boolean) => void
   customZoom?: number // Zoom personalizzato per le card (0.1 - 2.0)
   statPlayersMap?: Map<string, StatPlayer> // Mappa key->StatPlayer per calcoli trend/positiveness
   adminEditingTeam?: 'home' | 'away' | null // Modalità SuperAdmin - quale squadra sta modificando
@@ -120,7 +125,7 @@ function pickHomeAwayTeams(gameWrapper?: GameWrapper | null): { home?: LiveTeam;
   return { home: teams[0], away: teams[1] }
 }
 
-export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, zoomControls, statPlayersMap, adminEditingTeam = null, style }: SoccerFieldProps) => {
+export const SoccerField = memo(({ gameWrapper, groupId, leagueId, year, gameId, editMode, onRefresh, onEditingChange, customZoom, zoomControls, statPlayersMap, adminEditingTeam = null, style }: SoccerFieldProps) => {
   const { width, height, isMobile, orientation, cardScale } = useResponsiveField({ customZoom })
   const { user } = useAuth()
   const toast = useToastController()
@@ -130,7 +135,9 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   const [modalOpen, setModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false) // Modal view-only per info giocatore
   const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null) // 0 = home, 1 = away
+  const [modifiedTeamIndex, setModifiedTeamIndex] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [currentTime, setCurrentTime] = useState(Date.now())
   
   // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
   const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({})
@@ -143,8 +150,22 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   
   // Inizializza localTeams quando gameWrapper cambia
   useEffect(() => {
-    setLocalTeams({ home: initialHome, away: initialAway })
-  }, [initialHome, initialAway])
+    if (!hasLocalChanges && !modalOpen) {
+      setLocalTeams({ home: initialHome, away: initialAway })
+    }
+  }, [initialHome, initialAway, hasLocalChanges, modalOpen])
+
+  useEffect(() => {
+    if (!gameWrapper?.liveFormationDeadline) return
+    setCurrentTime(Date.now())
+    const interval = setInterval(() => setCurrentTime(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [gameWrapper?.liveFormationDeadline])
+
+  useEffect(() => {
+    onEditingChange?.(hasLocalChanges || modalOpen)
+    return () => onEditingChange?.(false)
+  }, [hasLocalChanges, modalOpen, onEditingChange])
   
   // Usa i team locali (modificati) o quelli iniziali
   const home = localTeams.home ?? initialHome
@@ -203,12 +224,16 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   }
   
   // Determina se siamo in modalità admin per qualsiasi squadra
-  const isAdminMode = adminEditingTeam !== null
+  const isAdminMode = adminEditingTeam !== null && canEdit
+  const isLiveMode = editMode === 'live'
+  const liveDeadlineTimestamp = gameWrapper?.liveFormationDeadline ? new Date(gameWrapper.liveFormationDeadline).getTime() : null
+  const isLiveWindowOpenNow = gameWrapper?.isLiveFormationWindow === true && (liveDeadlineTimestamp == null || currentTime <= liveDeadlineTimestamp)
+  const isLiveEdit = isLiveMode && isLiveWindowOpenNow
+  const hasLiveChangesAvailable = (team?: LiveTeam) => !isLiveMode || (isLiveEdit && (team?.formationChangesRemaining ?? 0) > 0)
   
-  // In modalità admin, ignora canEdit e permetti modifica basata solo su adminEditingTeam
-  // In modalità normale, richiedi canEdit E ownership
-  const homeIsMyTeam = adminEditingTeam === 'home' || (canEdit && isOwnerOrCoOwner(home))
-  const awayIsMyTeam = adminEditingTeam === 'away' || (canEdit && isOwnerOrCoOwner(away))
+  // La modalità admin sceglie il lato; ogni modalità deve comunque essere aperta dal server.
+  const homeIsMyTeam = canEdit && hasLiveChangesAvailable(home) && (adminEditingTeam === 'home' || (!adminEditingTeam && isOwnerOrCoOwner(home)))
+  const awayIsMyTeam = canEdit && hasLiveChangesAvailable(away) && (adminEditingTeam === 'away' || (!adminEditingTeam && isOwnerOrCoOwner(away)))
 
   // Determina se almeno una partita è iniziata (per mostrare view modal invece di edit modal)
   const hasGameStarted = useMemo(() => {
@@ -225,9 +250,14 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   // Funzione per gestire click su un giocatore
   const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
     const isMyTeam = teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam
+
+    if (isLiveEdit && hasLocalChanges && isMyTeam) {
+      toast.show('Salva o ripristina il cambio live prima di effettuarne un altro.', { variant: 'warning' })
+      return
+    }
     
-    // Se almeno una partita è iniziata E non siamo in modalità admin, mostra sempre il modal di visualizzazione
-    if (hasGameStarted && !isAdminMode) {
+    // Fuori dalla finestra live, una partita iniziata resta in sola lettura.
+    if (hasGameStarted && !isLiveEdit && !isAdminMode) {
       setSelectedPlayer(player)
       setViewModalOpen(true)
       return
@@ -256,6 +286,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
     const currentTeam = editingTeamIndex === 0 ? home : away
     if (!currentTeam) return
 
+    setFormationBackup(current => current ?? { home, away })
+
     // Crea una copia aggiornata dei giocatori con posizioni scambiate
     const updatedPlayers = currentTeam.players.map(p => {
       const pName = (p.current as any)?.name
@@ -279,6 +311,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
     }))
     setHasLocalChanges(true)
+    setModifiedTeamIndex(editingTeamIndex)
 
     setModalOpen(false)
     setSelectedPlayer(null)
@@ -311,6 +344,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
     }))
     setHasLocalChanges(true)
+    setModifiedTeamIndex(editingTeamIndex)
 
     setModalOpen(false)
     setSelectedPlayer(null)
@@ -349,6 +383,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
     }))
     setHasLocalChanges(true)
+    setModifiedTeamIndex(editingTeamIndex)
 
     setModalOpen(false)
     setSelectedPlayer(null)
@@ -387,6 +422,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam
     }))
     setHasLocalChanges(true)
+    setModifiedTeamIndex(editingTeamIndex)
 
     setModalOpen(false)
     setSelectedPlayer(null)
@@ -416,6 +452,7 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
       [isHome ? 'home' : 'away']: optimizedTeam
     }))
     setHasLocalChanges(true)
+    setModifiedTeamIndex(isHome ? 0 : 1)
 
     toast.show('✨ Formazione ottimale calcolata!', { variant: 'success' })
   }
@@ -430,17 +467,18 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
     // Ripristina la formazione dal backup
     setLocalTeams(formationBackup)
     setFormationBackup(null)
-    setHasLocalChanges(true)
+    setHasLocalChanges(false)
+    setModifiedTeamIndex(null)
 
     toast.show('↩️ Formazione ripristinata', { variant: 'info' })
   }
 
   // Funzione per salvare il team modificato
   const handleSave = async () => {
-    if (!groupId || !hasLocalChanges) return
+    if (!groupId || !leagueId || year == null || !gameId || !hasLocalChanges) return
 
     // Determina quale team è stato modificato
-    const teamToSave = homeIsMyTeam ? home : awayIsMyTeam ? away : null
+    const teamToSave = modifiedTeamIndex === 0 ? home : modifiedTeamIndex === 1 ? away : null
     if (!teamToSave) {
       toast.show('Errore: team non trovato', { variant: 'error' })
       return
@@ -461,15 +499,16 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
         }))
       }
 
-      const response = await gameService.saveTeam(groupId, teamData, isAdminMode)
+      const response = await gameService.saveTeam({ groupId, leagueId, year, gameId, editMode }, teamData, isAdminMode)
       
       if (response?.i) {
-        const remaining = gameWrapper?.liveFormationChangesRemaining
+        const remaining = teamToSave.formationChangesRemaining
         const liveMessage = gameWrapper?.isLiveFormationWindow && remaining != null
           ? ` Finestra live: rimangono ${Math.max(0, remaining - 1)} cambi.`
           : ''
         toast.show(`✅ Formazione salvata con successo!${liveMessage}`, { variant: 'success' })
         setHasLocalChanges(false)
+        setModifiedTeamIndex(null)
         setFormationBackup(null) // Pulisce il backup dopo il salvataggio
         
         // Ricarica i dati dal server per confermare le modifiche
@@ -659,9 +698,80 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
   const showOptimalButton = (homeIsMyTeam || awayIsMyTeam) && !hasGameStarted
   // Mostra la toolbar se c'è almeno un pulsante da visualizzare
   const showToolbar = showOptimalButton || showSaveButton || formationBackup !== null
+  const liveDeadline = gameWrapper?.liveFormationDeadline ? new Date(gameWrapper.liveFormationDeadline) : null
+
+  const positionLabel = (position: FantaSoccerRole) => {
+    switch (position) {
+      case FantaSoccerRole.GoalKeeper: return 'portiere titolare'
+      case FantaSoccerRole.Defensor: return 'difensore titolare'
+      case FantaSoccerRole.Midfielder: return 'centrocampista titolare'
+      case FantaSoccerRole.Forward: return 'attaccante titolare'
+      case FantaSoccerRole.BackupGoalKeeper: return 'portiere in panchina'
+      case FantaSoccerRole.FirstBackupDefensor:
+      case FantaSoccerRole.SecondBackupDefensor: return 'difensore in panchina'
+      case FantaSoccerRole.FirstBackupMidfielder:
+      case FantaSoccerRole.SecondBackupMidfielder: return 'centrocampista in panchina'
+      case FantaSoccerRole.FirstBackupForward:
+      case FantaSoccerRole.SecondBackupForward: return 'attaccante in panchina'
+      case FantaSoccerRole.Tribune: return 'tribuna'
+      default: return 'posizione non definita'
+    }
+  }
+
+  const renderLiveTeamStatus = (team: LiveTeam | undefined, side: 'Casa' | 'Trasferta') => {
+    if (!team || team.formationChangesMaximum == null) return null
+    return (
+      <YStack flex={1} minWidth={260} gap="$2" backgroundColor="$color1" borderRadius="$3" padding="$3">
+        <Text fontWeight="700">{side}: {team.name}</Text>
+        <Text fontSize="$3" color="$color11">
+          Cambi usati: {team.formationChangesUsed ?? 0}/{team.formationChangesMaximum}. Disponibili: {team.formationChangesRemaining ?? 0}.
+        </Text>
+        {team.formationChangeHistory.map((change, index) => (
+          <YStack key={`${change.date}-${index}`} borderTopWidth={index === 0 ? 1 : 0} borderColor="$color5" paddingTop={index === 0 ? "$2" : 0}>
+            <Text fontSize="$2" fontWeight="600">
+              {change.author} ha effettuato il cambio alle {new Date(change.date).toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' })}
+            </Text>
+            {change.players.map(player => (
+              <Text key={`${change.date}-${player.name}`} fontSize="$2" color="$color10">
+                {player.name}: {positionLabel(player.fromPosition)} → {positionLabel(player.toPosition)}
+              </Text>
+            ))}
+          </YStack>
+        ))}
+      </YStack>
+    )
+  }
 
   return (
     <YStack gap={16} width="100%" {...style}>
+      {liveDeadline && isLiveMode && (
+        <YStack
+          backgroundColor={isLiveWindowOpenNow ? '$orange2' : '$gray3'}
+          borderColor={isLiveWindowOpenNow ? '$orange8' : '$gray7'}
+          borderWidth={1}
+          borderRadius="$3"
+          padding="$3"
+          marginHorizontal={16}
+          gap="$3"
+        >
+          <YStack gap="$1">
+            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
+              {isLiveWindowOpenNow ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
+            </Text>
+            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color10'} fontSize="$3">
+              Termine modifiche: {liveDeadline.toLocaleString('it-IT', { timeZone: 'Europe/Rome', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.
+            </Text>
+            {isLiveWindowOpenNow && (
+              <Text color="$orange11" fontSize="$2">Ogni scambio salvato consuma un cambio disponibile.</Text>
+            )}
+          </YStack>
+          <XStack gap="$3" flexWrap="wrap">
+            {renderLiveTeamStatus(home, 'Casa')}
+            {renderLiveTeamStatus(away, 'Trasferta')}
+          </XStack>
+        </YStack>
+      )}
+
       {/* PULSANTI AZIONE FORMAZIONE */}
       {showToolbar && (
         <XStack justifyContent="center" paddingHorizontal={16} gap={12} flexWrap="wrap">
@@ -697,32 +807,8 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
             </Button>
           )}
           
-      {/* Pulsante Salva */}
-      {gameWrapper?.isLiveFormationWindow && gameWrapper.liveFormationDeadline && (homeIsMyTeam || awayIsMyTeam) && (
-        <YStack
-          backgroundColor="$orange2"
-          borderColor="$orange8"
-          borderWidth={1}
-          borderRadius="$3"
-          padding="$3"
-          marginBottom="$2"
-          width="100%"
-        >
-          <Text color="$orange11" fontWeight="700">
-            MODIFICA LIVE ATTIVA
-          </Text>
-          <Text color="$orange11" fontSize="$3">
-            Puoi salvare fino alle {new Date(gameWrapper.liveFormationDeadline).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}.
-            {gameWrapper.liveFormationChangesRemaining != null
-              ? ` Ti rimangono ${gameWrapper.liveFormationChangesRemaining} cambi.`
-              : ''}
-          </Text>
-          <Text color="$orange11" fontSize="$2">
-            Ogni salvataggio valido consuma un cambio. Il modulo non può essere modificato durante questa finestra.
-          </Text>
-        </YStack>
-      )}
-      {showSaveButton && (
+          {/* Pulsante Salva */}
+          {showSaveButton && (
             <Button
               backgroundColor="$green10"
               color="#fff"
@@ -1053,10 +1139,10 @@ export const SoccerField = memo(({ gameWrapper, groupId, onRefresh, customZoom, 
         selectedPlayer={selectedPlayer}
         allPlayers={allPlayersForModal}
         onSwap={handleSwap}
-        onRemove={selectedCanRemove ? handleRemove : undefined}
-        canRemove={selectedCanRemove}
-        onAddToField={handleAddToField}
-        onAddToBench={handleAddToBench}
+        onRemove={!isLiveEdit && selectedCanRemove ? handleRemove : undefined}
+        canRemove={!isLiveEdit && selectedCanRemove}
+        onAddToField={!isLiveEdit ? handleAddToField : undefined}
+        onAddToBench={!isLiveEdit ? handleAddToBench : undefined}
         statPlayersMap={statPlayersMap}
       />
 

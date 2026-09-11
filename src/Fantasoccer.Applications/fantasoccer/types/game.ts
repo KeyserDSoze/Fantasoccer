@@ -4,6 +4,7 @@ import { CalendarGame, CalendarGameRaw, mapRawCalendarGameToCalendarGame } from 
 import { FantaSoccerRole, Player, PlayerRaw, mapRawPlayerToPlayer } from 'types/team'
 import { RealGame, RealGameRaw, Vote, VoteRaw, mapRawGameToGame, mapRawVoteToVote } from 'types/serieA'
 import { Chance, ChanceRaw, mapRawChanceToChance } from 'types/chance'
+import { convertUTCToItalianTimezone } from 'utils/timezoneHelpers'
 
 // RAW interfaces matching JSON names produced by the C# backend
 
@@ -29,6 +30,22 @@ export interface LiveTeamRaw {
   a?: string[]
   p: LivePlayerRaw[]
   d?: string | null
+  fm?: number | null
+  fu?: number | null
+  fr?: number | null
+  fh?: LiveFormationChangeRaw[]
+}
+
+export interface LiveFormationPlayerChangeRaw {
+  n: string
+  f: FantaSoccerRole
+  t: FantaSoccerRole
+}
+
+export interface LiveFormationChangeRaw {
+  d: string
+  a: string
+  p?: LiveFormationPlayerChangeRaw[]
 }
 
 export interface GameWrapperRaw {
@@ -63,6 +80,22 @@ export interface LiveTeam {
   additionalOwners: string[]
   players: LivePlayer[]
   lastUpdate?: string | null
+  formationChangesMaximum?: number | null
+  formationChangesUsed?: number | null
+  formationChangesRemaining?: number | null
+  formationChangeHistory: LiveFormationChange[]
+}
+
+export interface LiveFormationPlayerChange {
+  name: string
+  fromPosition: FantaSoccerRole
+  toPosition: FantaSoccerRole
+}
+
+export interface LiveFormationChange {
+  date: string
+  author: string
+  players: LiveFormationPlayerChange[]
 }
 
 export interface GameWrapper {
@@ -95,7 +128,19 @@ export const mapRawLiveTeamToLiveTeam = (raw: LiveTeamRaw): LiveTeam => ({
   owner: raw.o,
   additionalOwners: raw.a ?? [],
   players: (raw.p ?? []).map(mapRawLivePlayerToLivePlayer),
-  lastUpdate: raw.d ?? undefined
+  lastUpdate: raw.d ?? undefined,
+  formationChangesMaximum: raw.fm ?? null,
+  formationChangesUsed: raw.fu ?? null,
+  formationChangesRemaining: raw.fr ?? null,
+  formationChangeHistory: (raw.fh ?? []).map(change => ({
+    date: convertUTCToItalianTimezone(change.d) ?? change.d,
+    author: change.a,
+    players: (change.p ?? []).map(player => ({
+      name: player.n,
+      fromPosition: player.f,
+      toPosition: player.t
+    }))
+  }))
 })
 
 export const mapRawGameWrapperToGameWrapper = (raw: GameWrapperRaw): GameWrapper => ({
@@ -104,7 +149,7 @@ export const mapRawGameWrapperToGameWrapper = (raw: GameWrapperRaw): GameWrapper
   serieADay: raw.s ?? undefined,
   canEdit: raw.c ?? undefined,
   isLiveFormationWindow: raw.l ?? false,
-  liveFormationDeadline: raw.e ?? null,
+  liveFormationDeadline: raw.e ? convertUTCToItalianTimezone(raw.e) : null,
   liveFormationChangesRemaining: raw.r ?? null
 })
 

@@ -42,15 +42,12 @@ export default function EditTeamScreen() {
         return
       }
 
-      // 2. Determina quale giornata di Serie A è attualmente in corso o prossima
+      // 2. "La mia formazione" lavora sempre sulla prossima giornata non iniziata.
       const nextDay = serieACalendar.nextDay
-      const lastDay = serieACalendar.lastDay
-      
-      // Usa liveDay se disponibile, altrimenti nextDay, altrimenti lastDay
-      const targetSerieADay = nextDay?.serieADay ?? lastDay?.serieADay
+      const targetSerieADay = nextDay?.serieADay
 
       if (!targetSerieADay) {
-        setError('Nessuna giornata di Serie A disponibile')
+        setError('Non ci sono altre giornate di Serie A da giocare')
         setIsLoading(false)
         return
       }
@@ -68,9 +65,12 @@ export default function EditTeamScreen() {
         return
       }
 
-       // 4. Trova la squadra dell'utente, includendo owner principale e co-owner.
+       // 4. Trova la squadra dell'utente nella lega selezionata, includendo owner e co-owner.
        const userEmail = user.email.toLowerCase()
+       const selectedLeague = currentGroup.leagues.find(league => league.id === selectedLeagueId)
+       const leagueBasketIds = new Set(selectedLeague?.basketsId ?? [])
        const userTeamOwners = currentGroup.baskets
+         .filter(basket => leagueBasketIds.has(basket.id))
          .flatMap(basket => basket.years
            .filter(year => year.year === selectedYear)
            .flatMap(year => year.teams))
@@ -103,15 +103,8 @@ export default function EditTeamScreen() {
         return
       }
 
-      // 5. Trova la partita corrispondente alla giornata di Serie A target
-      // Priorità: partita della giornata target, altrimenti prima partita senza risultato, altrimenti ultima
-      let targetGame = allGames.find(game => game.number === targetSerieADay)
-      
-      if (!targetGame) {
-        // Se non c'è una partita per quella giornata, cerca la prima senza risultato
-        const sortedGames = allGames.sort((a, b) => a.number - b.number)
-        targetGame = sortedGames.find(game => !game.result) ?? sortedGames[sortedGames.length - 1]
-      }
+      // allGames contiene già soltanto la partita dell'utente nella giornata target.
+      const targetGame = allGames[0]
 
       if (!targetGame) {
         setError('Nessuna partita disponibile')
@@ -124,7 +117,8 @@ export default function EditTeamScreen() {
         groupId: currentGroup.id,
         leagueId: selectedLeagueId,
         year: selectedYear.toString(),
-        gameId: targetGame.id
+        gameId: targetGame.id,
+        editMode: 'formation'
       })
     } catch (err: any) {
       console.error('Error navigating to my team:', err)

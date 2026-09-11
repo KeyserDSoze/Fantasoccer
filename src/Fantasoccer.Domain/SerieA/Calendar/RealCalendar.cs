@@ -46,5 +46,16 @@ namespace Fantasoccer
         public int LiveSerieADay => LiveDay?.SerieADay ?? 0;
         [JsonIgnore]
         public bool IsDuringSerieADay => LiveSerieADay > 0;
+        [JsonIgnore]
+        public DateTime? LiveFormationDeadline
+            => LiveDay?.Games?
+                .Where(x => !x.Delayed && x.Date.HasValue)
+                .Select(x => x.Date!.Value)
+                .DefaultIfEmpty()
+                .Max()
+                .AddHours(4);
+        [JsonIgnore]
+        public bool IsLiveFormationWindowOpen
+            => LiveFormationDeadline is DateTime deadline && FantacalcioTime.ItalyNow <= deadline;
     }
 }

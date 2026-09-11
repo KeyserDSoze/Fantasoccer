@@ -57,6 +57,7 @@ export type RootStackParamList = {
     leagueId?: string | null;
     year?: string | null;
     groupId?: string | null;
+    editMode?: 'formation' | 'live' | 'view';
   };
   Market: undefined;
   MarketTrades: undefined;

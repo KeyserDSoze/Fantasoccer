@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Fantasoccer
 {
@@ -20,6 +21,8 @@ namespace Fantasoccer
         public DateTime LastUpdate { get; set; }
         [JsonPropertyName("fc")]
         public int FormationChanges { get; set; }
+        [JsonPropertyName("fh")]
+        public List<LiveFormationChange> FormationChangeHistory { get; set; } = [];
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
         [JsonIgnore]
@@ -32,5 +35,7 @@ namespace Fantasoccer
         public int TotalCostForPlayers => Players.Sum(x => x.Price);
         [JsonIgnore]
         public int Cost => TotalCostForPlayers - RevenueMoney - MoneyFromRank - OpeningCompetitionPrize - MoneyFromSoldWithOneHalfReturnedPrice;
+        public Team Clone()
+            => JsonSerializer.Deserialize<Team>(JsonSerializer.Serialize(this))!;
     }
 }

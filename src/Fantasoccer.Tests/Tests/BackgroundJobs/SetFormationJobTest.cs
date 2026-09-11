@@ -79,7 +79,13 @@ public sealed class SetFormationJobTest : IAsyncLifetime
     {
         await InsertCompletedCalendarAsync(7);
         await InsertGroupAsync();
-        await _teams.InsertAsync(Key(7), Team("Current formation"), TestContext.Current.CancellationToken);
+        var currentFormation = Team("Current formation");
+        currentFormation.FormationChanges = 2;
+        currentFormation.FormationChangeHistory =
+        [
+            new LiveFormationChange { Author = Owner, Date = FantacalcioTime.ItalyNow }
+        ];
+        await _teams.InsertAsync(Key(7), currentFormation, TestContext.Current.CancellationToken);
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
@@ -87,6 +93,11 @@ public sealed class SetFormationJobTest : IAsyncLifetime
         Assert.NotNull(nextFormation);
         Assert.Equal("Current formation", nextFormation.Name);
         Assert.Equal("Player", Assert.Single(nextFormation.Players).Name);
+        Assert.Equal(0, nextFormation.FormationChanges);
+        Assert.Empty(nextFormation.FormationChangeHistory);
+        var sourceFormation = await _teams.GetAsync(Key(7), TestContext.Current.CancellationToken);
+        Assert.Equal(2, sourceFormation?.FormationChanges);
+        Assert.Single(sourceFormation?.FormationChangeHistory ?? []);
     }
 
     [Fact]
@@ -95,13 +106,18 @@ public sealed class SetFormationJobTest : IAsyncLifetime
         await InsertCompletedCalendarAsync(7);
         await InsertGroupAsync();
         await _teams.InsertAsync(Key(7), Team("Current formation"), TestContext.Current.CancellationToken);
-        await _teams.InsertAsync(Key(8), Team("Existing next formation"), TestContext.Current.CancellationToken);
+        var existingFormation = Team("Existing next formation");
+        existingFormation.FormationChanges = 2;
+        existingFormation.FormationChangeHistory = [new LiveFormationChange { Author = Owner }];
+        await _teams.InsertAsync(Key(8), existingFormation, TestContext.Current.CancellationToken);
 
         await _job.ActionToDoAsync(TestContext.Current.CancellationToken);
 
         var nextFormation = await _teams.GetAsync(Key(8), TestContext.Current.CancellationToken);
         Assert.NotNull(nextFormation);
         Assert.Equal("Existing next formation", nextFormation.Name);
+        Assert.Equal(0, nextFormation.FormationChanges);
+        Assert.Empty(nextFormation.FormationChangeHistory);
     }
 
     [Fact]

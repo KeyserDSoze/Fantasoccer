@@ -40,6 +40,7 @@ export default function GameScreen() {
   const routeLeagueId = params?.leagueId ?? null
   const routeYear = params?.year ?? null
   const routeGroupId = params?.groupId ?? null
+  const editMode = params?.editMode ?? 'view'
   const navigation = useNavigation()
   
   // Auth e SuperAdmin check
@@ -61,6 +62,7 @@ export default function GameScreen() {
   const [gameLoading, setGameLoading] = useState(false)
   const [gameError, setGameError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false) // Flag per evitare refresh multipli
+  const [isEditingFormation, setIsEditingFormation] = useState(false)
 
   // StatPlayers map per calcoli trend/positiveness
   const [statPlayersMap, setStatPlayersMap] = useState<Map<string, StatPlayer>>(new Map())
@@ -84,7 +86,8 @@ export default function GameScreen() {
         groupId: routeGroupId, 
         leagueId: routeLeagueId, 
         year: parseInt(routeYear), 
-        gameId: routeGameId 
+        gameId: routeGameId,
+        editMode
       })
       setGameWrapper(result)
     } catch (err: any) {
@@ -109,13 +112,13 @@ export default function GameScreen() {
     setGameLoading(true)
     setGameError(null)
 
-    gameService.getGame({ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId })
+    gameService.getGame({ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId, editMode })
       .then(result => { if (mounted) setGameWrapper(result) })
       .catch(err => { if (mounted) setGameError(err?.message ?? String(err)) })
       .finally(() => { if (mounted) setGameLoading(false) })
 
     return () => { mounted = false }
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId])
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, editMode])
 
   // Caricamento StatPlayers per calcoli trend/positiveness
   useEffect(() => {
@@ -211,7 +214,7 @@ export default function GameScreen() {
     }
 
     // ⚠️ IMPORTANTE: Avvia il polling SOLO quando ci sono partite live E non si sta modificando in modalità admin
-    if (!isLiveActive || adminEditingTeam !== null) {
+    if ((!isLiveActive && !gameWrapper?.isLiveFormationWindow) || adminEditingTeam !== null || isEditingFormation) {
       return
     }
 
@@ -223,7 +226,7 @@ export default function GameScreen() {
     return () => {
       clearInterval(pollingInterval)
     }
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive, adminEditingTeam])
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, isLiveActive, gameWrapper?.isLiveFormationWindow, adminEditingTeam, isEditingFormation, editMode])
 
   // Compute played score and bonuses from gameService wrapper if available
   const title = gameWrapper ? `${gameWrapper.game?.home} vs ${gameWrapper.game?.away}` : 'Partita'
@@ -277,6 +280,37 @@ export default function GameScreen() {
               <Text>Nessuna partita disponibile</Text>
             ) : (
               <YStack gap="$2">
+                {!playedScore && (
+                   <XStack justifyContent="center" alignItems="center" gap="$5" padding="$3">
+                     <YStack alignItems="center" gap="$2" flex={1}>
+                       <TeamLogo
+                         groupId={routeGroupId || ''}
+                         year={routeYear || ''}
+                         ownerEmail={gameWrapper.game?.homeOwner || ''}
+                         size={media.gtSm ? 60 : 52}
+                       />
+                       <Text fontSize="$4" fontWeight="700" textAlign="center">
+                         {gameWrapper.game?.home}
+                       </Text>
+                     </YStack>
+                     <YStack alignItems="center" gap="$1">
+                       <H3>VS</H3>
+                       <Text fontSize="$2" color="$color10">Giornata {gameWrapper.serieADay}</Text>
+                       {gameDate && <Text fontSize="$2" color="$color10">{formatItalianDate(gameDate)}</Text>}
+                     </YStack>
+                     <YStack alignItems="center" gap="$2" flex={1}>
+                       <TeamLogo
+                         groupId={routeGroupId || ''}
+                         year={routeYear || ''}
+                         ownerEmail={gameWrapper.game?.awayOwner || ''}
+                         size={media.gtSm ? 60 : 52}
+                       />
+                       <Text fontSize="$4" fontWeight="700" textAlign="center">
+                         {gameWrapper.game?.away}
+                       </Text>
+                     </YStack>
+                   </XStack>
+                 )}
                 {playedScore && (
                   <YStack gap="$3">
                     {/* Layout responsive: mobile vs desktop */}
@@ -462,7 +496,7 @@ export default function GameScreen() {
           </Card>
 
           {/* Modalità SuperAdmin - visibile solo se modalità attiva dal menu */}
-          {isSuperAdmin && superAdminMode && gameWrapper && (
+          {isSuperAdmin && superAdminMode && gameWrapper?.canEdit && (
             <Card padding="$3" backgroundColor="$purple2" borderWidth={2} borderColor="$purple8">
               <YStack gap="$3">
                 <XStack gap="$3" alignItems="center">
@@ -491,7 +525,9 @@ export default function GameScreen() {
                     color={adminEditingTeam === 'home' ? '$white1' : '$purple11'}
                     borderWidth={2}
                     borderColor={adminEditingTeam === 'home' ? '$purple11' : '$purple6'}
-                    onPress={() => setAdminEditingTeam(adminEditingTeam === 'home' ? null : 'home')}
+                     onPress={() => setAdminEditingTeam(adminEditingTeam === 'home' ? null : 'home')}
+                    disabled={isEditingFormation}
+                    opacity={isEditingFormation ? 0.6 : 1}
                     pressStyle={{ opacity: 0.8 }}
                   >
                     {adminEditingTeam === 'home' ? '✓' : ''} Modifica {gameWrapper.game?.home}
@@ -505,7 +541,9 @@ export default function GameScreen() {
                     color={adminEditingTeam === 'away' ? '$white1' : '$purple11'}
                     borderWidth={2}
                     borderColor={adminEditingTeam === 'away' ? '$purple11' : '$purple6'}
-                    onPress={() => setAdminEditingTeam(adminEditingTeam === 'away' ? null : 'away')}
+                     onPress={() => setAdminEditingTeam(adminEditingTeam === 'away' ? null : 'away')}
+                    disabled={isEditingFormation}
+                    opacity={isEditingFormation ? 0.6 : 1}
                     pressStyle={{ opacity: 0.8 }}
                   >
                     {adminEditingTeam === 'away' ? '✓' : ''} Modifica {gameWrapper.game?.away}
@@ -523,7 +561,12 @@ export default function GameScreen() {
                   <SoccerField 
                     gameWrapper={gameWrapper} 
                     groupId={routeGroupId ?? undefined}
+                    leagueId={routeLeagueId ?? undefined}
+                    year={routeYear ? parseInt(routeYear) : undefined}
+                    gameId={routeGameId ?? undefined}
+                    editMode={editMode}
                     onRefresh={refreshGame}
+                    onEditingChange={setIsEditingFormation}
                     customZoom={zoomLevel}
                     zoomControls={{
                       zoomLevel,
