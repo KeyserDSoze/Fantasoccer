@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.32',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunto Ctrl + S per salvare rapidamente la formazione desktop modificata',
+      },
+    ],
+  },
+  {
     version: '2.0.31',
     date: '11 Settembre 2026',
     changes: [

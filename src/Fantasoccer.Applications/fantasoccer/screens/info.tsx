@@ -157,6 +157,9 @@ export default function InfoScreen() {
                   <Text fontSize="$2" color="$purple10">
                     Premi ruolo + numero, ad esempio A + 2. La prima combinazione seleziona il giocatore e mostra un bordo; una seconda combinazione dello stesso ruolo sposta o scambia il giocatore selezionato. Una combinazione con un ruolo diverso seleziona direttamente l&apos;altro giocatore. Premi Esc per annullare la selezione.
                   </Text>
+                  <Text fontSize="$2" color="$purple10">
+                    Premi Ctrl + S (o Cmd + S su Mac) per salvare subito la formazione modificata.
+                  </Text>
                 </YStack>
               </Card>
             )}

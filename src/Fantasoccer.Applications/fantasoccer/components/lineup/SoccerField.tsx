@@ -279,6 +279,7 @@ export const SoccerField = memo(
       teamIndex: number;
     } | null>(null);
     const shortcutRoleRef = useRef<Role | null>(null);
+    const saveHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
     // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
     const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({});
@@ -598,6 +599,12 @@ export const SoccerField = memo(
         const target = event.target as HTMLElement | null;
         if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
 
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          void saveHandlerRef.current?.();
+          return;
+        }
+
         if (event.key === 'Escape') {
           shortcutRoleRef.current = null;
           setKeyboardSelection(null);
@@ -644,7 +651,16 @@ export const SoccerField = memo(
 
       window.addEventListener('keydown', onKeyDown);
       return () => window.removeEventListener('keydown', onKeyDown);
-    }, [isMobile, canEdit, isLiveEdit, home, away, homeIsMyTeam, awayIsMyTeam, keyboardSelection]);
+    }, [
+      isMobile,
+      canEdit,
+      isLiveEdit,
+      home,
+      away,
+      homeIsMyTeam,
+      awayIsMyTeam,
+      keyboardSelection,
+    ]);
 
     const isKeyboardSelected = (player: LivePlayer, teamIndex: number) =>
       keyboardSelection?.teamIndex === teamIndex &&
@@ -970,6 +986,8 @@ export const SoccerField = memo(
         setIsSaving(false);
       }
     };
+
+    saveHandlerRef.current = handleSave;
 
     // Determina se il giocatore selezionato può essere rimosso
     const selectedCanRemove = useMemo(() => {
