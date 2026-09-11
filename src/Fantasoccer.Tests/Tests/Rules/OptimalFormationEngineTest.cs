@@ -77,6 +77,18 @@ namespace Fantasoccer.Tests.Tests.Rules
             Assert.Equal("4-3-3", result.Module);
         }
 
+        [Fact]
+        public void UsesOneGoalkeeperAndTwoForwardsOnTheBench()
+        {
+            var players = CreatePlayers(3, 5, 5, 5);
+
+            var result = new OptimalFormationEngine().Calculate(new OptimalFormationInput { Players = players });
+
+            Assert.Single(result.Players, x => x.Position == FantaSoccerRole.BackupGoalKeeper);
+            Assert.Equal(2, result.Players.Count(x => x.Position is FantaSoccerRole.FirstBackupForward or FantaSoccerRole.SecondBackupForward));
+            Assert.Equal(1, result.Players.Count(x => x.Position == FantaSoccerRole.Tribune && x.Role == Role.GoalKeeper));
+        }
+
         private static bool IsStartingPosition(FantaSoccerRole position)
             => position is FantaSoccerRole.GoalKeeper or FantaSoccerRole.Defensor or FantaSoccerRole.Midfielder or FantaSoccerRole.Forward;
 

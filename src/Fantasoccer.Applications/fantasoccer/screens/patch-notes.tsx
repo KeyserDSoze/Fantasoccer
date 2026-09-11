@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.24',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Corretta la panchina della formazione ottimale: è previsto un solo portiere, assegnato esclusivamente come primo panchinaro; gli altri portieri vanno in tribuna e vengono mantenuti i due slot per gli attaccanti'
+      }
+    ]
+  },
+  {
     version: '2.0.23',
     date: '11 Settembre 2026',
     changes: [

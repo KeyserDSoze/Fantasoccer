@@ -82,16 +82,18 @@ namespace Fantasoccer.Business
             }
 
             var selectedKeys = selected.Select(x => x.Candidate.Player.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var bench = players
-                .Where(x => !selectedKeys.Contains(x.Player.Key))
-                .GroupBy(x => x.Player.Role)
-                .SelectMany(x => x
+            var bench = new List<SelectedCandidate>();
+            foreach (var role in new[] { Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward })
+            {
+                var benchLimit = role == Role.GoalKeeper ? 1 : 2;
+                var roleBench = players
+                    .Where(x => !selectedKeys.Contains(x.Player.Key) && x.Player.Role == role)
                     .OrderByDescending(player => player.CanStart)
                     .ThenByDescending(player => player.Projection)
-                    .Take(2))
-                .Take(7)
-                .Select((x, index) => new SelectedCandidate(x, BenchPosition(x.Player.Role, index), index))
-                .ToList();
+                    .Take(benchLimit)
+                    .Select((x, index) => new SelectedCandidate(x, BenchPosition(role, index), index));
+                bench.AddRange(roleBench);
+            }
             var benchKeys = bench.Select(x => x.Player.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var tribune = players
                 .Where(x => !selectedKeys.Contains(x.Player.Key) && !benchKeys.Contains(x.Player.Key))
