@@ -30,6 +30,7 @@ export interface PlayerCardProps {
   player: LivePlayer;
   onPress?: () => void; // Callback opzionale per rendere la card cliccabile
   onContextMenu?: (event: any) => void; // Menu rapido desktop
+  isKeyboardSelected?: boolean; // Selezione da tastiera
   statPlayersMap?: Map<string, StatPlayer>; // Mappa per lookup StatPlayer
 }
 
@@ -121,7 +122,13 @@ const CHANCE_INFO_MAP = {
   trend: { icon: TrendingUp, color: '#8b5cf6', error: '#ef4444', label: 'Forma', text: 'T' },
 };
 
-export function PlayerCard({ player, onPress, onContextMenu, statPlayersMap }: PlayerCardProps) {
+export function PlayerCard({
+  player,
+  onPress,
+  onContextMenu,
+  isKeyboardSelected = false,
+  statPlayersMap,
+}: PlayerCardProps) {
   const [useFallbackImage, setUseFallbackImage] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
 
@@ -520,8 +527,8 @@ export function PlayerCard({ player, onPress, onContextMenu, statPlayersMap }: P
         padding={0}
         backgroundColor="#fff"
         borderRadius={12}
-        borderWidth={2}
-        borderColor={isManOfTheMatch ? '#fff' : '#e5e5e5'}
+        borderWidth={isKeyboardSelected ? 4 : 2}
+        borderColor={isKeyboardSelected ? '#facc15' : isManOfTheMatch ? '#fff' : '#e5e5e5'}
         position="relative"
         elevation={isManOfTheMatch ? 6 : 4}
         overflow="hidden"

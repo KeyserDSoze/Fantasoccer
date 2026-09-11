@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useEffect, type ReactNode } from 'react';
+import { memo, useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
 import { Accordion, YStack, XStack, Text, ScrollView, Button } from 'tamagui';
 import { useToastController } from '@tamagui/toast';
 import { ChevronDown, Save, ShieldCheck, Sparkles, Undo2 } from '@tamagui/lucide-icons-2';
@@ -272,7 +272,14 @@ export const SoccerField = memo(
     const [quickMenu, setQuickMenu] = useState<{
       player: LivePlayer;
       teamIndex: number;
+      anchor: { x: number; y: number };
     } | null>(null);
+    const [keyboardSelection, setKeyboardSelection] = useState<{
+      player: LivePlayer;
+      teamIndex: number;
+    } | null>(null);
+    const shortcutRoleRef = useRef<Role | null>(null);
+    const shortcutActionRef = useRef<'select' | 'modify' | 'plain' | null>(null);
 
     // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
     const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({});
@@ -429,7 +436,15 @@ export const SoccerField = memo(
     ) => {
       if (isMobile || !canEdit || !isMyTeam || isLiveEdit) return;
       event?.preventDefault?.();
-      setQuickMenu({ player, teamIndex });
+      const contextEvent = event?.nativeEvent ?? event;
+      setQuickMenu({
+        player,
+        teamIndex,
+        anchor: {
+          x: contextEvent?.clientX ?? contextEvent?.pageX ?? 0,
+          y: contextEvent?.clientY ?? contextEvent?.pageY ?? 0,
+        },
+      });
     };
 
     const closeQuickMenu = () => setQuickMenu(null);
@@ -445,41 +460,197 @@ export const SoccerField = memo(
       }));
       setHasLocalChanges(true);
       setModifiedTeamIndex(teamIndex);
+      setKeyboardSelection(null);
       closeQuickMenu();
+    };
+
+    const applyPlayerMove = (
+      player: LivePlayer,
+      teamIndex: number,
+      targetPosition: FantaSoccerRole
+    ) => {
+      const currentTeam = teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      const players = currentTeam.players.map((candidate) =>
+        candidate.current.name === player.current.name
+          ? { ...candidate, currentPosition: targetPosition }
+          : candidate
+      );
+      commitQuickTeamChange(teamIndex, players);
+    };
+
+    const applyPlayerSwap = (player: LivePlayer, targetPlayer: LivePlayer, teamIndex: number) => {
+      const currentTeam = teamIndex === 0 ? home : away;
+      if (!currentTeam) return;
+
+      const players = currentTeam.players.map((candidate) => {
+        if (candidate.current.name === player.current.name)
+          return { ...candidate, currentPosition: targetPlayer.currentPosition };
+        if (candidate.current.name === targetPlayer.current.name)
+          return { ...candidate, currentPosition: player.currentPosition };
+        return candidate;
+      });
+      commitQuickTeamChange(teamIndex, players);
     };
 
     const handleQuickMoveToPosition = (targetPosition: FantaSoccerRole) => {
       if (!quickMenu) return;
-      const currentTeam = quickMenu.teamIndex === 0 ? home : away;
-      if (!currentTeam) return;
-
-      const selectedName = quickMenu.player.current.name;
-      const players = currentTeam.players.map((candidate) =>
-        candidate.current.name === selectedName
-          ? { ...candidate, currentPosition: targetPosition }
-          : candidate
-      );
-      commitQuickTeamChange(quickMenu.teamIndex, players);
+      applyPlayerMove(quickMenu.player, quickMenu.teamIndex, targetPosition);
     };
 
     const handleQuickSwap = (targetPlayer: LivePlayer) => {
       if (!quickMenu) return;
-      const currentTeam = quickMenu.teamIndex === 0 ? home : away;
-      if (!currentTeam) return;
-
-      const selectedName = quickMenu.player.current.name;
-      const targetName = targetPlayer.current.name;
-      const selectedPosition = quickMenu.player.currentPosition;
-      const targetPosition = targetPlayer.currentPosition;
-      const players = currentTeam.players.map((candidate) => {
-        if (candidate.current.name === selectedName)
-          return { ...candidate, currentPosition: targetPosition };
-        if (candidate.current.name === targetName)
-          return { ...candidate, currentPosition: selectedPosition };
-        return candidate;
-      });
-      commitQuickTeamChange(quickMenu.teamIndex, players);
+      applyPlayerSwap(quickMenu.player, targetPlayer, quickMenu.teamIndex);
     };
+
+    const getShortcutRole = (key: string): Role | null => {
+      switch (key.toUpperCase()) {
+        case 'A':
+          return Role.Forward;
+        case 'D':
+          return Role.Defensor;
+        case 'C':
+          return Role.Midfielder;
+        case 'P':
+          return Role.GoalKeeper;
+        default:
+          return null;
+      }
+    };
+
+    const getShortcutBenchPosition = (role: Role, number: number) => {
+      if (role === Role.GoalKeeper) return FantaSoccerRole.BackupGoalKeeper;
+      if (number === 4) {
+        if (role === Role.Defensor) return FantaSoccerRole.FirstBackupDefensor;
+        if (role === Role.Midfielder) return FantaSoccerRole.FirstBackupMidfielder;
+        if (role === Role.Forward) return FantaSoccerRole.FirstBackupForward;
+      }
+      if (number === 5) {
+        if (role === Role.Defensor) return FantaSoccerRole.SecondBackupDefensor;
+        if (role === Role.Midfielder) return FantaSoccerRole.SecondBackupMidfielder;
+        if (role === Role.Forward) return FantaSoccerRole.SecondBackupForward;
+      }
+      return undefined;
+    };
+
+    const findShortcutPlayer = (team: LiveTeam | undefined, role: Role, number: number) => {
+      if (!team) return undefined;
+      const players = team.players.filter((candidate) => (candidate.current as any)?.role === role);
+      if (number >= 1 && number <= 3) {
+        const starters = players.filter(
+          (candidate) => candidate.currentPosition <= FantaSoccerRole.Forward
+        );
+        return starters[Math.min(number - 1, Math.max(0, starters.length - 1))];
+      }
+      if (number === 6)
+        return players.find((candidate) => candidate.currentPosition === FantaSoccerRole.Tribune);
+      const benchPosition = getShortcutBenchPosition(role, number);
+      return benchPosition === undefined
+        ? undefined
+        : players.find((candidate) => candidate.currentPosition === benchPosition);
+    };
+
+    const applyKeyboardShortcut = (role: Role, number: number) => {
+      if (!keyboardSelection) return;
+      const team = keyboardSelection.teamIndex === 0 ? home : away;
+      if (!team || (keyboardSelection.player.current as any)?.role !== role) {
+        toast.show('Il comando deve usare il ruolo del giocatore selezionato.', {
+          variant: 'warning',
+        });
+        return;
+      }
+
+      if (number === 6) {
+        applyPlayerMove(
+          keyboardSelection.player,
+          keyboardSelection.teamIndex,
+          FantaSoccerRole.Tribune
+        );
+        return;
+      }
+
+      if (number >= 4) {
+        const targetPosition = getShortcutBenchPosition(role, number);
+        if (targetPosition === undefined) return;
+        const targetPlayer = findShortcutPlayer(team, role, number);
+        if (targetPlayer)
+          applyPlayerSwap(keyboardSelection.player, targetPlayer, keyboardSelection.teamIndex);
+        else applyPlayerMove(keyboardSelection.player, keyboardSelection.teamIndex, targetPosition);
+        return;
+      }
+
+      const targetPlayer = findShortcutPlayer(team, role, number);
+      if (targetPlayer && targetPlayer.current.name !== keyboardSelection.player.current.name)
+        applyPlayerSwap(keyboardSelection.player, targetPlayer, keyboardSelection.teamIndex);
+      else {
+        const targetPosition = getAvailableFieldPosition(role, team.players);
+        if (targetPosition !== undefined)
+          applyPlayerMove(keyboardSelection.player, keyboardSelection.teamIndex, targetPosition);
+      }
+    };
+
+    useEffect(() => {
+      if (isMobile || !canEdit || isLiveEdit || typeof window === 'undefined') return;
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+        const role = getShortcutRole(event.key);
+        const number = Number(event.key);
+        const modifier =
+          event.ctrlKey || event.metaKey ? 'select' : event.shiftKey ? 'modify' : null;
+
+        if (role) {
+          shortcutRoleRef.current = role;
+          shortcutActionRef.current = modifier ?? (!keyboardSelection ? 'plain' : null);
+          event.preventDefault();
+          return;
+        }
+
+        if (!Number.isInteger(number) || number < 1 || number > 6 || !shortcutRoleRef.current)
+          return;
+
+        const shortcutRole = shortcutRoleRef.current;
+        const action = shortcutActionRef.current;
+        shortcutRoleRef.current = null;
+        shortcutActionRef.current = null;
+
+        const teamIndex = homeIsMyTeam ? 0 : awayIsMyTeam ? 1 : null;
+        if (teamIndex === null) return;
+        const team = teamIndex === 0 ? home : away;
+
+        if (action === 'select' || action === 'plain') {
+          const player = findShortcutPlayer(team, shortcutRole, number);
+          if (!player) {
+            toast.show('Nessun giocatore trovato per questa combinazione.', { variant: 'warning' });
+            return;
+          }
+          setKeyboardSelection({ player, teamIndex });
+          toast.show(`Selezionato ${player.current.name}`, { variant: 'info' });
+          event.preventDefault();
+          return;
+        }
+
+        if (action === 'modify') {
+          if (!keyboardSelection) {
+            toast.show('Seleziona prima un giocatore con Ctrl + ruolo + numero.', {
+              variant: 'warning',
+            });
+            return;
+          }
+          applyKeyboardShortcut(shortcutRole, number);
+          event.preventDefault();
+        }
+      };
+
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isMobile, canEdit, isLiveEdit, home, away, homeIsMyTeam, awayIsMyTeam, keyboardSelection]);
+
+    const isKeyboardSelected = (player: LivePlayer, teamIndex: number) =>
+      keyboardSelection?.teamIndex === teamIndex &&
+      keyboardSelection.player.current.name === player.current.name;
 
     // Funzione per gestire click su un giocatore
     const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
@@ -927,6 +1098,7 @@ export const SoccerField = memo(
                   onContextMenu={(event) =>
                     handlePlayerContextMenu(event, player, teamIndex, isMyTeam)
                   }
+                  isKeyboardSelected={isKeyboardSelected(player, teamIndex)}
                   statPlayersMap={statPlayersMap}
                 />
               ))}
@@ -1247,6 +1419,7 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
                         }
+                        isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1285,6 +1458,7 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
                         }
+                        isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1555,6 +1729,7 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, player, 0, homeIsMyTeam)
                         }
+                        isKeyboardSelected={isKeyboardSelected(player, 0)}
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1600,6 +1775,7 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, player, 1, awayIsMyTeam)
                         }
+                        isKeyboardSelected={isKeyboardSelected(player, 1)}
                         statPlayersMap={statPlayersMap}
                       />
                     ))}
@@ -1620,6 +1796,7 @@ export const SoccerField = memo(
           open={quickMenu !== null}
           player={quickMenu?.player ?? null}
           allPlayers={quickMenu?.teamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])}
+          anchor={quickMenu?.anchor ?? { x: 0, y: 0 }}
           onClose={closeQuickMenu}
           onMoveToPosition={handleQuickMoveToPosition}
           onSwap={handleQuickSwap}

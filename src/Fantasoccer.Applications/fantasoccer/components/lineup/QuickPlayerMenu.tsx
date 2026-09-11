@@ -11,6 +11,7 @@ interface QuickPlayerMenuProps {
   open: boolean;
   player: LivePlayer | null;
   allPlayers: LivePlayer[];
+  anchor: { x: number; y: number };
   onClose: () => void;
   onMoveToPosition: (position: FantaSoccerRole) => void;
   onSwap: (targetPlayer: LivePlayer) => void;
@@ -69,6 +70,7 @@ export function QuickPlayerMenu({
   open,
   player,
   allPlayers,
+  anchor,
   onClose,
   onMoveToPosition,
   onSwap,
@@ -133,7 +135,7 @@ export function QuickPlayerMenu({
       <Dialog.Portal>
         <Dialog.Overlay
           key="quick-menu-overlay"
-          backgroundColor="rgba(0,0,0,0.65)"
+          backgroundColor="transparent"
           transition="quick"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
@@ -144,7 +146,17 @@ export function QuickPlayerMenu({
           elevate
           width={460}
           maxWidth="94%"
-          gap="$3">
+          gap="$3"
+          zIndex={100000}
+          style={
+            {
+              position: 'fixed',
+              left: anchor.x,
+              top: anchor.y,
+              transform:
+                anchor.y > 240 ? 'translate(-50%, calc(-100% - 12px))' : 'translate(-50%, 12px)',
+            } as any
+          }>
           <XStack justifyContent="space-between" alignItems="center">
             <YStack gap="$1" flex={1}>
               <Dialog.Title fontSize="$5">Azioni rapide</Dialog.Title>

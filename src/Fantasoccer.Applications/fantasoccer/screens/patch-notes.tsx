@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.29',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Il menu rapido desktop si apre sopra il punto del click destro e supporta la selezione e lo spostamento dei giocatori tramite scorciatoie Ctrl e Shift',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Aggiunti i comandi rapidi A, D, C e P con numeri 1-6 per titolari, panchina e tribuna, con scambio automatico delle posizioni occupate',
+      },
+    ],
+  },
+  {
     version: '2.0.28',
     date: '11 Settembre 2026',
     changes: [
