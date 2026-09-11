@@ -37,6 +37,7 @@ if (isInMemory)
     builder.Services.AddInMemoryInfrastructures();
     builder.Services.AddRepository<AuctionWrapper, string>(x => x.WithInMemory());
     builder.Services.AddRepository<PushNotificationSettings, string>(x => x.WithInMemory());
+     builder.Services.AddRepository<Settings, string>(x => x.WithInMemory());
     builder.Services.AddRepository<PushNotificationSent, YearDayKey>(x => x.WithInMemory());
     builder.Services.AddRepository<RealRank, int>(x => x.WithInMemory());
     builder.Services.AddRepository<LiveGroup, string>(x => x.WithInMemory());

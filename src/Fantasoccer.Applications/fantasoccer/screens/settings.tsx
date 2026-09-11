@@ -1,5 +1,15 @@
-import { useCallback, useMemo, useState, useEffect } from 'react'
-import { AlertTriangle, Check, Upload, User, Users, ChevronDown, ChevronUp, Copy } from '@tamagui/lucide-icons-2'
+import { useCallback, useMemo, useState, useEffect } from 'react';
+import {
+  AlertTriangle,
+  Check,
+  Upload,
+  User,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Sparkles,
+} from '@tamagui/lucide-icons-2';
 import {
   Button,
   Card,
@@ -14,43 +24,45 @@ import {
   XStack,
   YStack,
   useMedia,
-} from 'tamagui'
-import { ScreenContent } from 'components/layout/ScreenContent'
-import { TeamLogo } from 'components/team/TeamLogo'
-import { useApp } from 'providers/AppProvider'
-import { useAuth } from 'providers/AuthProvider'
-import { useSettings } from 'hooks/useSettings'
-import { useGroup } from 'hooks/useGroup'
-import { getActualFantacalcioYear } from 'utils/timezoneHelpers'
-import * as ImagePicker from 'expo-image-picker'
+} from 'tamagui';
+import { ScreenContent } from 'components/layout/ScreenContent';
+import { TeamLogo } from 'components/team/TeamLogo';
+import { useApp } from 'providers/AppProvider';
+import { useAuth } from 'providers/AuthProvider';
+import { useSettings } from 'hooks/useSettings';
+import { useGroup } from 'hooks/useGroup';
+import { getActualFantacalcioYear } from 'utils/timezoneHelpers';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function SettingsScreen() {
-  const media = useMedia()
-  const containerWidth = media.gtMd ? 800 : '100%'
+  const media = useMedia();
+  const containerWidth = media.gtMd ? 800 : '100%';
 
-  const { currentGroup } = useApp()
-  const { user } = useAuth()
-  const userEmail = user?.email ?? null
-  const groupId = currentGroup?.id ?? null
+  const { currentGroup } = useApp();
+  const { user } = useAuth();
+  const userEmail = user?.email ?? null;
+  const groupId = currentGroup?.id ?? null;
 
   // Get current year
-  const currentYear = getActualFantacalcioYear()
+  const currentYear = getActualFantacalcioYear();
 
   // Get user's team info from the group
-  const { group, loading: groupLoading, refetch: refetchGroup } = useGroup(groupId)
+  const { group, loading: groupLoading, refetch: refetchGroup } = useGroup(groupId);
 
   // Find user's team in the current year's baskets
   const userTeamInfo = useMemo(() => {
-    if (!group || !userEmail) return null
+    if (!group || !userEmail) return null;
 
     // Search through all baskets for the user's team
     for (const basket of group.baskets) {
-      const yearData = basket.years?.find((y) => y.year === currentYear)
-      if (!yearData) continue
+      const yearData = basket.years?.find((y) => y.year === currentYear);
+      if (!yearData) continue;
 
       const team = yearData.teams?.find(
-        (t) => t.owner.toLowerCase() === userEmail || t.additionalOwners?.some(owner => owner.toLowerCase() === userEmail)
-      )
+        (t) =>
+          t.owner.toLowerCase() === userEmail ||
+          t.additionalOwners?.some((owner) => owner.toLowerCase() === userEmail)
+      );
 
       if (team) {
         return {
@@ -58,12 +70,12 @@ export default function SettingsScreen() {
           teamName: team.name,
           owner: team.owner,
           year: currentYear,
-        }
+        };
       }
     }
 
-    return null
-  }, [group, userEmail, currentYear])
+    return null;
+  }, [group, userEmail, currentYear]);
 
   const {
     uploadingLogo,
@@ -80,44 +92,48 @@ export default function SettingsScreen() {
     updatingUsername,
     updateUsernameError,
     updateUsername,
-  } = useSettings()
+    userSettings,
+    loadingUserSettings,
+    updatingUserSettings,
+    updateAutoOptimalFormation,
+  } = useSettings();
 
   // Local state for inputs
-  const [newTeamName, setNewTeamName] = useState('')
-  const [newUsername, setNewUsername] = useState('')
-  const [teamNameSuccess, setTeamNameSuccess] = useState(false)
-  const [usernameSuccess, setUsernameSuccess] = useState(false)
-  const [logoSuccess, setLogoSuccess] = useState(false)
-  const [copyLogoSuccess, setCopyLogoSuccess] = useState(false)
-  const [messagesOpen, setMessagesOpen] = useState(false)
-  const [showCopyLogoModal, setShowCopyLogoModal] = useState(false)
-  
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [teamNameSuccess, setTeamNameSuccess] = useState(false);
+  const [usernameSuccess, setUsernameSuccess] = useState(false);
+  const [logoSuccess, setLogoSuccess] = useState(false);
+  const [copyLogoSuccess, setCopyLogoSuccess] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [showCopyLogoModal, setShowCopyLogoModal] = useState(false);
+
   // Local state for updated team name (to avoid full page refresh)
-  const [updatedTeamName, setUpdatedTeamName] = useState<string | null>(null)
-  
+  const [updatedTeamName, setUpdatedTeamName] = useState<string | null>(null);
+
   // Local state for updated username (to avoid full page refresh)
-  const [updatedUsername, setUpdatedUsername] = useState<string | null>(null)
-  
+  const [updatedUsername, setUpdatedUsername] = useState<string | null>(null);
+
   // Cache buster for team logo (timestamp when logo was last updated)
-  const [logoCacheBuster, setLogoCacheBuster] = useState<number>(Date.now())
-  
+  const [logoCacheBuster, setLogoCacheBuster] = useState<number>(Date.now());
+
   // Display team name: use updated name if available, otherwise original
-  const displayTeamName = updatedTeamName ?? userTeamInfo?.teamName ?? ''
-  
+  const displayTeamName = updatedTeamName ?? userTeamInfo?.teamName ?? '';
+
   // Display username: use updated username if available, otherwise original
-  const displayUsername = updatedUsername ?? user?.username ?? 'Non impostato'
+  const displayUsername = updatedUsername ?? user?.username ?? 'Non impostato';
 
   // Handle logo upload
   const handleLogoUpload = useCallback(async () => {
-    if (!groupId || !userTeamInfo) return
+    if (!groupId || !userTeamInfo) return;
 
     try {
       // Request permission to access media library
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
       if (status !== 'granted') {
-        alert('Permesso negato per accedere alla galleria')
-        return
+        alert('Permesso negato per accedere alla galleria');
+        return;
       }
 
       // Launch image picker
@@ -126,27 +142,27 @@ export default function SettingsScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-      })
+      });
 
-      if (result.canceled) return
+      if (result.canceled) return;
 
-      const imageUri = result.assets[0].uri
+      const imageUri = result.assets[0].uri;
 
       // Convert image to blob for web, or use file for native
-      let imageBlob: Blob | File
+      let imageBlob: Blob | File;
 
       if (typeof window !== 'undefined' && 'fetch' in window) {
         // Web: fetch the image and convert to blob
-        const response = await fetch(imageUri)
-        imageBlob = await response.blob()
+        const response = await fetch(imageUri);
+        imageBlob = await response.blob();
       } else {
         // React Native: create a file-like object
-        const filename = imageUri.split('/').pop() || 'logo.png'
+        const filename = imageUri.split('/').pop() || 'logo.png';
         imageBlob = {
           uri: imageUri,
           name: filename,
           type: 'image/png',
-        } as any
+        } as any;
       }
 
       const success = await uploadLogo({
@@ -155,29 +171,29 @@ export default function SettingsScreen() {
         owner: userTeamInfo.owner,
         basketId: userTeamInfo.basketId,
         image: imageBlob,
-      })
+      });
 
       if (success) {
         // Wait a bit for blob storage to propagate, then update cache buster
         setTimeout(() => {
-          setLogoCacheBuster(Date.now())
-          setLogoSuccess(true)
-          setTimeout(() => setLogoSuccess(false), 3000)
-        }, 500)
+          setLogoCacheBuster(Date.now());
+          setLogoSuccess(true);
+          setTimeout(() => setLogoSuccess(false), 3000);
+        }, 500);
       }
     } catch (error) {
-      console.error('Error selecting/uploading logo:', error)
+      console.error('Error selecting/uploading logo:', error);
     }
-  }, [groupId, userTeamInfo, uploadLogo])
+  }, [groupId, userTeamInfo, uploadLogo]);
 
   // Handle copy logo from previous year - show preview modal
   const handleShowCopyLogoPreview = useCallback(() => {
-    setShowCopyLogoModal(true)
-  }, [])
+    setShowCopyLogoModal(true);
+  }, []);
 
   // Confirm and copy logo from previous year
   const handleConfirmCopyLogo = useCallback(async () => {
-    if (!groupId || !userTeamInfo) return
+    if (!groupId || !userTeamInfo) return;
 
     try {
       const success = await copyLogoFromPreviousYear({
@@ -185,64 +201,64 @@ export default function SettingsScreen() {
         year: userTeamInfo.year,
         owner: userTeamInfo.owner,
         basketId: userTeamInfo.basketId,
-      })
+      });
 
       if (success) {
         // Close modal first
-        setShowCopyLogoModal(false)
-        
+        setShowCopyLogoModal(false);
+
         // Wait a bit for blob storage to propagate, then update cache buster
         setTimeout(() => {
-          setLogoCacheBuster(Date.now())
-          setCopyLogoSuccess(true)
-          setTimeout(() => setCopyLogoSuccess(false), 3000)
-        }, 500)
+          setLogoCacheBuster(Date.now());
+          setCopyLogoSuccess(true);
+          setTimeout(() => setCopyLogoSuccess(false), 3000);
+        }, 500);
       } else {
         // Close modal even on failure
-        setShowCopyLogoModal(false)
+        setShowCopyLogoModal(false);
       }
     } catch (error) {
-      console.error('Error copying logo:', error)
-      setShowCopyLogoModal(false)
+      console.error('Error copying logo:', error);
+      setShowCopyLogoModal(false);
     }
-  }, [groupId, userTeamInfo, copyLogoFromPreviousYear])
+  }, [groupId, userTeamInfo, copyLogoFromPreviousYear]);
 
   // Handle team name change
   const handleChangeTeamName = useCallback(async () => {
-    if (!groupId || !userTeamInfo || !newTeamName.trim()) return
+    if (!groupId || !userTeamInfo || !newTeamName.trim()) return;
 
     const success = await changeTeamName({
       groupId,
       owner: userTeamInfo.owner,
       newName: newTeamName.trim(),
       basketId: userTeamInfo.basketId,
-    })
+    });
 
     if (success) {
       // Update local state instead of refetching the entire group
-      setUpdatedTeamName(newTeamName.trim())
-      setTeamNameSuccess(true)
-      setNewTeamName('')
-      setTimeout(() => setTeamNameSuccess(false), 3000)
+      setUpdatedTeamName(newTeamName.trim());
+      setTeamNameSuccess(true);
+      setNewTeamName('');
+      setTimeout(() => setTeamNameSuccess(false), 3000);
     }
-  }, [groupId, userTeamInfo, newTeamName, changeTeamName])
+  }, [groupId, userTeamInfo, newTeamName, changeTeamName]);
 
   // Handle username update
   const handleUpdateUsername = useCallback(async () => {
-    if (!newUsername.trim()) return
+    if (!newUsername.trim()) return;
 
-    const success = await updateUsername(newUsername.trim())
+    const success = await updateUsername(newUsername.trim());
 
     if (success) {
       // Update local state instead of modifying user object directly
-      setUpdatedUsername(newUsername.trim())
-      setUsernameSuccess(true)
-      setNewUsername('')
-      setTimeout(() => setUsernameSuccess(false), 3000)
+      setUpdatedUsername(newUsername.trim());
+      setUsernameSuccess(true);
+      setNewUsername('');
+      setTimeout(() => setUsernameSuccess(false), 3000);
     }
-  }, [newUsername, updateUsername])
+  }, [newUsername, updateUsername]);
 
-  const isLoading = groupLoading
+  const isLoading = groupLoading;
 
   return (
     <ScreenContent path="screens/settings.tsx" title="Impostazioni">
@@ -252,16 +268,14 @@ export default function SettingsScreen() {
         gap="$4"
         alignItems="stretch"
         alignSelf="center"
-        paddingBottom="$8"
-      >
+        paddingBottom="$8">
         {isLoading ? (
           <Card
             padding="$4"
             backgroundColor="$color2"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$borderColor"
-          >
+            borderColor="$borderColor">
             <XStack alignItems="center" gap="$3" justifyContent="center">
               <Spinner size="small" color="$blue10" />
               <Text color="$color10">Caricamento impostazioni...</Text>
@@ -273,8 +287,7 @@ export default function SettingsScreen() {
             backgroundColor="$color2"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$borderColor"
-          >
+            borderColor="$borderColor">
             <Text color="$color12" fontWeight="600" marginBottom="$2">
               Nessun gruppo selezionato
             </Text>
@@ -288,8 +301,7 @@ export default function SettingsScreen() {
             backgroundColor="$yellow3"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$yellow7"
-          >
+            borderColor="$yellow7">
             <XStack alignItems="center" gap="$2">
               <AlertTriangle size="$1.5" color="$yellow10" />
               <Text color="$yellow11" fontWeight="600">
@@ -297,19 +309,50 @@ export default function SettingsScreen() {
               </Text>
             </XStack>
             <Paragraph marginTop="$2" color="$yellow11">
-              Non hai una squadra registrata in questo gruppo per l&apos;anno corrente ({currentYear}).
+              Non hai una squadra registrata in questo gruppo per l&apos;anno corrente (
+              {currentYear}).
             </Paragraph>
           </Card>
         ) : (
           <YStack gap="$6">
+            <Card
+              padding="$4"
+              backgroundColor="$color2"
+              borderRadius="$4"
+              borderWidth="$0.5"
+              borderColor="$borderColor">
+              <YStack gap="$4">
+                <XStack alignItems="center" gap="$2">
+                  <Sparkles size="$1.5" color="$purple10" />
+                  <H3 color="$color12">AIgoritmo</H3>
+                </XStack>
+                <Separator />
+                <XStack alignItems="center" justifyContent="space-between" gap="$3">
+                  <YStack flex={1} gap="$1">
+                    <Text color="$color12" fontWeight="600">
+                      Formazione ottimale automatica
+                    </Text>
+                    <Text color="$color10" fontSize="$2">
+                      Applica automaticamente la migliore formazione alla nuova giornata.
+                    </Text>
+                  </YStack>
+                  <Button
+                    theme={userSettings.autoOptimalFormation ? 'green' : 'gray'}
+                    disabled={loadingUserSettings || updatingUserSettings}
+                    onPress={() => updateAutoOptimalFormation(!userSettings.autoOptimalFormation)}>
+                    {userSettings.autoOptimalFormation ? 'Disattiva' : 'Attiva'}
+                  </Button>
+                </XStack>
+              </YStack>
+            </Card>
+
             {/* Team Logo Section */}
             <Card
               padding="$4"
               backgroundColor="$color2"
               borderRadius="$4"
               borderWidth="$0.5"
-              borderColor="$borderColor"
-            >
+              borderColor="$borderColor">
               <YStack gap="$4">
                 <XStack alignItems="center" gap="$2">
                   <Upload size="$1.5" color="$blue10" />
@@ -338,8 +381,7 @@ export default function SettingsScreen() {
                     onPress={handleLogoUpload}
                     disabled={uploadingLogo}
                     theme="blue"
-                    size="$4"
-                  >
+                    size="$4">
                     {uploadingLogo ? 'Caricamento...' : 'Carica Nuovo Logo'}
                   </Button>
 
@@ -348,8 +390,7 @@ export default function SettingsScreen() {
                     onPress={handleShowCopyLogoPreview}
                     disabled={copyingLogo || uploadingLogo}
                     theme="purple"
-                    size="$4"
-                  >
+                    size="$4">
                     Usa Logo Anno Precedente
                   </Button>
 
@@ -359,8 +400,7 @@ export default function SettingsScreen() {
                       backgroundColor="$red3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <AlertTriangle size="$1" color="$red10" />
                       <Text color="$red11" fontSize="$2">
                         {uploadLogoError}
@@ -374,8 +414,7 @@ export default function SettingsScreen() {
                       backgroundColor="$green3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <Check size="$1" color="$green10" />
                       <Text color="$green11" fontSize="$2">
                         Logo caricato con successo!
@@ -389,8 +428,7 @@ export default function SettingsScreen() {
                       backgroundColor="$red3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <AlertTriangle size="$1" color="$red10" />
                       <Text color="$red11" fontSize="$2">
                         {copyLogoError}
@@ -404,8 +442,7 @@ export default function SettingsScreen() {
                       backgroundColor="$green3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <Check size="$1" color="$green10" />
                       <Text color="$green11" fontSize="$2">
                         Logo copiato con successo!
@@ -422,8 +459,7 @@ export default function SettingsScreen() {
               backgroundColor="$color2"
               borderRadius="$4"
               borderWidth="$0.5"
-              borderColor="$borderColor"
-            >
+              borderColor="$borderColor">
               <YStack gap="$4">
                 <XStack alignItems="center" gap="$2">
                   <Users size="$1.5" color="$blue10" />
@@ -455,8 +491,7 @@ export default function SettingsScreen() {
                       icon={Check}
                       onPress={handleChangeTeamName}
                       disabled={changingTeamName || !newTeamName.trim()}
-                      theme="blue"
-                    >
+                      theme="blue">
                       {changingTeamName ? 'Aggiornamento...' : 'Cambia Nome'}
                     </Button>
                   </XStack>
@@ -468,8 +503,7 @@ export default function SettingsScreen() {
                         alignItems="center"
                         justifyContent="space-between"
                         paddingTop="$2"
-                        marginTop="$2"
-                      >
+                        marginTop="$2">
                         <XStack alignItems="center" gap="$2" flex={1}>
                           {changingTeamName ? (
                             <Spinner size="small" color="$blue10" />
@@ -478,17 +512,22 @@ export default function SettingsScreen() {
                           ) : (
                             <Check size="$1" color="$green10" />
                           )}
-                          <Text 
-                            color={changeTeamNameError ? "$red11" : (teamNameSuccess ? "$green11" : "$color11")} 
-                            numberOfLines={1} 
+                          <Text
+                            color={
+                              changeTeamNameError
+                                ? '$red11'
+                                : teamNameSuccess
+                                  ? '$green11'
+                                  : '$color11'
+                            }
+                            numberOfLines={1}
                             ellipsizeMode="tail"
-                            fontWeight="500"
-                          >
+                            fontWeight="500">
                             {changingTeamName
                               ? (changeTeamNameProgress ?? 'Avviando...')
-                              : (changeTeamNameMessages.length > 0
-                                  ? changeTeamNameMessages[changeTeamNameMessages.length - 1]
-                                  : '')}
+                              : changeTeamNameMessages.length > 0
+                                ? changeTeamNameMessages[changeTeamNameMessages.length - 1]
+                                : ''}
                           </Text>
                         </XStack>
 
@@ -509,8 +548,7 @@ export default function SettingsScreen() {
                           gap="$1"
                           marginTop="$2"
                           maxHeight={160}
-                          overflow="scroll"
-                        >
+                          overflow="scroll">
                           {/* Mostra solo i primi N-1 messaggi, l'ultimo è già visibile nel titolo sopra */}
                           {changeTeamNameMessages.slice(0, -1).map((msg, idx) => (
                             <Text key={idx} color="$blue11" fontSize="$2">
@@ -531,8 +569,7 @@ export default function SettingsScreen() {
               backgroundColor="$color2"
               borderRadius="$4"
               borderWidth="$0.5"
-              borderColor="$borderColor"
-            >
+              borderColor="$borderColor">
               <YStack gap="$4">
                 <XStack alignItems="center" gap="$2">
                   <User size="$1.5" color="$blue10" />
@@ -547,8 +584,8 @@ export default function SettingsScreen() {
                       Username attuale: <Text fontWeight="600">{displayUsername}</Text>
                     </Text>
                     <Text fontSize="$2" color="$color10">
-                      Lo username deve essere tra 3 e 20 caratteri e può contenere solo lettere, numeri e
-                      underscore (_).
+                      Lo username deve essere tra 3 e 20 caratteri e può contenere solo lettere,
+                      numeri e underscore (_).
                     </Text>
                   </YStack>
 
@@ -567,8 +604,7 @@ export default function SettingsScreen() {
                       icon={Check}
                       onPress={handleUpdateUsername}
                       disabled={updatingUsername || !newUsername.trim()}
-                      theme="blue"
-                    >
+                      theme="blue">
                       {updatingUsername ? 'Aggiornamento...' : 'Cambia Username'}
                     </Button>
                   </XStack>
@@ -579,8 +615,7 @@ export default function SettingsScreen() {
                       backgroundColor="$red3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <AlertTriangle size="$1" color="$red10" />
                       <Text color="$red11" fontSize="$2">
                         {updateUsernameError}
@@ -594,8 +629,7 @@ export default function SettingsScreen() {
                       backgroundColor="$green3"
                       borderRadius="$2"
                       gap="$2"
-                      alignItems="center"
-                    >
+                      alignItems="center">
                       <Check size="$1" color="$green10" />
                       <Text color="$green11" fontSize="$2">
                         Username aggiornato con successo!
@@ -635,8 +669,7 @@ export default function SettingsScreen() {
             enterStyle={{ x: 0, y: -20, opacity: 0, scale: 0.9 }}
             exitStyle={{ x: 0, y: 10, opacity: 0, scale: 0.95 }}
             gap="$4"
-            maxWidth={500}
-          >
+            maxWidth={500}>
             <Dialog.Title>Conferma Utilizzo Logo Anno Precedente</Dialog.Title>
             <Dialog.Description>
               Questo è il logo che verrà utilizzato per la tua squadra. Vuoi procedere?
@@ -667,8 +700,7 @@ export default function SettingsScreen() {
                 theme="blue"
                 onPress={handleConfirmCopyLogo}
                 disabled={copyingLogo}
-                icon={copyingLogo ? <Spinner /> : Copy}
-              >
+                icon={copyingLogo ? <Spinner /> : Copy}>
                 {copyingLogo ? 'Copiando...' : 'Conferma'}
               </Button>
             </XStack>
@@ -676,5 +708,5 @@ export default function SettingsScreen() {
         </Dialog.Portal>
       </Dialog>
     </ScreenContent>
-  )
+  );
 }

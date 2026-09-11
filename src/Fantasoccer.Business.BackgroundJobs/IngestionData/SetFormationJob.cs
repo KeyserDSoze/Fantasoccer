@@ -1,4 +1,5 @@
 ﻿using System.Timers;
+using Fantasoccer.Business;
 using RepositoryFramework;
 
 namespace Fantasoccer.Engine.IngestionData
@@ -9,16 +10,22 @@ namespace Fantasoccer.Engine.IngestionData
         private readonly IRepository<Team, TeamDayKey> _repository;
         private readonly IRepository<RealCalendar, int> _calendar;
         private readonly IRepository<Group, string> _groups;
+        private readonly IRepository<Settings, string>? _settings;
+        private readonly IOptimalFormationService? _optimalFormationService;
 
         public SetFormationJob(IFantasoccerLogger logger,
             IRepository<Team, TeamDayKey> repository,
             IRepository<RealCalendar, int> calendar,
-            IRepository<Group, string> groups)
+            IRepository<Group, string> groups,
+            IRepository<Settings, string>? settings = null,
+            IOptimalFormationService? optimalFormationService = null)
         {
             _logger = logger;
             _repository = repository;
             _calendar = calendar;
             _groups = groups;
+            _settings = settings;
+            _optimalFormationService = optimalFormationService;
         }
 
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
@@ -71,6 +78,11 @@ namespace Fantasoccer.Engine.IngestionData
                                     var nextTeam = oldTeam.Clone();
                                     nextTeam.FormationChanges = 0;
                                     nextTeam.FormationChangeHistory = [];
+                                    var userSettings = _settings == null
+                                        ? null
+                                        : await _settings.GetAsync(owner, cancellationToken).NoContext();
+                                    if (userSettings?.AutoOptimalFormation == true && _optimalFormationService != null)
+                                        await ApplyOptimalFormationAsync(group, basket.Id, actualYear, day + 1, nextTeam, cancellationToken);
                                     await _repository.InsertAsync(nextKey, nextTeam, cancellationToken).NoContext();
                                     listUpdated.Add(owner);
                                 }
@@ -99,5 +111,30 @@ namespace Fantasoccer.Engine.IngestionData
 
         public Task OnException(Exception exception)
             => _logger.LogErrorAsync<SetFormationJob>(exception);
+
+        private async Task ApplyOptimalFormationAsync(Group group, string basketId, int year, int day, Team team, CancellationToken cancellationToken)
+        {
+            var annualLeague = group.Leagues
+                .Where(x => x.BasketsId.Contains(basketId, StringComparer.OrdinalIgnoreCase))
+                .SelectMany(x => x.Years.Where(y => y.Year == year).Select(y => (League: x, Annual: y)))
+                .FirstOrDefault();
+            if (annualLeague.Annual == null)
+                return;
+
+            var leagueType = annualLeague.Annual.Type == LeagueType.Null
+                ? (annualLeague.League.Type == LeagueType.Null ? LeagueType.League : annualLeague.League.Type)
+                : annualLeague.Annual.Type;
+            var result = await _optimalFormationService.CalculateAsync(
+                team,
+                year,
+                day,
+                leagueType,
+                annualLeague.Annual.Settings ?? LeagueSetting.Default,
+                cancellationToken);
+            var positions = result.Players.ToDictionary(x => x.PlayerKey, x => x.Position, StringComparer.OrdinalIgnoreCase);
+            foreach (var player in team.ActivePlayers)
+                if (positions.TryGetValue(player.Key, out var position))
+                    player.Position = position;
+        }
     }
 }

@@ -20,6 +20,7 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<Team, TeamKey> _teamRepository;
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly IFactory<IContentRepository> _contentFactory;
+        private readonly IRepository<Settings, string> _settingsRepository;
 
         public SettingsController(IFactory<IContentRepository> contentFactory,
             IRepository<Team, TeamKey> teamRepository,
@@ -29,7 +30,8 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<Rank, YearDayLeague> dailyRankRepository,
             IRepository<Rank, LeagueKey> rankRepository,
             IRepository<RealCalendar, int> realCalendarRepository,
-            IRepository<AppIdentity, string> identityRepository)
+            IRepository<AppIdentity, string> identityRepository,
+            IRepository<Settings, string> settingsRepository)
         {
             _groups = groups;
             _calendarRepository = calendarRepository;
@@ -40,6 +42,30 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamRepository = teamRepository;
             _teamDayRepository = teamDayRepository;
             _contentFactory = contentFactory;
+            _settingsRepository = settingsRepository;
+        }
+
+        [HttpGet]
+        public async ValueTask<Settings> GetAsync()
+        {
+            var email = User.Identity?.Name;
+            return email == null
+                ? new Settings()
+                : await _settingsRepository.GetAsync(email) ?? new Settings();
+        }
+
+        [HttpPut]
+        public async ValueTask<bool> UpdateAsync([FromBody] Settings settings)
+        {
+            var email = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
+            var current = await _settingsRepository.GetAsync(email) ?? new Settings();
+            current.AutoOptimalFormation = settings.AutoOptimalFormation;
+            return await _settingsRepository.ExistAsync(email)
+                ? (await _settingsRepository.UpdateAsync(email, current)).IsOk
+                : (await _settingsRepository.InsertAsync(email, current)).IsOk;
         }
         private bool CheckIsOwner(Group group, int year, string owner, string basketId)
         {

@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.15',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunto un motore backend deterministico per calcolare la formazione ottimale usando voti, statistiche, forma recente, chance, calendario, casa/trasferta e classifica reale'
+      },
+      {
+        category: 'Feature',
+        description: 'Il pulsante AIgoritmo usa ora il calcolo server-side e mostra modulo, titolari, panchina e tribuna in modo coerente e ripetibile'
+      },
+      {
+        category: 'Feature',
+        description: 'Aggiunta l’impostazione utente Formazione ottimale automatica: quando attiva, la nuova giornata viene preparata automaticamente senza sovrascrivere una formazione già esistente'
+      },
+      {
+        category: 'Improvement',
+        description: 'Rimossa la precedente implementazione duplicata dell’algoritmo dal frontend e aggiunti fallback deterministici per dati mancanti'
+      }
+    ]
+  },
+  {
     version: '2.0.14',
     date: '11 Settembre 2026',
     changes: [

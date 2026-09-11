@@ -37,6 +37,7 @@ namespace Fantasoccer.InMemory
             services.AddInMemoryInfrastructure<Team, OpeningTeamDayKey>(onlyQuery: false, factoryName: "openingdaily");
             services.AddInMemoryInfrastructure<OpeningCompetitionStandings, OpeningCompetitionKey>(onlyQuery: false, factoryName: "openingstandings");
             services.AddInMemoryInfrastructure<AppIdentity, string>(onlyQuery: false);
+            services.AddInMemoryInfrastructure<Settings, string>(onlyQuery: false);
             services.AddInMemoryInfrastructure<FantasoccerLog, string>(true);
             services
                 .AddContentRepository()

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
@@ -69,6 +70,23 @@ public sealed class SettingsApiTests
         Assert.Equal("true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         var updated = await _factory.Services.GetRequiredService<IRepository<AppIdentity, string>>().GetAsync(email, TestContext.Current.CancellationToken);
         Assert.Equal("valid_name", updated?.Username);
+    }
+
+    [Fact]
+    public async Task Optimal_formation_setting_is_persisted_per_user()
+    {
+        const string email = "settings-optimal@example.com";
+        await AddIdentityAsync(email);
+        _client.DefaultRequestHeaders.Add("X-Test-User", email);
+
+        var update = await _client.PutAsJsonAsync("/Settings/Update", new { autoOptimalFormation = true }, TestContext.Current.CancellationToken);
+        update.EnsureSuccessStatusCode();
+        Assert.Equal("true", await update.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        var get = await _client.GetAsync("/Settings/Get", TestContext.Current.CancellationToken);
+        get.EnsureSuccessStatusCode();
+        var settings = await get.Content.ReadFromJsonAsync<Settings>(TestContext.Current.CancellationToken);
+        Assert.True(settings?.AutoOptimalFormation);
     }
 
     private async Task<AppIdentity> AddIdentityAsync(string email)

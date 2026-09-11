@@ -11,6 +11,8 @@ namespace Fantasoccer.Business
         public static IServiceCollection AddSharedBusiness(this IServiceCollection services)
         {
             services.AddTransient<ITeamCalculator, TeamCalculator>();
+            services.AddSingleton<IOptimalFormationEngine, OptimalFormationEngine>();
+            services.AddTransient<IOptimalFormationService, OptimalFormationService>();
             services.AddSingleton<IRankCalculator, RankCalculator>();
             services.AddSingleton<ITeamChecker, TeamChecker>();
             services.AddSingleton<IRandomCalendar, RandomCalendar>();
