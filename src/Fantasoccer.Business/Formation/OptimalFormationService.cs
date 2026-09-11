@@ -81,9 +81,10 @@ namespace Fantasoccer.Business
             var expectedVote = vote > 0 ? vote : (fantaAverage > 0 ? fantaAverage : average > 0 ? average : 5.5f);
             var matchup = CalculateMatchup(player, rank);
             var confidence = stat != null && player.Chance != null && player.Vote != null ? 1f : stat != null || player.Vote != null ? 0.65f : 0.25f;
+            var finalValue = player.FinalValue?.Value ?? 0;
             return new OptimalPlayerProjection(
                 Average: average > 0 ? average : expectedVote,
-                FantaAverage: player.FinalValue.Value > 0 ? player.FinalValue.Value : fantaAverage > 0 ? fantaAverage : expectedVote,
+                FantaAverage: finalValue > 0 ? finalValue : fantaAverage > 0 ? fantaAverage : expectedVote,
                 RecentAverage: recentAverage > 0 ? recentAverage : expectedVote,
                 Availability: availability,
                 Matchup: matchup,

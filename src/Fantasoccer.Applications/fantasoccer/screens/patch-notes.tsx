@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.20',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Risolto definitivamente l’errore 500 della formazione AI quando un giocatore non ha ancora un voto finale: il valore viene ora gestito come dato opzionale'
+      }
+    ]
+  },
+  {
     version: '2.0.19',
     date: '11 Settembre 2026',
     changes: [

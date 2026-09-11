@@ -6,6 +6,16 @@ The API workflow currently skips the solution test step while the test project i
 
 ## Environment variables
 
+## Production Azure target
+
+Keep these identifiers available when querying the production App Service or Application Insights with Azure CLI:
+
+- Tenant ID: `6998af00-286c-4e5e-8b3e-713471e8487f`
+- Subscription ID: `c46eb61c-c951-471f-aa59-bf20aacf4d75`
+- Resource group: `fc`
+- API App Service: `apifc`
+- API URL: `https://apifc.azurewebsites.net`
+
 Create these **Variables** in `Settings > Environments > production`:
 
 - `API_RESOURCE_GROUP`: resource group containing the API App Service
