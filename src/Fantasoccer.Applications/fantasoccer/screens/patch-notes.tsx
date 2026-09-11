@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.36',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Completata la Guida al sito con istruzioni dettagliate per la Vista rapida mobile e le colonne T, 1, 2 e F',
+      },
+    ],
+  },
+  {
     version: '2.0.35',
     date: '11 Settembre 2026',
     changes: [

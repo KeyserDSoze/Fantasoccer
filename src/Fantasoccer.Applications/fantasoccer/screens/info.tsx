@@ -163,6 +163,44 @@ export default function InfoScreen() {
                 </YStack>
               </Card>
             )}
+            <Card
+              padding="$4"
+              backgroundColor="$blue2"
+              borderRadius="$4"
+              borderWidth={1}
+              borderColor="$blue8"
+              gap="$3"
+            >
+              <XStack alignItems="center" gap="$2">
+                <Info size="$1" color="$blue10" />
+                <H3 color="$blue11">Vista rapida mobile</H3>
+              </XStack>
+              <Separator />
+              <Paragraph fontSize="$3" color="$blue11">
+                Prima dell&apos;inizio della partita, da smartphone puoi aprire la Vista rapida dal pulsante nella sezione Controlli partita. La tabella mostra tutti i giocatori ordinati per ruolo e posizione.
+              </Paragraph>
+              <YStack gap="$2">
+                <Text fontSize="$3" fontWeight="700" color="$blue11">Colonne di destinazione</Text>
+                <Text fontSize="$2" color="$blue10">
+                  T = titolare, 1 = primo panchinaro, 2 = secondo panchinaro, F = fuori/tribuna. I colori delle colonne e delle righe indicano immediatamente la destinazione corrente del giocatore.
+                </Text>
+              </YStack>
+              <YStack gap="$2">
+                <Text fontSize="$3" fontWeight="700" color="$blue11">Come modificare</Text>
+                <Text fontSize="$2" color="$blue10">
+                  Premi il piccolo pulsante della colonna scelta per ogni giocatore. La riga cambia colore subito, ma l&apos;ordine della tabella resta fermo per permettere modifiche veloci e sicure.
+                </Text>
+              </YStack>
+              <YStack gap="$2">
+                <Text fontSize="$3" fontWeight="700" color="$blue11">Salvataggio</Text>
+                <Text fontSize="$2" color="$blue10">
+                  Premi Salva formazione al termine. Solo dopo un salvataggio riuscito la squadra viene aggiornata e la tabella viene riordinata automaticamente. Se il salvataggio fallisce, puoi correggere le scelte e riprovare.
+                </Text>
+              </YStack>
+              <Text fontSize="$2" color="$blue10">
+                La Vista rapida è disponibile esclusivamente su mobile e prima dell&apos;inizio della partita.
+              </Text>
+            </Card>
             {/* Sezione Spiegazione Icone */}
             <Card
               padding="$4"
