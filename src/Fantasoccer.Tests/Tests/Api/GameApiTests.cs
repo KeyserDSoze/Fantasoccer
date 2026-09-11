@@ -178,6 +178,19 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Super_admin_can_calculate_another_team_optimal_formation()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+
+        var response = await _client.GetAsync(
+            $"/Game/OptimalFormation?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&day=7&owner={Owner}&asAdmin=true",
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task Save_live_team_uses_most_restrictive_rule_for_shared_basket()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);

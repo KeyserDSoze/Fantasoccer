@@ -625,6 +625,7 @@ export const SoccerField = memo(
           year,
           day: gameWrapper.serieADay,
           owner: teamToOptimize.owner,
+          asAdmin: isAdminMode,
         });
         if (!result?.players?.length) {
           toast.show(result?.warnings?.[0] ?? 'Impossibile calcolare una formazione valida', {

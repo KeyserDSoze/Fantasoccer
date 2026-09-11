@@ -42,6 +42,7 @@ export const gameEndpoints = {
     year: number;
     day: number;
     owner: string;
+    asAdmin?: boolean;
   }) => buildApiUrl('/Game/OptimalFormation', params as any),
 };
 
@@ -107,6 +108,7 @@ export const gameService = {
     year: number;
     day: number;
     owner: string;
+    asAdmin?: boolean;
   }): Promise<OptimalFormationResult | null> {
     const url = gameEndpoints.optimalFormation(params);
     const accessToken = await tokenStorageService.getTokenString();

@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.27',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Corretto il calcolo della formazione ottimale in modalità SuperAdmin inviando all’API l’autorizzazione amministrativa necessaria',
+      },
+    ],
+  },
+  {
     version: '2.0.26',
     date: '11 Settembre 2026',
     changes: [
