@@ -110,11 +110,23 @@ export const gameService = {
     const accessToken = await tokenStorageService.getTokenString();
     if (!accessToken) return null;
     const res = await fetch(url, { headers: getCommonHeaders(true, accessToken) });
+    const body = await res.text();
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to calculate optimal formation: ${res.status} ${text}`);
+      let message = body.trim();
+      try {
+        const problem = message ? JSON.parse(message) : null;
+        message = problem?.detail ?? problem?.title ?? message;
+      } catch {
+        // Keep the raw response when the server did not return JSON.
+      }
+      throw new Error(`Errore calcolo AI (${res.status}): ${message || res.statusText}`);
     }
-    return (await res.json()) as OptimalFormationResult | null;
+    if (!body.trim()) return null;
+    try {
+      return JSON.parse(body) as OptimalFormationResult | null;
+    } catch {
+      throw new Error('Il server ha restituito una risposta non valida per il calcolo AI.');
+    }
   },
 
   async saveTeam(context: GameContext, team: Team, asAdmin?: boolean) {

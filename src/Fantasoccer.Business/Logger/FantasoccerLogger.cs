@@ -1,17 +1,27 @@
-﻿using RepositoryFramework;
+﻿using Microsoft.Extensions.Logging;
+using RepositoryFramework;
 
 namespace Fantasoccer.Business
 {
     internal sealed class FantasoccerLogger : IFantasoccerLogger
     {
         private readonly IRepository<FantasoccerLog, string> _repository;
+        private readonly ILogger<FantasoccerLogger>? _telemetryLogger;
 
-        public FantasoccerLogger(IRepository<FantasoccerLog, string> repository)
+        public FantasoccerLogger(
+            IRepository<FantasoccerLog, string> repository,
+            ILogger<FantasoccerLogger>? telemetryLogger = null)
         {
             _repository = repository;
+            _telemetryLogger = telemetryLogger;
         }
         public async Task LogAsync<T>(string message)
         {
+            _telemetryLogger?.LogInformation(
+                "Fantasoccer business log from {Component}: {Message}",
+                typeof(T).Name,
+                message);
+
             var id = $"{IFantasoccerLogger.LogPrimaryKey}_-_{typeof(T).Name}_{DateTime.UtcNow.Hour}";
             await TryUpdateAsync(id, new FantasoccerLog
             {
@@ -22,6 +32,11 @@ namespace Fantasoccer.Business
         }
         public async Task LogErrorAsync<T>(Exception exception)
         {
+            _telemetryLogger?.LogError(
+                exception,
+                "Fantasoccer business error from {Component}",
+                typeof(T).Name);
+
             var id = $"{IFantasoccerLogger.ErrorPrimaryKey}_-_{typeof(T).Name}_{DateTime.UtcNow.Hour}";
             await TryUpdateAsync(id, new FantasoccerLog
             {

@@ -52,7 +52,7 @@ namespace Fantasoccer.Application.Api.Controllers
         }
 
         [HttpGet]
-        public async ValueTask<OptimalFormationResult?> OptimalFormationAsync(
+        public async ValueTask<ActionResult<OptimalFormationResult>> OptimalFormationAsync(
             [FromQuery] string groupId,
             [FromQuery] string leagueId,
             [FromQuery] int year,
@@ -60,55 +60,63 @@ namespace Fantasoccer.Application.Api.Controllers
             [FromQuery] string owner,
             [FromQuery] bool? asAdmin = false)
         {
-            if (User.Identity?.Name == null)
-                return null;
-
-            var identity = await _users.GetAsync(User.Identity.Name);
-            var groupForIdentity = identity?.Groups.FirstOrDefault(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase));
-            if (groupForIdentity == null)
-                return null;
-
-            var group = await _groups.GetAsync(groupId);
-            var league = group?.Leagues.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
-            var annualLeague = league?.Years.FirstOrDefault(x => x.Year == year);
-            var basket = group?.Baskets.FirstOrDefault(x =>
-                league?.BasketsId.Contains(x.Id, StringComparer.OrdinalIgnoreCase) == true &&
-                x.Years?.FirstOrDefault(y => y.Year == year)?.Teams?.Any(t => string.Equals(t.Owner, owner, StringComparison.OrdinalIgnoreCase)) == true);
-            var annualTeam = basket?.Years.FirstOrDefault(x => x.Year == year)?.Teams
-                .FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
-            if (group == null || league == null || annualLeague == null || basket == null || annualTeam == null)
-                return null;
-            if (!annualTeam.IsOwner(User.Identity.Name) &&
-                !(asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin)))
-                return null;
-
-            var team = await _teamDayRepository.GetAsync(new TeamDayKey
+            try
             {
-                Group = groupId,
-                BasketId = basket.Id,
-                Email = owner,
-                Year = year,
-                Day = day
-            }) ?? await _teamRepository.GetAsync(new TeamKey
-            {
-                Group = groupId,
-                BasketId = basket.Id,
-                Email = owner,
-                Year = year
-            });
-            if (team == null)
-                return null;
+                if (User.Identity?.Name == null)
+                    return NotFound();
 
-            var leagueType = annualLeague.Type == LeagueType.Null
-                ? (league.Type == LeagueType.Null ? LeagueType.League : league.Type)
-                : annualLeague.Type;
-            return await _optimalFormationService.CalculateAsync(
-                team,
-                year,
-                day,
-                leagueType,
-                annualLeague.Settings ?? LeagueSetting.Default,
-                HttpContext.RequestAborted);
+                var identity = await _users.GetAsync(User.Identity.Name);
+                var groupForIdentity = identity?.Groups.FirstOrDefault(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase));
+                if (groupForIdentity == null)
+                    return NotFound();
+
+                var group = await _groups.GetAsync(groupId);
+                var league = group?.Leagues.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
+                var annualLeague = league?.Years.FirstOrDefault(x => x.Year == year);
+                var basket = group?.Baskets.FirstOrDefault(x =>
+                    league?.BasketsId.Contains(x.Id, StringComparer.OrdinalIgnoreCase) == true &&
+                    x.Years?.FirstOrDefault(y => y.Year == year)?.Teams?.Any(t => string.Equals(t.Owner, owner, StringComparison.OrdinalIgnoreCase)) == true);
+                var annualTeam = basket?.Years.FirstOrDefault(x => x.Year == year)?.Teams
+                    .FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
+                if (group == null || league == null || annualLeague == null || basket == null || annualTeam == null)
+                    return NotFound();
+                if (!annualTeam.IsOwner(User.Identity.Name) &&
+                    !(asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin)))
+                    return Forbid();
+
+                var team = await _teamDayRepository.GetAsync(new TeamDayKey
+                {
+                    Group = groupId,
+                    BasketId = basket.Id,
+                    Email = owner,
+                    Year = year,
+                    Day = day
+                }) ?? await _teamRepository.GetAsync(new TeamKey
+                {
+                    Group = groupId,
+                    BasketId = basket.Id,
+                    Email = owner,
+                    Year = year
+                });
+                if (team == null)
+                    return NotFound();
+
+                var leagueType = annualLeague.Type == LeagueType.Null
+                    ? (league.Type == LeagueType.Null ? LeagueType.League : league.Type)
+                    : annualLeague.Type;
+                return Ok(await _optimalFormationService.CalculateAsync(
+                    team,
+                    year,
+                    day,
+                    leagueType,
+                    annualLeague.Settings ?? LeagueSetting.Default,
+                    HttpContext.RequestAborted));
+            }
+            catch (Exception exception)
+            {
+                await _logger.LogErrorAsync<GameController>(exception);
+                return Problem("Errore durante il calcolo della formazione ottimale.", statusCode: 500);
+            }
         }
         [HttpPost]
         public async Task<TeamResponse> SaveTeamAsync(

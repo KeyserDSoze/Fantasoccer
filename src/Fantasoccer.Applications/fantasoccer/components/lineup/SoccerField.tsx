@@ -1,7 +1,7 @@
-import { memo, useMemo, useState, useEffect } from 'react';
-import { YStack, XStack, Text, ScrollView, Button } from 'tamagui';
+import { memo, useMemo, useState, useEffect, type ReactNode } from 'react';
+import { Accordion, YStack, XStack, Text, ScrollView, Button } from 'tamagui';
 import { useToastController } from '@tamagui/toast';
-import { Save, Sparkles, Undo2 } from '@tamagui/lucide-icons-2';
+import { ChevronDown, Save, ShieldCheck, Sparkles, Undo2 } from '@tamagui/lucide-icons-2';
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game';
 import type { StatPlayer } from 'types/stat';
 import { FantaSoccerRole, Team } from 'types/team';
@@ -206,6 +206,7 @@ export interface SoccerFieldProps {
   customZoom?: number; // Zoom personalizzato per le card (0.1 - 2.0)
   statPlayersMap?: Map<string, StatPlayer>; // Mappa key->StatPlayer per calcoli trend/positiveness
   adminEditingTeam?: 'home' | 'away' | null; // Modalità SuperAdmin - quale squadra sta modificando
+  adminControls?: ReactNode;
   // Zoom controls props
   zoomControls?: {
     zoomLevel: number;
@@ -251,6 +252,7 @@ export const SoccerField = memo(
     zoomControls,
     statPlayersMap,
     adminEditingTeam = null,
+    adminControls,
     style,
   }: SoccerFieldProps) => {
     const { width, height, isMobile, orientation, cardScale } = useResponsiveField({ customZoom });
@@ -907,8 +909,8 @@ export const SoccerField = memo(
 
     // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
     const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges;
-    // Mostra pulsante formazione ottimale solo se il team è modificabile e non ci sono partite iniziate
-    const showOptimalButton = (homeIsMyTeam || awayIsMyTeam) && !hasGameStarted;
+    // L'AI manuale resta sempre disponibile per una squadra modificabile.
+    const showOptimalButton = homeIsMyTeam || awayIsMyTeam;
     // Mostra la toolbar se c'è almeno un pulsante da visualizzare
     const showToolbar = showOptimalButton || showSaveButton || formationBackup !== null;
     const liveDeadline = gameWrapper?.liveFormationDeadline
@@ -1026,68 +1028,98 @@ export const SoccerField = memo(
           </YStack>
         )}
 
-        {/* PULSANTI AZIONE FORMAZIONE */}
-        {showToolbar && (
-          <XStack justifyContent="center" paddingHorizontal={16} gap={12} flexWrap="wrap">
-            {/* Pulsante Formazione Ottimale */}
-            {showOptimalButton && (
-              <Button
-                backgroundColor="$purple10"
-                color="#fff"
-                size="$5"
-                fontWeight="700"
-                icon={<Sparkles size={20} />}
-                onPress={handleOptimalFormation}
-                disabled={isCalculatingOptimal || isSaving}
-                opacity={isSaving ? 0.6 : 1}>
-                {isCalculatingOptimal ? 'Calcolo...' : 'Usa l&apos;AIgoritmo'}
-              </Button>
-            )}
-
-            {/* Pulsante Restore (visibile solo se c'è un backup) */}
-            {formationBackup && (
-              <Button
-                backgroundColor="$orange10"
-                color="#fff"
-                size="$5"
-                fontWeight="700"
-                icon={<Undo2 size={20} />}
-                onPress={handleRestoreFormation}
-                disabled={isSaving}
-                opacity={isSaving ? 0.6 : 1}>
-                Ripristina
-              </Button>
-            )}
-
-            {/* Pulsante Salva */}
-            {showSaveButton && (
-              <Button
-                backgroundColor="$green10"
-                color="#fff"
-                size="$5"
-                fontWeight="700"
-                icon={<Save size={20} />}
-                onPress={handleSave}
-                disabled={isSaving}
-                opacity={isSaving ? 0.6 : 1}>
-                {isSaving ? 'Salvataggio...' : 'Salva Formazione'}
-              </Button>
-            )}
-          </XStack>
-        )}
-
-        {/* CONTROLLI ZOOM - Centrati sotto i pulsanti */}
-        {zoomControls && (
-          <XStack justifyContent="center" paddingHorizontal={16}>
-            <ZoomControls
-              zoomLevel={zoomControls.zoomLevel}
-              onIncrease={zoomControls.onIncrease}
-              onDecrease={zoomControls.onDecrease}
-              onReset={zoomControls.onReset}
-              minZoom={zoomControls.minZoom}
-              maxZoom={zoomControls.maxZoom}
-            />
-          </XStack>
+        {(adminControls || showToolbar || zoomControls) && (
+          <Accordion overflow="hidden" type="multiple" defaultValue={[]}>
+            <Accordion.Item value="formation-controls">
+              <Accordion.Trigger
+                flexDirection="row"
+                justifyContent="space-between"
+                paddingHorizontal="$3"
+                paddingVertical="$2"
+                backgroundColor="$color2"
+                borderRadius="$3"
+                borderWidth="$0.5"
+                borderColor="$borderColor">
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <XStack gap="$2" alignItems="center">
+                      <ShieldCheck size={18} color="$purple10" />
+                      <Text fontSize="$3" fontWeight="600" color="$color11">
+                        Controlli partita
+                      </Text>
+                    </XStack>
+                    <ChevronDown size={18} color="$color10" rotate={open ? '180deg' : '0deg'} />
+                  </>
+                )}
+              </Accordion.Trigger>
+              <Accordion.HeightAnimator transition="quick">
+                <Accordion.Content padding="$2" paddingTop="$3" backgroundColor="$color2">
+                  <YStack gap="$3">
+                    {adminControls}
+                    {showToolbar && (
+                      <XStack
+                        justifyContent="center"
+                        paddingHorizontal={8}
+                        gap={12}
+                        flexWrap="wrap">
+                        {showOptimalButton && (
+                          <Button
+                            backgroundColor="$purple10"
+                            color="#fff"
+                            size="$4"
+                            fontWeight="700"
+                            icon={<Sparkles size={18} />}
+                            onPress={handleOptimalFormation}
+                            disabled={isCalculatingOptimal || isSaving}
+                            opacity={isSaving ? 0.6 : 1}>
+                            {isCalculatingOptimal ? 'Calcolo...' : "Usa l'AIgoritmo"}
+                          </Button>
+                        )}
+                        {formationBackup && (
+                          <Button
+                            backgroundColor="$orange10"
+                            color="#fff"
+                            size="$4"
+                            fontWeight="700"
+                            icon={<Undo2 size={18} />}
+                            onPress={handleRestoreFormation}
+                            disabled={isSaving}
+                            opacity={isSaving ? 0.6 : 1}>
+                            Ripristina
+                          </Button>
+                        )}
+                        {showSaveButton && (
+                          <Button
+                            backgroundColor="$green10"
+                            color="#fff"
+                            size="$4"
+                            fontWeight="700"
+                            icon={<Save size={18} />}
+                            onPress={handleSave}
+                            disabled={isSaving}
+                            opacity={isSaving ? 0.6 : 1}>
+                            {isSaving ? 'Salvataggio...' : 'Salva Formazione'}
+                          </Button>
+                        )}
+                      </XStack>
+                    )}
+                    {zoomControls && (
+                      <XStack justifyContent="center" paddingHorizontal={8}>
+                        <ZoomControls
+                          zoomLevel={zoomControls.zoomLevel}
+                          onIncrease={zoomControls.onIncrease}
+                          onDecrease={zoomControls.onDecrease}
+                          onReset={zoomControls.onReset}
+                          minZoom={zoomControls.minZoom}
+                          maxZoom={zoomControls.maxZoom}
+                        />
+                      </XStack>
+                    )}
+                  </YStack>
+                </Accordion.Content>
+              </Accordion.HeightAnimator>
+            </Accordion.Item>
+          </Accordion>
         )}
 
         {/* CAMPO DA CALCIO */}

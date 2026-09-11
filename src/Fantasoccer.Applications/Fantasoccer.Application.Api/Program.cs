@@ -13,6 +13,7 @@ using RepositoryFramework.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 var isInMemory = builder.Configuration["Integrations:Infrastructure"] == "InMemory";
+builder.Logging.AddFilter("Fantasoccer", LogLevel.Information);
 builder.Services.AddAuthorization(configure =>
 {
     configure.AddPolicy("authenticated", policy =>

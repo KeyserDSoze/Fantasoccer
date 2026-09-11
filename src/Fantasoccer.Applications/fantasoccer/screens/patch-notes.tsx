@@ -15,6 +15,28 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.16',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunta telemetria Application Insights per richieste API, dipendenze, eccezioni e log business dei job, con dettagli utili per diagnosticare gli errori in produzione'
+      },
+      {
+        category: 'Fix',
+        description: 'Migliorata la gestione degli errori nel calcolo della formazione AI: risposte vuote o non JSON e Problem Details vengono ora gestiti senza errori secondari nel client'
+      },
+      {
+        category: 'Improvement',
+        description: 'Ridotta la fascia con partita e orario nella scheda giocatore per lasciare più spazio all’immagine e al nome'
+      },
+      {
+        category: 'Improvement',
+        description: 'Riorganizzati i controlli della formazione in un accordion compatto e chiuso inizialmente, mantenendo sempre disponibile il calcolo AI manuale'
+      }
+    ]
+  },
+  {
     version: '2.0.15',
     date: '11 Settembre 2026',
     changes: [
