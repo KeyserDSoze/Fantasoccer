@@ -15,6 +15,7 @@ public sealed class GameApiTests : IAsyncLifetime
     private const string GameId = "game-api-match";
     private const string Owner = "game-owner@test.local";
     private const string Opponent = "game-opponent@test.local";
+    private const string Admin = "game-admin@test.local";
     private readonly HttpClient _client;
     private readonly IRepository<AppIdentity, string> _users;
     private readonly IRepository<Group, string> _groups;
@@ -104,6 +105,22 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Save_upcoming_game_accepts_live_formation_change()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var submitted = CreateTeam(Owner, "Home");
+        var starter = submitted.Players.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = submitted.Players.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+        (starter.Position, backup.Position) = (backup.Position, starter.Position);
+
+        var response = await SaveAsync(submitted);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Save_live_team_rejects_changes_after_deadline()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-5));
@@ -135,6 +152,32 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Super_admin_can_read_current_game_in_formation_mode()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+
+        var response = await _client.GetAsync(
+            $"/Game/Get?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode=formation&asAdmin=true",
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"c\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Super_admin_can_save_current_game_in_formation_mode()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+
+        var response = await SaveAsync(CreateTeam(Owner, "Home"), "formation", asAdmin: true);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task Save_live_team_uses_most_restrictive_rule_for_shared_basket()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
@@ -146,9 +189,9 @@ public sealed class GameApiTests : IAsyncLifetime
         Assert.Contains("modifiche live non sono abilitate", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
-    private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live")
+    private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live", bool asAdmin = false)
         => _client.PostAsync(
-            $"/Game/SaveTeam?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode={editMode}",
+            $"/Game/SaveTeam?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode={editMode}&asAdmin={asAdmin}",
             new StringContent(JsonSerializer.Serialize(team), Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
 
@@ -185,11 +228,21 @@ public sealed class GameApiTests : IAsyncLifetime
             Email = Owner,
             Groups = [new GroupForIdentity { Id = GroupId, Name = "Game group", Role = IdentityRole.Participant }]
         }, cancellationToken);
+        await _users.InsertAsync(Admin, new AppIdentity
+        {
+            Username = "Game Admin",
+            Email = Admin,
+            Groups = [new GroupForIdentity { Id = GroupId, Name = "Game group", Role = IdentityRole.SuperAdmin }]
+        }, cancellationToken);
         await _groups.InsertAsync(GroupId, new Group
         {
             Id = GroupId,
             Name = "Game group",
-            Users = [new UserOfAGroup { Username = "Game Owner", Email = Owner, Role = IdentityRole.Participant }],
+            Users =
+            [
+                new UserOfAGroup { Username = "Game Owner", Email = Owner, Role = IdentityRole.Participant },
+                new UserOfAGroup { Username = "Game Admin", Email = Admin, Role = IdentityRole.SuperAdmin }
+            ],
             Leagues = leagues,
             Baskets =
             [
@@ -242,7 +295,16 @@ public sealed class GameApiTests : IAsyncLifetime
         await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar
         {
             Year = FantacalcioTime.ActualYear,
-            Days = [new RealDay { Year = FantacalcioTime.ActualYear, SerieADay = 7, Games = [new RealGame { Date = gameStart }] }]
+            Days =
+            [
+                .. Enumerable.Range(1, 6).Select(day => new RealDay
+                {
+                    Year = FantacalcioTime.ActualYear,
+                    SerieADay = day,
+                    Games = [new RealGame { Date = gameStart.AddDays(-day - 1) }]
+                }),
+                new RealDay { Year = FantacalcioTime.ActualYear, SerieADay = 7, Games = [new RealGame { Date = gameStart }] }
+            ]
         }, cancellationToken);
         await _teams.InsertAsync(TeamKey(Owner), CreateTeam(Owner, "Home"), cancellationToken);
     }
@@ -253,6 +315,7 @@ public sealed class GameApiTests : IAsyncLifetime
         await _calendars.DeleteAsync(CalendarKey(), cancellationToken);
         await _groups.DeleteAsync(GroupId, cancellationToken);
         await _users.DeleteAsync(Owner, cancellationToken);
+        await _users.DeleteAsync(Admin, cancellationToken);
     }
 
     private static LeagueKey CalendarKey()

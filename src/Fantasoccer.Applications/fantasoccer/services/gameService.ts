@@ -27,6 +27,7 @@ export const gameEndpoints = {
     year: number;
     gameId: string;
     editMode?: GameEditMode;
+    asAdmin?: boolean;
   }) => buildApiUrl('/Game/Get', params as any),
   saveFormation: () => buildApiUrl('/Game/SaveFormation'),
   saveTeam: (params: GameContext & { asAdmin?: boolean }) => {
@@ -61,6 +62,7 @@ export const gameService = {
     year: number;
     gameId: string;
     editMode?: GameEditMode;
+    asAdmin?: boolean;
   }) {
     const url = gameEndpoints.getGame(params);
     const accessToken = await tokenStorageService.getTokenString();

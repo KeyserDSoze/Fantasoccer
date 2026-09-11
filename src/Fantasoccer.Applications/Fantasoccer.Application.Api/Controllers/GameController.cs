@@ -201,20 +201,29 @@ namespace Fantasoccer.Application.Api.Controllers
                 .FirstOrDefault(x => string.Equals(x.Owner, gameOwner, StringComparison.OrdinalIgnoreCase));
             if (basket == null || annualTeam == null)
                 return new TeamResponse(false, "Squadra non trovata nella lega.");
-            if (!(annualTeam.IsOwner(User.Identity.Name!) || (asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin))))
+            var isSuperAdmin = asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin);
+            if (!(annualTeam.IsOwner(User.Identity.Name!) || isSuperAdmin))
                 return new TeamResponse(false, "Non sei l'owner della squadra.");
 
             var realCalendar = await _realCalendar.GetAsync(year.Value);
+            var nextSerieA = realCalendar?.NextDay?.SerieADay ?? 39;
+            var currentLiveDay = realCalendar?.LiveDay?.SerieADay;
+            var liveEditDay = currentLiveDay ?? realCalendar?.NextDay?.SerieADay;
+            var isUpcomingLiveDay = currentLiveDay == null && liveEditDay == game.SerieADay;
+            var isLiveFormationWindowOpen =
+                (liveEditDay == game.SerieADay && realCalendar?.IsLiveFormationWindowOpen == true) ||
+                isUpcomingLiveDay;
+            var formationIsMutable = game.SerieADay >= nextSerieA || game.SerieADay == currentLiveDay;
             var liveSettings = GetLiveFormationSettings(group, basket.Id, year.Value);
-            if (isFormationEdit && realCalendar?.NextDay?.SerieADay != game.SerieADay)
+            if (isFormationEdit && (!isSuperAdmin || !formationIsMutable) && realCalendar?.NextDay?.SerieADay != game.SerieADay)
                 return new TeamResponse(false, "Da La mia formazione puoi modificare solo la prossima giornata.");
             if (isLiveFormationChange)
             {
                 if (liveSettings.Maximum <= 0)
                     return new TeamResponse(false, "Le modifiche live non sono abilitate per questa lega.");
-                if (realCalendar?.LiveDay?.SerieADay != game.SerieADay)
+                if (liveEditDay != game.SerieADay)
                     return new TeamResponse(false, "Questa non è la giornata live.");
-                if (!realCalendar.IsLiveFormationWindowOpen)
+                if (!isLiveFormationWindowOpen)
                     return new TeamResponse(false, "La finestra per le modifiche live è terminata.");
             }
 
@@ -226,7 +235,8 @@ namespace Fantasoccer.Application.Api.Controllers
                 BasketId = basket.Id,
                 Day = game.SerieADay
             };
-            var actualTeam = await _teamDayRepository.GetAsync(teamDayKey) ?? await _teamRepository.GetAsync(new TeamKey
+            var dailyTeam = await _teamDayRepository.GetAsync(teamDayKey);
+            var actualTeam = dailyTeam ?? await _teamRepository.GetAsync(new TeamKey
             {
                 Year = year.Value,
                 Email = annualTeam.Owner,
@@ -289,8 +299,20 @@ namespace Fantasoccer.Application.Api.Controllers
                 actualTeam.FormationChangeHistory.Add(liveChange);
             }
             actualTeam.LastUpdate = FantacalcioTime.ItalyNow;
-            var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
-            return new TeamResponse(response.IsOk, response.Message);
+            if (dailyTeam != null)
+            {
+                var response = await _teamDayRepository.UpdateAsync(teamDayKey, actualTeam);
+                return new TeamResponse(response.IsOk, response.Message);
+            }
+
+            var generalResponse = await _teamRepository.UpdateAsync(new TeamKey
+                {
+                    Year = year.Value,
+                    Email = annualTeam.Owner,
+                    Group = groupId,
+                    BasketId = basket.Id,
+                }, actualTeam);
+            return new TeamResponse(generalResponse.IsOk, generalResponse.Message);
         }
         [HttpGet]
         public async Task<GameWrapper?> GetAsync(
@@ -298,13 +320,16 @@ namespace Fantasoccer.Application.Api.Controllers
             [FromQuery] string leagueId,
             [FromQuery] int year,
             [FromQuery] string gameId,
-            [FromQuery] string? editMode = null)
+            [FromQuery] string? editMode = null,
+            [FromQuery] bool? asAdmin = false)
         {
             if (User.Identity?.Name == null)
                 return default;
             var identity = await _users.GetAsync(User.Identity.Name);
             if (identity?.Groups.Any(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase)) != true)
                 return default;
+            var groupForIdentity = identity.Groups.First(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase));
+            var isSuperAdmin = asAdmin == true && groupForIdentity.Role.HasFlag(IdentityRole.SuperAdmin);
             var group = await _groups.GetAsync(groupId);
             var league = group?.Leagues.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
             var annualLeague = league?.Years.FirstOrDefault(x => x.Year == year);
@@ -336,13 +361,17 @@ namespace Fantasoccer.Application.Api.Controllers
             var realCalendar = await _realCalendar.GetAsync(year);
             var nextSerieA = realCalendar?.NextDay?.SerieADay ?? 39;
             var currentLiveDay = realCalendar?.LiveDay?.SerieADay;
-            var liveEditDay = ownerContexts.Any(x => x.LiveChangesMaximum > 0) ? currentLiveDay : null;
+            var liveEditDay = ownerContexts.Any(x => x.LiveChangesMaximum > 0)
+                ? currentLiveDay ?? realCalendar?.NextDay?.SerieADay
+                : null;
             var liveFormationDeadline = liveEditDay == game.SerieADay ? realCalendar?.LiveFormationDeadline : null;
-            var isLiveFormationWindow = liveEditDay == game.SerieADay && realCalendar?.IsLiveFormationWindowOpen == true;
-            var canEdit = string.Equals(editMode, "formation", StringComparison.OrdinalIgnoreCase)
-                ? game.SerieADay == realCalendar?.NextDay?.SerieADay
-                : string.Equals(editMode, "live", StringComparison.OrdinalIgnoreCase) && isLiveFormationWindow;
+            var isUpcomingLiveDay = currentLiveDay == null && liveEditDay == game.SerieADay;
+            var isLiveFormationWindow = liveEditDay == game.SerieADay &&
+                (realCalendar?.IsLiveFormationWindowOpen == true || isUpcomingLiveDay);
             var formationIsMutable = game.SerieADay >= nextSerieA || game.SerieADay == currentLiveDay;
+            var canEdit = string.Equals(editMode, "formation", StringComparison.OrdinalIgnoreCase)
+                ? (isSuperAdmin ? formationIsMutable : game.SerieADay == realCalendar?.NextDay?.SerieADay)
+                : string.Equals(editMode, "live", StringComparison.OrdinalIgnoreCase) && isLiveFormationWindow;
             var hasNoResult = game.Value.HasNoResult;
             int? liveFormationChangesRemaining = null;
             await _teamCalculator.BuildRequestAsync(year, game.SerieADay, leagueType, leagueSettings, true, !formationIsMutable, true);

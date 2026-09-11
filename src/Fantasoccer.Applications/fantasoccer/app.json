@@ -3,12 +3,8 @@
     "name": "FantaZone",
     "slug": "fantazone",
     "owner": "Alessandro Rapiti",
-    "version": "2.0.25",
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
+    "version": "2.0.26",
+    "platforms": ["ios", "android", "web"],
     "icon": "./assets/android-chrome-512x512.png",
     "userInterfaceStyle": "dark",
     "web": {
@@ -78,9 +74,7 @@
       "expo-status-bar"
     ],
     "orientation": "portrait",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },

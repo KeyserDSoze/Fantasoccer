@@ -1,32 +1,50 @@
-import { type FC } from 'react'
-import { ScrollView, YStack, Card, Text, XStack, Separator, H2, H3 } from 'tamagui'
-import { GitCommit, Calendar as CalendarIcon } from '@tamagui/lucide-icons-2'
-import { ScreenContent } from 'components/layout/ScreenContent'
-import { APP_VERSION } from 'config/version'
+import { type FC } from 'react';
+import { ScrollView, YStack, Card, Text, XStack, Separator, H2, H3 } from 'tamagui';
+import { GitCommit, Calendar as CalendarIcon } from '@tamagui/lucide-icons-2';
+import { ScreenContent } from 'components/layout/ScreenContent';
+import { APP_VERSION } from 'config/version';
 
 interface PatchNote {
-  version: string
-  date: string
+  version: string;
+  date: string;
   changes: {
-    category: 'Feature' | 'Fix' | 'Improvement' | 'Breaking'
-    description: string
-  }[]
+    category: 'Feature' | 'Fix' | 'Improvement' | 'Breaking';
+    description: string;
+  }[];
 }
 
 const patchNotes: PatchNote[] = [
+  {
+    version: '2.0.26',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Il SuperAdmin può modificare le formazioni delle partite future e live direttamente dal calendario, finché la giornata non è conclusa',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'La modalità Live mostra i cambi disponibili per entrambe le squadre, consente la modifica pre-partita e apre i controlli in base allo stato della partita',
+      },
+    ],
+  },
   {
     version: '2.0.25',
     date: '11 Settembre 2026',
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunte all’asta le descrizioni PRO e CONTRO dei giocatori provenienti dalle schede Fantacalcio.it, visibili sia nella pulsantiera sia nella modalità TV'
+        description:
+          'Aggiunte all’asta le descrizioni PRO e CONTRO dei giocatori provenienti dalle schede Fantacalcio.it, visibili sia nella pulsantiera sia nella modalità TV',
       },
       {
         category: 'Improvement',
-        description: 'Migliorata la modalità TV dell’asta con statistiche giocatore, countdown live, budget dopo l’acquisto, ordinamento delle squadre per disponibilità economica e layout responsive per TV e mobile'
-      }
-    ]
+        description:
+          'Migliorata la modalità TV dell’asta con statistiche giocatore, countdown live, budget dopo l’acquisto, ordinamento delle squadre per disponibilità economica e layout responsive per TV e mobile',
+      },
+    ],
   },
   {
     version: '2.0.24',
@@ -34,9 +52,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Corretta la panchina della formazione ottimale: è previsto un solo portiere, assegnato esclusivamente come primo panchinaro; gli altri portieri vanno in tribuna e vengono mantenuti i due slot per gli attaccanti'
-      }
-    ]
+        description:
+          'Corretta la panchina della formazione ottimale: è previsto un solo portiere, assegnato esclusivamente come primo panchinaro; gli altri portieri vanno in tribuna e vengono mantenuti i due slot per gli attaccanti',
+      },
+    ],
   },
   {
     version: '2.0.23',
@@ -44,13 +63,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Improvement',
-        description: 'La formazione ottimale privilegia i moduli offensivi, in particolare il 3-4-3, solo quando ogni reparto mantiene almeno una riserva indicata come probabile titolare'
+        description:
+          'La formazione ottimale privilegia i moduli offensivi, in particolare il 3-4-3, solo quando ogni reparto mantiene almeno una riserva indicata come probabile titolare',
       },
       {
         category: 'Improvement',
-        description: 'La panchina viene ora ordinata dando priorità ai giocatori con maggiore probabilità di giocare'
-      }
-    ]
+        description:
+          'La panchina viene ora ordinata dando priorità ai giocatori con maggiore probabilità di giocare',
+      },
+    ],
   },
   {
     version: '2.0.22',
@@ -58,13 +79,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Aggiunta nei settings una spiegazione apribile del funzionamento della formazione ottimale, inclusi pesi, filtri e tier'
+        description:
+          'Aggiunta nei settings una spiegazione apribile del funzionamento della formazione ottimale, inclusi pesi, filtri e tier',
       },
       {
         category: 'Improvement',
-        description: 'I tier della formazione ora vengono calcolati dinamicamente dalla classifica ufficiale di Serie A e il matchup casa/trasferta contro squadre di tier superiore ha un peso maggiore'
-      }
-    ]
+        description:
+          'I tier della formazione ora vengono calcolati dinamicamente dalla classifica ufficiale di Serie A e il matchup casa/trasferta contro squadre di tier superiore ha un peso maggiore',
+      },
+    ],
   },
   {
     version: '2.0.21',
@@ -72,9 +95,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'La formazione ottimale ora esclude dall’undici titolare i giocatori indicati fuori da Fantagazzetta e Gazzetta, mantenendoli disponibili per panchina o tribuna'
-      }
-    ]
+        description:
+          'La formazione ottimale ora esclude dall’undici titolare i giocatori indicati fuori da Fantagazzetta e Gazzetta, mantenendoli disponibili per panchina o tribuna',
+      },
+    ],
   },
   {
     version: '2.0.20',
@@ -82,9 +106,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Risolto definitivamente l’errore 500 della formazione AI quando un giocatore non ha ancora un voto finale: il valore viene ora gestito come dato opzionale'
-      }
-    ]
+        description:
+          'Risolto definitivamente l’errore 500 della formazione AI quando un giocatore non ha ancora un voto finale: il valore viene ora gestito come dato opzionale',
+      },
+    ],
   },
   {
     version: '2.0.19',
@@ -92,13 +117,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Aggiunte ulteriori protezioni nel calcolo OptimalFormation per dati annidati mancanti, liste di voti/calendario assenti e chiavi giocatore duplicate'
+        description:
+          'Aggiunte ulteriori protezioni nel calcolo OptimalFormation per dati annidati mancanti, liste di voti/calendario assenti e chiavi giocatore duplicate',
       },
       {
         category: 'Fix',
-        description: 'Regolata a 28 la distanza della fascia partita dal fondo della scheda giocatore per ridurre lo spazio con il nome mantenendo visibili partita e orario'
-      }
-    ]
+        description:
+          'Regolata a 28 la distanza della fascia partita dal fondo della scheda giocatore per ridurre lo spazio con il nome mantenendo visibili partita e orario',
+      },
+    ],
   },
   {
     version: '2.0.18',
@@ -106,13 +133,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Rafforzato il calcolo della formazione AI contro dati incompleti, liste mancanti e giocatori duplicati che potevano causare un errore 500'
+        description:
+          'Rafforzato il calcolo della formazione AI contro dati incompleti, liste mancanti e giocatori duplicati che potevano causare un errore 500',
       },
       {
         category: 'Fix',
-        description: 'Spostata più in alto la fascia partita nella scheda giocatore per mantenere sempre visibili avversari e orario sopra il nome'
-      }
-    ]
+        description:
+          'Spostata più in alto la fascia partita nella scheda giocatore per mantenere sempre visibili avversari e orario sopra il nome',
+      },
+    ],
   },
   {
     version: '2.0.17',
@@ -120,17 +149,20 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Risolto l’errore 500 del calcolo formazione AI quando calendario, rosa o impostazioni voto sono incompleti o non disponibili'
+        description:
+          'Risolto l’errore 500 del calcolo formazione AI quando calendario, rosa o impostazioni voto sono incompleti o non disponibili',
       },
       {
         category: 'Improvement',
-        description: 'Aggiunto logging dettagliato dell’endpoint OptimalFormation con contesto di gruppo, lega, giornata e proprietario per la diagnosi in Application Insights'
+        description:
+          'Aggiunto logging dettagliato dell’endpoint OptimalFormation con contesto di gruppo, lega, giornata e proprietario per la diagnosi in Application Insights',
       },
       {
         category: 'Fix',
-        description: 'Ripristinata la posizione della fascia partita nella scheda giocatore: partita e orario restano visibili sopra il nome anche con il testo ridotto'
-      }
-    ]
+        description:
+          'Ripristinata la posizione della fascia partita nella scheda giocatore: partita e orario restano visibili sopra il nome anche con il testo ridotto',
+      },
+    ],
   },
   {
     version: '2.0.16',
@@ -138,21 +170,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunta telemetria Application Insights per richieste API, dipendenze, eccezioni e log business dei job, con dettagli utili per diagnosticare gli errori in produzione'
+        description:
+          'Aggiunta telemetria Application Insights per richieste API, dipendenze, eccezioni e log business dei job, con dettagli utili per diagnosticare gli errori in produzione',
       },
       {
         category: 'Fix',
-        description: 'Migliorata la gestione degli errori nel calcolo della formazione AI: risposte vuote o non JSON e Problem Details vengono ora gestiti senza errori secondari nel client'
+        description:
+          'Migliorata la gestione degli errori nel calcolo della formazione AI: risposte vuote o non JSON e Problem Details vengono ora gestiti senza errori secondari nel client',
       },
       {
         category: 'Improvement',
-        description: 'Ridotta la fascia con partita e orario nella scheda giocatore per lasciare più spazio all’immagine e al nome'
+        description:
+          'Ridotta la fascia con partita e orario nella scheda giocatore per lasciare più spazio all’immagine e al nome',
       },
       {
         category: 'Improvement',
-        description: 'Riorganizzati i controlli della formazione in un accordion compatto e chiuso inizialmente, mantenendo sempre disponibile il calcolo AI manuale'
-      }
-    ]
+        description:
+          'Riorganizzati i controlli della formazione in un accordion compatto e chiuso inizialmente, mantenendo sempre disponibile il calcolo AI manuale',
+      },
+    ],
   },
   {
     version: '2.0.15',
@@ -160,21 +196,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunto un motore backend deterministico per calcolare la formazione ottimale usando voti, statistiche, forma recente, chance, calendario, casa/trasferta e classifica reale'
+        description:
+          'Aggiunto un motore backend deterministico per calcolare la formazione ottimale usando voti, statistiche, forma recente, chance, calendario, casa/trasferta e classifica reale',
       },
       {
         category: 'Feature',
-        description: 'Il pulsante AIgoritmo usa ora il calcolo server-side e mostra modulo, titolari, panchina e tribuna in modo coerente e ripetibile'
+        description:
+          'Il pulsante AIgoritmo usa ora il calcolo server-side e mostra modulo, titolari, panchina e tribuna in modo coerente e ripetibile',
       },
       {
         category: 'Feature',
-        description: 'Aggiunta l’impostazione utente Formazione ottimale automatica: quando attiva, la nuova giornata viene preparata automaticamente senza sovrascrivere una formazione già esistente'
+        description:
+          'Aggiunta l’impostazione utente Formazione ottimale automatica: quando attiva, la nuova giornata viene preparata automaticamente senza sovrascrivere una formazione già esistente',
       },
       {
         category: 'Improvement',
-        description: 'Rimossa la precedente implementazione duplicata dell’algoritmo dal frontend e aggiunti fallback deterministici per dati mancanti'
-      }
-    ]
+        description:
+          'Rimossa la precedente implementazione duplicata dell’algoritmo dal frontend e aggiunti fallback deterministici per dati mancanti',
+      },
+    ],
   },
   {
     version: '2.0.14',
@@ -182,21 +222,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Ripristinati in alto i nomi delle squadre avversarie, la giornata e la data di inizio quando il risultato non è ancora disponibile'
+        description:
+          'Ripristinati in alto i nomi delle squadre avversarie, la giornata e la data di inizio quando il risultato non è ancora disponibile',
       },
       {
         category: 'Improvement',
-        description: 'La mia formazione mostra sempre la prossima giornata non iniziata, anche quando una giornata è già live'
+        description:
+          'La mia formazione mostra sempre la prossima giornata non iniziata, anche quando una giornata è già live',
       },
       {
         category: 'Feature',
-        description: 'Nel live sono visibili per entrambe le squadre cambi usati e disponibili, scadenza, autore e giocatori coinvolti in ogni cambio'
+        description:
+          'Nel live sono visibili per entrambe le squadre cambi usati e disponibili, scadenza, autore e giocatori coinvolti in ogni cambio',
       },
       {
         category: 'Fix',
-        description: 'Le modifiche live sono consentite e salvabili soltanto dalla partita aperta tramite Live e vengono bloccate dal server alla scadenza'
-      }
-    ]
+        description:
+          'Le modifiche live sono consentite e salvabili soltanto dalla partita aperta tramite Live e vengono bloccate dal server alla scadenza',
+      },
+    ],
   },
   {
     version: '2.0.13',
@@ -204,9 +248,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Corretto il riconoscimento del banditore quando l’admin o super admin non possiede una squadra partecipante all’asta'
-      }
-    ]
+        description:
+          'Corretto il riconoscimento del banditore quando l’admin o super admin non possiede una squadra partecipante all’asta',
+      },
+    ],
   },
   {
     version: '2.0.12',
@@ -214,9 +259,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Improvement',
-        description: 'Nella modalità TV i contatori dei giocatori mancanti mostrano ora i titolari Fantacalcio.it come numero principale e il totale dei mancanti tra parentesi'
-      }
-    ]
+        description:
+          'Nella modalità TV i contatori dei giocatori mancanti mostrano ora i titolari Fantacalcio.it come numero principale e il totale dei mancanti tra parentesi',
+      },
+    ],
   },
   {
     version: '2.0.11',
@@ -224,21 +270,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunta la modalità TV read-only per seguire un’asta in tempo reale con giocatore corrente, timer, offerte, squadre e stato della sessione'
+        description:
+          'Aggiunta la modalità TV read-only per seguire un’asta in tempo reale con giocatore corrente, timer, offerte, squadre e stato della sessione',
       },
       {
         category: 'Feature',
-        description: 'La dashboard TV mostra giocatori rimasti per ruolo, tier 1-4, titolari Fantacalcio.it disponibili, crediti e posti mancanti per ogni squadra'
+        description:
+          'La dashboard TV mostra giocatori rimasti per ruolo, tier 1-4, titolari Fantacalcio.it disponibili, crediti e posti mancanti per ogni squadra',
       },
       {
         category: 'Improvement',
-        description: 'Aggiunti link, copia link e apertura diretta della modalità TV dopo la creazione e durante l’asta live'
+        description:
+          'Aggiunti link, copia link e apertura diretta della modalità TV dopo la creazione e durante l’asta live',
       },
       {
         category: 'Fix',
-        description: 'Corretta la risoluzione del deep link /auction/{auctionId}/display e limitato il caricamento dell’asta agli utenti appartenenti al gruppo'
-      }
-    ]
+        description:
+          'Corretta la risoluzione del deep link /auction/{auctionId}/display e limitato il caricamento dell’asta agli utenti appartenenti al gruppo',
+      },
+    ],
   },
   {
     version: '2.0.10',
@@ -246,21 +296,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Rafforzate le autorizzazioni owner/co-owner e rimossa la possibilità di autorizzare una squadra usando dati modificati dal client'
+        description:
+          'Rafforzate le autorizzazioni owner/co-owner e rimossa la possibilità di autorizzare una squadra usando dati modificati dal client',
       },
       {
         category: 'Fix',
-        description: 'Protette le formazioni iniziali contro giocatori estranei o duplicati e aggiunta la posizione esplicita per la gestione corretta dei pari merito'
+        description:
+          'Protette le formazioni iniziali contro giocatori estranei o duplicati e aggiunta la posizione esplicita per la gestione corretta dei pari merito',
       },
       {
         category: 'Fix',
-        description: 'Reso atomico il salvataggio delle modifiche live tramite lo stesso lock Rystem utilizzato dalle operazioni d’asta'
+        description:
+          'Reso atomico il salvataggio delle modifiche live tramite lo stesso lock Rystem utilizzato dalle operazioni d’asta',
       },
       {
         category: 'Improvement',
-        description: 'Centralizzato il calcolo della finestra live e aggiunta la validazione dei settings del Campionato iniziale'
-      }
-    ]
+        description:
+          'Centralizzato il calcolo della finestra live e aggiunta la validazione dei settings del Campionato iniziale',
+      },
+    ],
   },
   {
     version: '2.0.9',
@@ -268,21 +322,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunto il Campionato iniziale per le leghe principali, con rose della stagione precedente, giornate configurabili e classifica a fantapunteggio'
+        description:
+          'Aggiunto il Campionato iniziale per le leghe principali, con rose della stagione precedente, giornate configurabili e classifica a fantapunteggio',
       },
       {
         category: 'Feature',
-        description: 'Aggiunti premi configurabili per posizione, gestione dei pari merito e accredito separato dei premi nell’asta iniziale'
+        description:
+          'Aggiunti premi configurabili per posizione, gestione dei pari merito e accredito separato dei premi nell’asta iniziale',
       },
       {
         category: 'Feature',
-        description: 'Aggiunta la gestione delle formazioni iniziali per giornata, con modifica, salvataggio e ricalcolo automatico della classifica'
+        description:
+          'Aggiunta la gestione delle formazioni iniziali per giornata, con modifica, salvataggio e ricalcolo automatico della classifica',
       },
       {
         category: 'Fix',
-        description: 'Corretta la gestione dei pari merito nel calcolo dei premi e aggiunti test automatici dedicati'
-      }
-    ]
+        description:
+          'Corretta la gestione dei pari merito nel calcolo dei premi e aggiunti test automatici dedicati',
+      },
+    ],
   },
   {
     version: '2.0.8',
@@ -290,13 +348,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Uniformata la gestione di owner e co-owner in formazione, asta, impostazioni e servizi condivisi'
+        description:
+          'Uniformata la gestione di owner e co-owner in formazione, asta, impostazioni e servizi condivisi',
       },
       {
         category: 'Fix',
-        description: 'Risolti i confronti email sensibili a maiuscole e minuscole per evitare che un co-owner perda l’accesso alla squadra'
-      }
-    ]
+        description:
+          'Risolti i confronti email sensibili a maiuscole e minuscole per evitare che un co-owner perda l’accesso alla squadra',
+      },
+    ],
   },
   {
     version: '2.0.7',
@@ -304,9 +364,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Corretta la schermata La mia formazione: ora anche i co-owner vedono e possono aprire la squadra condivisa'
-      }
-    ]
+        description:
+          'Corretta la schermata La mia formazione: ora anche i co-owner vedono e possono aprire la squadra condivisa',
+      },
+    ],
   },
   {
     version: '2.0.6',
@@ -314,13 +375,15 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Aggiunte le modifiche alla formazione durante la giornata live, configurabili per ogni lega annuale con numero massimo di cambi e abilitazione del cambio modulo'
+        description:
+          'Aggiunte le modifiche alla formazione durante la giornata live, configurabili per ogni lega annuale con numero massimo di cambi e abilitazione del cambio modulo',
       },
       {
         category: 'Improvement',
-        description: 'Durante il salvataggio live vengono mostrati scadenza precisa, cambi residui e avviso sul consumo del cambio'
-      }
-    ]
+        description:
+          'Durante il salvataggio live vengono mostrati scadenza precisa, cambi residui e avviso sul consumo del cambio',
+      },
+    ],
   },
   {
     version: '2.0.3',
@@ -328,9 +391,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Improvement',
-        description: 'Uniformati tutti i controlli booleani del sito con nuovi toggle a chip leggibili, accessibili e coerenti'
-      }
-    ]
+        description:
+          'Uniformati tutti i controlli booleani del sito con nuovi toggle a chip leggibili, accessibili e coerenti',
+      },
+    ],
   },
   {
     version: '2.0.2',
@@ -338,9 +402,10 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Improvement',
-        description: 'Ridisegnati i controlli Mostra/Nascondi della sala asta con chip compatti, leggibili e accessibili'
-      }
-    ]
+        description:
+          'Ridisegnati i controlli Mostra/Nascondi della sala asta con chip compatti, leggibili e accessibili',
+      },
+    ],
   },
   {
     version: '2.0.1',
@@ -348,17 +413,20 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Ripristinato il caricamento dei loghi delle squadre e delle immagini remote con Tamagui 2'
+        description:
+          'Ripristinato il caricamento dei loghi delle squadre e delle immagini remote con Tamagui 2',
       },
       {
         category: 'Fix',
-        description: 'Corretti gli endpoint per creare calendario e classifica e per randomizzare i giocatori dell’asta'
+        description:
+          'Corretti gli endpoint per creare calendario e classifica e per randomizzare i giocatori dell’asta',
       },
       {
         category: 'Improvement',
-        description: 'Migliorata la visibilità dei controlli toggle nelle schermate di amministrazione e asta'
-      }
-    ]
+        description:
+          'Migliorata la visibilità dei controlli toggle nelle schermate di amministrazione e asta',
+      },
+    ],
   },
   {
     version: '2.0.0',
@@ -366,45 +434,54 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Breaking',
-        description: 'Frontend aggiornato a Expo 57, React 19.2, React Native 0.86 e TypeScript 6'
+        description: 'Frontend aggiornato a Expo 57, React 19.2, React Native 0.86 e TypeScript 6',
       },
       {
         category: 'Breaking',
-        description: 'Design system migrato a Tamagui 2 con Config v5, nuovi temi, token e animazioni cross-platform'
+        description:
+          'Design system migrato a Tamagui 2 con Config v5, nuovi temi, token e animazioni cross-platform',
       },
       {
         category: 'Improvement',
-        description: 'Deploy web trasferito da Azure Static Web Apps a GitHub Pages con dominio fanta.zone, HTTPS e fallback per le route SPA'
+        description:
+          'Deploy web trasferito da Azure Static Web Apps a GitHub Pages con dominio fanta.zone, HTTPS e fallback per le route SPA',
       },
       {
         category: 'Improvement',
-        description: 'Aggiornati SignalR, MSAL, React Navigation, strumenti di sviluppo e workflow GitHub Actions alle versioni compatibili più recenti'
+        description:
+          'Aggiornati SignalR, MSAL, React Navigation, strumenti di sviluppo e workflow GitHub Actions alle versioni compatibili più recenti',
       },
       {
         category: 'Feature',
-        description: 'Nuova gestione delle regole annuali di lega con configurazione completa, validazione e copia dalla stagione precedente'
+        description:
+          'Nuova gestione delle regole annuali di lega con configurazione completa, validazione e copia dalla stagione precedente',
       },
       {
         category: 'Feature',
-        description: 'Nuovo mercato con proposte di scambio, votazioni, controllo budget, validazione dei ruoli e aggiornamenti in tempo reale'
+        description:
+          'Nuovo mercato con proposte di scambio, votazioni, controllo budget, validazione dei ruoli e aggiornamenti in tempo reale',
       },
       {
         category: 'Improvement',
-        description: 'Parser delle formazioni Sky e Mediaset aggiornati e protetti da test automatici e smoke test periodici non bloccanti'
+        description:
+          'Parser delle formazioni Sky e Mediaset aggiornati e protetti da test automatici e smoke test periodici non bloccanti',
       },
       {
         category: 'Fix',
-        description: 'Corretto lo scambio del token Microsoft su fanta.zone allineando esattamente il redirect URI OAuth'
+        description:
+          'Corretto lo scambio del token Microsoft su fanta.zone allineando esattamente il redirect URI OAuth',
       },
       {
         category: 'Fix',
-        description: 'Corrette violazioni delle Rules of Hooks, stringhe JSX e gestione del Service Worker rilevate dal nuovo lint'
+        description:
+          'Corrette violazioni delle Rules of Hooks, stringhe JSX e gestione del Service Worker rilevate dal nuovo lint',
       },
       {
         category: 'Improvement',
-        description: 'Rimossi il precedente frontend Blazor, il migratore storico, ClientStorage e le configurazioni di deploy obsolete'
-      }
-    ]
+        description:
+          'Rimossi il precedente frontend Blazor, il migratore storico, ClientStorage e le configurazioni di deploy obsolete',
+      },
+    ],
   },
   {
     version: '1.4.0',
@@ -412,25 +489,30 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Editor completo dei settings annuali della lega: classifica, soglie gol, bonus difesa, fair play, porta inviolata e crediti'
+        description:
+          'Editor completo dei settings annuali della lega: classifica, soglie gol, bonus difesa, fair play, porta inviolata e crediti',
       },
       {
         category: 'Feature',
-        description: 'Configurazione dei modificatori voto generali e override specifici per portieri, difensori, centrocampisti e attaccanti'
+        description:
+          'Configurazione dei modificatori voto generali e override specifici per portieri, difensori, centrocampisti e attaccanti',
       },
       {
         category: 'Improvement',
-        description: 'Copia completa dall\'anno precedente disponibile anche per stagioni già configurate, inclusi tipo annuale, modificatori voto e settings avanzati'
+        description:
+          "Copia completa dall'anno precedente disponibile anche per stagioni già configurate, inclusi tipo annuale, modificatori voto e settings avanzati",
       },
       {
         category: 'Improvement',
-        description: 'Validazione degli input e conferma prima di sostituire settings o abbandonare modifiche non salvate'
+        description:
+          'Validazione degli input e conferma prima di sostituire settings o abbandonare modifiche non salvate',
       },
       {
         category: 'Fix',
-        description: 'Serializzazione allineata al backend per ruoli, formazione, Futsal League e configurazioni annuali avanzate'
-      }
-    ]
+        description:
+          'Serializzazione allineata al backend per ruoli, formazione, Futsal League e configurazioni annuali avanzate',
+      },
+    ],
   },
   {
     version: '1.3.1',
@@ -438,21 +520,25 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Fix',
-        description: 'Corretta la copia dei team dal basket dell\'anno precedente, con aggiornamento immediato della lista e conferma solo dopo il salvataggio effettivo'
+        description:
+          "Corretta la copia dei team dal basket dell'anno precedente, con aggiornamento immediato della lista e conferma solo dopo il salvataggio effettivo",
       },
       {
         category: 'Feature',
-        description: 'Aggiunta la configurazione delle nuove stagioni nelle leghe tramite settings di default o copia completa dall\'anno precedente'
+        description:
+          "Aggiunta la configurazione delle nuove stagioni nelle leghe tramite settings di default o copia completa dall'anno precedente",
       },
       {
         category: 'Improvement',
-        description: 'Aggiunta la selezione dei basket associati alla lega e la validazione di team, owner e calendario prima delle operazioni amministrative'
+        description:
+          'Aggiunta la selezione dei basket associati alla lega e la validazione di team, owner e calendario prima delle operazioni amministrative',
       },
       {
         category: 'Fix',
-        description: 'Allineato il cambio stagione tra frontend e backend e preservati i settings avanzati durante il salvataggio della lega'
-      }
-    ]
+        description:
+          'Allineato il cambio stagione tra frontend e backend e preservati i settings avanzati durante il salvataggio della lega',
+      },
+    ],
   },
   {
     version: '1.3.0',
@@ -460,61 +546,75 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Pannello giocatori rimanenti - visualizza tutti i giocatori del ruolo corrente che non sono ancora usciti nell\'asta, ordinati per partite giocate e fantamedia'
+        description:
+          "Pannello giocatori rimanenti - visualizza tutti i giocatori del ruolo corrente che non sono ancora usciti nell'asta, ordinati per partite giocate e fantamedia",
       },
       {
         category: 'Feature',
-        description: 'Pannello giocatori scartati nell\'asta - visualizza tutti i giocatori mostrati ma non acquistati e quelli rimossi dalle squadre'
+        description:
+          "Pannello giocatori scartati nell'asta - visualizza tutti i giocatori mostrati ma non acquistati e quelli rimossi dalle squadre",
       },
       {
         category: 'Feature',
-        description: 'Badge team che ha scartato il giocatore - mostra quale squadra ha rimosso un giocatore dalla propria rosa'
+        description:
+          'Badge team che ha scartato il giocatore - mostra quale squadra ha rimosso un giocatore dalla propria rosa',
       },
       {
         category: 'Feature',
-        description: 'Visualizzazione eventi nei pannelli giocatori - mostra gol ⚽, assist 🎯, rigori, parate 🧤, cartellini 🟨🟥 in formato compatto'
+        description:
+          'Visualizzazione eventi nei pannelli giocatori - mostra gol ⚽, assist 🎯, rigori, parate 🧤, cartellini 🟨🟥 in formato compatto',
       },
       {
         category: 'Feature',
-        description: 'FloatingPlayerWidget - widget floating in basso a destra con immagine giocatore, timer, prezzo e squadra vincente durante l\'asta live'
+        description:
+          "FloatingPlayerWidget - widget floating in basso a destra con immagine giocatore, timer, prezzo e squadra vincente durante l'asta live",
       },
       {
         category: 'Feature',
-        description: 'Offerta rapida +1 dal FloatingPlayerWidget - possibilità di rilanciare cliccando direttamente sul widget senza scorrere la pagina'
+        description:
+          'Offerta rapida +1 dal FloatingPlayerWidget - possibilità di rilanciare cliccando direttamente sul widget senza scorrere la pagina',
       },
       {
         category: 'Feature',
-        description: 'Stato visivo widget disabilitato - il cerchio diventa grigio quando non si può fare offerta (budget insufficiente, non è il proprio turno, ecc.)'
+        description:
+          'Stato visivo widget disabilitato - il cerchio diventa grigio quando non si può fare offerta (budget insufficiente, non è il proprio turno, ecc.)',
       },
       {
         category: 'Improvement',
-        description: 'Layout responsive asta live - su desktop il pannello del giocatore in asta e il pannello offerte sono affiancati orizzontalmente per non-banditori'
+        description:
+          'Layout responsive asta live - su desktop il pannello del giocatore in asta e il pannello offerte sono affiancati orizzontalmente per non-banditori',
       },
       {
         category: 'Improvement',
-        description: 'Layout pannelli giocatori migliorato - nome a sinistra con team reale tra parentesi per migliore leggibilità'
+        description:
+          'Layout pannelli giocatori migliorato - nome a sinistra con team reale tra parentesi per migliore leggibilità',
       },
       {
         category: 'Improvement',
-        description: 'Sistema immagini giocatore unificato - FloatingPlayerWidget usa la stessa logica di caricamento immagini con fallback automatico'
+        description:
+          'Sistema immagini giocatore unificato - FloatingPlayerWidget usa la stessa logica di caricamento immagini con fallback automatico',
       },
       {
         category: 'Improvement',
-        description: 'Normalizzazione chiavi giocatori con getPlayerKey() - matching affidabile tra realPlayers e team players per calcolo giocatori rimanenti'
+        description:
+          'Normalizzazione chiavi giocatori con getPlayerKey() - matching affidabile tra realPlayers e team players per calcolo giocatori rimanenti',
       },
       {
         category: 'Fix',
-        description: 'Risolto aggiornamento status asta in tempo reale - ora l\'header mostra correttamente "In Pausa"/"In Corso" quando lo status cambia via SignalR'
+        description:
+          'Risolto aggiornamento status asta in tempo reale - ora l\'header mostra correttamente "In Pausa"/"In Corso" quando lo status cambia via SignalR',
       },
       {
         category: 'Fix',
-        description: 'Risolto refresh giocatori nella schermata statistiche - il pulsante "Aggiorna" ora ricarica sia i giocatori che le squadre contemporaneamente'
+        description:
+          'Risolto refresh giocatori nella schermata statistiche - il pulsante "Aggiorna" ora ricarica sia i giocatori che le squadre contemporaneamente',
       },
       {
         category: 'Fix',
-        description: 'Mapping corretto dati giocatori scartati - risolto problema conversione JSON server con chiavi abbreviate (n, t, r) verso frontend TypeScript'
-      }
-    ]
+        description:
+          'Mapping corretto dati giocatori scartati - risolto problema conversione JSON server con chiavi abbreviate (n, t, r) verso frontend TypeScript',
+      },
+    ],
   },
   {
     version: '1.2.0',
@@ -522,45 +622,54 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Modalità Super Admin - permette agli amministratori di modificare le formazioni di entrambe le squadre durante le partite live'
+        description:
+          'Modalità Super Admin - permette agli amministratori di modificare le formazioni di entrambe le squadre durante le partite live',
       },
       {
         category: 'Feature',
-        description: 'Toggle attivazione modalità Super Admin nel menu di navigazione con salvataggio persistente in localStorage'
+        description:
+          'Toggle attivazione modalità Super Admin nel menu di navigazione con salvataggio persistente in localStorage',
       },
       {
         category: 'Feature',
-        description: 'Selezione esplicita squadra da modificare (Home/Away) con bottoni dedicati e indicatore visivo dello stato attivo'
+        description:
+          'Selezione esplicita squadra da modificare (Home/Away) con bottoni dedicati e indicatore visivo dello stato attivo',
       },
       {
         category: 'Feature',
-        description: 'Visualizzazione tribuna durante partite live - ora tutti i giocatori sono visibili anche quando la partita è iniziata'
+        description:
+          'Visualizzazione tribuna durante partite live - ora tutti i giocatori sono visibili anche quando la partita è iniziata',
       },
       {
         category: 'Feature',
-        description: 'Badge prezzo giocatore visualizzato nelle modali di dettaglio e scambio (💰)'
+        description: 'Badge prezzo giocatore visualizzato nelle modali di dettaglio e scambio (💰)',
       },
       {
         category: 'Improvement',
-        description: 'Ordinamento corretto panchinari nella modal di scambio - primi panchinari prima dei secondi'
+        description:
+          'Ordinamento corretto panchinari nella modal di scambio - primi panchinari prima dei secondi',
       },
       {
         category: 'Improvement',
-        description: 'Polling automatico disabilitato durante modifica formazione in modalità Super Admin - previene sovrascrittura modifiche'
+        description:
+          'Polling automatico disabilitato durante modifica formazione in modalità Super Admin - previene sovrascrittura modifiche',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema sovrapposizione card giocatori in panchina/tribuna su mobile - implementato ScrollView orizzontale con zoom sincronizzato'
+        description:
+          'Risolto problema sovrapposizione card giocatori in panchina/tribuna su mobile - implementato ScrollView orizzontale con zoom sincronizzato',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema apertura modal swap per Super Admin durante partite live - bypassato controllo hasGameStarted'
+        description:
+          'Risolto problema apertura modal swap per Super Admin durante partite live - bypassato controllo hasGameStarted',
       },
       {
         category: 'Fix',
-        description: 'Corretta logica ownership squadre in modalità admin - permette modifica indipendentemente da canEdit e proprietà'
-      }
-    ]
+        description:
+          'Corretta logica ownership squadre in modalità admin - permette modifica indipendentemente da canEdit e proprietà',
+      },
+    ],
   },
   {
     version: '1.1.0',
@@ -568,137 +677,165 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Sistema di statistiche giocatori dinamico basato su StatPlayer - sostituisce il vecchio sistema statico Chance'
+        description:
+          'Sistema di statistiche giocatori dinamico basato su StatPlayer - sostituisce il vecchio sistema statico Chance',
       },
       {
         category: 'Feature',
-        description: 'Badge trend dinamico nelle card giocatori con calcolo in tempo reale basato su somma ultime 5 partite'
+        description:
+          'Badge trend dinamico nelle card giocatori con calcolo in tempo reale basato su somma ultime 5 partite',
       },
       {
         category: 'Feature',
-        description: 'Timeline visiva partite nella modal dettaglio giocatore - pallini colorati con positiveness e giornata'
+        description:
+          'Timeline visiva partite nella modal dettaglio giocatore - pallini colorati con positiveness e giornata',
       },
       {
         category: 'Feature',
-        description: 'Banner notifica nuova versione con link diretto alle patch notes - mostrato automaticamente solo una volta per versione'
+        description:
+          'Banner notifica nuova versione con link diretto alle patch notes - mostrato automaticamente solo una volta per versione',
       },
       {
         category: 'Feature',
-        description: 'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima) basato su somma ultime 5 partite'
+        description:
+          'Sezione "Forma Recente" con trend calcolato su 5 soglie (Pessima, Negativa, Neutra, Positiva, Ottima) basato su somma ultime 5 partite',
       },
       {
         category: 'Feature',
-        description: 'Visualizzazione "Ultima Partita" con gestione partite non giocate e calcolo automatico positiveness'
+        description:
+          'Visualizzazione "Ultima Partita" con gestione partite non giocate e calcolo automatico positiveness',
       },
       {
         category: 'Feature',
-        description: 'Sistema caricamento logo squadra con supporto PNG e preview in tempo reale'
+        description: 'Sistema caricamento logo squadra con supporto PNG e preview in tempo reale',
       },
       {
         category: 'Feature',
-        description: 'Funzione "Usa Logo Anno Precedente" con modal di anteprima e conferma prima della copia'
+        description:
+          'Funzione "Usa Logo Anno Precedente" con modal di anteprima e conferma prima della copia',
       },
       {
         category: 'Improvement',
-        description: 'Algoritmo formazione automatica migliorato - privilegia ultima partita giocata rispetto al trend per evitare penalizzazione giocatori tornati da infortunio'
+        description:
+          'Algoritmo formazione automatica migliorato - privilegia ultima partita giocata rispetto al trend per evitare penalizzazione giocatori tornati da infortunio',
       },
       {
         category: 'Improvement',
-        description: 'Performance migliorate con Map lookup O(1) per accesso StatPlayer invece di array search'
+        description:
+          'Performance migliorate con Map lookup O(1) per accesso StatPlayer invece di array search',
       },
       {
         category: 'Improvement',
-        description: 'Normalizzazione chiavi giocatori consistente tra frontend e backend per lookup affidabile'
+        description:
+          'Normalizzazione chiavi giocatori consistente tra frontend e backend per lookup affidabile',
       },
       {
         category: 'Improvement',
-        description: 'Cache busting migliorato per loghi squadre - aggiornamento immediato dopo upload o copia con timestamp dinamico'
+        description:
+          'Cache busting migliorato per loghi squadre - aggiornamento immediato dopo upload o copia con timestamp dinamico',
       },
       {
         category: 'Improvement',
-        description: 'Logo squadre ora mostrato in formato quadrato/originale invece di circolare ritagliato'
+        description:
+          'Logo squadre ora mostrato in formato quadrato/originale invece di circolare ritagliato',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema cambio nome squadra - ora funziona correttamente con validazione e feedback in tempo reale'
+        description:
+          'Risolto problema cambio nome squadra - ora funziona correttamente con validazione e feedback in tempo reale',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema cambio username - aggiornamento corretto con persistenza e validazione'
+        description:
+          'Risolto problema cambio username - aggiornamento corretto con persistenza e validazione',
       },
       {
         category: 'Fix',
-        description: 'Risolto errore 415 Unsupported Media Type durante upload logo - corretti attributi controller da [FromBody] a [FromForm]'
+        description:
+          'Risolto errore 415 Unsupported Media Type durante upload logo - corretti attributi controller da [FromBody] a [FromForm]',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema cache browser per loghi - aggiunto delay propagazione blob storage e cache buster iniziale'
+        description:
+          'Risolto problema cache browser per loghi - aggiunto delay propagazione blob storage e cache buster iniziale',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema redirect dopo scadenza token - implementato sistema auto-refresh token con fallback e ritorno automatico alla pagina precedente dopo re-login'
+        description:
+          'Risolto problema redirect dopo scadenza token - implementato sistema auto-refresh token con fallback e ritorno automatico alla pagina precedente dopo re-login',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema sovrapposizione card giocatori in panchina/tribuna su alcuni browser mobile - rimosso flexWrap in favore di ScrollView orizzontale'
+        description:
+          'Risolto problema sovrapposizione card giocatori in panchina/tribuna su alcuni browser mobile - rimosso flexWrap in favore di ScrollView orizzontale',
       },
       {
         category: 'Improvement',
-        description: 'Zoom panchina e tribuna ora sincronizzato con zoom campo - controlli zoom applicati uniformemente a tutto il SoccerField'
+        description:
+          'Zoom panchina e tribuna ora sincronizzato con zoom campo - controlli zoom applicati uniformemente a tutto il SoccerField',
       },
       {
         category: 'Feature',
-        description: 'Visualizzazione prezzo giocatore nelle modali di dettaglio e scambio - badge verde con icona 💰 accanto a nome e ruolo'
+        description:
+          'Visualizzazione prezzo giocatore nelle modali di dettaglio e scambio - badge verde con icona 💰 accanto a nome e ruolo',
       },
       {
         category: 'Feature',
-        description: 'Aggiunto parametro Fortuna (🍀) nella classifica - visualizza quanto sei stato fortunato o sfortunato durante la stagione'
+        description:
+          'Aggiunto parametro Fortuna (🍀) nella classifica - visualizza quanto sei stato fortunato o sfortunato durante la stagione',
       },
       {
         category: 'Feature',
-        description: 'Modal di dettaglio fortuna con eventi partita per partita e spiegazione del calcolo'
+        description:
+          'Modal di dettaglio fortuna con eventi partita per partita e spiegazione del calcolo',
       },
       {
         category: 'Feature',
-        description: 'Sistema di calcolo fortuna con 9 tipi di eventi diversi (vittorie fortunate, sconfitte sfortunate, pareggi, ecc.)'
+        description:
+          'Sistema di calcolo fortuna con 9 tipi di eventi diversi (vittorie fortunate, sconfitte sfortunate, pareggi, ecc.)',
       },
       {
         category: 'Feature',
-        description: 'Visualizzazione fortuna come percentuale nella classifica (+150%, -80%, ecc.)'
+        description:
+          'Visualizzazione fortuna come percentuale nella classifica (+150%, -80%, ecc.)',
       },
       {
         category: 'Improvement',
-        description: 'Aggiunte colonne PF (Punti Fatti) e PS (Punti Subiti) con medie per partita nella classifica'
+        description:
+          'Aggiunte colonne PF (Punti Fatti) e PS (Punti Subiti) con medie per partita nella classifica',
       },
       {
         category: 'Improvement',
-        description: 'Scrollbar orizzontale personalizzata per la tabella della classifica (miglior UX su mobile e PC)'
+        description:
+          'Scrollbar orizzontale personalizzata per la tabella della classifica (miglior UX su mobile e PC)',
       },
       {
         category: 'Improvement',
-        description: 'Aggiunti loghi delle squadre nel calendario delle partite'
+        description: 'Aggiunti loghi delle squadre nel calendario delle partite',
       },
       {
         category: 'Fix',
-        description: 'Risolto problema di allineamento dei nomi delle squadre nel calendario'
+        description: 'Risolto problema di allineamento dei nomi delle squadre nel calendario',
       },
       {
         category: 'Feature',
-        description: 'Banner "Installa App" per PWA con dismissal intelligente (sessione/7 giorni/per sempre)'
+        description:
+          'Banner "Installa App" per PWA con dismissal intelligente (sessione/7 giorni/per sempre)',
       },
       {
         category: 'Feature',
-        description: 'Pagina Patch Notes per tenere traccia di tutti i cambiamenti'
+        description: 'Pagina Patch Notes per tenere traccia di tutti i cambiamenti',
       },
       {
         category: 'Feature',
-        description: 'Controlli Zoom per le card dei giocatori nel campo di gioco (10%-100%) con salvataggio preferenze'
+        description:
+          'Controlli Zoom per le card dei giocatori nel campo di gioco (10%-100%) con salvataggio preferenze',
       },
       {
         category: 'Improvement',
-        description: 'Aggiunta visualizzazione versione app nella barra di navigazione'
+        description: 'Aggiunta visualizzazione versione app nella barra di navigazione',
       },
-    ]
+    ],
   },
   {
     version: '1.0.0',
@@ -706,65 +843,70 @@ const patchNotes: PatchNote[] = [
     changes: [
       {
         category: 'Feature',
-        description: 'Release iniziale dell\'app FantaZone'
+        description: "Release iniziale dell'app FantaZone",
       },
       {
         category: 'Feature',
-        description: 'Classifica di lega con statistiche dettagliate'
+        description: 'Classifica di lega con statistiche dettagliate',
       },
       {
         category: 'Feature',
-        description: 'Calendario con risultati delle partite'
+        description: 'Calendario con risultati delle partite',
       },
       {
         category: 'Feature',
-        description: 'Gestione formazione giocatori'
+        description: 'Gestione formazione giocatori',
       },
       {
         category: 'Feature',
-        description: 'Sistema di scambi tra utenti'
+        description: 'Sistema di scambi tra utenti',
       },
       {
         category: 'Feature',
-        description: 'Live score in tempo reale'
+        description: 'Live score in tempo reale',
       },
       {
         category: 'Feature',
-        description: 'Hall of Fame con statistiche storiche'
+        description: 'Hall of Fame con statistiche storiche',
       },
-    ]
-  }
-]
+    ],
+  },
+];
 
 const getCategoryColor = (category: PatchNote['changes'][0]['category']) => {
   switch (category) {
     case 'Feature':
-      return '$green10'
+      return '$green10';
     case 'Fix':
-      return '$red10'
+      return '$red10';
     case 'Improvement':
-      return '$blue10'
+      return '$blue10';
     case 'Breaking':
-      return '$orange10'
+      return '$orange10';
   }
-}
+};
 
 const getCategoryBgColor = (category: PatchNote['changes'][0]['category']) => {
   switch (category) {
     case 'Feature':
-      return '$green3'
+      return '$green3';
     case 'Fix':
-      return '$red3'
+      return '$red3';
     case 'Improvement':
-      return '$blue3'
+      return '$blue3';
     case 'Breaking':
-      return '$orange3'
+      return '$orange3';
   }
-}
+};
 
 const PatchNoteCard: FC<{ note: PatchNote }> = ({ note }) => {
   return (
-    <Card elevation="$2" borderWidth={1} borderColor="$borderColor" padding="$4" backgroundColor="$background">
+    <Card
+      elevation="$2"
+      borderWidth={1}
+      borderColor="$borderColor"
+      padding="$4"
+      backgroundColor="$background">
       <YStack gap="$3">
         {/* Header */}
         <XStack justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="$2">
@@ -792,13 +934,8 @@ const PatchNoteCard: FC<{ note: PatchNote }> = ({ note }) => {
                 backgroundColor={getCategoryBgColor(change.category)}
                 borderRadius="$2"
                 minWidth={100}
-                alignItems="center"
-              >
-                <Text
-                  fontSize="$2"
-                  fontWeight="600"
-                  color={getCategoryColor(change.category)}
-                >
+                alignItems="center">
+                <Text fontSize="$2" fontWeight="600" color={getCategoryColor(change.category)}>
                   {change.category}
                 </Text>
               </YStack>
@@ -810,8 +947,8 @@ const PatchNoteCard: FC<{ note: PatchNote }> = ({ note }) => {
         </YStack>
       </YStack>
     </Card>
-  )
-}
+  );
+};
 
 const PatchNotesScreen: FC = () => {
   return (
@@ -838,7 +975,7 @@ const PatchNotesScreen: FC = () => {
         </YStack>
       </ScrollView>
     </ScreenContent>
-  )
-}
+  );
+};
 
-export default PatchNotesScreen
+export default PatchNotesScreen;

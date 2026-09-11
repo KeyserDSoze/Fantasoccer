@@ -53,6 +53,9 @@ export default function GameScreen() {
     const userInGroup = user.groups?.find((g) => g.id === routeGroupId);
     return userInGroup ? hasRole(userInGroup.role, IdentityRole.SuperAdmin) : false;
   }, [user, currentGroup, routeGroupId]);
+  const effectiveEditMode =
+    isSuperAdmin && superAdminMode && editMode === 'view' ? 'formation' : editMode;
+  const asAdmin = isSuperAdmin && superAdminMode;
 
   // Stato per la modalità admin (permette di modificare entrambe le squadre)
   // null = nessuna modalità admin, 'home' = modifica squadra casa, 'away' = modifica squadra ospite
@@ -87,7 +90,8 @@ export default function GameScreen() {
         leagueId: routeLeagueId,
         year: parseInt(routeYear),
         gameId: routeGameId,
-        editMode,
+        editMode: effectiveEditMode,
+        asAdmin,
       });
       setGameWrapper(result);
     } catch (err: any) {
@@ -117,7 +121,8 @@ export default function GameScreen() {
         leagueId: routeLeagueId,
         year: parseInt(routeYear),
         gameId: routeGameId,
-        editMode,
+        editMode: effectiveEditMode,
+        asAdmin,
       })
       .then((result) => {
         if (mounted) setGameWrapper(result);
@@ -132,7 +137,7 @@ export default function GameScreen() {
     return () => {
       mounted = false;
     };
-  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, editMode]);
+  }, [routeGameId, routeLeagueId, routeYear, routeGroupId, effectiveEditMode, asAdmin]);
 
   // Caricamento StatPlayers per calcoli trend/positiveness
   useEffect(() => {
@@ -552,7 +557,7 @@ export default function GameScreen() {
                   leagueId={routeLeagueId ?? undefined}
                   year={routeYear ? parseInt(routeYear) : undefined}
                   gameId={routeGameId ?? undefined}
-                  editMode={editMode}
+                  editMode={effectiveEditMode}
                   adminControls={
                     isSuperAdmin && superAdminMode && gameWrapper.canEdit ? (
                       <Card

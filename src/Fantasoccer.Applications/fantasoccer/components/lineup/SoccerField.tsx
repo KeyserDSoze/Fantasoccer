@@ -413,6 +413,8 @@ export const SoccerField = memo(
         return now >= realGame.date;
       });
     }, [home, away]);
+    const controlsDefaultOpen =
+      editMode === 'formation' || (editMode === 'live' && !hasGameStarted);
 
     // Funzione per gestire click su un giocatore
     const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
@@ -990,46 +992,11 @@ export const SoccerField = memo(
 
     return (
       <YStack gap={16} width="100%" {...style}>
-        {liveDeadline && isLiveMode && (
-          <YStack
-            backgroundColor={isLiveWindowOpenNow ? '$orange2' : '$gray3'}
-            borderColor={isLiveWindowOpenNow ? '$orange8' : '$gray7'}
-            borderWidth={1}
-            borderRadius="$3"
-            padding="$3"
-            marginHorizontal={16}
-            gap="$3">
-            <YStack gap="$1">
-              <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
-                {isLiveWindowOpenNow ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
-              </Text>
-              <Text color={isLiveWindowOpenNow ? '$orange11' : '$color10'} fontSize="$3">
-                Termine modifiche:{' '}
-                {liveDeadline.toLocaleString('it-IT', {
-                  timeZone: 'Europe/Rome',
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                .
-              </Text>
-              {isLiveWindowOpenNow && (
-                <Text color="$orange11" fontSize="$2">
-                  Ogni scambio salvato consuma un cambio disponibile.
-                </Text>
-              )}
-            </YStack>
-            <XStack gap="$3" flexWrap="wrap">
-              {renderLiveTeamStatus(home, 'Casa')}
-              {renderLiveTeamStatus(away, 'Trasferta')}
-            </XStack>
-          </YStack>
-        )}
-
         {(adminControls || showToolbar || zoomControls) && (
-          <Accordion overflow="hidden" type="multiple" defaultValue={[]}>
+          <Accordion
+            overflow="hidden"
+            type="multiple"
+            defaultValue={controlsDefaultOpen ? ['formation-controls'] : []}>
             <Accordion.Item value="formation-controls">
               <Accordion.Trigger
                 flexDirection="row"
@@ -1055,6 +1022,51 @@ export const SoccerField = memo(
               <Accordion.HeightAnimator transition="quick">
                 <Accordion.Content padding="$2" paddingTop="$3" backgroundColor="$color2">
                   <YStack gap="$3">
+                    {isLiveMode &&
+                      (home?.formationChangesMaximum != null ||
+                        away?.formationChangesMaximum != null) && (
+                        <YStack
+                          backgroundColor={isLiveEdit ? '$orange2' : '$gray3'}
+                          borderColor={isLiveEdit ? '$orange8' : '$gray7'}
+                          borderWidth={1}
+                          borderRadius="$3"
+                          padding="$3"
+                          gap="$3">
+                          <YStack gap="$1">
+                            <Text color={isLiveEdit ? '$orange11' : '$color11'} fontWeight="700">
+                              {isLiveEdit ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
+                            </Text>
+                            {liveDeadline ? (
+                              <Text color={isLiveEdit ? '$orange11' : '$color10'} fontSize="$3">
+                                Termine modifiche:{' '}
+                                {liveDeadline.toLocaleString('it-IT', {
+                                  timeZone: 'Europe/Rome',
+                                  weekday: 'short',
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                                .
+                              </Text>
+                            ) : (
+                              <Text color="$orange11" fontSize="$3">
+                                La partita non è ancora iniziata: puoi impostare e salvare la
+                                formazione.
+                              </Text>
+                            )}
+                            {isLiveEdit && (
+                              <Text color="$orange11" fontSize="$2">
+                                Ogni scambio salvato consuma un cambio live disponibile.
+                              </Text>
+                            )}
+                          </YStack>
+                          <XStack gap="$3" flexWrap="wrap">
+                            {renderLiveTeamStatus(home, 'Casa')}
+                            {renderLiveTeamStatus(away, 'Trasferta')}
+                          </XStack>
+                        </YStack>
+                      )}
                     {adminControls}
                     {showToolbar && (
                       <XStack
