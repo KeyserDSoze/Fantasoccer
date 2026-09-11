@@ -155,7 +155,7 @@ export default function InfoScreen() {
                 <YStack gap="$2">
                   <Text fontSize="$3" fontWeight="700" color="$purple11">Sequenza tastiera</Text>
                   <Text fontSize="$2" color="$purple10">
-                    Ctrl + ruolo + numero seleziona un giocatore, ad esempio Ctrl + A + 1. Poi Shift + ruolo + numero applica lo spostamento, ad esempio Shift + A + 4. Se non hai ancora una selezione, una combinazione senza Ctrl seleziona il giocatore.
+                    Premi ruolo + numero, ad esempio A + 2. La prima combinazione seleziona il giocatore e mostra un bordo; una seconda combinazione dello stesso ruolo sposta o scambia il giocatore selezionato. Una combinazione con un ruolo diverso seleziona direttamente l&apos;altro giocatore. Premi Esc per annullare la selezione.
                   </Text>
                 </YStack>
               </Card>

@@ -279,7 +279,6 @@ export const SoccerField = memo(
       teamIndex: number;
     } | null>(null);
     const shortcutRoleRef = useRef<Role | null>(null);
-    const shortcutActionRef = useRef<'select' | 'modify' | 'plain' | null>(null);
 
     // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
     const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({});
@@ -574,6 +573,7 @@ export const SoccerField = memo(
         const targetPosition = getShortcutBenchPosition(role, number);
         if (targetPosition === undefined) return;
         const targetPlayer = findShortcutPlayer(team, role, number);
+        if (targetPlayer?.current.name === keyboardSelection.player.current.name) return;
         if (targetPlayer)
           applyPlayerSwap(keyboardSelection.player, targetPlayer, keyboardSelection.teamIndex);
         else applyPlayerMove(keyboardSelection.player, keyboardSelection.teamIndex, targetPosition);
@@ -581,7 +581,8 @@ export const SoccerField = memo(
       }
 
       const targetPlayer = findShortcutPlayer(team, role, number);
-      if (targetPlayer && targetPlayer.current.name !== keyboardSelection.player.current.name)
+      if (targetPlayer?.current.name === keyboardSelection.player.current.name) return;
+      if (targetPlayer)
         applyPlayerSwap(keyboardSelection.player, targetPlayer, keyboardSelection.teamIndex);
       else {
         const targetPosition = getAvailableFieldPosition(role, team.players);
@@ -596,14 +597,19 @@ export const SoccerField = memo(
       const onKeyDown = (event: KeyboardEvent) => {
         const target = event.target as HTMLElement | null;
         if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+        if (event.key === 'Escape') {
+          shortcutRoleRef.current = null;
+          setKeyboardSelection(null);
+          event.preventDefault();
+          return;
+        }
+
         const role = getShortcutRole(event.key);
         const number = Number(event.key);
-        const modifier =
-          event.ctrlKey || event.metaKey ? 'select' : event.shiftKey ? 'modify' : null;
 
         if (role) {
           shortcutRoleRef.current = role;
-          shortcutActionRef.current = modifier ?? (!keyboardSelection ? 'plain' : null);
           event.preventDefault();
           return;
         }
@@ -612,36 +618,28 @@ export const SoccerField = memo(
           return;
 
         const shortcutRole = shortcutRoleRef.current;
-        const action = shortcutActionRef.current;
         shortcutRoleRef.current = null;
-        shortcutActionRef.current = null;
 
         const teamIndex = homeIsMyTeam ? 0 : awayIsMyTeam ? 1 : null;
         if (teamIndex === null) return;
         const team = teamIndex === 0 ? home : away;
 
-        if (action === 'select' || action === 'plain') {
-          const player = findShortcutPlayer(team, shortcutRole, number);
-          if (!player) {
-            toast.show('Nessun giocatore trovato per questa combinazione.', { variant: 'warning' });
-            return;
-          }
+        const player = findShortcutPlayer(team, shortcutRole, number);
+        if (!player) {
+          toast.show('Nessun giocatore trovato per questa combinazione.', { variant: 'warning' });
+          return;
+        }
+
+        const selectedRole = keyboardSelection?.player.current.role;
+        if (!keyboardSelection || selectedRole !== shortcutRole) {
           setKeyboardSelection({ player, teamIndex });
           toast.show(`Selezionato ${player.current.name}`, { variant: 'info' });
           event.preventDefault();
           return;
         }
 
-        if (action === 'modify') {
-          if (!keyboardSelection) {
-            toast.show('Seleziona prima un giocatore con Ctrl + ruolo + numero.', {
-              variant: 'warning',
-            });
-            return;
-          }
-          applyKeyboardShortcut(shortcutRole, number);
-          event.preventDefault();
-        }
+        applyKeyboardShortcut(shortcutRole, number);
+        event.preventDefault();
       };
 
       window.addEventListener('keydown', onKeyDown);

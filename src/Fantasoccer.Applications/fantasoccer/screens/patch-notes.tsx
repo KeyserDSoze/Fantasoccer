@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.31',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Semplificate le scorciatoie della formazione desktop: basta premere ruolo e numero, con Esc per annullare la selezione e cambio ruolo diretto',
+      },
+    ],
+  },
+  {
     version: '2.0.30',
     date: '11 Settembre 2026',
     changes: [
