@@ -149,7 +149,7 @@ export default function InfoScreen() {
                 <YStack gap="$2">
                   <Text fontSize="$3" fontWeight="700" color="$purple11">Numeri destinazione</Text>
                   <Text fontSize="$2" color="$purple10">
-                    1, 2, 3 = titolari · 4 = primo panchinaro · 5 = secondo panchinaro · 6 = tribuna. Il portiere adatta automaticamente i comandi agli slot disponibili.
+                    Attaccanti: 1-3 titolari, 4-5 panchinari, 6 tribuna. Difensori e centrocampisti: 1-5 titolari, 6-7 panchinari, 8 tribuna. Portieri: 1 titolare, 2 panchinaro, 3 tribuna.
                   </Text>
                 </YStack>
                 <YStack gap="$2">

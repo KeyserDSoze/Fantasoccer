@@ -520,30 +520,39 @@ export const SoccerField = memo(
     };
 
     const getShortcutBenchPosition = (role: Role, number: number) => {
-      if (role === Role.GoalKeeper) return FantaSoccerRole.BackupGoalKeeper;
-      if (number === 4) {
-        if (role === Role.Defensor) return FantaSoccerRole.FirstBackupDefensor;
-        if (role === Role.Midfielder) return FantaSoccerRole.FirstBackupMidfielder;
-        if (role === Role.Forward) return FantaSoccerRole.FirstBackupForward;
-      }
-      if (number === 5) {
-        if (role === Role.Defensor) return FantaSoccerRole.SecondBackupDefensor;
-        if (role === Role.Midfielder) return FantaSoccerRole.SecondBackupMidfielder;
-        if (role === Role.Forward) return FantaSoccerRole.SecondBackupForward;
-      }
+      if (role === Role.GoalKeeper && number === 2) return FantaSoccerRole.BackupGoalKeeper;
+      if (role === Role.Defensor && number === 6) return FantaSoccerRole.FirstBackupDefensor;
+      if (role === Role.Defensor && number === 7) return FantaSoccerRole.SecondBackupDefensor;
+      if (role === Role.Midfielder && number === 6) return FantaSoccerRole.FirstBackupMidfielder;
+      if (role === Role.Midfielder && number === 7) return FantaSoccerRole.SecondBackupMidfielder;
+      if (role === Role.Forward && number === 4) return FantaSoccerRole.FirstBackupForward;
+      if (role === Role.Forward && number === 5) return FantaSoccerRole.SecondBackupForward;
       return undefined;
+    };
+
+    const getShortcutStarterCount = (role: Role) => {
+      if (role === Role.GoalKeeper) return 1;
+      if (role === Role.Forward) return 3;
+      if (role === Role.Defensor || role === Role.Midfielder) return 5;
+      return 0;
+    };
+
+    const isShortcutTribune = (role: Role, number: number) => {
+      if (role === Role.GoalKeeper) return number === 3;
+      if (role === Role.Forward) return number === 6;
+      return (role === Role.Defensor || role === Role.Midfielder) && number === 8;
     };
 
     const findShortcutPlayer = (team: LiveTeam | undefined, role: Role, number: number) => {
       if (!team) return undefined;
       const players = team.players.filter((candidate) => (candidate.current as any)?.role === role);
-      if (number >= 1 && number <= 3) {
+      if (number >= 1 && number <= getShortcutStarterCount(role)) {
         const starters = players.filter(
           (candidate) => candidate.currentPosition <= FantaSoccerRole.Forward
         );
         return starters[Math.min(number - 1, Math.max(0, starters.length - 1))];
       }
-      if (number === 6)
+      if (isShortcutTribune(role, number))
         return players.find((candidate) => candidate.currentPosition === FantaSoccerRole.Tribune);
       const benchPosition = getShortcutBenchPosition(role, number);
       return benchPosition === undefined
@@ -561,7 +570,7 @@ export const SoccerField = memo(
         return;
       }
 
-      if (number === 6) {
+      if (isShortcutTribune(role, number)) {
         applyPlayerMove(
           keyboardSelection.player,
           keyboardSelection.teamIndex,
@@ -621,7 +630,7 @@ export const SoccerField = memo(
           return;
         }
 
-        if (!Number.isInteger(number) || number < 1 || number > 6 || !shortcutRoleRef.current)
+        if (!Number.isInteger(number) || number < 1 || number > 8 || !shortcutRoleRef.current)
           return;
 
         const shortcutRole = shortcutRoleRef.current;

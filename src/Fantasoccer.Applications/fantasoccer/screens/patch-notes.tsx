@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.33',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Aggiornata la numerazione delle scorciatoie desktop in base al ruolo: difensori e centrocampisti fino a 5 titolari, portieri con sequenza 1-3',
+      },
+    ],
+  },
+  {
     version: '2.0.32',
     date: '11 Settembre 2026',
     changes: [
