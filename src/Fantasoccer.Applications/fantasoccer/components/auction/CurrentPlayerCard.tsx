@@ -125,6 +125,12 @@ export function CurrentPlayerCard({
                   </Card>
                 )}
               </XStack>
+              {(currentPlayer?.description?.top || currentPlayer?.description?.down) && (
+                <YStack gap="$2" marginTop="$2">
+                  {currentPlayer.description.top && <Card padding="$2" backgroundColor="$green2" borderColor="$green8" borderWidth={1}><Text fontSize="$3" color="$green11"><Text fontWeight="800">PRO:</Text> {currentPlayer.description.top}</Text></Card>}
+                  {currentPlayer.description.down && <Card padding="$2" backgroundColor="$red2" borderColor="$red8" borderWidth={1}><Text fontSize="$3" color="$red11"><Text fontWeight="800">CONTRO:</Text> {currentPlayer.description.down}</Text></Card>}
+                </YStack>
+              )}
               {/* Desktop: mostra descrizione a destra */}
               {media.gtSm && chancedPlayer?.chance?.description && (
                 <Card 

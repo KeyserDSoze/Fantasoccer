@@ -12,6 +12,7 @@ export interface StatPlayerGameRaw {
 }
 
 export interface StatPlayerRaw extends RealPlayerRaw {
+  ds?: PlayerDescriptionRaw | null
   z: number   // Summatory (matches [JsonPropertyName("z")])
   f: number   // FantaSummatory (matches [JsonPropertyName("f")])
   v: number   // WithVote (matches [JsonPropertyName("v")])
@@ -47,7 +48,18 @@ export interface StatPlayerGame {
   positiveness: number
 }
 
+export interface PlayerDescriptionRaw {
+  top?: string | null
+  down?: string | null
+}
+
+export interface PlayerDescription {
+  top?: string
+  down?: string
+}
+
 export interface StatPlayer extends RealPlayer {
+  description?: PlayerDescription
   summatory: number
   fantaSummatory: number
   withVote: number
@@ -108,6 +120,7 @@ export function mapRawStatPlayerToStatPlayer(raw: StatPlayerRaw): StatPlayer {
 
   return {
     ...base,
+    description: raw.ds ? { top: raw.ds.top ?? undefined, down: raw.ds.down ?? undefined } : undefined,
     summatory,
     fantaSummatory,
     withVote,

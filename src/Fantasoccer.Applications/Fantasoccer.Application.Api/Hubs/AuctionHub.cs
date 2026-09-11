@@ -550,28 +550,30 @@ namespace Fantasoccer.Application.Api.Hubs
             var email = GetUserEmail();
             if (string.IsNullOrEmpty(email)) return;
 
-            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, (wrapper) =>
+            var concurrencyResponse = await _auctionHubService.ExecuteOperationAsync(auctionId, async wrapper =>
             {
                 if (wrapper == null || !IsAuctioneer(wrapper, email))
                 {
-                    return Task.FromResult(new ConcurrencyResponse(false, "Only auctioneers can show next player"));
+                    return new ConcurrencyResponse(false, "Only auctioneers can show next player");
                 }
 
                 if (wrapper.Wrapper.Status == AuctionStatus.Finished)
                 {
-                    return Task.FromResult(new ConcurrencyResponse(false, "Auction is already finished"));
+                    return new ConcurrencyResponse(false, "Auction is already finished");
                 }
 
                 if (wrapper.Wrapper.Actual?.Owner != null)
                 {
-                    return Task.FromResult(new ConcurrencyResponse(false, "Auction for player not terminated"));
+                    return new ConcurrencyResponse(false, "Auction for player not terminated");
                 }
 
                 var nextPlayer = forcedPlayerKey != null ? wrapper.RealPlayers!.FirstOrDefault(x => x.Key == forcedPlayerKey) : GetNextPlayer(wrapper, role);
                 if (nextPlayer == null)
                 {
-                    return Task.FromResult(new ConcurrencyResponse(false, $"No more players for role {role}"));
+                    return new ConcurrencyResponse(false, $"No more players for role {role}");
                 }
+
+                await _auctionHubService.EnrichPlayerDescriptionAsync(nextPlayer);
 
                 // Update auction state
                 wrapper.Wrapper.Actual = new ActualAuction
@@ -584,7 +586,7 @@ namespace Fantasoccer.Application.Api.Hubs
                 wrapper.Wrapper.LastShow[role] = nextPlayer.Key;
                 wrapper.Wrapper.Status = AuctionStatus.InProgress;
 
-                return Task.FromResult(new ConcurrencyResponse(true, wrapper.Wrapper.Actual));
+                return new ConcurrencyResponse(true, wrapper.Wrapper.Actual);
             });
             // Broadcast to all participants
             if (concurrencyResponse?.IsOk == true)

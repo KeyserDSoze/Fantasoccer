@@ -46,5 +46,10 @@ namespace Fantasoccer.Domain
         public int Injured { get; set; }
         [JsonPropertyName("lg")]
         public List<StatPlayerGame>? AllGames { get; set; }
+
+        // Populated only by the auction enrichment flow.
+        [JsonPropertyName("ds")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public PlayerDescription? Description { get; set; }
     }
 }

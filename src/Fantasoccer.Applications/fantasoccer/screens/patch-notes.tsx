@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.25',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description: 'Aggiunte all’asta le descrizioni PRO e CONTRO dei giocatori provenienti dalle schede Fantacalcio.it, visibili sia nella pulsantiera sia nella modalità TV'
+      },
+      {
+        category: 'Improvement',
+        description: 'Migliorata la modalità TV dell’asta con statistiche giocatore, countdown live, budget dopo l’acquisto, ordinamento delle squadre per disponibilità economica e layout responsive per TV e mobile'
+      }
+    ]
+  },
+  {
     version: '2.0.24',
     date: '11 Settembre 2026',
     changes: [

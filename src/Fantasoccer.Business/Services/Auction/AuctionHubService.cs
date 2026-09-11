@@ -18,13 +18,15 @@ namespace Fantasoccer.Business
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<StatPlayersWrapper, int> _statsPlayers;
         private readonly IRepository<OpeningCompetitionStandings, OpeningCompetitionKey> _openingStandings;
+        private readonly FantacalcioPlayerDescriptionService _playerDescriptionService;
 
         public AuctionHubService(ILock @lock, IRepository<AuctionWrapper, string> auctionRepository,
              IRepository<AppIdentity, string> identityRepository,
              IRepository<RealCalendar, int> realCalendarRepository,
             IRepository<Rank, LeagueKey> rankRepository,
             IRepository<Team, TeamKey> team, IRepository<Group, string> groups, IRepository<StatPlayersWrapper, int> statsPlayers,
-            IRepository<OpeningCompetitionStandings, OpeningCompetitionKey> openingStandings)
+             IRepository<OpeningCompetitionStandings, OpeningCompetitionKey> openingStandings,
+             FantacalcioPlayerDescriptionService playerDescriptionService)
         {
             _lock = @lock;
             _auctionRepository = auctionRepository;
@@ -35,7 +37,10 @@ namespace Fantasoccer.Business
             _groups = groups;
             _statsPlayers = statsPlayers;
             _openingStandings = openingStandings;
+            _playerDescriptionService = playerDescriptionService;
         }
+
+        public Task EnrichPlayerDescriptionAsync(StatPlayer player) => _playerDescriptionService.EnrichAsync(player);
         public async ValueTask ExecuteOperationAsync(string auctionId, Action<AuctionHubWrapper> concurrentAction)
         {
             var wrapper = await GetCurrentWrapperAsync(auctionId);
@@ -83,9 +88,18 @@ namespace Fantasoccer.Business
                                 var calendar = await _realCalendarRepository.GetAsync(auction.LeagueKey.Year);
                                  var rank = await _rankRepository.GetAsync(auction.LeagueKey);
                                  var opening = auction.Kind == AuctionKind.Starting && leagueWrapper.IsMain && league.Settings.OpeningCompetition?.Enabled == true
-                                     ? await _openingStandings.GetAsync(new OpeningCompetitionKey { Group = auction.LeagueKey.Group, League = auction.LeagueKey.League, Year = auction.LeagueKey.Year }) : null;
-                                var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
-                                var teams = new List<Entity<Team, TeamKey>>();
+                                      ? await _openingStandings.GetAsync(new OpeningCompetitionKey { Group = auction.LeagueKey.Group, League = auction.LeagueKey.League, Year = auction.LeagueKey.Year }) : null;
+                                 var statPlayers = await _statsPlayers.GetAsync(auction.LeagueKey.Year);
+                                 if (auction.Actual != null && statPlayers?.Players != null)
+                                 {
+                                     var actualPlayer = statPlayers.Players.FirstOrDefault(player => player.Key == auction.Actual.Player.Key);
+                                     if (actualPlayer != null)
+                                     {
+                                         await _playerDescriptionService.EnrichAsync(actualPlayer);
+                                         auction.Actual.Player = actualPlayer;
+                                     }
+                                 }
+                                 var teams = new List<Entity<Team, TeamKey>>();
                                 foreach (var basketId in leagueWrapper.BasketsId)
                                 {
                                     var basket = group.Baskets.First(x => x.Id == basketId);
