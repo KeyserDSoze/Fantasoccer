@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Card, ScrollView, Text, XStack, YStack } from 'tamagui';
+import { Button, Card, Text, XStack, YStack } from 'tamagui';
 import type { LivePlayer, LiveTeam } from 'types/game';
 import { FantaSoccerRole } from 'types/team';
 import { Role } from 'types/group';
@@ -18,10 +18,10 @@ interface MobileQuickFormationViewProps {
 const ROLE_ORDER: Role[] = [Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward];
 const STATUS_ORDER: QuickFormationStatus[] = ['starter', 'firstBench', 'secondBench', 'tribune'];
 const STATUS_LABELS: Record<QuickFormationStatus, string> = {
-  starter: 'Tit.',
-  firstBench: '1a',
-  secondBench: '2a',
-  tribune: 'Trib.',
+  starter: 'T',
+  firstBench: '1',
+  secondBench: '2',
+  tribune: 'F',
 };
 const STATUS_COLORS: Record<QuickFormationStatus, string> = {
   starter: '#166534',
@@ -116,12 +116,11 @@ export function MobileQuickFormationView({
         </YStack>
         <Button size="$3" onPress={onClose}>Chiudi</Button>
       </XStack>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <YStack minWidth={360} gap={1}>
+      <YStack width="100%" gap={1}>
           <XStack alignItems="stretch" gap={1}>
-            <Text width={145} padding="$2" fontWeight="700" backgroundColor="$color4">Giocatore</Text>
+            <Text flex={1} minWidth={0} padding="$2" fontWeight="700" backgroundColor="$color4">Nome</Text>
             {STATUS_ORDER.map((status) => (
-              <Text key={status} width={54} padding="$2" textAlign="center" fontSize="$2" fontWeight="700" color="#fff" backgroundColor={STATUS_COLORS[status]}>
+              <Text key={status} width={42} padding="$2" textAlign="center" fontSize="$2" fontWeight="700" color="#fff" backgroundColor={STATUS_COLORS[status]}>
                 {STATUS_LABELS[status]}
               </Text>
             ))}
@@ -131,13 +130,13 @@ export function MobileQuickFormationView({
             const currentStatus = getStatus(player.currentPosition);
             return (
               <XStack key={player.current.name} alignItems="stretch" gap={1} backgroundColor={STATUS_BACKGROUNDS[currentStatus]}>
-                <Text width={145} paddingHorizontal="$2" paddingVertical="$2" numberOfLines={1} fontSize="$2">
+                <Text flex={1} minWidth={0} paddingHorizontal="$2" paddingVertical="$2" numberOfLines={1} fontSize="$2">
                   {player.current.name}
                 </Text>
                 {STATUS_ORDER.map((status) => {
                   const target = getTargetStatus(role, status);
                   return (
-                    <YStack key={status} width={54} padding="$1" backgroundColor={STATUS_BACKGROUNDS[status]}>
+                    <YStack key={status} width={42} padding="$1" backgroundColor={STATUS_BACKGROUNDS[status]}>
                       <Button
                         size="$2"
                         paddingHorizontal={0}
@@ -155,8 +154,7 @@ export function MobileQuickFormationView({
               </XStack>
             );
           })}
-        </YStack>
-      </ScrollView>
+      </YStack>
       <Button
         backgroundColor="$green10"
         color="#fff"

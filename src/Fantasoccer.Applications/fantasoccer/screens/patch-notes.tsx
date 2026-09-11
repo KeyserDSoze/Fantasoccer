@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.35',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Compattata la Vista rapida mobile con colonne T, 1, 2 e F per eliminare lo scroll orizzontale',
+      },
+    ],
+  },
+  {
     version: '2.0.34',
     date: '11 Settembre 2026',
     changes: [
