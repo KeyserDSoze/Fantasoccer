@@ -1258,6 +1258,9 @@ export const SoccerField = memo(
 
     // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
     const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges;
+    const showLiveStatus =
+      gameWrapper?.isLiveFormationWindow === true &&
+      (home?.formationChangesMaximum != null || away?.formationChangesMaximum != null);
     const quickFormationTeamIndex = homeIsMyTeam ? 0 : awayIsMyTeam ? 1 : null;
     const quickFormationTeam = quickFormationTeamIndex === 0 ? home : away;
     const showQuickFormationButton =
@@ -1343,7 +1346,7 @@ export const SoccerField = memo(
 
     return (
       <YStack gap={16} width="100%" {...style}>
-        {(adminControls || showToolbar || zoomControls) && (
+        {(adminControls || showToolbar || showLiveStatus || zoomControls) && (
           <Accordion
             overflow="hidden"
             type="multiple"
@@ -1373,22 +1376,20 @@ export const SoccerField = memo(
               <Accordion.HeightAnimator transition="quick">
                 <Accordion.Content padding="$2" paddingTop="$3" backgroundColor="$color2">
                   <YStack gap="$3">
-                    {isLiveMode &&
-                      (home?.formationChangesMaximum != null ||
-                        away?.formationChangesMaximum != null) && (
+                    {showLiveStatus && (
                         <YStack
-                          backgroundColor={isLiveEdit ? '$orange2' : '$gray3'}
-                          borderColor={isLiveEdit ? '$orange8' : '$gray7'}
+                          backgroundColor={isLiveWindowOpenNow ? '$orange2' : '$gray3'}
+                          borderColor={isLiveWindowOpenNow ? '$orange8' : '$gray7'}
                           borderWidth={1}
                           borderRadius="$3"
                           padding="$3"
                           gap="$3">
                           <YStack gap="$1">
-                            <Text color={isLiveEdit ? '$orange11' : '$color11'} fontWeight="700">
-                              {isLiveEdit ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
+                            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
+                              {isLiveWindowOpenNow ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
                             </Text>
                             {liveDeadline ? (
-                              <Text color={isLiveEdit ? '$orange11' : '$color10'} fontSize="$3">
+                              <Text color={isLiveWindowOpenNow ? '$orange11' : '$color10'} fontSize="$3">
                                 Termine modifiche:{' '}
                                 {liveDeadline.toLocaleString('it-IT', {
                                   timeZone: 'Europe/Rome',

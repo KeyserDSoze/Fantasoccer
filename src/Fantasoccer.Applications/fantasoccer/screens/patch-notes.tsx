@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.38',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Ripristinata la visualizzazione del risultato live in alto e del pannello con i cambi live disponibili durante la partita',
+      },
+    ],
+  },
+  {
     version: '2.0.37',
     date: '11 Settembre 2026',
     changes: [

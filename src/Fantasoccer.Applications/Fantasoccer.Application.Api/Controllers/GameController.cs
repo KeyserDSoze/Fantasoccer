@@ -427,7 +427,7 @@ namespace Fantasoccer.Application.Api.Controllers
                         : null,
                     FormationChangeHistory = team?.FormationChangeHistory ?? [],
                 });
-                if (!formationIsMutable && hasNoResult)
+                if ((currentLiveDay == game.SerieADay || !formationIsMutable) && hasNoResult)
                 {
                     game.Value.Result ??= new();
                     if (team?.ActivePlayers != null)
@@ -439,7 +439,10 @@ namespace Fantasoccer.Application.Api.Controllers
                     }
                 }
             }
-            if (!formationIsMutable && game.Value.Result != null && _teamCalculator.LeagueSetting != null)
+            if ((currentLiveDay == game.SerieADay || !formationIsMutable) &&
+                game.Value.Result?.Home != null &&
+                game.Value.Result.Away != null &&
+                _teamCalculator.LeagueSetting != null)
                 game.Value.Result.CalculateGoals(_teamCalculator.LeagueSetting);
             return new GameWrapper
             {
