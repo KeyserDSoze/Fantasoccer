@@ -22,7 +22,7 @@ import { IdentityRole, hasRole } from '../types/identity';
 
 export default function GameScreen() {
   const media = useMedia();
-  const { calendar, isLoading, error } = useSerieACalendar({
+  const { calendar, isLive: calendarIsLive, isLoading, error } = useSerieACalendar({
     refreshInterval: 60000,
     enablePolling: true,
   });
@@ -196,6 +196,11 @@ export default function GameScreen() {
     if (!gameWrapper?.serieADay || !calendar) return;
 
     const checkLiveStatus = () => {
+      if (calendarIsLive) {
+        setIsLiveActive(true);
+        return;
+      }
+
       // Trova la giornata di Serie A corrispondente
       const targetDay = calendar.days?.find((day) => day.serieADay === gameWrapper.serieADay);
 
@@ -227,7 +232,7 @@ export default function GameScreen() {
     return () => {
       clearInterval(liveCheckInterval);
     };
-  }, [gameWrapper?.serieADay, calendar]);
+  }, [gameWrapper?.serieADay, calendar, calendarIsLive]);
 
   // Polling automatico ogni 10 secondi SOLO se ci sono partite live E non si sta modificando
   useEffect(() => {

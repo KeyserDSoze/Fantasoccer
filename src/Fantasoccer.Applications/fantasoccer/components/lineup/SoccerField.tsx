@@ -419,6 +419,7 @@ export const SoccerField = memo(
 
     // Determina se almeno una partita è iniziata (per mostrare view modal invece di edit modal)
     const hasGameStarted = useMemo(() => {
+      if (gameWrapper?.game?.result) return true;
       const players = [...(home?.players ?? []), ...(away?.players ?? [])];
       // Se almeno un giocatore ha una partita iniziata, mostra il view modal
       return players.some((p) => {

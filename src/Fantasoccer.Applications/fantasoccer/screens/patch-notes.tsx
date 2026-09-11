@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.37',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Ripristinato il caricamento dei voti e dei risultati nella formazione durante le partite live, mantenendo visibili anche i cambi live disponibili',
+      },
+    ],
+  },
+  {
     version: '2.0.36',
     date: '11 Settembre 2026',
     changes: [

@@ -374,7 +374,8 @@ namespace Fantasoccer.Application.Api.Controllers
                 : string.Equals(editMode, "live", StringComparison.OrdinalIgnoreCase) && isLiveFormationWindow;
             var hasNoResult = game.Value.HasNoResult;
             int? liveFormationChangesRemaining = null;
-            await _teamCalculator.BuildRequestAsync(year, game.SerieADay, leagueType, leagueSettings, true, !formationIsMutable, true);
+            var shouldLoadVotes = currentLiveDay == game.SerieADay || !hasNoResult;
+            await _teamCalculator.BuildRequestAsync(year, game.SerieADay, leagueType, leagueSettings, true, shouldLoadVotes, true);
             var teams = new List<LiveTeam>();
             foreach (var context in ownerContexts)
             {

@@ -179,6 +179,7 @@ export function PlayerCard({
   // Determina se la partita non è ancora iniziata per mostrare chance info
   const isGameNotStarted = useMemo(() => {
     if (!realGame?.date) return true; // Se non c'è data, consideriamo non iniziata
+    if (vote || realGame.homeGoals !== null || realGame.awayGoals !== null) return false;
     const now = new Date();
     const gameStart = realGame.date;
     return now < gameStart;
