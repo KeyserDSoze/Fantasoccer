@@ -21,6 +21,7 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
         private readonly ITeamChecker _teamChecker;
         private readonly IFantasoccerLogger _logger;
+        private readonly ILogger<GameController> _telemetryLogger;
         private readonly ILock _lock;
         private readonly IOptimalFormationService _optimalFormationService;
 
@@ -35,7 +36,8 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<AppIdentity, string> users,
             IFantasoccerLogger logger,
             ILock @lock,
-            IOptimalFormationService optimalFormationService)
+            IOptimalFormationService optimalFormationService,
+            ILogger<GameController> telemetryLogger)
         {
             _leagueCalculatorFactory = leagueCalculatorFactory;
             _teamCalculator = teamCalculator;
@@ -47,6 +49,7 @@ namespace Fantasoccer.Application.Api.Controllers
             _teamChecker = teamChecker;
             _users = users;
             _logger = logger;
+            _telemetryLogger = telemetryLogger;
             _lock = @lock;
             _optimalFormationService = optimalFormationService;
         }
@@ -114,6 +117,14 @@ namespace Fantasoccer.Application.Api.Controllers
             }
             catch (Exception exception)
             {
+                _telemetryLogger.LogError(
+                    exception,
+                    "OptimalFormation failed for group {GroupId}, league {LeagueId}, year {Year}, day {Day}, owner {Owner}",
+                    groupId,
+                    leagueId,
+                    year,
+                    day,
+                    owner);
                 await _logger.LogErrorAsync<GameController>(exception);
                 return Problem("Errore durante il calcolo della formazione ottimale.", statusCode: 500);
             }

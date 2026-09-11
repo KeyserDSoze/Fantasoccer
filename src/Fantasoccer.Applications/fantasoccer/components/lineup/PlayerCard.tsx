@@ -664,12 +664,12 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
       {gameInfo && (
         <YStack
           position="absolute"
-          bottom={18}
+          bottom={20}
           left={0}
           right={0}
           backgroundColor="rgba(0, 0, 0, 0.85)"
           paddingHorizontal={4}
-          paddingVertical={0}
+          paddingVertical={1}
           alignItems="center"
           zIndex={9}
           borderTopWidth={1}
@@ -679,7 +679,7 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
           {/* Squadre della partita - versione abbreviata */}
           <Text
             fontSize={10}
-            lineHeight={10}
+            lineHeight={12}
             fontWeight="700"
             color="#fff"
             textAlign="center"
@@ -694,7 +694,7 @@ export function PlayerCard({ player, onPress, statPlayersMap }: PlayerCardProps)
           {/* Data o risultato */}
           <Text
             fontSize={10}
-            lineHeight={11}
+            lineHeight={12}
             fontWeight="600"
             color={isGameLive && gameInfo.type === 'result' && isBlinking ? "#fff" : (gameInfo.type === 'result' ? "#10b981" : "#60a5fa")}
             textAlign="center"

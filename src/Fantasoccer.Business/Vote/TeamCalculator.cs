@@ -48,7 +48,7 @@ namespace Fantasoccer.Business
                     day = calendar?.NextDay?.SerieADay ?? calendar?.LiveDay?.SerieADay ?? 1;
                 SerieADay = day;
                 var key = new YearDayKey { Day = day, Year = year };
-                RealDay = calendar.Days.FirstOrDefault(x => x.SerieADay == key.Day);
+                RealDay = calendar?.Days?.FirstOrDefault(x => x.SerieADay == key.Day);
                 IsEditable = day == calendar?.NextDay?.SerieADay;
                 if (calendar != null)
                 {
@@ -179,7 +179,9 @@ namespace Fantasoccer.Business
         {
             if (player.RealTeam != null)
             {
-                var game = RealDay?.Games.Find(x => x.Home.Abbreviation == player.RealTeam.Abbreviation || x.Away.Abbreviation == player.RealTeam.Abbreviation);
+                var game = RealDay?.Games?.Find(x =>
+                    x.Home?.Abbreviation == player.RealTeam.Abbreviation ||
+                    x.Away?.Abbreviation == player.RealTeam.Abbreviation);
                 return game;
             }
             return null;
@@ -190,8 +192,9 @@ namespace Fantasoccer.Business
             var vote = player.Vote;
             if (LeagueSetting == null || vote == null)
                 return VoteValue.Empty;
-            var voteLeagueSetting = LeagueSetting.Votes.ContainsKey(player.Current.Role) ?
-                LeagueSetting.Votes[player.Current.Role] : LeagueSetting.Votes[Role.Undefined];
+            var voteLeagueSetting = LeagueSetting.Votes?.GetValueOrDefault(player.Current.Role)
+                ?? LeagueSetting.Votes?.GetValueOrDefault(Role.Undefined)
+                ?? LeagueSetting.Default.Votes[Role.Undefined];
             var calculatedVote = vote.Value;
             calculatedVote += vote.Goal * voteLeagueSetting.Goal;
             calculatedVote += vote.Penalty * voteLeagueSetting.Penalty;

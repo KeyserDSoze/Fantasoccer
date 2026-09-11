@@ -35,7 +35,10 @@ namespace Fantasoccer.Business
             cancellationToken.ThrowIfCancellationRequested();
 
             await _teamCalculator.BuildRequestAsync(year, day, leagueType, leagueSetting, true, true, true);
-            var enrichedPlayers = _teamCalculator.Enrich(team.ActivePlayers).ToList();
+            var activePlayers = (team.Players ?? [])
+                .Where(x => x.Status == PlayerInTeamStatus.Active)
+                .ToList();
+            var enrichedPlayers = _teamCalculator.Enrich(activePlayers).ToList();
             var stats = (await _statsRepository.GetAsync(year, cancellationToken))?.Players ?? [];
             var rank = (await _rankRepository.GetAsync(year, cancellationToken))?.Teams ?? [];
             var projections = enrichedPlayers.ToDictionary(
@@ -45,7 +48,7 @@ namespace Fantasoccer.Business
 
             return _engine.Calculate(new OptimalFormationInput
             {
-                Players = team.ActivePlayers.ToList(),
+                Players = activePlayers,
                 Projections = projections
             });
         }

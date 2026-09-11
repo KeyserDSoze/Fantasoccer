@@ -15,6 +15,24 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.17',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Risolto l’errore 500 del calcolo formazione AI quando calendario, rosa o impostazioni voto sono incompleti o non disponibili'
+      },
+      {
+        category: 'Improvement',
+        description: 'Aggiunto logging dettagliato dell’endpoint OptimalFormation con contesto di gruppo, lega, giornata e proprietario per la diagnosi in Application Insights'
+      },
+      {
+        category: 'Fix',
+        description: 'Ripristinata la posizione della fascia partita nella scheda giocatore: partita e orario restano visibili sopra il nome anche con il testo ridotto'
+      }
+    ]
+  },
+  {
     version: '2.0.16',
     date: '11 Settembre 2026',
     changes: [
