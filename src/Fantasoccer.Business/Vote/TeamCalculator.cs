@@ -165,14 +165,14 @@ namespace Fantasoccer.Business
         }
         private Chance? GetChance(Player player)
         {
-            var chancedPlayer = Chance?.Players.Find(x => x.Key == player.Key);
+            var chancedPlayer = Chance?.Players?.Find(x => x.Key == player.Key);
             return chancedPlayer?.Chance;
         }
         private Vote? GetVote(Player player)
         {
-            var votePlayer = Official?.Players.Find(x => x.Key == player.Key);
+            var votePlayer = Official?.Players?.Find(x => x.Key == player.Key);
             if (votePlayer == null)
-                votePlayer = Live?.Players.Find(x => x.Key == player.Key);
+                votePlayer = Live?.Players?.Find(x => x.Key == player.Key);
             return votePlayer?.Vote;
         }
         private RealGame? GetRealGame(Player player)

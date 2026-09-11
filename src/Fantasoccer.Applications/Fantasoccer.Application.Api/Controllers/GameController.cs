@@ -74,12 +74,12 @@ namespace Fantasoccer.Application.Api.Controllers
                     return NotFound();
 
                 var group = await _groups.GetAsync(groupId);
-                var league = group?.Leagues.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
-                var annualLeague = league?.Years.FirstOrDefault(x => x.Year == year);
-                var basket = group?.Baskets.FirstOrDefault(x =>
-                    league?.BasketsId.Contains(x.Id, StringComparer.OrdinalIgnoreCase) == true &&
+                var league = group?.Leagues?.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
+                var annualLeague = league?.Years?.FirstOrDefault(x => x.Year == year);
+                var basket = group?.Baskets?.FirstOrDefault(x =>
+                    league?.BasketsId?.Contains(x.Id, StringComparer.OrdinalIgnoreCase) == true &&
                     x.Years?.FirstOrDefault(y => y.Year == year)?.Teams?.Any(t => string.Equals(t.Owner, owner, StringComparison.OrdinalIgnoreCase)) == true);
-                var annualTeam = basket?.Years.FirstOrDefault(x => x.Year == year)?.Teams
+                var annualTeam = basket?.Years?.FirstOrDefault(x => x.Year == year)?.Teams
                     .FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
                 if (group == null || league == null || annualLeague == null || basket == null || annualTeam == null)
                     return NotFound();

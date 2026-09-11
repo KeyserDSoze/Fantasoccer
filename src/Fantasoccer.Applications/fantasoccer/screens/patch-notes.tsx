@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.18',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Rafforzato il calcolo della formazione AI contro dati incompleti, liste mancanti e giocatori duplicati che potevano causare un errore 500'
+      },
+      {
+        category: 'Fix',
+        description: 'Spostata più in alto la fascia partita nella scheda giocatore per mantenere sempre visibili avversari e orario sopra il nome'
+      }
+    ]
+  },
+  {
     version: '2.0.17',
     date: '11 Settembre 2026',
     changes: [

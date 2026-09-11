@@ -41,9 +41,12 @@ namespace Fantasoccer.Business
             var enrichedPlayers = _teamCalculator.Enrich(activePlayers).ToList();
             var stats = (await _statsRepository.GetAsync(year, cancellationToken))?.Players ?? [];
             var rank = (await _rankRepository.GetAsync(year, cancellationToken))?.Teams ?? [];
-            var projections = enrichedPlayers.ToDictionary(
-                x => x.Current.Key,
-                x => ToProjection(x, stats, rank),
+            var projections = enrichedPlayers
+                .Where(x => !string.IsNullOrWhiteSpace(x.Current.Key))
+                .GroupBy(x => x.Current.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                x => x.Key,
+                x => ToProjection(x.First(), stats, rank),
                 StringComparer.OrdinalIgnoreCase);
 
             return _engine.Calculate(new OptimalFormationInput
