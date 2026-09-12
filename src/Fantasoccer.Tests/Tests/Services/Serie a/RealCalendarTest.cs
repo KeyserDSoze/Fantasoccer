@@ -133,4 +133,30 @@ public sealed class RealCalendarTest
         Assert.NotNull(calendar.LiveDay);
         Assert.False(calendar.IsLiveFormationWindowOpen);
     }
+
+    [Fact]
+    public void LiveDayPrefersTheLatestOverlappingMatchDay()
+    {
+        var now = FantacalcioTime.ItalyNow;
+        var calendar = new RealCalendar
+        {
+            Days =
+            [
+                new RealDay
+                {
+                    SerieADay = 1,
+                    Games = [new RealGame { Date = now.AddHours(-8) }]
+                },
+                new RealDay
+                {
+                    SerieADay = 2,
+                    Games = [new RealGame { Date = now.AddHours(-1) }]
+                }
+            ]
+        };
+
+        Assert.Equal(2, calendar.LiveDay?.SerieADay);
+        Assert.Equal(now.AddHours(3), calendar.LiveFormationDeadline);
+        Assert.True(calendar.IsLiveFormationWindowOpen);
+    }
 }

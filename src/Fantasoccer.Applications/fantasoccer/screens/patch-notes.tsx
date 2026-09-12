@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.42',
+    date: '12 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Corretta la finestra dei cambi live quando due giornate di Serie A si sovrappongono; il server accetta un solo scambio per ogni cambio disponibile',
+      },
+    ],
+  },
+  {
     version: '2.0.41',
     date: '11 Settembre 2026',
     changes: [

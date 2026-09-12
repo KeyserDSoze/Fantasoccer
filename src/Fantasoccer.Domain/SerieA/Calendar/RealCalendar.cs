@@ -11,7 +11,7 @@ namespace Fantasoccer
         private static readonly TimeSpan s_twoHours = TimeSpan.FromHours(2) + TimeSpan.FromMinutes(15);
         private static readonly TimeSpan s_eightHours = TimeSpan.FromHours(8) + s_twoHours;
         [JsonIgnore]
-        public RealDay? LiveDay => Days?.FirstOrDefault(day =>
+        public RealDay? LiveDay => Days?.OrderByDescending(day => day.SerieADay).FirstOrDefault(day =>
         {
             var games = day.Games?.Where(x => !x.Delayed && x.Date.HasValue).OrderBy(x => x.Date).ToList();
             if (games == null || games.Count == 0)
