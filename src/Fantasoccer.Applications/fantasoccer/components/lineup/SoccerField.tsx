@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useEffect, useRef, type ReactNode } from 'react';
-import { Accordion, YStack, XStack, Text, ScrollView, Button } from 'tamagui';
+import { Accordion, Card, YStack, XStack, Text, ScrollView, Button } from 'tamagui';
 import { useToastController } from '@tamagui/toast';
 import { ChevronDown, Save, ShieldCheck, Sparkles, Undo2 } from '@tamagui/lucide-icons-2';
 import type { GameWrapper, LiveTeam, LivePlayer } from 'types/game';
@@ -430,7 +430,7 @@ export const SoccerField = memo(
       });
     }, [home, away]);
     const controlsDefaultOpen =
-      editMode === 'formation' || (editMode === 'live' && !hasGameStarted);
+      editMode === 'formation' || editMode === 'live';
 
     const handlePlayerContextMenu = (
       event: any,
@@ -1346,6 +1346,33 @@ export const SoccerField = memo(
 
     return (
       <YStack gap={16} width="100%" {...style}>
+        {showLiveStatus && (
+          <Card
+            padding="$3"
+            gap="$2"
+            backgroundColor={isLiveWindowOpenNow ? '$orange2' : '$gray3'}
+            borderColor={isLiveWindowOpenNow ? '$orange8' : '$gray7'}
+            borderWidth={1}
+            borderRadius="$3">
+            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
+              {isLiveWindowOpenNow ? 'MODIFICHE LIVE DISPONIBILI' : 'MODIFICHE LIVE NON DISPONIBILI'}
+            </Text>
+            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color10'} fontSize="$3">
+              {home?.formationChangesRemaining ?? away?.formationChangesRemaining ?? 0} cambio/i ancora disponibili. Per il live devi effettuare uno scambio e salvarlo: il cambio viene consumato solo dopo il salvataggio riuscito.
+            </Text>
+            {showSaveButton && isLiveMode && (
+              <Button
+                alignSelf="flex-start"
+                backgroundColor="$green10"
+                color="#fff"
+                fontWeight="700"
+                onPress={handleSave}
+                disabled={isSaving}>
+                {isSaving ? 'Salvataggio...' : 'Salva cambio live'}
+              </Button>
+            )}
+          </Card>
+        )}
         {(adminControls || showToolbar || showLiveStatus || zoomControls) && (
           <Accordion
             overflow="hidden"

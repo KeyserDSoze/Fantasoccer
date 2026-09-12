@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.39',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Rendere sempre visibile il banner dei cambi live disponibili e aprire automaticamente i controlli durante la modalità live',
+      },
+    ],
+  },
+  {
     version: '2.0.38',
     date: '11 Settembre 2026',
     changes: [
