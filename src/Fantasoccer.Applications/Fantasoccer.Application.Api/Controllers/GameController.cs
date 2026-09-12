@@ -214,7 +214,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 (liveEditDay == game.SerieADay && realCalendar?.IsLiveFormationWindowOpen == true) ||
                 isUpcomingLiveDay;
             var formationIsMutable = game.SerieADay >= nextSerieA || game.SerieADay == currentLiveDay;
-            var liveSettings = GetLiveFormationSettings(group, basket.Id, year.Value);
+            var liveSettings = GetLiveFormationSettings(annualLeague);
             if (isFormationEdit && (!isSuperAdmin || !formationIsMutable) && realCalendar?.NextDay?.SerieADay != game.SerieADay)
                 return new TeamResponse(false, "Da La mia formazione puoi modificare solo la prossima giornata.");
             if (isLiveFormationChange)
@@ -353,7 +353,7 @@ namespace Fantasoccer.Application.Api.Controllers
                     .FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
                 if (basket == null || annualTeam == null)
                     return default;
-                ownerContexts.Add((owner, basket, annualTeam, GetLiveFormationSettings(group, basket.Id, year).Maximum));
+                ownerContexts.Add((owner, basket, annualTeam, annualLeague.Settings?.LiveFormationChanges ?? LeagueSetting.Default.LiveFormationChanges));
             }
             var leagueSettings = annualLeague.Settings ?? LeagueSetting.Default;
             var leagueType = annualLeague.Type == LeagueType.Null ? (league.Type == LeagueType.Null ? LeagueType.League : league.Type) : annualLeague.Type;
@@ -456,18 +456,10 @@ namespace Fantasoccer.Application.Api.Controllers
             };
         }
 
-        private static (int Maximum, bool AllowModuleChange) GetLiveFormationSettings(Group group, string basketId, int year)
+        private static (int Maximum, bool AllowModuleChange) GetLiveFormationSettings(AnnualLeague annualLeague)
         {
-            // La formazione è condivisa dal basket: tra più leghe prevale la regola più restrittiva.
-            var settings = group.Leagues
-                .Where(league => league.BasketsId.Contains(basketId, StringComparer.OrdinalIgnoreCase))
-                .Select(league => league.Years.FirstOrDefault(annual => annual.Year == year)?.Settings)
-                .Where(setting => setting != null)
-                .Cast<LeagueSetting>()
-                .ToList();
-            return settings.Count == 0
-                ? (0, false)
-                : (settings.Min(x => x.LiveFormationChanges), settings.All(x => x.AllowLiveModuleChange));
+            var settings = annualLeague.Settings ?? LeagueSetting.Default;
+            return (settings.LiveFormationChanges, settings.AllowLiveModuleChange);
         }
     }
 }

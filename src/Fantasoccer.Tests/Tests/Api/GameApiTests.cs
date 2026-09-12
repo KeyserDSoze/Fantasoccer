@@ -205,7 +205,7 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Save_live_team_uses_most_restrictive_rule_for_shared_basket()
+    public async Task Save_live_team_uses_selected_league_rule_for_shared_basket()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
         _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
@@ -213,7 +213,7 @@ public sealed class GameApiTests : IAsyncLifetime
         var response = await SaveAsync(CreateTeam(Owner, "Home"));
 
         response.EnsureSuccessStatusCode();
-        Assert.Contains("modifiche live non sono abilitate", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live", bool asAdmin = false)

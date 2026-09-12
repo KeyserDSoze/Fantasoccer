@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.41',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Il numero dei cambi live ora usa il setting della lega selezionata senza essere azzerato da altre leghe dello stesso basket',
+      },
+    ],
+  },
+  {
     version: '2.0.40',
     date: '11 Settembre 2026',
     changes: [
