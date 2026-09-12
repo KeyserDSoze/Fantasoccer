@@ -430,7 +430,7 @@ export const SoccerField = memo(
       });
     }, [home, away]);
     const controlsDefaultOpen =
-      editMode === 'formation' || editMode === 'live';
+      editMode === 'formation' || (editMode === 'live' && !hasGameStarted);
 
     const handlePlayerContextMenu = (
       event: any,
@@ -1258,9 +1258,15 @@ export const SoccerField = memo(
 
     // Mostra pulsante salva se c'è almeno un team modificabile e ci sono modifiche
     const showSaveButton = (homeIsMyTeam || awayIsMyTeam) && hasLocalChanges;
+    const liveChangesRemaining =
+      home?.formationChangesRemaining ??
+      away?.formationChangesRemaining ??
+      gameWrapper?.liveFormationChangesRemaining ??
+      null;
     const showLiveStatus =
-      gameWrapper?.isLiveFormationWindow === true &&
-      (home?.formationChangesMaximum != null || away?.formationChangesMaximum != null);
+      liveChangesRemaining !== null ||
+      (gameWrapper?.isLiveFormationWindow === true &&
+        (home?.formationChangesMaximum != null || away?.formationChangesMaximum != null));
     const quickFormationTeamIndex = homeIsMyTeam ? 0 : awayIsMyTeam ? 1 : null;
     const quickFormationTeam = quickFormationTeamIndex === 0 ? home : away;
     const showQuickFormationButton =
@@ -1346,33 +1352,6 @@ export const SoccerField = memo(
 
     return (
       <YStack gap={16} width="100%" {...style}>
-        {showLiveStatus && (
-          <Card
-            padding="$3"
-            gap="$2"
-            backgroundColor={isLiveWindowOpenNow ? '$orange2' : '$gray3'}
-            borderColor={isLiveWindowOpenNow ? '$orange8' : '$gray7'}
-            borderWidth={1}
-            borderRadius="$3">
-            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
-              {isLiveWindowOpenNow ? 'MODIFICHE LIVE DISPONIBILI' : 'MODIFICHE LIVE NON DISPONIBILI'}
-            </Text>
-            <Text color={isLiveWindowOpenNow ? '$orange11' : '$color10'} fontSize="$3">
-              {home?.formationChangesRemaining ?? away?.formationChangesRemaining ?? 0} cambio/i ancora disponibili. Per il live devi effettuare uno scambio e salvarlo: il cambio viene consumato solo dopo il salvataggio riuscito.
-            </Text>
-            {showSaveButton && isLiveMode && (
-              <Button
-                alignSelf="flex-start"
-                backgroundColor="$green10"
-                color="#fff"
-                fontWeight="700"
-                onPress={handleSave}
-                disabled={isSaving}>
-                {isSaving ? 'Salvataggio...' : 'Salva cambio live'}
-              </Button>
-            )}
-          </Card>
-        )}
         {(adminControls || showToolbar || showLiveStatus || zoomControls) && (
           <Accordion
             overflow="hidden"
@@ -1392,9 +1371,11 @@ export const SoccerField = memo(
                   <>
                     <XStack gap="$2" alignItems="center">
                       <ShieldCheck size={18} color="$purple10" />
-                      <Text fontSize="$3" fontWeight="600" color="$color11">
-                        Controlli partita
-                      </Text>
+                        <Text fontSize="$3" fontWeight="600" color="$color11">
+                          Controlli partita
+                          {liveChangesRemaining !== null &&
+                            ` · ${liveChangesRemaining} ${liveChangesRemaining === 1 ? 'cambio' : 'cambi'} live disponibile${liveChangesRemaining === 1 ? '' : 'i'}`}
+                        </Text>
                     </XStack>
                     <ChevronDown size={18} color="$color10" rotate={open ? '180deg' : '0deg'} />
                   </>
@@ -1412,6 +1393,11 @@ export const SoccerField = memo(
                           padding="$3"
                           gap="$3">
                           <YStack gap="$1">
+                            {liveChangesRemaining !== null && (
+                              <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
+                                Cambi live disponibili: {liveChangesRemaining}
+                              </Text>
+                            )}
                             <Text color={isLiveWindowOpenNow ? '$orange11' : '$color11'} fontWeight="700">
                               {isLiveWindowOpenNow ? 'MODIFICHE LIVE ATTIVE' : 'MODIFICHE LIVE TERMINATE'}
                             </Text>

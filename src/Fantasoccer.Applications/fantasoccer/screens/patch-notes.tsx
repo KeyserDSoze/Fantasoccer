@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.40',
+    date: '11 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Mostrato nel titolo dei Controlli partita il numero di cambi live disponibili anche quando il valore arriva a livello partita',
+      },
+    ],
+  },
+  {
     version: '2.0.39',
     date: '11 Settembre 2026',
     changes: [
