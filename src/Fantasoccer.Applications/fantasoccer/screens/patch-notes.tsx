@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.43',
+    date: '12 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Ripristinate nel live le sostituzioni automatiche dei panchinari mantenendo i colori originali del primo e del secondo panchinaro',
+      },
+    ],
+  },
+  {
     version: '2.0.42',
     date: '12 Settembre 2026',
     changes: [
