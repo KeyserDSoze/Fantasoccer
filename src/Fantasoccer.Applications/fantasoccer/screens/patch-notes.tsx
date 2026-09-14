@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.49',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Nascosti correttamente gli indicatori di probabilità quando il voto o il risultato della partita arrivano dopo il primo caricamento',
+      },
+    ],
+  },
+  {
     version: '2.0.48',
     date: '14 Settembre 2026',
     changes: [

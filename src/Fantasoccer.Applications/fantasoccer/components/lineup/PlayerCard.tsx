@@ -183,7 +183,7 @@ export function PlayerCard({
     const now = new Date();
     const gameStart = realGame.date;
     return now < gameStart;
-  }, [realGame]);
+  }, [realGame, vote]);
 
   // Logica per determinare il colore del voto e se deve lampeggiare
   const voteDisplayInfo = useMemo(() => {
