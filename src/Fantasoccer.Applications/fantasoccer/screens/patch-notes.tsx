@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.50',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le probabilità pre-partita vengono rimosse dal backend e dalla UI non appena la partita del giocatore è iniziata o è disponibile un voto',
+      },
+    ],
+  },
+  {
     version: '2.0.49',
     date: '14 Settembre 2026',
     changes: [

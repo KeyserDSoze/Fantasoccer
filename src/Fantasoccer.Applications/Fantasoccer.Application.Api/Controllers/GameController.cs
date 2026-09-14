@@ -482,14 +482,21 @@ namespace Fantasoccer.Application.Api.Controllers
                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
                     Owner = team?.Owner ?? annualTeam.Owner,
                     AdditionalOwners = team?.AdditionalOwners ?? annualTeam.AdditionalOwners ?? [],
-                    Players = [.. currentPlayers.Select(x => new LivePlayer
+                    Players = [.. currentPlayers.Select(x =>
                     {
-                        Current = x.Current,
-                        Chance = x.Chance,
-                        CurrentPosition = x.CurrentPosition,
-                        FinalValue = x.FinalValue,
-                        RealGame = x.RealGame,
-                        Vote = x.Vote,
+                        var isGameUpcoming = x.RealGame?.Date is DateTime gameDate &&
+                            gameDate > FantacalcioTime.ItalyNow &&
+                            x.RealGame.HomeGoal == null &&
+                            x.RealGame.AwayGoal == null;
+                        return new LivePlayer
+                        {
+                            Current = x.Current,
+                            Chance = x.Vote == null && isGameUpcoming ? x.Chance : null,
+                            CurrentPosition = x.CurrentPosition,
+                            FinalValue = x.FinalValue,
+                            RealGame = x.RealGame,
+                            Vote = x.Vote,
+                        };
                     })],
                     LastUpdate = team?.LastUpdate ?? DateTime.UtcNow,
                     FormationChangesMaximum = liveEditDay == game.SerieADay ? liveChangesMaximum : null,

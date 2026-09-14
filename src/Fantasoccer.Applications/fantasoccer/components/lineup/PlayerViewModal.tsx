@@ -77,6 +77,7 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
 
   // Determina se la partita è iniziata, in corso o terminata
   const gameStatus = useMemo(() => {
+    if (vote?.isFinal || realGame?.homeGoals != null || realGame?.awayGoals != null) return 'finished'
     if (!realGame?.date) return 'not_started'
     
     const now = new Date()
@@ -86,7 +87,7 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
     if (now < gameStart) return 'not_started'
     if (now >= gameStart && now <= twoHoursAfterStart) return 'live'
     return 'finished'
-  }, [realGame])
+  }, [realGame, vote])
 
   // Informazioni voto e prestazione
   const voteInfo = useMemo(() => {

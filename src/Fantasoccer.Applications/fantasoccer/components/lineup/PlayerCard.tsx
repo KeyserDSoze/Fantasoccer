@@ -177,13 +177,12 @@ export function PlayerCard({
   }, [realGame, vote]);
 
   // Determina se la partita non è ancora iniziata per mostrare chance info
-  const isGameNotStarted = useMemo(() => {
-    if (!realGame?.date) return true; // Se non c'è data, consideriamo non iniziata
-    if (vote || realGame.homeGoals !== null || realGame.awayGoals !== null) return false;
-    const now = new Date();
-    const gameStart = realGame.date;
-    return now < gameStart;
-  }, [realGame, vote]);
+  const isGameNotStarted =
+    !vote &&
+    !!realGame?.date &&
+    realGame.homeGoals == null &&
+    realGame.awayGoals == null &&
+    new Date() < realGame.date;
 
   // Logica per determinare il colore del voto e se deve lampeggiare
   const voteDisplayInfo = useMemo(() => {
@@ -597,7 +596,7 @@ export function PlayerCard({
 
         {/* Chance badge (pre-gara): mostra positiveness + freccia trend con scala colori */}
         {/* Usa playerStats.lastGame da StatPlayer calcolato dinamicamente */}
-        {isGameNotStarted && playerStats && (
+        {!vote && isGameNotStarted && playerStats && (
           <YStack
             position="absolute"
             top={vote ? 34 : -4} /* se c'è già il voto lo spostiamo sotto per non sovrapporre */
@@ -687,7 +686,7 @@ export function PlayerCard({
         )}
 
         {/* Area chance organizzata - a destra */}
-        {isGameNotStarted && chance && chanceInfo.length > 0 && (
+        {!vote && isGameNotStarted && chance && chanceInfo.length > 0 && (
           <YStack
             position="absolute"
             top={0}
