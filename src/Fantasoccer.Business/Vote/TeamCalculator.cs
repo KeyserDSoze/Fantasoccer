@@ -181,7 +181,9 @@ namespace Fantasoccer.Business
             {
                 var game = RealDay?.Games?.Find(x =>
                     x.Home?.Abbreviation == player.RealTeam.Abbreviation ||
-                    x.Away?.Abbreviation == player.RealTeam.Abbreviation);
+                    x.Away?.Abbreviation == player.RealTeam.Abbreviation ||
+                    string.Equals(x.Home?.Name, player.RealTeam.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.Away?.Name, player.RealTeam.Name, StringComparison.OrdinalIgnoreCase));
                 return game;
             }
             return null;
