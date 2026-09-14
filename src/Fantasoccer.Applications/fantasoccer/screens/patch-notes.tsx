@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.47',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Corretto il riconoscimento dei due giocatori selezionati nel cambio live usando la chiave effettiva del giocatore',
+      },
+    ],
+  },
+  {
     version: '2.0.46',
     date: '14 Settembre 2026',
     changes: [

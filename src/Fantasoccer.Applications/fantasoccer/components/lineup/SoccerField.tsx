@@ -1036,18 +1036,20 @@ export const SoccerField = memo(
           baselineTeam
             ? teamToSave.players
                 .filter((player) => {
-                  const baselinePlayer = baselineTeam.players.find((candidate) => candidate.key === player.key);
-                  return baselinePlayer != null && baselinePlayer.currentPosition !== player.currentPosition;
+                   const baselinePlayer = baselineTeam.players.find(
+                     (candidate) => candidate.current.key === player.current.key
+                   );
+                   return baselinePlayer != null && baselinePlayer.currentPosition !== player.currentPosition;
                 })
-                .map((player) => player.key)
+                .map((player) => player.current.key)
             : []
         );
         const liveManualPositions =
           editMode === 'live' && manuallyChangedKeys.size === 2
             ? new Map(
                 [...manuallyChangedKeys].map((key, index, keys) => {
-                  const otherPlayer = teamToSave.players.find((player) => player.key === keys[1 - index]);
-                  const player = teamToSave.players.find((candidate) => candidate.key === key);
+                  const otherPlayer = teamToSave.players.find((player) => player.current.key === keys[1 - index]);
+                  const player = teamToSave.players.find((candidate) => candidate.current.key === key);
                   return [key, otherPlayer?.current?.position ?? player?.currentPosition];
                 })
               )
@@ -1069,7 +1071,7 @@ export const SoccerField = memo(
           openingCompetitionPrize: 0,
           players: teamToSave.players.map((p) => ({
             ...(p.current as any),
-            position: liveManualPositions?.get(p.key) ?? p.currentPosition,
+             position: liveManualPositions?.get(p.current.key) ?? p.currentPosition,
           })),
         };
 
