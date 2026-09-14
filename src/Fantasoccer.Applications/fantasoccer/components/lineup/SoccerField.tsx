@@ -1031,6 +1031,27 @@ export const SoccerField = memo(
 
       setIsSaving(true);
       try {
+        const baselineTeam = modifiedTeamIndex === 0 ? formationBackup?.home : formationBackup?.away;
+        const manuallyChangedKeys = new Set(
+          baselineTeam
+            ? teamToSave.players
+                .filter((player) => {
+                  const baselinePlayer = baselineTeam.players.find((candidate) => candidate.key === player.key);
+                  return baselinePlayer != null && baselinePlayer.currentPosition !== player.currentPosition;
+                })
+                .map((player) => player.key)
+            : []
+        );
+        const liveManualPositions =
+          editMode === 'live' && manuallyChangedKeys.size === 2
+            ? new Map(
+                [...manuallyChangedKeys].map((key, index, keys) => {
+                  const otherPlayer = teamToSave.players.find((player) => player.key === keys[1 - index]);
+                  const player = teamToSave.players.find((candidate) => candidate.key === key);
+                  return [key, otherPlayer?.current?.position ?? player?.currentPosition];
+                })
+              )
+            : null;
         const teamData: Team = {
           name: teamToSave.name,
           owner: teamToSave.owner,
@@ -1040,7 +1061,7 @@ export const SoccerField = memo(
           openingCompetitionPrize: 0,
           players: teamToSave.players.map((p) => ({
             ...(p.current as any),
-            position: p.currentPosition,
+            position: liveManualPositions?.get(p.key) ?? p.currentPosition,
           })),
         };
 

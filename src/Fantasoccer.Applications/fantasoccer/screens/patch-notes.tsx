@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.44',
+    date: '12 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le sostituzioni automatiche mostrate nel live non vengono più conteggiate come cambi manuali al salvataggio della formazione',
+      },
+    ],
+  },
+  {
     version: '2.0.43',
     date: '12 Settembre 2026',
     changes: [

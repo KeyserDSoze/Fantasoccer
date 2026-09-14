@@ -1,6 +1,6 @@
 {
   "name": "fantasoccer",
-  "version": "2.0.43",
+  "version": "2.0.44",
   "scripts": {
     "start": "expo start --dev-client --port 3000",
     "ios": "expo run:ios",
