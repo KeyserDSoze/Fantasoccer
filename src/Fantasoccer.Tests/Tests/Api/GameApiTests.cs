@@ -216,10 +216,74 @@ public sealed class GameApiTests : IAsyncLifetime
         Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Switch_live_players_swaps_only_the_selected_pair()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var before = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        var starter = before!.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = before.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+
+        var response = await SwitchAsync(starter.Key, backup.Key);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.NotNull(saved);
+        Assert.Equal(FantaSoccerRole.FirstBackupForward, saved.ActivePlayers.First(x => x.Key == starter.Key).Position);
+        Assert.Equal(FantaSoccerRole.Forward, saved.ActivePlayers.First(x => x.Key == backup.Key).Position);
+        Assert.Equal(1, saved.FormationChanges);
+        Assert.Equal(2, Assert.Single(saved.FormationChangeHistory).Players.Count);
+    }
+
+    [Fact]
+    public async Task Switch_live_players_rejects_different_main_roles()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var before = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        var midfielder = before!.ActivePlayers.First(x => x.Role == Role.Midfielder);
+        var forward = before.ActivePlayers.First(x => x.Role == Role.Forward);
+
+        var response = await SwitchAsync(midfielder.Key, forward.Key);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("stesso ruolo principale", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.Equal(0, saved?.FormationChanges);
+    }
+
+    [Fact]
+    public async Task Switch_live_players_rejects_an_exhausted_limit()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var before = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        before!.FormationChanges = 2;
+        await _teams.UpdateAsync(TeamKey(Owner), before, TestContext.Current.CancellationToken);
+        var starter = before.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = before.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+
+        var response = await SwitchAsync(starter.Key, backup.Key);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("numero massimo", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.Equal(2, saved?.FormationChanges);
+        Assert.Empty(saved?.FormationChangeHistory ?? []);
+    }
+
     private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live", bool asAdmin = false)
         => _client.PostAsync(
             $"/Game/SaveTeam?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode={editMode}&asAdmin={asAdmin}",
             new StringContent(JsonSerializer.Serialize(team), Encoding.UTF8, "application/json"),
+            TestContext.Current.CancellationToken);
+
+    private Task<HttpResponseMessage> SwitchAsync(params string[] playerKeys)
+        => _client.PostAsync(
+            $"/Game/Switch?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&asAdmin=false",
+            new StringContent(JsonSerializer.Serialize(new { playerKeys }), Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
 
     private async Task SeedLiveGameAsync(DateTime gameStart, bool includeLeagueWithoutLiveChanges = false)

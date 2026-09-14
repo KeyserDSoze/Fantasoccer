@@ -38,7 +38,9 @@ export const gameEndpoints = {
   },
   switchPlayers: (params: Omit<GameContext, 'editMode'> & { asAdmin?: boolean }) => {
     const { asAdmin, ...context } = params;
-    return buildApiUrl('/Game/Switch', { ...context, ...(asAdmin === undefined ? {} : { asAdmin }) });
+    const query: any = context;
+    if (asAdmin !== undefined) query.asAdmin = asAdmin;
+    return buildApiUrl('/Game/Switch', query);
   },
   optimalFormation: (params: {
     groupId: string;

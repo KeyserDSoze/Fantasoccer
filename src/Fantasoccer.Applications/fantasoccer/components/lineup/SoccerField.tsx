@@ -287,6 +287,7 @@ export const SoccerField = memo(
     // Team locali modificabili (inizializzati da gameWrapper, aggiornati durante editing)
     const [localTeams, setLocalTeams] = useState<{ home?: LiveTeam; away?: LiveTeam }>({});
     const [hasLocalChanges, setHasLocalChanges] = useState(false);
+    const [pendingLiveSwitch, setPendingLiveSwitch] = useState<[string, string] | null>(null);
 
     // Backup per restore della formazione ottimale
     const [formationBackup, setFormationBackup] = useState<{
@@ -720,6 +721,13 @@ export const SoccerField = memo(
       const currentTeam = editingTeamIndex === 0 ? home : away;
       if (!currentTeam) return;
 
+      if (isLiveMode) {
+        setPendingLiveSwitch([
+          getPlayerKey(selectedPlayer.current.name),
+          getPlayerKey(targetPlayer.current.name),
+        ]);
+      }
+
       setFormationBackup((current) => current ?? { home, away });
 
       // Crea una copia aggiornata dei giocatori con posizioni scambiate
@@ -938,6 +946,7 @@ export const SoccerField = memo(
       setFormationBackup(null);
       setHasLocalChanges(false);
       setModifiedTeamIndex(null);
+      setPendingLiveSwitch(null);
 
       toast.show('↩️ Formazione ripristinata', { variant: 'info' });
     };
@@ -1031,55 +1040,38 @@ export const SoccerField = memo(
 
       setIsSaving(true);
       try {
-        const baselineTeam = modifiedTeamIndex === 0 ? formationBackup?.home : formationBackup?.away;
-        const manuallyChangedKeys = new Set(
-          baselineTeam
-            ? teamToSave.players
-                .filter((player) => {
-                   const baselinePlayer = baselineTeam.players.find(
-                     (candidate) => candidate.current.key === player.current.key
-                   );
-                   return baselinePlayer != null && baselinePlayer.currentPosition !== player.currentPosition;
-                })
-                .map((player) => player.current.key)
-            : []
-        );
-        const liveManualPositions =
-          editMode === 'live' && manuallyChangedKeys.size === 2
-            ? new Map(
-                [...manuallyChangedKeys].map((key, index, keys) => {
-                  const otherPlayer = teamToSave.players.find((player) => player.current.key === keys[1 - index]);
-                  const player = teamToSave.players.find((candidate) => candidate.current.key === key);
-                  return [key, otherPlayer?.current?.position ?? player?.currentPosition];
-                })
-              )
-            : null;
         let response: { i: boolean; m?: string } | null;
-        if (editMode === 'live' && manuallyChangedKeys.size === 2) {
+        if (editMode === 'live') {
+          if (!pendingLiveSwitch || pendingLiveSwitch.some((key) => !key)) {
+            toast.show('Errore: seleziona esattamente due giocatori per il cambio live.', {
+              variant: 'error',
+            });
+            return;
+          }
           response = await gameService.switchPlayers(
             { groupId, leagueId, year, gameId },
-            [...manuallyChangedKeys],
+            pendingLiveSwitch,
             isAdminMode
           );
         } else {
-        const teamData: Team = {
-          name: teamToSave.name,
-          owner: teamToSave.owner,
-          additionalOwners: teamToSave.additionalOwners,
-          lastUpdate: new Date(),
-          moneyFromRank: 0,
-          openingCompetitionPrize: 0,
-          players: teamToSave.players.map((p) => ({
-            ...(p.current as any),
-             position: liveManualPositions?.get(p.current.key) ?? p.currentPosition,
-          })),
-        };
+          const teamData: Team = {
+            name: teamToSave.name,
+            owner: teamToSave.owner,
+            additionalOwners: teamToSave.additionalOwners,
+            lastUpdate: new Date(),
+            moneyFromRank: 0,
+            openingCompetitionPrize: 0,
+            players: teamToSave.players.map((p) => ({
+              ...(p.current as any),
+              position: p.currentPosition,
+            })),
+          };
 
-        response = await gameService.saveTeam(
-          { groupId, leagueId, year, gameId, editMode },
-          teamData,
-          isAdminMode
-        );
+          response = await gameService.saveTeam(
+            { groupId, leagueId, year, gameId, editMode },
+            teamData,
+            isAdminMode
+          );
         }
 
         if (response?.i) {
@@ -1092,6 +1084,7 @@ export const SoccerField = memo(
           setHasLocalChanges(false);
           setModifiedTeamIndex(null);
           setFormationBackup(null); // Pulisce il backup dopo il salvataggio
+          setPendingLiveSwitch(null);
 
           // Ricarica i dati dal server per confermare le modifiche
           if (onRefresh) {

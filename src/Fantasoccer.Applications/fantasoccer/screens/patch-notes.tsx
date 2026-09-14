@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.48',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Il salvataggio live usa sempre e solo Game/Switch con le chiavi generate dai nomi dei due giocatori, senza fallback a SaveTeam',
+      },
+    ],
+  },
+  {
     version: '2.0.47',
     date: '14 Settembre 2026',
     changes: [

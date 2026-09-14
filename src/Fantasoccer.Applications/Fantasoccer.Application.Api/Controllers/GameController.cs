@@ -139,7 +139,7 @@ namespace Fantasoccer.Application.Api.Controllers
             await _lock.ExecuteAsync(async () =>
             {
                 result = await SwitchCoreAsync(groupId, leagueId, year, gameId, asAdmin, players);
-            }, $"formation:{groupId}:{year}:{User.Identity?.Name?.ToUpperInvariant()}");
+            }, $"formation-switch:{groupId}:{year}:{gameId}");
             return result ?? new TeamResponse(false, "Impossibile applicare il cambio.");
         }
 
