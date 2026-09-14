@@ -36,6 +36,10 @@ export const gameEndpoints = {
     if (asAdmin !== undefined) query.asAdmin = asAdmin;
     return buildApiUrl('/Game/SaveTeam', query);
   },
+  switchPlayers: (params: Omit<GameContext, 'editMode'> & { asAdmin?: boolean }) => {
+    const { asAdmin, ...context } = params;
+    return buildApiUrl('/Game/Switch', { ...context, ...(asAdmin === undefined ? {} : { asAdmin }) });
+  },
   optimalFormation: (params: {
     groupId: string;
     leagueId: string;
@@ -151,6 +155,19 @@ export const gameService = {
       throw new Error(`Failed to save team: ${res.status} ${text}`);
     }
     // TeamResponse -> { i: boolean, m: string }
+    return (await res.json()) as { i: boolean; m?: string };
+  },
+
+  async switchPlayers(context: Omit<GameContext, 'editMode'>, playerKeys: string[], asAdmin?: boolean) {
+    const url = gameEndpoints.switchPlayers({ ...context, asAdmin });
+    const accessToken = await tokenStorageService.getTokenString();
+    if (!accessToken) return null;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerKeys }),
+    });
+    if (!res.ok) throw new Error(`Failed to switch players: ${res.status} ${await res.text()}`);
     return (await res.json()) as { i: boolean; m?: string };
   },
 };

@@ -1052,6 +1052,14 @@ export const SoccerField = memo(
                 })
               )
             : null;
+        let response: { i: boolean; m?: string } | null;
+        if (editMode === 'live' && manuallyChangedKeys.size === 2) {
+          response = await gameService.switchPlayers(
+            { groupId, leagueId, year, gameId },
+            [...manuallyChangedKeys],
+            isAdminMode
+          );
+        } else {
         const teamData: Team = {
           name: teamToSave.name,
           owner: teamToSave.owner,
@@ -1065,11 +1073,12 @@ export const SoccerField = memo(
           })),
         };
 
-        const response = await gameService.saveTeam(
+        response = await gameService.saveTeam(
           { groupId, leagueId, year, gameId, editMode },
           teamData,
           isAdminMode
         );
+        }
 
         if (response?.i) {
           const remaining = teamToSave.formationChangesRemaining;

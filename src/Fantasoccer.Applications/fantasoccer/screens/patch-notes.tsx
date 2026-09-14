@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.45',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Introdotto un endpoint dedicato per gli scambi live: il server riceve solo i due giocatori, verifica ruolo e disponibilità e registra un solo cambio',
+      },
+    ],
+  },
+  {
     version: '2.0.44',
     date: '12 Settembre 2026',
     changes: [

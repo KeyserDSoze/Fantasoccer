@@ -130,6 +130,78 @@ namespace Fantasoccer.Application.Api.Controllers
             }
         }
         [HttpPost]
+        public async Task<TeamResponse> SwitchAsync(
+            [FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year,
+            [FromQuery] string gameId, [FromQuery] bool? asAdmin = false,
+            [FromBody] SwitchPlayers? players = null)
+        {
+            TeamResponse? result = null;
+            await _lock.ExecuteAsync(async () =>
+            {
+                result = await SwitchCoreAsync(groupId, leagueId, year, gameId, asAdmin, players);
+            }, $"formation:{groupId}:{year}:{User.Identity?.Name?.ToUpperInvariant()}");
+            return result ?? new TeamResponse(false, "Impossibile applicare il cambio.");
+        }
+
+        private async Task<TeamResponse> SwitchCoreAsync(
+            string groupId, string leagueId, int year, string gameId, bool? asAdmin, SwitchPlayers? players)
+        {
+            if (players?.PlayerKeys == null || players.PlayerKeys.Count != 2 || players.PlayerKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 2)
+                return new TeamResponse(false, "Indicare esattamente due giocatori distinti.");
+            if (User.Identity?.Name == null) return new TeamResponse(false, "Utente non autenticato.");
+            var user = await _users.GetAsync(User.Identity.Name);
+            var group = await _groups.GetAsync(groupId);
+            var league = group?.Leagues.FirstOrDefault(x => string.Equals(x.Id, leagueId, StringComparison.OrdinalIgnoreCase));
+            var annualLeague = league?.Years.FirstOrDefault(x => x.Year == year);
+            var identityGroup = user?.Groups.FirstOrDefault(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase));
+            if (user == null || group == null || league == null || annualLeague == null || identityGroup == null)
+                return new TeamResponse(false, "Contesto non valido.");
+            var calendar = await _calendar.GetAsync(new LeagueKey { Group = groupId, League = league.Id, Year = year });
+            var gameResult = calendar?.GetGameById(gameId);
+            var game = gameResult?.Value;
+            if (game == null) return new TeamResponse(false, "Partita non valida.");
+            var realCalendar = await _realCalendar.GetAsync(year);
+            var liveDay = realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay;
+            if (liveDay != gameResult!.Value.SerieADay || realCalendar?.IsLiveFormationWindowOpen != true)
+                return new TeamResponse(false, "La finestra per le modifiche live è terminata.");
+            var settings = annualLeague.Settings ?? LeagueSetting.Default;
+            if (settings.LiveFormationChanges <= 0) return new TeamResponse(false, "Le modifiche live non sono abilitate per questa lega.");
+
+            var candidates = new List<(TeamDayKey Key, Team Team, AnnualTeam AnnualTeam)>();
+            foreach (var owner in new[] { game.HomeOwner, game.AwayOwner })
+            {
+                var basket = group.Baskets.FirstOrDefault(b => league.BasketsId.Contains(b.Id, StringComparer.OrdinalIgnoreCase) && b.Years.Any(y => y.Year == year && y.Teams.Any(t => string.Equals(t.Owner, owner, StringComparison.OrdinalIgnoreCase))));
+                var annualTeam = basket?.Years.FirstOrDefault(y => y.Year == year)?.Teams.FirstOrDefault(t => string.Equals(t.Owner, owner, StringComparison.OrdinalIgnoreCase));
+                if (basket == null || annualTeam == null) continue;
+                var key = new TeamDayKey { Group = groupId, BasketId = basket.Id, Email = owner, Year = year, Day = gameResult.Value.SerieADay };
+                var team = await _teamDayRepository.GetAsync(key);
+                if (team != null) candidates.Add((key, team, annualTeam));
+            }
+            var candidate = candidates.FirstOrDefault(x => x.Team.ActivePlayers.Count(p => players.PlayerKeys.Contains(p.Key, StringComparer.OrdinalIgnoreCase)) == 2);
+            if (candidate.Team == null) return new TeamResponse(false, "Squadra giornaliera non trovata.");
+            var isAdmin = asAdmin == true && identityGroup.Role.HasFlag(IdentityRole.SuperAdmin);
+            if (!candidate.AnnualTeam.IsOwner(User.Identity.Name) && !isAdmin) return new TeamResponse(false, "Non sei l'owner della squadra.");
+            if (candidate.Team.FormationChanges >= settings.LiveFormationChanges) return new TeamResponse(false, "Hai raggiunto il numero massimo di modifiche per questa giornata.");
+            var selected = candidate.Team.ActivePlayers.Where(p => players.PlayerKeys.Contains(p.Key, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (selected.Count != 2 || selected[0].Role != selected[1].Role || selected[0].Role is not (Role.GoalKeeper or Role.Defensor or Role.Midfielder or Role.Forward))
+                return new TeamResponse(false, "I giocatori devono avere lo stesso ruolo principale.");
+            var switchedTeam = candidate.Team.Clone();
+            var first = switchedTeam.ActivePlayers.First(p => p.Key == selected[0].Key);
+            var second = switchedTeam.ActivePlayers.First(p => p.Key == selected[1].Key);
+            var firstPosition = first.Position;
+            var secondPosition = second.Position;
+            (first.Position, second.Position) = (second.Position, first.Position);
+            var validation = _teamChecker.Validate(switchedTeam);
+            if (!validation.IsOk) return validation;
+            switchedTeam.FormationChanges++;
+            switchedTeam.FormationChangeHistory ??= [];
+            switchedTeam.FormationChangeHistory.Add(new LiveFormationChange { Date = FantacalcioTime.ItalyNow, Author = string.IsNullOrWhiteSpace(user.Username) ? user.Email : user.Username, Players = [new() { Name = first.Name, FromPosition = firstPosition, ToPosition = secondPosition }, new() { Name = second.Name, FromPosition = secondPosition, ToPosition = firstPosition }] });
+            switchedTeam.LastUpdate = FantacalcioTime.ItalyNow;
+            var saved = await _teamDayRepository.UpdateAsync(candidate.Key, switchedTeam);
+            return new TeamResponse(saved.IsOk, saved.Message);
+        }
+
+        [HttpPost]
         public async Task<TeamResponse> SaveTeamAsync(
             [FromQuery] string groupId,
             [FromQuery] string? leagueId,
@@ -404,7 +476,6 @@ namespace Fantasoccer.Application.Api.Controllers
                     liveFormationChangesRemaining = Math.Max(0, liveChangesMaximum - (team?.FormationChanges ?? 0));
                 var currentPlayers = _teamCalculator.Enrich(team?.ActivePlayers ?? []) ?? [];
                 // Automatic substitutions apply to the live display as well; manual live changes are tracked separately.
-                currentPlayers = leagueCalculator?.GetRightFormation(currentPlayers) ?? [];
                 teams.Add(new LiveTeam
                 {
                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
@@ -461,5 +532,10 @@ namespace Fantasoccer.Application.Api.Controllers
             var settings = annualLeague.Settings ?? LeagueSetting.Default;
             return (settings.LiveFormationChanges, settings.AllowLiveModuleChange);
         }
+    }
+
+    public sealed class SwitchPlayers
+    {
+        public List<string> PlayerKeys { get; set; } = [];
     }
 }

@@ -3,7 +3,7 @@
     "name": "FantaZone",
     "slug": "fantazone",
     "owner": "Alessandro Rapiti",
-    "version": "2.0.44",
+    "version": "2.0.45",
     "platforms": ["ios", "android", "web"],
     "icon": "./assets/android-chrome-512x512.png",
     "userInterfaceStyle": "dark",
