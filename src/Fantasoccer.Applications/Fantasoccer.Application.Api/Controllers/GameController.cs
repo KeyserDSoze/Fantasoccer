@@ -475,7 +475,8 @@ namespace Fantasoccer.Application.Api.Controllers
                 if (liveEditDay == game.SerieADay && annualTeam.IsOwner(User.Identity.Name))
                     liveFormationChangesRemaining = Math.Max(0, liveChangesMaximum - (team?.FormationChanges ?? 0));
                 var currentPlayers = _teamCalculator.Enrich(team?.ActivePlayers ?? []) ?? [];
-                // Automatic substitutions apply to the live display as well; manual live changes are tracked separately.
+                // Keep automatic substitutions in the displayed formation; Game/Switch never uses this projection to save.
+                currentPlayers = leagueCalculator?.GetRightFormation(currentPlayers) ?? [];
                 teams.Add(new LiveTeam
                 {
                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),

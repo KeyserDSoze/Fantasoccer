@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.46',
+    date: '14 Settembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Ripristinata la formazione effettiva con sostituzioni automatiche nella visualizzazione live senza usarla per il salvataggio degli switch',
+      },
+    ],
+  },
+  {
     version: '2.0.45',
     date: '14 Settembre 2026',
     changes: [
