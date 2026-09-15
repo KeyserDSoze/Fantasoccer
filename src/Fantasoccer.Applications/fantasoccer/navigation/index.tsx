@@ -1,6 +1,9 @@
 import { NavigationContainer, Theme, useNavigation } from '@react-navigation/native';
-import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useEffect, useRef } from 'react';
+import {
+  createNativeStackNavigator,
+  NativeStackNavigationProp,
+} from '@react-navigation/native-stack';
+import { useEffect, useRef, useState } from 'react';
 import Home from 'screens/home';
 import Details from 'screens/details';
 import Ranking from 'screens/ranking';
@@ -53,7 +56,7 @@ export type RootStackParamList = {
   Teams: undefined;
   Edit: { leagueId?: string; year?: number } | undefined;
   Live: undefined;
-  Game: { 
+  Game: {
     gameId?: string | null;
     leagueId?: string | null;
     year?: string | null;
@@ -100,7 +103,7 @@ function NavigationListener() {
 
   useEffect(() => {
     console.log('🎧 [NavigationListener] Mounted and listening for auth-failure events');
-    
+
     const handleAuthFailure = () => {
       console.log('� [NavigationListener] AUTH-FAILURE EVENT RECEIVED!');
       if (!hasNavigatedRef.current) {
@@ -141,7 +144,7 @@ const linking = {
   prefixes: ['http://localhost:3000', 'https://fanta.zone', 'fantazone://'],
   config: {
     screens: {
-      Home: '',  // root path
+      Home: '', // root path
       Login: 'login',
       Details: 'details/:name?', // supporta parametro name opzionale
       Ranking: 'ranking',
@@ -175,28 +178,31 @@ const linking = {
 };
 
 export default function Navigation({ theme, onReady }: NavigationProps) {
+  const [activeRouteName, setActiveRouteName] = useState('Home');
+
   return (
-    <NavigationContainer 
+    <NavigationContainer
       linking={linking}
       theme={theme}
       onReady={onReady}
-    >
-      <Stack.Navigator 
+      onStateChange={(state) =>
+        setActiveRouteName(state ? (state.routes[state.index]?.name ?? 'Home') : 'Home')
+      }>
+      <Stack.Navigator
         screenOptions={{
           headerShown: false,
-        }}
-      >
+        }}>
         <Stack.Screen name="Home" component={Home} />
         <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen 
-          name="Details" 
+        <Stack.Screen
+          name="Details"
           component={Details}
           options={{
             headerShown: true,
             headerLeft: () => <BackButton onPress={() => {}} />,
           }}
         />
-       <Stack.Screen name="Ranking" component={Ranking} />
+        <Stack.Screen name="Ranking" component={Ranking} />
         <Stack.Screen name="OpeningCompetition" component={OpeningCompetitionScreen} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />
         <Stack.Screen name="Players" component={PlayersScreen} />
@@ -228,7 +234,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
       <NavigationListener />
       {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
       <VersionUpdateBanner />
-      <GlobalMatchWidget />
+      <GlobalMatchWidget activeRouteName={activeRouteName} />
     </NavigationContainer>
   );
 }
