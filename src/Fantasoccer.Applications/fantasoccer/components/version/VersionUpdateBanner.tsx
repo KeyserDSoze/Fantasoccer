@@ -3,9 +3,17 @@ import { YStack, XStack, Card, Text, Button } from 'tamagui'
 import { X, FileText } from '@tamagui/lucide-icons-2'
 import { APP_VERSION } from 'config/version'
 import { useNavigation } from '@react-navigation/native'
+import { Alert } from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 
 const VERSION_STORAGE_KEY = 'fantasoccer_last_seen_version'
+export const VERSION_BANNER_ENABLED_KEY = 'fantasoccer_version_banner_enabled'
+export const VERSION_BANNER_CHANGED_EVENT = 'fantasoccer_version_banner_changed'
+
+export const setVersionBannerEnabled = (enabled: boolean) => {
+  localStorage.setItem(VERSION_BANNER_ENABLED_KEY, String(enabled))
+  window.dispatchEvent(new Event(VERSION_BANNER_CHANGED_EVENT))
+}
 
 /**
  * Banner che mostra una notifica quando viene rilasciata una nuova versione.
@@ -16,19 +24,33 @@ export const VersionUpdateBanner: FC = () => {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    const lastSeenVersion = localStorage.getItem(VERSION_STORAGE_KEY)
-    
-    // Mostra il banner solo se:
-    // 1. Non c'è una versione salvata (primo accesso)
-    // 2. La versione salvata è diversa da quella corrente (nuova versione)
-    if (!lastSeenVersion || lastSeenVersion !== APP_VERSION) {
-      setIsVisible(true)
+    const updateVisibility = () => {
+      const enabled = localStorage.getItem(VERSION_BANNER_ENABLED_KEY) !== 'false'
+      const lastSeenVersion = localStorage.getItem(VERSION_STORAGE_KEY)
+      setIsVisible(enabled && (!lastSeenVersion || lastSeenVersion !== APP_VERSION))
     }
+
+    updateVisibility()
+    window.addEventListener(VERSION_BANNER_CHANGED_EVENT, updateVisibility)
+    return () => window.removeEventListener(VERSION_BANNER_CHANGED_EVENT, updateVisibility)
   }, [])
 
   const handleDismiss = () => {
-    localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
-    setIsVisible(false)
+    Alert.alert(
+      'Nascondere gli aggiornamenti?',
+      'Il widget non verrà più mostrato quando usciranno nuove versioni. Potrai riattivarlo in Impostazioni.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Nascondi per sempre',
+          style: 'destructive',
+          onPress: () => {
+            setVersionBannerEnabled(false)
+            setIsVisible(false)
+          },
+        },
+      ],
+    )
   }
 
   const handleViewPatchNotes = () => {

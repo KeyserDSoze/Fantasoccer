@@ -34,6 +34,11 @@ import { useSettings } from 'hooks/useSettings';
 import { useGroup } from 'hooks/useGroup';
 import { getActualFantacalcioYear } from 'utils/timezoneHelpers';
 import * as ImagePicker from 'expo-image-picker';
+import {
+  VERSION_BANNER_CHANGED_EVENT,
+  VERSION_BANNER_ENABLED_KEY,
+  setVersionBannerEnabled,
+} from 'components/version/VersionUpdateBanner';
 
 export default function SettingsScreen() {
   const media = useMedia();
@@ -43,6 +48,16 @@ export default function SettingsScreen() {
   const { user } = useAuth();
   const userEmail = user?.email ?? null;
   const groupId = currentGroup?.id ?? null;
+  const [versionBannerEnabled, setVersionBannerEnabledState] = useState(true);
+
+  useEffect(() => {
+    const syncVersionBanner = () => {
+      setVersionBannerEnabledState(localStorage.getItem(VERSION_BANNER_ENABLED_KEY) !== 'false');
+    };
+    syncVersionBanner();
+    window.addEventListener(VERSION_BANNER_CHANGED_EVENT, syncVersionBanner);
+    return () => window.removeEventListener(VERSION_BANNER_CHANGED_EVENT, syncVersionBanner);
+  }, []);
 
   // Get current year
   const currentYear = getActualFantacalcioYear();
@@ -298,6 +313,39 @@ export default function SettingsScreen() {
                 disabled={loadingUserSettings || updatingUserSettings}
                 onPress={() => updateLiveWidgetEnabled(!userSettings.liveWidgetEnabled)}>
                 {userSettings.liveWidgetEnabled ? 'Disattiva' : 'Attiva'}
+              </Button>
+            </XStack>
+          </YStack>
+        </Card>
+        <Card
+          padding="$4"
+          backgroundColor="$color2"
+          borderRadius="$4"
+          borderWidth="$0.5"
+          borderColor="$borderColor">
+          <YStack gap="$4">
+            <XStack alignItems="center" gap="$2">
+              <Sparkles size="$1.5" color="$blue10" />
+              <H3 color="$color12">Aggiornamenti versione</H3>
+            </XStack>
+            <Separator />
+            <XStack alignItems="center" justifyContent="space-between" gap="$3">
+              <YStack flex={1} gap="$1">
+                <Text color="$color12" fontWeight="600">
+                  Mostra il widget delle nuove versioni
+                </Text>
+                <Text color="$color10" fontSize="$2">
+                  Ricevi un avviso quando vengono pubblicati aggiornamenti e nuove patch note.
+                </Text>
+              </YStack>
+              <Button
+                theme={versionBannerEnabled ? 'green' : 'gray'}
+                onPress={() => {
+                  const enabled = !versionBannerEnabled;
+                  setVersionBannerEnabled(enabled);
+                  setVersionBannerEnabledState(enabled);
+                }}>
+                {versionBannerEnabled ? 'Disattiva' : 'Riattiva'}
               </Button>
             </XStack>
           </YStack>
