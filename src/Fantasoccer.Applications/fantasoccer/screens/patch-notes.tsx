@@ -15,23 +15,23 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
-    version: '2.0.53',
+    version: '2.0.54',
     date: '15 Settembre 2026',
     changes: [
       {
-        category: 'Feature',
+        category: 'Fix',
         description:
-          'Notifiche push di fine giornata con il tuo risultato personale (vittoria, pareggio o sconfitta e punteggio) per ogni lega',
+          'La Home usa sempre lega e stagione predefinite del navigation menu per mostrare calendario e classifica corretti',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Calendario e classifica della Home sono affiancati su desktop e impilati su mobile',
       },
       {
         category: 'Feature',
         description:
-          'Nuovo promemoria "Cambi finali": ti avvisa quando puoi ancora usare i cambi formazione residui prima della deadline live',
-      },
-      {
-        category: 'Feature',
-        description:
-          'Notifiche di mercato in tempo reale: avviso al venditore per una nuova proposta di scambio e a entrambe le squadre sull\'esito (approvato o rifiutato)',
+          'Il widget delle nuove versioni può essere nascosto definitivamente e riattivato dalle Impostazioni',
       },
     ],
   },
