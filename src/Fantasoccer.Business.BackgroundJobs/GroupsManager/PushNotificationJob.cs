@@ -184,6 +184,9 @@ namespace Fantasoccer.Engine.GroupsManager
                                             {
                                                 Body = body,
                                                 Title = "FantaZone",
+                                                Icon = "https://fanta.zone/icon.png",
+                                                Badge = "https://fanta.zone/adaptive-icon.png",
+                                                Tag = $"match-event-{notification.PlayerKey}",
                                                 Data = new NotificationData
                                                 {
                                                     Uri = "https://fanta.zone/live"
@@ -208,6 +211,8 @@ namespace Fantasoccer.Engine.GroupsManager
                         }
                     }
                 }
+                if (realCalendar.LiveDay is RealDay liveFormationDay && realCalendar.LiveFormationDeadline is DateTime formationDeadline)
+                    await SendLiveChangesReminderAsync(actualYear, liveFormationDay.SerieADay, formationDeadline);
                 if (realCalendar.NextDay?.Games.Any(t => t.Date != null && Math.Abs(FantacalcioTime.ItalyNow.Subtract(t.Date.Value).TotalHours) < 8) == true)
                 {
                     var yearlyDayKey = new YearDayKey
@@ -237,6 +242,9 @@ namespace Fantasoccer.Engine.GroupsManager
                                 {
                                     Body = "Ricorda di schierare la formazione!",
                                     Title = "FantaZone",
+                                    Icon = "https://fanta.zone/icon.png",
+                                    Badge = "https://fanta.zone/adaptive-icon.png",
+                                    Tag = $"deployment-reminder-{yearlyDayKey.Year}-{yearlyDayKey.Day}",
                                     Data = new NotificationData
                                     {
                                         Uri = "https://fanta.zone/edit"
@@ -256,8 +264,224 @@ namespace Fantasoccer.Engine.GroupsManager
                         });
                     }
                 }
-                //todo add end day to this notification
+                if (realCalendar.LastDay is RealDay lastDay)
+                    await SendEndDayNotificationsAsync(actualYear, lastDay.SerieADay);
             }
+        }
+        private async Task SendEndDayNotificationsAsync(int actualYear, int serieADay)
+        {
+            var endDayKey = new YearDayKey { Year = actualYear, Day = serieADay };
+            var alreadySent = await _pushNotificationSentRepository.GetAsync(endDayKey);
+            if (alreadySent?.EndDay == true)
+                return;
+            var endDayUsers = await _pushNotificationRepository.Where(x => x.EndDay).ToListAsync();
+            var entries = new List<EndDayEntry>();
+            var everythingReady = true;
+            foreach (var group in await _groupRepository.ToListAsEntityAsync())
+            {
+                foreach (var league in group.Leagues?.Where(x => x.Years?.Exists(t => t.Year == actualYear) == true) ?? [])
+                {
+                    var calendar = await _calendarRepository.GetAsync(new LeagueKey
+                    {
+                        Group = group.Id,
+                        League = league.Id,
+                        Year = actualYear
+                    });
+                    var day = calendar?.Rounds.SelectMany(x => x.Value).FirstOrDefault(x => x.SerieADay == serieADay);
+                    if (day == null)
+                        continue;
+                    var playableGames = day.Games.Where(x => x.Result?.IsCancelled != true).ToList();
+                    if (playableGames.Count == 0)
+                        continue;
+                    if (playableGames.Any(x => x.HasNoResult))
+                    {
+                        everythingReady = false;
+                        continue;
+                    }
+                    var ownerEmails = BuildOwnerEmails(group, league, actualYear);
+                    entries.Add(new EndDayEntry { League = league, Games = playableGames, OwnerEmails = ownerEmails });
+                }
+            }
+            if (!everythingReady)
+                return;
+            if (endDayUsers.Count > 0 && entries.Count > 0)
+            {
+                var sendTasks = new List<ValueTask>();
+                var semaphore = new SemaphoreSlim(10);
+                foreach (var entry in entries)
+                {
+                    foreach (var game in entry.Games)
+                    {
+                        await QueueEndDayAsync(entry, game, game.HomeOwner, true);
+                        await QueueEndDayAsync(entry, game, game.AwayOwner, false);
+                    }
+                }
+                await Task.WhenAll(sendTasks.Select(t => t.AsTask()));
+
+                async Task QueueEndDayAsync(EndDayEntry entry, CalendarGame game, string? owner, bool isHome)
+                {
+                    if (string.IsNullOrWhiteSpace(owner) || !entry.OwnerEmails.TryGetValue(owner, out var emails))
+                        return;
+                    foreach (var email in emails)
+                    {
+                        var user = endDayUsers.FirstOrDefault(x => string.Equals(x.Key, email, StringComparison.OrdinalIgnoreCase));
+                        if (user?.Value == null)
+                            continue;
+                        await semaphore.WaitAsync();
+                        sendTasks.Add(SendEndDayWithSemaphoreAsync(user, BuildEndDayNotification(entry.League, serieADay, game, isHome), semaphore));
+                    }
+                }
+            }
+            var sentRecord = alreadySent ?? new PushNotificationSent();
+            sentRecord.EndDay = true;
+            if (await _pushNotificationSentRepository.ExistAsync(endDayKey))
+                await _pushNotificationSentRepository.UpdateAsync(endDayKey, sentRecord);
+            else
+                await _pushNotificationSentRepository.InsertAsync(endDayKey, sentRecord);
+        }
+        private async Task SendLiveChangesReminderAsync(int actualYear, int serieADay, DateTime deadline)
+        {
+            var remaining = deadline - FantacalcioTime.ItalyNow;
+            if (remaining <= TimeSpan.Zero || remaining > TimeSpan.FromMinutes(120))
+                return;
+            var key = new YearDayKey { Year = actualYear, Day = serieADay };
+            var alreadySent = await _pushNotificationSentRepository.GetAsync(key);
+            if (alreadySent?.LiveChangesReminder == true)
+                return;
+            var reminderUsers = await _pushNotificationRepository.Where(x => x.LiveChangesReminder).ToListAsync();
+            if (reminderUsers.Count > 0)
+            {
+                var deadlineText = deadline.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+                var sendTasks = new List<ValueTask>();
+                var semaphore = new SemaphoreSlim(10);
+                foreach (var group in await _groupRepository.ToListAsEntityAsync())
+                {
+                    foreach (var league in group.Leagues?.Where(x => x.Years?.Exists(t => t.Year == actualYear) == true) ?? [])
+                    {
+                        var annualLeague = league.Years!.First(x => x.Year == actualYear);
+                        var maxChanges = annualLeague.Settings?.LiveFormationChanges ?? 0;
+                        if (maxChanges <= 0)
+                            continue;
+                        var basketIds = league.BasketsId?.ToHashSet() ?? [];
+                        foreach (var basket in group.Baskets?.Where(x => basketIds.Contains(x.Id)) ?? [])
+                        {
+                            foreach (var year in basket.Years?.Where(x => x.Year == actualYear) ?? [])
+                            {
+                                foreach (var team in year.Teams ?? [])
+                                {
+                                    if (string.IsNullOrWhiteSpace(team.Owner))
+                                        continue;
+                                    var teamDay = await _teamDayRepository.GetAsync(new TeamDayKey
+                                    {
+                                        Group = group.Id,
+                                        BasketId = basket.Id,
+                                        Email = team.Owner,
+                                        Year = actualYear,
+                                        Day = serieADay
+                                    });
+                                    var remainingChanges = maxChanges - (teamDay?.FormationChanges ?? 0);
+                                    if (remainingChanges <= 0)
+                                        continue;
+                                    List<string> emails = team.AdditionalOwners != null
+                                        ? [team.Owner, .. team.AdditionalOwners]
+                                        : [team.Owner];
+                                    foreach (var email in emails)
+                                    {
+                                        var user = reminderUsers.FirstOrDefault(x => string.Equals(x.Key, email, StringComparison.OrdinalIgnoreCase));
+                                        if (user?.Value == null)
+                                            continue;
+                                        await semaphore.WaitAsync();
+                                        sendTasks.Add(SendEndDayWithSemaphoreAsync(user, BuildLiveChangesNotification(league, serieADay, remainingChanges, deadlineText), semaphore));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                await Task.WhenAll(sendTasks.Select(t => t.AsTask()));
+            }
+            var record = alreadySent ?? new PushNotificationSent();
+            record.LiveChangesReminder = true;
+            if (await _pushNotificationSentRepository.ExistAsync(key))
+                await _pushNotificationSentRepository.UpdateAsync(key, record);
+            else
+                await _pushNotificationSentRepository.InsertAsync(key, record);
+        }
+        private static Notification BuildLiveChangesNotification(League league, int serieADay, int remainingChanges, string deadlineText)
+        {
+            var verb = remainingChanges == 1 ? "resta" : "restano";
+            var noun = remainingChanges == 1 ? "cambio formazione" : "cambi formazione";
+            return new Notification
+            {
+                Title = "FantaZone",
+                Body = $"[{league.Name}] Ti {verb} {remainingChanges} {noun}: usali entro le {deadlineText}.",
+                Icon = "https://fanta.zone/icon.png",
+                Badge = "https://fanta.zone/adaptive-icon.png",
+                Tag = $"live-changes-{serieADay}-{league.Id}",
+                Data = new NotificationData
+                {
+                    Uri = "https://fanta.zone/live"
+                }
+            };
+        }
+        private async ValueTask SendEndDayWithSemaphoreAsync(Entity<PushNotificationSettings, string> user, Notification notification, SemaphoreSlim semaphore)
+        {
+            try
+            {
+                await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, notification);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+        private static Notification BuildEndDayNotification(League league, int serieADay, CalendarGame game, bool isHome)
+        {
+            var opponentTeam = isHome ? game.Away : game.Home;
+            var myGoals = isHome ? game.Result!.HomeGoal : game.Result!.AwayGoal;
+            var opponentGoals = isHome ? game.Result!.AwayGoal : game.Result!.HomeGoal;
+            var myPoints = isHome ? game.Result!.Home?.Value ?? 0 : game.Result!.Away?.Value ?? 0;
+            var outcome = myGoals > opponentGoals ? "Hai vinto" : myGoals < opponentGoals ? "Hai perso" : "Hai pareggiato";
+            var body = $"[{league.Name}] Giornata {serieADay}: {outcome} contro {opponentTeam} {myGoals}-{opponentGoals} ({myPoints.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} pt)";
+            return new Notification
+            {
+                Title = "FantaZone",
+                Body = body,
+                Icon = "https://fanta.zone/icon.png",
+                Badge = "https://fanta.zone/adaptive-icon.png",
+                Tag = $"end-day-{serieADay}-{league.Id}",
+                Data = new NotificationData
+                {
+                    Uri = "https://fanta.zone/calendar"
+                }
+            };
+        }
+        private static Dictionary<string, List<string>> BuildOwnerEmails(Group group, League league, int actualYear)
+        {
+            var basketIds = league.BasketsId?.ToHashSet() ?? [];
+            var ownerEmails = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var basket in group.Baskets?.Where(x => basketIds.Contains(x.Id)) ?? [])
+            {
+                foreach (var year in basket.Years?.Where(x => x.Year == actualYear) ?? [])
+                {
+                    foreach (var team in year.Teams ?? [])
+                    {
+                        if (string.IsNullOrWhiteSpace(team.Owner))
+                            continue;
+                        List<string> emails = team.AdditionalOwners != null
+                            ? [team.Owner, .. team.AdditionalOwners]
+                            : [team.Owner];
+                        ownerEmails[team.Owner] = emails;
+                    }
+                }
+            }
+            return ownerEmails;
+        }
+        private sealed class EndDayEntry
+        {
+            public League League { get; set; } = null!;
+            public List<CalendarGame> Games { get; set; } = [];
+            public Dictionary<string, List<string>> OwnerEmails { get; set; } = [];
         }
         private sealed class OpponentNotification
         {

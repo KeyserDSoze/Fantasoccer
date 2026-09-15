@@ -4,7 +4,9 @@ import { Button, Card, Spinner, Text, XStack, YStack } from 'tamagui';
 
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget';
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget';
+import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget';
 import { useCalendar } from 'hooks/useCalendar';
+import { useRankByComponents } from 'hooks/useRank';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
 import { useApp } from 'providers/AppProvider';
 import { useAuth } from 'providers/AuthProvider';
@@ -64,47 +66,34 @@ export function HomeLeagueMatchWidget() {
     pollOnlyWhenLive: false,
   });
 
-  const userOwners = (() => {
-    if (!currentGroup || !localLeagueId || localYear == null || !user?.email)
-      return new Set<string>();
-    const league = currentGroup.leagues.find((candidate) => candidate.id === localLeagueId);
-    const basketIds = new Set(league?.basketsId ?? []);
-    const email = user.email.toLowerCase();
-    return new Set(
-      currentGroup.baskets
-        .filter((basket) => basketIds.has(basket.id))
-        .flatMap((basket) => basket.years.filter((year) => year.year === localYear))
-        .flatMap((year) => year.teams)
-        .filter(
-          (team) =>
-            team.owner.toLowerCase() === email ||
-            team.additionalOwners?.some((owner) => owner.toLowerCase() === email)
-        )
-        .map((team) => team.owner.toLowerCase())
-    );
-  })();
+  const {
+    loading: rankLoading,
+    error: rankError,
+    refetch: refetchRank,
+    availableRounds,
+    getEnhancedRoundRanking,
+  } = useRankByComponents(currentGroup?.id ?? null, localLeagueId, localYear, {
+    refreshInterval: 60000,
+  });
 
   const selectedDay = useMemo(() => {
     const ownDays = days
-      .map((day) => ({
-        day,
-        games: day.games.filter(
-          (game) =>
-            userOwners.has(game.homeOwner.toLowerCase()) ||
-            userOwners.has(game.awayOwner.toLowerCase())
-        ),
-      }))
-      .filter(({ games }) => games.length > 0);
+      .filter((day) => day.games.length > 0)
+      .map((day) => ({ day, games: day.games }));
 
     if (ownDays.length === 0) return null;
-    const live = isLive && liveDay && ownDays.find(({ day }) => day.serieADay === liveDay.serieADay);
+    const live =
+      isLive && liveDay && ownDays.find(({ day }) => day.serieADay === liveDay.serieADay);
     if (live) return { ...live, isLive: true };
 
     const previous = ownDays
       .filter(({ games }) => games.some((game) => Boolean(game.result)))
       .sort((left, right) => right.day.serieADay - left.day.serieADay)[0];
     return previous ? { ...previous, isLive: false } : null;
-  }, [days, isLive, liveDay, userOwners]);
+  }, [days, isLive, liveDay]);
+
+  const rankingRoundId = availableRounds.includes('@') ? '@' : (availableRounds[0] ?? null);
+  const rankedTeams = rankingRoundId ? getEnhancedRoundRanking(rankingRoundId) : [];
 
   if (!currentGroup || !user) return null;
 
@@ -145,7 +134,7 @@ export function HomeLeagueMatchWidget() {
           </YStack>
         </Card>
       ) : selectedDay ? (
-        <YStack gap="$2">
+        <YStack gap="$4">
           <Text color={selectedDay.isLive ? '$red10' : '$color10'} fontWeight="700">
             {selectedDay.isLive ? 'Partita live' : 'Ultima partita giocata'} · Giornata{' '}
             {selectedDay.day.serieADay}
@@ -158,6 +147,17 @@ export function HomeLeagueMatchWidget() {
             leagueId={localLeagueId}
             year={localYear}
             editMode="view"
+          />
+          <LeagueRankingWidget
+            leagueName={leagues.find((league) => league.id === localLeagueId)?.name}
+            seasonLabel={localYear == null ? null : formatSeasonFromYear(localYear)}
+            roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
+            rankedTeams={rankedTeams}
+            loading={rankLoading}
+            error={rankError}
+            groupId={currentGroup.id}
+            year={localYear}
+            onRefresh={() => void refetchRank()}
           />
         </YStack>
       ) : (

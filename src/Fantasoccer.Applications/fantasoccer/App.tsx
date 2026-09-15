@@ -13,9 +13,11 @@ import { AppProvider } from 'providers/AppProvider';
 import { ThemeProvider, useAppTheme } from 'providers/ThemeProvider';
 import { setupRepositoryServices } from 'configurations/repositoryConfig';
 import { ToastProvider, ToastViewport, Toast, useToastState } from '@tamagui/toast';
-import { YStack, Text } from 'tamagui';
+import { YStack } from 'tamagui';
 import { ServiceWorkerUpdateNotification } from 'components/ServiceWorkerUpdateNotification';
 import { AddToHomeScreenBanner } from 'components/AddToHomeScreenBanner';
+import { pushNotificationService } from 'services/pushNotificationService';
+import { subscribeToPushSubscriptionChanges } from 'services/webPushClient';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,6 +42,15 @@ export default function App() {
 
 const AppContent = () => {
   const { theme } = useAppTheme();
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToPushSubscriptionChanges((subscription) => {
+      void pushNotificationService.addDeviceForCurrentUser(subscription);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const navigationTheme = useMemo(
     () => (theme === 'dark' ? DarkTheme : DefaultTheme),

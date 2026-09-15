@@ -24,6 +24,8 @@ export interface PushNotificationSettingsRaw {
   EndDay?: boolean
   marketEvents?: boolean
   MarketEvents?: boolean
+  liveChangesReminder?: boolean
+  LiveChangesReminder?: boolean
   subscriptions?: PushSubscriptionRaw[]
   Subscriptions?: PushSubscriptionRaw[]
 }
@@ -44,6 +46,7 @@ export interface PushNotificationSettings {
   deploymentReminder: boolean
   endDay: boolean
   marketEvents: boolean
+  liveChangesReminder: boolean
   subscriptions: PushSubscription[]
 }
 
@@ -64,6 +67,7 @@ export const EMPTY_PUSH_NOTIFICATION_SETTINGS: PushNotificationSettings = {
   deploymentReminder: false,
   endDay: false,
   marketEvents: false,
+  liveChangesReminder: false,
   subscriptions: []
 }
 
@@ -94,6 +98,7 @@ export const mapRawPushNotificationSettingsToSettings = (
     deploymentReminder: !!(raw.deploymentReminder ?? raw.DeploymentReminder),
     endDay: !!(raw.endDay ?? raw.EndDay),
     marketEvents: !!(raw.marketEvents ?? raw.MarketEvents),
+    liveChangesReminder: !!(raw.liveChangesReminder ?? raw.LiveChangesReminder),
     subscriptions: subscriptionsRaw.map(mapRawPushSubscriptionToSubscription).filter(x => x.endpoint.length > 0)
   }
 }
@@ -112,6 +117,7 @@ export const mapPushNotificationSettingsToRaw = (
   deploymentReminder: settings.deploymentReminder,
   endDay: settings.endDay,
   marketEvents: settings.marketEvents,
+  liveChangesReminder: settings.liveChangesReminder,
   subscriptions: settings.subscriptions.map(mapSubscriptionToRaw)
 })
 
@@ -139,7 +145,8 @@ export const buildPushNotificationSummary = (
     settings.opponentMatchEvents ||
     settings.deploymentReminder ||
     settings.endDay ||
-    settings.marketEvents
+    settings.marketEvents ||
+    settings.liveChangesReminder
 
   return {
     totalDevices,

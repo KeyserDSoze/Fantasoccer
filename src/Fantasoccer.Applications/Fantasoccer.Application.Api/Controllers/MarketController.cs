@@ -10,9 +10,13 @@ namespace Fantasoccer.Application.Api.Controllers;
 public sealed class MarketController : ControllerBase
 {
     private readonly IMarketManager _marketManager;
+    private readonly IMarketNotificationService _marketNotificationService;
 
-    public MarketController(IMarketManager marketManager)
-        => _marketManager = marketManager;
+    public MarketController(IMarketManager marketManager, IMarketNotificationService marketNotificationService)
+    {
+        _marketManager = marketManager;
+        _marketNotificationService = marketNotificationService;
+    }
 
     [HttpGet]
     public async Task<ActionResult<MarketWrapper>> GetAsync(
@@ -32,31 +36,63 @@ public sealed class MarketController : ControllerBase
     }
 
     [HttpPost]
-    public ValueTask<MarketOperationResult> CreateAsync(
+    public async ValueTask<MarketOperationResult> CreateAsync(
         [FromQuery] string groupId,
         [FromQuery] int year,
         [FromQuery] string leagueId,
         [FromBody] Market proposal,
         CancellationToken cancellationToken)
-        => ExecuteAsync((key, user) => _marketManager.CreateAsync(key, proposal, user, cancellationToken), groupId, year, leagueId);
+    {
+        var user = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(user))
+            return new MarketOperationResult { Message = "Utente non autenticato." };
+        var key = new LeagueKey { Group = groupId, League = leagueId, Year = year };
+        var result = await _marketManager.CreateAsync(key, proposal, user, cancellationToken);
+        if (result.IsOk && result.Market != null)
+        {
+            if (result.Market.Status == MarketStatus.Pending)
+                await _marketNotificationService.NotifyProposalCreatedAsync(key, result.Market, cancellationToken);
+            else
+                await _marketNotificationService.NotifyOutcomeAsync(key, result.Market, cancellationToken);
+        }
+        return result;
+    }
 
     [HttpPost]
-    public ValueTask<MarketOperationResult> ApproveAsync(
+    public async ValueTask<MarketOperationResult> ApproveAsync(
         [FromQuery] string groupId,
         [FromQuery] int year,
         [FromQuery] string leagueId,
         [FromQuery] string marketId,
         CancellationToken cancellationToken)
-        => ExecuteAsync((key, user) => _marketManager.ApproveAsync(key, marketId, user, cancellationToken), groupId, year, leagueId);
+    {
+        var user = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(user))
+            return new MarketOperationResult { Message = "Utente non autenticato." };
+        var key = new LeagueKey { Group = groupId, League = leagueId, Year = year };
+        var result = await _marketManager.ApproveAsync(key, marketId, user, cancellationToken);
+        if (result.IsOk && result.Market != null)
+            await _marketNotificationService.NotifyOutcomeAsync(key, result.Market, cancellationToken);
+        return result;
+    }
 
     [HttpPost]
-    public ValueTask<MarketOperationResult> DenyAsync(
+    public async ValueTask<MarketOperationResult> DenyAsync(
         [FromQuery] string groupId,
         [FromQuery] int year,
         [FromQuery] string leagueId,
         [FromQuery] string marketId,
         CancellationToken cancellationToken)
-        => ExecuteAsync((key, user) => _marketManager.DenyAsync(key, marketId, user, cancellationToken), groupId, year, leagueId);
+    {
+        var user = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(user))
+            return new MarketOperationResult { Message = "Utente non autenticato." };
+        var key = new LeagueKey { Group = groupId, League = leagueId, Year = year };
+        var result = await _marketManager.DenyAsync(key, marketId, user, cancellationToken);
+        if (result.IsOk && result.Market != null)
+            await _marketNotificationService.NotifyOutcomeAsync(key, result.Market, cancellationToken);
+        return result;
+    }
 
     [HttpPost]
     public ValueTask<MarketOperationResult> CancelAsync(

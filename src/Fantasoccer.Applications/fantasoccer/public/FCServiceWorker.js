@@ -69,8 +69,10 @@ self.addEventListener('push', (event) => {
   const options = {
     body: value.Body,
     data: value.Data,
-    icon: value.Icon ?? new URL('android-chrome-192x192.png', self.registration.scope).href,
-    badge: value.Badge ?? new URL('favicon-32x32.png', self.registration.scope).href,
+    icon: value.Icon ?? new URL('icon.png', self.registration.scope).href,
+    badge: value.Badge ?? new URL('adaptive-icon.png', self.registration.scope).href,
+    sound: value.Sound,
+    tag: value.Tag,
     vibrate: value.Vibrate ?? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
     requireInteraction: value.RequireInteraction ?? false
   }
@@ -88,7 +90,16 @@ self.addEventListener('notificationclick', (event) => {
     return
   }
 
-  event.waitUntil(self.clients.openWindow(target))
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    const existing = clients.find((client) => client.url.startsWith(self.registration.scope))
+    if (existing && 'focus' in existing) {
+      await existing.focus()
+      if ('navigate' in existing && target) await existing.navigate(target)
+      return
+    }
+    await self.clients.openWindow(target)
+  })())
 })
 
 self.addEventListener('pushsubscriptionchange', (event) => {
@@ -98,9 +109,15 @@ self.addEventListener('pushsubscriptionchange', (event) => {
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey
-    }).then((newSubscription) => {
+    }).then(async (newSubscription) => {
       console.log('[Service Worker] New subscription: ', newSubscription)
-      // TODO: notify clients to sync the new subscription via postMessage/fetch
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of clients) {
+        client.postMessage({
+          type: 'PUSH_SUBSCRIPTION_CHANGED',
+          subscription: newSubscription.toJSON(),
+        })
+      }
     }).catch((error) => {
       console.error('[Service Worker] Failed to resubscribe', error)
     })

@@ -37,7 +37,7 @@ import {
   webPushSupport
 } from 'services/webPushClient'
 
-type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay'
+type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay' | 'liveChangesReminder'
 
 const notificationToggles: Array<{
   key: PushToggleKey
@@ -68,6 +68,12 @@ const notificationToggles: Array<{
     title: 'Promemoria formazione',
     description: 'Ricevi un alert prima della deadline per schierare la tua squadra.',
     icon: <Clock size={22} color="$yellow10" />
+  },
+  {
+    key: 'liveChangesReminder',
+    title: 'Cambi finali',
+    description: 'Avviso quando puoi ancora usare i cambi formazione prima della deadline live.',
+    icon: <RefreshCcw size={22} color="$orange10" />
   },
   {
     key: 'endDay',
@@ -342,7 +348,7 @@ const PushNotificationScreen = () => {
                   icon={<Trash2 size="$1" color="$color1" />}
                   variant="outlined"
                   onPress={() => disableAll()}
-                  disabled={summary.totalDevices === 0 && !settings.matchEvents && !settings.opponentMatchEvents && !settings.marketEvents && !settings.deploymentReminder && !settings.endDay}
+                  disabled={summary.totalDevices === 0 && !settings.matchEvents && !settings.opponentMatchEvents && !settings.marketEvents && !settings.deploymentReminder && !settings.endDay && !settings.liveChangesReminder}
                 >
                   Disattiva tutte le notifiche
                 </Button>

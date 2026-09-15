@@ -150,6 +150,82 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
         Assert.NotNull(await _sent.GetAsync(ReminderKey(), cancellationToken));
     }
 
+    [Fact]
+    public async Task SendsEndDayResultWithPersonalOutcomeOnlyOnce()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, EndedRealCalendar(), cancellationToken);
+        await _groups.InsertAsync(GroupId, Group(), cancellationToken);
+        await _calendars.InsertAsync(LeagueKey(), EndedLeagueCalendar(), cancellationToken);
+        await _settings.InsertAsync(HomeOwner, new PushNotificationSettings { EndDay = true }, cancellationToken);
+        await _settings.InsertAsync(AwayOwner, new PushNotificationSettings { EndDay = true }, cancellationToken);
+        var job = CreateJob();
+
+        await job.ActionToDoAsync(cancellationToken);
+        await job.ActionToDoAsync(cancellationToken);
+
+        Assert.Equal(2, _notifications.Sent.Count);
+        var home = _notifications.Sent.Single(x => x.Email == HomeOwner);
+        Assert.Equal("[Test league] Giornata 7: Hai vinto contro Away 2-1 (78.5 pt)", home.Notification.Body);
+        Assert.Equal("https://fanta.zone/calendar", home.Notification.Data.Uri);
+        var away = _notifications.Sent.Single(x => x.Email == AwayOwner);
+        Assert.Equal("[Test league] Giornata 7: Hai perso contro Home 1-2 (66 pt)", away.Notification.Body);
+        var sent = await _sent.GetAsync(DayKey(), cancellationToken);
+        Assert.True(sent!.EndDay);
+    }
+
+    [Fact]
+    public async Task DoesNotSendEndDayUntilResultsAreAvailable()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, EndedRealCalendar(), cancellationToken);
+        await _groups.InsertAsync(GroupId, Group(), cancellationToken);
+        await _calendars.InsertAsync(LeagueKey(), LeagueCalendar(), cancellationToken);
+        await _settings.InsertAsync(HomeOwner, new PushNotificationSettings { EndDay = true }, cancellationToken);
+        var job = CreateJob();
+
+        await job.ActionToDoAsync(cancellationToken);
+
+        Assert.Empty(_notifications.Sent);
+        var sent = await _sent.GetAsync(DayKey(), cancellationToken);
+        Assert.True(sent == null || !sent.EndDay);
+    }
+
+    [Fact]
+    public async Task SendsLiveChangesReminderToTeamsWithRemainingChangesOnlyOnce()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, EndedRealCalendar(), cancellationToken);
+        await _groups.InsertAsync(GroupId, Group(liveFormationChanges: 2), cancellationToken);
+        await _settings.InsertAsync(HomeOwner, new PushNotificationSettings { LiveChangesReminder = true }, cancellationToken);
+        var job = CreateJob();
+
+        await job.ActionToDoAsync(cancellationToken);
+        await job.ActionToDoAsync(cancellationToken);
+
+        var reminder = Assert.Single(_notifications.Sent);
+        Assert.Equal(HomeOwner, reminder.Email);
+        Assert.StartsWith("[Test league] Ti restano 2 cambi formazione: usali entro le ", reminder.Notification.Body);
+        Assert.Equal("https://fanta.zone/live", reminder.Notification.Data.Uri);
+        var sent = await _sent.GetAsync(DayKey(), cancellationToken);
+        Assert.True(sent!.LiveChangesReminder);
+    }
+
+    [Fact]
+    public async Task DoesNotSendLiveChangesReminderWhenNoRemainingChanges()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, EndedRealCalendar(), cancellationToken);
+        await _groups.InsertAsync(GroupId, Group(liveFormationChanges: 2), cancellationToken);
+        await _teams.InsertAsync(TeamKey(HomeOwner), TeamWithChanges(HomeOwner, "Home", 2), cancellationToken);
+        await _settings.InsertAsync(HomeOwner, new PushNotificationSettings { LiveChangesReminder = true }, cancellationToken);
+        var job = CreateJob();
+
+        await job.ActionToDoAsync(cancellationToken);
+
+        Assert.DoesNotContain(_notifications.Sent, x => x.Notification.Body.Contains("cambi formazione") || x.Notification.Body.Contains("cambio formazione"));
+    }
+
     private PushNotificationJob CreateJob()
         => new(
             _services.GetRequiredService<IFantasoccerLogger>(),
@@ -177,8 +253,25 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
             ]
         };
 
-    private static Group Group()
+    private static RealCalendar EndedRealCalendar()
         => new()
+        {
+            Year = FantacalcioTime.ActualYear,
+            Days =
+            [
+                new RealDay
+                {
+                    SerieADay = 7,
+                    Games = [new RealGame { Date = FantacalcioTime.ItalyNow.AddHours(-3), Delayed = false }]
+                }
+            ]
+        };
+
+    private static Group Group(int liveFormationChanges = 0)
+    {
+        var settings = LeagueSetting.Default;
+        settings.LiveFormationChanges = liveFormationChanges;
+        return new()
         {
             Id = GroupId,
             Name = "Push group",
@@ -191,7 +284,7 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
                     Name = "Test league",
                     Type = LeagueType.League,
                     BasketsId = [BasketId],
-                    Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = LeagueSetting.Default }]
+                    Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = settings }]
                 }
             ],
             Baskets =
@@ -215,6 +308,7 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
                 }
             ]
         };
+    }
 
     private static LiveGroup LiveGroup()
         => new()
@@ -269,6 +363,51 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
             Players = hasScorer
                 ? [new Player { Name = "Mario Rossi", Role = Role.Forward, Status = PlayerInTeamStatus.Active }]
                 : [new Player { Name = "Other player", Role = Role.Forward, Status = PlayerInTeamStatus.Active }]
+        };
+
+    private static Team TeamWithChanges(string owner, string name, int formationChanges)
+        => new()
+        {
+            Name = name,
+            Owner = owner,
+            AdditionalOwners = [],
+            FormationChanges = formationChanges,
+            Players = [new Player { Name = "Mario Rossi", Role = Role.Forward, Status = PlayerInTeamStatus.Active }]
+        };
+
+    private static Calendar EndedLeagueCalendar()
+        => new()
+        {
+            Year = FantacalcioTime.ActualYear,
+            Rounds = new Dictionary<string, List<Day>>
+            {
+                ["Regular"] =
+                [
+                    new Day
+                    {
+                        Number = 7,
+                        SerieADay = 7,
+                        Games =
+                        [
+                            new CalendarGame
+                            {
+                                Id = "push-game",
+                                Home = "Home",
+                                HomeOwner = HomeOwner,
+                                Away = "Away",
+                                AwayOwner = AwayOwner,
+                                Result = new GameResult
+                                {
+                                    Home = new Point(78.5f, false, false, false),
+                                    Away = new Point(66f, false, false, false),
+                                    HomeGoal = 2,
+                                    AwayGoal = 1
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
         };
 
     private static LeagueKey LeagueKey()

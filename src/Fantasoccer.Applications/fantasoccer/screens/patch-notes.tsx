@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.53',
+    date: '15 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Notifiche push di fine giornata con il tuo risultato personale (vittoria, pareggio o sconfitta e punteggio) per ogni lega',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Nuovo promemoria "Cambi finali": ti avvisa quando puoi ancora usare i cambi formazione residui prima della deadline live',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Notifiche di mercato in tempo reale: avviso al venditore per una nuova proposta di scambio e a entrambe le squadre sull\'esito (approvato o rifiutato)',
+      },
+    ],
+  },
+  {
     version: '2.0.52',
     date: '15 Settembre 2026',
     changes: [

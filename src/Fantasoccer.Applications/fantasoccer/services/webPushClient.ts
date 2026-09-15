@@ -44,6 +44,28 @@ export type PushSupportState =
   | { supported: false; reason: string }
 
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
+const subscriptionChangeListeners = new Set<(subscription: PushSubscription) => void>()
+let messageListenerRegistered = false
+
+export const subscribeToPushSubscriptionChanges = (
+  listener: (subscription: PushSubscription) => void
+) => {
+  subscriptionChangeListeners.add(listener)
+  if (!messageListenerRegistered && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    messageListenerRegistered = true
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data?.type !== 'PUSH_SUBSCRIPTION_CHANGED' || !event.data.subscription) return
+      const subscription = event.data.subscription
+      const mapped: PushSubscription = {
+        endpoint: subscription.endpoint ?? '',
+        p256dh: subscription.keys?.p256dh ?? '',
+        auth: subscription.keys?.auth ?? '',
+      }
+      if (mapped.endpoint) subscriptionChangeListeners.forEach((callback) => callback(mapped))
+    })
+  }
+  return () => subscriptionChangeListeners.delete(listener)
+}
 
 const postVapidKeyToWorker = (worker?: ServiceWorker | null) => {
   if (!worker) {

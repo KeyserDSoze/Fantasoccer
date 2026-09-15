@@ -17,6 +17,7 @@ namespace Fantasoccer.Business
             services.AddSingleton<ITeamChecker, TeamChecker>();
             services.AddSingleton<IRandomCalendar, RandomCalendar>();
             services.AddSingleton<IMarketManager, MarketManager>();
+            services.AddTransient<IMarketNotificationService, MarketNotificationService>();
             services.AddTransient<IOfficialVote, OfficialVote>();
             services.AddTransient<IVotePlayerGenerator, VotePlayerGenerator>();
             services.AddTransient<ISerieAInformation, SerieAInformation>();
