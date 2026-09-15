@@ -90,7 +90,7 @@ function GlobalMatchWidgetContent({
   const isMobile = Boolean(media.sm);
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
-  const { currentGroup, setSelectedLeague } = useApp();
+  const { currentGroup, selectedLeagueId, selectedYear, setSelectedLeague } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
   const [disabling, setDisabling] = useState(false);
@@ -163,7 +163,16 @@ function GlobalMatchWidgetContent({
   const currentLeagues =
     currentGroup?.leagues.filter((league) => league.years.some((annual) => annual.year === year)) ??
     [];
-  const mainLeague = currentLeagues.find((league) => league.isMain) ?? currentLeagues[0];
+  const defaultLeague = currentLeagues.find((league) => league.isMain) ?? currentLeagues[0];
+  const selectedFormationYear = selectedYear ?? year;
+  const formationLeagues =
+    currentGroup?.leagues.filter((league) =>
+      league.years.some((annual) => annual.year === selectedFormationYear)
+    ) ?? [];
+  const selectedLeague =
+    formationLeagues.find((league) => league.id === selectedLeagueId) ??
+    formationLeagues.find((league) => league.isMain) ??
+    defaultLeague;
   const nextDates =
     nextDay?.games
       .filter((game) => !game.delayed && game.date)
@@ -200,8 +209,8 @@ function GlobalMatchWidgetContent({
   };
 
   const navigateToFormation = () => {
-    if (!mainLeague) return;
-    navigation.navigate('Edit', { leagueId: mainLeague.id, year });
+    if (!selectedLeague) return;
+    navigation.navigate('Edit', { leagueId: selectedLeague.id, year: selectedFormationYear });
   };
 
   const disablePermanently = async () => {
