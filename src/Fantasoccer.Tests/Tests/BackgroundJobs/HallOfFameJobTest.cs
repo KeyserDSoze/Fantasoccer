@@ -54,7 +54,6 @@ public sealed class HallOfFameJobTest : IAsyncLifetime
         await CleanupAsync(cancellationToken);
         foreach (var group in _groupSnapshot)
             await _groups.InsertAsync(group.Id, group, cancellationToken);
-        _services.Dispose();
     }
 
     [Fact]

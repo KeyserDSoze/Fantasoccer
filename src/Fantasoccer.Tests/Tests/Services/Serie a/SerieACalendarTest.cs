@@ -24,7 +24,8 @@ public sealed class SerieACalendarTest : IDisposable
     }
 
     public void Dispose()
-        => _services.Dispose();
+    {
+    }
 
     [Fact]
     public async Task KeepsValidDaysWhenAnotherDayIsNotFound()

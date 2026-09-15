@@ -40,7 +40,6 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await CleanupAsync(TestContext.Current.CancellationToken);
-        _services.Dispose();
     }
 
     [Fact]

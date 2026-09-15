@@ -38,7 +38,8 @@ public sealed class LiveVoteParserTest : IDisposable
     }
 
     public void Dispose()
-        => _services.Dispose();
+    {
+    }
 
     [Fact]
     public async Task ParsesSignedProtobufResponse()

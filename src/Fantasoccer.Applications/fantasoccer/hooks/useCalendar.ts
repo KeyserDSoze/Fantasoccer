@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { calendarService } from '../services/calendarService'
 import {
   Calendar,
@@ -52,6 +52,7 @@ export function useCalendar(
   const [pendingGames, setPendingGames] = useState<CalendarGame[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const requestId = useRef(0)
 
   const resetState = useCallback(() => {
     setCalendar(null)
@@ -64,6 +65,7 @@ export function useCalendar(
   }, [])
 
   const fetchCalendar = useCallback(async (silent = false) => {
+    const currentRequestId = ++requestId.current
     if (!leagueKey || skip) {
       resetState()
       return
@@ -80,6 +82,8 @@ export function useCalendar(
         calendarService.getEnhancedCalendar(leagueKey)
       ])
 
+      if (currentRequestId !== requestId.current) return
+
       if (!calendarData) {
         resetState()
         setError('Calendar not available')
@@ -95,6 +99,7 @@ export function useCalendar(
       setGames(enhanced?.allGames ?? CalendarHelper.getAllGames(calendarData))
       setPendingGames(enhanced?.pendingGames ?? CalendarHelper.getPendingGames(calendarData))
     } catch (err) {
+      if (currentRequestId !== requestId.current) return
       console.error('Error fetching calendar:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch calendar')
     } finally {

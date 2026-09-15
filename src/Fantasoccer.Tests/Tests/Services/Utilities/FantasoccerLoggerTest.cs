@@ -47,7 +47,8 @@ public sealed class FantasoccerLoggerTest : IAsyncLifetime, IDisposable
     }
 
     public void Dispose()
-        => _services.Dispose();
+    {
+    }
 
     [Fact]
     public async Task UpdatesExistingLogSlots()

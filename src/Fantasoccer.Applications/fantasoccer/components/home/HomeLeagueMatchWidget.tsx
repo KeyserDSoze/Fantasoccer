@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons-2';
 import { Button, Card, Spinner, Text, XStack, YStack } from 'tamagui';
+import { useWindowDimensions } from 'react-native';
 
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget';
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget';
@@ -17,16 +18,16 @@ export function HomeLeagueMatchWidget() {
   const { currentGroup, selectedLeagueId, selectedYear, getAvailableLeagues, getAvailableYears } =
     useApp();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
   const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId);
   const [localYear, setLocalYear] = useState<number | null>(selectedYear);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLocalLeagueId(selectedLeagueId), 0);
-    return () => clearTimeout(timeout);
+    setLocalLeagueId(selectedLeagueId);
   }, [selectedLeagueId]);
   useEffect(() => {
-    const timeout = setTimeout(() => setLocalYear(selectedYear), 0);
-    return () => clearTimeout(timeout);
+    setLocalYear(selectedYear);
   }, [selectedYear]);
 
   const leagues = getAvailableLeagues();
@@ -41,16 +42,14 @@ export function HomeLeagueMatchWidget() {
 
   useEffect(() => {
     if (localLeagueId && !leagues.some((league) => league.id === localLeagueId)) {
-      const timeout = setTimeout(() => setLocalLeagueId(leagues[0]?.id ?? null), 0);
-      return () => clearTimeout(timeout);
+      setLocalLeagueId(leagues[0]?.id ?? null);
     }
     return undefined;
   }, [leagues, localLeagueId]);
 
   useEffect(() => {
     if (availableYears.length > 0 && (localYear == null || !availableYears.includes(localYear))) {
-      const timeout = setTimeout(() => setLocalYear(availableYears[0]), 0);
-      return () => clearTimeout(timeout);
+      setLocalYear(availableYears[0]);
     }
     return undefined;
   }, [availableYears, localYear]);
@@ -134,31 +133,42 @@ export function HomeLeagueMatchWidget() {
           </YStack>
         </Card>
       ) : selectedDay ? (
-        <YStack gap="$4">
+        <YStack gap="$3">
           <Text color={selectedDay.isLive ? '$red10' : '$color10'} fontWeight="700">
             {selectedDay.isLive ? 'Partita live' : 'Ultima partita giocata'} · Giornata{' '}
             {selectedDay.day.serieADay}
           </Text>
-          <LeagueCalendarWidget
-            leagueName={leagues.find((league) => league.id === localLeagueId)?.name}
-            seasonLabel={localYear == null ? null : formatSeasonFromYear(localYear)}
-            days={[{ ...selectedDay.day, games: selectedDay.games }]}
-            groupId={currentGroup.id}
-            leagueId={localLeagueId}
-            year={localYear}
-            editMode="view"
-          />
-          <LeagueRankingWidget
-            leagueName={leagues.find((league) => league.id === localLeagueId)?.name}
-            seasonLabel={localYear == null ? null : formatSeasonFromYear(localYear)}
-            roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
-            rankedTeams={rankedTeams}
-            loading={rankLoading}
-            error={rankError}
-            groupId={currentGroup.id}
-            year={localYear}
-            onRefresh={() => void refetchRank()}
-          />
+          <XStack
+            gap="$3"
+            width="100%"
+            alignItems="flex-start"
+            flexDirection={isDesktop ? 'row' : 'column'}
+          >
+            <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>
+              <LeagueCalendarWidget
+                leagueName={leagues.find((league) => league.id === localLeagueId)?.name}
+                seasonLabel={localYear == null ? null : formatSeasonFromYear(localYear)}
+                days={[{ ...selectedDay.day, games: selectedDay.games }]}
+                groupId={currentGroup.id}
+                leagueId={localLeagueId}
+                year={localYear}
+                editMode="view"
+              />
+            </YStack>
+            <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>
+              <LeagueRankingWidget
+                leagueName={leagues.find((league) => league.id === localLeagueId)?.name}
+                seasonLabel={localYear == null ? null : formatSeasonFromYear(localYear)}
+                roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
+                rankedTeams={rankedTeams}
+                loading={rankLoading}
+                error={rankError}
+                groupId={currentGroup.id}
+                year={localYear}
+                onRefresh={() => void refetchRank()}
+              />
+            </YStack>
+          </XStack>
         </YStack>
       ) : (
         <Card padding="$4" backgroundColor="$color2">

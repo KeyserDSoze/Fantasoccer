@@ -34,7 +34,8 @@ public sealed class FormationParserTests : IDisposable
     }
 
     public void Dispose()
-        => _services.Dispose();
+    {
+    }
 
     [Fact]
     public async Task FantagazzettaParsesStartingPlayers()

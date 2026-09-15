@@ -55,7 +55,6 @@ public sealed class OfficialVoteTest : IAsyncLifetime
         if (_playersSnapshot != null)
             await _players.InsertAsync(year, _playersSnapshot);
 
-        _services.Dispose();
     }
 
     [Fact]

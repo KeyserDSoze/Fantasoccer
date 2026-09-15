@@ -74,7 +74,6 @@ public sealed class GroupsManagerJobTest : IAsyncLifetime
             await _groups.InsertAsync(group.Id, group, cancellationToken);
         if (_realCalendarSnapshot != null)
             await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, _realCalendarSnapshot, cancellationToken);
-        _services.Dispose();
     }
 
     [Fact]

@@ -29,7 +29,8 @@ public sealed class ExternalFormationParserSmokeTests : IDisposable
     }
 
     public void Dispose()
-        => _services.Dispose();
+    {
+    }
 
     [ExternalFact]
     public async Task SkyReturnsCurrentProbableLineups()

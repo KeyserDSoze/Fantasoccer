@@ -57,7 +57,6 @@ public sealed class SerieAJobTest : IAsyncLifetime
         if (_rankSnapshot != null)
             await _ranks.InsertAsync(year, _rankSnapshot, cancellationToken);
 
-        _services.Dispose();
     }
 
     [Fact]

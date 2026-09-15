@@ -73,7 +73,6 @@ public sealed class LiveJobTest : IAsyncLifetime
         if (_realCalendarSnapshot != null)
             await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, _realCalendarSnapshot, cancellationToken);
 
-        _services.Dispose();
     }
 
     [Fact]
