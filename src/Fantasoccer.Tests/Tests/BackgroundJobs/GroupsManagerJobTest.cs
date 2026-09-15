@@ -53,6 +53,15 @@ public sealed class GroupsManagerJobTest : IAsyncLifetime
         await CleanupAsync(cancellationToken);
         _calculator.BuildRequest = null;
         _calculator.SettingsChanges = 0;
+        _calculator.IsLiveResult = false;
+        _calculator.OfficialResult = new VotedRealPlayerWrapper
+        {
+            Players =
+            [
+                new VotedRealPlayer { Name = "Roma player", RealTeam = new RealTeam { Name = "Roma" } },
+                new VotedRealPlayer { Name = "Milan player", RealTeam = new RealTeam { Name = "Milan" } }
+            ]
+        };
     }
 
     public async ValueTask DisposeAsync()
@@ -106,6 +115,22 @@ public sealed class GroupsManagerJobTest : IAsyncLifetime
         Assert.NotNull(dailyRank);
         Assert.Equal(7, dailyRank.SerieADay);
         Assert.Equal(3, dailyRank.RankedTeams["Regular"].Single(x => x.Owner == HomeOwner).Point);
+    }
+
+    [Fact]
+    public async Task DoesNotCalculateResultsWithoutCompleteOfficialVotes()
+    {
+        var year = FantacalcioTime.ActualYear;
+        await _realCalendars.InsertAsync(year, RealCalendar(year), TestContext.Current.CancellationToken);
+        await _groups.InsertAsync(GroupId, Group(year, LeagueSetting.Default), TestContext.Current.CancellationToken);
+        await _calendars.InsertAsync(LeagueKey(), LeagueCalendar(year), TestContext.Current.CancellationToken);
+        _calculator.OfficialResult = null;
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var calendar = await _calendars.GetAsync(LeagueKey(), TestContext.Current.CancellationToken);
+        Assert.Null(Assert.Single(Assert.Single(calendar!.Rounds["Regular"]).Games).Result);
+        Assert.Null(await _ranks.GetAsync(LeagueKey(), TestContext.Current.CancellationToken));
     }
 
     private GroupsManagerJob CreateJob()

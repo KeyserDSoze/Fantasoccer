@@ -48,6 +48,15 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
             {
                 var lastDaySerieA = realCalendar.LastDay?.SerieADay ?? 1;
                 await _teamCalculator.BuildRequestAsync(FantacalcioTime.ActualYear, lastDaySerieA, LeagueType.League, LeagueSetting.Default, false, true, false);
+                var lastDay = realCalendar.Days.FirstOrDefault(x => x.SerieADay == lastDaySerieA);
+                var expectedTeams = (lastDay?.Games.Count ?? 0) * 2;
+                var officialTeams = _teamCalculator.Official?.Players
+                    .Where(x => x.RealTeam != null)
+                    .Select(x => x.RealTeam!.Name)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count() ?? 0;
+                if (expectedTeams == 0 || officialTeams < expectedTeams)
+                    return;
                 var groups = await _groups.ToListAsEntityAsync();
                 foreach (var group in groups)
                 {

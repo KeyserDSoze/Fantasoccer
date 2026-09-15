@@ -25,6 +25,7 @@ namespace Fantasoccer.Application.Api.Controllers
         private readonly IRepository<RealPlayersWrapper, LeagueKey> _randomizedRealPlayers;
         private readonly IRepository<Team, TeamKey> _team;
         private readonly IRepository<Team, TeamDayKey> _dailyTeam;
+        private readonly IRepository<AppIdentity, string> _users;
 
         public LeagueManagerController(
             IVotePlayerGenerator votePlayerGenerator,
@@ -39,7 +40,8 @@ namespace Fantasoccer.Application.Api.Controllers
             IRepository<RealPlayersWrapper, int> realPlayers,
             IRepository<RealPlayersWrapper, LeagueKey> randomizedRealPlayers,
             IRepository<Team, TeamKey> team,
-            IRepository<Team, TeamDayKey> dailyTeam
+            IRepository<Team, TeamDayKey> dailyTeam,
+            IRepository<AppIdentity, string> users
             )
         {
             _votePlayerGenerator = votePlayerGenerator;
@@ -55,6 +57,7 @@ namespace Fantasoccer.Application.Api.Controllers
             _randomizedRealPlayers = randomizedRealPlayers;
             _team = team;
             _dailyTeam = dailyTeam;
+            _users = users;
         }
         [HttpGet]
         public async ValueTask<bool> CreateCalendarAndRankAsync([FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year)
@@ -209,6 +212,12 @@ namespace Fantasoccer.Application.Api.Controllers
         [HttpGet]
         public async ValueTask<bool> RecalculateAsync([FromQuery] string groupId, [FromQuery] string leagueId, [FromQuery] int year, [FromQuery] int dayToRecalculate, [FromQuery] bool onlyLastDay = false, [FromQuery] bool preciseDay = false)
         {
+            if (User.Identity?.Name == null)
+                return false;
+            var identity = await _users.GetAsync(User.Identity.Name);
+            var identityGroup = identity?.Groups.FirstOrDefault(x => string.Equals(x.Id, groupId, StringComparison.OrdinalIgnoreCase));
+            if (identityGroup?.Role.HasFlag(IdentityRole.SuperAdmin) != true)
+                return false;
             var group = await _groups.GetAsync(groupId);
             if (group != null)
             {
@@ -273,7 +282,14 @@ namespace Fantasoccer.Application.Api.Controllers
                             else if (!onlyLastDay || (!preciseDay && day.SerieADay == lastDay.SerieADay) || (preciseDay && day.SerieADay == dayToRecalculate))
                             {
                                 await _teamCalculator.BuildRequestAsync(yearlyLeague.Year, day.SerieADay, leagueType, yearlyLeague.Settings, false, true, false);
-                                if (_teamCalculator.Official == null || _teamCalculator.IsLive)
+                                var realDay = realCalendar?.Days.FirstOrDefault(x => x.SerieADay == day.SerieADay);
+                                var expectedTeams = (realDay?.Games.Count ?? 0) * 2;
+                                var officialTeams = _teamCalculator.Official?.Players
+                                    .Where(x => x.RealTeam != null)
+                                    .Select(x => x.RealTeam!.Name)
+                                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                                    .Count() ?? 0;
+                                if (expectedTeams == 0 || officialTeams < expectedTeams || (!preciseDay && _teamCalculator.IsLive))
                                     return false;
                                 foreach (var game in day.Games)
                                 {

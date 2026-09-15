@@ -332,11 +332,13 @@ public sealed class TestLiveTeamCalculator : ITeamCalculator
 {
     public (int Year, int Day)? BuildRequest { get; set; }
     public int SettingsChanges { get; set; }
-    public bool IsLive => true;
+    public bool IsLiveResult { get; set; } = true;
+    public VotedRealPlayerWrapper? OfficialResult { get; set; }
+    public bool IsLive => IsLiveResult;
     public bool IsEditable => false;
     public int SerieADay => BuildRequest?.Day ?? 0;
     public VotedRealPlayerWrapper? Live => null;
-    public VotedRealPlayerWrapper? Official => null;
+    public VotedRealPlayerWrapper? Official => OfficialResult;
     public ChancedRealPlayerWrapper? Chance => null;
     public RealDay? RealDay => null;
     public LeagueSetting? LeagueSetting => global::Fantasoccer.LeagueSetting.Default;

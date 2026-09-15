@@ -55,7 +55,7 @@ namespace Fantasoccer.Business
                     IsLive = calendar.LiveSerieADay == key.Day;
                     if (withVote)
                     {
-                        if (IsLive)
+                        if (IsLive || calendar.LastDay?.SerieADay == key.Day)
                         {
                             Live = await _liveVote.GetAsync(key);
                         }
@@ -170,10 +170,8 @@ namespace Fantasoccer.Business
         }
         private Vote? GetVote(Player player)
         {
-            var votePlayer = Official?.Players?.Find(x => x.Key == player.Key);
-            if (votePlayer == null)
-                votePlayer = Live?.Players?.Find(x => x.Key == player.Key);
-            return votePlayer?.Vote;
+            var vote = Official?.Players?.Find(x => x.Key == player.Key)?.Vote;
+            return vote ?? Live?.Players?.Find(x => x.Key == player.Key)?.Vote;
         }
         private RealGame? GetRealGame(Player player)
         {

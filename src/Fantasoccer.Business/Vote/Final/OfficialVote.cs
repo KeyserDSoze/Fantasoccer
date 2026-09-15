@@ -129,7 +129,9 @@ namespace Fantasoccer.Business.IngestionData
                         }
                         void Delayed(RealTeam team)
                         {
-                            foreach (var player in allPlayers.Players.Where(x => x.RealTeam?.Abbreviation == team.Abbreviation))
+                            foreach (var player in allPlayers.Players.Where(x =>
+                                x.RealTeam?.Abbreviation == team.Abbreviation ||
+                                string.Equals(x.RealTeam?.Name, team.Name, StringComparison.OrdinalIgnoreCase)))
                             {
                                 players.Add(new()
                                 {

@@ -2,12 +2,15 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { ScreenContent } from 'components/layout/ScreenContent';
 import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui';
+import { useToastController } from '@tamagui/toast';
+import { Calculator } from '@tamagui/lucide-icons-2';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
 import { useFieldZoom } from 'hooks/useFieldZoom';
 import { SoccerField } from 'components/lineup';
 import { type GameWrapper } from 'types/game';
 import { type StatPlayer } from 'types/stat';
 import gameService from 'services/gameService';
+import { leagueManagerService } from 'services/leagueManagerService';
 import { statPlayerService } from 'services/statPlayerService';
 import { createStatPlayerMap } from 'utils/statPlayerCalculator';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -22,6 +25,7 @@ import { IdentityRole, hasRole } from '../types/identity';
 
 export default function GameScreen() {
   const media = useMedia();
+  const toast = useToastController();
   const { calendar, isLive: calendarIsLive, isLoading, error } = useSerieACalendar({
     refreshInterval: 60000,
     enablePolling: true,
@@ -66,6 +70,7 @@ export default function GameScreen() {
   const [gameError, setGameError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false); // Flag per evitare refresh multipli
   const [isEditingFormation, setIsEditingFormation] = useState(false);
+  const [isRecalculatingDay, setIsRecalculatingDay] = useState(false);
 
   // StatPlayers map per calcoli trend/positiveness
   const [statPlayersMap, setStatPlayersMap] = useState<Map<string, StatPlayer>>(new Map());
@@ -288,6 +293,45 @@ export default function GameScreen() {
     const sortedGames = [...targetDay.games].sort((a, b) => a.date.getTime() - b.date.getTime());
     return sortedGames[0]?.date || null;
   }, [gameWrapper?.serieADay, calendar]);
+
+  const canRecalculateDay = useMemo(() => {
+    if (!gameWrapper?.serieADay || !calendar) return false;
+    const targetDay = calendar.days?.find((day) => day.serieADay === gameWrapper.serieADay);
+    const gameDates = targetDay?.games
+      .filter((game) => !game.delayed && game.date)
+      .map((game) => game.date.getTime()) ?? [];
+    if (gameDates.length === 0) return false;
+    return Date.now() >= Math.max(...gameDates) + 135 * 60 * 1000;
+  }, [gameWrapper?.serieADay, calendar]);
+
+  const recalculateDay = async () => {
+    if (!routeGroupId || !routeLeagueId || !routeYear || !gameWrapper?.serieADay) return;
+    setIsRecalculatingDay(true);
+    try {
+      const result = await leagueManagerService.recalculate(
+        routeGroupId,
+        routeLeagueId,
+        parseInt(routeYear),
+        gameWrapper.serieADay,
+        true,
+        true,
+      );
+      if (!result) {
+        toast.show('Voti ufficiali non completi: ricalcolo non eseguito', { variant: 'error' });
+        return;
+      }
+      toast.show(`Giornata ${gameWrapper.serieADay} ricalcolata con successo`, {
+        variant: 'success',
+      });
+      await refreshGame();
+    } catch (err) {
+      toast.show(`Errore nel ricalcolo: ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, {
+        variant: 'error',
+      });
+    } finally {
+      setIsRecalculatingDay(false);
+    }
+  };
 
   const homeHasAGoodDefense = gameWrapper?.game?.result?.home?.defensiveBonus;
   const homeHasAGoodPeople = gameWrapper?.game?.result?.home?.goodPeople;
@@ -623,6 +667,16 @@ export default function GameScreen() {
                               {gameWrapper.game?.away}
                             </Button>
                           </XStack>
+                          {canRecalculateDay && (
+                            <Button
+                              size="$3"
+                              icon={Calculator}
+                              onPress={recalculateDay}
+                              disabled={isEditingFormation || isRecalculatingDay}
+                              opacity={isEditingFormation || isRecalculatingDay ? 0.6 : 1}>
+                              {isRecalculatingDay ? 'Ricalcolo giornata...' : 'Ricalcola intera giornata'}
+                            </Button>
+                          )}
                         </YStack>
                       </Card>
                     ) : null

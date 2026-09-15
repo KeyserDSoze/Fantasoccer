@@ -31,7 +31,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<FinalVotesJob>(options =>
                 {
-                    options.Cron = "0 0 3,4 * * *";
+                    options.Cron = "0 */15 3-10 * * *";
                 })
                 .AddBackgroundJob<PlayerOddsJob>(options =>
                 {
@@ -47,7 +47,7 @@ namespace Fantasoccer.Engine
                 })
                 .AddBackgroundJob<GroupsManagerJob>(options =>
                  {
-                     options.Cron = "0 6 * * *";
+                     options.Cron = "0 5,20,35,50 3-10 * * *";
                  })
                 //.AddBackgroundJob<NewsJob>(options =>
                 //{

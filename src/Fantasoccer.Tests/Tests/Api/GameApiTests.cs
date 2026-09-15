@@ -192,6 +192,39 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Super_admin_can_read_completed_game_in_formation_mode()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-12));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+
+        var response = await _client.GetAsync(
+            $"/Game/Get?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode=formation&asAdmin=true",
+            TestContext.Current.CancellationToken);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"c\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Super_admin_can_save_completed_game_in_formation_mode()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-12));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+        var submitted = CreateTeam(Owner, "Home");
+        var starter = submitted.Players.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = submitted.Players.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+        (starter.Position, backup.Position) = (backup.Position, starter.Position);
+
+        var response = await SaveAsync(submitted, "formation", asAdmin: true);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.Equal(FantaSoccerRole.FirstBackupForward, saved!.ActivePlayers.First(x => x.Key == starter.Key).Position);
+        Assert.Equal(FantaSoccerRole.Forward, saved.ActivePlayers.First(x => x.Key == backup.Key).Position);
+    }
+
+    [Fact]
     public async Task Super_admin_can_calculate_another_team_optimal_formation()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1));

@@ -4,7 +4,7 @@ using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Controllers
 {
-    [Authorize(Policy = "authenticated")]
+    [Authorize(Policy = "super_admin")]
     [ApiController]
     [Route("[controller]/[action]")]
     public class RecalculationController : ControllerBase

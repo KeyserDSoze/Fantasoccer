@@ -32,7 +32,8 @@ namespace Fantasoccer.Business
                 };
                 var exist = await _repository.ExistAsync(key);
                 var dayOfCalendar = calendar!.Days.First(x => x.SerieADay == serieADay);
-                var numberOfTeamsThatHavePlayedThisDay = dayOfCalendar.Games.Count(x => !x.Delayed) * 2;
+                // Delayed matches are complete too: OfficialVote assigns 6 to every affected player.
+                var numberOfTeamsThatHavePlayedThisDay = dayOfCalendar.Games.Count * 2;
                 if (exist)
                 {
                     var votes = await _repository.GetAsync(key);
@@ -41,7 +42,7 @@ namespace Fantasoccer.Business
                 }
                 if (!exist || !hasAllVotes || force)
                 {
-                    var players = await _finalVote.GetAsync(FantacalcioTime.ActualYear, serieADay).NoContext();
+                    var players = await _finalVote.GetAsync(year, serieADay).NoContext();
                     if (exist)
                         await _repository.UpdateAsync(key, new VotedRealPlayerWrapper
                         {
