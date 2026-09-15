@@ -2,11 +2,12 @@ import { ScreenContent } from 'components/layout/ScreenContent';
 import { StyleSheet, View } from 'react-native';
 
 import { H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
-import { Calendar, TrendingUp, Users, ShieldCheck } from '@tamagui/lucide-icons-2';
+import { Calendar, TrendingUp, Users } from '@tamagui/lucide-icons-2';
 import { LoginButton } from 'features/LoginButton';
 import { useAuth } from 'providers/AuthProvider';
 import type { AuthUser } from 'providers/AuthProvider';
 import { SerieALiveWidget } from 'components/seriea/SerieALiveWidget';
+import { HomeLeagueMatchWidget } from 'components/home/HomeLeagueMatchWidget';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -14,26 +15,20 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <ScreenContent path="screens/home.tsx" title="Home">
-        {isAuthenticated ? (
-          <AuthenticatedContent user={user} />
-        ) : (
-          <WelcomeContent />
-        )}
+        {isAuthenticated ? <AuthenticatedContent user={user} /> : <WelcomeContent />}
       </ScreenContent>
     </View>
   );
 }
 
 function AuthenticatedContent({ user }: { user: AuthUser | null }) {
-  const displayName = user?.displayName || user?.name || 'Fantallenatore';
-
   return (
     <YStack gap="$6" width="100%">
+      <HomeLeagueMatchWidget />
       <SerieALiveWidget refreshInterval={10000} enablePolling pollOnlyWhenLive={false} />
     </YStack>
   );
 }
-
 
 function WelcomeContent() {
   return (
@@ -43,8 +38,8 @@ function WelcomeContent() {
           Benvenuto in Fantasoccer!
         </H1>
         <Paragraph color="$color10" textAlign="center" fontSize="$5" lineHeight="$6">
-          Il tuo fantacalcio ti aspetta. Crea la tua squadra, sfida i tuoi amici 
-          e vinci il campionato!
+          Il tuo fantacalcio ti aspetta. Crea la tua squadra, sfida i tuoi amici e vinci il
+          campionato!
         </Paragraph>
       </YStack>
 
@@ -53,7 +48,7 @@ function WelcomeContent() {
         <Text fontSize="$4" color="$color11" textAlign="center" fontWeight="600">
           Inizia subito la tua avventura!
         </Text>
-        <LoginButton variant="primary" size="$6"/>
+        <LoginButton variant="primary" size="$6" />
       </YStack>
 
       <Separator width="100%" />
@@ -62,7 +57,7 @@ function WelcomeContent() {
         <H3 textAlign="center" color="$color12" marginBottom="$2">
           Cosa puoi fare con Fantasoccer
         </H3>
-        
+
         <XStack gap="$4" justifyContent="center" flexWrap="wrap">
           <FeatureCard
             icon={<Users size="$3" color="$blue10" />}
@@ -82,26 +77,29 @@ function WelcomeContent() {
         </XStack>
       </YStack>
     </YStack>
-  )
+  );
 }
 
-function FeatureCard({ icon, title, description }: { 
-  icon: React.ReactNode, 
-  title: string, 
-  description: string 
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
 }) {
   return (
-    <Card 
-      padding="$4" 
-      backgroundColor="$color2" 
-      borderRadius="$4" 
+    <Card
+      padding="$4"
+      backgroundColor="$color2"
+      borderRadius="$4"
       minWidth={200}
       maxWidth={250}
       borderWidth="$0.5"
       borderColor="$borderColor"
       hoverStyle={{ backgroundColor: '$color3', scale: 1.02 }}
-      pressStyle={{ scale: 0.98 }}
-    >
+      pressStyle={{ scale: 0.98 }}>
       <YStack gap="$3" alignItems="center">
         {icon}
         <Text fontSize="$5" fontWeight="bold" color="$color12">
@@ -112,7 +110,7 @@ function FeatureCard({ icon, title, description }: {
         </Text>
       </YStack>
     </Card>
-  )
+  );
 }
 
 export const styles = StyleSheet.create({

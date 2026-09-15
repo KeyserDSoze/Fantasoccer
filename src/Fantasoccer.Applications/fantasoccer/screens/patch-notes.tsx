@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.52',
+    date: '15 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Aggiunta nella Home la tua ultima partita di fantacampionato, con filtri per lega e stagione e supporto alla partita live',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Il widget globale viene nascosto durante il live e nella visualizzazione delle formazioni o delle altre partite',
+      },
+    ],
+  },
+  {
     version: '2.0.51',
     date: '15 Settembre 2026',
     changes: [

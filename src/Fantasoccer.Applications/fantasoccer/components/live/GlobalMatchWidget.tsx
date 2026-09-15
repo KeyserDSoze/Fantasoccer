@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useNavigationState } from '@react-navigation/native';
 import {
   CalendarClock,
   ChevronDown,
@@ -32,8 +32,17 @@ type UserMatch = {
 
 export function GlobalMatchWidget() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const activeRouteName = useNavigationState((state) => state.routes[state.index]?.name);
 
-  if (isLoading || !isAuthenticated || !user) return null;
+  if (
+    isLoading ||
+    !isAuthenticated ||
+    !user ||
+    activeRouteName === 'Live' ||
+    activeRouteName === 'Game'
+  ) {
+    return null;
+  }
 
   return <AuthenticatedGlobalMatchWidget key={user.email} />;
 }
