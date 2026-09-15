@@ -4,5 +4,6 @@
     {
         public string? AiPrompt { get; set; }
         public bool AutoOptimalFormation { get; set; }
+        public bool LiveWidgetEnabled { get; set; } = true;
     }
 }

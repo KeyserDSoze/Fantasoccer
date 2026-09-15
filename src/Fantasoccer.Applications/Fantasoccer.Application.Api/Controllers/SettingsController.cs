@@ -63,6 +63,7 @@ namespace Fantasoccer.Application.Api.Controllers
 
             var current = await _settingsRepository.GetAsync(email) ?? new Settings();
             current.AutoOptimalFormation = settings.AutoOptimalFormation;
+            current.LiveWidgetEnabled = settings.LiveWidgetEnabled;
             return await _settingsRepository.ExistAsync(email)
                 ? (await _settingsRepository.UpdateAsync(email, current)).IsOk
                 : (await _settingsRepository.InsertAsync(email, current)).IsOk;

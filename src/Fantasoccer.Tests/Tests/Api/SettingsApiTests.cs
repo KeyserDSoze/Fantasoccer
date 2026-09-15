@@ -89,6 +89,26 @@ public sealed class SettingsApiTests
         Assert.True(settings?.AutoOptimalFormation);
     }
 
+    [Fact]
+    public async Task Live_widget_setting_is_enabled_by_default_and_can_be_disabled()
+    {
+        const string email = "settings-live-widget@example.com";
+        await AddIdentityAsync(email);
+        _client.DefaultRequestHeaders.Add("X-Test-User", email);
+
+        var initial = await _client.GetFromJsonAsync<Settings>("/Settings/Get", TestContext.Current.CancellationToken);
+        Assert.True(initial?.LiveWidgetEnabled);
+
+        var update = await _client.PutAsJsonAsync(
+            "/Settings/Update",
+            new { autoOptimalFormation = false, liveWidgetEnabled = false },
+            TestContext.Current.CancellationToken);
+        update.EnsureSuccessStatusCode();
+
+        var updated = await _client.GetFromJsonAsync<Settings>("/Settings/Get", TestContext.Current.CancellationToken);
+        Assert.False(updated?.LiveWidgetEnabled);
+    }
+
     private async Task<AppIdentity> AddIdentityAsync(string email)
     {
         var identity = new AppIdentity { Email = email, Groups = [] };

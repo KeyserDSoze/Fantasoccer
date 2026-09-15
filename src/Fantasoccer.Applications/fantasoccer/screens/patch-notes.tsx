@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.51',
+    date: '15 Settembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Aggiunto il widget globale per risultati live, competizioni dell\'utente e conto alla rovescia della prossima formazione, con gestione dalle Impostazioni',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Aggiunti strumenti Super Admin per modificare formazioni storiche e ricalcolare una giornata completa',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Rese piu affidabili la raccolta dei voti ufficiali, la gestione delle rinviate e il calcolo con voti incompleti',
+      },
+    ],
+  },
+  {
     version: '2.0.50',
     date: '14 Settembre 2026',
     changes: [

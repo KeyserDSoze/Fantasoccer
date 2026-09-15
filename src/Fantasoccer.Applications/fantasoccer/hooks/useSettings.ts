@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   settingsService,
+  subscribeToUserSettings,
   ChangeTeamNameParams,
   UploadLogoParams,
   CopyLogoParams,
 } from 'services/settingsService';
 import type { UserSettings } from 'types/settings';
+import { DEFAULT_USER_SETTINGS } from 'types/settings';
 
 export interface UseSettingsResult {
   // Team logo
@@ -32,6 +34,7 @@ export interface UseSettingsResult {
   loadingUserSettings: boolean;
   updatingUserSettings: boolean;
   updateAutoOptimalFormation: (enabled: boolean) => Promise<boolean>;
+  updateLiveWidgetEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 export function useSettings(): UseSettingsResult {
@@ -50,12 +53,15 @@ export function useSettings(): UseSettingsResult {
   // Username state
   const [updatingUsername, setUpdatingUsername] = useState(false);
   const [updateUsernameError, setUpdateUsernameError] = useState<string | null>(null);
-  const [userSettings, setUserSettings] = useState<UserSettings>({ autoOptimalFormation: false });
+  const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
   const [loadingUserSettings, setLoadingUserSettings] = useState(true);
   const [updatingUserSettings, setUpdatingUserSettings] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    const unsubscribe = subscribeToUserSettings((value) => {
+      if (mounted) setUserSettings(value);
+    });
     settingsService
       .getUserSettings()
       .then((value) => {
@@ -67,6 +73,7 @@ export function useSettings(): UseSettingsResult {
       });
     return () => {
       mounted = false;
+      unsubscribe();
     };
   }, []);
 
@@ -215,6 +222,24 @@ export function useSettings(): UseSettingsResult {
     [userSettings]
   );
 
+  const updateLiveWidgetEnabled = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      setUpdatingUserSettings(true);
+      try {
+        const next = { ...userSettings, liveWidgetEnabled: enabled };
+        const success = await settingsService.updateUserSettings(next);
+        if (success) setUserSettings(next);
+        return success;
+      } catch (error) {
+        console.error('Error updating live widget setting:', error);
+        return false;
+      } finally {
+        setUpdatingUserSettings(false);
+      }
+    },
+    [userSettings]
+  );
+
   return {
     // Team logo
     uploadingLogo,
@@ -239,5 +264,6 @@ export function useSettings(): UseSettingsResult {
     loadingUserSettings,
     updatingUserSettings,
     updateAutoOptimalFormation,
+    updateLiveWidgetEnabled,
   };
 }

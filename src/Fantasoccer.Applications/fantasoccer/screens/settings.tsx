@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Copy,
   Sparkles,
+  RadioTower,
 } from '@tamagui/lucide-icons-2';
 import {
   Button,
@@ -96,6 +97,7 @@ export default function SettingsScreen() {
     loadingUserSettings,
     updatingUserSettings,
     updateAutoOptimalFormation,
+    updateLiveWidgetEnabled,
   } = useSettings();
 
   // Local state for inputs
@@ -270,6 +272,36 @@ export default function SettingsScreen() {
         alignItems="stretch"
         alignSelf="center"
         paddingBottom="$8">
+        <Card
+          padding="$4"
+          backgroundColor="$color2"
+          borderRadius="$4"
+          borderWidth="$0.5"
+          borderColor="$borderColor">
+          <YStack gap="$4">
+            <XStack alignItems="center" gap="$2">
+              <RadioTower size="$1.5" color="$red10" />
+              <H3 color="$color12">Widget partita</H3>
+            </XStack>
+            <Separator />
+            <XStack alignItems="center" justifyContent="space-between" gap="$3">
+              <YStack flex={1} gap="$1">
+                <Text color="$color12" fontWeight="600">
+                  Live e prossima formazione
+                </Text>
+                <Text color="$color10" fontSize="$2">
+                  Mostra risultati live e conto alla rovescia della prossima giornata in tutte le schermate.
+                </Text>
+              </YStack>
+              <Button
+                theme={userSettings.liveWidgetEnabled ? 'green' : 'gray'}
+                disabled={loadingUserSettings || updatingUserSettings}
+                onPress={() => updateLiveWidgetEnabled(!userSettings.liveWidgetEnabled)}>
+                {userSettings.liveWidgetEnabled ? 'Disattiva' : 'Attiva'}
+              </Button>
+            </XStack>
+          </YStack>
+        </Card>
         {isLoading ? (
           <Card
             padding="$4"

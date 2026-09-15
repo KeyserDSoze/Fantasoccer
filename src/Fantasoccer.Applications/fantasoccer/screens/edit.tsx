@@ -1,29 +1,29 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useEffectEvent, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, Text, Spinner, Card } from 'tamagui'
 import { useApp } from 'providers/AppProvider'
 import { useAuth } from 'providers/AuthProvider'
-import { useNavigation } from '@react-navigation/native'
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native'
 import { calendarService } from 'services/calendarService'
 import { serieAService } from 'services/serieAService'
 import type { CalendarGame } from 'types/calendar'
+import type { RootStackParamList } from 'navigation'
 import { formatSeasonFromYear } from 'utils/season'
 
 export default function EditTeamScreen() {
-  const { currentGroup, selectedLeagueId, selectedYear, getAvailableLeagues } = useApp()
+  const { currentGroup, selectedLeagueId, selectedYear } = useApp()
   const { user } = useAuth()
   const navigation = useNavigation()
+  const route = useRoute<RouteProp<RootStackParamList, 'Edit'>>()
+  const targetLeagueId = route.params?.leagueId ?? selectedLeagueId
+  const targetYear = route.params?.year ?? selectedYear
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    findAndNavigateToMyTeam()
-  }, [currentGroup, selectedLeagueId, selectedYear, user])
-
-  const findAndNavigateToMyTeam = async () => {
+  const findAndNavigateToMyTeam = useEffectEvent(async () => {
     // Verifica prerequisiti
-    if (!currentGroup?.id || !selectedLeagueId || !selectedYear || !user?.email) {
+    if (!currentGroup?.id || !targetLeagueId || !targetYear || !user?.email) {
       setError('Seleziona un gruppo, una lega e un anno per visualizzare la tua squadra')
       setIsLoading(false)
       return
@@ -34,7 +34,7 @@ export default function EditTeamScreen() {
 
     try {
       // 1. Carica il calendario della Serie A per determinare la giornata attuale/prossima
-      const serieACalendar = await serieAService.getEnhancedCalendarByYear(selectedYear)
+      const serieACalendar = await serieAService.getEnhancedCalendarByYear(targetYear)
       
       if (!serieACalendar) {
         setError('Non è stato possibile caricare il calendario della Serie A')
@@ -55,8 +55,8 @@ export default function EditTeamScreen() {
       // 3. Carica il calendario della lega
       const calendar = await calendarService.getCalendarByComponents(
         currentGroup.id,
-        selectedLeagueId,
-        selectedYear
+        targetLeagueId,
+        targetYear
       )
 
       if (!calendar) {
@@ -67,12 +67,12 @@ export default function EditTeamScreen() {
 
        // 4. Trova la squadra dell'utente nella lega selezionata, includendo owner e co-owner.
        const userEmail = user.email.toLowerCase()
-       const selectedLeague = currentGroup.leagues.find(league => league.id === selectedLeagueId)
+       const selectedLeague = currentGroup.leagues.find(league => league.id === targetLeagueId)
        const leagueBasketIds = new Set(selectedLeague?.basketsId ?? [])
        const userTeamOwners = currentGroup.baskets
          .filter(basket => leagueBasketIds.has(basket.id))
          .flatMap(basket => basket.years
-           .filter(year => year.year === selectedYear)
+            .filter(year => year.year === targetYear)
            .flatMap(year => year.teams))
          .filter(team =>
            team.owner.toLowerCase() === userEmail ||
@@ -96,8 +96,8 @@ export default function EditTeamScreen() {
       }
 
       if (allGames.length === 0) {
-        const leagueName = getAvailableLeagues().find(l => l.id === selectedLeagueId)?.name || 'questa lega'
-        const season = formatSeasonFromYear(selectedYear)
+        const leagueName = currentGroup.leagues.find(l => l.id === targetLeagueId)?.name || 'questa lega'
+        const season = formatSeasonFromYear(targetYear)
         setError(`Non hai una squadra in ${leagueName} per l'anno ${season}`)
         setIsLoading(false)
         return
@@ -115,8 +115,8 @@ export default function EditTeamScreen() {
       // 6. Naviga alla partita trovata
       ;(navigation as any).navigate('Game', {
         groupId: currentGroup.id,
-        leagueId: selectedLeagueId,
-        year: selectedYear.toString(),
+        leagueId: targetLeagueId,
+        year: targetYear.toString(),
         gameId: targetGame.id,
         editMode: 'formation'
       })
@@ -125,7 +125,12 @@ export default function EditTeamScreen() {
       setError(err?.message || 'Errore sconosciuto durante il caricamento della partita')
       setIsLoading(false)
     }
-  }
+  })
+
+  useEffect(() => {
+    const timeout = setTimeout(() => void findAndNavigateToMyTeam(), 0)
+    return () => clearTimeout(timeout)
+  }, [currentGroup, targetLeagueId, targetYear, user?.email])
 
   return (
     <View style={{ flex: 1 }}>

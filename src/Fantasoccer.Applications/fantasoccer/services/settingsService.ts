@@ -2,6 +2,13 @@ import { buildApiUrl, getCommonHeaders } from '../configurations/apiConfig';
 import { tokenStorageService } from './tokenStorageService';
 import type { UserSettings } from 'types/settings';
 
+const settingsListeners = new Set<(settings: UserSettings) => void>();
+
+export const subscribeToUserSettings = (listener: (settings: UserSettings) => void) => {
+  settingsListeners.add(listener);
+  return () => settingsListeners.delete(listener);
+};
+
 export interface ChangeTeamNameResponse {
   messages: string[];
   success: boolean;
@@ -96,6 +103,7 @@ class SettingsService {
     return {
       aiPrompt: raw.aiPrompt ?? raw.AiPrompt ?? null,
       autoOptimalFormation: !!(raw.autoOptimalFormation ?? raw.AutoOptimalFormation),
+      liveWidgetEnabled: raw.liveWidgetEnabled ?? raw.LiveWidgetEnabled ?? true,
     };
   }
 
@@ -107,10 +115,15 @@ class SettingsService {
         ...getCommonHeaders(true, token ?? undefined),
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ autoOptimalFormation: settings.autoOptimalFormation }),
+      body: JSON.stringify({
+        autoOptimalFormation: settings.autoOptimalFormation,
+        liveWidgetEnabled: settings.liveWidgetEnabled,
+      }),
     });
     if (!response.ok) throw new Error(`Failed to update settings: ${response.statusText}`);
-    return await response.json();
+    const updated = await response.json();
+    if (updated) settingsListeners.forEach((listener) => listener(settings));
+    return updated;
   }
 
   /**

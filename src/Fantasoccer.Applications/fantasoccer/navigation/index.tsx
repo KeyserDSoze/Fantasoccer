@@ -19,6 +19,7 @@ import InfoScreen from 'screens/info';
 import UsersScreen from 'screens/users';
 import LogsScreen from 'screens/logs';
 import SerieAAdminScreen from 'screens/serie-a-admin';
+import { GlobalMatchWidget } from 'components/live/GlobalMatchWidget';
 import GroupUsersAdminScreen from 'screens/group-users-admin';
 import GroupBasketsAdminScreen from 'screens/group-baskets-admin';
 import GroupLeagueAdminScreen from 'screens/group-league-admin';
@@ -50,7 +51,7 @@ export type RootStackParamList = {
   Calendar: undefined;
   Players: undefined;
   Teams: undefined;
-  Edit: undefined;
+  Edit: { leagueId?: string; year?: number } | undefined;
   Live: undefined;
   Game: { 
     gameId?: string | null;
@@ -227,6 +228,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
       <NavigationListener />
       {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
       <VersionUpdateBanner />
+      <GlobalMatchWidget />
     </NavigationContainer>
   );
 }
