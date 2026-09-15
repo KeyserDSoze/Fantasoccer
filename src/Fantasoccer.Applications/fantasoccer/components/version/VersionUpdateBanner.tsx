@@ -1,9 +1,8 @@
 import { type FC, useEffect, useState } from 'react'
-import { YStack, XStack, Card, Text, Button } from 'tamagui'
+import { YStack, XStack, Card, Text, Button, Dialog } from 'tamagui'
 import { X, FileText } from '@tamagui/lucide-icons-2'
 import { APP_VERSION } from 'config/version'
 import { useNavigation } from '@react-navigation/native'
-import { Alert } from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 
 const VERSION_STORAGE_KEY = 'fantasoccer_last_seen_version'
@@ -22,6 +21,7 @@ export const setVersionBannerEnabled = (enabled: boolean) => {
 export const VersionUpdateBanner: FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>()
   const [isVisible, setIsVisible] = useState(false)
+  const [isDismissDialogOpen, setIsDismissDialogOpen] = useState(false)
 
   useEffect(() => {
     const updateVisibility = () => {
@@ -36,21 +36,19 @@ export const VersionUpdateBanner: FC = () => {
   }, [])
 
   const handleDismiss = () => {
-    Alert.alert(
-      'Nascondere gli aggiornamenti?',
-      'Il widget non verrà più mostrato quando usciranno nuove versioni. Potrai riattivarlo in Impostazioni.',
-      [
-        { text: 'Annulla', style: 'cancel' },
-        {
-          text: 'Nascondi per sempre',
-          style: 'destructive',
-          onPress: () => {
-            setVersionBannerEnabled(false)
-            setIsVisible(false)
-          },
-        },
-      ],
-    )
+    setIsDismissDialogOpen(true)
+  }
+
+  const dismissCurrentVersion = () => {
+    localStorage.setItem(VERSION_STORAGE_KEY, APP_VERSION)
+    setIsDismissDialogOpen(false)
+    setIsVisible(false)
+  }
+
+  const disablePermanently = () => {
+    setVersionBannerEnabled(false)
+    setIsDismissDialogOpen(false)
+    setIsVisible(false)
   }
 
   const handleViewPatchNotes = () => {
@@ -62,74 +60,71 @@ export const VersionUpdateBanner: FC = () => {
   if (!isVisible) return null
 
   return (
-    <Card
-      position="absolute"
-      bottom={20}
-      right={20}
-      width={350}
-      maxWidth="90%"
-      backgroundColor="$blue3"
-      borderWidth={2}
-      borderColor="$blue8"
-      padding="$4"
-      zIndex={9999}
-      elevation={10}
-      transition="quick"
-      enterStyle={{ opacity: 0, scale: 0.9, y: 20 }}
-      exitStyle={{ opacity: 0, scale: 0.9, y: 20 }}
-    >
-      <YStack gap="$3">
-        {/* Header con bottone chiudi */}
-        <XStack justifyContent="space-between" alignItems="flex-start">
-          <YStack flex={1} gap="$1">
-            <Text fontSize="$5" fontWeight="700" color="$blue11">
-              🎉 Nuova versione disponibile!
-            </Text>
-            <Text fontSize="$2" color="$blue10">
-              Versione {APP_VERSION}
-            </Text>
-          </YStack>
-          <Button
-            size="$2"
-            chromeless
-            circular
-            icon={X}
-            onPress={handleDismiss}
-            color="$blue10"
-            hoverStyle={{ backgroundColor: '$blue4' }}
-          />
-        </XStack>
+    <>
+      <Card
+        position="absolute"
+        bottom={20}
+        right={20}
+        width={350}
+        maxWidth="90%"
+        backgroundColor="$blue3"
+        borderWidth={2}
+        borderColor="$blue8"
+        padding="$4"
+        zIndex={9999}
+        elevation={10}
+      >
+        <YStack gap="$3">
+          <XStack justifyContent="space-between" alignItems="flex-start">
+            <YStack flex={1} gap="$1">
+              <Text fontSize="$5" fontWeight="700" color="$blue11">
+                🎉 Nuova versione disponibile!
+              </Text>
+              <Text fontSize="$2" color="$blue10">
+                Versione {APP_VERSION}
+              </Text>
+            </YStack>
+            <Button size="$2" chromeless circular icon={X} onPress={handleDismiss} color="$blue10" />
+          </XStack>
+          <Text fontSize="$3" color="$blue11">
+            Abbiamo rilasciato nuove funzionalità e miglioramenti. Scopri cosa è cambiato!
+          </Text>
+          <XStack gap="$2" justifyContent="flex-end">
+            <Button size="$3" variant="outlined" onPress={handleDismiss} borderColor="$blue8" color="$blue11">
+              Chiudi
+            </Button>
+            <Button size="$3" backgroundColor="$blue9" color="white" onPress={handleViewPatchNotes} icon={FileText}>
+              Vedi novità
+            </Button>
+          </XStack>
+        </YStack>
+      </Card>
 
-        {/* Messaggio */}
-        <Text fontSize="$3" color="$blue11">
-          Abbiamo rilasciato nuove funzionalità e miglioramenti. Scopri cosa è cambiato!
-        </Text>
-
-        {/* Azioni */}
-        <XStack gap="$2" justifyContent="flex-end">
-          <Button
-            size="$3"
-            variant="outlined"
-            onPress={handleDismiss}
-            borderColor="$blue8"
-            color="$blue11"
-            hoverStyle={{ backgroundColor: '$blue4' }}
-          >
-            Chiudi
-          </Button>
-          <Button
-            size="$3"
-            backgroundColor="$blue9"
-            color="white"
-            onPress={handleViewPatchNotes}
-            icon={FileText}
-            hoverStyle={{ backgroundColor: '$blue10' }}
-            pressStyle={{ backgroundColor: '$blue11' }}
-          >
-            Vedi novità
-          </Button>
-        </XStack>
-      </YStack>
-    </Card>
+      <Dialog open={isDismissDialogOpen} onOpenChange={setIsDismissDialogOpen} modal>
+        <Dialog.Portal>
+          <Dialog.Overlay key="dismiss-overlay" />
+          <Dialog.Content bordered elevate width={380} maxWidth="90%">
+            <YStack gap="$4">
+              <Dialog.Title>Chiudere il widget aggiornamenti?</Dialog.Title>
+              <Dialog.Description>
+                Puoi nasconderlo solo per questo momento oppure disattivarlo per sempre. Per riaprirlo dopo la
+                disattivazione dovrai andare nelle Impostazioni e riattivarlo.
+              </Dialog.Description>
+              <XStack gap="$2" justifyContent="flex-end" flexWrap="wrap">
+                <Button variant="outlined" onPress={() => setIsDismissDialogOpen(false)}>
+                  Annulla
+                </Button>
+                <Button variant="outlined" onPress={dismissCurrentVersion}>
+                  Chiudi solo per ora
+                </Button>
+                <Button theme="red" onPress={disablePermanently}>
+                  Disattiva per sempre
+                </Button>
+              </XStack>
+            </YStack>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog>
+    </>
   )
 }
