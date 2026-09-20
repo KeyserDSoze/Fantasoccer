@@ -15,23 +15,23 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
-    version: '2.0.54',
+    version: '2.0.55',
     date: '15 Settembre 2026',
     changes: [
       {
         category: 'Fix',
         description:
-          'La Home usa sempre lega e stagione predefinite del navigation menu per mostrare calendario e classifica corretti',
+          'Corretti i job backend per gestire dati esterni e configurazioni mancanti senza interrompere l\'elaborazione',
       },
       {
         category: 'Improvement',
         description:
-          'Calendario e classifica della Home sono affiancati su desktop e impilati su mobile',
+          'Migliorata la robustezza della formazione ottimale quando mancano dati sui giocatori',
       },
       {
         category: 'Feature',
         description:
-          'Il widget delle nuove versioni può essere nascosto definitivamente e riattivato dalle Impostazioni',
+          'Disabilitato il job TeamHelper non più necessario',
       },
     ],
   },

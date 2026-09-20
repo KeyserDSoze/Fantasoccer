@@ -44,7 +44,7 @@ namespace Fantasoccer.Business
             var stats = (await _statsRepository.GetAsync(year, cancellationToken))?.Players ?? [];
             var rank = (await _rankRepository.GetAsync(year, cancellationToken))?.Teams ?? [];
             var projections = enrichedPlayers
-                .Where(x => !string.IsNullOrWhiteSpace(x.Current.Key))
+                .Where(x => x.Current != null && !string.IsNullOrWhiteSpace(x.Current.Key))
                 .GroupBy(x => x.Current.Key, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                 x => x.Key,

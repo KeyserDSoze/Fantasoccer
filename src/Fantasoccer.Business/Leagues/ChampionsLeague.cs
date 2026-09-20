@@ -85,11 +85,15 @@ namespace Fantasoccer.Business
                     else if (calendar.Rounds[roundName].Count > 1)
                     {
                         var round = calendar.Rounds[roundName];
-                        var first = round.First(x => x.SerieADay == serieADay - s_multiplier);
-                        var second = round.First(x => x.SerieADay == serieADay);
+                        var first = round.FirstOrDefault(x => x.SerieADay == serieADay - s_multiplier);
+                        var second = round.FirstOrDefault(x => x.SerieADay == serieADay);
+                        if (first == null || second == null)
+                            return null;
                         foreach (var game in first.Games)
                         {
-                            var secondGame = second.Games.First(x => x.HomeOwner == game.AwayOwner);
+                            var secondGame = second.Games.FirstOrDefault(x => x.HomeOwner == game.AwayOwner);
+                            if (secondGame == null || game.Result == null || secondGame.Result == null)
+                                continue;
                             var goalA = game.Result!.HomeGoal + secondGame.Result!.AwayGoal;
                             var goalB = game.Result.AwayGoal + secondGame.Result.HomeGoal;
                             if (goalA == goalB)
@@ -111,8 +115,12 @@ namespace Fantasoccer.Business
                                     nextTeams.Add(new Team { Owner = game.AwayOwner, Name = game.Away });
                                 else
                                 {
-                                    var valueA = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == game.HomeOwner).ValuePoint;
-                                    var valueB = rank.RankedTeams.SelectMany(x => x.Value).First(x => x.Owner == game.AwayOwner).ValuePoint;
+                                    var rankedHome = rank.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == game.HomeOwner);
+                                    var rankedAway = rank.RankedTeams.SelectMany(x => x.Value).FirstOrDefault(x => x.Owner == game.AwayOwner);
+                                    if (rankedHome == null || rankedAway == null)
+                                        continue;
+                                    var valueA = rankedHome.ValuePoint;
+                                    var valueB = rankedAway.ValuePoint;
                                     if (valueA > valueB)
                                         nextTeams.Add(new Team { Owner = game.HomeOwner, Name = game.Home });
                                     else if (valueB > valueA)

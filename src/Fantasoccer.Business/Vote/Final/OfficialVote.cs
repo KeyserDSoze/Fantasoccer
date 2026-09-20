@@ -56,6 +56,8 @@ namespace Fantasoccer.Business.IngestionData
                             continue;
 
                         var realTeam = teamName[1].ToLower();
+                        if (realTeam.Length == 0)
+                            continue;
                         realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                         foreach (var element in s_trRegex.Split(teamBody[1]).Skip(1))
                         {
