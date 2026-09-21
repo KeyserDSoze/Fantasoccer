@@ -41,11 +41,13 @@ export function HomeLeagueMatchWidget() {
     if (!currentGroup || !selectedLeagueId || selectedYear == null) return null;
     return RankHelper.createLeagueKey(currentGroup.id, selectedLeagueId, selectedYear);
   }, [currentGroup, selectedLeagueId, selectedYear]);
-  const { days, loading, error, refetch } = useCalendar(leagueKey, { refreshInterval: 60000 });
   const { liveDay, isLive } = useSerieACalendar({
-    refreshInterval: 60000,
+    refreshInterval: 15000,
     enablePolling: true,
     pollOnlyWhenLive: false,
+  });
+  const { days, loading, error, refetch } = useCalendar(leagueKey, {
+    refreshInterval: isLive ? 15000 : 60000,
   });
 
   const {
@@ -89,7 +91,7 @@ export function HomeLeagueMatchWidget() {
         selectedYear={selectedYear}
         onSelectYear={(year) => void setSelectedYear(year)}
         formatYearLabel={formatSeasonFromYear}
-        title="La tua ultima partita"
+        title={isLive ? 'Partita live' : 'La tua ultima partita'}
         leagueHint="Scegli la lega"
         yearHint="Scegli la stagione"
         showRoundSection={false}
@@ -125,8 +127,7 @@ export function HomeLeagueMatchWidget() {
             gap="$3"
             width="100%"
             alignItems="flex-start"
-            flexDirection={isDesktop ? 'row' : 'column'}
-          >
+            flexDirection={isDesktop ? 'row' : 'column'}>
             <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>
               <LeagueCalendarWidget
                 leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}

@@ -15,8 +15,8 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
-    version: '2.0.55',
-    date: '15 Settembre 2026',
+    version: '2.0.56',
+    date: '21 Settembre 2026',
     changes: [
       {
         category: 'Fix',
