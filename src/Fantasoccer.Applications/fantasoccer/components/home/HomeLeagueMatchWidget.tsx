@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons-2';
 import { Button, Card, Spinner, Text, XStack, YStack } from 'tamagui';
 import { useWindowDimensions } from 'react-native';
@@ -15,15 +15,22 @@ import { RankHelper } from 'types/rank';
 import { formatSeasonFromYear } from 'utils/season';
 
 export function HomeLeagueMatchWidget() {
+  const { currentGroup, selectedLeagueId, selectedYear } = useApp();
+
+  // Reset only when the navigation context changes, not when using the widget's local filters.
+  return <HomeLeagueMatchContent key={`${currentGroup?.id}/${selectedLeagueId}/${selectedYear}`} />;
+}
+
+function HomeLeagueMatchContent() {
   const {
     currentGroup,
-    selectedLeagueId,
-    selectedYear,
-    setSelectedLeague,
-    setSelectedYear,
+    selectedLeagueId: globalLeagueId,
+    selectedYear: globalYear,
     getAvailableLeagues,
     getAvailableYears,
   } = useApp();
+  const [selectedLeagueId, setSelectedLeague] = useState<string | null>(globalLeagueId);
+  const [localYear, setSelectedYear] = useState<number | null>(globalYear);
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
@@ -36,6 +43,11 @@ export function HomeLeagueMatchWidget() {
     () => (selectedLeagueId ? getAvailableYears(selectedLeagueId).sort((a, b) => b - a) : []),
     [getAvailableYears, selectedLeagueId]
   );
+
+  const selectedYear =
+    localYear != null && availableYears.includes(localYear)
+      ? localYear
+      : (availableYears[0] ?? null);
 
   const leagueKey = useMemo(() => {
     if (!currentGroup || !selectedLeagueId || selectedYear == null) return null;
@@ -86,10 +98,10 @@ export function HomeLeagueMatchWidget() {
       <LeagueSelectorsWidget
         leagues={leagueOptions}
         selectedLeagueId={selectedLeagueId}
-        onSelectLeague={(leagueId) => void setSelectedLeague(leagueId)}
+        onSelectLeague={setSelectedLeague}
         years={availableYears}
         selectedYear={selectedYear}
-        onSelectYear={(year) => void setSelectedYear(year)}
+        onSelectYear={setSelectedYear}
         formatYearLabel={formatSeasonFromYear}
         title={isLive ? 'Partita live' : 'La tua ultima partita'}
         leagueHint="Scegli la lega"
@@ -136,7 +148,7 @@ export function HomeLeagueMatchWidget() {
                 groupId={currentGroup.id}
                 leagueId={selectedLeagueId}
                 year={selectedYear}
-                editMode="view"
+                editMode={selectedDay.isLive ? 'live' : 'view'}
               />
             </YStack>
             <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>

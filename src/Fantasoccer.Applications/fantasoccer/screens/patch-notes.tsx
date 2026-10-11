@@ -15,13 +15,29 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.57',
+    date: '11 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'I filtri lega e stagione della Home non modificano più il contesto globale della navigazione',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Le modifiche alla formazione live sono disponibili anche dalle altre leghe del gruppo e aggiornano la squadra nella lega principale',
+      },
+    ],
+  },
+  {
     version: '2.0.56',
     date: '21 Settembre 2026',
     changes: [
       {
         category: 'Fix',
         description:
-          'Corretti i job backend per gestire dati esterni e configurazioni mancanti senza interrompere l\'elaborazione',
+          "Corretti i job backend per gestire dati esterni e configurazioni mancanti senza interrompere l'elaborazione",
       },
       {
         category: 'Improvement',
@@ -30,8 +46,7 @@ const patchNotes: PatchNote[] = [
       },
       {
         category: 'Feature',
-        description:
-          'Disabilitato il job TeamHelper non più necessario',
+        description: 'Disabilitato il job TeamHelper non più necessario',
       },
     ],
   },
@@ -58,7 +73,7 @@ const patchNotes: PatchNote[] = [
       {
         category: 'Feature',
         description:
-          'Aggiunto il widget globale per risultati live, competizioni dell\'utente e conto alla rovescia della prossima formazione, con gestione dalle Impostazioni',
+          "Aggiunto il widget globale per risultati live, competizioni dell'utente e conto alla rovescia della prossima formazione, con gestione dalle Impostazioni",
       },
       {
         category: 'Improvement',

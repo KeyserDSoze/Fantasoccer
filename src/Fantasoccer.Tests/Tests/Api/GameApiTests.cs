@@ -11,6 +11,7 @@ public sealed class GameApiTests : IAsyncLifetime
 {
     private const string GroupId = "game-api-live-test";
     private const string LeagueId = "game-api-league";
+    private const string SecondaryLeagueId = "game-api-restrictive-league";
     private const string BasketId = "game-api-basket";
     private const string GameId = "game-api-match";
     private const string Owner = "game-owner@test.local";
@@ -238,7 +239,7 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Save_live_team_uses_selected_league_rule_for_shared_basket()
+    public async Task Save_live_team_uses_main_league_rule_for_shared_basket()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
         _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
@@ -247,6 +248,131 @@ public sealed class GameApiTests : IAsyncLifetime
 
         response.EnsureSuccessStatusCode();
         Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Secondary_league_shows_main_league_live_changes()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+
+        var game = await GetSecondaryGameAsync();
+
+        Assert.True(game.CanEdit);
+        Assert.True(game.IsLiveFormationWindow);
+        Assert.Equal(2, game.LiveFormationChangesRemaining);
+        Assert.NotNull(game.Teams);
+        var team = Assert.Single(game.Teams, x => x.Owner == Owner);
+        Assert.Equal(2, team.FormationChangesMaximum);
+        Assert.Equal(2, team.FormationChangesRemaining);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Secondary_league_changes_update_source_team_and_share_limit(bool useSwitch)
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var submitted = CreateTeam(Owner, "Home");
+        var starter = submitted.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = submitted.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+        (starter.Position, backup.Position) = (backup.Position, starter.Position);
+
+        var response = useSwitch
+            ? await SwitchInLeagueAsync(SecondaryLeagueId, starter.Key, backup.Key)
+            : await SaveAsync(submitted, leagueId: SecondaryLeagueId);
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.NotNull(saved);
+        Assert.Equal(starter.Position, saved.ActivePlayers.First(x => x.Key == starter.Key).Position);
+        Assert.Equal(1, saved.FormationChanges);
+        Assert.Single(saved.FormationChangeHistory);
+        Assert.Equal(1, (await GetSecondaryGameAsync()).LiveFormationChangesRemaining);
+
+        // Consuming the last change in the main league must also exhaust the secondary view.
+        var secondResponse = await SwitchAsync(starter.Key, backup.Key);
+        Assert.Contains("\"i\":true", await secondResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, (await GetSecondaryGameAsync()).LiveFormationChangesRemaining);
+        var thirdResponse = await SwitchInLeagueAsync(SecondaryLeagueId, starter.Key, backup.Key);
+        Assert.Contains("numero massimo", await thirdResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Secondary_league_does_not_allow_non_owner_changes(bool useSwitch)
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+        var team = CreateTeam(Owner, "Home");
+        var starter = team.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward);
+        var backup = team.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward);
+
+        var response = useSwitch
+            ? await SwitchInLeagueAsync(SecondaryLeagueId, starter.Key, backup.Key)
+            : await SaveAsync(team, leagueId: SecondaryLeagueId);
+
+        Assert.Contains("Non sei l'owner", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(0, (await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken))?.FormationChanges);
+    }
+
+    [Fact]
+    public async Task Secondary_league_uses_current_co_owners_from_source_basket()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
+        var group = await _groups.GetAsync(GroupId, TestContext.Current.CancellationToken);
+        group!.Baskets.Single().Years.Single().Teams.First(x => x.Owner == Owner).AdditionalOwners = [Admin.ToUpperInvariant()];
+        await _groups.UpdateAsync(GroupId, group, TestContext.Current.CancellationToken);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Admin);
+
+        var game = await GetSecondaryGameAsync();
+        Assert.NotNull(game.Teams);
+        Assert.Contains(Admin.ToUpperInvariant(), game.Teams.First(x => x.Owner == Owner).AdditionalOwners);
+        Assert.Equal(2, game.LiveFormationChangesRemaining);
+        var response = await SaveAsync(CreateTeam(Owner, "Home"), leagueId: SecondaryLeagueId);
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Secondary_league_cannot_bypass_disabled_source_changes(bool useSwitch)
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-1), includeLeagueWithoutLiveChanges: true);
+        var group = await _groups.GetAsync(GroupId, TestContext.Current.CancellationToken);
+        group!.Leagues.First(x => x.Id == LeagueId).Years.Single().Settings!.LiveFormationChanges = 0;
+        group.Leagues.First(x => x.Id == SecondaryLeagueId).Years.Single().Settings!.LiveFormationChanges = 5;
+        await _groups.UpdateAsync(GroupId, group, TestContext.Current.CancellationToken);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+
+        Assert.False((await GetSecondaryGameAsync()).CanEdit);
+        var team = CreateTeam(Owner, "Home");
+        var response = useSwitch
+            ? await SwitchInLeagueAsync(SecondaryLeagueId,
+                team.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward).Key,
+                team.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward).Key)
+            : await SaveAsync(team, leagueId: SecondaryLeagueId);
+        Assert.Contains("non sono abilitate", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Secondary_league_cannot_bypass_live_deadline(bool useSwitch)
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(-5), includeLeagueWithoutLiveChanges: true);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        Assert.False((await GetSecondaryGameAsync()).CanEdit);
+        var team = CreateTeam(Owner, "Home");
+        var response = useSwitch
+            ? await SwitchInLeagueAsync(SecondaryLeagueId,
+                team.ActivePlayers.First(x => x.Position == FantaSoccerRole.Forward).Key,
+                team.ActivePlayers.First(x => x.Position == FantaSoccerRole.FirstBackupForward).Key)
+            : await SaveAsync(team, leagueId: SecondaryLeagueId);
+        Assert.Contains("finestra per le modifiche live è terminata", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -307,15 +433,27 @@ public sealed class GameApiTests : IAsyncLifetime
         Assert.Empty(saved?.FormationChangeHistory ?? []);
     }
 
-    private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live", bool asAdmin = false)
+    private async Task<GameWrapper> GetSecondaryGameAsync()
+    {
+        var response = await _client.GetAsync(
+            $"/Game/Get?groupId={GroupId}&leagueId={SecondaryLeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode=live",
+            TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        return JsonSerializer.Deserialize<GameWrapper>(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
+    }
+
+    private Task<HttpResponseMessage> SaveAsync(Team team, string editMode = "live", bool asAdmin = false, string leagueId = LeagueId)
         => _client.PostAsync(
-            $"/Game/SaveTeam?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode={editMode}&asAdmin={asAdmin}",
+            $"/Game/SaveTeam?groupId={GroupId}&leagueId={leagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&editMode={editMode}&asAdmin={asAdmin}",
             new StringContent(JsonSerializer.Serialize(team), Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
 
     private Task<HttpResponseMessage> SwitchAsync(params string[] playerKeys)
+        => SwitchInLeagueAsync(LeagueId, playerKeys);
+
+    private Task<HttpResponseMessage> SwitchInLeagueAsync(string leagueId, params string[] playerKeys)
         => _client.PostAsync(
-            $"/Game/Switch?groupId={GroupId}&leagueId={LeagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&asAdmin=false",
+            $"/Game/Switch?groupId={GroupId}&leagueId={leagueId}&year={FantacalcioTime.ActualYear}&gameId={GameId}&asAdmin=false",
             new StringContent(JsonSerializer.Serialize(new { playerKeys }), Encoding.UTF8, "application/json"),
             TestContext.Current.CancellationToken);
 
@@ -329,6 +467,7 @@ public sealed class GameApiTests : IAsyncLifetime
             new()
             {
                 Id = LeagueId,
+                IsMain = true,
                 Name = "Game league",
                 Type = LeagueType.League,
                 BasketsId = [BasketId],
@@ -337,9 +476,19 @@ public sealed class GameApiTests : IAsyncLifetime
         };
         if (includeLeagueWithoutLiveChanges)
         {
+            // Another main league in the same group must not supply this basket's edit rules.
+            leagues.Insert(0, new League
+            {
+                Id = "game-api-unrelated-main-league",
+                Name = "Other main league",
+                IsMain = true,
+                Type = LeagueType.League,
+                BasketsId = ["another-basket"],
+                Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = LeagueSetting.Default }]
+            });
             leagues.Add(new League
             {
-                Id = "game-api-restrictive-league",
+                Id = SecondaryLeagueId,
                 Name = "Restrictive league",
                 Type = LeagueType.League,
                 BasketsId = [BasketId],
@@ -416,6 +565,11 @@ public sealed class GameApiTests : IAsyncLifetime
                 ]
             }
         }, cancellationToken);
+        if (includeLeagueWithoutLiveChanges)
+        {
+            var calendar = await _calendars.GetAsync(CalendarKey(), cancellationToken);
+            await _calendars.InsertAsync(CalendarKey(SecondaryLeagueId), calendar!, cancellationToken);
+        }
         await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, new RealCalendar
         {
             Year = FantacalcioTime.ActualYear,
@@ -437,13 +591,14 @@ public sealed class GameApiTests : IAsyncLifetime
     {
         await _teams.DeleteAsync(TeamKey(Owner), cancellationToken);
         await _calendars.DeleteAsync(CalendarKey(), cancellationToken);
+        await _calendars.DeleteAsync(CalendarKey(SecondaryLeagueId), cancellationToken);
         await _groups.DeleteAsync(GroupId, cancellationToken);
         await _users.DeleteAsync(Owner, cancellationToken);
         await _users.DeleteAsync(Admin, cancellationToken);
     }
 
-    private static LeagueKey CalendarKey()
-        => new() { Group = GroupId, League = LeagueId, Year = FantacalcioTime.ActualYear };
+    private static LeagueKey CalendarKey(string leagueId = LeagueId)
+        => new() { Group = GroupId, League = leagueId, Year = FantacalcioTime.ActualYear };
 
     private static TeamDayKey TeamKey(string owner)
         => new() { Group = GroupId, BasketId = BasketId, Year = FantacalcioTime.ActualYear, Day = 7, Email = owner };

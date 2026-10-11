@@ -164,9 +164,6 @@ namespace Fantasoccer.Application.Api.Controllers
             var liveDay = realCalendar?.LiveDay?.SerieADay ?? realCalendar?.NextDay?.SerieADay;
             if (liveDay != gameResult!.Value.SerieADay || realCalendar?.IsLiveFormationWindowOpen != true)
                 return new TeamResponse(false, "La finestra per le modifiche live è terminata.");
-            var settings = annualLeague.Settings ?? LeagueSetting.Default;
-            if (settings.LiveFormationChanges <= 0) return new TeamResponse(false, "Le modifiche live non sono abilitate per questa lega.");
-
             var candidates = new List<(TeamDayKey Key, Team Team, AnnualTeam AnnualTeam)>();
             foreach (var owner in new[] { game.HomeOwner, game.AwayOwner })
             {
@@ -181,6 +178,8 @@ namespace Fantasoccer.Application.Api.Controllers
             if (candidate.Team == null) return new TeamResponse(false, "Squadra giornaliera non trovata.");
             var isAdmin = asAdmin == true && identityGroup.Role.HasFlag(IdentityRole.SuperAdmin);
             if (!candidate.AnnualTeam.IsOwner(User.Identity.Name) && !isAdmin) return new TeamResponse(false, "Non sei l'owner della squadra.");
+            var settings = GetFormationLeague(group, league, candidate.Key.BasketId, year).Settings ?? LeagueSetting.Default;
+            if (settings.LiveFormationChanges <= 0) return new TeamResponse(false, "Le modifiche live non sono abilitate per questa lega.");
             if (candidate.Team.FormationChanges >= settings.LiveFormationChanges) return new TeamResponse(false, "Hai raggiunto il numero massimo di modifiche per questa giornata.");
             var selected = candidate.Team.ActivePlayers.Where(p => players.PlayerKeys.Contains(p.Key, StringComparer.OrdinalIgnoreCase)).ToList();
             if (selected.Count != 2 || selected[0].Role != selected[1].Role || selected[0].Role is not (Role.GoalKeeper or Role.Defensor or Role.Midfielder or Role.Forward))
@@ -284,7 +283,7 @@ namespace Fantasoccer.Application.Api.Controllers
             var isLiveFormationWindowOpen =
                 (liveEditDay == game.SerieADay && realCalendar?.IsLiveFormationWindowOpen == true) ||
                 isUpcomingLiveDay;
-            var liveSettings = GetLiveFormationSettings(annualLeague);
+            var liveSettings = GetLiveFormationSettings(GetFormationLeague(group, league, basket.Id, year.Value));
             if (isFormationEdit && !isSuperAdmin && realCalendar?.NextDay?.SerieADay != game.SerieADay)
                 return new TeamResponse(false, "Da La mia formazione puoi modificare solo la prossima giornata.");
             if (isLiveFormationChange)
@@ -428,7 +427,8 @@ namespace Fantasoccer.Application.Api.Controllers
                     .FirstOrDefault(x => string.Equals(x.Owner, owner, StringComparison.OrdinalIgnoreCase));
                 if (basket == null || annualTeam == null)
                     return default;
-                ownerContexts.Add((owner, basket, annualTeam, annualLeague.Settings?.LiveFormationChanges ?? LeagueSetting.Default.LiveFormationChanges));
+                var formationLeague = GetFormationLeague(group, league, basket.Id, year);
+                ownerContexts.Add((owner, basket, annualTeam, GetLiveFormationSettings(formationLeague).Maximum));
             }
             var leagueSettings = annualLeague.Settings ?? LeagueSetting.Default;
             var leagueType = annualLeague.Type == LeagueType.Null ? (league.Type == LeagueType.Null ? LeagueType.League : league.Type) : annualLeague.Type;
@@ -486,7 +486,7 @@ namespace Fantasoccer.Application.Api.Controllers
                 {
                     Name = team?.Name ?? (isInHome ? game.Value.Home : game.Value.Away),
                     Owner = team?.Owner ?? annualTeam.Owner,
-                    AdditionalOwners = team?.AdditionalOwners ?? annualTeam.AdditionalOwners ?? [],
+                    AdditionalOwners = annualTeam.AdditionalOwners ?? [],
                     Players = [.. currentPlayers.Select(x =>
                     {
                         var isGameUpcoming = x.RealGame?.Date is DateTime gameDate &&
@@ -538,6 +538,17 @@ namespace Fantasoccer.Application.Api.Controllers
                 LiveFormationDeadline = liveFormationDeadline,
                 LiveFormationChangesRemaining = liveFormationChangesRemaining,
             };
+        }
+
+        // A formation is shared by basket, even when it is viewed through a secondary competition.
+        // Use that basket's main league for editing rules, but keep the viewed league for scoring.
+        private static AnnualLeague GetFormationLeague(Group group, League viewedLeague, string basketId, int year)
+        {
+            return group.Leagues
+                .Where(league => league.IsMain && league.BasketsId.Contains(basketId, StringComparer.OrdinalIgnoreCase))
+                .SelectMany(league => league.Years)
+                .FirstOrDefault(annualLeague => annualLeague.Year == year)
+                ?? viewedLeague.Years.First(annualLeague => annualLeague.Year == year);
         }
 
         private static (int Maximum, bool AllowModuleChange) GetLiveFormationSettings(AnnualLeague annualLeague)
