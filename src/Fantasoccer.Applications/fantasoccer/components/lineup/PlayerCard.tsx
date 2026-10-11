@@ -21,6 +21,7 @@ import {
 import { IconFactory } from './icons';
 import { calculatePlayerStats, getTrendVisual } from 'utils/statPlayerCalculator';
 import { getPlayerKey } from 'utils/keyUtils';
+import { usePlayerImageRevision } from 'hooks/usePlayerImageRevision';
 
 // Dimensioni base esportate della PlayerCard per allineare altri componenti (es. badge ruoli panchina)
 export const PLAYER_CARD_WIDTH = 112;
@@ -129,7 +130,7 @@ export function PlayerCard({
   isKeyboardSelected = false,
   statPlayersMap,
 }: PlayerCardProps) {
-  const [useFallbackImage, setUseFallbackImage] = useState(false);
+  const [failedImageUri, setFailedImageUri] = useState<string | null>(null);
   const [isBlinking, setIsBlinking] = useState(false);
 
   const current = (player as any).current ?? (player as any);
@@ -141,6 +142,7 @@ export function PlayerCard({
   const name = current?.name ?? 'Giocatore';
   const teamName = current?.team?.name ?? '';
   const playerKey = getPlayerKey(name); // Genera chiave normalizzata dal nome
+  const imageRevision = usePlayerImageRevision(playerKey);
 
   // Lookup StatPlayer per calcoli trend/positiveness
   const statPlayer = useMemo(() => {
@@ -156,10 +158,10 @@ export function PlayerCard({
   }, [statPlayer]);
 
   const { src, fallback } = useMemo(
-    () => getPlayerImageUrlFromName(current?.name),
-    [current?.name]
+    () => getPlayerImageUrlFromName(current?.name, imageRevision),
+    [current?.name, imageRevision]
   );
-  const imageUri = useFallbackImage ? fallback : src;
+  const imageUri = failedImageUri === src ? fallback : src;
 
   const voteLabel = vote
     ? typeof vote.value === 'number'
@@ -539,7 +541,7 @@ export function PlayerCard({
           width={cardWidth}
           height={cardHeight}
           objectFit="cover"
-          onError={() => setUseFallbackImage(true)}
+          onError={() => setFailedImageUri(src)}
           position="absolute"
           top={0}
           left={0}

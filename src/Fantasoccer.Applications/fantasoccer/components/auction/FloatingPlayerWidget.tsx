@@ -5,6 +5,8 @@ import { StatPlayer } from 'types/auction'
 import { Entity } from 'types/default'
 import { Team, TeamKey } from 'types/team'
 import { getPlayerImageUrlFromName } from 'utils/playerImage'
+import { getPlayerKey } from 'utils/keyUtils'
+import { usePlayerImageRevision } from 'hooks/usePlayerImageRevision'
 
 export interface FloatingPlayerWidgetProps {
   currentPlayer: StatPlayer | null
@@ -25,15 +27,16 @@ export function FloatingPlayerWidget({
   onIncrementBid,
   disabled = false
 }: FloatingPlayerWidgetProps) {
-  const [useFallbackImage, setUseFallbackImage] = useState(false)
+  const [failedImageUri, setFailedImageUri] = useState<string | null>(null)
+  const imageRevision = usePlayerImageRevision(getPlayerKey(currentPlayer?.name ?? ''))
 
   if (!currentPlayer) return null
 
   const winningTeam = teams.find(t => t.value.owner === currentBidder)
   
   // Usa la stessa logica di PlayerCard per le immagini
-  const { src, fallback } = getPlayerImageUrlFromName(currentPlayer.name)
-  const playerImageUrl = useFallbackImage ? fallback : src
+  const { src, fallback } = getPlayerImageUrlFromName(currentPlayer.name, imageRevision)
+  const playerImageUrl = failedImageUri === src ? fallback : src
 
   return (
     <YStack
@@ -94,7 +97,7 @@ export function FloatingPlayerWidget({
             width={110}
             height={110}
             objectFit="cover"
-            onError={() => setUseFallbackImage(true)}
+            onError={() => setFailedImageUri(src)}
           />
         </Circle>
 

@@ -21,6 +21,7 @@ import {
 } from '../../utils/teamValidation';
 import gameService, { type GameEditMode } from '../../services/gameService';
 import { getPlayerKey } from '../../utils/keyUtils';
+import { reloadPlayerImage } from '../../services/playerImageService';
 
 // SVG field background as a React component with responsive orientation
 interface SoccerFieldSVGProps {
@@ -436,11 +437,11 @@ export const SoccerField = memo(
     const handlePlayerContextMenu = (
       event: any,
       player: LivePlayer,
-      teamIndex: number,
-      isMyTeam: boolean
+      teamIndex: number
     ) => {
-      if (isMobile || !canEdit || !isMyTeam || isLiveEdit) return;
+      if (isMobile || !user) return;
       event?.preventDefault?.();
+      event?.stopPropagation?.();
       const contextEvent = event?.nativeEvent ?? event;
       setQuickMenu({
         player,
@@ -500,12 +501,14 @@ export const SoccerField = memo(
     };
 
     const handleQuickMoveToPosition = (targetPosition: FantaSoccerRole) => {
-      if (!quickMenu) return;
+      if (!quickMenu || isLiveEdit || !(quickMenu.teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam))
+        return;
       applyPlayerMove(quickMenu.player, quickMenu.teamIndex, targetPosition);
     };
 
     const handleQuickSwap = (targetPlayer: LivePlayer) => {
-      if (!quickMenu) return;
+      if (!quickMenu || isLiveEdit || !(quickMenu.teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam))
+        return;
       applyPlayerSwap(quickMenu.player, targetPlayer, quickMenu.teamIndex);
     };
 
@@ -1160,8 +1163,7 @@ export const SoccerField = memo(
       roleLabel: string,
       backgroundColor: string,
       roleIcon: string,
-      teamIndex: number, // 0 = home, 1 = away
-      isMyTeam: boolean // se è il mio team
+      teamIndex: number // 0 = home, 1 = away
     ) => {
       if (players.length === 0) return null;
 
@@ -1227,7 +1229,7 @@ export const SoccerField = memo(
                   player={player}
                   onPress={() => handlePlayerClick(player, teamIndex)}
                   onContextMenu={(event) =>
-                    handlePlayerContextMenu(event, player, teamIndex, isMyTeam)
+                    handlePlayerContextMenu(event, player, teamIndex)
                   }
                   isKeyboardSelected={isKeyboardSelected(player, teamIndex)}
                   statPlayersMap={statPlayersMap}
@@ -1558,7 +1560,6 @@ export const SoccerField = memo(
             // Determina se questa stripe appartiene a home (0-3) o away (4-7)
             const isHomeStripe = stripeIndex < 4;
             const teamIndex = isHomeStripe ? 0 : 1;
-            const isMyTeam = isHomeStripe ? homeIsMyTeam : awayIsMyTeam;
 
             if (isMobile) {
               // Mobile: vertical layout with horizontal rows
@@ -1590,7 +1591,7 @@ export const SoccerField = memo(
                         player={p}
                         onPress={() => handlePlayerClick(p, teamIndex)}
                         onContextMenu={(event) =>
-                          handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
+                          handlePlayerContextMenu(event, p, teamIndex)
                         }
                         isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
@@ -1629,7 +1630,7 @@ export const SoccerField = memo(
                         player={p}
                         onPress={() => handlePlayerClick(p, teamIndex)}
                         onContextMenu={(event) =>
-                          handlePlayerContextMenu(event, p, teamIndex, isMyTeam)
+                          handlePlayerContextMenu(event, p, teamIndex)
                         }
                         isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
@@ -1662,8 +1663,7 @@ export const SoccerField = memo(
                 'PORTIERI',
                 '#f59e0b',
                 '🥅',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.defenders,
@@ -1671,8 +1671,7 @@ export const SoccerField = memo(
                 'DIFENSORI',
                 '#3b82f6',
                 '🛡️',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.midfielders,
@@ -1680,8 +1679,7 @@ export const SoccerField = memo(
                 'CENTROCAMPISTI',
                 '#10b981',
                 '⚽',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.forwards,
@@ -1689,8 +1687,7 @@ export const SoccerField = memo(
                 'ATTACCANTI',
                 '#ef4444',
                 '🎯',
-                0,
-                homeIsMyTeam
+                0
               )}
               {homeBench.length === 0 && (
                 <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
@@ -1718,8 +1715,7 @@ export const SoccerField = memo(
                 'PORTIERI',
                 '#f59e0b',
                 '🥅',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.defenders,
@@ -1727,8 +1723,7 @@ export const SoccerField = memo(
                 'DIFENSORI',
                 '#3b82f6',
                 '🛡️',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.midfielders,
@@ -1736,8 +1731,7 @@ export const SoccerField = memo(
                 'CENTROCAMPISTI',
                 '#10b981',
                 '⚽',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.forwards,
@@ -1745,8 +1739,7 @@ export const SoccerField = memo(
                 'ATTACCANTI',
                 '#ef4444',
                 '🎯',
-                1,
-                awayIsMyTeam
+                1
               )}
               {awayBench.length === 0 && (
                 <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
@@ -1775,8 +1768,7 @@ export const SoccerField = memo(
                 'PORTIERI',
                 '#f59e0b',
                 '🥅',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.defenders,
@@ -1784,8 +1776,7 @@ export const SoccerField = memo(
                 'DIFENSORI',
                 '#3b82f6',
                 '🛡️',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.midfielders,
@@ -1793,8 +1784,7 @@ export const SoccerField = memo(
                 'CENTROCAMPISTI',
                 '#10b981',
                 '⚽',
-                0,
-                homeIsMyTeam
+                0
               )}
               {renderBenchSection(
                 homeBenchGroups.forwards,
@@ -1802,8 +1792,7 @@ export const SoccerField = memo(
                 'ATTACCANTI',
                 '#ef4444',
                 '🎯',
-                0,
-                homeIsMyTeam
+                0
               )}
               {homeBench.length === 0 && (
                 <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
@@ -1829,8 +1818,7 @@ export const SoccerField = memo(
                 'PORTIERI',
                 '#f59e0b',
                 '🥅',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.defenders,
@@ -1838,8 +1826,7 @@ export const SoccerField = memo(
                 'DIFENSORI',
                 '#3b82f6',
                 '🛡️',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.midfielders,
@@ -1847,8 +1834,7 @@ export const SoccerField = memo(
                 'CENTROCAMPISTI',
                 '#10b981',
                 '⚽',
-                1,
-                awayIsMyTeam
+                1
               )}
               {renderBenchSection(
                 awayBenchGroups.forwards,
@@ -1856,8 +1842,7 @@ export const SoccerField = memo(
                 'ATTACCANTI',
                 '#ef4444',
                 '🎯',
-                1,
-                awayIsMyTeam
+                1
               )}
               {awayBench.length === 0 && (
                 <Text fontSize={14} color="$gray10" fontStyle="italic" textAlign="center">
@@ -1900,7 +1885,7 @@ export const SoccerField = memo(
                         player={player}
                         onPress={() => handlePlayerClick(player, 0)}
                         onContextMenu={(event) =>
-                          handlePlayerContextMenu(event, player, 0, homeIsMyTeam)
+                          handlePlayerContextMenu(event, player, 0)
                         }
                         isKeyboardSelected={isKeyboardSelected(player, 0)}
                         statPlayersMap={statPlayersMap}
@@ -1946,7 +1931,7 @@ export const SoccerField = memo(
                         player={player}
                         onPress={() => handlePlayerClick(player, 1)}
                         onContextMenu={(event) =>
-                          handlePlayerContextMenu(event, player, 1, awayIsMyTeam)
+                          handlePlayerContextMenu(event, player, 1)
                         }
                         isKeyboardSelected={isKeyboardSelected(player, 1)}
                         statPlayersMap={statPlayersMap}
@@ -1966,15 +1951,34 @@ export const SoccerField = memo(
         </YStack>
 
         {/* MODALE PER EDITING */}
-        <QuickPlayerMenu
-          open={quickMenu !== null}
-          player={quickMenu?.player ?? null}
-          allPlayers={quickMenu?.teamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])}
-          anchor={quickMenu?.anchor ?? { x: 0, y: 0 }}
-          onClose={closeQuickMenu}
-          onMoveToPosition={handleQuickMoveToPosition}
-          onSwap={handleQuickSwap}
-        />
+        {quickMenu && (
+          <QuickPlayerMenu
+            key={`${quickMenu.teamIndex}/${quickMenu.player.current.name}`}
+            open
+            player={quickMenu.player}
+            allPlayers={quickMenu.teamIndex === 0 ? (home?.players ?? []) : (away?.players ?? [])}
+            anchor={quickMenu.anchor}
+            onClose={closeQuickMenu}
+            onMoveToPosition={handleQuickMoveToPosition}
+            onSwap={handleQuickSwap}
+            canEditFormation={!isLiveEdit && (quickMenu.teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam)}
+            onViewPlayer={() => {
+              setSelectedPlayer(quickMenu.player);
+              setViewModalOpen(true);
+              closeQuickMenu();
+            }}
+            onReloadImage={
+              groupId && year != null
+                ? async () => {
+                    await reloadPlayerImage(groupId, year, getPlayerKey(quickMenu.player.current.name));
+                    toast.show('Foto aggiornata', {
+                      message: 'La nuova immagine è stata salvata ed è condivisa con tutti gli utenti.',
+                    });
+                  }
+                : undefined
+            }
+          />
+        )}
         <PlayerSwapModal
           isOpen={modalOpen}
           onClose={() => {

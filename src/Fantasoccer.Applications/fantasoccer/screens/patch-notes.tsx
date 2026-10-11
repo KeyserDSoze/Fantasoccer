@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.58',
+    date: '11 Ottobre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Aggiunta sulla carta giocatore l’azione per riscaricare la foto ufficiale e aggiornare l’immagine condivisa',
+      },
+    ],
+  },
+  {
     version: '2.0.57',
     date: '11 Ottobre 2026',
     changes: [

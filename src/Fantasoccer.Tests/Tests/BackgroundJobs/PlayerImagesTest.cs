@@ -1,5 +1,6 @@
 using System.Net;
 using Fantasoccer.Engine.IngestionData;
+using Fantasoccer.Business.Services;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 using Rystem.Content;
@@ -12,6 +13,7 @@ public sealed class PlayerImagesTest : IAsyncLifetime
     private const string PreviousPlayerImage = "players/previousimageplayer.jpg";
     private const string CurrentPlayerImage = "players/currentimageplayer.jpg";
     private readonly PlayerImagesJob _job;
+    private readonly PlayerImageService _service;
     private readonly TestPlayerImagesHandler _handler;
     private readonly IRepository<RealPlayersWrapper, int> _players;
     private readonly IContentRepository _images;
@@ -19,11 +21,13 @@ public sealed class PlayerImagesTest : IAsyncLifetime
 
     public PlayerImagesTest(
         PlayerImagesJob job,
+        PlayerImageService service,
         TestPlayerImagesHandler handler,
         IRepository<RealPlayersWrapper, int> players,
         IFactory<IContentRepository> contentFactory)
     {
         _job = job;
+        _service = service;
         _handler = handler;
         _players = players;
         _images = contentFactory.Create("images")!;
@@ -115,6 +119,72 @@ public sealed class PlayerImagesTest : IAsyncLifetime
         Assert.False(await _images.ExistAsync(PreviousPlayerImage, TestContext.Current.CancellationToken));
         var current = await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(new byte[] { 4, 5, 6 }, current?.Data);
+    }
+
+    [Fact]
+    public async Task ManualReloadOverwritesExistingBlobAndRereadsSource()
+    {
+        var player = CreatePlayer("Current Image Player", "Milan", Role.Defensor);
+        await _images.UploadAsync(CurrentPlayerImage, [9], new ContentRepositoryOptions
+        {
+            HttpHeaders = new ContentRepositoryHttpHeaders { ContentType = "image/webp" }
+        }, true, TestContext.Current.CancellationToken);
+        _handler.Response = Response;
+
+        Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 4, 5, 6 }, (await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken))?.Data);
+        _handler.Response = request => request.RequestUri!.AbsolutePath.EndsWith("current-player.webp") ? ImageResponse([7, 8]) : Response(request);
+        Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 7, 8 }, (await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken))?.Data);
+        Assert.Equal(2, _handler.Requests.Count(x => x.Host == "media-sdp.legaseriea.it"));
+    }
+
+    [Fact]
+    public async Task ManualReloadUsesPreviousSeasonFallback()
+    {
+        _handler.Response = Response;
+        Assert.True(await _service.ReloadAsync(CreatePlayer("Previous Image Player", "Roma", Role.Forward), TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 1, 2, 3 }, (await _images.DownloadAsync(PreviousPlayerImage, cancellationToken: TestContext.Current.CancellationToken))?.Data);
+    }
+
+    [Fact]
+    public async Task ManualReloadDoesNotReplaceImageForWrongRoleOrUnknownPlayer()
+    {
+        _handler.Response = Response;
+        await _images.UploadAsync(CurrentPlayerImage, [9], overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(await _service.ReloadAsync(CreatePlayer("Current Image Player", "Milan", Role.Forward), TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 9 }, (await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken))?.Data);
+        Assert.DoesNotContain(_handler.Requests, x => x.Host == "media-sdp.legaseriea.it");
+    }
+
+    [Fact]
+    public async Task ManualReloadRejectsImageUrlsOutsideOfficialHost()
+    {
+        _handler.Response = request => request.RequestUri!.Query.Contains("page=2")
+            ? JsonResponse(CurrentPlayersPageTwoJson.Replace("playerImages/current-player.webp", "http://127.0.0.1/private"))
+            : Response(request);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => _service.ReloadAsync(CreatePlayer("Current Image Player", "Milan", Role.Defensor), TestContext.Current.CancellationToken));
+        Assert.DoesNotContain(_handler.Requests, x => x.Host == "127.0.0.1");
+    }
+
+    [Theory]
+    [InlineData("text/html", false)]
+    [InlineData("image/svg+xml", false)]
+    [InlineData("image/webp", true)]
+    public async Task ManualReloadPreservesExistingImageWhenSourceIsInvalid(string contentType, bool empty)
+    {
+        await _images.UploadAsync(CurrentPlayerImage, [9], overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
+        _handler.Response = request =>
+        {
+            if (!request.RequestUri!.AbsolutePath.EndsWith("current-player.webp")) return Response(request);
+            var response = ImageResponse(empty ? [] : [1]);
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            return response;
+        };
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => _service.ReloadAsync(CreatePlayer("Current Image Player", "Milan", Role.Defensor), TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 9 }, (await _images.DownloadAsync(CurrentPlayerImage, cancellationToken: TestContext.Current.CancellationToken))?.Data);
     }
 
     private HttpResponseMessage Response(HttpRequestMessage request)
