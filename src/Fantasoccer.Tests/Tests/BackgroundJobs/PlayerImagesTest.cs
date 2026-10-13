@@ -185,6 +185,53 @@ public sealed class PlayerImagesTest : IAsyncLifetime
         }
     }
 
+    [Theory]
+    [InlineData(Role.Defensor, 2, true)]
+    [InlineData(Role.Defensor, 3, true)]
+    [InlineData(Role.Defensor, 4, false)]
+    [InlineData(Role.Midfielder, 2, true)]
+    [InlineData(Role.Midfielder, 3, true)]
+    [InlineData(Role.Midfielder, 4, true)]
+    [InlineData(Role.Midfielder, 1, false)]
+    [InlineData(Role.Forward, 3, true)]
+    [InlineData(Role.Forward, 4, true)]
+    [InlineData(Role.Forward, 2, false)]
+    [InlineData(Role.GoalKeeper, 1, true)]
+    [InlineData(Role.GoalKeeper, 2, false)]
+    public async Task ManualReloadUsesAdjacentRolesButKeepsGoalkeepersSeparate(Role playerRole, int sourceRole, bool expected)
+    {
+        var player = CreatePlayer("Role Match Player", "Team", playerRole);
+        _handler.Response = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return JsonResponse(SeasonsJson);
+            if (request.RequestUri.AbsolutePath.Contains("current-season"))
+                return JsonResponse($$"""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": [{
+                        "shortName": "Role Match Player",
+                        "displayName": "Role Match Player",
+                        "role": {{sourceRole}},
+                        "team": { "shortName": "Team", "officialName": "Team", "acronymName": "T" },
+                        "imagery": { "playerImage_home_middle": "playerImages/role-match.webp" }
+                      }]
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.Contains("previous-season")) return JsonResponse(PreviousPlayersJson);
+            if (request.RequestUri.AbsolutePath.EndsWith("role-match.webp")) return ImageResponse([1, 2, 3]);
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        try
+        {
+            Assert.Equal(expected, await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            await _images.DeleteAsync($"players/{player.Key}.jpg", TestContext.Current.CancellationToken);
+        }
+    }
+
     [Fact]
     public async Task ManualReloadDoesNotReplaceImageForWrongRoleOrUnknownPlayer()
     {

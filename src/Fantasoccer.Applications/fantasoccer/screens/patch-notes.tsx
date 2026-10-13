@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.61',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Il match delle foto tollera ruoli adiacenti senza confondere i portieri',
+      },
+      {
+        category: 'Feature',
+        description: 'Su mobile il menu rapido del giocatore si apre tenendo premuta la carta',
+      },
+    ],
+  },
+  {
     version: '2.0.60',
     date: '13 Ottobre 2026',
     changes: [

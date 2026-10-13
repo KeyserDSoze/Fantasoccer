@@ -122,12 +122,13 @@ public sealed class PlayerImageService(
             Role.GoalKeeper => 1, Role.Defensor => 2, Role.Midfielder => 3, Role.Forward => 4, _ => 0
         };
         var candidates = sourcePlayers
-            .Where(x => role == 0 || x.Role == role)
+            .Where(x => IsRoleCompatible(role, x.Role))
             .Select(x => new
             {
                 Player = x,
                 Path = GetImagePath(x),
-                NameScore = Names(x).Max(value => NameSimilarity(name, value))
+                NameScore = Names(x).Max(value => NameSimilarity(name, value)),
+                RoleDistance = RoleDistance(role, x.Role)
             })
             .Where(x => x.Path != null)
             .Where(x => x.NameScore >= 0.84)
@@ -135,8 +136,21 @@ public sealed class PlayerImageService(
         return candidates
             .OrderByDescending(x => !string.IsNullOrWhiteSpace(team) && TeamNames(x.Player).Any(value => NormalizeName(value) == team))
             .ThenByDescending(x => x.NameScore)
+            .ThenBy(x => x.RoleDistance)
             .FirstOrDefault()?.Path;
     }
+
+    private static bool IsRoleCompatible(int playerRole, int sourceRole)
+    {
+        // Goalkeepers never cross-match with outfield roles. For outfield players,
+        // allow only adjacent positions: defender-midfielder-forward.
+        if (playerRole == 0 || sourceRole == 0) return true;
+        if (playerRole == 1 || sourceRole == 1) return playerRole == sourceRole;
+        return Math.Abs(playerRole - sourceRole) <= 1;
+    }
+
+    private static int RoleDistance(int playerRole, int sourceRole)
+        => playerRole == 0 || sourceRole == 0 ? 0 : Math.Abs(playerRole - sourceRole);
 
     private static double NameSimilarity(string name, string? candidate)
     {

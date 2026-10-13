@@ -453,6 +453,25 @@ export const SoccerField = memo(
       });
     };
 
+    const handlePlayerLongPress = (
+      event: any,
+      player: LivePlayer,
+      teamIndex: number
+    ) => {
+      if (!isMobile || !user) return;
+      event?.preventDefault?.();
+      event?.stopPropagation?.();
+      const touchEvent = event?.nativeEvent ?? event;
+      setQuickMenu({
+        player,
+        teamIndex,
+        anchor: {
+          x: touchEvent?.clientX ?? touchEvent?.pageX ?? 0,
+          y: touchEvent?.clientY ?? touchEvent?.pageY ?? 0,
+        },
+      });
+    };
+
     const closeQuickMenu = () => setQuickMenu(null);
 
     const commitQuickTeamChange = (teamIndex: number, players: LivePlayer[]) => {
@@ -1231,6 +1250,11 @@ export const SoccerField = memo(
                   onContextMenu={(event) =>
                     handlePlayerContextMenu(event, player, teamIndex)
                   }
+                  onLongPress={
+                    isMobile && user
+                      ? (event) => handlePlayerLongPress(event, player, teamIndex)
+                      : undefined
+                  }
                   isKeyboardSelected={isKeyboardSelected(player, teamIndex)}
                   statPlayersMap={statPlayersMap}
                 />
@@ -1593,6 +1617,11 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, p, teamIndex)
                         }
+                        onLongPress={
+                          isMobile && user
+                            ? (event) => handlePlayerLongPress(event, p, teamIndex)
+                            : undefined
+                        }
                         isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
                       />
@@ -1631,6 +1660,11 @@ export const SoccerField = memo(
                         onPress={() => handlePlayerClick(p, teamIndex)}
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, p, teamIndex)
+                        }
+                        onLongPress={
+                          isMobile && user
+                            ? (event) => handlePlayerLongPress(event, p, teamIndex)
+                            : undefined
                         }
                         isKeyboardSelected={isKeyboardSelected(p, teamIndex)}
                         statPlayersMap={statPlayersMap}
@@ -1887,6 +1921,11 @@ export const SoccerField = memo(
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, player, 0)
                         }
+                        onLongPress={
+                          isMobile && user
+                            ? (event) => handlePlayerLongPress(event, player, 0)
+                            : undefined
+                        }
                         isKeyboardSelected={isKeyboardSelected(player, 0)}
                         statPlayersMap={statPlayersMap}
                       />
@@ -1932,6 +1971,11 @@ export const SoccerField = memo(
                         onPress={() => handlePlayerClick(player, 1)}
                         onContextMenu={(event) =>
                           handlePlayerContextMenu(event, player, 1)
+                        }
+                        onLongPress={
+                          isMobile && user
+                            ? (event) => handlePlayerLongPress(event, player, 1)
+                            : undefined
                         }
                         isKeyboardSelected={isKeyboardSelected(player, 1)}
                         statPlayersMap={statPlayersMap}

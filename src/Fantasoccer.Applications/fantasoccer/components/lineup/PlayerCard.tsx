@@ -31,6 +31,7 @@ export interface PlayerCardProps {
   player: LivePlayer;
   onPress?: () => void; // Callback opzionale per rendere la card cliccabile
   onContextMenu?: (event: any) => void; // Menu rapido desktop
+  onLongPress?: (event: any) => void; // Menu rapido mobile
   isKeyboardSelected?: boolean; // Selezione da tastiera
   statPlayersMap?: Map<string, StatPlayer>; // Mappa per lookup StatPlayer
 }
@@ -127,6 +128,7 @@ export function PlayerCard({
   player,
   onPress,
   onContextMenu,
+  onLongPress,
   isKeyboardSelected = false,
   statPlayersMap,
 }: PlayerCardProps) {
@@ -825,7 +827,11 @@ export function PlayerCard({
 
   // Render: wrappa sempre con Pressable se c'è onPress
   return onPress ? (
-    <Pressable onPress={onPress} {...(onContextMenu ? ({ onContextMenu } as any) : {})}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={onLongPress ? 1500 : undefined}
+      {...(onContextMenu ? ({ onContextMenu } as any) : {})}>
       {cardContent}
     </Pressable>
   ) : (
