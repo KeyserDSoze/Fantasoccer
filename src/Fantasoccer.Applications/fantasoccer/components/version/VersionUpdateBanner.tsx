@@ -1,4 +1,5 @@
 import { type FC, useEffect, useState } from 'react'
+import { Platform } from 'react-native'
 import { YStack, XStack, Card, Text, Button, Dialog } from 'tamagui'
 import { X, FileText } from '@tamagui/lucide-icons-2'
 import { APP_VERSION } from 'config/version'
@@ -63,7 +64,7 @@ export const VersionUpdateBanner: FC = () => {
     <>
       <Card
         position="absolute"
-        bottom={20}
+        bottom={Platform.OS === 'web' ? 190 : 210}
         right={20}
         width={350}
         maxWidth="90%"
@@ -71,8 +72,9 @@ export const VersionUpdateBanner: FC = () => {
         borderWidth={2}
         borderColor="$blue8"
         padding="$4"
-        zIndex={9999}
+        zIndex={10001}
         elevation={10}
+        style={Platform.OS === 'web' ? ({ position: 'fixed' } as const) : undefined}
       >
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="flex-start">
