@@ -12,6 +12,7 @@ import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
 import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
+import TeamSettingsScreen from 'screens/team-settings';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
 import MarketScreen from 'screens/market';
@@ -76,6 +77,7 @@ export type RootStackParamList = {
   CardsAdmin: undefined;
   CardEdit: { cardId?: string | null };
   Settings: undefined;
+  TeamSettings: undefined;
   Info: undefined;
   PatchNotes: undefined;
   PushNotification: undefined;
@@ -167,6 +169,7 @@ const linking = {
       CardsAdmin: 'cards-admin',
       CardEdit: 'card-edit/:cardId?',
       Settings: 'settings',
+      TeamSettings: 'team-settings',
       Info: 'info',
       PatchNotes: 'patch-notes',
       PushNotification: 'push-notification',
@@ -223,6 +226,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="CardsAdmin" component={CardsAdminScreen} />
         <Stack.Screen name="CardEdit" component={CardEditScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="TeamSettings" component={TeamSettingsScreen} />
         <Stack.Screen name="Info" component={InfoScreen} />
         <Stack.Screen name="PatchNotes" component={PatchNotesScreen} />
         <Stack.Screen name="PushNotification" component={PushNotificationScreen} />

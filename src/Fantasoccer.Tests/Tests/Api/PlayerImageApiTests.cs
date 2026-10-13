@@ -12,18 +12,32 @@ public sealed class PlayerImageApiTests : IAsyncLifetime
 {
     private const string Owner = "image-refresh@test.local";
     private const string GroupId = "image-refresh-group";
+    private const string BasketId = "image-refresh-basket";
     private readonly HttpClient _client;
     private readonly IRepository<AppIdentity, string> _users;
+    private readonly IRepository<Group, string> _groups;
+    private readonly IRepository<Team, TeamKey> _teams;
     private readonly IRepository<RealPlayersWrapper, int> _players;
     private readonly IContentRepository _images;
     private readonly TestPlayerImagesHandler _handler;
     private RealPlayersWrapper? _snapshot;
+    private Group? _groupSnapshot;
+    private Team? _teamSnapshot;
+    private readonly TeamKey _teamKey = new()
+    {
+        Group = GroupId,
+        Year = FantacalcioTime.ActualYear,
+        BasketId = BasketId,
+        Email = Owner
+    };
     private readonly RealPlayer _player = new() { Name = "API Image Player", Role = Role.Forward, RealTeam = new RealTeam { Name = "Roma" }, IsActive = true };
 
     public PlayerImageApiTests(ApiFactory factory)
     {
         _client = factory.CreateClient();
         _users = factory.Services.GetRequiredService<IRepository<AppIdentity, string>>();
+        _groups = factory.Services.GetRequiredService<IRepository<Group, string>>();
+        _teams = factory.Services.GetRequiredService<IRepository<Team, TeamKey>>();
         _players = factory.Services.GetRequiredService<IRepository<RealPlayersWrapper, int>>();
         _images = factory.Services.GetRequiredService<IFactory<IContentRepository>>().Create("images")!;
         _handler = factory.Services.GetRequiredService<TestPlayerImagesHandler>();
@@ -33,6 +47,10 @@ public sealed class PlayerImageApiTests : IAsyncLifetime
     {
         var ct = TestContext.Current.CancellationToken;
         _snapshot = await _players.GetAsync(FantacalcioTime.ActualYear, ct);
+        _groupSnapshot = await _groups.GetAsync(GroupId, ct);
+        _teamSnapshot = await _teams.GetAsync(_teamKey, ct);
+        await _groups.DeleteAsync(GroupId, ct);
+        await _teams.DeleteAsync(_teamKey, ct);
         await _players.DeleteAsync(FantacalcioTime.ActualYear, ct);
         await _players.InsertAsync(FantacalcioTime.ActualYear, new RealPlayersWrapper { Players = [_player] }, ct);
         await _users.InsertAsync(Owner, new AppIdentity
@@ -58,6 +76,10 @@ public sealed class PlayerImageApiTests : IAsyncLifetime
     {
         var ct = TestContext.Current.CancellationToken;
         await _users.DeleteAsync(Owner, ct);
+        await _groups.DeleteAsync(GroupId, ct);
+        await _teams.DeleteAsync(_teamKey, ct);
+        if (_groupSnapshot != null) await _groups.InsertAsync(GroupId, _groupSnapshot, ct);
+        if (_teamSnapshot != null) await _teams.InsertAsync(_teamKey, _teamSnapshot, ct);
         await _players.DeleteAsync(FantacalcioTime.ActualYear, ct);
         if (_snapshot != null) await _players.InsertAsync(FantacalcioTime.ActualYear, _snapshot, ct);
         await _images.DeleteAsync($"players/{_player.Key}.jpg", ct);
@@ -114,6 +136,90 @@ public sealed class PlayerImageApiTests : IAsyncLifetime
         _handler.Response = _ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         Assert.Equal(HttpStatusCode.BadGateway, (await ReloadAsync(GroupId, _player.Key)).StatusCode);
         Assert.Equal(new byte[] { 9 }, (await _images.DownloadAsync($"players/{_player.Key}.jpg", cancellationToken: TestContext.Current.CancellationToken))?.Data);
+    }
+
+    [Fact]
+    public async Task TeamReloadRefreshesActivePlayersAndReturnsPerPlayerSummary()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await _groups.InsertAsync(GroupId, new Group
+        {
+            Id = GroupId,
+            Name = "Image group",
+            Leagues = [],
+            Users = [],
+            Baskets =
+            [
+                new Basket
+                {
+                    Id = BasketId,
+                    Name = "Basket",
+                    Years =
+                    [
+                        new YearlyBasket
+                        {
+                            Year = FantacalcioTime.ActualYear,
+                            Teams = [new AnnualTeam { Name = "Image team", Owner = Owner, AdditionalOwners = [] }]
+                        }
+                    ]
+                }
+            ]
+        }, ct);
+        await _teams.InsertAsync(_teamKey, new Team
+        {
+            Name = "Image team",
+            Owner = Owner,
+            AdditionalOwners = [],
+            Players =
+            [
+                new Player
+                {
+                    Name = _player.Name,
+                    RealTeam = _player.RealTeam,
+                    Role = _player.Role,
+                    IsActive = true,
+                    Status = PlayerInTeamStatus.Active,
+                    Position = FantaSoccerRole.Forward
+                },
+                new Player
+                {
+                    Name = "Sold Player",
+                    RealTeam = _player.RealTeam,
+                    Role = Role.Forward,
+                    IsActive = true,
+                    Status = PlayerInTeamStatus.Sold,
+                    Position = FantaSoccerRole.Tribune
+                },
+                new Player
+                {
+                    Name = "No Official Photo Player",
+                    RealTeam = _player.RealTeam,
+                    Role = Role.Forward,
+                    IsActive = true,
+                    Status = PlayerInTeamStatus.Active,
+                    Position = FantaSoccerRole.Forward
+                }
+            ]
+        }, ct);
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+
+        var response = await _client.PostAsJsonAsync("/PlayerImage/ReloadTeam", new
+        {
+            groupId = GroupId,
+            year = FantacalcioTime.ActualYear,
+            basketId = BasketId,
+            owner = Owner
+        }, ct);
+
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(ct);
+        Assert.Equal(2, body.GetProperty("total").GetInt32());
+        Assert.Equal(1, body.GetProperty("succeededCount").GetInt32());
+        Assert.Equal(1, body.GetProperty("failedCount").GetInt32());
+        Assert.Equal(_player.Name, body.GetProperty("succeeded")[0].GetProperty("playerName").GetString());
+        Assert.True(Guid.TryParseExact(body.GetProperty("succeeded")[0].GetProperty("revision").GetString(), "N", out _));
+        Assert.Equal("No Official Photo Player", body.GetProperty("failed")[0].GetProperty("playerName").GetString());
+        Assert.Equal(new byte[] { 1, 2, 3 }, (await _images.DownloadAsync($"players/{_player.Key}.jpg", cancellationToken: ct))?.Data);
     }
 
     private Task<HttpResponseMessage> ReloadAsync(string groupId, string playerKey)

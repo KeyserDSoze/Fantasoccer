@@ -15,6 +15,25 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.63',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Aggiunte le impostazioni squadra per gestire logo, nome e immagini dei giocatori',
+      },
+      {
+        category: 'Improvement',
+        description: 'Il rinnovo delle immagini mostra il riepilogo dei giocatori non aggiornati',
+      },
+      {
+        category: 'Improvement',
+        description: 'Il menu rapido del giocatore si apre dopo un secondo di pressione prolungata',
+      },
+    ],
+  },
+  {
     version: '2.0.62',
     date: '13 Ottobre 2026',
     changes: [

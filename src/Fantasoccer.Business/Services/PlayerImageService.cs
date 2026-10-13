@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Threading.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +14,8 @@ namespace Fantasoccer.Business.Services;
 public sealed class PlayerImageService(
     IHttpClientFactory httpClientFactory,
     IRepository<RealPlayersWrapper, int> realPlayers,
-    IFactory<IContentRepository> contentFactory)
+    IFactory<IContentRepository> contentFactory,
+    ILock imageLock)
 {
     private const string CompetitionId = "serie-a::Football_Competition::ec93b94f74294dc98ab5bcfd67fc0d88";
     private static readonly Uri MediaBaseUri = new("https://media-sdp.legaseriea.it/");
@@ -54,6 +56,77 @@ public sealed class PlayerImageService(
         if (path == null) return false;
         await UploadAsync(player, path, cancellationToken);
         return true;
+    }
+
+    public async Task<IReadOnlyList<PlayerImageReloadResult>> ReloadManyAsync(
+        IReadOnlyCollection<RealPlayer> players,
+        CancellationToken cancellationToken)
+    {
+        List<SdpPlayer> sourcePlayers;
+        try
+        {
+            sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return players.Select(player => new PlayerImageReloadResult(
+                player.Key,
+                player.Name,
+                false,
+                "Catalogo immagini non disponibile.")).ToArray();
+        }
+
+        List<PlayerImageReloadResult> results = [];
+        foreach (var player in players.DistinctBy(x => x.Key))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var completed = false;
+            var succeeded = false;
+            string? error = null;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(45));
+
+            await imageLock.ExecuteAsync(async () =>
+            {
+                try
+                {
+                    var path = FindImagePath(player, sourcePlayers);
+                    if (path == null)
+                    {
+                        error = "Nessuna foto ufficiale disponibile.";
+                        return;
+                    }
+
+                    await UploadAsync(player, path, timeout.Token);
+                    succeeded = true;
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    error = "Aggiornamento scaduto per timeout.";
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    error = "Fonte immagini non disponibile o immagine non valida.";
+                }
+                finally
+                {
+                    completed = true;
+                }
+            }, $"player-image:{player.Key}");
+
+            if (!completed) error = "Aggiornamento già in corso.";
+            results.Add(new PlayerImageReloadResult(player.Key, player.Name, succeeded, error));
+        }
+
+        return results;
     }
 
     private static string ImageKey(RealPlayer player) => $"players/{player.Key}.jpg";
@@ -262,3 +335,5 @@ public sealed class PlayerImageService(
         public string? AcronymName { get; set; }
     }
 }
+
+public sealed record PlayerImageReloadResult(string PlayerKey, string PlayerName, bool Succeeded, string? Error);

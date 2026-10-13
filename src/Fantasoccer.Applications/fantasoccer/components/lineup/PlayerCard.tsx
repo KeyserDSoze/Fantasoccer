@@ -736,7 +736,7 @@ export function PlayerCard({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
-      delayLongPress={onLongPress ? 1500 : undefined}
+      delayLongPress={onLongPress ? 1000 : undefined}
       {...(onContextMenu ? ({ onContextMenu } as any) : {})}>
       {cardContent}
     </Pressable>
