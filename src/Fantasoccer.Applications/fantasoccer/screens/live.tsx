@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native'
+import type { RouteProp } from '@react-navigation/native'
 import { AlertTriangle, RefreshCw, Zap } from '@tamagui/lucide-icons-2'
 import { Button, Card, Paragraph, Spinner, Text, XStack, YStack, useMedia } from 'tamagui'
 
@@ -12,6 +14,7 @@ import { useGroupLeagues } from 'hooks/useGroup'
 import { enhanceRankWithTeamPositions } from 'types/rank'
 import type { EnhancedRankedTeam } from 'types/rank'
 import type { CalendarDay } from 'types/calendar'
+import type { NavigationProp, RootStackParamList } from 'navigation'
 
 type RoundLabelFormatter = (roundId: string) => string
 
@@ -43,16 +46,34 @@ export default function LiveScreen() {
 
   const media = useMedia()
   const isWideLayout = Boolean(media.gtMd)
+  const navigation = useNavigation<NavigationProp>()
+  const route = useRoute<RouteProp<RootStackParamList, 'Live'>>()
+  const isFocused = useIsFocused()
+  const groupId = currentGroup?.id ?? null
+  const requestedLeagueId = route.params?.leagueId
+  const requestedGroupId = route.params?.groupId
 
   const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId ?? null)
 
   useEffect(() => {
-    setLocalLeagueId(selectedLeagueId ?? null)
-  }, [selectedLeagueId])
+    if (isFocused) setLocalLeagueId(selectedLeagueId ?? null)
+  }, [isFocused, selectedLeagueId, groupId])
+
+  useEffect(() => {
+    if (!isFocused || !requestedLeagueId || !currentGroup) return
+
+    if (
+      (!requestedGroupId || requestedGroupId === currentGroup.id) &&
+      currentGroup.leagues.some((league) => league.id === requestedLeagueId)
+    ) {
+      setLocalLeagueId(requestedLeagueId)
+    }
+
+    // Consume the page-only ticket, also removing it from the URL so refresh uses the menu preference.
+    navigation.setParams({ leagueId: undefined, groupId: undefined })
+  }, [isFocused, requestedLeagueId, requestedGroupId, currentGroup, navigation])
 
   const availableLeagues = getAvailableLeagues()
-
-  const groupId = currentGroup?.id ?? null
 
   const {
     enhancedLiveGroup,
@@ -73,8 +94,8 @@ export default function LiveScreen() {
     }
 
     const allYears = currentGroup.baskets
-      .flatMap(basket => basket.years?.map(y => y.year) ?? [])
-      .filter(year => year != null)
+      .flatMap((basket) => basket.years?.map((y) => y.year) ?? [])
+      .filter((year) => year != null)
 
     return allYears.length > 0 ? Math.max(...allYears) : null
   }, [currentGroup])
@@ -186,7 +207,10 @@ export default function LiveScreen() {
     return enhancedRoundMap[rankingRoundId] ?? []
   }, [enhancedRoundMap, rankingRoundId])
 
-  const rankingRoundLabel = useMemo(() => (rankingRoundId ? formatRoundLabel(rankingRoundId) : null), [rankingRoundId])
+  const rankingRoundLabel = useMemo(
+    () => (rankingRoundId ? formatRoundLabel(rankingRoundId) : null),
+    [rankingRoundId]
+  )
 
   const rankingTeamCount = useMemo(() => {
     if (!rankingRoundId) {
@@ -201,12 +225,9 @@ export default function LiveScreen() {
     ? `Serie A giornata ${selectedLiveLeague.rank.serieADay}`
     : null
 
-  const handleLeagueSelect = useCallback(
-    (leagueId: string) => {
-      setLocalLeagueId(leagueId)
-    },
-    []
-  )
+  const handleLeagueSelect = useCallback((leagueId: string) => {
+    setLocalLeagueId(leagueId)
+  }, [])
 
   const isSelectorVisible = leagueOptions.length > 0
   const showContent = Boolean(selectedLiveLeague)
@@ -218,16 +239,14 @@ export default function LiveScreen() {
         maxWidth={isWideLayout ? '100%' : 960}
         gap="$4"
         alignItems="stretch"
-        alignSelf={isWideLayout ? 'stretch' : 'center'}
-      >
+        alignSelf={isWideLayout ? 'stretch' : 'center'}>
         {isGroupsLoading ? (
           <Card
             padding="$4"
             backgroundColor="$color2"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$borderColor"
-          >
+            borderColor="$borderColor">
             <XStack alignItems="center" gap="$3" justifyContent="center">
               <Spinner size="small" color="$blue10" />
               <Text color="$color10">Caricamento dati della lega...</Text>
@@ -239,8 +258,7 @@ export default function LiveScreen() {
             backgroundColor="$red3"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$red7"
-          >
+            borderColor="$red7">
             <XStack alignItems="center" gap="$2">
               <AlertTriangle size="$1.5" color="$red10" />
               <Text color="$red11" fontWeight="600">
@@ -248,7 +266,8 @@ export default function LiveScreen() {
               </Text>
             </XStack>
             <Paragraph marginTop="$2" color="$red11">
-              Prova ad aggiornare la pagina o selezionare nuovamente il gruppo dalla barra di navigazione.
+              Prova ad aggiornare la pagina o selezionare nuovamente il gruppo dalla barra di
+              navigazione.
             </Paragraph>
           </Card>
         ) : !currentGroup || userGroups.length === 0 ? (
@@ -257,13 +276,13 @@ export default function LiveScreen() {
             backgroundColor="$color2"
             borderRadius="$4"
             borderWidth="$0.5"
-            borderColor="$borderColor"
-          >
+            borderColor="$borderColor">
             <Text color="$color12" fontWeight="600" marginBottom="$2">
               Nessun gruppo selezionato
             </Text>
             <Paragraph color="$color10">
-              Per visualizzare il live seleziona un gruppo dalla barra laterale e assicurati di avere una lega associata.
+              Per visualizzare il live seleziona un gruppo dalla barra laterale e assicurati di
+              avere una lega associata.
             </Paragraph>
           </Card>
         ) : (
@@ -289,8 +308,7 @@ export default function LiveScreen() {
               borderRadius="$4"
               borderWidth="$0.5"
               borderColor="$borderColor"
-              gap="$3"
-            >
+              gap="$3">
               <XStack alignItems="center" gap="$3" flexWrap="wrap">
                 <Zap size="$1.5" color="$yellow10" />
                 <YStack gap="$1" flex={1}>
@@ -310,8 +328,7 @@ export default function LiveScreen() {
                   onPress={() => {
                     void refetchLive()
                   }}
-                  disabled={liveLoading || liveRefreshing}
-                >
+                  disabled={liveLoading || liveRefreshing}>
                   Aggiorna
                 </Button>
               </XStack>
@@ -334,8 +351,7 @@ export default function LiveScreen() {
                 backgroundColor="$color2"
                 borderRadius="$4"
                 borderWidth="$0.5"
-                borderColor="$borderColor"
-              >
+                borderColor="$borderColor">
                 <Text color="$color10" textAlign="center">
                   Non ci sono dati live disponibili per la lega selezionata al momento.
                 </Text>

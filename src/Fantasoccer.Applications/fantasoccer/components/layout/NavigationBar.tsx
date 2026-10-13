@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { Platform } from 'react-native'
 import {
   Button,
   Sheet,
@@ -171,6 +172,10 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const media = useMedia()
   const isDesktop = !media.sm
   const navigation = useNavigation()
+  const menuScrollStyle = {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { overscrollBehavior: 'contain' as const } : {}),
+  }
   
   // Check user roles for admin sections - find current user's role in current group
   const currentUserInGroup = currentGroup?.users.find(u => u.email === user?.email)
@@ -190,14 +195,24 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
     snapPointsMode: snapPointsMode as 'fit' | 'percent',
     snapPoints: isDesktop ? undefined : [90],
     moveOnKeyboardChange: false,
-    dismissOnSnapToBottom: !isDesktop,
-    disableDrag: isDesktop,
+    dismissOnSnapToBottom: false,
+    dismissOnOverlayPress: true,
+    // Menu swipes must only scroll content, never drag or dismiss the navigation sheet.
+    disableDrag: true,
   }
 
   // Handle navigation
   const handleNavigate = async (item: NavigationItem) => {
     if (item.type === 'route') {
-      ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
+      if (item.route === 'Live') {
+        // Also restore the menu preference when Live is already the active screen.
+        navigation.navigate('Live', {
+          leagueId: selectedLeagueId ?? undefined,
+          groupId: currentGroup?.id,
+        })
+      } else {
+        ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
+      }
     } else if (onNavigate) {
       onNavigate(item.path)
     } else {
@@ -268,8 +283,6 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
           exitStyle={{ opacity: 0 }}
         />
         
-        <Sheet.Handle backgroundColor="$color8" />
-        
         <Sheet.Frame
           backgroundColor="$background"
           borderTopLeftRadius={isDesktop ? 0 : '$6'}
@@ -282,14 +295,15 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         >
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            bounces={true}
+            bounces={false}
             alwaysBounceVertical={false}
+            overScrollMode="never"
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ 
               flexGrow: 1,
               paddingBottom: 50 // Extra space at bottom for safe scrolling
             }}
-            style={{ flex: 1 }}
+            style={menuScrollStyle}
           >
             <YStack padding="$4" gap="$4">
               {/* Header */}
@@ -302,6 +316,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                   circular
                   backgroundColor="transparent"
                   borderColor="transparent"
+                  aria-label="Chiudi menu di navigazione"
                   onPress={() => setIsOpen(false)}
                 >
                   <X size="$1" color="$color11" />

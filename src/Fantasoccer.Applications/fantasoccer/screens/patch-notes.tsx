@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.59',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le partite e il Live aperti dal widget non cambiano più la lega salvata nel menu',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Lo scorrimento del menu di navigazione su mobile non trascina più il pannello',
+      },
+    ],
+  },
+  {
     version: '2.0.58',
     date: '11 Ottobre 2026',
     changes: [

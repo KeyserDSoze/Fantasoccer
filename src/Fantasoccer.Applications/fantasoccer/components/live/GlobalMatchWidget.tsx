@@ -90,7 +90,7 @@ function GlobalMatchWidgetContent({
   const isMobile = Boolean(media.sm);
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
-  const { currentGroup, selectedLeagueId, selectedYear, setSelectedLeague } = useApp();
+  const { currentGroup, selectedLeagueId, selectedYear } = useApp();
   const [expanded, setExpanded] = useState(false);
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
   const [disabling, setDisabling] = useState(false);
@@ -190,14 +190,12 @@ function GlobalMatchWidgetContent({
       .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   })();
 
-  const navigateToLeagueLive = async (leagueId: string) => {
-    await setSelectedLeague(leagueId);
+  const navigateToLeagueLive = (leagueId: string) => {
     setExpanded(false);
-    navigation.navigate('Live');
+    navigation.navigate('Live', { leagueId, groupId: currentGroup?.id });
   };
 
-  const navigateToGame = async (match: UserMatch) => {
-    await setSelectedLeague(match.league.id);
+  const navigateToGame = (match: UserMatch) => {
     setExpanded(false);
     navigation.navigate('Game', {
       groupId,

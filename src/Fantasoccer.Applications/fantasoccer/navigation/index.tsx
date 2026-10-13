@@ -55,7 +55,7 @@ export type RootStackParamList = {
   Players: undefined;
   Teams: undefined;
   Edit: { leagueId?: string; year?: number } | undefined;
-  Live: undefined;
+  Live: { leagueId?: string; groupId?: string } | undefined;
   Game: {
     gameId?: string | null;
     leagueId?: string | null;
