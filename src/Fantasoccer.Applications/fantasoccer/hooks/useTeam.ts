@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { teamService } from '../services/teamService'
 import {
   Team,
@@ -128,9 +128,12 @@ export interface UseTeamByComponentsOptions extends UseTeamOptions {
 export function useTeamByComponents(options: UseTeamByComponentsOptions): UseTeamResult {
   const { group, year, basketId, email, ...hookOptions } = options
 
-  const key: TeamKey | null = group && basketId && email && year != null
-    ? TeamKeyHelper.create(group, year, basketId, email)
-    : null
+  const key: TeamKey | null = useMemo(
+    () => group && basketId && email && year != null
+      ? TeamKeyHelper.create(group, year, basketId, email)
+      : null,
+    [group, year, basketId, email]
+  )
 
   return useTeam(key, hookOptions)
 }
@@ -250,9 +253,12 @@ export interface UseTeamDayByComponentsOptions extends UseTeamDayOptions {
 export function useTeamDayByComponents(options: UseTeamDayByComponentsOptions): UseTeamDayResult {
   const { group, year, basketId, day, email, ...hookOptions } = options
 
-  const key: TeamDayKey | null = group && basketId && email && year != null && day != null
-    ? TeamKeyHelper.createDayKey(group, year, basketId, day, email)
-    : null
+  const key: TeamDayKey | null = useMemo(
+    () => group && basketId && email && year != null && day != null
+      ? TeamKeyHelper.createDayKey(group, year, basketId, day, email)
+      : null,
+    [group, year, basketId, day, email]
+  )
 
   return useTeamDay(key, hookOptions)
 }
