@@ -148,6 +148,44 @@ public sealed class PlayerImagesTest : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ManualReloadMatchesPlayerWhenOfficialNameHasAnAdditionalGivenName()
+    {
+        var player = CreatePlayer("Floriani Mussolini", "Lazio", Role.Defensor);
+        _handler.Response = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return JsonResponse(SeasonsJson);
+            if (request.RequestUri.AbsolutePath.Contains("current-season"))
+                return JsonResponse("""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": [{
+                        "mediaFirstName": "Romano",
+                        "mediaLastName": "Floriani Mussolini",
+                        "shortName": "Floriani M.",
+                        "displayName": "Floriani M.",
+                        "role": 2,
+                        "team": { "shortName": "Lazio", "officialName": "Lazio", "acronymName": "LAZ" },
+                        "imagery": { "playerImage_home_middle": "playerImages/floriani-mussolini.webp" }
+                      }]
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.Contains("previous-season")) return JsonResponse(PreviousPlayersJson);
+            if (request.RequestUri.AbsolutePath.EndsWith("floriani-mussolini.webp")) return ImageResponse([1, 2, 3]);
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        try
+        {
+            Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+            Assert.Contains(_handler.Requests, x => x.AbsolutePath.EndsWith("floriani-mussolini.webp"));
+        }
+        finally
+        {
+            await _images.DeleteAsync($"players/{player.Key}.jpg", TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
     public async Task ManualReloadDoesNotReplaceImageForWrongRoleOrUnknownPlayer()
     {
         _handler.Response = Response;

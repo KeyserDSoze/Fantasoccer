@@ -122,12 +122,69 @@ public sealed class PlayerImageService(
             Role.GoalKeeper => 1, Role.Defensor => 2, Role.Midfielder => 3, Role.Forward => 4, _ => 0
         };
         var candidates = sourcePlayers
-            .Where(x => Names(x).Any(value => NormalizeName(value) == name) && (role == 0 || x.Role == role))
-            .Select(x => new { Player = x, Path = GetImagePath(x) })
+            .Where(x => role == 0 || x.Role == role)
+            .Select(x => new
+            {
+                Player = x,
+                Path = GetImagePath(x),
+                NameScore = Names(x).Max(value => NameSimilarity(name, value))
+            })
             .Where(x => x.Path != null)
+            .Where(x => x.NameScore >= 0.84)
             .ToList();
-        return candidates.FirstOrDefault(x => string.IsNullOrWhiteSpace(team) || TeamNames(x.Player).Any(value => NormalizeName(value) == team))?.Path
-            ?? candidates.FirstOrDefault()?.Path;
+        return candidates
+            .OrderByDescending(x => !string.IsNullOrWhiteSpace(team) && TeamNames(x.Player).Any(value => NormalizeName(value) == team))
+            .ThenByDescending(x => x.NameScore)
+            .FirstOrDefault()?.Path;
+    }
+
+    private static double NameSimilarity(string name, string? candidate)
+    {
+        var candidateName = NormalizeName(candidate);
+        if (name.Length == 0 || candidateName.Length == 0) return 0;
+        if (name == candidateName) return 1;
+
+        var nameTokens = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var candidateTokens = candidateName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // A source name may include an additional given name (e.g. "Romano Floriani Mussolini").
+        // Require every app-name token to match a distinct source token to avoid surname-only matches.
+        if (nameTokens.Length < 2 || candidateTokens.Length < nameTokens.Length) return 0;
+
+        var remainingTokens = candidateTokens.ToList();
+        var similarities = new List<double>(nameTokens.Length);
+        foreach (var token in nameTokens)
+        {
+            var best = remainingTokens
+                .Select((value, index) => new { Index = index, Similarity = TokenSimilarity(token, value) })
+                .OrderByDescending(x => x.Similarity)
+                .First();
+            if (best.Similarity < 0.75) return 0;
+            similarities.Add(best.Similarity);
+            remainingTokens.RemoveAt(best.Index);
+        }
+
+        var extraTokenPenalty = Math.Min(0.1, remainingTokens.Count * 0.03);
+        return similarities.Average() - extraTokenPenalty;
+    }
+
+    private static double TokenSimilarity(string left, string right)
+    {
+        if (left == right) return 1;
+        var previous = Enumerable.Range(0, right.Length + 1).ToArray();
+        for (var i = 1; i <= left.Length; i++)
+        {
+            var current = new int[right.Length + 1];
+            current[0] = i;
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var substitutionCost = left[i - 1] == right[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + substitutionCost);
+            }
+            previous = current;
+        }
+        return 1d - (double)previous[right.Length] / Math.Max(left.Length, right.Length);
     }
 
     private static IEnumerable<string?> Names(SdpPlayer player)

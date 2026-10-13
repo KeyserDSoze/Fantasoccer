@@ -15,6 +15,16 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.60',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Il rinnovo della foto riconosce meglio i nomi ufficiali dei giocatori',
+      },
+    ],
+  },
+  {
     version: '2.0.59',
     date: '13 Ottobre 2026',
     changes: [
