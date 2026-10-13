@@ -223,6 +223,95 @@ public sealed class PlayerImagesTest : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ManualReloadMatchesSingleSurnameWithSpellingVariant()
+    {
+        var player = CreatePlayer("Rahmani", "Napoli", Role.Defensor);
+        _handler.Response = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return JsonResponse(SeasonsJson);
+            if (request.RequestUri.AbsolutePath.Contains("current-season"))
+                return JsonResponse("""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": [{
+                        "mediaFirstName": "Amir",
+                        "mediaLastName": "Rrahmani",
+                        "shortName": "Amir Rrahmani",
+                        "displayName": "Am. Rrahmani",
+                        "role": 2,
+                        "team": { "shortName": "Napoli", "officialName": "Napoli", "acronymName": "NAP" },
+                        "imagery": { "playerImage_home_middle": "playerImages/amir-rrahmani.webp" }
+                      }]
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.Contains("previous-season")) return JsonResponse(PreviousPlayersJson);
+            if (request.RequestUri.AbsolutePath.EndsWith("amir-rrahmani.webp")) return ImageResponse([1, 2, 3]);
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        try
+        {
+            Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+            Assert.Contains(_handler.Requests, x => x.AbsolutePath.EndsWith("amir-rrahmani.webp"));
+        }
+        finally
+        {
+            await _images.DeleteAsync($"players/{player.Key}.jpg", TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task ManualReloadMatchesProvedelAndAcceptsWebpBytesWhenSourceUsesBinaryContentType()
+    {
+        var player = CreatePlayer("Provedel", "Inter", Role.GoalKeeper);
+        var webpBytes = new byte[]
+        {
+            0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00,
+            0x57, 0x45, 0x42, 0x50
+        };
+        _handler.Response = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return JsonResponse(SeasonsJson);
+            if (request.RequestUri.AbsolutePath.Contains("current-season"))
+                return JsonResponse("""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": []
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.Contains("previous-season"))
+                return JsonResponse("""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": [{
+                        "mediaFirstName": "Ivan",
+                        "mediaLastName": "Provedel",
+                        "shortName": "Ivan Provedel",
+                        "displayName": "Provedel",
+                        "role": 1,
+                        "team": { "shortName": "Lazio", "officialName": "Lazio", "acronymName": "LAZ" },
+                        "imagery": { "playerImage_home_middle": "playerImages/provedel.webp" }
+                      }]
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.EndsWith("provedel.webp"))
+                return ImageResponse(webpBytes, "binary/octet-stream");
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        try
+        {
+            Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+            Assert.Contains(_handler.Requests, x => x.AbsolutePath.EndsWith("provedel.webp"));
+            Assert.Equal(webpBytes, (await _images.DownloadAsync($"players/{player.Key}.jpg", cancellationToken: TestContext.Current.CancellationToken))?.Data);
+        }
+        finally
+        {
+            await _images.DeleteAsync($"players/{player.Key}.jpg", TestContext.Current.CancellationToken);
+        }
+    }
+
     [Theory]
     [InlineData(Role.Defensor, 2, true)]
     [InlineData(Role.Defensor, 3, true)]
@@ -294,6 +383,7 @@ public sealed class PlayerImagesTest : IAsyncLifetime
     [Theory]
     [InlineData("text/html", false)]
     [InlineData("image/svg+xml", false)]
+    [InlineData("binary/octet-stream", false)]
     [InlineData("image/webp", true)]
     public async Task ManualReloadPreservesExistingImageWhenSourceIsInvalid(string contentType, bool empty)
     {
@@ -351,13 +441,13 @@ public sealed class PlayerImagesTest : IAsyncLifetime
             Content = new StringContent(content, System.Text.Encoding.UTF8, "application/json")
         };
 
-    private static HttpResponseMessage ImageResponse(byte[] content)
+    private static HttpResponseMessage ImageResponse(byte[] content, string contentType = "image/webp")
     {
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new ByteArrayContent(content)
         };
-        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/webp");
+        response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
         return response;
     }
 

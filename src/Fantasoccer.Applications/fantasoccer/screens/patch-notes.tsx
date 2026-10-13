@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.65',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Il rinnovo delle immagini riconosce cognomi con varianti ortografiche e WebP serviti con MIME generico',
+      },
+    ],
+  },
+  {
     version: '2.0.64',
     date: '13 Ottobre 2026',
     changes: [

@@ -139,7 +139,7 @@ public sealed class PlayerImageService(
         using var response = await _httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
         var contentType = response.Content.Headers.ContentType?.MediaType;
-        if (contentType is not ("image/jpeg" or "image/png" or "image/webp"))
+        if (contentType is not ("image/jpeg" or "image/png" or "image/webp" or "application/octet-stream" or "binary/octet-stream"))
             throw new InvalidDataException("The source did not return a supported image.");
         if (response.Content.Headers.ContentLength > MaximumImageBytes)
             throw new InvalidDataException("The image is too large.");
@@ -154,7 +154,15 @@ public sealed class PlayerImageService(
             image.Write(buffer, 0, read);
         }
         if (image.Length == 0) throw new InvalidDataException("The image is empty.");
-        await _images.UploadAsync(ImageKey(player), image.ToArray(), new ContentRepositoryOptions
+        var imageData = image.ToArray();
+        if (contentType is "application/octet-stream" or "binary/octet-stream")
+        {
+            contentType = DetectImageContentType(imageData);
+            if (contentType == null)
+                throw new InvalidDataException("The source returned an untyped file that is not a supported image.");
+        }
+
+        await _images.UploadAsync(ImageKey(player), imageData, new ContentRepositoryOptions
         {
             HttpHeaders = new ContentRepositoryHttpHeaders { ContentType = contentType, CacheControl = "public, max-age=300" }
         }, true, cancellationToken);
@@ -233,9 +241,15 @@ public sealed class PlayerImageService(
         if (string.Join(' ', nameTokens) == string.Join(' ', candidateTokens)) return 1;
 
         // A source name may include an additional given name (e.g. "Romano Floriani Mussolini").
-        // Ignore isolated initials (e.g. "Cissè A.") and require every remaining app-name token
-        // to match a distinct source token to avoid surname-only matches.
-        if (nameTokens.Length < 2 || candidateTokens.Length < nameTokens.Length) return 0;
+        // Ignore isolated initials (e.g. "Cissè A."). If the roster only has a surname, compare it
+        // against the final source-name token (e.g. "Rahmani" vs "Amir Rrahmani").
+        if (nameTokens.Length == 1)
+        {
+            if (candidateTokens.Length < 2) return 0;
+            var surnameSimilarity = TokenSimilarity(nameTokens[0], candidateTokens[^1]);
+            return surnameSimilarity >= 0.84 ? surnameSimilarity : 0;
+        }
+        if (candidateTokens.Length < nameTokens.Length) return 0;
 
         var remainingTokens = candidateTokens.ToList();
         var similarities = new List<double>(nameTokens.Length);
@@ -277,6 +291,19 @@ public sealed class PlayerImageService(
             previous = current;
         }
         return 1d - (double)previous[right.Length] / Math.Max(left.Length, right.Length);
+    }
+
+    private static string? DetectImageContentType(ReadOnlySpan<byte> data)
+    {
+        if (data.Length >= 12 &&
+            data[..4].SequenceEqual("RIFF"u8) &&
+            data.Slice(8, 4).SequenceEqual("WEBP"u8))
+            return "image/webp";
+        if (data.Length >= 8 && data[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
+            return "image/png";
+        if (data.Length >= 3 && data[..3].SequenceEqual(new byte[] { 0xFF, 0xD8, 0xFF }))
+            return "image/jpeg";
+        return null;
     }
 
     private static IEnumerable<string?> Names(SdpPlayer player)
