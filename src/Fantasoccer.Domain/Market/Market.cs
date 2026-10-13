@@ -22,6 +22,8 @@ namespace Fantasoccer
         public List<string> Approvers { get; set; }
         [JsonPropertyName("d")]
         public List<string> Deniers { get; set; }
+        [JsonPropertyName("sa")]
+        public bool SellerAccepted { get; set; }
         [JsonPropertyName("st")]
         public MarketStatus Status { get; set; }
         [JsonPropertyName("ct")]

@@ -73,8 +73,9 @@ internal sealed class MarketManager : IMarketManager
                 SellerPlayers = sellerPlayers.Select(ClonePlayer).ToList(),
                 MoneyFromBuyer = proposal.MoneyFromBuyer,
                 MoneyFromSeller = proposal.MoneyFromSeller,
-                Approvers = [proposal.Buyer, proposal.Seller],
+                Approvers = [proposal.Buyer],
                 Deniers = [],
+                SellerAccepted = false,
                 Status = MarketStatus.Pending,
                 CreationTime = DateTime.UtcNow
             };
@@ -82,13 +83,69 @@ internal sealed class MarketManager : IMarketManager
             wrapper.Markets ??= [];
             wrapper.Markets.Add(market);
             await SaveMarketsAsync(key, wrapper, cancellationToken);
+            return ResultFor(market);
+        }, cancellationToken);
+
+    public ValueTask<MarketOperationResult> AcceptAsync(
+        LeagueKey key,
+        string marketId,
+        string requester,
+        CancellationToken cancellationToken = default)
+        => LockedAsync(key, async () =>
+        {
+            if (key.Year != FantacalcioTime.ActualYear)
+                return Failed("Il mercato è disponibile solo per la stagione corrente.");
+            var context = await GetContextAsync(key, cancellationToken);
+            if (context == null)
+                return Failed("Lega non valida.");
+            if (context.Settings.Market == MarketType.Denied)
+                return Failed("Il mercato non è abilitato per questa lega.");
+            var wrapper = await _markets.GetAsync(key, cancellationToken);
+            var market = wrapper?.Markets?.FirstOrDefault(x => x.Id == marketId);
+            if (market == null || market.Status != MarketStatus.Pending)
+                return Failed("Proposta non modificabile.", market);
+            var requesterOwner = ResolveOwner(context, requester);
+            if (!Same(requesterOwner, market.Seller))
+                return Failed("Solo il venditore può accettare la proposta.", market);
+            if (market.SellerAccepted)
+                return Failed("La proposta è già stata accettata.", market);
+
+            market.SellerAccepted = true;
+            market.Deniers.RemoveAll(x => Same(x, market.Seller));
+            if (!market.Approvers.Any(x => Same(x, market.Seller)))
+                market.Approvers.Add(market.Seller);
 
             if (context.Settings.Market == MarketType.WithoutVote || HasQuorum(market.Approvers.Count, context.TeamCount))
-            {
                 await ExecuteAsync(key, context, market, cancellationToken);
-                await _markets.UpdateAsync(key, wrapper, cancellationToken);
-            }
+            await _markets.UpdateAsync(key, wrapper!, cancellationToken);
             return ResultFor(market);
+        }, cancellationToken);
+
+    public ValueTask<MarketOperationResult> RejectAsync(
+        LeagueKey key,
+        string marketId,
+        string requester,
+        CancellationToken cancellationToken = default)
+        => LockedAsync(key, async () =>
+        {
+            if (key.Year != FantacalcioTime.ActualYear)
+                return Failed("Il mercato è disponibile solo per la stagione corrente.");
+            var context = await GetContextAsync(key, cancellationToken);
+            if (context == null)
+                return Failed("Lega non valida.");
+            var wrapper = await _markets.GetAsync(key, cancellationToken);
+            var market = wrapper?.Markets?.FirstOrDefault(x => x.Id == marketId);
+            if (market == null || market.Status != MarketStatus.Pending)
+                return Failed("Proposta non modificabile.", market);
+            var requesterOwner = ResolveOwner(context, requester);
+            if (!Same(requesterOwner, market.Seller))
+                return Failed("Solo il venditore può rifiutare la proposta.", market);
+
+            market.Deniers.RemoveAll(x => Same(x, market.Seller));
+            market.Deniers.Add(market.Seller);
+            market.Status = MarketStatus.Denied;
+            await _markets.UpdateAsync(key, wrapper!, cancellationToken);
+            return Successful(market);
         }, cancellationToken);
 
     public ValueTask<MarketOperationResult> ApproveAsync(
@@ -146,6 +203,8 @@ internal sealed class MarketManager : IMarketManager
             var market = wrapper?.Markets?.FirstOrDefault(x => x.Id == marketId);
             if (market == null || market.Status != MarketStatus.Pending)
                 return Failed("Proposta non modificabile.", market);
+            if (!market.SellerAccepted)
+                return Failed("La proposta deve essere prima accettata dal venditore.", market);
             var requesterOwner = ResolveOwner(context, requester);
             if (requesterOwner == null || Same(requesterOwner, market.Buyer) || Same(requesterOwner, market.Seller))
                 return Failed("Utente non abilitato alla votazione.", market);

@@ -35,14 +35,23 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
         => await CleanupAsync(TestContext.Current.CancellationToken);
 
     [Fact]
-    public async Task DirectMarketExecutesBalancedTradeImmediately()
+    public async Task DirectMarketWaitsForSellerAcceptanceBeforeExecuting()
     {
         await InsertContextAsync(MarketType.WithoutVote, 2, 100);
 
-        var result = await _manager.CreateAsync(Key(), Proposal(5), Buyer, TestContext.Current.CancellationToken);
+        var created = await _manager.CreateAsync(Key(), Proposal(5), Buyer, TestContext.Current.CancellationToken);
+
+        Assert.True(created.IsOk);
+        Assert.Equal(MarketStatus.Pending, created.Market!.Status);
+        Assert.False(created.Market.SellerAccepted);
+        Assert.Equal([Buyer], created.Market.Approvers);
+        Assert.Equal("Buyer player", Assert.Single((await _teams.GetAsync(TeamKey(Buyer), TestContext.Current.CancellationToken))!.ActivePlayers).Name);
+
+        var result = await _manager.AcceptAsync(Key(), created.Market.Id, Seller, TestContext.Current.CancellationToken);
 
         Assert.True(result.IsOk);
-        Assert.Equal(MarketStatus.Approved, result.Market!.Status);
+        Assert.True(result.Market!.SellerAccepted);
+        Assert.Equal(MarketStatus.Approved, result.Market.Status);
         Assert.Equal(1, Assert.Single(result.Market.BuyerPlayers).Price);
         Assert.Equal(20, Assert.Single(result.Market.SellerPlayers).Price);
         var buyer = await _teams.GetAsync(TeamKey(Buyer), TestContext.Current.CancellationToken);
@@ -56,12 +65,22 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
     }
 
     [Fact]
-    public async Task VotedMarketCountsParticipantsAsImplicitApprovals()
+    public async Task VotedMarketRequiresSellerAcceptanceBeforeLeagueVotes()
     {
         await InsertContextAsync(MarketType.WithVote, 4, 100);
         var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
         Assert.Equal(MarketStatus.Pending, created.Market!.Status);
-        Assert.Equal([Buyer, Seller], created.Market.Approvers);
+        Assert.False(created.Market.SellerAccepted);
+        Assert.Equal([Buyer], created.Market.Approvers);
+
+        var prematureVote = await _manager.ApproveAsync(Key(), created.Market.Id, "owner3@test.local", TestContext.Current.CancellationToken);
+        Assert.False(prematureVote.IsOk);
+        Assert.Equal(MarketStatus.Pending, prematureVote.Market!.Status);
+
+        var accepted = await _manager.AcceptAsync(Key(), created.Market.Id, Seller, TestContext.Current.CancellationToken);
+        Assert.True(accepted.IsOk);
+        Assert.Equal(MarketStatus.Pending, accepted.Market!.Status);
+        Assert.Equal([Buyer, Seller], accepted.Market.Approvers);
 
         var approved = await _manager.ApproveAsync(Key(), created.Market.Id, "owner3@test.local", TestContext.Current.CancellationToken);
 
@@ -71,13 +90,31 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ReachingVotingQuorumDoesNotBypassSellerAcceptance()
+    {
+        await InsertContextAsync(MarketType.WithVote, 3, 100);
+        var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+
+        Assert.Equal(MarketStatus.Pending, created.Market!.Status);
+        Assert.False(created.Market.SellerAccepted);
+        Assert.Equal("Buyer player", Assert.Single((await _teams.GetAsync(TeamKey(Buyer), TestContext.Current.CancellationToken))!.ActivePlayers).Name);
+
+        var accepted = await _manager.AcceptAsync(Key(), created.Market.Id, Seller, TestContext.Current.CancellationToken);
+
+        Assert.True(accepted.IsOk);
+        Assert.True(accepted.Market!.SellerAccepted);
+        Assert.Equal(MarketStatus.Approved, accepted.Market.Status);
+    }
+
+    [Fact]
     public async Task VotedMarketIsDeniedAtMajority()
     {
         await InsertContextAsync(MarketType.WithVote, 6, 100);
         var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+        await _manager.AcceptAsync(Key(), created.Market!.Id, Seller, TestContext.Current.CancellationToken);
 
         for (var owner = 3; owner <= 6; owner++)
-            await _manager.DenyAsync(Key(), created.Market!.Id, $"owner{owner}@test.local", TestContext.Current.CancellationToken);
+            await _manager.DenyAsync(Key(), created.Market.Id, $"owner{owner}@test.local", TestContext.Current.CancellationToken);
 
         var wrapper = await _markets.GetAsync(Key(), TestContext.Current.CancellationToken);
         Assert.Equal(MarketStatus.Denied, Assert.Single(wrapper!.Markets).Status);
@@ -100,7 +137,8 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
     {
         await InsertContextAsync(MarketType.WithoutVote, 2, 10);
 
-        var result = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+        var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+        var result = await _manager.AcceptAsync(Key(), created.Market!.Id, Seller, TestContext.Current.CancellationToken);
 
         Assert.False(result.IsOk);
         Assert.Equal(MarketStatus.NoMoney, result.Market!.Status);
@@ -138,11 +176,12 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
     {
         await InsertContextAsync(MarketType.WithVote, 4, 100);
         var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+        await _manager.AcceptAsync(Key(), created.Market!.Id, Seller, TestContext.Current.CancellationToken);
         var seller = await _teams.GetAsync(TeamKey(Seller), TestContext.Current.CancellationToken);
         seller!.Players.Clear();
         await _teams.UpdateAsync(TeamKey(Seller), seller, TestContext.Current.CancellationToken);
 
-        var result = await _manager.ApproveAsync(Key(), created.Market!.Id, "owner3@test.local", TestContext.Current.CancellationToken);
+        var result = await _manager.ApproveAsync(Key(), created.Market.Id, "owner3@test.local", TestContext.Current.CancellationToken);
 
         Assert.False(result.IsOk);
         Assert.Equal(MarketStatus.NoPlayers, result.Market!.Status);
@@ -157,10 +196,44 @@ public sealed class MarketManagerRulesTest : IAsyncLifetime
         buyer!.MoneyFromRank = 20;
         await _teams.UpdateAsync(TeamKey(Buyer), buyer, TestContext.Current.CancellationToken);
 
-        var result = await _manager.CreateAsync(Key(), Proposal(111), Buyer, TestContext.Current.CancellationToken);
+        var created = await _manager.CreateAsync(Key(), Proposal(111), Buyer, TestContext.Current.CancellationToken);
+        var result = await _manager.AcceptAsync(Key(), created.Market!.Id, Seller, TestContext.Current.CancellationToken);
 
         Assert.False(result.IsOk);
         Assert.Equal(MarketStatus.NoMoney, result.Market!.Status);
+    }
+
+    [Fact]
+    public async Task SellerCanRejectProposalWithoutMovingPlayers()
+    {
+        await InsertContextAsync(MarketType.WithoutVote, 2, 100);
+        var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+
+        var rejected = await _manager.RejectAsync(Key(), created.Market!.Id, Seller, TestContext.Current.CancellationToken);
+
+        Assert.True(rejected.IsOk);
+        Assert.Equal(MarketStatus.Denied, rejected.Market!.Status);
+        Assert.False(rejected.Market.SellerAccepted);
+        Assert.Equal("Buyer player", Assert.Single((await _teams.GetAsync(TeamKey(Buyer), TestContext.Current.CancellationToken))!.ActivePlayers).Name);
+        Assert.Equal("Seller player", Assert.Single((await _teams.GetAsync(TeamKey(Seller), TestContext.Current.CancellationToken))!.ActivePlayers).Name);
+    }
+
+    [Fact]
+    public async Task OnlySellerCanAcceptOrRejectProposal()
+    {
+        await InsertContextAsync(MarketType.WithVote, 4, 100);
+        var created = await _manager.CreateAsync(Key(), Proposal(), Buyer, TestContext.Current.CancellationToken);
+
+        var buyerAccept = await _manager.AcceptAsync(Key(), created.Market!.Id, Buyer, TestContext.Current.CancellationToken);
+        var otherAccept = await _manager.AcceptAsync(Key(), created.Market.Id, "owner3@test.local", TestContext.Current.CancellationToken);
+        var buyerReject = await _manager.RejectAsync(Key(), created.Market.Id, Buyer, TestContext.Current.CancellationToken);
+
+        Assert.False(buyerAccept.IsOk);
+        Assert.False(otherAccept.IsOk);
+        Assert.False(buyerReject.IsOk);
+        var saved = Assert.Single((await _markets.GetAsync(Key(), TestContext.Current.CancellationToken))!.Markets);
+        Assert.Equal(MarketStatus.Pending, saved.Status);
+        Assert.False(saved.SellerAccepted);
     }
 
     [Fact]

@@ -21,6 +21,7 @@ export interface MarketRaw {
   ms: number                // MoneyFromSeller
   a: string[]              // Approvers
   d: string[]              // Deniers
+  sa?: boolean             // SellerAccepted (missing on legacy records)
   st: MarketStatus         // Status
   ct: string               // CreationTime (DateTime as ISO string)
 }
@@ -43,6 +44,7 @@ export interface Market {
   moneyFromSeller: number
   approvers: string[]
   deniers: string[]
+  sellerAccepted: boolean
   status: MarketStatus
   creationTime: Date
 }
@@ -83,6 +85,7 @@ export const mapRawMarketToMarket = (raw: MarketRaw): Market => ({
   moneyFromSeller: raw.ms,
   approvers: raw.a,
   deniers: raw.d,
+  sellerAccepted: raw.sa ?? false,
   status: raw.st,
   creationTime: new Date(raw.ct)
 })
@@ -112,6 +115,7 @@ export const mapMarketToRawMarket = (market: Market): MarketRaw => ({
   ms: market.moneyFromSeller,
   a: market.approvers,
   d: market.deniers,
+  sa: market.sellerAccepted,
   st: market.status,
   ct: market.creationTime.toISOString()
 })

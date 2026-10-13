@@ -320,6 +320,7 @@ export default function MarketScreen() {
         moneyFromSeller: targetMoneyOffer,
         approvers: [],
         deniers: [],
+        sellerAccepted: false,
         status: MarketStatus.Pending,
         creationTime: new Date(),
       }
@@ -421,7 +422,7 @@ export default function MarketScreen() {
               <XStack gap="$3" alignItems="center">
                 <CheckCircle size={24} color="$green10" />
                 <Text color="$green11" fontWeight="600">
-                  Scambio creato con successo! In attesa di approvazione.
+                  Proposta inviata al venditore. Lo scambio non sarà eseguito finché non la accetta.
                 </Text>
               </XStack>
             </Card>
@@ -828,7 +829,7 @@ export default function MarketScreen() {
           {!isLoading && canCreateTrade && (
             <Card backgroundColor="$blue2" padding="$3" marginTop="$2">
               <Text fontSize="$2" color="$blue11" textAlign="center">
-                💡 Gli scambi devono avere lo stesso numero di giocatori per ogni ruolo. Lo scambio sarà in attesa di approvazione dagli altri membri della lega.
+                💡 Gli scambi devono avere lo stesso numero di giocatori per ogni ruolo. Il venditore deve sempre accettare la proposta; se la lega prevede la votazione, servirà poi anche il quorum.
               </Text>
             </Card>
           )}

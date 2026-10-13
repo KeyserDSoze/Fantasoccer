@@ -75,6 +75,26 @@ export class MarketService {
     return this.executeCommand('/Market/Create', { groupId, year, leagueId }, mapMarketToRawMarket(market))
   }
 
+  /** Accept a trade proposal as its seller. */
+  async acceptMarket(
+    groupId: string,
+    year: number,
+    leagueId: string,
+    marketId: string
+  ): Promise<boolean> {
+    return this.executeCommand('/Market/Accept', { groupId, year, leagueId, marketId })
+  }
+
+  /** Reject a trade proposal as its seller. */
+  async rejectMarket(
+    groupId: string,
+    year: number,
+    leagueId: string,
+    marketId: string
+  ): Promise<boolean> {
+    return this.executeCommand('/Market/Reject', { groupId, year, leagueId, marketId })
+  }
+
   /**
    * Delete a market
    */

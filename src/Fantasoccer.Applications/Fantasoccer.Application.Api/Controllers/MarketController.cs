@@ -59,6 +59,42 @@ public sealed class MarketController : ControllerBase
     }
 
     [HttpPost]
+    public async ValueTask<MarketOperationResult> AcceptAsync(
+        [FromQuery] string groupId,
+        [FromQuery] int year,
+        [FromQuery] string leagueId,
+        [FromQuery] string marketId,
+        CancellationToken cancellationToken)
+    {
+        var user = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(user))
+            return new MarketOperationResult { Message = "Utente non autenticato." };
+        var key = new LeagueKey { Group = groupId, League = leagueId, Year = year };
+        var result = await _marketManager.AcceptAsync(key, marketId, user, cancellationToken);
+        if (result.IsOk && result.Market != null)
+            await _marketNotificationService.NotifyOutcomeAsync(key, result.Market, cancellationToken);
+        return result;
+    }
+
+    [HttpPost]
+    public async ValueTask<MarketOperationResult> RejectAsync(
+        [FromQuery] string groupId,
+        [FromQuery] int year,
+        [FromQuery] string leagueId,
+        [FromQuery] string marketId,
+        CancellationToken cancellationToken)
+    {
+        var user = User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(user))
+            return new MarketOperationResult { Message = "Utente non autenticato." };
+        var key = new LeagueKey { Group = groupId, League = leagueId, Year = year };
+        var result = await _marketManager.RejectAsync(key, marketId, user, cancellationToken);
+        if (result.IsOk && result.Market != null)
+            await _marketNotificationService.NotifyOutcomeAsync(key, result.Market, cancellationToken);
+        return result;
+    }
+
+    [HttpPost]
     public async ValueTask<MarketOperationResult> ApproveAsync(
         [FromQuery] string groupId,
         [FromQuery] int year,

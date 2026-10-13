@@ -10,8 +10,9 @@ const createMarket = (overrides = {}) => ({
   sellerPlayers: [{ price: 20 }],
   moneyFromBuyer: 5,
   moneyFromSeller: 2,
-  approvers: ['buyer@test.local', 'seller@test.local'],
+  approvers: ['buyer@test.local'],
   deniers: [],
+  sellerAccepted: false,
   status: MarketStatus.Pending,
   creationTime: new Date('2026-08-29T10:00:00Z'),
   ...overrides
@@ -67,10 +68,13 @@ test('sorts copies without mutating the source list', () => {
   assert.deepEqual(source.map(market => market.id), ['older', 'newer'])
 })
 
-test('uses absolute majority and counts implicit participant approvals', () => {
+test('uses absolute majority after the seller explicitly accepts', () => {
   const market = createMarket()
 
   assert.equal(MarketHelper.calculateQuorum(4), 3)
+  assert.equal(MarketHelper.hasReachedApprovalQuorum(market, 4), false)
+  market.sellerAccepted = true
+  market.approvers.push(market.seller)
   assert.equal(MarketHelper.hasReachedApprovalQuorum(market, 4), false)
   market.approvers.push('neutral@test.local')
   assert.equal(MarketHelper.hasReachedApprovalQuorum(market, 4), true)

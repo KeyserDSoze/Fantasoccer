@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.66',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le proposte di mercato attendono sempre l’accettazione esplicita del venditore prima dell’esecuzione',
+      },
+    ],
+  },
+  {
     version: '2.0.65',
     date: '13 Ottobre 2026',
     changes: [

@@ -35,7 +35,7 @@ import { useAuth } from 'providers/AuthProvider'
 import { teamService } from 'services/teamService'
 import { marketService } from 'services/marketService'
 import { Team } from 'types/team'
-import { Role } from 'types/group'
+import { MarketType, Role } from 'types/group'
 import { Market, MarketStatus, MarketStatusHelper, MarketHelper } from 'types/market'
 import { formatSeasonFromYear } from 'utils/season'
 
@@ -107,6 +107,11 @@ export default function MarketTradesScreen() {
   // Check if current year is the latest
   const isCurrentYearLatest = selectedYear === latestYear
   const canVote = isCurrentYearLatest && selectedYear != null && selectedLeagueId != null
+  const marketNeedsLeagueVote = useMemo(() => {
+    const league = currentGroup?.leagues?.find((item: any) => item.id === selectedLeagueId)
+    const annualLeague = league?.years?.find((item: any) => item.year === selectedYear)
+    return annualLeague?.settings?.market === MarketType.WithVote
+  }, [currentGroup, selectedLeagueId, selectedYear])
 
   // Calculate league size (number of teams)
   const leagueSize = useMemo(() => {
@@ -267,6 +272,31 @@ export default function MarketTradesScreen() {
     }
   }
 
+  const handleSellerDecision = async (market: Market, decision: 'accept' | 'reject') => {
+    if (!currentGroup || !selectedLeagueId || !selectedYear) return
+
+    setIsVoting(true)
+    setError(null)
+    try {
+      const success = decision === 'accept'
+        ? await marketService.acceptMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id)
+        : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id)
+      if (success) {
+        await loadData()
+        setSelectedMarket(null)
+      } else {
+        setError(decision === 'accept'
+          ? "Impossibile accettare la proposta"
+          : "Impossibile rifiutare la proposta")
+      }
+    } catch (err: any) {
+      console.error('Error responding to market proposal:', err)
+      setError(err?.message ?? 'Errore durante la risposta alla proposta')
+    } finally {
+      setIsVoting(false)
+    }
+  }
+
   // Get team name by owner
   const getTeamNameByOwner = (owner: string): string => {
     const team = teams.find(t => t.owner.toLowerCase() === owner.toLowerCase())
@@ -372,8 +402,17 @@ export default function MarketTradesScreen() {
             </YStack>
           </XStack>
 
-          {/* Voting info for pending markets */}
-          {isPending && (
+          {/* Seller acceptance / voting info for pending markets */}
+          {isPending && !market.sellerAccepted && (
+            <>
+              <Separator />
+              <Text fontSize="$3" color="$orange10" fontWeight="600">
+                In attesa dell&apos;accettazione del venditore
+              </Text>
+            </>
+          )}
+
+          {isPending && market.sellerAccepted && marketNeedsLeagueVote && (
             <>
               <Separator />
               <XStack justifyContent="space-between" alignItems="center" gap="$3" flexWrap="wrap">
@@ -404,7 +443,7 @@ export default function MarketTradesScreen() {
               </XStack>
 
               {/* User vote indicator */}
-              {userVote && (
+              {userVote && !isUserInvolved && (
                 <XStack gap="$2" alignItems="center">
                   {userVote === 'approve' ? (
                     <>
@@ -505,7 +544,7 @@ export default function MarketTradesScreen() {
                       <Text fontSize="$3" color="$color10">
                         Totale: {filteredMarkets.length}
                       </Text>
-                      {canVote && (
+                      {canVote && marketNeedsLeagueVote && (
                         <Text fontSize="$3" color="$blue10" fontWeight="500">
                           Quorum: {quorum}/{leagueSize} squadre
                         </Text>
@@ -599,8 +638,9 @@ export default function MarketTradesScreen() {
           {!isLoading && canVote && (
             <Card backgroundColor="$blue2" padding="$3" marginTop="$2">
               <Text fontSize="$2" color="$blue11" textAlign="center">
-                💡 Per approvare uno scambio servono almeno {quorum} voti su {leagueSize} squadre (50% + 1). 
-                Buyer e Seller sono automaticamente favorevoli. Puoi cambiare il tuo voto in qualsiasi momento.
+                Il venditore deve prima accettare ogni proposta. {marketNeedsLeagueVote
+                  ? `Dopo l'accettazione, servono almeno ${quorum} voti favorevoli su ${leagueSize} squadre (50% + 1).`
+                  : 'Se il venditore accetta, lo scambio viene eseguito subito.'}
               </Text>
             </Card>
           )}
@@ -720,9 +760,27 @@ export default function MarketTradesScreen() {
 
                 <Separator />
 
-                {/* Voting status */}
+                {/* Seller acceptance status or voting status */}
                 {MarketStatusHelper.isPending(selectedMarket.status) && (
                   <>
+                    {!selectedMarket.sellerAccepted ? (
+                      <Card padding="$4" backgroundColor="$orange2" borderWidth={1} borderColor="$orange8">
+                        <YStack gap="$2">
+                          <Text fontSize="$4" fontWeight="600" color="$orange11">
+                            In attesa dell&apos;accettazione del venditore
+                          </Text>
+                          {selectedMarket.seller.toLowerCase() === myOwner.toLowerCase() ? (
+                            <Text fontSize="$3" color="$orange10">
+                              La proposta non modifica le squadre finché non scegli di accettarla.
+                            </Text>
+                          ) : (
+                            <Text fontSize="$3" color="$orange10">
+                              Lo scambio non può essere eseguito senza l&apos;accettazione esplicita del venditore.
+                            </Text>
+                          )}
+                        </YStack>
+                      </Card>
+                    ) : marketNeedsLeagueVote ? (
                     <YStack gap="$3">
                       <Text fontSize="$4" fontWeight="600" color="$color12">
                         Stato Votazione
@@ -800,11 +858,54 @@ export default function MarketTradesScreen() {
                         </Card>
                       )}
                     </YStack>
+                    ) : (
+                      <Card padding="$4" backgroundColor="$green2" borderWidth={1} borderColor="$green8">
+                        <Text fontSize="$3" color="$green11">
+                          Proposta accettata dal venditore. Lo scambio è stato eseguito.
+                        </Text>
+                      </Card>
+                    )}
 
                     <Separator />
 
+                    {canVote && !selectedMarket.sellerAccepted &&
+                      selectedMarket.seller.toLowerCase() === myOwner.toLowerCase() && (
+                      <YStack gap="$2">
+                        <Text fontSize="$4" fontWeight="600" color="$color12">
+                          La tua risposta
+                        </Text>
+                        <XStack gap="$3" flexWrap="wrap">
+                          <Button
+                            flex={1}
+                            minWidth={150}
+                            size="$4"
+                            backgroundColor="$green9"
+                            color="white"
+                            onPress={() => handleSellerDecision(selectedMarket, 'accept')}
+                            disabled={isVoting}
+                            opacity={isVoting ? 0.5 : 1}
+                          >
+                            {isVoting ? <Spinner color="white" /> : <Text fontSize="$4" fontWeight="600" color="white">Accetta proposta</Text>}
+                          </Button>
+                          <Button
+                            flex={1}
+                            minWidth={150}
+                            size="$4"
+                            backgroundColor="$red9"
+                            color="white"
+                            onPress={() => handleSellerDecision(selectedMarket, 'reject')}
+                            disabled={isVoting}
+                            opacity={isVoting ? 0.5 : 1}
+                          >
+                            {isVoting ? <Spinner color="white" /> : <Text fontSize="$4" fontWeight="600" color="white">Rifiuta proposta</Text>}
+                          </Button>
+                        </XStack>
+                      </YStack>
+                    )}
+
                     {/* Voting buttons */}
-                    {canVote && (
+                    {canVote && marketNeedsLeagueVote && selectedMarket.sellerAccepted &&
+                      !MarketHelper.isUserInvolved(selectedMarket, myOwner) && (
                       <YStack gap="$2">
                         <Text fontSize="$4" fontWeight="600" color="$color12">
                           Il tuo voto
