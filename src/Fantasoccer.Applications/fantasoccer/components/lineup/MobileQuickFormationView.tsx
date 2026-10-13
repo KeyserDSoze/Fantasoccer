@@ -3,6 +3,7 @@ import { Button, Card, Text, XStack, YStack } from 'tamagui';
 import type { LivePlayer, LiveTeam } from 'types/game';
 import { FantaSoccerRole } from 'types/team';
 import { Role } from 'types/group';
+import { PlayerAvailabilityIndicators } from './PlayerAvailabilityIndicators';
 
 export type QuickFormationStatus = 'starter' | 'firstBench' | 'secondBench' | 'tribune';
 
@@ -65,7 +66,12 @@ const getStatus = (position: FantaSoccerRole): QuickFormationStatus => {
 
 const getTargetStatus = (role: Role, status: QuickFormationStatus): FantaSoccerRole | undefined => {
   if (status === 'tribune') return FantaSoccerRole.Tribune;
-  if (role === Role.GoalKeeper) return status === 'starter' ? FantaSoccerRole.GoalKeeper : status === 'firstBench' ? FantaSoccerRole.BackupGoalKeeper : undefined;
+  if (role === Role.GoalKeeper)
+    return status === 'starter'
+      ? FantaSoccerRole.GoalKeeper
+      : status === 'firstBench'
+        ? FantaSoccerRole.BackupGoalKeeper
+        : undefined;
   if (role === Role.Defensor) {
     if (status === 'starter') return FantaSoccerRole.Defensor;
     if (status === 'firstBench') return FantaSoccerRole.FirstBackupDefensor;
@@ -88,7 +94,9 @@ const sortPlayers = (players: LivePlayer[]) =>
   [...players].sort((a, b) => {
     const roleOrder = getRoleOrder(a) - getRoleOrder(b);
     if (roleOrder !== 0) return roleOrder;
-    const statusOrder = STATUS_ORDER.indexOf(getStatus(a.currentPosition)) - STATUS_ORDER.indexOf(getStatus(b.currentPosition));
+    const statusOrder =
+      STATUS_ORDER.indexOf(getStatus(a.currentPosition)) -
+      STATUS_ORDER.indexOf(getStatus(b.currentPosition));
     if (statusOrder !== 0) return statusOrder;
     return a.current.name.localeCompare(b.current.name, 'it-IT', { sensitivity: 'base' });
   });
@@ -108,52 +116,89 @@ export function MobileQuickFormationView({
   const rows = rowOrder.map((name) => playersByName.get(name)).filter(Boolean) as LivePlayer[];
 
   return (
-    <Card padding="$3" gap="$3" backgroundColor="$color2" borderRadius="$4" borderWidth={1} borderColor="$borderColor">
+    <Card
+      padding="$3"
+      gap="$3"
+      backgroundColor="$color2"
+      borderRadius="$4"
+      borderWidth={1}
+      borderColor="$borderColor">
       <XStack alignItems="center" justifyContent="space-between" gap="$2">
         <YStack flex={1}>
-          <Text fontSize="$5" fontWeight="700">Vista rapida</Text>
-          <Text fontSize="$2" color="$color10">{team.name}</Text>
+          <Text fontSize="$5" fontWeight="700">
+            Vista rapida
+          </Text>
+          <Text fontSize="$2" color="$color10">
+            {team.name}
+          </Text>
         </YStack>
-        <Button size="$3" onPress={onClose}>Chiudi</Button>
+        <Button size="$3" onPress={onClose}>
+          Chiudi
+        </Button>
       </XStack>
+      <Text fontSize={10} color="$color10">
+        F = Fantagazzetta · G = Gazzetta · verde = titolare · rosso = panchina · + rosso =
+        infortunato
+      </Text>
       <YStack width="100%" gap={1}>
-          <XStack alignItems="stretch" gap={1}>
-            <Text flex={1} minWidth={0} padding="$2" fontWeight="700" backgroundColor="$color4">Nome</Text>
-            {STATUS_ORDER.map((status) => (
-              <Text key={status} width={42} padding="$2" textAlign="center" fontSize="$2" fontWeight="700" color="#fff" backgroundColor={STATUS_COLORS[status]}>
-                {STATUS_LABELS[status]}
-              </Text>
-            ))}
-          </XStack>
-          {rows.map((player) => {
-            const role = (player.current as any)?.role ?? Role.Undefined;
-            const currentStatus = getStatus(player.currentPosition);
-            return (
-              <XStack key={player.current.name} alignItems="stretch" gap={1} backgroundColor={STATUS_BACKGROUNDS[currentStatus]}>
-                <Text flex={1} minWidth={0} paddingHorizontal="$2" paddingVertical="$2" numberOfLines={1} fontSize="$2">
+        <XStack alignItems="stretch" gap={1}>
+          <Text flex={1} minWidth={0} padding="$2" fontWeight="700" backgroundColor="$color4">
+            Nome
+          </Text>
+          {STATUS_ORDER.map((status) => (
+            <Text
+              key={status}
+              width={42}
+              padding="$2"
+              textAlign="center"
+              fontSize="$2"
+              fontWeight="700"
+              color="#fff"
+              backgroundColor={STATUS_COLORS[status]}>
+              {STATUS_LABELS[status]}
+            </Text>
+          ))}
+        </XStack>
+        {rows.map((player) => {
+          const role = (player.current as any)?.role ?? Role.Undefined;
+          const currentStatus = getStatus(player.currentPosition);
+          return (
+            <XStack
+              key={player.current.name}
+              alignItems="stretch"
+              gap={1}
+              backgroundColor={STATUS_BACKGROUNDS[currentStatus]}>
+              <XStack flex={1} minWidth={0} paddingHorizontal="$2" alignItems="center" gap="$1">
+                <Text flex={1} minWidth={0} paddingVertical="$2" numberOfLines={1} fontSize="$2">
                   {player.current.name}
                 </Text>
-                {STATUS_ORDER.map((status) => {
-                  const target = getTargetStatus(role, status);
-                  return (
-                    <YStack key={status} width={42} padding="$1" backgroundColor={STATUS_BACKGROUNDS[status]}>
-                      <Button
-                        size="$2"
-                        paddingHorizontal={0}
-                        backgroundColor={currentStatus === status ? STATUS_COLORS[status] : '$color3'}
-                        color={currentStatus === status ? '#fff' : '$color11'}
-                        borderWidth={currentStatus === status ? 2 : 0}
-                        borderColor="#fff"
-                        disabled={target === undefined || isSaving}
-                        onPress={() => target !== undefined && onMove(player, status)}>
-                        {STATUS_LABELS[status]}
-                      </Button>
-                    </YStack>
-                  );
-                })}
+                <PlayerAvailabilityIndicators chance={player.chance} />
               </XStack>
-            );
-          })}
+              {STATUS_ORDER.map((status) => {
+                const target = getTargetStatus(role, status);
+                return (
+                  <YStack
+                    key={status}
+                    width={42}
+                    padding="$1"
+                    backgroundColor={STATUS_BACKGROUNDS[status]}>
+                    <Button
+                      size="$2"
+                      paddingHorizontal={0}
+                      backgroundColor={currentStatus === status ? STATUS_COLORS[status] : '$color3'}
+                      color={currentStatus === status ? '#fff' : '$color11'}
+                      borderWidth={currentStatus === status ? 2 : 0}
+                      borderColor="#fff"
+                      disabled={target === undefined || isSaving}
+                      onPress={() => target !== undefined && onMove(player, status)}>
+                      {STATUS_LABELS[status]}
+                    </Button>
+                  </YStack>
+                );
+              })}
+            </XStack>
+          );
+        })}
       </YStack>
       <Button
         backgroundColor="$green10"

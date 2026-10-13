@@ -185,6 +185,44 @@ public sealed class PlayerImagesTest : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task ManualReloadMatchesAccentedSurnameWithTrailingInitial()
+    {
+        var player = CreatePlayer("Cissè A.", "Milan", Role.Midfielder);
+        _handler.Response = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return JsonResponse(SeasonsJson);
+            if (request.RequestUri.AbsolutePath.Contains("current-season"))
+                return JsonResponse("""
+                    {
+                      "pagination": { "totalPages": 1, "currentPage": 1, "isLastPage": true },
+                      "players": [{
+                        "mediaFirstName": "Alphadjo",
+                        "mediaLastName": "Cisse",
+                        "shortName": "Cisse",
+                        "displayName": "Cisse",
+                        "role": 3,
+                        "team": { "shortName": "Milan", "officialName": "Milan", "acronymName": "MIL" },
+                        "imagery": { "playerImage_home_middle": "playerImages/cisse.webp" }
+                      }]
+                    }
+                    """);
+            if (request.RequestUri.AbsolutePath.Contains("previous-season")) return JsonResponse(PreviousPlayersJson);
+            if (request.RequestUri.AbsolutePath.EndsWith("cisse.webp")) return ImageResponse([1, 2, 3]);
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        };
+
+        try
+        {
+            Assert.True(await _service.ReloadAsync(player, TestContext.Current.CancellationToken));
+            Assert.Contains(_handler.Requests, x => x.AbsolutePath.EndsWith("cisse.webp"));
+        }
+        finally
+        {
+            await _images.DeleteAsync($"players/{player.Key}.jpg", TestContext.Current.CancellationToken);
+        }
+    }
+
     [Theory]
     [InlineData(Role.Defensor, 2, true)]
     [InlineData(Role.Defensor, 3, true)]

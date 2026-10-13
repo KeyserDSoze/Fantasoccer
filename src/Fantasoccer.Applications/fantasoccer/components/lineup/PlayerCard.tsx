@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Pressable } from 'react-native';
 import { Card, Image, Text, XStack, YStack, AnimatePresence } from 'tamagui';
-import { Star, AlertTriangle, TrendingUp, Info } from '@tamagui/lucide-icons-2';
 
 import type { LivePlayer } from 'types/game';
 import type { StatPlayer } from 'types/stat';
@@ -9,7 +8,7 @@ import { getPlayerImageUrlFromName } from 'utils/playerImage';
 import type { Vote } from 'types/serieA';
 import { Behaviour } from 'types/serieA';
 import type { Chance } from '../../types/chance';
-import { ChanceType as ChanceTypeEnum } from '../../types/chance';
+import { PlayerAvailabilityIndicators } from './PlayerAvailabilityIndicators';
 import { FantaSoccerRole } from 'types/team';
 import { Role } from 'types/group';
 import {
@@ -101,28 +100,6 @@ const BONUS_MALUS_CONFIG: {
     order: 7,
   },
 ];
-
-// Mappa per le informazioni di chance
-const CHANCE_INFO_MAP = {
-  injury: {
-    icon: AlertTriangle,
-    color: '#c21ed8ff',
-    error: '#c21ed8ff',
-    label: 'Infortunato',
-    text: 'INF',
-  },
-  fantagazzetta: {
-    icon: null,
-    color: '#16a34a',
-    error: '#ef4444',
-    label: 'Fantagazzetta',
-    text: 'F',
-  },
-  gazzetta: { icon: null, color: '#16a34a', error: '#ef4444', label: 'Gazzetta', text: 'G' },
-  mediaset: { icon: Info, color: '#16a34a', error: '#ef4444', label: 'Mediaset', text: 'M' },
-  sky: { icon: Star, color: '#16a34a', error: '#ef4444', label: 'Sky', text: 'S' },
-  trend: { icon: TrendingUp, color: '#8b5cf6', error: '#ef4444', label: 'Forma', text: 'T' },
-};
 
 export function PlayerCard({
   player,
@@ -322,45 +299,6 @@ export function PlayerCard({
       hasManOfTheMatch,
     };
   }, [vote]);
-
-  // Informazioni chance
-  const chanceInfo = useMemo(() => {
-    if (!chance) return [];
-
-    const info: { type: keyof typeof CHANCE_INFO_MAP; value: any; label: string }[] = [];
-
-    // Solo se la partita non è ancora iniziata mostriamo F/G
-    if (isGameNotStarted) {
-      // Fantagazzetta
-      if (chance.fantagazzetta !== undefined) {
-        info.push({
-          type: 'fantagazzetta',
-          value: chance.fantagazzetta,
-          label: chance.fantagazzetta ? 'Titolare Fantalcacio.it' : 'Panchina Fantacalcio.it',
-        });
-      }
-
-      // Gazzetta
-      if (chance.gazzetta !== undefined) {
-        info.push({
-          type: 'gazzetta',
-          value: chance.gazzetta,
-          label: chance.gazzetta ? 'Titolare Gazzetta' : 'Panchina Gazzetta',
-        });
-      }
-    }
-
-    // Infortunio sempre visibile
-    if (chance.status === ChanceTypeEnum.Injury) {
-      info.push({
-        type: 'injury',
-        value: chance.description || 'Infortunato',
-        label: 'Infortunio',
-      });
-    }
-
-    return info;
-  }, [chance, isGameNotStarted]);
 
   // Funzione per determinare il colore di background del nome basato sulla posizione originale
   const getPlayerNameBackgroundColor = useMemo(() => {
@@ -690,7 +628,7 @@ export function PlayerCard({
         )}
 
         {/* Area chance organizzata - a destra */}
-        {!vote && isGameNotStarted && chance && chanceInfo.length > 0 && (
+        {!vote && isGameNotStarted && chance && (
           <YStack
             position="absolute"
             top={0}
@@ -699,41 +637,9 @@ export function PlayerCard({
             borderRadius={6}
             paddingVertical={0}
             paddingHorizontal={4}
-            gap={2}
             alignItems="center"
             zIndex={20}>
-            {/* Chance Info Icons - versione compatta */}
-            {chanceInfo.map((info, index) => {
-              const config = CHANCE_INFO_MAP[info.type];
-              const IconComponent = config.icon;
-
-              return (
-                <YStack
-                  key={`${info.type}-${index}`}
-                  width={20}
-                  height={20}
-                  borderRadius={4}
-                  backgroundColor={
-                    typeof info.value === 'boolean'
-                      ? info.value
-                        ? config.color
-                        : config.error
-                      : config.color
-                  }
-                  alignItems="center"
-                  justifyContent="center"
-                  borderWidth={1}
-                  borderColor="rgba(255, 255, 255, 0.8)">
-                  {IconComponent ? (
-                    <IconComponent size={12} color="#fff" />
-                  ) : (
-                    <Text fontSize={10} fontWeight="bold" color="#fff">
-                      {config.text}
-                    </Text>
-                  )}
-                </YStack>
-              );
-            })}
+            <PlayerAvailabilityIndicators chance={chance} direction="column" />
           </YStack>
         )}
 

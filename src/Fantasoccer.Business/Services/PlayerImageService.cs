@@ -154,14 +154,14 @@ public sealed class PlayerImageService(
 
     private static double NameSimilarity(string name, string? candidate)
     {
-        var candidateName = NormalizeName(candidate);
-        if (name.Length == 0 || candidateName.Length == 0) return 0;
-        if (name == candidateName) return 1;
+        var nameTokens = SignificantNameTokens(name).ToArray();
+        var candidateTokens = SignificantNameTokens(candidate).ToArray();
+        if (nameTokens.Length == 0 || candidateTokens.Length == 0) return 0;
+        if (string.Join(' ', nameTokens) == string.Join(' ', candidateTokens)) return 1;
 
-        var nameTokens = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var candidateTokens = candidateName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         // A source name may include an additional given name (e.g. "Romano Floriani Mussolini").
-        // Require every app-name token to match a distinct source token to avoid surname-only matches.
+        // Ignore isolated initials (e.g. "Cissè A.") and require every remaining app-name token
+        // to match a distinct source token to avoid surname-only matches.
         if (nameTokens.Length < 2 || candidateTokens.Length < nameTokens.Length) return 0;
 
         var remainingTokens = candidateTokens.ToList();
@@ -180,6 +180,11 @@ public sealed class PlayerImageService(
         var extraTokenPenalty = Math.Min(0.1, remainingTokens.Count * 0.03);
         return similarities.Average() - extraTokenPenalty;
     }
+
+    private static IEnumerable<string> SignificantNameTokens(string? name)
+        => Regex.Replace(NormalizeName(name), @"[^\p{L}\p{N}\s]", " ")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(token => token.Length > 1);
 
     private static double TokenSimilarity(string left, string right)
     {

@@ -15,6 +15,20 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.62',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description: 'Il rinnovo delle foto riconosce anche cognomi accentati seguiti da un’iniziale',
+      },
+      {
+        category: 'Improvement',
+        description: 'La vista rapida evidenzia infortuni e probabili formazioni di Gazzetta e Fantagazzetta',
+      },
+    ],
+  },
+  {
     version: '2.0.61',
     date: '13 Ottobre 2026',
     changes: [
