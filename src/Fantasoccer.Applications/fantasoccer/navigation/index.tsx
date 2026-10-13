@@ -38,6 +38,7 @@ import { Login } from 'screens/login';
 import PushNotificationScreen from 'screens/push-notification';
 import { VersionUpdateBanner } from 'components/version/VersionUpdateBanner';
 import OpeningCompetitionScreen from 'screens/opening-competition';
+import { MarketActivityProvider } from 'providers/MarketActivityProvider';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -65,7 +66,7 @@ export type RootStackParamList = {
     editMode?: 'formation' | 'live' | 'view';
   };
   Market: undefined;
-  MarketTrades: undefined;
+  MarketTrades: { groupId?: string; leagueId?: string; year?: number | string } | undefined;
   HallOfFame: undefined;
   Rules: undefined;
   Users: undefined;
@@ -191,6 +192,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
       onStateChange={(state) =>
         setActiveRouteName(state ? (state.routes[state.index]?.name ?? 'Home') : 'Home')
       }>
+      <MarketActivityProvider>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -239,6 +241,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
       {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
       <VersionUpdateBanner />
       <GlobalMatchWidget activeRouteName={activeRouteName} />
+      </MarketActivityProvider>
     </NavigationContainer>
   );
 }

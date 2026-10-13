@@ -28,6 +28,7 @@ namespace Fantasoccer.Tests
                 .Build();
             services.AddPopulationService();
             services.AddInMemoryInfrastructures();
+            services.AddRepository<PushNotificationSettings, string>(builder => builder.WithInMemory());
              services.AddRepository<AuctionWrapper, string>(builder => builder.WithInMemory());
              services.AddRepository<OpeningCompetitionStandings, OpeningCompetitionKey>(builder => builder.WithInMemory());
             services.AddFantasoccerBusiness(configuration);

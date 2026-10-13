@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.67',
+    date: '13 Ottobre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Notifiche push per aggiornamenti, voti ed esiti del mercato nella lega principale',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Indicatori per offerte attive e voti in attesa nel menu, nella lista scambi e nel widget inferiore',
+      },
+    ],
+  },
+  {
     version: '2.0.66',
     date: '13 Ottobre 2026',
     changes: [

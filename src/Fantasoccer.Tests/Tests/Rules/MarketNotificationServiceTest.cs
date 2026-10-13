@@ -15,6 +15,8 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
     private const string BasketId = "market-notification-basket";
     private const string Buyer = "market-buyer@test.local";
     private const string Seller = "market-seller@test.local";
+    private const string Voter = "market-voter@test.local";
+    private const string SecondaryLeagueId = "market-notification-secondary-league";
     private readonly ServiceProvider _services;
     private readonly IRepository<Group, string> _groups;
     private readonly IRepository<PushNotificationSettings, string> _settings;
@@ -55,48 +57,81 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
         var sent = Assert.Single(_notifications.Sent);
         Assert.Equal(Seller, sent.Email);
         Assert.Equal("[Market league] Buyer Team ti ha proposto uno scambio.", sent.Notification.Body);
-        Assert.Equal("https://fanta.zone/market", sent.Notification.Data.Uri);
+        Assert.StartsWith("https://fanta.zone/market/trades?", sent.Notification.Data.Uri);
     }
 
     [Fact]
-    public async Task ApprovedOutcomeNotifiesBuyerAndSeller()
+    public async Task ApprovedOutcomeNotifiesMainLeagueMembersExceptTheActor()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await InsertGroupAsync(cancellationToken);
-        await _settings.InsertAsync(Seller, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
-        await _settings.InsertAsync(Buyer, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+        await InsertMarketSettingsAsync(cancellationToken);
 
-        await _service.NotifyOutcomeAsync(Key(), Market(MarketStatus.Approved), cancellationToken);
+        await _service.NotifyMarketChangedAsync(Key(), Market(MarketStatus.Approved), MarketNotificationEvent.VoteCast, Seller, cancellationToken);
 
         Assert.Equal(2, _notifications.Sent.Count);
         Assert.Contains(_notifications.Sent, x => x.Email == Buyer);
-        Assert.Contains(_notifications.Sent, x => x.Email == Seller);
-        Assert.All(_notifications.Sent, x => Assert.Equal("[Market league] Scambio tra Buyer Team e Seller Team completato!", x.Notification.Body));
+        Assert.Contains(_notifications.Sent, x => x.Email == Voter);
+        Assert.DoesNotContain(_notifications.Sent, x => x.Email == Seller);
+        Assert.All(_notifications.Sent, x => Assert.Equal("[Market league] Lo scambio tra Buyer Team e Seller Team è stato completato.", x.Notification.Body));
     }
 
     [Fact]
-    public async Task DeniedOutcomeNotifiesBuyerAndSeller()
+    public async Task DeniedOutcomeNotifiesMainLeagueMembersExceptTheActor()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await InsertGroupAsync(cancellationToken);
-        await _settings.InsertAsync(Seller, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
-        await _settings.InsertAsync(Buyer, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+        await InsertMarketSettingsAsync(cancellationToken);
 
-        await _service.NotifyOutcomeAsync(Key(), Market(MarketStatus.Denied), cancellationToken);
+        await _service.NotifyMarketChangedAsync(Key(), Market(MarketStatus.Denied), MarketNotificationEvent.SellerRejected, Seller, cancellationToken);
 
         Assert.Equal(2, _notifications.Sent.Count);
         Assert.All(_notifications.Sent, x => Assert.Contains("è stata rifiutata", x.Notification.Body));
     }
 
     [Fact]
-    public async Task PendingOutcomeDoesNotNotify()
+    public async Task SellerAcceptanceNotifiesTheLeagueThatVotingIsOpen()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await InsertGroupAsync(cancellationToken);
-        await _settings.InsertAsync(Seller, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
-        await _settings.InsertAsync(Buyer, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+        await InsertMarketSettingsAsync(cancellationToken);
+        var market = Market(MarketStatus.Pending);
+        market.SellerAccepted = true;
+        market.Approvers = [Buyer, Seller];
 
-        await _service.NotifyOutcomeAsync(Key(), Market(MarketStatus.Pending), cancellationToken);
+        await _service.NotifyMarketChangedAsync(Key(), market, MarketNotificationEvent.SellerAccepted, Seller, cancellationToken);
+
+        Assert.Equal(2, _notifications.Sent.Count);
+        Assert.Contains(_notifications.Sent, x => x.Email == Buyer);
+        Assert.Contains(_notifications.Sent, x => x.Email == Voter);
+        Assert.All(_notifications.Sent, x => Assert.Contains("Votazione aperta: 2 sì, 0 no", x.Notification.Body));
+    }
+
+    [Fact]
+    public async Task NewPendingVoteNotifiesTheLeagueWithUpdatedVoteCount()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await InsertGroupAsync(cancellationToken);
+        await InsertMarketSettingsAsync(cancellationToken);
+        var market = Market(MarketStatus.Pending);
+        market.SellerAccepted = true;
+        market.Approvers = [Buyer, Seller, Voter];
+
+        await _service.NotifyMarketChangedAsync(Key(), market, MarketNotificationEvent.VoteCast, Voter, cancellationToken);
+
+        Assert.Equal(2, _notifications.Sent.Count);
+        Assert.DoesNotContain(_notifications.Sent, x => x.Email == Voter);
+        Assert.All(_notifications.Sent, x => Assert.Contains("Voter Team ha votato a favore lo scambio (3 sì, 0 no)", x.Notification.Body));
+    }
+
+    [Fact]
+    public async Task SecondaryLeagueDoesNotSendMarketNotifications()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await InsertGroupAsync(cancellationToken);
+        await InsertMarketSettingsAsync(cancellationToken);
+
+        await _service.NotifyProposalCreatedAsync(SecondaryKey(), Market(MarketStatus.Pending), cancellationToken);
 
         Assert.Empty(_notifications.Sent);
     }
@@ -128,6 +163,16 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
                 {
                     Id = LeagueId,
                     Name = "Market league",
+                    IsMain = true,
+                    Type = LeagueType.League,
+                    BasketsId = [BasketId],
+                    Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = settings }]
+                },
+                new League
+                {
+                    Id = SecondaryLeagueId,
+                    Name = "Secondary league",
+                    IsMain = false,
                     Type = LeagueType.League,
                     BasketsId = [BasketId],
                     Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = settings }]
@@ -147,7 +192,8 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
                             Teams =
                             [
                                 new AnnualTeam { Name = "Buyer Team", Owner = Buyer, AdditionalOwners = [] },
-                                new AnnualTeam { Name = "Seller Team", Owner = Seller, AdditionalOwners = [] }
+                                new AnnualTeam { Name = "Seller Team", Owner = Seller, AdditionalOwners = [] },
+                                new AnnualTeam { Name = "Voter Team", Owner = Voter, AdditionalOwners = [] }
                             ]
                         }
                     ]
@@ -172,11 +218,22 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
     private static LeagueKey Key()
         => new() { Group = GroupId, League = LeagueId, Year = FantacalcioTime.ActualYear };
 
+    private static LeagueKey SecondaryKey()
+        => new() { Group = GroupId, League = SecondaryLeagueId, Year = FantacalcioTime.ActualYear };
+
+    private async Task InsertMarketSettingsAsync(CancellationToken cancellationToken)
+    {
+        await _settings.InsertAsync(Buyer, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+        await _settings.InsertAsync(Seller, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+        await _settings.InsertAsync(Voter, new PushNotificationSettings { MarketEvents = true }, cancellationToken);
+    }
+
     private async Task CleanupAsync(CancellationToken cancellationToken)
     {
         await _groups.DeleteAsync(GroupId, cancellationToken);
         await _settings.DeleteAsync(Buyer, cancellationToken);
         await _settings.DeleteAsync(Seller, cancellationToken);
+        await _settings.DeleteAsync(Voter, cancellationToken);
         _notifications.Sent.Clear();
     }
 }

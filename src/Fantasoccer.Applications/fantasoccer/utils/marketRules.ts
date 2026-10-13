@@ -21,6 +21,7 @@ export interface MarketRuleMarket {
   moneyFromSeller: number
   approvers: string[]
   deniers: string[]
+  sellerAccepted?: boolean
   status: MarketStatus
   creationTime: Date
 }
@@ -75,6 +76,17 @@ export class MarketHelper {
       !market.approvers.some(approver => approver.toLowerCase() === email) &&
       !market.deniers.some(denier => denier.toLowerCase() === email)
     )
+  }
+
+  static getMarketsAwaitingUserVote<T extends MarketRuleMarket>(markets: T[], userOwners: string[]): T[] {
+    const owners = new Set(userOwners.map(owner => owner.toLowerCase()))
+    if (owners.size === 0) return []
+
+    return markets.filter(market => {
+      if (!MarketStatusHelper.isPending(market.status) || market.sellerAccepted !== true) return false
+      if (owners.has(market.buyer.toLowerCase()) || owners.has(market.seller.toLowerCase())) return false
+      return ![...market.approvers, ...market.deniers].some(voter => owners.has(voter.toLowerCase()))
+    })
   }
 
   static hasUserVoted(market: MarketRuleMarket, userEmail: string): boolean {

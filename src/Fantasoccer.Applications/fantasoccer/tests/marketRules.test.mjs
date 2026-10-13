@@ -51,6 +51,23 @@ test('returns only neutral users who have not voted for approval', () => {
   assert.deepEqual(MarketHelper.getPendingMarketsForApproval([alreadyVoted, completed], 'neutral@test.local'), [])
 })
 
+test('counts only accepted live offers still awaiting the current owner vote', () => {
+  const needsVote = createMarket({ sellerAccepted: true })
+  const notAccepted = createMarket({ id: 'not-accepted' })
+  const alreadyVoted = createMarket({
+    id: 'already-voted',
+    sellerAccepted: true,
+    approvers: ['buyer@test.local', 'seller@test.local', 'voter@test.local']
+  })
+  const completed = createMarket({ id: 'completed', sellerAccepted: true, status: MarketStatus.Approved })
+
+  assert.deepEqual(
+    MarketHelper.getMarketsAwaitingUserVote([needsVote, notAccepted, alreadyVoted, completed], ['voter@test.local']),
+    [needsVote]
+  )
+  assert.deepEqual(MarketHelper.getMarketsAwaitingUserVote([needsVote], ['BUYER@test.local']), [])
+})
+
 test('calculates exchanged value from trusted player prices and money', () => {
   assert.deepEqual(MarketHelper.getTotalValue(createMarket()), {
     buyerGives: 15,

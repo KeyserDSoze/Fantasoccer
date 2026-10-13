@@ -31,6 +31,7 @@ import { EnhancedTeam, Player } from 'types/team'
 import { MarketType, Role } from 'types/group'
 import { MarketStatus } from 'types/market'
 import { formatSeasonFromYear } from 'utils/season'
+import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider'
 
 // Helper to get role label
 const getRoleLabel = (role: Role): string => {
@@ -57,6 +58,7 @@ const getRoleColor = (role: Role): string => {
 export default function MarketScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()
   const { user } = useAuth()
+  const marketActivity = useMainLeagueMarketActivity()
   
   const [teams, setTeams] = useState<EnhancedTeam[]>([])
   const [myTeam, setMyTeam] = useState<EnhancedTeam | null>(null)
@@ -333,6 +335,7 @@ export default function MarketScreen() {
       )
 
       if (success) {
+        await marketActivity.refresh()
         setTradeSuccess(true)
         // Reset form
         setSelectedTargetTeam(null)

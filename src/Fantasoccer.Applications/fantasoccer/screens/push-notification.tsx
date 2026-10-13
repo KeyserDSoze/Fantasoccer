@@ -60,7 +60,7 @@ const notificationToggles: Array<{
   {
     key: 'marketEvents',
     title: 'Movimenti di mercato',
-    description: 'Notifiche sulle offerte e sugli scambi della tua lega.',
+    description: 'Proposte, accettazioni, voti e risultati degli scambi della lega principale.',
     icon: <SquareCheck size={22} color="$green10" />
   },
   {

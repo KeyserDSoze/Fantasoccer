@@ -8,14 +8,17 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
         private readonly IFantasoccerLogger _logger;
         private readonly IRepository<Group, string> _groups;
         private readonly IRepository<MarketWrapper, LeagueKey> _marketRepository;
+        private readonly IMarketNotificationService _marketNotificationService;
 
         public MarketJob(IFantasoccerLogger logger,
             IRepository<Group, string> groups,
-            IRepository<MarketWrapper, LeagueKey> marketRepository)
+            IRepository<MarketWrapper, LeagueKey> marketRepository,
+            IMarketNotificationService marketNotificationService)
         {
             _logger = logger;
             _groups = groups;
             _marketRepository = marketRepository;
+            _marketNotificationService = marketNotificationService;
         }
 
         public async Task ActionToDoAsync(CancellationToken cancellationToken)
@@ -35,16 +38,27 @@ namespace Fantasoccer.Business.BackgroundJobs.GroupsManager
                     }
                     market.Markets ??= [];
                     var hasExpiredSomething = false;
+                    List<Market> expiredMarkets = [];
                     foreach (var exchange in market.Markets.Where(x => x.Status == MarketStatus.Pending))
                     {
                         if (DateTime.UtcNow.Subtract(exchange.CreationTime) > TimeSpan.FromDays(14))
                         {
                             exchange.Status = MarketStatus.Expired;
                             hasExpiredSomething = true;
+                            expiredMarkets.Add(exchange);
                         }
                     }
                     if (hasExpiredSomething)
+                    {
                         await _marketRepository.UpdateAsync(leagueKey, market);
+                        foreach (var expiredMarket in expiredMarkets)
+                            await _marketNotificationService.NotifyMarketChangedAsync(
+                                leagueKey,
+                                expiredMarket,
+                                MarketNotificationEvent.Expired,
+                                string.Empty,
+                                cancellationToken);
+                    }
                 }
             }
         }

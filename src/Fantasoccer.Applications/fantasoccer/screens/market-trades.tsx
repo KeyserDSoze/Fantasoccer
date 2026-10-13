@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRoute, type RouteProp } from '@react-navigation/native'
 import { View } from 'react-native'
 import {
   YStack,
@@ -38,6 +39,8 @@ import { Team } from 'types/team'
 import { MarketType, Role } from 'types/group'
 import { Market, MarketStatus, MarketStatusHelper, MarketHelper } from 'types/market'
 import { formatSeasonFromYear } from 'utils/season'
+import type { RootStackParamList } from 'navigation'
+import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider'
 
 // Helper to get role label
 const getRoleLabel = (role: Role): string => {
@@ -84,8 +87,14 @@ const getStatusBgColor = (status: MarketStatus): string => {
 }
 
 export default function MarketTradesScreen() {
-  const { currentGroup, selectedLeagueId, selectedYear } = useApp()
+  const route = useRoute<RouteProp<RootStackParamList, 'MarketTrades'>>()
+  const { currentGroup, selectedLeagueId: appSelectedLeagueId, selectedYear: appSelectedYear, setCurrentGroup } = useApp()
+  const selectedLeagueId = route.params?.leagueId ?? appSelectedLeagueId
+  const routeYear = route.params?.year
+  const parsedRouteYear = typeof routeYear === 'string' ? Number(routeYear) : routeYear
+  const selectedYear = parsedRouteYear != null && Number.isFinite(parsedRouteYear) ? parsedRouteYear : appSelectedYear
   const { user } = useAuth()
+  const marketActivity = useMainLeagueMarketActivity()
   
   const [markets, setMarkets] = useState<Market[]>([])
   const [teams, setTeams] = useState<Team[]>([])
@@ -94,6 +103,13 @@ export default function MarketTradesScreen() {
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null)
   const [isVoting, setIsVoting] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  useEffect(() => {
+    const requestedGroupId = route.params?.groupId
+    if (requestedGroupId && requestedGroupId !== currentGroup?.id) {
+      void setCurrentGroup(requestedGroupId)
+    }
+  }, [route.params?.groupId, currentGroup?.id, setCurrentGroup])
 
   // Get latest year from group baskets
   const latestYear = useMemo(() => {
@@ -260,6 +276,7 @@ export default function MarketTradesScreen() {
       if (success) {
         // Reload markets
         await loadData()
+        await marketActivity.refresh()
         setSelectedMarket(null)
       } else {
         setError('Errore durante la votazione')
@@ -283,6 +300,7 @@ export default function MarketTradesScreen() {
         : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id)
       if (success) {
         await loadData()
+        await marketActivity.refresh()
         setSelectedMarket(null)
       } else {
         setError(decision === 'accept'
@@ -329,6 +347,7 @@ export default function MarketTradesScreen() {
     const isPending = MarketStatusHelper.isPending(market.status)
     const userVote = MarketHelper.getUserVote(market, myOwner)
     const isUserInvolved = MarketHelper.isUserInvolved(market, myOwner)
+    const needsUserVote = isPending && market.sellerAccepted && marketNeedsLeagueVote && !isUserInvolved && !userVote
     const hasReachedApprovalQuorum = MarketHelper.hasReachedApprovalQuorum(market, leagueSize)
     const hasReachedDenialQuorum = MarketHelper.hasReachedDenialQuorum(market, leagueSize)
 
@@ -358,6 +377,23 @@ export default function MarketTradesScreen() {
               </YStack>
             </XStack>
             <XStack gap="$2" alignItems="center">
+              {isPending && (
+                <XStack
+                  gap="$1"
+                  alignItems="center"
+                  backgroundColor="$red3"
+                  paddingHorizontal="$2"
+                  paddingVertical="$1"
+                  borderRadius="$3"
+                  aria-label={needsUserVote ? 'Devi votare questo scambio' : 'Scambio attivo'}>
+                  <YStack width={16} height={16} borderRadius={8} backgroundColor="$red10" alignItems="center" justifyContent="center">
+                    <Text color="white" fontSize={11} fontWeight="900" lineHeight={13}>!</Text>
+                  </YStack>
+                  <Text color="$red11" fontSize="$1" fontWeight="800">
+                    {needsUserVote ? 'Vota' : 'Attivo'}
+                  </Text>
+                </XStack>
+              )}
               {isPending && (
                 <Clock size={16} color="$blue10" />
               )}

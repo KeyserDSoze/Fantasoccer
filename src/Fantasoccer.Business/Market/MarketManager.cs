@@ -389,11 +389,11 @@ internal sealed class MarketManager : IMarketManager
         };
 
     private static MarketOperationResult Successful(Market market)
-        => new() { IsOk = true, Market = market };
+        => new() { IsOk = true, Changed = true, Market = market };
 
     private static MarketOperationResult ResultFor(Market market)
         => market.Status is MarketStatus.NoMoney or MarketStatus.NoPlayers
-            ? Failed("Lo scambio non può essere eseguito.", market)
+            ? new() { Message = "Lo scambio non può essere eseguito.", Market = market, Changed = true }
             : Successful(market);
 
     private static MarketOperationResult Failed(string message, Market? market = null)

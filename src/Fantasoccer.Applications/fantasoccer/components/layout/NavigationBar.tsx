@@ -44,6 +44,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { RootStackParamList } from 'navigation'
 import { APP_VERSION } from 'config/version'
 import { formatSeasonFromYear } from 'utils/season'
+import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -173,6 +174,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const media = useMedia()
   const isDesktop = !media.sm
   const navigation = useNavigation()
+  const marketActivity = useMainLeagueMarketActivity()
   const menuScrollStyle = {
     flex: 1,
     ...(Platform.OS === 'web' ? { overscrollBehavior: 'contain' as const } : {}),
@@ -211,6 +213,15 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
           leagueId: selectedLeagueId ?? undefined,
           groupId: currentGroup?.id,
         })
+      } else if (item.route === 'MarketTrades' && marketActivity.mainLeagueId) {
+        (navigation as { navigate: (routeName: NavigationRouteName, params?: Record<string, unknown>) => void }).navigate(
+          item.route,
+          {
+            groupId: currentGroup?.id,
+            leagueId: marketActivity.mainLeagueId,
+            year: marketActivity.year,
+          }
+        )
       } else {
         ;(navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate(item.route)
       }
@@ -230,6 +241,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       </Text>
       {section.items.map((item) => {
         const IconComponent = item.icon
+        const hasActiveMarkets = item.type === 'route' && item.route === 'MarketTrades' && marketActivity.activeMarketCount > 0
         return (
           <Button
             key={item.type === 'route' ? item.route : item.path}
@@ -253,6 +265,18 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                   {item.description}
                 </Text>
               </YStack>
+              {hasActiveMarkets && (
+                <YStack
+                  width={20}
+                  height={20}
+                  borderRadius={10}
+                  backgroundColor="$red10"
+                  alignItems="center"
+                  justifyContent="center"
+                  aria-label="Ci sono scambi attivi nella lega principale">
+                  <Text color="white" fontSize={13} fontWeight="900" lineHeight={16}>!</Text>
+                </YStack>
+              )}
             </XStack>
           </Button>
         )
@@ -266,6 +290,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       <Button
         size="$4"
         circular
+        position="relative"
         backgroundColor="transparent"
         borderColor="transparent"
         onPress={() => setIsOpen(true)}
@@ -273,6 +298,21 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
         pressStyle={{ backgroundColor: '$color4' }}
       >
         <Menu size="$1.5" color="$color12" />
+        {marketActivity.activeMarketCount > 0 && (
+          <YStack
+            position="absolute"
+            top={1}
+            right={1}
+            width={17}
+            height={17}
+            borderRadius={9}
+            backgroundColor="$red10"
+            alignItems="center"
+            justifyContent="center"
+            aria-label="Ci sono scambi attivi nella lega principale">
+            <Text color="white" fontSize={12} fontWeight="900" lineHeight={14}>!</Text>
+          </YStack>
+        )}
       </Button>
 
       {/* Navigation Sheet */}

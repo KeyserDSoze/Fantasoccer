@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  AlertTriangle,
   RadioTower,
   Trophy,
   X,
@@ -23,6 +24,7 @@ import type { League } from 'types/group';
 import type { UserSettings } from 'types/settings';
 import { DEFAULT_USER_SETTINGS } from 'types/settings';
 import { getActualFantacalcioYear } from 'utils/timezoneHelpers';
+import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider';
 
 type UserMatch = {
   league: League;
@@ -91,6 +93,7 @@ function GlobalMatchWidgetContent({
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
   const { currentGroup, selectedLeagueId, selectedYear } = useApp();
+  const marketActivity = useMainLeagueMarketActivity();
   const [expanded, setExpanded] = useState(false);
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
   const [disabling, setDisabling] = useState(false);
@@ -211,6 +214,16 @@ function GlobalMatchWidgetContent({
     navigation.navigate('Edit', { leagueId: selectedLeague.id, year: selectedFormationYear });
   };
 
+  const navigateToMarketTrades = () => {
+    if (!marketActivity.mainLeagueId) return;
+    setExpanded(false);
+    navigation.navigate('MarketTrades', {
+      groupId: currentGroup?.id,
+      leagueId: marketActivity.mainLeagueId,
+      year: marketActivity.year,
+    });
+  };
+
   const disablePermanently = async () => {
     setDisabling(true);
     setDisableError(false);
@@ -228,8 +241,9 @@ function GlobalMatchWidgetContent({
     }
   };
 
-  if (!currentGroup || !user || loading || (isLiveDay && matches.length === 0)) return null;
-  if (!isLiveDay && (!nextDay || !countdown)) return null;
+  if (!currentGroup || !user || (loading && marketActivity.pendingVoteCount === 0)) return null;
+  if (isLiveDay && matches.length === 0 && marketActivity.pendingVoteCount === 0) return null;
+  if (!isLiveDay && (!nextDay || !countdown) && marketActivity.pendingVoteCount === 0) return null;
 
   const floatingStyle = Platform.OS === 'web' ? ({ position: 'fixed' } as const) : undefined;
 
@@ -413,7 +427,7 @@ function GlobalMatchWidgetContent({
               </ScrollView>
             )}
           </YStack>
-        ) : (
+        ) : !isLiveDay && nextDay && countdown ? (
           <XStack padding="$3" gap="$3" alignItems="center" backgroundColor="$blue2">
             <Button
               chromeless
@@ -457,6 +471,27 @@ function GlobalMatchWidgetContent({
               }}
             />
           </XStack>
+        ) : null}
+        {marketActivity.pendingVoteCount > 0 && (
+          <Button chromeless height="auto" padding={0} onPress={navigateToMarketTrades}>
+            <XStack
+              width="100%"
+              paddingHorizontal="$3"
+              paddingVertical="$2"
+              gap="$2"
+              alignItems="center"
+              borderTopWidth={1}
+              borderTopColor="$red7"
+              backgroundColor="$red2">
+              <AlertTriangle size={18} color="$red10" />
+              <Text flex={1} color="$red11" fontSize="$2" fontWeight="800">
+                {marketActivity.pendingVoteCount === 1
+                  ? 'Hai uno scambio da votare'
+                  : `Hai ${marketActivity.pendingVoteCount} scambi da votare`}
+              </Text>
+              <ExternalLink size={16} color="$red10" />
+            </XStack>
+          </Button>
         )}
       </Card>
 
