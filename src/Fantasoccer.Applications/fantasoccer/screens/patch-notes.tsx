@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.69',
+    date: '14 Ottobre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'La Hall of Fame si aggiorna secondo la pianificazione, senza rilanci automatici al riavvio dell’API',
+      },
+    ],
+  },
+  {
     version: '2.0.68',
     date: '14 Ottobre 2026',
     changes: [
