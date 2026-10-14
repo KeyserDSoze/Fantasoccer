@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.68',
+    date: '14 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'La Partita della Vita viene aggiornata anche quando manca la classifica della stagione',
+      },
+    ],
+  },
+  {
     version: '2.0.67',
     date: '13 Ottobre 2026',
     changes: [

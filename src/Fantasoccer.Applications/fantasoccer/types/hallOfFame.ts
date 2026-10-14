@@ -79,7 +79,7 @@ export interface RecordGameRaw {
  * HallOfFame - Complete Hall of Fame data
  */
 export interface HallOfFameRaw {
-  rg: RecordGameRaw                      // RecordGame
+  rg?: RecordGameRaw | null              // RecordGame
   rp: RecordPlayerRaw | null             // RecordPlayer (nullable)
   ppmy: PlayerWithMostPointsInYearRaw | null  // PlayerWithMostPointsInYear (nullable)
   wp: WinningPlayerRaw[]                 // WinningPlayers
@@ -141,7 +141,7 @@ export interface RecordGame {
 }
 
 export interface HallOfFame {
-  recordGame: RecordGame
+  recordGame: RecordGame | null
   recordPlayer: RecordPlayer | null
   playerWithMostPointsInYear: PlayerWithMostPointsInYear | null
   winningPlayers: WinningPlayer[]
@@ -202,7 +202,7 @@ export const mapRawRecordGame = (raw: RecordGameRaw): RecordGame => ({
 })
 
 export const mapRawHallOfFame = (raw: HallOfFameRaw): HallOfFame => ({
-  recordGame: mapRawRecordGame(raw.rg),
+  recordGame: raw.rg ? mapRawRecordGame(raw.rg) : null,
   recordPlayer: raw.rp ? mapRawRecordPlayer(raw.rp) : null,
   playerWithMostPointsInYear: raw.ppmy ? mapRawPlayerWithMostPointsInYear(raw.ppmy) : null,
   winningPlayers: raw.wp.map(mapRawWinningPlayer),

@@ -2,6 +2,7 @@ using Fantasoccer.Business;
 using Fantasoccer.Business.BackgroundJobs.GroupsManager;
 using Fantasoccer.InMemory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using RepositoryFramework;
 using RepositoryFramework.InMemory;
 
@@ -27,6 +28,7 @@ public sealed class HallOfFameJobTest : IAsyncLifetime
     public HallOfFameJobTest()
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddInMemoryInfrastructures();
         services.AddRepository<HallOfFame, GeneralLeagueKey>(builder => builder.WithInMemory());
         services.AddSharedBusiness();
@@ -70,6 +72,7 @@ public sealed class HallOfFameJobTest : IAsyncLifetime
         Assert.NotNull(result);
         Assert.Equal(2, result.Ranks.Count);
         Assert.Equal(10, result.Ranks.Single(x => x.Owner == Winner).Point);
+        Assert.NotNull(result.RecordGame);
         Assert.Equal(_year, result.RecordGame.Year);
         Assert.Equal(72, result.RecordGame.Game.Result!.Home.Value);
         var winningTeam = Assert.Single(result.WinningTeams);
@@ -81,7 +84,40 @@ public sealed class HallOfFameJobTest : IAsyncLifetime
     }
 
     [Fact]
-    public async Task SkipsLeagueWhenRankOrCalendarIsMissing()
+    public async Task CalculatesRecordGameWhenRankIsMissingButCalendarExists()
+    {
+        await _groups.InsertAsync(GroupId, Group(), TestContext.Current.CancellationToken);
+        var calendar = Calendar();
+        calendar.Rounds["@"][0].Games.Add(new CalendarGame
+        {
+            Id = "life-record-game",
+            Home = "Winner",
+            HomeOwner = Winner,
+            Away = "Loser",
+            AwayOwner = Loser,
+            Result = new GameResult
+            {
+                Home = new Point(85.5f, false, false, false),
+                Away = new Point(99.5f, false, false, false),
+                HomeGoal = 4,
+                AwayGoal = 6
+            }
+        });
+        await _calendars.InsertAsync(LeagueKey(), calendar, TestContext.Current.CancellationToken);
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var result = await _hallOfFame.GetAsync(HallOfFameKey(), TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+        Assert.Empty(result.Ranks);
+        Assert.NotNull(result.RecordGame);
+        Assert.Equal(_year, result.RecordGame.Year);
+        Assert.Equal("life-record-game", result.RecordGame.Game.Id);
+        Assert.Equal(99.5f, result.RecordGame.Game.Result!.Away.Value);
+    }
+
+    [Fact]
+    public async Task SkipsYearWhenBothRankAndCalendarAreMissing()
     {
         await _groups.InsertAsync(GroupId, Group(), TestContext.Current.CancellationToken);
 
@@ -93,16 +129,30 @@ public sealed class HallOfFameJobTest : IAsyncLifetime
         Assert.Empty(result.WinningTeams);
     }
 
+    [Fact]
+    public async Task CalculatesRankTotalsWhenCalendarIsMissing()
+    {
+        await _groups.InsertAsync(GroupId, Group(), TestContext.Current.CancellationToken);
+        await _ranks.InsertAsync(LeagueKey(), Rank(), TestContext.Current.CancellationToken);
+
+        await CreateJob().ActionToDoAsync(TestContext.Current.CancellationToken);
+
+        var result = await _hallOfFame.GetAsync(HallOfFameKey(), TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Ranks.Count);
+        Assert.Null(result.RecordGame);
+        Assert.Empty(result.WinningTeams);
+    }
+
     private HallOfFameJob CreateJob()
         => new(
-            _services.GetRequiredService<IFantasoccerLogger>(),
+            _services.GetRequiredService<ILogger<HallOfFameJob>>(),
             _groups,
             _calendars,
             _ranks,
             _hallOfFame,
             _teams,
-            _services.GetRequiredService<IFactory<ILeagueCalculator>>(),
-            _services.GetRequiredService<IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>>>());
+            _services.GetRequiredService<IFactory<ILeagueCalculator>>());
 
     private Group Group()
         => new()

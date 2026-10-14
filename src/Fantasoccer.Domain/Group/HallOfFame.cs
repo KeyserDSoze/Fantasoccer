@@ -5,7 +5,7 @@ namespace Fantasoccer
     public sealed class HallOfFame
     {
         [JsonPropertyName("rg")]
-        public RecordGame RecordGame { get; set; }
+        public RecordGame? RecordGame { get; set; }
         [JsonPropertyName("rp")]
         public RecordPlayer? RecordPlayer { get; set; }
         [JsonPropertyName("ppmy")]
