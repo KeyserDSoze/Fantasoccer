@@ -1,5 +1,7 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using System.Timers;
+using Fantasoccer.Business;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
 
@@ -8,6 +10,7 @@ namespace Fantasoccer.Engine.GroupsManager
     public class PushNotificationJob : IBackgroundJob
     {
         private readonly IFantasoccerLogger _logger;
+        private readonly ITeamCalculator _teamCalculator;
         private readonly IRepository<Group, string> _groupRepository;
         private readonly IRepository<LiveGroup, string> _liveGroupRepository;
         private readonly IRepository<Team, TeamDayKey> _teamDayRepository;
@@ -19,6 +22,7 @@ namespace Fantasoccer.Engine.GroupsManager
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _liveVoteRepository;
         private readonly IRepository<VotedRealPlayerWrapper, YearDayKey> _notificationVoteRepository;
         public PushNotificationJob(IFantasoccerLogger logger,
+            ITeamCalculator teamCalculator,
             IRepository<Group, string> groupRepository,
             IRepository<LiveGroup, string> liveGroupRepository,
             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> factory,
@@ -30,6 +34,7 @@ namespace Fantasoccer.Engine.GroupsManager
             IRepository<PushNotificationSent, YearDayKey> pushNotificationSentRepository)
         {
             _logger = logger;
+            _teamCalculator = teamCalculator;
             _groupRepository = groupRepository;
             _liveGroupRepository = liveGroupRepository;
             _teamDayRepository = teamDayRepository;
@@ -81,6 +86,7 @@ namespace Fantasoccer.Engine.GroupsManager
                                 var teams = new List<Team>();
                                 var groupKey = group.Key;
                                 var groupValue = await _groupRepository.GetAsync(groupKey!);
+                                var groupName = string.IsNullOrWhiteSpace(groupValue?.Name) ? groupKey! : groupValue.Name;
                                 foreach (var basket in groupValue!.Baskets)
                                 {
                                     var currentYear = basket.Years.FirstOrDefault(x => x.Year == actualYear);
@@ -141,10 +147,10 @@ namespace Fantasoccer.Engine.GroupsManager
 
                                 foreach (var notification in notificationsToSend)
                                 {
-                                    foreach (var team in teams.Where(x => x.Players.Any(t => t.Key == notification.PlayerKey)))
+                                    foreach (var team in teams.Where(x => x.ActivePlayers.Any(player => player.Key == notification.PlayerKey)))
                                     {
                                         await semaphore.WaitAsync();
-                                        sendTasks.Add(SendNotificationWithSemaphoreAsync(team, notification, null, null, x => x?.Value?.MatchEvents == true, semaphore));
+                                        sendTasks.Add(SendNotificationWithSemaphoreAsync(team, notification, $"[{groupName}]", null, x => x?.Value?.MatchEvents == true, semaphore));
                                         
                                         if (currentOpponents.ContainsKey(team.Owner))
                                         {
@@ -155,7 +161,7 @@ namespace Fantasoccer.Engine.GroupsManager
                                                 if (opponentTeam != null)
                                                 {
                                                     await semaphore.WaitAsync();
-                                                    sendTasks.Add(SendNotificationWithSemaphoreAsync(opponentTeam, notification, $"[{opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true, semaphore));
+                                                    sendTasks.Add(SendNotificationWithSemaphoreAsync(opponentTeam, notification, $"[{groupName} - {opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true, semaphore));
                                                 }
                                             }
                                         }
@@ -186,7 +192,7 @@ namespace Fantasoccer.Engine.GroupsManager
                                                 Title = "FantaZone",
                                                 Icon = "https://fanta.zone/icon.png",
                                                 Badge = "https://fanta.zone/adaptive-icon.png",
-                                                Tag = $"match-event-{notification.PlayerKey}",
+                                                Tag = $"match-event-{Guid.NewGuid():N}",
                                                 Data = new NotificationData
                                                 {
                                                     Uri = "https://fanta.zone/live"
@@ -210,6 +216,7 @@ namespace Fantasoccer.Engine.GroupsManager
                             await _logger.LogAsync<PushNotificationJob>($"Notification parsate.").NoContext();
                         }
                     }
+                    await SendLiveFormationChangeNotificationsAsync(actualYear, liveDay.SerieADay);
                 }
                 if (realCalendar.LiveDay is RealDay liveFormationDay && realCalendar.LiveFormationDeadline is DateTime formationDeadline)
                     await SendLiveChangesReminderAsync(actualYear, liveFormationDay.SerieADay, formationDeadline);
@@ -407,6 +414,285 @@ namespace Fantasoccer.Engine.GroupsManager
             else
                 await _pushNotificationSentRepository.InsertAsync(key, record);
         }
+
+        private async Task SendLiveFormationChangeNotificationsAsync(int actualYear, int serieADay)
+        {
+            var key = new YearDayKey { Year = actualYear, Day = serieADay };
+            var sentRecord = await _pushNotificationSentRepository.GetAsync(key);
+            var recordExists = sentRecord != null;
+            sentRecord ??= new PushNotificationSent();
+            sentRecord.LiveFormationChangeNotifications ??= [];
+            var processedChanges = sentRecord.LiveFormationChangeNotifications.ToHashSet(StringComparer.Ordinal);
+            var notificationUsers = await _pushNotificationRepository.Where(x => x.LiveFormationChangeEvents).ToListAsync();
+            var sendTasks = new List<ValueTask>();
+            using var semaphore = new SemaphoreSlim(10);
+            var hasNewChange = false;
+
+            foreach (var group in await _groupRepository.ToListAsEntityAsync())
+            {
+                if (string.IsNullOrWhiteSpace(group.Id))
+                    continue;
+                var groupName = string.IsNullOrWhiteSpace(group.Name) ? group.Id : group.Name;
+                foreach (var basket in group.Baskets ?? [])
+                {
+                    if (string.IsNullOrWhiteSpace(basket.Id))
+                        continue;
+                    var basketYear = basket.Years?.FirstOrDefault(x => x.Year == actualYear);
+                    foreach (var annualTeam in basketYear?.Teams ?? [])
+                    {
+                        if (string.IsNullOrWhiteSpace(annualTeam.Owner))
+                            continue;
+                        var team = await _teamDayRepository.GetAsync(new TeamDayKey
+                        {
+                            Group = group.Id,
+                            BasketId = basket.Id,
+                            Email = annualTeam.Owner,
+                            Year = actualYear,
+                            Day = serieADay
+                        });
+                        var history = team?.FormationChangeHistory;
+                        if (team == null || history == null || history.Count == 0)
+                            continue;
+
+                        var changeIds = Enumerable.Range(0, history.Count)
+                            .Select(index => (Index: index, Id: GetLiveFormationChangeId(group.Id, basket.Id, annualTeam.Owner, index)))
+                            .Where(x => !processedChanges.Contains(x.Id))
+                            .ToList();
+                        if (changeIds.Count == 0)
+                            continue;
+
+                        var scoreLeagues = notificationUsers.Count == 0
+                            ? []
+                            : await GetLiveFormationScoreLeaguesAsync(group, basket, annualTeam.Owner, actualYear, serieADay);
+                        var changeStates = BuildLiveFormationChangeStates(team);
+                        var recipientEmails = new[] { annualTeam.Owner }
+                            .Concat(annualTeam.AdditionalOwners ?? [])
+                            .Concat(team.AdditionalOwners ?? [])
+                            .Where(x => !string.IsNullOrWhiteSpace(x))
+                            .Distinct(StringComparer.OrdinalIgnoreCase);
+                        var recipients = notificationUsers
+                            .Where(user => recipientEmails.Contains(user.Key, StringComparer.OrdinalIgnoreCase))
+                            .Where(user => user.Value != null)
+                            .ToList();
+                        var scoresByChange = recipients.Count == 0
+                            ? new Dictionary<int, List<LiveFormationScore>>()
+                            : await CalculateLiveFormationScoreChangesAsync(
+                                actualYear,
+                                serieADay,
+                                changeIds.Select(x => x.Index).ToList(),
+                                changeStates,
+                                scoreLeagues);
+
+                        foreach (var (index, changeId) in changeIds)
+                        {
+                            if (recipients.Count > 0)
+                            {
+                                var change = history[index];
+                                var notification = BuildLiveFormationChangeNotification(groupName, team, change, scoresByChange[index]);
+                                foreach (var user in recipients)
+                                {
+                                    await semaphore.WaitAsync();
+                                    sendTasks.Add(SendLiveFormationChangeWithSemaphoreAsync(user, notification, semaphore));
+                                }
+                            }
+
+                            processedChanges.Add(changeId);
+                            sentRecord.LiveFormationChangeNotifications.Add(changeId);
+                            hasNewChange = true;
+                        }
+                    }
+                }
+            }
+
+            await Task.WhenAll(sendTasks.Select(x => x.AsTask()));
+            if (!hasNewChange)
+                return;
+            if (recordExists)
+                await _pushNotificationSentRepository.UpdateAsync(key, sentRecord);
+            else
+                await _pushNotificationSentRepository.InsertAsync(key, sentRecord);
+        }
+
+        private async Task<List<LiveFormationScoreLeague>> GetLiveFormationScoreLeaguesAsync(
+            Group group,
+            Basket basket,
+            string owner,
+            int actualYear,
+            int serieADay)
+        {
+            var leagues = new List<LiveFormationScoreLeague>();
+            foreach (var league in group.Leagues ?? [])
+            {
+                if (league.BasketsId?.Contains(basket.Id, StringComparer.OrdinalIgnoreCase) != true)
+                    continue;
+                var annualLeague = league.Years?.FirstOrDefault(x => x.Year == actualYear);
+                if (annualLeague == null)
+                    continue;
+                var settings = annualLeague.Settings ?? LeagueSetting.Default;
+                var leagueType = league.GetAnnualType(actualYear);
+                if (leagueType == LeagueType.SuperLeague || settings.Formation == FormationType.Best)
+                    continue;
+
+                var calendar = await _calendarRepository.GetAsync(new LeagueKey
+                {
+                    Group = group.Id,
+                    League = league.Id,
+                    Year = actualYear
+                });
+                var day = calendar?.Rounds?.SelectMany(round => round.Value ?? [])
+                    .FirstOrDefault(candidate => candidate.SerieADay == serieADay);
+                var game = day?.Games?.FirstOrDefault(candidate =>
+                    candidate.Result?.IsCancelled != true &&
+                    (string.Equals(candidate.HomeOwner, owner, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(candidate.AwayOwner, owner, StringComparison.OrdinalIgnoreCase)));
+                if (game == null)
+                    continue;
+
+                leagues.Add(new LiveFormationScoreLeague
+                {
+                    Name = string.IsNullOrWhiteSpace(league.Name) ? league.Id : league.Name,
+                    Type = leagueType == LeagueType.Null ? LeagueType.League : leagueType,
+                    Settings = settings,
+                    IsHome = string.Equals(game.HomeOwner, owner, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+            return leagues;
+        }
+
+        private async Task<Dictionary<int, List<LiveFormationScore>>> CalculateLiveFormationScoreChangesAsync(
+            int actualYear,
+            int serieADay,
+            List<int> changeIndexes,
+            List<(Team Before, Team After)> changeStates,
+            List<LiveFormationScoreLeague> leagues)
+        {
+            var scoresByChange = changeIndexes.ToDictionary(index => index, _ => new List<LiveFormationScore>());
+            foreach (var league in leagues)
+            {
+                await _teamCalculator.BuildRequestAsync(actualYear, serieADay, league.Type, league.Settings, false, true, false);
+                foreach (var index in changeIndexes)
+                {
+                    var teams = changeStates[index];
+                    var before = _teamCalculator.CalculatePoint(teams.Before.ActivePlayers);
+                    var after = _teamCalculator.CalculatePoint(teams.After.ActivePlayers);
+                    if (league.IsHome)
+                    {
+                        before = AddHomeAdvantage(before, league.Settings.PointInHome);
+                        after = AddHomeAdvantage(after, league.Settings.PointInHome);
+                    }
+                    scoresByChange[index].Add(new LiveFormationScore(league.Name, before.Value, after.Value));
+                }
+            }
+            return scoresByChange;
+        }
+
+        private static List<(Team Before, Team After)> BuildLiveFormationChangeStates(Team currentTeam)
+        {
+            var history = currentTeam.FormationChangeHistory ?? [];
+            var initialTeam = currentTeam.Clone();
+            foreach (var change in history.AsEnumerable().Reverse())
+                foreach (var playerChange in change.Players ?? [])
+                    SetPlayerPosition(initialTeam, playerChange.Name, playerChange.FromPosition);
+
+            var states = new List<(Team Before, Team After)>(history.Count);
+            var beforeTeam = initialTeam;
+            foreach (var change in history)
+            {
+                var afterTeam = beforeTeam.Clone();
+                foreach (var playerChange in change.Players ?? [])
+                    SetPlayerPosition(afterTeam, playerChange.Name, playerChange.ToPosition);
+                states.Add((beforeTeam, afterTeam));
+                beforeTeam = afterTeam;
+            }
+            return states;
+        }
+
+        private static void SetPlayerPosition(Team team, string playerName, FantaSoccerRole position)
+        {
+            var player = team.ActivePlayers.FirstOrDefault(candidate =>
+                string.Equals(candidate.Name, playerName, StringComparison.OrdinalIgnoreCase));
+            if (player != null)
+                player.Position = position;
+        }
+
+        private static Notification BuildLiveFormationChangeNotification(
+            string groupName,
+            Team team,
+            LiveFormationChange change,
+            List<LiveFormationScore> scores)
+        {
+            var changedPlayers = string.Join(", ", (change.Players ?? []).Select(player =>
+                $"{player.Name} ({GetFormationPositionName(player.FromPosition)} → {GetFormationPositionName(player.ToPosition)})"));
+            var scoreSummary = scores.Count == 0
+                ? "Nessuna competizione a formazione manuale in questa giornata."
+                : string.Join("; ", scores.Select(score =>
+                    $"{score.League}: {FormatPoints(score.Before)} → {FormatPoints(score.After)} pt ({FormatDelta(score.After - score.Before)})"));
+            var author = string.IsNullOrWhiteSpace(change.Author) ? string.Empty : $" di {change.Author}";
+            return new Notification
+            {
+                Title = "FantaZone",
+                Body = $"[{groupName}] {team.Name}: cambio live{author} — {changedPlayers}. {scoreSummary}",
+                Icon = "https://fanta.zone/icon.png",
+                Badge = "https://fanta.zone/adaptive-icon.png",
+                Tag = $"live-formation-{Guid.NewGuid():N}",
+                Data = new NotificationData { Uri = "https://fanta.zone/live" }
+            };
+        }
+
+        private async ValueTask SendLiveFormationChangeWithSemaphoreAsync(
+            Entity<PushNotificationSettings, string> user,
+            Notification notification,
+            SemaphoreSlim semaphore)
+        {
+            try
+            {
+                await _pushNotificationService.SendNotificationAsync(user.Key!, user.Value!, notification);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        private static Point AddHomeAdvantage(Point point, int homeAdvantage)
+            => new(point.Value + homeAdvantage, point.DefensiveBonus, point.GoodPeople, point.OwnGoal);
+
+        private static string GetLiveFormationChangeId(string groupId, string basketId, string owner, int index)
+            => $"{groupId}:{basketId}:{owner}:{index}";
+
+        private static string GetFormationPositionName(FantaSoccerRole position)
+            => position switch
+            {
+                FantaSoccerRole.GoalKeeper => "POR",
+                FantaSoccerRole.Defensor => "DIF",
+                FantaSoccerRole.Midfielder => "CEN",
+                FantaSoccerRole.Forward => "ATT",
+                FantaSoccerRole.BackupGoalKeeper => "riserva POR",
+                FantaSoccerRole.FirstBackupDefensor => "1ª riserva DIF",
+                FantaSoccerRole.SecondBackupDefensor => "2ª riserva DIF",
+                FantaSoccerRole.FirstBackupMidfielder => "1ª riserva CEN",
+                FantaSoccerRole.SecondBackupMidfielder => "2ª riserva CEN",
+                FantaSoccerRole.FirstBackupForward => "1ª riserva ATT",
+                FantaSoccerRole.SecondBackupForward => "2ª riserva ATT",
+                FantaSoccerRole.Tribune => "tribuna",
+                _ => position.ToString()
+            };
+
+        private static string FormatPoints(float value)
+            => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+        private static string FormatDelta(float value)
+            => value > 0 ? $"+{FormatPoints(value)}" : FormatPoints(value);
+
+        private sealed class LiveFormationScoreLeague
+        {
+            public string Name { get; set; } = string.Empty;
+            public LeagueType Type { get; set; }
+            public LeagueSetting Settings { get; set; } = LeagueSetting.Default;
+            public bool IsHome { get; set; }
+        }
+
+        private sealed record LiveFormationScore(string League, float Before, float After);
         private static Notification BuildLiveChangesNotification(League league, int serieADay, int remainingChanges, string deadlineText)
         {
             var verb = remainingChanges == 1 ? "resta" : "restano";

@@ -10,6 +10,7 @@ namespace Fantasoccer
         public bool EndDay { get; set; }
         public bool MarketEvents { get; set; }
         public bool LiveChangesReminder { get; set; }
+        public bool LiveFormationChangeEvents { get; set; }
         public List<PushSubscription> Subscriptions { get; set; } = new();
     }
 }

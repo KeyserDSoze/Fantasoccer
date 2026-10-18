@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.70',
+    date: '18 Ottobre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Notifiche per i cambi formazione live con giocatori coinvolti e variazione del punteggio nelle competizioni a formazione manuale',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Le notifiche degli eventi live raggiungono la propria squadra e ignorano i giocatori non più attivi',
+      },
+    ],
+  },
+  {
     version: '2.0.69',
     date: '14 Ottobre 2026',
     changes: [

@@ -22,6 +22,7 @@ export interface UpdatePushNotificationSettingsInput {
   endDay?: boolean
   marketEvents?: boolean
   liveChangesReminder?: boolean
+  liveFormationChangeEvents?: boolean
   subscriptions?: PushSubscription[]
 }
 
@@ -190,6 +191,7 @@ export class PushNotificationService {
       endDay: false,
       marketEvents: false,
       liveChangesReminder: false,
+      liveFormationChangeEvents: false,
       subscriptions: []
     }
 

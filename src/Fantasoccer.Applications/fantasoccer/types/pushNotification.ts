@@ -26,6 +26,8 @@ export interface PushNotificationSettingsRaw {
   MarketEvents?: boolean
   liveChangesReminder?: boolean
   LiveChangesReminder?: boolean
+  liveFormationChangeEvents?: boolean
+  LiveFormationChangeEvents?: boolean
   subscriptions?: PushSubscriptionRaw[]
   Subscriptions?: PushSubscriptionRaw[]
 }
@@ -47,6 +49,7 @@ export interface PushNotificationSettings {
   endDay: boolean
   marketEvents: boolean
   liveChangesReminder: boolean
+  liveFormationChangeEvents: boolean
   subscriptions: PushSubscription[]
 }
 
@@ -68,6 +71,7 @@ export const EMPTY_PUSH_NOTIFICATION_SETTINGS: PushNotificationSettings = {
   endDay: false,
   marketEvents: false,
   liveChangesReminder: false,
+  liveFormationChangeEvents: false,
   subscriptions: []
 }
 
@@ -99,6 +103,7 @@ export const mapRawPushNotificationSettingsToSettings = (
     endDay: !!(raw.endDay ?? raw.EndDay),
     marketEvents: !!(raw.marketEvents ?? raw.MarketEvents),
     liveChangesReminder: !!(raw.liveChangesReminder ?? raw.LiveChangesReminder),
+    liveFormationChangeEvents: !!(raw.liveFormationChangeEvents ?? raw.LiveFormationChangeEvents),
     subscriptions: subscriptionsRaw.map(mapRawPushSubscriptionToSubscription).filter(x => x.endpoint.length > 0)
   }
 }
@@ -118,6 +123,7 @@ export const mapPushNotificationSettingsToRaw = (
   endDay: settings.endDay,
   marketEvents: settings.marketEvents,
   liveChangesReminder: settings.liveChangesReminder,
+  liveFormationChangeEvents: settings.liveFormationChangeEvents,
   subscriptions: settings.subscriptions.map(mapSubscriptionToRaw)
 })
 
@@ -138,7 +144,8 @@ export const buildPushNotificationSummary = (
   }
 
   const totalDevices = settings.subscriptions.length
-  const hasMatchNotifications = settings.matchEvents || settings.opponentMatchEvents
+  const hasMatchNotifications =
+    settings.matchEvents || settings.opponentMatchEvents || settings.liveFormationChangeEvents
   const hasMarketNotifications = settings.marketEvents
   const hasAnyEnabled =
     settings.matchEvents ||
@@ -146,7 +153,8 @@ export const buildPushNotificationSummary = (
     settings.deploymentReminder ||
     settings.endDay ||
     settings.marketEvents ||
-    settings.liveChangesReminder
+    settings.liveChangesReminder ||
+    settings.liveFormationChangeEvents
 
   return {
     totalDevices,

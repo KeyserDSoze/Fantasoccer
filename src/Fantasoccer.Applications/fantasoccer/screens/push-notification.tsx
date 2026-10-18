@@ -37,7 +37,7 @@ import {
   webPushSupport
 } from 'services/webPushClient'
 
-type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay' | 'liveChangesReminder'
+type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay' | 'liveChangesReminder' | 'liveFormationChangeEvents'
 
 const notificationToggles: Array<{
   key: PushToggleKey
@@ -74,6 +74,12 @@ const notificationToggles: Array<{
     title: 'Cambi finali',
     description: 'Avviso quando puoi ancora usare i cambi formazione prima della deadline live.',
     icon: <RefreshCcw size={22} color="$orange10" />
+  },
+  {
+    key: 'liveFormationChangeEvents',
+    title: 'Cambi formazione live',
+    description: 'Ricevi chi è stato spostato e come cambia il punteggio nelle competizioni a formazione manuale.',
+    icon: <RefreshCcw size={22} color="$blue10" />
   },
   {
     key: 'endDay',
@@ -348,7 +354,7 @@ const PushNotificationScreen = () => {
                   icon={<Trash2 size="$1" color="$color1" />}
                   variant="outlined"
                   onPress={() => disableAll()}
-                  disabled={summary.totalDevices === 0 && !settings.matchEvents && !settings.opponentMatchEvents && !settings.marketEvents && !settings.deploymentReminder && !settings.endDay && !settings.liveChangesReminder}
+                  disabled={summary.totalDevices === 0 && !settings.matchEvents && !settings.opponentMatchEvents && !settings.marketEvents && !settings.deploymentReminder && !settings.endDay && !settings.liveChangesReminder && !settings.liveFormationChangeEvents}
                 >
                   Disattiva tutte le notifiche
                 </Button>
