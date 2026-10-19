@@ -1,4 +1,4 @@
-import { NavigationContainer, Theme, useNavigation } from '@react-navigation/native';
+import { NavigationContainer, Theme, useNavigation, useNavigationContainerRef } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
   NativeStackNavigationProp,
@@ -39,6 +39,7 @@ import PushNotificationScreen from 'screens/push-notification';
 import { VersionUpdateBanner } from 'components/version/VersionUpdateBanner';
 import OpeningCompetitionScreen from 'screens/opening-competition';
 import { MarketActivityProvider } from 'providers/MarketActivityProvider';
+import { LiveWidgetLayoutProvider } from 'providers/LiveWidgetLayoutProvider';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -182,17 +183,23 @@ const linking = {
 };
 
 export default function Navigation({ theme, onReady }: NavigationProps) {
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [activeRouteName, setActiveRouteName] = useState('Home');
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       linking={linking}
       theme={theme}
-      onReady={onReady}
-      onStateChange={(state) =>
-        setActiveRouteName(state ? (state.routes[state.index]?.name ?? 'Home') : 'Home')
+      onReady={() => {
+        setActiveRouteName(navigationRef.getCurrentRoute()?.name ?? 'Home');
+        onReady?.();
+      }}
+      onStateChange={() =>
+        setActiveRouteName(navigationRef.getCurrentRoute()?.name ?? 'Home')
       }>
       <MarketActivityProvider>
+      <LiveWidgetLayoutProvider>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -241,6 +248,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
       {/* Version Update Banner - dentro NavigationContainer per accesso a navigation */}
       <VersionUpdateBanner />
       <GlobalMatchWidget activeRouteName={activeRouteName} />
+      </LiveWidgetLayoutProvider>
       </MarketActivityProvider>
     </NavigationContainer>
   );

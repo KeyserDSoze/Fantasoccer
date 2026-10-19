@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons-2';
 import { Button, Card, Spinner, Text, XStack, YStack } from 'tamagui';
-import { useWindowDimensions } from 'react-native';
 
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget';
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget';
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget';
+import { ResponsiveWidgetPair } from 'components/layout/ResponsiveWidgetPair';
 import { useCalendar } from 'hooks/useCalendar';
 import { useRankByComponents } from 'hooks/useRank';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
@@ -32,8 +32,6 @@ function HomeLeagueMatchContent() {
   const [selectedLeagueId, setSelectedLeague] = useState<string | null>(globalLeagueId);
   const [localYear, setSelectedYear] = useState<number | null>(globalYear);
   const { user } = useAuth();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 900;
   const leagues = getAvailableLeagues();
   const leagueOptions = useMemo(
     () => leagues.map((league) => ({ id: league.id, name: league.name, isMain: league.isMain })),
@@ -94,7 +92,7 @@ function HomeLeagueMatchContent() {
   if (!currentGroup || !user) return null;
 
   return (
-    <YStack gap="$4" width="100%" minWidth={0}>
+    <YStack gap="$4" width="100%" minWidth={0} flexShrink={0}>
       <LeagueSelectorsWidget
         leagues={leagueOptions}
         selectedLeagueId={selectedLeagueId}
@@ -130,42 +128,33 @@ function HomeLeagueMatchContent() {
           </YStack>
         </Card>
       ) : selectedDay ? (
-        <YStack gap="$3">
+        <YStack gap="$3" flexShrink={0}>
           <Text color={selectedDay.isLive ? '$red10' : '$color10'} fontWeight="700">
             {selectedDay.isLive ? 'Partita live' : 'Ultima partita giocata'} · Giornata{' '}
             {selectedDay.day.serieADay}
           </Text>
-          <XStack
-            gap="$3"
-            width="100%"
-            minWidth={0}
-            alignItems="flex-start"
-            flexDirection={isDesktop ? 'row' : 'column'}>
-            <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>
-              <LeagueCalendarWidget
-                leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
-                seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
-                days={[{ ...selectedDay.day, games: selectedDay.games }]}
-                groupId={currentGroup.id}
-                leagueId={selectedLeagueId}
-                year={selectedYear}
-                editMode={selectedDay.isLive ? 'live' : 'view'}
-              />
-            </YStack>
-            <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>
-              <LeagueRankingWidget
-                leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
-                seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
-                roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
-                rankedTeams={rankedTeams}
-                loading={rankLoading}
-                error={rankError}
-                groupId={currentGroup.id}
-                year={selectedYear}
-                onRefresh={() => void refetchRank()}
-              />
-            </YStack>
-          </XStack>
+          <ResponsiveWidgetPair testID="home-league-widgets">
+            <LeagueCalendarWidget
+              leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
+              seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
+              days={[{ ...selectedDay.day, games: selectedDay.games }]}
+              groupId={currentGroup.id}
+              leagueId={selectedLeagueId}
+              year={selectedYear}
+              editMode={selectedDay.isLive ? 'live' : 'view'}
+            />
+            <LeagueRankingWidget
+              leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
+              seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
+              roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
+              rankedTeams={rankedTeams}
+              loading={rankLoading}
+              error={rankError}
+              groupId={currentGroup.id}
+              year={selectedYear}
+              onRefresh={() => void refetchRank()}
+            />
+          </ResponsiveWidgetPair>
         </YStack>
       ) : (
         <Card padding="$4" backgroundColor="$color2">

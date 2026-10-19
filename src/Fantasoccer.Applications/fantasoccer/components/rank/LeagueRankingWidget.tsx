@@ -327,7 +327,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   const rowMinHeight = isCompact ? 68 : 72
 
   return (
-    <Card padding="$3" elevation="$2" backgroundColor="$color1" gap="$3">
+    <Card padding="$3" elevation="$2" backgroundColor="$color1" gap="$3" width="100%" minWidth={0} flexShrink={0}>
       <YStack gap="$1">
         {leagueName && (
           <Text fontSize="$5" fontWeight="700" color="$color12">
@@ -477,6 +477,8 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
 
             <ScrollView
               horizontal
+              flex={1}
+              minWidth={0}
               showsHorizontalScrollIndicator={true}
               contentContainerStyle={{ paddingRight: 16 }}
               // @ts-ignore - className is web-only

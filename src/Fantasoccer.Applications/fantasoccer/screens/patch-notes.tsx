@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.72',
+    date: '19 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'La home mobile mantiene calendario e classifiche separati, senza tagliare le righe finali',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Lo spazio di scorrimento si adatta alla barra live flottante solo quando è visibile, anche nelle altre schermate',
+      },
+    ],
+  },
+  {
     version: '2.0.71',
     date: '19 Ottobre 2026',
     changes: [

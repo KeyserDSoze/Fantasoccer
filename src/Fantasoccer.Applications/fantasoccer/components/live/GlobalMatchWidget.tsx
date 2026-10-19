@@ -25,6 +25,7 @@ import type { UserSettings } from 'types/settings';
 import { DEFAULT_USER_SETTINGS } from 'types/settings';
 import { getActualFantacalcioYear } from 'utils/timezoneHelpers';
 import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider';
+import { useSetLiveWidgetBottomInset } from 'providers/LiveWidgetLayoutProvider';
 
 type UserMatch = {
   league: League;
@@ -90,6 +91,9 @@ function GlobalMatchWidgetContent({
 }) {
   const media = useMedia();
   const isMobile = Boolean(media.sm);
+  const setBottomInset = useSetLiveWidgetBottomInset();
+  const [widgetHeight, setWidgetHeight] = useState(0);
+  const bottomOffset = isMobile ? 0 : 24;
   const navigation = useNavigation<NavigationProp>();
   const { user } = useAuth();
   const { currentGroup, selectedLeagueId, selectedYear } = useApp();
@@ -241,17 +245,29 @@ function GlobalMatchWidgetContent({
     }
   };
 
-  if (!currentGroup || !user || (loading && marketActivity.pendingVoteCount === 0)) return null;
-  if (isLiveDay && matches.length === 0 && marketActivity.pendingVoteCount === 0) return null;
-  if (!isLiveDay && (!nextDay || !countdown) && marketActivity.pendingVoteCount === 0) return null;
+  const visible = Boolean(
+    currentGroup && user &&
+    !(loading && marketActivity.pendingVoteCount === 0) &&
+    !(isLiveDay && matches.length === 0 && marketActivity.pendingVoteCount === 0) &&
+    !(!isLiveDay && (!nextDay || !countdown) && marketActivity.pendingVoteCount === 0)
+  );
+
+  useEffect(() => {
+    setBottomInset(visible && widgetHeight > 0 ? Math.ceil(widgetHeight + bottomOffset) : 0);
+    return () => setBottomInset(0);
+  }, [visible, widgetHeight, bottomOffset, setBottomInset]);
+
+  if (!visible) return null;
 
   const floatingStyle = Platform.OS === 'web' ? ({ position: 'fixed' } as const) : undefined;
 
   return (
     <>
       <Card
+        testID="global-match-widget"
+        onLayout={(event) => setWidgetHeight(event.nativeEvent.layout.height)}
         position="absolute"
-        bottom={isMobile ? 0 : 24}
+        bottom={bottomOffset}
         left={isMobile ? 0 : undefined}
         right={isMobile ? 0 : 24}
         width={isMobile ? '100%' : 380}
@@ -283,6 +299,7 @@ function GlobalMatchWidgetContent({
                 height="auto"
                 padding={0}
                 justifyContent="flex-start"
+                aria-label={expanded ? 'Comprimi widget partita' : 'Espandi widget partita'}
                 onPress={() => setExpanded((value) => !value)}>
                 <XStack flex={1} alignItems="center" gap="$3" width="100%">
                   <YStack
@@ -312,7 +329,7 @@ function GlobalMatchWidgetContent({
                         textAlign="right">
                         {mainMatch.game.home}
                       </Text>
-                      <Text color="$color12" fontSize="$5" fontWeight="900">
+                      <Text color="$color12" fontSize="$5" fontWeight="900" flexShrink={0} numberOfLines={1}>
                         {mainMatch.game.result?.homeGoals ?? 0} -{' '}
                         {mainMatch.game.result?.awayGoals ?? 0}
                       </Text>

@@ -5,6 +5,7 @@ import { Card, Progress, ScrollView, Spinner, Text, XStack, YStack, useMedia } f
 import { AlertCircle, Clock, Coins, Gavel, ShieldCheck, Users } from '@tamagui/lucide-icons-2'
 import { RootStackParamList } from 'navigation'
 import { useAuth } from 'providers/AuthProvider'
+import { useLiveWidgetBottomInset } from 'providers/LiveWidgetLayoutProvider'
 import { auctionService } from 'services/auctionService'
 import { AuctionState, AuctionStatus, ActualAuction, BidPlaced } from 'types/auction'
 import { Role } from 'types/group'
@@ -30,6 +31,7 @@ export default function AuctionDisplayScreen() {
   const navigation = useNavigation()
   const { user } = useAuth()
   const media = useMedia()
+  const bottomInset = useLiveWidgetBottomInset()
   const [state, setState] = useState<AuctionState | null>(null)
   const [actual, setActual] = useState<ActualAuction | null>(null)
   const [timer, setTimer] = useState(0)
@@ -145,7 +147,10 @@ export default function AuctionDisplayScreen() {
   if (!state) return <View style={{ flex: 1, backgroundColor: '#080b12', alignItems: 'center', justifyContent: 'center' }}><Spinner size="large" color="$blue9" /><Text color="white" marginTop="$3">Collegamento alla regia asta...</Text></View>
 
   return <View style={{ flex: 1, backgroundColor: '#080b12' }}>
-    <ScrollView contentContainerStyle={{ padding: Platform.OS === 'web' ? 28 : 16 }}>
+    <ScrollView contentContainerStyle={{
+      padding: Platform.OS === 'web' ? 28 : 16,
+      paddingBottom: (Platform.OS === 'web' ? 28 : 16) + bottomInset,
+    }}>
       <YStack gap="$4" maxWidth={1800} width="100%" alignSelf="center">
         <XStack gap="$4" flexWrap="wrap">
           <Card flex={2} minWidth={420} padding="$5" backgroundColor="$blue3" borderColor="$blue8" borderWidth={1}>

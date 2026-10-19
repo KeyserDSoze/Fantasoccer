@@ -4,6 +4,7 @@ import { XStack, YStack, useMedia } from 'tamagui';
 import { NavigationBar } from './NavigationBar';
 import { FantasoccerBrand } from './FantasoccerLogo';
 import { useAuth } from 'providers/AuthProvider';
+import { useLiveWidgetBottomInset } from 'providers/LiveWidgetLayoutProvider';
 
 type ScreenContentProps = {
   title?: string;
@@ -13,6 +14,7 @@ type ScreenContentProps = {
 
 export const ScreenContent = ({ children }: ScreenContentProps) => {
   const { isAuthenticated } = useAuth();
+  const bottomInset = useLiveWidgetBottomInset();
   const media = useMedia();
   const isWideLayout = media.gtMd ?? false;
   const contentWidth = isWideLayout ? '100%' : 640;
@@ -25,14 +27,16 @@ export const ScreenContent = ({ children }: ScreenContentProps) => {
   return (
     <View style={styles.container}>
       <ScrollView
+        testID="screen-scroll"
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
+        scrollIndicatorInsets={{ bottom: bottomInset }}
         showsVerticalScrollIndicator={false}
         scrollEnabled={true}
         alwaysBounceHorizontal={true}
         bounces
       >
-        <YStack width="100%" alignItems="center" gap="$6">
+        <YStack width="100%" alignItems="center" gap="$6" flexShrink={0}>
           <XStack
             width="100%"
             maxWidth={contentWidth}

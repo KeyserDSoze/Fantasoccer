@@ -21,6 +21,7 @@ import { formatItalianDate } from 'utils/timezoneHelpers'
 import { SoccerBallSVG } from 'components/lineup/icons/SoccerBallSVG'
 import { AssistSVG } from 'components/lineup/icons/AssistSVG'
 import { BehaviourCardSVG } from 'components/lineup/icons/BehaviourCardSVG'
+import { ResponsiveWidgetPair } from 'components/layout/ResponsiveWidgetPair'
 
 export type SerieALiveWidgetProps = {
   refreshInterval?: number
@@ -33,10 +34,6 @@ export function SerieALiveWidget({
   enablePolling,
   pollOnlyWhenLive
 }: SerieALiveWidgetProps) {
-  const media = useMedia()
-  const isDesktop = media.gtMd ?? false
-  const sectionGap = '$4'
-
   const state = useSerieACalendar({
     refreshInterval,
     enablePolling,
@@ -318,19 +315,10 @@ export function SerieALiveWidget({
   )
 
   return (
-    <YStack gap={sectionGap} width="100%" minWidth={0}>
-      {isDesktop ? (
-        <XStack gap={sectionGap} width="100%" alignItems="stretch">
-          <YStack flex={1}>{calendarCard}</YStack>
-          <YStack flex={1}>{rankingCard}</YStack>
-        </XStack>
-      ) : (
-        <YStack gap={sectionGap} width="100%" minWidth={0}>
-          {calendarCard}
-          {rankingCard}
-        </YStack>
-      )}
-    </YStack>
+    <ResponsiveWidgetPair testID="home-serie-a-widgets">
+      {calendarCard}
+      {rankingCard}
+    </ResponsiveWidgetPair>
   )
 }
 
