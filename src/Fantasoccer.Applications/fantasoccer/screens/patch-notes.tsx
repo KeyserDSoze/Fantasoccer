@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '2.0.71',
+    date: '19 Ottobre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le notifiche degli eventi della propria squadra sono attive di default e non si duplicano tra leghe; gli avvisi sugli avversari restano distinti per lega',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Migliorata la spaziatura e la leggibilità della home su dispositivi mobili',
+      },
+    ],
+  },
+  {
     version: '2.0.70',
     date: '18 Ottobre 2026',
     changes: [

@@ -94,7 +94,7 @@ function HomeLeagueMatchContent() {
   if (!currentGroup || !user) return null;
 
   return (
-    <YStack gap="$3" width="100%">
+    <YStack gap="$4" width="100%" minWidth={0}>
       <LeagueSelectorsWidget
         leagues={leagueOptions}
         selectedLeagueId={selectedLeagueId}
@@ -138,6 +138,7 @@ function HomeLeagueMatchContent() {
           <XStack
             gap="$3"
             width="100%"
+            minWidth={0}
             alignItems="flex-start"
             flexDirection={isDesktop ? 'row' : 'column'}>
             <YStack flex={1} minWidth={0} width={isDesktop ? '50%' : '100%'}>

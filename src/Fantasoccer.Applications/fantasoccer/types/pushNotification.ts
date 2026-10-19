@@ -65,7 +65,7 @@ export interface PushNotificationSummary {
 // =============================================================
 
 export const EMPTY_PUSH_NOTIFICATION_SETTINGS: PushNotificationSettings = {
-  matchEvents: false,
+  matchEvents: true,
   opponentMatchEvents: false,
   deploymentReminder: false,
   endDay: false,
@@ -97,7 +97,7 @@ export const mapRawPushNotificationSettingsToSettings = (
   const subscriptionsRaw = raw.subscriptions ?? raw.Subscriptions ?? []
 
   return {
-    matchEvents: !!(raw.matchEvents ?? raw.MatchEvents),
+    matchEvents: raw.matchEvents ?? raw.MatchEvents ?? true,
     opponentMatchEvents: !!(raw.opponentMatchEvents ?? raw.OpponentMatchEvents),
     deploymentReminder: !!(raw.deploymentReminder ?? raw.DeploymentReminder),
     endDay: !!(raw.endDay ?? raw.EndDay),

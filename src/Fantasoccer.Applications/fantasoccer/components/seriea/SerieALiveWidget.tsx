@@ -35,7 +35,7 @@ export function SerieALiveWidget({
 }: SerieALiveWidgetProps) {
   const media = useMedia()
   const isDesktop = media.gtMd ?? false
-  const sectionGap = isDesktop ? '$4' : '$3'
+  const sectionGap = '$4'
 
   const state = useSerieACalendar({
     refreshInterval,
@@ -318,14 +318,14 @@ export function SerieALiveWidget({
   )
 
   return (
-    <YStack gap={sectionGap} width="100%">
+    <YStack gap={sectionGap} width="100%" minWidth={0}>
       {isDesktop ? (
         <XStack gap={sectionGap} width="100%" alignItems="stretch">
           <YStack flex={1}>{calendarCard}</YStack>
           <YStack flex={1}>{rankingCard}</YStack>
         </XStack>
       ) : (
-        <YStack gap={sectionGap} width="100%">
+        <YStack gap={sectionGap} width="100%" minWidth={0}>
           {calendarCard}
           {rankingCard}
         </YStack>

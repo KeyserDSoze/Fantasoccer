@@ -1,5 +1,5 @@
 import { type FC } from 'react'
-import { Eye, EyeOff } from '@tamagui/lucide-icons-2'
+import { Check, EyeOff } from '@tamagui/lucide-icons-2'
 import { Text, XStack } from 'tamagui'
 
 export interface ToggleChipProps {
@@ -38,7 +38,7 @@ export const ToggleChip: FC<ToggleChipProps> = ({
   accent = 'blue',
   disabled = false,
 }) => {
-  const Icon = checked ? Eye : EyeOff
+  const Icon = checked ? Check : EyeOff
   const colors = accents[accent]
 
   return (

@@ -131,12 +131,13 @@ namespace Fantasoccer.Engine.GroupsManager
                                                 {
                                                     if (!currentOpponents.ContainsKey(owner))
                                                         currentOpponents.Add(owner, []);
-                                                    currentOpponents[owner].Add(new OpponentNotification
-                                                    {
+                                                     currentOpponents[owner].Add(new OpponentNotification
+                                                     {
+                                                        LeagueId = league.Id,
                                                         League = league.Name,
                                                         Owner = owner,
                                                         Opponent = opponent
-                                                    });
+                                                     });
                                                 }
                                             }
                                         }
@@ -147,10 +148,19 @@ namespace Fantasoccer.Engine.GroupsManager
 
                                 foreach (var notification in notificationsToSend)
                                 {
+                                    // Own-team events are independent of the fantasy calendar: a player
+                                    // must notify their owner once, even if the owner appears in more
+                                    // than one basket/league in this group.
+                                    var notifiedOwnOwners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                                    // Rival events stay scoped to the individual league matchup.
+                                    var notifiedOpponentMatchups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                                     foreach (var team in teams.Where(x => x.ActivePlayers.Any(player => player.Key == notification.PlayerKey)))
                                     {
-                                        await semaphore.WaitAsync();
-                                        sendTasks.Add(SendNotificationWithSemaphoreAsync(team, notification, $"[{groupName}]", null, x => x?.Value?.MatchEvents == true, semaphore));
+                                        if (notifiedOwnOwners.Add(team.Owner))
+                                        {
+                                            await semaphore.WaitAsync();
+                                            sendTasks.Add(SendNotificationWithSemaphoreAsync(team, notification, $"[{groupName}]", null, x => x?.Value?.MatchEvents == true, semaphore));
+                                        }
                                         
                                         if (currentOpponents.ContainsKey(team.Owner))
                                         {
@@ -160,6 +170,9 @@ namespace Fantasoccer.Engine.GroupsManager
                                                 var opponentTeam = teams.FirstOrDefault(x => x.Owner == opponent.Opponent);
                                                 if (opponentTeam != null)
                                                 {
+                                                    var matchupKey = $"{opponent.LeagueId}|{team.Owner}|{opponent.Opponent}";
+                                                    if (!notifiedOpponentMatchups.Add(matchupKey))
+                                                        continue;
                                                     await semaphore.WaitAsync();
                                                     sendTasks.Add(SendNotificationWithSemaphoreAsync(opponentTeam, notification, $"[{groupName} - {opponent.League}]", $"({team.Name.Trim()})", x => x?.Value?.OpponentMatchEvents == true, semaphore));
                                                 }
@@ -771,6 +784,7 @@ namespace Fantasoccer.Engine.GroupsManager
         }
         private sealed class OpponentNotification
         {
+            public string LeagueId { get; set; }
             public string League { get; set; }
             public string Owner { get; set; }
             public string Opponent { get; set; }

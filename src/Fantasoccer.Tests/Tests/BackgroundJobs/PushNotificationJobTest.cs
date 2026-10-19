@@ -119,6 +119,60 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SendsOwnTeamEventOnceAcrossLeaguesAndKeepsOpponentNotificationsLeagueScoped()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await _realCalendars.InsertAsync(FantacalcioTime.ActualYear, RealCalendar(), cancellationToken);
+        var group = Group();
+        group.Leagues.Add(new League
+        {
+            Id = SecondLeagueId,
+            Name = "Second league",
+            Type = LeagueType.Cup,
+            BasketsId = [BasketId],
+            Years = [new AnnualLeague { Year = FantacalcioTime.ActualYear, Settings = LeagueSetting.Default }]
+        });
+        await _groups.InsertAsync(GroupId, group, cancellationToken);
+        var liveGroup = LiveGroup();
+        liveGroup.Leagues.Add(new LiveLeague
+        {
+            Id = SecondLeagueId,
+            Name = "Second league",
+            Rounds = [],
+            Rank = new Rank { RankedTeams = [] }
+        });
+        await _liveGroups.InsertAsync(GroupId, liveGroup, cancellationToken);
+        await _calendars.InsertAsync(LeagueKey(), LeagueCalendar(), cancellationToken);
+        await _calendars.InsertAsync(LeagueKey(SecondLeagueId), LeagueCalendar(), cancellationToken);
+        await _teams.InsertAsync(TeamKey(HomeOwner), Team(HomeOwner, "Home", true), cancellationToken);
+        await _teams.InsertAsync(TeamKey(AwayOwner), Team(AwayOwner, "Away", false), cancellationToken);
+        await _settings.InsertAsync(HomeOwner, new PushNotificationSettings { MatchEvents = true }, cancellationToken);
+        await _settings.InsertAsync(AwayOwner, new PushNotificationSettings { OpponentMatchEvents = true }, cancellationToken);
+        _liveVotes.Set(DayKey(), new VotedRealPlayerWrapper
+        {
+            Players =
+            [
+                new VotedRealPlayer
+                {
+                    Name = "Mario Rossi",
+                    RealTeam = new RealTeam { Name = "Roma" },
+                    Role = Role.Forward,
+                    Vote = new Vote { Goal = 1, HasVote = true }
+                }
+            ]
+        });
+
+        await CreateJob().ActionToDoAsync(cancellationToken);
+
+        var ownNotification = Assert.Single(_notifications.Sent, x => x.Email == HomeOwner);
+        Assert.Equal("[Push group] Mario Rossi: Goal", ownNotification.Notification.Body);
+        var opponentNotifications = _notifications.Sent.Where(x => x.Email == AwayOwner).ToList();
+        Assert.Equal(2, opponentNotifications.Count);
+        Assert.Contains(opponentNotifications, x => x.Notification.Body == "[Push group - Test league] Mario Rossi: Goal (Home)");
+        Assert.Contains(opponentNotifications, x => x.Notification.Body == "[Push group - Second league] Mario Rossi: Goal (Home)");
+    }
+
+    [Fact]
     public async Task SendsOwnYellowCardWhenOpponentNotificationsAreDisabled()
     {
         var cancellationToken = TestContext.Current.CancellationToken;

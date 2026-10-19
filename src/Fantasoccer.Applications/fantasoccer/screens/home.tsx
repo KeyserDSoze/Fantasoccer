@@ -23,7 +23,7 @@ export default function Home() {
 
 function AuthenticatedContent({ user }: { user: AuthUser | null }) {
   return (
-    <YStack gap="$6" width="100%">
+    <YStack gap="$4" width="100%" minWidth={0}>
       <HomeLeagueMatchWidget />
       <SerieALiveWidget refreshInterval={10000} enablePolling pollOnlyWhenLive={false} />
     </YStack>
