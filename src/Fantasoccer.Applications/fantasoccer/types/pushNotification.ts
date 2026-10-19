@@ -91,7 +91,7 @@ export const mapRawPushNotificationSettingsToSettings = (
   raw?: PushNotificationSettingsRaw | null
 ): PushNotificationSettings => {
   if (!raw) {
-    return { ...EMPTY_PUSH_NOTIFICATION_SETTINGS }
+    return { ...EMPTY_PUSH_NOTIFICATION_SETTINGS, subscriptions: [] }
   }
 
   const subscriptionsRaw = raw.subscriptions ?? raw.Subscriptions ?? []
@@ -177,13 +177,10 @@ export const addSubscription = (
   settings: PushNotificationSettings,
   subscription: PushSubscription
 ): PushNotificationSettings => {
-  const exists = settings.subscriptions.some(x => x.endpoint === subscription.endpoint)
-  return exists
-    ? settings
-    : {
-        ...settings,
-        subscriptions: [...settings.subscriptions, subscription]
-      }
+  return {
+    ...settings,
+    subscriptions: [...settings.subscriptions.filter(x => x.endpoint !== subscription.endpoint), { ...subscription }]
+  }
 }
 
 export const removeSubscription = (

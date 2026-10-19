@@ -3,6 +3,7 @@ using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Business.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Fantasoccer.Business
 {
@@ -10,6 +11,9 @@ namespace Fantasoccer.Business
     {
         public static IServiceCollection AddSharedBusiness(this IServiceCollection services)
         {
+            services.TryAddSingleton<IPushNotificationLock, InMemoryPushNotificationLock>();
+            services.TryAddSingleton(TimeProvider.System);
+            services.AddTransient<PushNotificationSettingsService>();
             services.AddTransient<ITeamCalculator, TeamCalculator>();
             services.AddSingleton<IOptimalFormationEngine, OptimalFormationEngine>();
             services.AddTransient<IOptimalFormationService, OptimalFormationService>();
@@ -85,6 +89,8 @@ namespace Fantasoccer.Business
             services.AddTransient<ILiveVote, LiveVote>();
             //services.AddTransient<ILiveVote, LiveVoteWithHtml>();
             services.AddTransient<IPushNotificationService, PushNotificationService>();
+            services.AddHttpClient("web-push", client => client.Timeout = TimeSpan.FromSeconds(20))
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
             services.AddHttpClient("base", client =>
             {
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36");

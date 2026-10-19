@@ -6,7 +6,6 @@ import { AppIdentityRaw } from "types/identity";
 import { RealCalendarRaw, RealPlayersWrapperRaw, RealRankRaw, VotedRealPlayerWrapperRaw, YearDayKeyRaw } from "../types/serieA";
 import { StatPlayersWrapperRaw } from "types/stat";
 import { ChancedRealPlayerWrapperRaw } from "types/chance";
-import { PushNotificationSettingsRaw } from "types/pushNotification";
 import { CalendarRaw } from "types/calendar";
 import { FantasoccerLogRaw } from "types/log";
 import { buildApiUrl } from "./apiConfig";
@@ -82,13 +81,6 @@ export const setupRepositoryServices = () => {
     .addRepository<ChancedRealPlayerWrapperRaw, YearDayKeyRaw>(x => {
       x.name = "ChancedRealPlayerWrapper";
       x.path = "ChancedRealPlayerWrapper";
-      x.addHeadersEnricher(() => getAuthHeaders());
-      x.addErrorHandler(handleAuthError);
-    })
-    // Push notification settings per user
-    .addRepository<PushNotificationSettingsRaw, string>(x => {
-      x.name = "PushNotificationSettings";
-      x.path = "PushNotificationSettings";
       x.addHeadersEnricher(() => getAuthHeaders());
       x.addErrorHandler(handleAuthError);
     })

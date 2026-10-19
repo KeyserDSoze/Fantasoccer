@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuth } from '../providers/AuthProvider'
 import { UpdatePushNotificationSettingsInput, pushNotificationService } from '../services/pushNotificationService'
 import {
   PushNotificationSettings,
@@ -16,7 +17,7 @@ interface BaseState {
 }
 
 const createInitialState = (): BaseState => ({
-  settings: { ...EMPTY_PUSH_NOTIFICATION_SETTINGS },
+  settings: { ...EMPTY_PUSH_NOTIFICATION_SETTINGS, subscriptions: [] },
   isLoading: true,
   error: null,
   lastUpdated: null
@@ -58,6 +59,17 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
   const [state, setState] = useState<BaseState>(createInitialState)
   const mountedRef = useRef(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const requestRef = useRef(0)
+  const mutationCount = useRef(0)
+  const mutationTail = useRef<Promise<unknown>>(Promise.resolve())
+  const scopeRef = useRef({ email, enabled })
+  if (scopeRef.current.email !== email || scopeRef.current.enabled !== enabled) {
+    scopeRef.current = { email, enabled }
+    requestRef.current++
+    mutationCount.current = 0
+    mutationTail.current = Promise.resolve()
+  }
+  const mutationScope = scopeRef.current
 
   const handleError = useCallback((message: string, err: unknown) => {
     console.error(message, err)
@@ -73,9 +85,10 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
   }, [])
 
   const fetchSettings = useCallback(async (isRefresh = false) => {
-    if (!enabled) {
+    if (!enabled || mutationCount.current > 0) {
       return
     }
+    const request = ++requestRef.current
 
     if (!isRefresh) {
       setState(prev => ({ ...prev, isLoading: true, error: null }))
@@ -86,7 +99,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
         ? await pushNotificationService.getCurrentUserSettings()
         : await pushNotificationService.getSettings(email!)
 
-      if (!mountedRef.current) {
+      if (!mountedRef.current || request !== requestRef.current) {
         return
       }
 
@@ -101,37 +114,50 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
         lastUpdated: new Date()
       })
     } catch (err) {
-      handleError('Errore nel caricamento delle impostazioni push', err)
+      if (request === requestRef.current) handleError('Errore nel caricamento delle impostazioni push', err)
     }
   }, [email, enabled, handleError, useCurrentUser])
 
   const runMutation = useCallback(
-    async (operation: () => Promise<PushNotificationSettings | null | undefined>, fallbackMessage: string) => {
-      setState(prev => ({ ...prev, isLoading: true, error: null }))
-      try {
-        const result = await operation()
-        if (!mountedRef.current) {
-          return
-        }
-        if (!result) {
-          throw new Error(fallbackMessage)
-        }
-        setState({
-          settings: result,
-          isLoading: false,
-          error: null,
-          lastUpdated: new Date()
-        })
-      } catch (err) {
-        handleError(fallbackMessage, err)
+    (operation: () => Promise<PushNotificationSettings | null | undefined>, fallbackMessage: string): Promise<void> => {
+      const scope = mutationScope
+      if (scope !== scopeRef.current || !scope.enabled || !mountedRef.current) {
+        return Promise.reject(new Error('Account cambiato durante il salvataggio.'))
       }
+      ++requestRef.current // Invalidate any polling request already in flight.
+      mutationCount.current++
+      setState(prev => ({ ...prev, isLoading: true, error: null }))
+      const task = mutationTail.current.catch(() => undefined).then(async () => {
+        try {
+          if (scope !== scopeRef.current || !scope.enabled || !mountedRef.current) throw new Error('Account cambiato durante il salvataggio.')
+          const result = await operation()
+          if (!mountedRef.current || scope !== scopeRef.current) throw new Error('Account cambiato durante il salvataggio.')
+          if (!result) throw new Error(fallbackMessage)
+          setState({
+            settings: result,
+            isLoading: mutationCount.current > 1,
+            error: null,
+            lastUpdated: new Date()
+          })
+        } catch (err) {
+          if (scope === scopeRef.current) handleError(fallbackMessage, err)
+          throw err
+        } finally {
+          if (scope === scopeRef.current) {
+            mutationCount.current--
+            if (mountedRef.current) setState(prev => ({ ...prev, isLoading: mutationCount.current > 0 }))
+          }
+        }
+      })
+      mutationTail.current = task
+      return task
     },
-    [handleError]
+    [mutationScope, handleError]
   )
 
   useEffect(() => {
-    setState(createInitialState())
-  }, [email, useCurrentUser])
+    setState({ ...createInitialState(), isLoading: enabled })
+  }, [email, useCurrentUser, enabled])
 
   useEffect(() => {
     mountedRef.current = true
@@ -141,6 +167,7 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
 
     return () => {
       mountedRef.current = false
+      requestRef.current++
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
       }
@@ -229,5 +256,6 @@ export function usePushNotifications(options: UsePushNotificationsOptions = {}):
 }
 
 export function useCurrentUserPushNotifications(options: Omit<UsePushNotificationsOptions, 'email'> = {}): UsePushNotificationsResult {
-  return usePushNotifications({ ...options, email: null })
+  const { user, isAuthenticated } = useAuth()
+  return usePushNotifications({ ...options, email: user?.email, enabled: (options.enabled ?? true) && isAuthenticated })
 }

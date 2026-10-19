@@ -694,11 +694,13 @@ public sealed class PushNotificationJobTest : IAsyncLifetime
 public sealed class TestPushNotificationService : IPushNotificationService
 {
     public List<(string Email, Notification Notification)> Sent { get; } = [];
+    public bool Fail { get; set; }
 
-    public ValueTask SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message)
+    public ValueTask<PushNotificationDeliveryResult> SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message, CancellationToken cancellationToken = default)
     {
-        Sent.Add((email, message));
-        return ValueTask.CompletedTask;
+        if (Fail) throw new InvalidOperationException("Simulated provider failure");
+        lock (Sent) Sent.Add((email, message));
+        return ValueTask.FromResult(new PushNotificationDeliveryResult { CompletedEndpoints = notificationSettings.Subscriptions.Select(s => s.Endpoint).ToList() });
     }
 
     public PushNotificationStatistics GetStatistics()

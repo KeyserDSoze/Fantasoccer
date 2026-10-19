@@ -12,5 +12,17 @@ namespace Fantasoccer
         public bool LiveChangesReminder { get; set; }
         public bool LiveFormationChangeEvents { get; set; }
         public List<PushSubscription> Subscriptions { get; set; } = new();
+
+        public bool IsEnabled(PushNotificationKind kind) => kind switch
+        {
+            PushNotificationKind.MatchEvents => MatchEvents,
+            PushNotificationKind.OpponentMatchEvents => OpponentMatchEvents,
+            PushNotificationKind.DeploymentReminder => DeploymentReminder,
+            PushNotificationKind.EndDay => EndDay,
+            PushNotificationKind.MarketEvents => MarketEvents,
+            PushNotificationKind.LiveChangesReminder => LiveChangesReminder,
+            PushNotificationKind.LiveFormationChangeEvents => LiveFormationChangeEvents,
+            _ => false
+        };
     }
 }

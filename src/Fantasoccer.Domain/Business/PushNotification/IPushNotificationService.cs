@@ -2,7 +2,7 @@
 {
     public interface IPushNotificationService
     {
-        ValueTask SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message);
+        ValueTask<PushNotificationDeliveryResult> SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message, CancellationToken cancellationToken = default);
         PushNotificationStatistics GetStatistics();
         void ResetStatistics();
     }

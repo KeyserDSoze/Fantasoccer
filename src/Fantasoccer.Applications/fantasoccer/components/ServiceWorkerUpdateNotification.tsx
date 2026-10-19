@@ -40,10 +40,12 @@ export function ServiceWorkerUpdateNotification() {
       handleUpdate(registration)
     })
 
+    // The first activation must not reload away an in-progress registration.
+    const hadController = Boolean(navigator.serviceWorker.controller)
     // Listen for controller change (when new SW takes over)
     let refreshing = false
     const handleControllerChange = () => {
-      if (refreshing) return
+      if (refreshing || !hadController) return
       console.log('[ServiceWorker] Controller changed, reloading page...')
       refreshing = true
       window.location.reload()

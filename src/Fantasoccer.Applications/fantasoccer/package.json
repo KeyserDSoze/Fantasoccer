@@ -1,6 +1,6 @@
 {
   "name": "fantasoccer",
-  "version": "2.0.72",
+  "version": "2.0.73",
   "scripts": {
     "start": "expo start --dev-client --port 3000",
     "ios": "expo run:ios",
@@ -12,7 +12,8 @@
     "test:group-admin": "node --experimental-transform-types --test tests/groupAdmin.test.mjs",
     "test:market": "node --experimental-transform-types --test tests/marketRules.test.mjs",
     "test:player-images": "node --experimental-transform-types --test tests/playerImageRevision.test.mjs",
-    "test": "npm run test:group-admin && npm run test:market && npm run test:player-images",
+    "test:push": "node --test tests/pushNotifications.test.mjs",
+    "test": "npm run test:group-admin && npm run test:market && npm run test:player-images && npm run test:push",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
     "format:check": "prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",

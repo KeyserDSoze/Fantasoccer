@@ -32,6 +32,8 @@ import {
 } from 'hooks/usePushNotifications'
 import { PushNotificationSettings, PushSubscription } from 'types/pushNotification'
 import { UpdatePushNotificationSettingsInput } from 'services/pushNotificationService'
+import { useAuth } from '../providers/AuthProvider'
+import { rememberPushDevice } from '../services/pushDeviceService'
 import {
   PushSupportState,
   webPushSupport
@@ -133,12 +135,14 @@ const PushNotificationScreen = () => {
   const [isRegistering, setIsRegistering] = useState(false)
   const [isUnregistering, setIsUnregistering] = useState(false)
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false)
+  const [deviceError, setDeviceError] = useState<string | null>(null)
+  const { user } = useAuth()
 
   const isWeb = Platform.OS === 'web'
 
   const loadSupportState = useCallback(async () => {
     if (!isWeb) {
-      setSupportState({ supported: false, reason: 'Registrazione push disponibile solo su Web desktop.' })
+      setSupportState({ supported: false, reason: 'Registrazione push disponibile su browser/PWA compatibili, non nell’app nativa.' })
       return
     }
 
@@ -156,6 +160,7 @@ const PushNotificationScreen = () => {
   useEffect(() => {
     loadSupportState().catch((supportError) => {
       console.error('settings: unable to evaluate push support', supportError)
+      setDeviceError(supportError instanceof Error ? supportError.message : 'Verifica del dispositivo non riuscita.')
     })
   }, [loadSupportState])
 
@@ -170,21 +175,25 @@ const PushNotificationScreen = () => {
     }
 
     setIsRegistering(true)
+    setDeviceError(null)
     try {
       const subscription = await webPushSupport.subscribe()
       if (!subscription) {
+        setDeviceError('Attivazione non completata: controlla il permesso notifiche del browser.')
         return
       }
 
       await addDevice(subscription)
+      if (user?.email) await rememberPushDevice(user.email, subscription.endpoint, true)
       setCurrentSubscription(subscription)
       await loadSupportState()
     } catch (registerError) {
       console.error('settings: failed to register push subscription', registerError)
+      setDeviceError(registerError instanceof Error ? registerError.message : 'Attivazione push non riuscita.')
     } finally {
       setIsRegistering(false)
     }
-  }, [addDevice, isWeb, loadSupportState])
+  }, [addDevice, isWeb, loadSupportState, user?.email])
 
   const handleUnregisterDevice = useCallback(async () => {
     if (!isWeb) {
@@ -192,9 +201,13 @@ const PushNotificationScreen = () => {
     }
 
     setIsUnregistering(true)
+    setDeviceError(null)
     try {
+      if (user?.email) await rememberPushDevice(user.email, currentSubscription?.endpoint ?? '', false)
       const subscription = await webPushSupport.unsubscribe()
       if (!subscription) {
+        if (currentSubscription?.endpoint) await removeDevice(currentSubscription.endpoint)
+        await loadSupportState()
         return
       }
 
@@ -203,20 +216,23 @@ const PushNotificationScreen = () => {
       await loadSupportState()
     } catch (unregisterError) {
       console.error('settings: failed to unregister push subscription', unregisterError)
+      setDeviceError(unregisterError instanceof Error ? unregisterError.message : 'Disattivazione push non riuscita.')
     } finally {
       setIsUnregistering(false)
     }
-  }, [isWeb, loadSupportState, removeDevice])
+  }, [isWeb, loadSupportState, removeDevice, user?.email, currentSubscription])
 
   const handleRefreshSubscription = useCallback(async () => {
     if (!isWeb) {
       return
     }
     setIsRefreshingSubscription(true)
+    setDeviceError(null)
     try {
       await loadSupportState()
     } catch (refreshError) {
       console.error('settings: unable to refresh subscription state', refreshError)
+      setDeviceError(refreshError instanceof Error ? refreshError.message : 'Verifica del dispositivo non riuscita.')
     } finally {
       setIsRefreshingSubscription(false)
     }
@@ -252,6 +268,22 @@ const PushNotificationScreen = () => {
 
   const isBusy = isLoading || isRegistering || isUnregistering
 
+  const handleRemoveDevice = async (endpoint: string) => {
+    if (endpoint === currentSubscription?.endpoint) return handleUnregisterDevice()
+    await removeDevice(endpoint).catch(() => undefined) // Error is shown by the hook.
+  }
+  const handleDisableAll = async () => {
+    setIsUnregistering(true)
+    setDeviceError(null)
+    try {
+      if (user?.email) await rememberPushDevice(user.email, currentSubscription?.endpoint ?? '', false)
+      await disableAll()
+      await webPushSupport.unsubscribe()
+      await loadSupportState()
+    } catch (err) { setDeviceError(err instanceof Error ? err.message : 'Disattivazione non riuscita.') }
+    finally { setIsUnregistering(false) }
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <ScreenContent title="Impostazioni">
@@ -274,10 +306,10 @@ const PushNotificationScreen = () => {
 
             <Separator />
 
-            {error && (
+            {(error || deviceError) && (
               <XStack backgroundColor="$red3" borderRadius="$3" padding="$3" gap="$3" alignItems="center">
                 <TriangleAlert size="$1" color="$red10" />
-                <Text color="$red11">{error}</Text>
+                <Text color="$red11">{deviceError || error}</Text>
               </XStack>
             )}
 
@@ -308,7 +340,7 @@ const PushNotificationScreen = () => {
                         accent="green"
                         checked={value}
                         disabled={isBusy}
-                        onCheckedChange={(checked) => handleToggle(toggle.key, checked)}
+                        onCheckedChange={(checked) => { void handleToggle(toggle.key, checked).catch(() => undefined) }}
                       />
                     </XStack>
                   </Card>
@@ -330,7 +362,7 @@ const PushNotificationScreen = () => {
                 <Button
                   icon={isRegistering ? <Loader2 size="$1" color="$color1" /> : <CheckCircle2 size="$1" color="$color1" />}
                   onPress={handleRegisterDevice}
-                  disabled={isRegistering || !supportState?.supported || supportState?.permission === 'denied'}
+                  disabled={isBusy || !supportState?.supported || supportState?.permission === 'denied'}
                 >
                   {isRegistering ? 'Attivazione in corso…' : 'Attiva su questo device'}
                 </Button>
@@ -338,7 +370,7 @@ const PushNotificationScreen = () => {
                   icon={isUnregistering ? <Loader2 size="$1" color="$color1" /> : <ShieldOff size="$1" color="$color1" />}
                   variant="outlined"
                   onPress={handleUnregisterDevice}
-                  disabled={isUnregistering || !thisDeviceRegistered}
+                  disabled={isBusy || !thisDeviceRegistered}
                 >
                   {isUnregistering ? 'Annullamento…' : 'Disattiva su questo device'}
                 </Button>
@@ -353,8 +385,8 @@ const PushNotificationScreen = () => {
                 <Button
                   icon={<Trash2 size="$1" color="$color1" />}
                   variant="outlined"
-                  onPress={() => disableAll()}
-                  disabled={summary.totalDevices === 0 && !settings.matchEvents && !settings.opponentMatchEvents && !settings.marketEvents && !settings.deploymentReminder && !settings.endDay && !settings.liveChangesReminder && !settings.liveFormationChangeEvents}
+                  onPress={handleDisableAll}
+                  disabled={isBusy || (summary.totalDevices === 0 && !summary.hasAnyEnabled)}
                 >
                   Disattiva tutte le notifiche
                 </Button>
@@ -377,7 +409,8 @@ const PushNotificationScreen = () => {
                           size="$2"
                           variant="outlined"
                           icon={<Trash2 size="$1" color="$color1" />}
-                          onPress={() => removeDevice(subscription.endpoint)}
+                          onPress={() => { void handleRemoveDevice(subscription.endpoint) }}
+                          disabled={isBusy}
                         >
                           Rimuovi
                         </Button>

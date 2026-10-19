@@ -10,24 +10,35 @@ namespace Fantasoccer.Business
         private const string PrivateKey = "uPF1e0ItKwn4WRSD8f88M9U43XjUuUCY9Bn1tA0GPWg";
         private const int MaxRetries = 3;
         private const int RetryDelayMs = 1000;
-        private readonly IRepository<PushNotificationSettings, string> _pushNotificationRepository;
+        private readonly PushNotificationSettingsService _settings;
         private readonly IFantasoccerLogger _logger;
-        private readonly PushNotificationStatistics _statistics = new();
+        private readonly IHttpClientFactory _httpClientFactory;
+        private int _attempted, _succeeded, _failed, _discarded;
 
-        public PushNotificationService(IRepository<PushNotificationSettings, string> pushNotificationRepository, IFantasoccerLogger logger)
+        public PushNotificationService(PushNotificationSettingsService settings, IFantasoccerLogger logger, IHttpClientFactory httpClientFactory)
         {
-            _pushNotificationRepository = pushNotificationRepository;
+            _settings = settings;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
-        public async ValueTask SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message)
+        public async ValueTask<PushNotificationDeliveryResult> SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message, CancellationToken cancellationToken = default)
         {
-            List<PushSubscription> noLongerValidSubscriptions = new();
-
-            foreach (var notification in notificationSettings.Subscriptions)
+            var result = new PushNotificationDeliveryResult();
+            var latest = await _settings.GetAsync(email, cancellationToken);
+            var subscriptions = (notificationSettings.Subscriptions ?? [])
+                .Where(s => latest.Subscriptions.Any(current => current.Endpoint == s.Endpoint && current.P256DH == s.P256DH && current.Auth == s.Auth))
+                .DistinctBy(s => s.Endpoint).Select(s => new PushSubscription(s.Endpoint, s.P256DH, s.Auth)).ToArray();
+            foreach (var subscription in subscriptions)
             {
-                _statistics.TotalAttempted++;
-                var subscription = new PushSubscription(notification.Endpoint, notification.P256DH, notification.Auth);
+                Interlocked.Increment(ref _attempted);
+                if (!PushSubscriptionValidator.IsValid(subscription))
+                {
+                    await _settings.RemoveInvalidAsync(email, subscription, cancellationToken);
+                    Interlocked.Increment(ref _discarded);
+                    result.CompletedEndpoints.Add(subscription.Endpoint);
+                    continue;
+                }
                 var vapidDetails = new VapidDetails($"mailto:{email.Split('@').First()}@fanta.zone", PublicKey, PrivateKey);
 
                 bool success = false;
@@ -37,11 +48,15 @@ namespace Fantasoccer.Business
                 {
                     try
                     {
-                        using var webPushClient = new WebPushClient();
-                        var jsonMessage = message.ToJson();
-                        await webPushClient.SendNotificationAsync(subscription, jsonMessage, vapidDetails);
+                        using var webPushClient = new WebPushClient(_httpClientFactory.CreateClient("web-push"));
+                        var payload = JsonSerializer.Deserialize<Notification>(JsonSerializer.Serialize(message))!;
+                        payload.Data ??= new NotificationData();
+                        payload.Data.RecipientEmail = email;
+                        var jsonMessage = payload.ToJson();
+                        await webPushClient.SendNotificationAsync(subscription, jsonMessage, vapidDetails, cancellationToken: cancellationToken);
                         
-                        _statistics.TotalSucceeded++;
+                        Interlocked.Increment(ref _succeeded);
+                        result.CompletedEndpoints.Add(subscription.Endpoint);
                         success = true;
                         break;
                     }
@@ -49,71 +64,62 @@ namespace Fantasoccer.Business
                     {
                         lastError = wpe.Message;
                         
-                        if (IsSubscriptionInvalid(wpe.Message))
+                        if (wpe.StatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.Gone)
                         {
-                            noLongerValidSubscriptions.Add(subscription);
-                            _statistics.TotalDiscarded++;
+                            await _settings.RemoveInvalidAsync(email, subscription, cancellationToken);
+                            Interlocked.Increment(ref _discarded);
+                            result.CompletedEndpoints.Add(subscription.Endpoint);
+                            success = true;
                             await _logger.LogAsync<PushNotificationService>($"Subscription no longer valid for {email}. Removed.");
                             break;
                         }
 
                         if (IsPermanentError(wpe.StatusCode))
                         {
-                            _statistics.TotalFailed++;
                             await _logger.LogAsync<PushNotificationService>($"Permanent error for {email} (attempt {attempt}/{MaxRetries}): {wpe.StatusCode} - {wpe.Message}");
                             break;
                         }
 
                         if (attempt < MaxRetries)
                         {
-                            await Task.Delay(RetryDelayMs);
+                            await Task.Delay(RetryDelayMs, cancellationToken);
                         }
                     }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                     catch (Exception ex)
                     {
                         lastError = ex.Message;
 
                         if (attempt < MaxRetries)
                         {
-                            await Task.Delay(RetryDelayMs);
+                            await Task.Delay(RetryDelayMs, cancellationToken);
                         }
                     }
                 }
 
-                if (!success && !noLongerValidSubscriptions.Contains(subscription))
+                if (!success)
                 {
-                    _statistics.TotalFailed++;
-                    await _logger.LogAsync<PushNotificationService>($"Failed to send notification to {email} after {MaxRetries} attempts. Last error: {lastError}");
+                    Interlocked.Increment(ref _failed);
+                    result.RetryEndpoints.Add(subscription.Endpoint);
+                    await _logger.LogAsync<PushNotificationService>($"Push delivery to {email} needs a deferred retry. Last error: {lastError}");
                 }
             }
 
-            if (noLongerValidSubscriptions.Count > 0)
-            {
-                foreach (var subscription in noLongerValidSubscriptions)
-                {
-                    notificationSettings.Subscriptions.Remove(notificationSettings.Subscriptions.First(x => x.Endpoint == subscription.Endpoint));
-                }
-                await _pushNotificationRepository.UpdateAsync(email, notificationSettings);
-            }
+            return result;
         }
 
         public PushNotificationStatistics GetStatistics()
         {
-            return _statistics;
+            return new() { TotalAttempted = Volatile.Read(ref _attempted), TotalSucceeded = Volatile.Read(ref _succeeded),
+                TotalFailed = Volatile.Read(ref _failed), TotalDiscarded = Volatile.Read(ref _discarded) };
         }
 
         public void ResetStatistics()
         {
-            _statistics.TotalAttempted = 0;
-            _statistics.TotalSucceeded = 0;
-            _statistics.TotalFailed = 0;
-            _statistics.TotalDiscarded = 0;
-        }
-
-        private static bool IsSubscriptionInvalid(string message)
-        {
-            return message.ToLower().Contains("subscription no longer valid") || 
-                   message.ToLower().Contains("410");
+            Interlocked.Exchange(ref _attempted, 0);
+            Interlocked.Exchange(ref _succeeded, 0);
+            Interlocked.Exchange(ref _failed, 0);
+            Interlocked.Exchange(ref _discarded, 0);
         }
 
         private static bool IsPermanentError(System.Net.HttpStatusCode? statusCode)

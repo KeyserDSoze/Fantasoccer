@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Fantasoccer.Tests.Tests.BackgroundJobs;
+using Fantasoccer.Tests.Tests.Services;
 
 namespace Fantasoccer.Tests.Tests.Api;
 
@@ -19,6 +20,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             services.AddSingleton<TestPlayerImagesHandler>();
+            services.AddSingleton<TestWebPushHandler>();
+            services.AddHttpClient("web-push")
+                .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestWebPushHandler>());
             services.AddHttpClient("player-images")
                 .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestPlayerImagesHandler>());
             services.AddAuthentication(options =>

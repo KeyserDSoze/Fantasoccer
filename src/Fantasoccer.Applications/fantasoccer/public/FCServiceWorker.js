@@ -1,7 +1,10 @@
 'use strict'
 
 const DEFAULT_PUBLIC_KEY = 'BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8'
-const applicationServerPublicKey = self.__fantasoccerVapidKey ?? DEFAULT_PUBLIC_KEY
+let applicationServerPublicKey = self.__fantasoccerVapidKey ?? DEFAULT_PUBLIC_KEY
+const PUSH_STATE_CACHE = 'fantasoccer-push-state-v1'
+const RENEWAL_PATH = '/__fantasoccer_push_renewal__'
+const DEVICE_PATH = '/__fantasoccer_push_device__'
 
 const urlB64ToUint8Array = (base64String) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -40,6 +43,7 @@ self.addEventListener('message', (event) => {
 
   if (event.data.type === 'SET_VAPID_KEY' && typeof event.data.value === 'string') {
     self.__fantasoccerVapidKey = event.data.value
+    applicationServerPublicKey = event.data.value
   }
   
   // Force update on request
@@ -77,7 +81,16 @@ self.addEventListener('push', (event) => {
     requireInteraction: value.RequireInteraction ?? false
   }
 
-  event.waitUntil(self.registration.showNotification(value.Title ?? 'FantaZone', options))
+  event.waitUntil((async () => {
+    const cache = await caches.open(PUSH_STATE_CACHE)
+    const bindingResponse = await cache.match(DEVICE_PATH)
+    if (bindingResponse) {
+      const binding = await bindingResponse.json()
+      if (binding.enabled === false) return
+      if (value.Data?.RecipientEmail && binding.email?.toLowerCase() !== value.Data.RecipientEmail.toLowerCase()) return
+    }
+    await self.registration.showNotification(value.Title ?? 'FantaZone', options)
+  })())
 })
 
 self.addEventListener('notificationclick', (event) => {
@@ -103,23 +116,31 @@ self.addEventListener('notificationclick', (event) => {
 })
 
 self.addEventListener('pushsubscriptionchange', (event) => {
-  console.log('[Service Worker]: "pushsubscriptionchange" event fired.')
-  const applicationServerKey = urlB64ToUint8Array(applicationServerPublicKey)
-  event.waitUntil(
-    self.registration.pushManager.subscribe({
+  event.waitUntil((async () => {
+    const cache = await caches.open(PUSH_STATE_CACHE)
+    const previous = await cache.match(RENEWAL_PATH)
+    const saved = previous ? await previous.json() : null
+    const bindingResponse = await cache.match(DEVICE_PATH)
+    const binding = bindingResponse ? await bindingResponse.json() : null
+    if (binding?.enabled === false) return
+    const oldEndpoint = saved?.oldEndpoint || event.oldSubscription?.endpoint || binding?.endpoint || ''
+    const persist = (value) => cache.put(RENEWAL_PATH, new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } }))
+    // Persist even before subscribe: reconnection can recover a failed renewal.
+    await persist({ oldEndpoint })
+    const newSubscription = event.newSubscription ?? await self.registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey
-    }).then(async (newSubscription) => {
-      console.log('[Service Worker] New subscription: ', newSubscription)
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      for (const client of clients) {
-        client.postMessage({
-          type: 'PUSH_SUBSCRIPTION_CHANGED',
-          subscription: newSubscription.toJSON(),
-        })
-      }
-    }).catch((error) => {
-      console.error('[Service Worker] Failed to resubscribe', error)
+      applicationServerKey: urlB64ToUint8Array(applicationServerPublicKey)
     })
-  )
+    const json = newSubscription.toJSON()
+    await persist({ oldEndpoint, subscription: { endpoint: json.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth } })
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of clients) {
+      client.postMessage({
+        type: 'PUSH_SUBSCRIPTION_CHANGED',
+        subscription: newSubscription.toJSON(),
+      })
+    }
+  })().catch((error) => {
+    console.error('[Service Worker] Failed to resubscribe', error)
+  }))
 })

@@ -1,5 +1,6 @@
 using Fantasoccer.Business;
 using Fantasoccer.InMemory;
+using Fantasoccer.Engine.GroupsManager;
 using Fantasoccer.Tests.Tests.BackgroundJobs;
 using Microsoft.Extensions.DependencyInjection;
 using RepositoryFramework;
@@ -28,6 +29,8 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddInMemoryInfrastructures();
         services.AddRepository<PushNotificationSettings, string>(builder => builder.WithInMemory());
+        services.AddRepository<PushNotificationSent, YearDayKey>(builder => builder.WithInMemory());
+        services.AddRepository<LiveGroup, string>(builder => builder.WithInMemory());
         services.AddSingleton<IPushNotificationService>(_notifications);
         services.AddSharedBusiness();
         _services = services.BuildServiceProvider();
@@ -122,6 +125,40 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
         Assert.Equal(2, _notifications.Sent.Count);
         Assert.DoesNotContain(_notifications.Sent, x => x.Email == Voter);
         Assert.All(_notifications.Sent, x => Assert.Contains("Voter Team ha votato a favore lo scambio (3 sì, 0 no)", x.Notification.Body));
+    }
+
+    [Fact]
+    public async Task FailedMarketSendIsRetriedEvenWithoutALiveCalendar()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await InsertGroupAsync(ct);
+        await InsertMarketSettingsAsync(ct);
+        _notifications.Fail = true;
+        await _service.NotifyProposalCreatedAsync(Key(), Market(MarketStatus.Pending), ct);
+        var state = new PushNotificationStateStore(_services.GetRequiredService<IRepository<PushNotificationSent, YearDayKey>>());
+        var key = new YearDayKey { Year = FantacalcioTime.ActualYear, Day = 0 };
+        var record = await state.GetAsync(key, ct);
+        var pending = Assert.Single(record.PendingNotifications.Where(p => p.Email == Seller));
+        var originalTag = pending.Notification.Tag;
+        pending.NextAttemptAt = DateTimeOffset.MinValue;
+        await state.SaveAsync(key, record, ct);
+        _notifications.Fail = false;
+        var calendars = _services.GetRequiredService<IRepository<RealCalendar, int>>();
+        var previous = await calendars.GetAsync(key.Year, ct);
+        await calendars.DeleteAsync(key.Year, ct);
+        try
+        {
+            var job = new PushNotificationJob(_services.GetRequiredService<IFantasoccerLogger>(), _services.GetRequiredService<ITeamCalculator>(),
+                _groups, _services.GetRequiredService<IRepository<LiveGroup, string>>(),
+                _services.GetRequiredService<IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>>>(),
+                _services.GetRequiredService<IRepository<Team, TeamDayKey>>(), calendars, _notifications,
+                _services.GetRequiredService<IRepository<Calendar, LeagueKey>>(), _settings,
+                _services.GetRequiredService<IRepository<PushNotificationSent, YearDayKey>>());
+            await job.ActionToDoAsync(ct);
+            Assert.Equal(originalTag, Assert.Single(_notifications.Sent).Notification.Tag);
+            Assert.DoesNotContain((await state.GetAsync(key, ct)).PendingNotifications, p => p.Email == Seller);
+        }
+        finally { if (previous != null) await calendars.InsertAsync(key.Year, previous, ct); }
     }
 
     [Fact]
@@ -235,5 +272,11 @@ public sealed class MarketNotificationServiceTest : IAsyncLifetime
         await _settings.DeleteAsync(Seller, cancellationToken);
         await _settings.DeleteAsync(Voter, cancellationToken);
         _notifications.Sent.Clear();
+        _notifications.Fail = false;
+        var state = new PushNotificationStateStore(_services.GetRequiredService<IRepository<PushNotificationSent, YearDayKey>>());
+        var key = new YearDayKey { Year = FantacalcioTime.ActualYear, Day = 0 };
+        var record = await state.GetAsync(key, cancellationToken);
+        record.PendingNotifications.RemoveAll(p => new[] { Buyer, Seller, Voter }.Contains(p.Email));
+        await state.SaveAsync(key, record, cancellationToken);
     }
 }

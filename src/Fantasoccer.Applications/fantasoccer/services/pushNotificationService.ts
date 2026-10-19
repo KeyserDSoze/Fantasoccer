@@ -1,19 +1,10 @@
-import { RepositoryServices } from 'rystem.repository.client'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
+import { buildApiUrl, getCommonHeaders } from '../configurations/apiConfig'
 import {
-  PushNotificationSettings,
-  PushNotificationSettingsRaw,
-  PushNotificationSummary,
-  PushSubscription,
-  EMPTY_PUSH_NOTIFICATION_SETTINGS,
-  mapRawPushNotificationSettingsToSettings,
-  mapPushNotificationSettingsToRaw,
-  mergePushNotificationSettings,
-  addSubscription,
-  removeSubscription,
-  buildPushNotificationSummary
-} from 'types/pushNotification'
+  PushNotificationSettings, PushNotificationSettingsRaw, PushNotificationSummary, PushSubscription,
+  mapRawPushNotificationSettingsToSettings, buildPushNotificationSummary,
+} from '../types/pushNotification'
 
 export interface UpdatePushNotificationSettingsInput {
   matchEvents?: boolean
@@ -23,194 +14,66 @@ export interface UpdatePushNotificationSettingsInput {
   marketEvents?: boolean
   liveChangesReminder?: boolean
   liveFormationChangeEvents?: boolean
-  subscriptions?: PushSubscription[]
 }
 
 export class PushNotificationService {
-  // ============================================
-  // INTERNAL HELPERS
-  // ============================================
-
-  private getRepository() {
-    return RepositoryServices.Repository<PushNotificationSettingsRaw, string>('PushNotificationSettings')
+  private async getCurrentUserEmail(): Promise<string> {
+    const token = await tokenStorageService.ensureValidToken()
+    if (!token) throw new Error('Accedi per gestire le notifiche push.')
+    const identity = await authService.getUserInfo(token)
+    if (!identity?.email) throw new Error('Impossibile identificare l’utente delle notifiche push.')
+    return identity.email
   }
 
-  private async getCurrentUserEmail(): Promise<string | null> {
-    try {
-      const accessToken = await tokenStorageService.getTokenString()
-      if (!accessToken) {
-        console.warn('PushNotificationService: missing access token')
-        return null
-      }
-
-      const identity = await authService.getUserInfo(accessToken)
-      if (!identity?.email) {
-        console.warn('PushNotificationService: user email not available')
-        return null
-      }
-
-      return identity.email
-    } catch (error) {
-      console.error('PushNotificationService: unable to resolve current user email', error)
-      return null
+  private async request(email: string, path = '', method = 'GET', body?: unknown): Promise<PushNotificationSettings> {
+    const token = await tokenStorageService.ensureValidToken()
+    if (!token) throw new Error('Accedi per gestire le notifiche push.')
+    const url = buildApiUrl(`/api/push-notifications${path}`, { email })
+    const send = (accessToken: string) => fetch(url, {
+      method,
+      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+    let response = await send(token)
+    if (response.status === 401) {
+      const refreshed = await tokenStorageService.forceRefreshToken()
+      if (refreshed) response = await send(refreshed)
     }
-  }
-
-  private async saveSettings(email: string, settings: PushNotificationSettings): Promise<boolean> {
-    const repository = this.getRepository()
-    const rawSettings = mapPushNotificationSettingsToRaw(settings)
-
-    try {
-      await repository.update(email, rawSettings)
-      return true
-    } catch (error) {
-      console.warn('PushNotificationService: update failed, attempting insert', error)
-      try {
-        await repository.insert(email, rawSettings)
-        return true
-      } catch (insertError) {
-        console.error('PushNotificationService: failed to persist settings', insertError)
-        return false
-      }
+    if (!response.ok) throw new Error(`Impossibile ${method === 'GET' ? 'caricare' : 'salvare'} le notifiche push (${response.status}). Riprova.`)
+    const raw = await response.json() as PushNotificationSettingsRaw | null
+    if (!raw || typeof (raw.matchEvents ?? raw.MatchEvents) !== 'boolean' || !Array.isArray(raw.subscriptions ?? raw.Subscriptions)) {
+      throw new Error('Risposta non valida dal servizio notifiche push.')
     }
+    return mapRawPushNotificationSettingsToSettings(raw)
   }
 
-  private async fetchSettings(email: string): Promise<PushNotificationSettings> {
-    try {
-      const repository = this.getRepository()
-      const raw = await repository.get(email)
-      return mapRawPushNotificationSettingsToSettings(raw)
-    } catch (error) {
-      // Repository throws when the key is missing, fall back to defaults
-      console.info('PushNotificationService: no settings found, returning defaults', error)
-      return { ...EMPTY_PUSH_NOTIFICATION_SETTINGS }
-    }
+  getSettings(email: string): Promise<PushNotificationSettings> { return this.request(email) }
+  async getCurrentUserSettings(): Promise<PushNotificationSettings> { return this.getSettings(await this.getCurrentUserEmail()) }
+  async getSettingsSummary(email: string): Promise<PushNotificationSummary> { return buildPushNotificationSummary(await this.getSettings(email)) }
+  async getCurrentUserSettingsSummary(): Promise<PushNotificationSummary> { return buildPushNotificationSummary(await this.getCurrentUserSettings()) }
+
+  // Mutations are partial server-side commands. Never GET/merge/replace a whole
+  // settings document, particularly after a failed or stale read.
+  updateSettings(email: string, updates: UpdatePushNotificationSettingsInput): Promise<PushNotificationSettings> {
+    return this.request(email, '', 'PATCH', updates)
   }
-
-  // ============================================
-  // PUBLIC METHODS - SETTINGS RETRIEVAL
-  // ============================================
-
-  async getSettings(email: string): Promise<PushNotificationSettings> {
-    return this.fetchSettings(email)
+  async updateCurrentUserSettings(updates: UpdatePushNotificationSettingsInput): Promise<PushNotificationSettings> {
+    return this.updateSettings(await this.getCurrentUserEmail(), updates)
   }
-
-  async getCurrentUserSettings(): Promise<PushNotificationSettings | null> {
-    const email = await this.getCurrentUserEmail()
-    if (!email) {
-      return null
-    }
-    return this.fetchSettings(email)
+  addDevice(email: string, subscription: PushSubscription, previousEndpoint?: string): Promise<PushNotificationSettings> {
+    return this.request(email, '/devices', 'POST', { subscription, previousEndpoint })
   }
-
-  async getSettingsSummary(email: string): Promise<PushNotificationSummary> {
-    const settings = await this.fetchSettings(email)
-    return buildPushNotificationSummary(settings)
+  async addDeviceForCurrentUser(subscription: PushSubscription, previousEndpoint?: string): Promise<PushNotificationSettings> {
+    return this.addDevice(await this.getCurrentUserEmail(), subscription, previousEndpoint)
   }
-
-  async getCurrentUserSettingsSummary(): Promise<PushNotificationSummary | null> {
-    const settings = await this.getCurrentUserSettings()
-    if (!settings) {
-      return null
-    }
-    return buildPushNotificationSummary(settings)
+  removeDevice(email: string, endpoint: string): Promise<PushNotificationSettings> {
+    return this.request(email, '/devices/remove', 'POST', { endpoint })
   }
-
-  // ============================================
-  // PUBLIC METHODS - MUTATIONS
-  // ============================================
-
-  async updateSettings(email: string, updates: UpdatePushNotificationSettingsInput): Promise<PushNotificationSettings> {
-    const current = await this.fetchSettings(email)
-    const merged = mergePushNotificationSettings(current, updates)
-
-    const persisted = await this.saveSettings(email, merged)
-    if (!persisted) {
-      throw new Error('Failed to save push notification settings')
-    }
-
-    return merged
+  async removeDeviceForCurrentUser(endpoint: string): Promise<PushNotificationSettings> {
+    return this.removeDevice(await this.getCurrentUserEmail(), endpoint)
   }
-
-  async updateCurrentUserSettings(updates: UpdatePushNotificationSettingsInput): Promise<PushNotificationSettings | null> {
-    const email = await this.getCurrentUserEmail()
-    if (!email) {
-      return null
-    }
-
-    return this.updateSettings(email, updates)
-  }
-
-  async addDevice(email: string, subscription: PushSubscription): Promise<PushNotificationSettings> {
-    const current = await this.fetchSettings(email)
-    const updated = addSubscription(current, subscription)
-
-    const persisted = await this.saveSettings(email, updated)
-    if (!persisted) {
-      throw new Error('Failed to save push subscription')
-    }
-
-    return updated
-  }
-
-  async addDeviceForCurrentUser(subscription: PushSubscription): Promise<PushNotificationSettings | null> {
-    const email = await this.getCurrentUserEmail()
-    if (!email) {
-      return null
-    }
-
-    return this.addDevice(email, subscription)
-  }
-
-  async removeDevice(email: string, endpoint: string): Promise<PushNotificationSettings> {
-    const current = await this.fetchSettings(email)
-    const updated = removeSubscription(current, endpoint)
-
-    const persisted = await this.saveSettings(email, updated)
-    if (!persisted) {
-      throw new Error('Failed to remove push subscription')
-    }
-
-    return updated
-  }
-
-  async removeDeviceForCurrentUser(endpoint: string): Promise<PushNotificationSettings | null> {
-    const email = await this.getCurrentUserEmail()
-    if (!email) {
-      return null
-    }
-
-    return this.removeDevice(email, endpoint)
-  }
-
-  async disableAll(email: string): Promise<PushNotificationSettings> {
-    const disabled: PushNotificationSettings = {
-      matchEvents: false,
-      opponentMatchEvents: false,
-      deploymentReminder: false,
-      endDay: false,
-      marketEvents: false,
-      liveChangesReminder: false,
-      liveFormationChangeEvents: false,
-      subscriptions: []
-    }
-
-    const persisted = await this.saveSettings(email, disabled)
-    if (!persisted) {
-      throw new Error('Failed to disable push notifications')
-    }
-
-    return disabled
-  }
-
-  async disableAllForCurrentUser(): Promise<PushNotificationSettings | null> {
-    const email = await this.getCurrentUserEmail()
-    if (!email) {
-      return null
-    }
-
-    return this.disableAll(email)
-  }
+  disableAll(email: string): Promise<PushNotificationSettings> { return this.request(email, '/disable', 'POST') }
+  async disableAllForCurrentUser(): Promise<PushNotificationSettings> { return this.disableAll(await this.getCurrentUserEmail()) }
 }
 
 export const pushNotificationService = new PushNotificationService()

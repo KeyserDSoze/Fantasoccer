@@ -33,6 +33,7 @@ const isWebPushSupportedInternally = (): boolean => {
   return (
     Platform.OS === 'web' &&
     typeof window !== 'undefined' &&
+    window.isSecureContext !== false &&
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window
@@ -44,6 +45,7 @@ export type PushSupportState =
   | { supported: false; reason: string }
 
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
+let updateInterval: ReturnType<typeof setInterval> | null = null
 const subscriptionChangeListeners = new Set<(subscription: PushSubscription) => void>()
 let messageListenerRegistered = false
 
@@ -102,17 +104,28 @@ const ensureServiceWorkerRegistration = async (): Promise<ServiceWorkerRegistrat
   if (!registrationPromise) {
     registrationPromise = navigator.serviceWorker
       .register(SERVICE_WORKER_PATH)
-      .then((registration) => {
+      .then(async (registration) => {
+        if (!registration.active) {
+          let timeout: ReturnType<typeof setTimeout> | undefined
+          try {
+            await Promise.race([
+              navigator.serviceWorker.ready,
+              new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Attivazione service worker scaduta. Riprova.')), 15000) }),
+            ])
+          } finally { if (timeout) clearTimeout(timeout) }
+        }
         // Auto-update: check for updates every 60 seconds
-        setInterval(() => {
-          registration.update()
+        if (updateInterval) clearInterval(updateInterval)
+        updateInterval = setInterval(() => {
+          void registration.update().catch(error => console.warn('webPushClient: update failed', error))
         }, 60000)
 
         return registration
       })
       .catch((error) => {
         console.error('webPushClient: service worker registration failed', error)
-        return null
+        registrationPromise = null
+        throw error
       })
   }
 
@@ -160,11 +173,8 @@ export const getExistingSubscription = async (): Promise<PushSubscription | null
 }
 
 export const subscribeForPush = async (): Promise<PushSubscription | null> => {
-  const registration = await ensureServiceWorkerRegistration()
-  if (!registration) {
-    return null
-  }
-
+  if (!isWebPushSupportedInternally()) return null
+  // Ask directly in the click handler before worker/network awaits (Safari).
   const permission = Notification.permission === 'default'
     ? await requestNotificationPermission()
     : Notification.permission
@@ -173,6 +183,8 @@ export const subscribeForPush = async (): Promise<PushSubscription | null> => {
     console.warn('webPushClient: notification permission not granted')
     return null
   }
+  const registration = await ensureServiceWorkerRegistration()
+  if (!registration) return null
 
   try {
     const existing = await registration.pushManager.getSubscription()
@@ -189,17 +201,22 @@ export const subscribeForPush = async (): Promise<PushSubscription | null> => {
     return mapBrowserSubscriptionToDomain(newSubscription)
   } catch (error) {
     console.error('webPushClient: failed to subscribe for push notifications', error)
-    return null
+    throw error
   }
 }
 
 export const unsubscribeFromPush = async (): Promise<PushSubscription | null> => {
-  const registration = await ensureServiceWorkerRegistration()
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null
+  // Logout must work offline and must not install/register a worker merely to
+  // turn notifications off.
+  const registration = await navigator.serviceWorker.getRegistration(SERVICE_WORKER_PATH)
   if (!registration) {
     return null
   }
 
   try {
+    const notifications = await registration.getNotifications()
+    notifications.forEach(notification => notification.close())
     const existing = await registration.pushManager.getSubscription()
     if (!existing) {
       return null
@@ -208,12 +225,12 @@ export const unsubscribeFromPush = async (): Promise<PushSubscription | null> =>
     const mapped = mapBrowserSubscriptionToDomain(existing)
     const unsubscribed = await existing.unsubscribe()
     if (!unsubscribed) {
-      console.warn('webPushClient: unsubscribe returned false')
+      throw new Error('Il browser non ha confermato la disattivazione delle push.')
     }
     return mapped
   } catch (error) {
     console.error('webPushClient: failed to unsubscribe from push notifications', error)
-    return null
+    throw error
   }
 }
 
@@ -223,12 +240,14 @@ export const resetServiceWorkerRegistration = async (): Promise<void> => {
   }
 
   try {
-    const registrations = await navigator.serviceWorker.getRegistrations()
-    await Promise.all(registrations.map((registration) => registration.unregister()))
+    const registration = await navigator.serviceWorker.getRegistration(SERVICE_WORKER_PATH)
+    if (registration) await registration.unregister()
   } catch (error) {
     console.error('webPushClient: failed to reset service worker registrations', error)
   } finally {
     registrationPromise = null
+    if (updateInterval) clearInterval(updateInterval)
+    updateInterval = null
   }
 }
 

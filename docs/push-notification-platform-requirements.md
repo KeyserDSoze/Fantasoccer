@@ -1,72 +1,82 @@
-# Push Notification Platform Requirements
+# Notifiche push: funzionamento e verifica
 
-Panoramica delle azioni da completare per avere notifiche push funzionanti in tutte le piattaforme supportate da Fantasoccer (Web, Android, iOS).
+## Ambito
 
-## 📍 Prerequisiti comuni
+Il canale implementato è **Web Push**, per browser/PWA compatibili. Non è un canale Expo, FCM nativo o APNs nativo: le app Android/iOS richiedono un'integrazione e credenziali dedicate. Su iOS la disponibilità delle Web Push dipende anche dall'installazione della PWA e dal supporto del sistema/browser.
 
-- **Endpoint backend**: il servizio REST `PushNotificationSettings` deve accettare le subscription Web Push (endpoint, p256dh, auth) e gestire la rimozione.
-- **Chiave VAPID pubblica**: attualmente è definita nel client (`webPushClient.ts`) e nel service worker (`public/FCServiceWorker.js`). Portarla in una variabile di configurazione condivisa (es. `EXPO_PUBLIC_WEB_PUSH_KEY`) e propagarla al service worker.
-- **Autenticazione**: il servizio `pushNotificationService` utilizza l'e-mail dell'utente ricavata tramite `tokenStorageService`/`authService`. Assicurarsi che il token contenga il claim `email`.
+**La configurazione e i valori VAPID esistenti sono intenzionalmente invariati.** Non è richiesta una nuova iscrizione dei dispositivi per cambiare chiave.
 
-## 🌐 Web (desktop + mobile browser)
+## API e salvataggi
 
-1. **Service Worker**
-   - Il file è disponibile in `public/scripts/FCServiceWorker.js` e viene registrato dinamicamente da `webPushClient.ts`.
-   - Per l'ambiente di produzione, confermare che la cartella `public/` venga copia-incollata nello `outputDir` quando si esegue `expo export` o `npm run web`.
+Le API dedicate sono autenticate e ricavano l'identità dai claim. L'eventuale parametro `email` può identificare soltanto l'utente già autenticato; serve anche a impedire che una richiesta rimasta in coda venga applicata all'account successivo.
 
-2. **HTTPS**
-   - Le Web Push richiedono HTTPS (eccetto su `localhost`). Verificare che l'ambiente di staging/produzione esponga il sito via HTTPS.
+| Metodo | Percorso | Operazione |
+| --- | --- | --- |
+| GET | `/api/push-notifications` | Impostazioni correnti; default solo se il documento non esiste |
+| PATCH | `/api/push-notifications` | Aggiornamento delle sole preferenze specificate |
+| POST | `/api/push-notifications/devices` | Upsert `{ subscription, previousEndpoint? }` |
+| POST | `/api/push-notifications/devices/remove` | Rimozione `{ endpoint }` dal proprio account |
+| POST | `/api/push-notifications/disable` | Disattivazione di preferenze e dispositivi del proprio account |
 
-3. **VAPID key**
-   - Generare una nuova coppia VAPID (se non già disponibile) e impostare la chiave pubblica a runtime:
-     1. Esporre la chiave in un env `EXPO_PUBLIC_WEB_PUSH_KEY`.
-     2. Modificare `webPushClient.ts` per leggerla dall'env.
-     3. Assicurarsi che il service worker riceva la chiave via `postMessage` (già previsto dal listener `SET_VAPID_KEY`).
+I repository generici `PushNotificationSettings` e `PushNotificationSent` **non sono esposti** via HTTP, comprese query, operazioni e batch. Non esiste un fallback frontend ai vecchi endpoint.
 
-4. **Persistenza subscription**
-   - Dopo `subscribe()` il client invia la subscription a `pushNotificationService.addDevice`, che salva nel repository.
-   - Implementare nel backend l'aggiornamento dei device all'evento `pushsubscriptionchange` (il service worker ha il TODO per notificare i client). Possibile opzione: `registration.active?.postMessage` e successiva `fetch` verso l'API.
+- Le preferenze non riscrivono le subscription. Registrazioni e rimozioni non riscrivono preferenze lette in precedenza.
+- Un upsert aggiorna anche le chiavi `p256dh`/`auth` a endpoint invariato.
+- Sono accettati endpoint HTTPS dei provider browser Google, Mozilla, Apple e Windows, con chiavi P-256 valide; non URL arbitrari o redirect verso altri host. La stessa validazione si applica agli invii di subscription già salvate.
+- L'attivazione esplicita di un endpoint su un altro account lo dissocia dal precedente senza esporne i dati.
+- La pulizia di un endpoint scaduto rilegge lo stato corrente e confronta anche le chiavi: non cancella una subscription aggiornata mentre l'invio era in corso.
+- Errori HTTP, risposte non valide e salvataggi repository non riusciti sono errori reali, non successi né documenti vuoti.
+- Il default di `MatchEvents` è `true`; un `false` salvato è rispettato.
 
-5. **Permessi browser**
-   - `webPushClient.requestPermission()` chiede il consenso. Alcuni browser (es. Safari) hanno API diverse o non supportano VAPID: prevedere fallback/alert nella UI.
+Le mutazioni condividono un lock. Con storage Azure il lock usa lease Blob rinnovate nel container privato `pushnotificationlocks`, nello stesso account dei repository. La perdita del rinnovo cancella le operazioni protette. In memoria/test si usa un semaforo condiviso. Non sostituire il lock Azure con quello in memoria in un deployment multi-istanza.
 
-## 🤖 Android (app Expo)
+## Destinatari e affidabilità
 
-1. **Provider**: utilizzare Firebase Cloud Messaging (FCM) tramite `expo-notifications`.
-2. **Configurazione**:
-   - Creare un progetto Firebase, scaricare `google-services.json` e configurare `app.json` (`android.googleServicesFile`).
-   - Registrare il server key di FCM sul backend per inviare notifiche.
-3. **Client**:
-   - Aggiungere un modulo dedicato (es. `services/expoPushClient.ts`) che usa `Notifications.getExpoPushTokenAsync`.
-   - Estendere `pushNotificationService` con metodi per registrare/disiscrivere i token Expo/FCM separati da Web Push (in JSON distinguere `type: 'expo' | 'web'`).
-4. **Test**:
-   - Abilitare notifiche in background (`notification`, `uses-permission android:name="android.permission.POST_NOTIFICATIONS"` per Android 13+).
+- Gli eventi propri sono deduplicati per evento, gruppo ed e-mail destinataria, raccogliendo proprietari e co-proprietari da tutti i basket pertinenti.
+- Gli eventi avversari conservano il collegamento basket/lega/incontro. Ogni destinatario usa la propria preferenza, indipendentemente dal proprietario principale. Il testo identifica gruppo, lega, squadra avversaria, giocatore ed evento.
+- Checkpoint dei voti e invii da effettuare sono salvati nello stesso documento `PushNotificationSent`, prima di contattare il provider.
+- Gli invii riusciti sono registrati per destinatario e dispositivo. Dopo una riuscita parziale si ritentano solo i dispositivi non completati.
+- La coda riguarda anche promemoria, fine giornata, cambi formazione e mercato; il mercato usa la giornata tecnica `0` ed è ritentabile anche in assenza di una giornata live.
+- I retry differiti hanno backoff fino a 15 minuti. Gli eventi scadono dopo 48 ore; i promemoria cambi live scadono alla deadline. Le scadenze vengono registrate nei log.
+- Una preferenza disabilitata o un dispositivo rimosso non viene riattivato da un retry.
+- HTTP 404/410 eliminano la subscription non valida; gli altri errori conservano un esito utilizzabile per il retry. I contatori sono atomici e gli errori permanenti sono contati una sola volta.
+- Gli identificativi/tag sono stabili nei retry. Non si promette consegna exactly-once: un crash dopo l'accettazione del provider ma prima del salvataggio della ricevuta può richiedere un reinvio con lo stesso tag. L'accettazione del provider non certifica la visualizzazione sul dispositivo.
 
-## 🍎 iOS (app Expo)
+## Browser e ciclo di vita
 
-1. **Apple Push Notification service (APNs)**
-   - Creare un `Push Notification Key` sull'Apple Developer portal e associarlo al bundle identifier (`com.keyserdsoze.fantasoccer`).
-   - Aggiungere il file `.p8` nelle credenziali di EAS (`eas credentials`), aggiornare `app.json` (`ios.bundleIdentifier`).
+Il service worker è `src/Fantasoccer.Applications/fantasoccer/public/FCServiceWorker.js` e viene pubblicato alla radice come `/FCServiceWorker.js`.
 
-2. **Client**
-   - Con `expo-notifications`, chiedere il permesso (`Notifications.requestPermissionsAsync`).
-   - Recuperare il token Expo/Native (`getExpoPushTokenAsync`) e registrarlo nel backend come per Android (magari con `platform: 'ios'`).
+- Richiede HTTPS, eccetto gli ambienti locali consentiti dal browser.
+- Il consenso viene richiesto dal gesto dell'utente, prima di attendere la registrazione del worker.
+- La sottoscrizione attende l'attivazione del worker; una registrazione fallita può essere ritentata.
+- `pushsubscriptionchange` conserva il rinnovo nella Cache API, anche senza finestre aperte. Non conserva token di autenticazione.
+- All'avvio autenticato, al ritorno online, al ritorno in primo piano e periodicamente, `PushDeviceSync` riconcilia la subscription corrente e sostituisce il vecchio endpoint. Un rinnovo non sincronizzato resta disponibile per il tentativo successivo.
+- Una rimozione remota o una disattivazione locale non viene annullata dalla riconciliazione.
+- Al logout si disabilita localmente la visualizzazione, si annulla la subscription browser e si tenta la dissociazione backend prima di rimuovere il token. Il logout resta possibile se la rete non è disponibile.
+- Il worker esclude notifiche disabilitate o destinate al precedente account; i payload includono l'identità destinataria. Al cambio account non viene attivato implicitamente il nuovo account.
+- Gli errori di mutazione sono propagati dall'hook e mostrati nella schermata. Risposte di polling precedenti al salvataggio o relative a un altro account non sostituiscono lo stato corrente.
 
-3. **Capacità in background**
-   - Verificare il provisioning profile con la capability `Push Notifications`.
+## Pubblicazione
 
-## 🔄 Sincronizzazione cross-platform
+1. Pubblicare backend e frontend come aggiornamento coordinato: il frontend nuovo richiede le API dedicate; quello vecchio non può più usare il repository push generico.
+2. Verificare che l'identità applicativa possa creare/usare il container privato `pushnotificationlocks` nell'account storage già configurato.
+3. Pubblicare anche `/FCServiceWorker.js` dalla directory `public` e verificarne l'aggiornamento sui client.
+4. Non cambiare le chiavi VAPID in questo aggiornamento. I documenti esistenti sono compatibili; i nuovi campi della coda hanno valori predefiniti e il checkpoint precedente viene letto per la migrazione.
 
-- Estendere `PushNotificationSettings` nel backend per distinguere più canali (web push vs mobile push). L'attuale schema salva solo subscription Web Push.
-- Aggiornare l'API per accettare payload differenti e ritornare metadati (es. tipo dispositivo, piattaforma, data registrazione).
-- Nel frontend, aggiornare `usePushNotifications` e la UI per mostrare dispositivi web/mobile separati.
+## Test
 
-## ✅ Checklist operativa
+```sh
+dotnet test src/Fantasoccer.Tests/Fantasoccer.Tests.csproj
+```
 
-- [ ] Chiave VAPID unica in configurazione condivisa.
-- [ ] Copia della cartella `public/scripts` nella build web.
-- [ ] Integrazione `expo-notifications` con FCM/APNs.
-- [ ] Backend capace di accettare e inviare notifiche verso Web Push + FCM + APNs.
-- [ ] QA manuale su browser Chromium, Firefox, Safari (desktop/mobile) e device Android/iOS reali.
+Nella directory `src/Fantasoccer.Applications/fantasoccer`:
 
-Questa guida va aggiornata mano a mano che l’implementazione prosegue (es. quando distingueremo i device mobile nel repository).
+```sh
+npm test
+npx tsc --noEmit
+npx expo export --platform web --output-dir /tmp/opencode/fantasoccer-push-web-check
+```
+
+Le suite coprono isolamento API, patch concorrenti, upsert/rinnovo, pulizia condizionale, co-proprietari, basket distinti, invii interrotti/parziali, provider simulati 404/410/403/503, errori frontend, rinnovo a pagina chiusa, logout e cambio account. Il trasporto dei test API usa un handler HTTP simulato: non invia notifiche a utenti reali.
+
+Resta necessaria una verifica end-to-end autorizzata su account/dispositivi di test reali per disponibilità del browser, credenziali/provider di produzione e visualizzazione effettiva. Per il canale nativo servono integrazione Expo/FCM/APNs, credenziali e build native: non viene dichiarato supportato dal solo completamento dei test Web Push.

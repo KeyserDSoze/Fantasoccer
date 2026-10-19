@@ -6,6 +6,7 @@ import { tokenStorageService } from '../services/tokenStorageService'
 import { PKCEHelper } from '../utils/pkceHelper'
 import { useGlobalLoading } from '../providers/LoadingProvider'
 import { useToastController } from '@tamagui/toast'
+import { disconnectPushDevice } from '../services/pushDeviceService'
 
 // Helper function to convert backend user data to AuthUser
 const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {
@@ -444,6 +445,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setState(prev => ({ ...prev, isLoading: true }))
 
       // Clear stored token
+      if (state.user?.email) {
+        try { await disconnectPushDevice(state.user.email) }
+        catch (error) { console.warn('Pulizia push al logout non completata:', error) }
+      }
       await tokenStorageService.removeToken()
 
       setState({

@@ -1,21 +1,32 @@
 using RepositoryFramework;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Fantasoccer.Business;
 
 internal sealed class MarketNotificationService : IMarketNotificationService
 {
     private readonly IRepository<Group, string> _groups;
-    private readonly IRepository<PushNotificationSettings, string> _settings;
+    private readonly PushNotificationSettingsService _settings;
     private readonly IPushNotificationService _pushNotificationService;
+    private readonly PushNotificationStateStore _state;
+    private readonly IPushNotificationLock _stateLock;
+    private readonly IFantasoccerLogger _logger;
 
     public MarketNotificationService(
         IRepository<Group, string> groups,
-        IRepository<PushNotificationSettings, string> settings,
-        IPushNotificationService pushNotificationService)
+        PushNotificationSettingsService settings,
+        IPushNotificationService pushNotificationService,
+        IRepository<PushNotificationSent, YearDayKey> sent,
+        IPushNotificationLock stateLock,
+        IFantasoccerLogger logger)
     {
         _groups = groups;
         _settings = settings;
         _pushNotificationService = pushNotificationService;
+        _state = new(sent);
+        _stateLock = stateLock;
+        _logger = logger;
     }
 
     public async ValueTask NotifyProposalCreatedAsync(LeagueKey key, Market market, CancellationToken cancellationToken = default)
@@ -61,22 +72,48 @@ internal sealed class MarketNotificationService : IMarketNotificationService
 
     private async ValueTask NotifyEmailAsync(string email, string body, string marketId, LeagueKey key, CancellationToken cancellationToken)
     {
-        var settings = await _settings.GetAsync(email, cancellationToken);
+        var settings = await _settings.GetExistingAsync(email, cancellationToken);
         if (settings?.MarketEvents != true)
             return;
 
-        await _pushNotificationService.SendNotificationAsync(email, settings, new Notification
+        await using var held = await _stateLock.AcquireAsync("push-job", cancellationToken);
+        cancellationToken = held.CancellationToken;
+        // Day 0 is the market outbox (independent of the live Serie A calendar).
+        var outboxKey = new YearDayKey { Year = key.Year, Day = 0 };
+        var record = await _state.GetAsync(outboxKey, cancellationToken);
+        var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"market|{key.Group}|{key.League}|{marketId}|{body}|{email.ToLowerInvariant()}")));
+        var pending = record.PendingNotifications.FirstOrDefault(p => p.Id == id);
+        if (pending != null) return; // The scheduled dispatcher owns its retry.
+        pending = new PendingPushNotification { Id = id, Email = email, Kind = PushNotificationKind.MarketEvents, ExpiresAt = DateTimeOffset.UtcNow.AddHours(48), Notification = new Notification
         {
             Title = "FantaZone",
             Body = body,
             Icon = "https://fanta.zone/icon.png",
             Badge = "https://fanta.zone/adaptive-icon.png",
-            Tag = $"market-{marketId}",
+            Tag = $"push-{id}",
             Data = new NotificationData
             {
                 Uri = $"https://fanta.zone/market/trades?groupId={Uri.EscapeDataString(key.Group)}&leagueId={Uri.EscapeDataString(key.League)}&year={key.Year}"
             }
-        });
+        } };
+        record.PendingNotifications.Add(pending);
+        await SaveAsync(); // Durable before attempting the network request.
+        try
+        {
+            var result = await _pushNotificationService.SendNotificationAsync(email, settings, pending.Notification, cancellationToken);
+            pending.CompletedEndpoints = result.CompletedEndpoints;
+            if (result.IsComplete) record.PendingNotifications.Remove(pending);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) { await _logger.LogErrorAsync<MarketNotificationService>(ex); }
+        if (record.PendingNotifications.Contains(pending))
+        {
+            pending.Attempts = 1;
+            pending.NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(1);
+        }
+        await SaveAsync();
+
+        Task SaveAsync() => _state.SaveAsync(outboxKey, record, cancellationToken);
     }
 
     private static string BuildUpdateBody(
@@ -142,7 +179,7 @@ internal sealed class MarketNotificationService : IMarketNotificationService
                     string[] emails = team.AdditionalOwners != null
                         ? [team.Owner, .. team.AdditionalOwners]
                         : [team.Owner];
-                    ownerEmails[team.Owner] = emails
+                    ownerEmails[team.Owner] = ownerEmails.GetValueOrDefault(team.Owner, []).Concat(emails)
                         .Where(email => !string.IsNullOrWhiteSpace(email))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .ToList();
