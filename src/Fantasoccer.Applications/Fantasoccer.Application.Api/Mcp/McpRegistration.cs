@@ -26,7 +26,13 @@ public static class McpRegistration
         // Public authorization anchors must remain protected even before MCP is enabled.
         builder.Services.AddSingleton<McpEndpointCatalog>();
         builder.Services.AddScoped<McpAccessGuard>();
-        if (!settings.Enabled) return;
+        if (!settings.Enabled)
+        {
+            // Disabling OAuth must not remove the key store/certificate needed
+            // to read frontend tickets protected after the MCP release.
+            ConfigureDataProtection(builder, settings);
+            return;
+        }
 
         var development = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
         if (!development && builder.Configuration["Integrations:Infrastructure"] == "InMemory")
@@ -36,27 +42,13 @@ public static class McpRegistration
         if (!Uri.TryCreate(settings.Issuer, UriKind.Absolute, out var issuer) || issuer.Scheme != "https" ||
             issuer.AbsolutePath != "/" || !string.IsNullOrEmpty(issuer.Query) || !string.IsNullOrEmpty(issuer.Fragment) ||
             !Uri.TryCreate(settings.FrontendUrl, UriKind.Absolute, out var frontend) ||
-            (frontend.Scheme != "https" && !(development && frontend.IsLoopback)) ||
-            settings.Clients.Count == 0)
-            throw new InvalidOperationException("MCP requires an HTTPS root Issuer, FrontendUrl and registered Clients.");
-        if (!development && (string.IsNullOrWhiteSpace(settings.CertificatePath) ||
+            !string.IsNullOrEmpty(issuer.UserInfo) ||
+            (frontend.Scheme != "https" && !(development && frontend.IsLoopback)))
+            throw new InvalidOperationException("MCP requires an HTTPS root Issuer and FrontendUrl.");
+        if (!development && ((string.IsNullOrWhiteSpace(settings.CertificatePath) && string.IsNullOrWhiteSpace(settings.CertificateBase64)) ||
             (string.IsNullOrWhiteSpace(settings.DataProtectionKeyPath) && string.IsNullOrWhiteSpace(settings.DataProtectionBlobName))))
             throw new InvalidOperationException("Production MCP requires a certificate and persistent Data Protection keys (Blob or an existing shared key path).");
-        if (!string.IsNullOrEmpty(settings.DataProtectionKeyPath) && !string.IsNullOrEmpty(settings.DataProtectionBlobName))
-            throw new InvalidOperationException("Choose one Data Protection key store, not both.");
-
-        var certificate = string.IsNullOrWhiteSpace(settings.CertificatePath) ? null :
-            X509CertificateLoader.LoadPkcs12FromFile(settings.CertificatePath, settings.CertificatePassword);
-        var protection = builder.Services.AddDataProtection();
-        if (!string.IsNullOrWhiteSpace(settings.DataProtectionBlobName))
-        {
-            var connection = builder.Configuration["ConnectionStrings:Storage"] ?? throw new InvalidOperationException("Missing existing storage connection.");
-            protection.PersistKeysToAzureBlobStorage(new BlobContainerClient(connection, "mcp-keys").GetBlobClient(settings.DataProtectionBlobName));
-        }
-
-        if (!string.IsNullOrWhiteSpace(settings.DataProtectionKeyPath))
-            protection.PersistKeysToFileSystem(new DirectoryInfo(settings.DataProtectionKeyPath));
-        if (certificate != null) protection.ProtectKeysWithCertificate(certificate);
+        var certificate = ConfigureDataProtection(builder, settings);
 
         if (builder.Configuration["Integrations:Infrastructure"] == "InMemory")
             builder.Services.AddSingleton<IOAuthDocumentStorage, InMemoryOAuthDocumentStorage>();
@@ -132,13 +124,19 @@ public static class McpRegistration
                     configuration.Scopes.UnionWith([McpOptions.Scope, Scopes.OfflineAccess]);
                 });
                 options.SetAccessTokenLifetime(TimeSpan.FromHours(24));
+                options.AddEventHandler<OpenIddictServerEvents.ApplyConfigurationResponseContext>(handler => handler
+                    .UseInlineHandler(context =>
+                    {
+                        context.Response.SetParameter("registration_endpoint", settings.Issuer.TrimEnd('/') + "/connect/register");
+                        return default;
+                    }));
                 options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
                 options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
                 options.RemoveEventHandler(OpenIddictServerHandlers.RedeemTokenEntry.Descriptor);
                 options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(handler => handler
                     .SetOrder(OpenIddictServerHandlers.RedeemTokenEntry.Descriptor.Order)
                     .UseScopedHandler<McpRedeemTokenHandler>());
-                if (development && string.IsNullOrWhiteSpace(settings.CertificatePath))
+                if (development && certificate == null)
                     options.AddEphemeralEncryptionKey().AddEphemeralSigningKey();
                 else
                 {
@@ -189,6 +187,7 @@ public static class McpRegistration
             });
 
         builder.Services.AddSingleton<McpConsentTransactions>();
+        builder.Services.AddScoped<Microsoft.AspNetCore.Cors.Infrastructure.ICorsPolicyProvider, McpCorsPolicyProvider>();
         if (!builder.Environment.IsEnvironment("Testing")) builder.Services.AddHostedService<OAuthRetentionService>();
         builder.Services.AddSingleton<McpApiFacade>();
         builder.Services.AddRateLimiter(options =>
@@ -206,6 +205,9 @@ public static class McpRegistration
             options.AddPolicy("mcp-oauth", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+            options.AddPolicy("mcp-registration", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
         builder.Services.AddMcpServer()
             .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
@@ -223,6 +225,31 @@ public static class McpRegistration
                 await request.Services!.GetRequiredService<McpApiFacade>().CallAsync(request.Params!, cancellationToken));
     }
 
+    private static X509Certificate2? ConfigureDataProtection(WebApplicationBuilder builder, McpOptions settings)
+    {
+        if (!string.IsNullOrEmpty(settings.DataProtectionKeyPath) && !string.IsNullOrEmpty(settings.DataProtectionBlobName))
+            throw new InvalidOperationException("Choose one Data Protection key store, not both.");
+        if (!string.IsNullOrWhiteSpace(settings.CertificatePath) && !string.IsNullOrWhiteSpace(settings.CertificateBase64))
+            throw new InvalidOperationException("Choose one OAuth certificate source, not both.");
+        // Load the GitHub secret directly: no PFX in the deployment artifact or
+        // OS-specific certificate directory. Keep this configuration when disabled.
+        var certificate = !string.IsNullOrWhiteSpace(settings.CertificateBase64)
+            ? X509CertificateLoader.LoadPkcs12(Convert.FromBase64String(settings.CertificateBase64), settings.CertificatePassword, X509KeyStorageFlags.EphemeralKeySet)
+            : !string.IsNullOrWhiteSpace(settings.CertificatePath)
+                ? X509CertificateLoader.LoadPkcs12FromFile(settings.CertificatePath, settings.CertificatePassword, X509KeyStorageFlags.EphemeralKeySet)
+                : null;
+        var protection = builder.Services.AddDataProtection();
+        if (!string.IsNullOrWhiteSpace(settings.DataProtectionBlobName))
+        {
+            var connection = builder.Configuration["ConnectionStrings:Storage"] ?? throw new InvalidOperationException("Missing existing storage connection.");
+            protection.PersistKeysToAzureBlobStorage(new BlobContainerClient(connection, "mcp-keys").GetBlobClient(settings.DataProtectionBlobName));
+        }
+        if (!string.IsNullOrWhiteSpace(settings.DataProtectionKeyPath))
+            protection.PersistKeysToFileSystem(new DirectoryInfo(settings.DataProtectionKeyPath));
+        if (certificate != null) protection.ProtectKeysWithCertificate(certificate);
+        return certificate;
+    }
+
     public static async Task MapFantasoccerMcpAsync(this WebApplication app)
     {
         var settings = app.Services.GetRequiredService<McpOptions>();
@@ -233,8 +260,8 @@ public static class McpRegistration
             foreach (var client in settings.Clients)
             {
                 if (string.IsNullOrWhiteSpace(client.ClientId) || client.RedirectUris.Count == 0 ||
-                    client.RedirectUris.Any(x => !Uri.TryCreate(x, UriKind.Absolute, out var uri) || uri.Scheme != "https" || !string.IsNullOrEmpty(uri.Fragment)))
-                    throw new InvalidOperationException("MCP clients require an ID and exact HTTPS redirect URIs.");
+                    client.RedirectUris.Any(x => !McpClientRegistration.IsValidRedirect(x)))
+                    throw new InvalidOperationException("MCP clients require an ID and exact HTTPS or loopback HTTP redirect URIs.");
                 var descriptor = new OpenIddictApplicationDescriptor
                 {
                     ClientId = client.ClientId,

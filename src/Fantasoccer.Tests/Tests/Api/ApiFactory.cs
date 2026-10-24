@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Net;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Hosting;
@@ -14,6 +16,14 @@ namespace Fantasoccer.Tests.Tests.Api;
 
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
+    private static int _nextClient;
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add("X-Test-Remote-IP", $"2001:db8::{Interlocked.Increment(ref _nextClient):x}");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Integrations:Infrastructure", "InMemory");
@@ -27,6 +37,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Mcp:Clients:0:RedirectUris:0", "https://chatgpt.com/test-mcp-callback");
         builder.ConfigureServices(services =>
         {
+            services.AddSingleton<IStartupFilter, TestClientAddressFilter>();
             // Opt-in integration run against Azurite/a dedicated test account, never production.
             var blob = Environment.GetEnvironmentVariable("FANTASOCCER_TEST_OAUTH_BLOB");
             if (!string.IsNullOrEmpty(blob)) services.AddOAuthBlobStorageAsync(blob).GetAwaiter().GetResult();
@@ -45,6 +56,22 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         });
     }
 
+}
+
+// Give each browser a distinct source IP while exercising the real production
+// rate limiters. Only the test host trusts this synthetic header.
+internal sealed class TestClientAddressFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use(async (context, continuation) =>
+        {
+            if (IPAddress.TryParse(context.Request.Headers["X-Test-Remote-IP"].ToString(), out var address))
+                context.Connection.RemoteIpAddress = address;
+            await continuation(context);
+        });
+        next(app);
+    };
 }
 
 internal sealed class TestAuthenticationHandler(

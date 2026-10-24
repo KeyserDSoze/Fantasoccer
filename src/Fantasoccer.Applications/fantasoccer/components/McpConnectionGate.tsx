@@ -37,7 +37,7 @@ export function McpConnectionGate({ children }: { children: ReactNode }) {
     const controller = new AbortController()
     fetch(buildApiUrl(`/connect/request/${transactionId}`), { signal: controller.signal, cache: 'no-store' })
       .then(async response => {
-        if (!response.ok) throw new Error('Collegamento scaduto. Ricomincia da ChatGPT.')
+        if (!response.ok) throw new Error('Collegamento scaduto. Ricomincia dalla tua applicazione MCP.')
         setDetails(await response.json())
       })
       .catch(reason => { if (!controller.signal.aborted) setError(reason.message) })
@@ -71,7 +71,7 @@ export function McpConnectionGate({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactionId, approved: true }),
       })
-      if (!response.ok) throw new Error('Autorizzazione non riuscita. Ricomincia il collegamento da ChatGPT.')
+      if (!response.ok) throw new Error('Autorizzazione non riuscita. Ricomincia il collegamento dalla tua applicazione MCP.')
       const { redirectUrl } = await response.json()
       const redirect = new URL(redirectUrl)
       if (redirect.origin !== new URL(getApiConfig().baseUrl).origin || redirect.pathname !== '/connect/complete')
@@ -91,6 +91,7 @@ export function McpConnectionGate({ children }: { children: ReactNode }) {
       {!details && !error ? <Spinner /> : null}
       {details ? <>
         <Text>{details.clientName} richiede accesso al tuo account.</Text>
+        <Text maxWidth={600}>Il nome è dichiarato dall'applicazione, non è un'identità verificata. Autorizza solo collegamenti avviati da te con un'app di cui ti fidi.</Text>
         <Text maxWidth={600}>{details.description}</Text>
         <Text maxWidth={600}>Potrà leggere dati e apportare modifiche quando glielo chiedi. I tuoi ruoli e permessi restano invariati.</Text>
       </> : null}

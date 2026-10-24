@@ -28,8 +28,7 @@ public sealed class McpTokenValidator(McpOptions settings, IOpenIddictTokenManag
             !await authorizations.HasStatusAsync(grant, OpenIddictConstants.Statuses.Valid, cancellationToken)) return null;
         var applicationId = await tokens.GetApplicationIdAsync(token, cancellationToken);
         var application = applicationId == null ? null : await applications.FindByIdAsync(applicationId, cancellationToken);
-        var clientId = application == null ? null : await applications.GetClientIdAsync(application, cancellationToken);
-        if (!settings.Clients.Any(x => x.ClientId == clientId)) return null;
+        if (application == null || await authorizations.GetApplicationIdAsync(grant, cancellationToken) != applicationId) return null;
 
         var subject = principal.GetClaim(OpenIddictConstants.Claims.Subject);
         if (subject == null || await users.GetAsync(subject, cancellationToken) == null) return null;
@@ -38,6 +37,7 @@ public sealed class McpTokenValidator(McpOptions settings, IOpenIddictTokenManag
         await foreach (var claim in socialUsers.GetClaimsAsync(new TokenResponse { Username = subject, Claims = [] }, cancellationToken))
             identity.AddClaim(claim);
         identity.AddClaim(new Claim(McpOptions.ResourceClaim, settings.Resource));
-        return new ClaimsPrincipal(identity);
+        // Preserve the server-validated grant binding for per-client origin checks.
+        return new ClaimsPrincipal(identity).SetAuthorizationId(grantId);
     }
 }

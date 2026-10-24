@@ -100,30 +100,7 @@ app.UseMiddleware<TeamRepositoryBoundaryMiddleware>();
 app.UseMiddleware<McpResourceBoundaryMiddleware>();
 if (app.Services.GetRequiredService<McpOptions>().Enabled)
 {
-    app.Use(async (context, next) =>
-    {
-        if (context.Request.Path.StartsWithSegments("/mcp"))
-        {
-            var bodyLimit = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
-            if (bodyLimit is { IsReadOnly: false }) bodyLimit.MaxRequestBodySize = 8 * 1024 * 1024;
-            if (context.Request.ContentLength > 8 * 1024 * 1024)
-            {
-                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
-                return;
-            }
-            var settings = context.RequestServices.GetRequiredService<McpOptions>();
-            var origin = context.Request.Headers.Origin.ToString();
-            var origins = settings.Clients.SelectMany(x => x.RedirectUris).Select(x => new Uri(x).GetLeftPart(UriPartial.Authority))
-                .Append(new Uri(settings.FrontendUrl).GetLeftPart(UriPartial.Authority))
-                .Append(new Uri(settings.Issuer).GetLeftPart(UriPartial.Authority));
-            if (origin.Length > 0 && !origins.Contains(origin, StringComparer.Ordinal))
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return;
-            }
-        }
-        await next(context);
-    });
+    app.UseMiddleware<McpOriginBoundaryMiddleware>();
 }
 app.UseSocialLoginEndpoints();
 app.MapControllers();

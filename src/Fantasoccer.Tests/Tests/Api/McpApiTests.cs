@@ -42,6 +42,9 @@ public sealed class McpApiTests : IDisposable
         Assert.Contains("S256", discovery.GetProperty("code_challenge_methods_supported").EnumerateArray().Select(x => x.GetString()));
         Assert.Equal(metadata.GetProperty("authorization_servers")[0].GetString(), discovery.GetProperty("issuer").GetString());
         Assert.DoesNotContain("openid", discovery.GetProperty("scopes_supported").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal("https://localhost/connect/register", discovery.GetProperty("registration_endpoint").GetString());
+        var oauthDiscovery = await _client.GetFromJsonAsync<JsonElement>("/.well-known/oauth-authorization-server", TestContext.Current.CancellationToken);
+        Assert.Equal("https://localhost/connect/register", oauthDiscovery.GetProperty("registration_endpoint").GetString());
         var response = await _client.PostAsJsonAsync("/mcp", new { jsonrpc = "2.0", id = 1, method = "tools/list" }, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Contains("resource_metadata", response.Headers.WwwAuthenticate.ToString());
@@ -482,6 +485,150 @@ public sealed class McpApiTests : IDisposable
         Assert.False(response.IsSuccessStatusCode);
     }
 
+    [Theory]
+    [InlineData("https://client.example/oauth/callback", "none")]
+    [InlineData("http://127.0.0.1:49152/callback", "none")]
+    [InlineData("https://other-client.example/callback", "client_secret_post")]
+    [InlineData("https://basic-client.example/callback", "client_secret_basic")]
+    public async Task Dynamic_clients_complete_login_refresh_and_revocation_without_configuration(string redirect, string method)
+    {
+        var response = await _client.PostAsJsonAsync("/connect/register", new
+        {
+            client_name = "An app chosen by a friend", redirect_uris = new[] { redirect },
+            token_endpoint_auth_method = method, grant_types = new[] { "authorization_code", "refresh_token" }, response_types = new[] { "code" },
+            client_id = "chatgpt-test", client_secret = "caller-cannot-choose-credentials"
+        }, TestContext.Current.CancellationToken);
+        Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("no-store", response.Headers.CacheControl!.ToString());
+        var registration = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var clientId = registration.GetProperty("client_id").GetString()!;
+        Assert.NotEqual("chatgpt-test", clientId);
+        Assert.DoesNotContain(_factory.Services.GetRequiredService<McpOptions>().Clients, x => x.ClientId == clientId);
+        var secret = registration.TryGetProperty("client_secret", out var value) ? value.GetString() : null;
+        Assert.Equal(method == "none", secret == null);
+        if (secret != null)
+        {
+            Assert.NotEqual("caller-cannot-choose-credentials", secret);
+            var store = new OAuthStore<OAuthApplication>(_factory.Services.GetRequiredService<IOAuthDocumentStorage>());
+            Assert.NotEqual(secret, (await store.FindByClientIdAsync(clientId, TestContext.Current.CancellationToken))!.ClientSecret);
+        }
+        var invalid = await _client.GetAsync(AuthorizationUrl(new string('x', 43), clientId, "https://attacker.example/callback"), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        invalid = await _client.GetAsync(AuthorizationUrl(new string('x', 43), clientId, redirect).Replace("code_challenge_method=S256", "code_challenge_method=plain"), TestContext.Current.CancellationToken);
+        Assert.True(invalid.StatusCode == HttpStatusCode.BadRequest || invalid.Headers.Location?.Query.Contains("error=") == true);
+        var verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        var email = "dynamic-" + Guid.NewGuid().ToString("N") + "@example.com";
+        var code = await AuthorizeCodeAsync(verifier, email, clientId: clientId, redirect: redirect);
+        if (secret != null)
+        {
+            var missingSecret = await ExchangeAsync(code, verifier, clientId, redirect);
+            Assert.False(missingSecret.IsSuccessStatusCode);
+        }
+        response = await ExchangeAsync(code, verifier, clientId, redirect, secret, method);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var tokens = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        var access = tokens.GetProperty("access_token").GetString()!;
+        var result = await CallAsync(access, "get_my_account", new { });
+        Assert.Contains(email, result.GetProperty("content")[0].GetProperty("text").GetString());
+        // MCP origins follow the actual registered client, not a static ChatGPT allowlist.
+        _client.DefaultRequestHeaders.Add("Origin", new Uri(redirect).GetLeftPart(UriPartial.Authority));
+        await CallAsync(access, "get_my_account", new { });
+        _client.DefaultRequestHeaders.Remove("Origin");
+        _client.DefaultRequestHeaders.Add("Origin", "https://attacker.example");
+        response = await _client.PostAsJsonAsync("/mcp", new { jsonrpc = "2.0", id = 1, method = "tools/list" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        _client.DefaultRequestHeaders.Remove("Origin");
+        _client.DefaultRequestHeaders.Authorization = null;
+        var fields = new Dictionary<string, string>
+        {
+            ["client_id"] = clientId, ["grant_type"] = "refresh_token",
+            ["refresh_token"] = tokens.GetProperty("refresh_token").GetString()!, ["resource"] = Resource
+        };
+        if (secret != null) fields["client_secret"] = secret;
+        response = await _client.PostAsync("/connect/token", new FormUrlEncodedContent(fields), TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await FrontendTokenAsync(email));
+        var connections = await _client.GetFromJsonAsync<JsonElement>("/connect/connections", TestContext.Current.CancellationToken);
+        Assert.Single(connections.EnumerateArray());
+        Assert.Equal(clientId, connections[0].GetProperty("clientId").GetString());
+        response = await _client.PostAsJsonAsync("/connect/disconnect", new { clientId }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", access);
+        response = await _client.PostAsJsonAsync("/mcp", new { jsonrpc = "2.0", id = 1, method = "tools/list" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("http://remote.example/callback")]
+    [InlineData("https://client.example/callback#fragment")]
+    [InlineData("https://user:password@client.example/callback")]
+    [InlineData("https://*.example/callback")]
+    [InlineData("javascript:alert(1)")]
+    public async Task Registration_rejects_unsafe_redirects(string redirect)
+    {
+        var response = await _client.PostAsJsonAsync("/connect/register", new { redirect_uris = new[] { redirect }, token_endpoint_auth_method = "none" }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        Assert.Equal("invalid_redirect_uri", error.GetProperty("error").GetString());
+    }
+
+    [Theory]
+    [InlineData("{\"redirect_uris\":[]}")]
+    [InlineData("{\"redirect_uris\":[\"https://client.example/callback\"],\"grant_types\":[\"client_credentials\"]}")]
+    [InlineData("{\"redirect_uris\":[\"https://client.example/callback\"],\"token_endpoint_auth_method\":\"private_key_jwt\"}")]
+    [InlineData("{\"redirect_uris\":[\"https://client.example/callback\"],\"scope\":\"admin\"}")]
+    [InlineData("{\"redirect_uris\":[\"https://client.example/callback\"],\"client_name\":42}")]
+    [InlineData("{\"redirect_uris\":[\"https://client.example/callback\"],\"response_types\":[\"token\"]}")]
+    [InlineData("{\"redirect_uris\":[],\"redirect_uris\":[\"https://client.example/callback\"]}")]
+    [InlineData("not json")]
+    public async Task Registration_rejects_invalid_metadata(string json)
+    {
+        var response = await _client.PostAsync("/connect/register", new StringContent(json, Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Registration_has_bounded_body_and_browser_clients_get_noncredentialed_CORS()
+    {
+        var response = await _client.PostAsync("/connect/register", new StringContent(new string('x', 17000), Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/connect/register");
+        request.Headers.Add("Origin", "https://browser-client.example");
+        request.Headers.Add("Access-Control-Request-Method", "POST");
+        request.Headers.Add("Access-Control-Request-Headers", "content-type");
+        response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal("https://browser-client.example", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.False(response.Headers.Contains("Access-Control-Allow-Credentials"));
+        var registered = await _client.PostAsJsonAsync("/connect/register", new
+        {
+            redirect_uris = new[] { "https://browser-client.example/callback" }, token_endpoint_auth_method = "none"
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/mcp");
+        preflight.Headers.Add("Origin", "https://browser-client.example");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Headers", "authorization,content-type");
+        response = await _client.SendAsync(preflight, TestContext.Current.CancellationToken);
+        Assert.Equal("https://browser-client.example", response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        using var approval = new HttpRequestMessage(HttpMethod.Options, "/connect/approve");
+        approval.Headers.Add("Origin", "https://browser-client.example");
+        approval.Headers.Add("Access-Control-Request-Method", "POST");
+        response = await _client.SendAsync(approval, TestContext.Current.CancellationToken);
+        Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
+    public async Task Open_registration_is_rate_limited_even_for_invalid_requests()
+    {
+        for (var i = 0; i < 30; i++)
+        {
+            var response = await _client.PostAsJsonAsync("/connect/register", new { }, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+        var rejected = await _client.PostAsJsonAsync("/connect/register", new { }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+    }
+
     private async Task<JsonElement> CallAsync(string token, string name, object arguments, HttpClient? client = null)
     {
         client ??= _client;
@@ -510,9 +657,9 @@ public sealed class McpApiTests : IDisposable
             .BearerTokenProtector.Protect(new AuthenticationTicket(principal, new AuthenticationProperties { ExpiresUtc = DateTimeOffset.UtcNow.AddHours(24) }, "Bearer"));
     }
 
-    private static string AuthorizationUrl(string verifier) => QueryHelpers.AddQueryString("/connect/authorize", new Dictionary<string, string?>
+    private static string AuthorizationUrl(string verifier, string clientId = "chatgpt-test", string redirect = Redirect) => QueryHelpers.AddQueryString("/connect/authorize", new Dictionary<string, string?>
     {
-        ["client_id"] = "chatgpt-test", ["redirect_uri"] = Redirect, ["response_type"] = "code",
+        ["client_id"] = clientId, ["redirect_uri"] = redirect, ["response_type"] = "code",
         ["scope"] = McpOptions.Scope + " offline_access", ["resource"] = Resource, ["state"] = "test-state",
         ["code_challenge"] = WebEncoders.Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))), ["code_challenge_method"] = "S256"
     });
@@ -526,11 +673,11 @@ public sealed class McpApiTests : IDisposable
         return await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
     }
 
-    private async Task<string> AuthorizeCodeAsync(string verifier, string email = Email, string username = "MCP owner")
+    private async Task<string> AuthorizeCodeAsync(string verifier, string email = Email, string username = "MCP owner", string clientId = "chatgpt-test", string redirect = Redirect)
     {
         _client.DefaultRequestHeaders.Authorization = null;
         _client.DefaultRequestHeaders.Remove("Origin");
-        var response = await _client.GetAsync(AuthorizationUrl(verifier), TestContext.Current.CancellationToken);
+        var response = await _client.GetAsync(AuthorizationUrl(verifier, clientId, redirect), TestContext.Current.CancellationToken);
         Assert.True(response.StatusCode == HttpStatusCode.Redirect, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         var id = QueryHelpers.ParseQuery(response.Headers.Location!.Query)["mcp_request"].ToString();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await FrontendTokenAsync(email, username));
@@ -544,19 +691,27 @@ public sealed class McpApiTests : IDisposable
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         response = await _client.GetAsync(response.Headers.Location, TestContext.Current.CancellationToken);
         Assert.True(response.StatusCode == HttpStatusCode.Redirect, await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-        Assert.StartsWith(Redirect, response.Headers.Location!.AbsoluteUri);
+        Assert.StartsWith(redirect, response.Headers.Location!.AbsoluteUri);
         var query = QueryHelpers.ParseQuery(response.Headers.Location.Query);
         Assert.False(query.ContainsKey("error"), response.Headers.Location.AbsoluteUri);
         Assert.Equal("test-state", query["state"].ToString());
         return query["code"].ToString();
     }
 
-    private Task<HttpResponseMessage> ExchangeAsync(string code, string verifier)
-        => _client.PostAsync("/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+    private Task<HttpResponseMessage> ExchangeAsync(string code, string verifier, string clientId = "chatgpt-test", string redirect = Redirect,
+        string? secret = null, string method = "none")
+    {
+        var fields = new Dictionary<string, string>
         {
-            ["client_id"] = "chatgpt-test", ["grant_type"] = "authorization_code", ["code"] = code,
-            ["redirect_uri"] = Redirect, ["code_verifier"] = verifier, ["resource"] = Resource
-        }), TestContext.Current.CancellationToken);
+            ["client_id"] = clientId, ["grant_type"] = "authorization_code", ["code"] = code,
+            ["redirect_uri"] = redirect, ["code_verifier"] = verifier, ["resource"] = Resource
+        };
+        if (secret != null && method != "client_secret_basic") fields["client_secret"] = secret;
+        var request = new HttpRequestMessage(HttpMethod.Post, "/connect/token") { Content = new FormUrlEncodedContent(fields) };
+        if (secret != null && method == "client_secret_basic")
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(clientId + ":" + secret)));
+        return _client.SendAsync(request, TestContext.Current.CancellationToken);
+    }
 
     public void Dispose()
     {

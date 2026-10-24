@@ -15,6 +15,32 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '3.0.0',
+    date: '24 Ottobre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Collega Fantasoccer alle applicazioni MCP compatibili: registrazione automatica del client, login Microsoft e consenso esplicito',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Consulta i collegamenti MCP dalle impostazioni e revoca subito l’accesso delle applicazioni che non usi più',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Le applicazioni collegate possono usare le funzioni consentite dal tuo account, mantenendo i ruoli e i permessi della lega',
+      },
+      {
+        category: 'Breaking',
+        description:
+          'Le scritture dirette delle rose richiedono un amministratore: formazione, mercato e aste continuano a usare i rispettivi flussi autorizzati',
+      },
+    ],
+  },
+  {
     version: '2.0.72',
     date: '19 Ottobre 2026',
     changes: [

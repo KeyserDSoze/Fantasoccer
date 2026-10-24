@@ -38,7 +38,7 @@ export function McpConnectionsCard({ email }: { email: string | null }) {
   if (!email || (connections === null && !error)) return null
   return <Card padding="$4" backgroundColor="$color2" borderRadius="$4" borderWidth="$0.5" borderColor="$borderColor">
     <YStack gap="$3">
-      <H3>Collegamenti ChatGPT / MCP</H3>
+      <H3>Collegamenti MCP</H3>
       <Text>La revoca blocca subito l’accesso del collegamento, senza disconnetterti da Fantasoccer.</Text>
       {error ? <Text color="$red10">{error}</Text> : null}
       {connections?.length === 0 ? <Text>Nessun collegamento attivo.</Text> : null}

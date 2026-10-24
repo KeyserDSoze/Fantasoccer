@@ -34,6 +34,7 @@ public static class McpOAuthEndpoints
 
         app.MapGet("/connect/authorize", AuthorizeAsync).RequireRateLimiting("mcp-oauth");
         app.MapPost("/connect/token", TokenAsync).RequireRateLimiting("mcp-oauth");
+        app.MapPost("/connect/register", McpClientRegistration.RegisterAsync).RequireRateLimiting("mcp-registration");
         app.MapGet("/connect/request/{id}", async (string id, McpConsentTransactions transactions, HttpContext context) =>
         {
             NoStore(context);
@@ -58,7 +59,7 @@ public static class McpOAuthEndpoints
     {
         NoStore(context);
         var request = context.GetOpenIddictServerRequest()!;
-        if (!settings.Clients.Any(x => x.ClientId == request.ClientId)) return OAuthError(Errors.InvalidClient, "Client is not enabled.");
+        // OpenIddict has already validated the client and its exact redirect URI.
         if (!ValidResource(request, settings) || !request.HasScope(McpOptions.Scope))
             return OAuthError(Errors.InvalidTarget, "Request this MCP resource and its full_access scope.");
 
@@ -106,7 +107,7 @@ public static class McpOAuthEndpoints
         var origin = context.Request.Headers.Origin.ToString();
         if (origin != new Uri(settings.FrontendUrl).GetLeftPart(UriPartial.Authority)) return Results.StatusCode(403);
         var transaction = await transactions.GetAsync(approval.TransactionId, context.RequestAborted);
-        if (transaction == null) return Results.BadRequest(new { error = "Connection expired. Start again from ChatGPT." });
+        if (transaction == null) return Results.BadRequest(new { error = "Connection expired. Start again from your MCP client." });
         if (!approval.Approved)
         {
             await transactions.DenyAsync(approval.TransactionId, context.RequestAborted);
@@ -139,7 +140,6 @@ public static class McpOAuthEndpoints
     {
         NoStore(context);
         var request = context.GetOpenIddictServerRequest()!;
-        if (!settings.Clients.Any(x => x.ClientId == request.ClientId)) return OAuthError(Errors.InvalidClient, "Client is not enabled.");
         if (!ValidResource(request, settings)) return OAuthError(Errors.InvalidTarget, "Invalid MCP resource.");
         var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var email = result.Principal?.GetClaim(Claims.Subject);
@@ -166,7 +166,7 @@ public static class McpOAuthEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> ConnectionsAsync(HttpContext context, McpOptions settings,
+    private static async Task<IResult> ConnectionsAsync(HttpContext context,
         IOpenIddictApplicationManager applications, IOpenIddictAuthorizationManager authorizations)
     {
         NoStore(context);
@@ -174,19 +174,20 @@ public static class McpOAuthEndpoints
         var email = login.Principal?.FindFirstValue(ClaimTypes.Email);
         if (!login.Succeeded || email == null || login.Principal!.HasClaim(x => x.Type == McpOptions.ResourceClaim)) return Results.Unauthorized();
         var connections = new List<object>();
-        foreach (var configured in settings.Clients)
+        var grants = new Dictionary<string, DateTimeOffset?>();
+        await foreach (var grant in authorizations.FindAsync(email, null, Statuses.Valid, AuthorizationTypes.Permanent, null, context.RequestAborted))
         {
-            var client = await applications.FindByClientIdAsync(configured.ClientId, context.RequestAborted);
+            var id = await authorizations.GetApplicationIdAsync(grant, context.RequestAborted);
+            if (id == null) continue;
+            var date = await authorizations.GetCreationDateAsync(grant, context.RequestAborted);
+            if (!grants.TryGetValue(id, out var latest) || latest == null || date > latest) grants[id] = date;
+        }
+        foreach (var (id, latest) in grants)
+        {
+            var client = await applications.FindByIdAsync(id, context.RequestAborted);
             if (client == null) continue;
-            var count = 0;
-            DateTimeOffset? latest = null;
-            await foreach (var grant in authorizations.FindAsync(email, await applications.GetIdAsync(client), Statuses.Valid, AuthorizationTypes.Permanent, null, context.RequestAborted))
-            {
-                count++;
-                var date = await authorizations.GetCreationDateAsync(grant, context.RequestAborted);
-                if (latest == null || date > latest) latest = date;
-            }
-            if (count > 0) connections.Add(new { clientId = configured.ClientId, displayName = configured.DisplayName, lastAuthorizedUtc = latest });
+            connections.Add(new { clientId = await applications.GetClientIdAsync(client, context.RequestAborted),
+                displayName = await applications.GetDisplayNameAsync(client, context.RequestAborted), lastAuthorizedUtc = latest });
         }
         return Results.Json(connections);
     }

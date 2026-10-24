@@ -33,7 +33,7 @@ def check(issuer):
         discovery = json.load(response)
     if discovery.get("issuer") != issuer + "/" or "S256" not in discovery.get("code_challenge_methods_supported", []):
         raise ValueError("OAuth discovery issuer/PKCE configuration is invalid.")
-    for field, path in (("authorization_endpoint", "/connect/authorize"), ("token_endpoint", "/connect/token"), ("revocation_endpoint", "/connect/revoke")):
+    for field, path in (("authorization_endpoint", "/connect/authorize"), ("token_endpoint", "/connect/token"), ("revocation_endpoint", "/connect/revoke"), ("registration_endpoint", "/connect/register")):
         if discovery.get(field) != issuer + path:
             raise ValueError("Unexpected OAuth endpoint: " + field)
     with request("/mcp", json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).encode()) as response:

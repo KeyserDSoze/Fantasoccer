@@ -7,6 +7,7 @@ public sealed class McpOptions
     public string Issuer { get; set; } = "";
     public string FrontendUrl { get; set; } = "";
     public string CertificatePath { get; set; } = "";
+    public string CertificateBase64 { get; set; } = "";
     public string? CertificatePassword { get; set; }
     public string DataProtectionKeyPath { get; set; } = "";
     public string DataProtectionBlobName { get; set; } = "";
