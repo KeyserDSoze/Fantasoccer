@@ -28,7 +28,12 @@ public sealed class McpResourceBoundaryMiddleware(RequestDelegate next)
         {
             ["query"] = JsonSerializer.SerializeToElement(context.Request.Query.ToDictionary(x => x.Key, x => x.Value.ToString()))
         };
-        if (context.Request.HasJsonContentType())
+        // The JS repository client sets JSON Content-Type even on bodyless GETs.
+        // A media type alone is not evidence of a payload; parsing an empty stream
+        // turns valid group/identity reads into 400 responses.
+        var canHaveBody = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpRequestBodyDetectionFeature>()?.CanHaveBody
+            ?? context.Request.ContentLength > 0;
+        if (context.Request.HasJsonContentType() && canHaveBody)
         {
             context.Request.EnableBuffering(bufferThreshold: 30 * 1024, bufferLimit: 4 * 1024 * 1024);
             try
