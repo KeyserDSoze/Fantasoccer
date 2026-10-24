@@ -50,22 +50,33 @@ namespace Fantasoccer.Application.Api.Controllers
             var resolved = await ResolveTeamAsync(groupId, leagueId, year, day);
             if (resolved.Team == null)
                 return NotFound();
-            if (team == null || !resolved.IsOwner)
+            if (team?.Players == null || !resolved.IsOwner)
                 return new TeamResponse(false, "Non sei il proprietario della squadra.");
-            var sourcePlayers = resolved.Team.Players.Select(x => x.Key).ToHashSet();
+            var snapshot = await _openingTeams.GetAsync(new OpeningTeamKey
+            {
+                Group = groupId, League = leagueId, Year = year, BasketId = resolved.BasketId!, Email = resolved.Owner!
+            });
+            if (snapshot == null) return NotFound();
+            var sourcePlayers = snapshot.Players.Select(x => x.Key).ToHashSet();
             var submittedPlayers = team.Players.Select(x => x.Key).ToList();
             if (submittedPlayers.Count != submittedPlayers.Distinct().Count() || submittedPlayers.Any(x => !sourcePlayers.Contains(x)))
                 return new TeamResponse(false, "La formazione contiene giocatori non appartenenti alla rosa iniziale.");
-            team.Owner = resolved.Owner;
-            team.AdditionalOwners = resolved.Team.AdditionalOwners;
-            var validation = _teamChecker.Validate(team);
+            // Never persist the caller's Team document. Only copy formation positions
+            // onto the authoritative roster, retaining status, price, revenue and funds.
+            var formation = snapshot.Clone();
+            foreach (var player in formation.ActivePlayers)
+            {
+                var submitted = team.Players.FirstOrDefault(x => x.Key == player.Key);
+                if (submitted != null) player.Position = submitted.Position;
+            }
+            var validation = _teamChecker.Validate(formation);
             if (!validation.IsOk)
                 return validation;
             var key = new OpeningTeamDayKey { Group = groupId, League = leagueId, Year = year, BasketId = resolved.BasketId!, Email = resolved.Owner!, Day = day };
             if (await _openingTeamDays.GetAsync(key) == null)
-                await _openingTeamDays.InsertAsync(key, team);
+                await _openingTeamDays.InsertAsync(key, formation);
             else
-                await _openingTeamDays.UpdateAsync(key, team);
+                await _openingTeamDays.UpdateAsync(key, formation);
             await PrepareAsync(groupId, leagueId, year);
             return validation;
         }

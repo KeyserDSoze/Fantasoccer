@@ -271,6 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (authCode) {
+        const codeVerifier = await PKCEHelper.consumeTransaction(state)
         // Show loading indicator during token exchange
         showLoading('Autenticazione in corso...')
         
@@ -283,6 +284,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Exchange authorization code for backend token using PKCE
           const tokenResponse = await authService.exchangeToken(authCode, {
             isPKCE: true,
+            codeVerifier,
             redirectPath: '/',
           })
           

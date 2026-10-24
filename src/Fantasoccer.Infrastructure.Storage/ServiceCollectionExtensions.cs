@@ -8,6 +8,19 @@ namespace Fantasoccer.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
+        public static async Task AddOAuthBlobStorageAsync(this IServiceCollection services, string connectionString)
+        {
+            var keyContainer = new Azure.Storage.Blobs.BlobContainerClient(connectionString, "mcp-keys");
+            await keyContainer.CreateIfNotExistsAsync();
+            await services.AddBlobStorage<OAuthDocument, string>(connectionString, null, "mcp-oauth", notExposable: true);
+            var container = new Azure.Storage.Blobs.BlobContainerClient(connectionString, "mcp-oauth");
+            if ((await container.GetPropertiesAsync()).Value.PublicAccess != Azure.Storage.Blobs.Models.PublicAccessType.None ||
+                (await keyContainer.GetPropertiesAsync()).Value.PublicAccess != Azure.Storage.Blobs.Models.PublicAccessType.None)
+                throw new InvalidOperationException("OAuth and Data Protection containers must be private.");
+            services.AddSingleton<IOAuthDocumentStorage>(provider => new BlobOAuthDocumentStorage(
+                provider.GetRequiredService<IRepository<OAuthDocument, string>>(),
+                container));
+        }
         public static async Task<SecurityOptions> AddSecurityOptionsAsync(this IServiceCollection services,
             string connectionString)
         {

@@ -26,6 +26,7 @@ public sealed class LeagueManagerApiTests
     public async Task Create_calendar_returns_false_for_unknown_group()
     {
         _client.DefaultRequestHeaders.Add("X-Test-User", "test@example.com");
+        _client.DefaultRequestHeaders.Add("X-Test-Role", "super_admin");
 
         var response = await _client.GetAsync(
             "/LeagueManager/CreateCalendarAndRank?groupId=missing&leagueId=missing&year=2026",

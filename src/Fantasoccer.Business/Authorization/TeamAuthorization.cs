@@ -1,55 +1,52 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using RepositoryFramework;
 using RepositoryFramework.Api.Server.Authorization;
 
-namespace Fantasoccer.Business.Authorization
+namespace Fantasoccer.Business.Authorization;
+
+// These checks apply to public repository endpoints, not trusted repository calls
+// made by formation, market or auction services. Ownership is NOT permission to
+// replace a whole roster: players, prices and balances are administrative data.
+internal abstract class TeamRepositoryAuthorization<TKey>(IRepository<Group, string> groups)
+    : IRepositoryAuthorization<Team, TKey> where TKey : class
 {
-    internal sealed class TeamAuthorization : IRepositoryAuthorization<Team, TeamKey>
+    protected abstract string GroupId(TKey key);
+
+    public async Task<AuthorizedRepositoryResponse> HandleRequirementAsync(IHttpContextAccessor accessor,
+        AuthorizationHandlerContext context, RepositoryRequirement requirement, RepositoryMethods method, TKey? key, Team? value)
     {
-        private static readonly AuthorizedRepositoryResponse s_notAuthorized = new() { Success = false };
-        private static readonly AuthorizedRepositoryResponse s_authorized = new() { Success = true };
-        private readonly IRepository<Group, string> _groupRepository;
-        public TeamAuthorization(IRepository<Group, string> groupRepository)
+        if (key == null) return new() { Success = false };
+        if (method is RepositoryMethods.Get or RepositoryMethods.Exist) return new() { Success = true };
+        if (method is not (RepositoryMethods.Insert or RepositoryMethods.Update or RepositoryMethods.Delete))
+            return new() { Success = false };
+        var email = accessor.GetEmail();
+        var group = await groups.GetAsync(GroupId(key), accessor.HttpContext?.RequestAborted ?? default);
+        return new()
         {
-            _groupRepository = groupRepository;
-        }
-        public async Task<AuthorizedRepositoryResponse> HandleRequirementAsync(IHttpContextAccessor httpContextAccessor,
-            AuthorizationHandlerContext context,
-            RepositoryRequirement requirement,
-            RepositoryMethods method,
-            TeamKey? key,
-            Team? value)
-        {
-            if (key == null)
-                return s_notAuthorized;
-            if (method == RepositoryMethods.Insert || method == RepositoryMethods.Update || method == RepositoryMethods.Delete)
-            {
-                var email = httpContextAccessor.GetEmail();
-                if (email != null)
-                {
-                    var group = await _groupRepository.GetAsync(key.Group);
-                    var annualTeam = group?.Baskets?
-                        .FirstOrDefault(x => x.Id == key.BasketId)?
-                        .Years?.FirstOrDefault(x => x.Year == key.Year)?
-                        .Teams?.FirstOrDefault(x => string.Equals(x.Owner, key.Email, StringComparison.OrdinalIgnoreCase));
-
-                    if (annualTeam?.IsOwner(email) == true)
-                    {
-                        return s_authorized;
-                    }
-
-                    if (group?.AdminUsers.Any(x => string.Equals(x.Email, email, StringComparison.OrdinalIgnoreCase)) == true)
-                    {
-                        return s_authorized;
-                    }
-                }
-            }
-            else if (method == RepositoryMethods.Get || method == RepositoryMethods.Exist)
-            {
-                return s_authorized;
-            }
-            return s_notAuthorized;
-        }
+            Success = email != null && group?.Users?.Any(x =>
+                string.Equals(x.Email, email, StringComparison.OrdinalIgnoreCase) &&
+                (x.Role.HasFlag(IdentityRole.Admin) || x.Role.HasFlag(IdentityRole.SuperAdmin))) == true
+        };
     }
+}
+
+internal sealed class TeamAuthorization(IRepository<Group, string> groups) : TeamRepositoryAuthorization<TeamKey>(groups)
+{
+    protected override string GroupId(TeamKey key) => key.Group;
+}
+
+internal sealed class TeamDayAuthorization(IRepository<Group, string> groups) : TeamRepositoryAuthorization<TeamDayKey>(groups)
+{
+    protected override string GroupId(TeamDayKey key) => key.Group;
+}
+
+internal sealed class OpeningTeamAuthorization(IRepository<Group, string> groups) : TeamRepositoryAuthorization<OpeningTeamKey>(groups)
+{
+    protected override string GroupId(OpeningTeamKey key) => key.Group;
+}
+
+internal sealed class OpeningTeamDayAuthorization(IRepository<Group, string> groups) : TeamRepositoryAuthorization<OpeningTeamDayKey>(groups)
+{
+    protected override string GroupId(OpeningTeamDayKey key) => key.Group;
 }

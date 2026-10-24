@@ -17,6 +17,7 @@ import { YStack } from 'tamagui';
 import { ServiceWorkerUpdateNotification } from 'components/ServiceWorkerUpdateNotification';
 import { AddToHomeScreenBanner } from 'components/AddToHomeScreenBanner';
 import { PushDeviceSync } from 'components/PushDeviceSync';
+import { McpConnectionGate } from 'components/McpConnectionGate';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,6 +52,7 @@ const AppContent = () => {
     <ToastProvider>
       <LoadingProvider>
         <AuthProvider>
+          <McpConnectionGate>
           <PushDeviceSync />
           <AppProvider>
             <Navigation
@@ -65,6 +67,7 @@ const AppContent = () => {
             {/* Add to Home Screen Banner */}
             <AddToHomeScreenBanner />
           </AppProvider>
+          </McpConnectionGate>
         </AuthProvider>
       </LoadingProvider>
     </ToastProvider>

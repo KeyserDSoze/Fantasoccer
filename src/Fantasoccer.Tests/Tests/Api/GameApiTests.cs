@@ -122,6 +122,29 @@ public sealed class GameApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Saving_formation_cannot_sell_remove_add_players_or_forge_the_balance()
+    {
+        await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(1));
+        _client.DefaultRequestHeaders.Add("X-Test-User", Owner);
+        var before = (await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken))!.Clone();
+        var submitted = before.Clone();
+        submitted.Players.RemoveAt(submitted.Players.Count - 1);
+        submitted.Players[0].Status = PlayerInTeamStatus.Sold;
+        submitted.Players[0].Price = 0;
+        submitted.Players[0].Revenue = 999999;
+        submitted.Players.Add(new Player { Name = "Forged player", Role = Role.Forward, RealTeam = new RealTeam { Name = "Roma" }, Status = PlayerInTeamStatus.Active });
+        submitted.MoneyFromRank = 999999;
+        submitted.OpeningCompetitionPrize = 999999;
+        var response = await SaveAsync(submitted, "formation");
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("\"i\":true", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var saved = await _teams.GetAsync(TeamKey(Owner), TestContext.Current.CancellationToken);
+        Assert.Equal(JsonSerializer.Serialize(before.Players), JsonSerializer.Serialize(saved!.Players));
+        Assert.Equal(before.MoneyFromRank, saved.MoneyFromRank);
+        Assert.Equal(before.OpeningCompetitionPrize, saved.OpeningCompetitionPrize);
+    }
+
+    [Fact]
     public async Task Save_incomplete_formation_returns_formation_validation_error()
     {
         await SeedLiveGameAsync(FantacalcioTime.ItalyNow.AddHours(1));

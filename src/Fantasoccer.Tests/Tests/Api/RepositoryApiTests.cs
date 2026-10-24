@@ -95,6 +95,7 @@ public sealed class RepositoryApiTests
     public async Task Group_repository_supports_insert_and_get()
     {
         _client.DefaultRequestHeaders.Add("X-Test-User", "repository@example.com");
+        _client.DefaultRequestHeaders.Add("X-Test-Role", "super_admin");
         const string key = "integration-group";
 
         var insert = await _client.PostAsync(
@@ -117,6 +118,7 @@ public sealed class RepositoryApiTests
     public async Task Group_repository_supports_update_exist_query_and_delete()
     {
         _client.DefaultRequestHeaders.Add("X-Test-User", "repository-crud@example.com");
+        _client.DefaultRequestHeaders.Add("X-Test-Role", "super_admin");
         const string key = "integration-group-crud";
         const string group = "{\"i\":\"integration-group-crud\",\"n\":\"CRUD Group\",\"l\":[],\"u\":[],\"b\":[]}";
 
