@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Tests.Tests.Api;
 
@@ -7,9 +8,11 @@ namespace Fantasoccer.Tests.Tests.Api;
 public sealed class RepositoryApiTests
 {
     private readonly HttpClient _client;
+    private readonly ApiFactory _factory;
 
     public RepositoryApiTests(ApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -112,6 +115,29 @@ public sealed class RepositoryApiTests
         Assert.Equal(
             "{\"i\":null,\"n\":null,\"l\":null,\"u\":null,\"b\":null}",
             await get.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Browser_repository_reads_accept_JSON_content_type_without_a_body()
+    {
+        const string email = "browser-repository-reader@example.com";
+        const string key = "browser-repository-group";
+        var services = _factory.Services;
+        await services.GetRequiredService<RepositoryFramework.IRepository<AppIdentity, string>>().InsertAsync(email,
+            new AppIdentity { Email = email, Username = "Reader", Groups = [new() { Id = key, Name = "Browser group", Role = IdentityRole.Participant }] }, TestContext.Current.CancellationToken);
+        await services.GetRequiredService<RepositoryFramework.IRepository<Group, string>>().InsertAsync(key,
+            new Group { Id = key, Name = "Browser group", Users = [new() { Email = email, Role = IdentityRole.Participant }], Leagues = [], Baskets = [] }, TestContext.Current.CancellationToken);
+        _client.DefaultRequestHeaders.Add("X-Test-User", email);
+        foreach (var path in new[] { $"/api/Group/Get?key={key}", $"/api/Group/Exist?key={key}", $"/api/AppIdentity/Get?key={email}" })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path)
+            {
+                // rystem.repository.client sends this header on GET without a payload.
+                Content = new StringContent("", Encoding.UTF8, "application/json")
+            };
+            var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.True(response.IsSuccessStatusCode, path + ": " + response.StatusCode);
+        }
     }
 
     [Fact]
