@@ -41,6 +41,12 @@ jobs:
         env:
           CI: "1"
 
+      - name: Frontend regression and version tests
+        run: npm test
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
       - name: Build Expo web bundle
         run: npx expo export --platform web --output-dir dist --dump-sourcemap
         env:

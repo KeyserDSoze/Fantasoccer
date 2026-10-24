@@ -37,7 +37,6 @@ export class AuthService {
           code: authCode,
           provider: '2',
           redirectPath,
-          code_verifier: options.codeVerifier
         })
       } else {
         // MSAL flow: send MSAL token directly
@@ -49,8 +48,13 @@ export class AuthService {
       }
 
       const response = await fetch(url, {
-        method: 'GET',
-        headers: getCommonHeaders(),
+        method: options.isPKCE && options.codeVerifier ? 'POST' : 'GET',
+        headers: options.isPKCE && options.codeVerifier
+          ? { ...getCommonHeaders(), 'Content-Type': 'application/json' }
+          : getCommonHeaders(),
+        body: options.isPKCE && options.codeVerifier
+          ? JSON.stringify({ code_verifier: options.codeVerifier })
+          : undefined,
       })
 
       if (!response.ok) {

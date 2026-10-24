@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Fantasoccer.Application.Api.Hubs;
 using Fantasoccer.Application.Api.Controllers;
+using Fantasoccer.Application.Api.Mcp;
 using Fantasoccer.Business;
 using Fantasoccer.Engine;
 using Fantasoccer.Infrastructure;
@@ -50,6 +51,8 @@ if (isInMemory)
 else
 {
     await builder.Services.AddStorageInfrastructuresAsync(builder.Configuration["ConnectionStrings:Storage"]!);
+    if (builder.Configuration.GetValue<bool>("Mcp:Enabled"))
+        await builder.Services.AddOAuthBlobStorageAsync(builder.Configuration["ConnectionStrings:Storage"]!);
 }
 builder.Services.AddFantasoccerBusiness(builder.Configuration);
 if (!builder.Environment.IsEnvironment("Testing"))
@@ -62,7 +65,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors",
         policy => policy
-            .WithOrigins("http://localhost:3000", "https://fanta.zone") // no trailing slash, include scheme
+            .WithOrigins(new[] { "http://localhost:3000", "https://fanta.zone" }
+                .Concat(Uri.TryCreate(builder.Configuration["Mcp:FrontendUrl"], UriKind.Absolute, out var frontend)
+                    ? [frontend.GetLeftPart(UriPartial.Authority)] : Array.Empty<string>()).Distinct().ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
@@ -78,6 +83,7 @@ if (isInMemory)
     builder.Services.AddDefaultValues(false);
 }
 builder.Services.AddLock();
+builder.AddFantasoccerMcp();
 
 var app = builder.Build();
 if (!app.Environment.IsEnvironment("Testing"))
@@ -86,8 +92,16 @@ app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
 app.UseRouting();
+if (app.Services.GetRequiredService<McpOptions>().Enabled)
+    app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TeamRepositoryBoundaryMiddleware>();
+app.UseMiddleware<McpResourceBoundaryMiddleware>();
+if (app.Services.GetRequiredService<McpOptions>().Enabled)
+{
+    app.UseMiddleware<McpOriginBoundaryMiddleware>();
+}
 app.UseSocialLoginEndpoints();
 app.MapControllers();
 app.UseApiFromRepositoryFramework()
@@ -95,6 +109,7 @@ app.UseApiFromRepositoryFramework()
     .With("authenticated")
     .Build();
 app.MapHub<AuctionHub>("/auctionhub");
+await app.MapFantasoccerMcpAsync();
 app.Run();
 
 public partial class Program;

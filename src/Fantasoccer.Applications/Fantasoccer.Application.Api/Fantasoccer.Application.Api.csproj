@@ -2,14 +2,18 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <Version>3.0.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-Fantasoccer.Applications.Api-7c1f91b1-2b15-41a1-9eb5-4e6353b1e023</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.5" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="3.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.3.0" />
+    <PackageReference Include="OpenIddict.AspNetCore" Version="7.7.2" />
     <PackageReference Include="Rystem.Authentication.Social" Version="10.0.8" />
     <PackageReference Include="Rystem.RepositoryFramework.Api.Server" Version="10.0.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />

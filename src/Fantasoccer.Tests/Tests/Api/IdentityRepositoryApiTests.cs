@@ -17,6 +17,7 @@ public sealed class IdentityRepositoryApiTests
     public async Task App_identity_repository_supports_crud()
     {
         _client.DefaultRequestHeaders.Add("X-Test-User", "identity-repository@example.com");
+        _client.DefaultRequestHeaders.Add("X-Test-Role", "super_admin");
         const string key = "identity-repository@example.com";
         const string identity = "{\"e\":\"identity-repository@example.com\",\"s\":{},\"g\":[]}";
 
