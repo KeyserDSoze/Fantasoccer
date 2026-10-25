@@ -2,26 +2,22 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Schema;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using ModelContextProtocol.Protocol;
+using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Mcp;
 
-public sealed record McpOperation(ApiDescription Api, Tool Tool, bool ReadOnly);
+public sealed record McpRepositoryContract(Type ModelType, Type KeyType, string Factory);
+public sealed record McpOperation(ApiDescription Api, Tool Tool, bool ReadOnly, McpRepositoryContract? Repository);
 
-public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions)
+public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
 {
-    private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _operations = new(() => Build(descriptions));
+    private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _operations = new(() => Build(descriptions, registry));
     public IReadOnlyDictionary<string, McpOperation> Operations => _operations.Value;
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver()
-    };
-
-    private static IReadOnlyDictionary<string, McpOperation> Build(IApiDescriptionGroupCollectionProvider descriptions)
+    private static IReadOnlyDictionary<string, McpOperation> Build(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
     {
         var result = new Dictionary<string, McpOperation>(StringComparer.Ordinal);
         foreach (var api in descriptions.ApiDescriptionGroups.Items.SelectMany(x => x.Items))
@@ -32,6 +28,13 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
             var controller = api.ActionDescriptor as ControllerActionDescriptor;
             if (!(path.StartsWith("api/", StringComparison.OrdinalIgnoreCase) ||
                   controller?.ControllerTypeInfo.Namespace == "Fantasoccer.Application.Api.Controllers")) continue;
+
+            var parts = path.Split('/');
+            var factory = parts.Length >= 4 ? parts[2] : "";
+            var repository = controller != null || parts.Length < 3 ? null : registry.Services.Values
+                .Where(x => x.ModelType.Name.Equals(parts[1], StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(x.FactoryName ?? "", factory, StringComparison.OrdinalIgnoreCase))
+                .Select(x => new McpRepositoryContract(x.ModelType, x.KeyType, x.FactoryName ?? "")).Distinct().SingleOrDefault();
 
             var queryProperties = new JsonObject();
             var routeProperties = new JsonObject();
@@ -67,8 +70,21 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
                 else
                 {
                     var isRoute = parameter.Source == BindingSource.Path;
-                    (isRoute ? routeProperties : queryProperties)[parameter.Name] = Schema(parameter.Type,
+                    var schema = Schema(parameter.Type,
                         $"properties/{(isRoute ? "route" : "query")}/properties/{parameter.Name.Replace("~", "~0").Replace("/", "~1")}");
+                    if (schema is JsonObject obj)
+                    {
+                        if (McpJsonContracts.ParameterDescription(parameter.Name) is { } meaning) obj["description"] = meaning;
+                        if (parameter.Name == "key" && repository != null)
+                        {
+                            // Rystem exposes the encoded string, not the composite key shape.
+                            obj["description"] = repository.KeyType == typeof(string) || repository.KeyType.IsPrimitive
+                                ? "Chiave semplice del repository: " + McpJsonContracts.TypeName(repository.KeyType) + "."
+                                : "Stringa contenente un oggetto JSON con i campi di " + McpJsonContracts.ModelId(repository.KeyType) +
+                                  ". Consultare repository.keySchema/describe_api_model; usare i nomi compatti, senza cambiare factory.";
+                        }
+                    }
+                    (isRoute ? routeProperties : queryProperties)[parameter.Name] = schema;
                     if (parameter.IsRequired || isRoute) (isRoute ? routeRequired : queryRequired).Add(parameter.Name);
                 }
             }
@@ -92,12 +108,12 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
                 Name = name,
                 Description = $"{api.HttpMethod} /{path}. Executes the existing Fantasoccer API with your authenticated account and all API/business authorization checks. " +
                     (readOnly ? "Reads data." : "MAY CHANGE DATA. Obtain the user's explicit instruction before calling; do not retry automatically after an uncertain outcome.") +
-                    " Composite repository keys use the API's JSON-encoded key string. No credentials or user impersonation headers are accepted." +
+                    " Composite repository keys use the API's JSON-encoded key string. year/y means season index (15=2026/27), not calendar year. Use describe_api_model to decode compact fields; identical letters mean different things in different models. No credentials or user impersonation headers are accepted." +
                     (path.StartsWith("McpAuction/") ? " Discover auction command arguments using McpAuction/Commands before invoking a command." : ""),
                 InputSchema = JsonSerializer.SerializeToElement(ObjectSchema(properties, required)),
                 Annotations = new ToolAnnotations { ReadOnlyHint = readOnly, DestructiveHint = !readOnly, IdempotentHint = readOnly, OpenWorldHint = false }
             };
-            result.TryAdd(name, new(api, tool, readOnly));
+            result.TryAdd(name, new(api, tool, readOnly, repository));
         }
         return result;
     }
@@ -120,7 +136,7 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
     {
         try
         {
-            var schema = JsonSchemaExporter.GetJsonSchemaAsNode(Json, type);
+            var schema = McpJsonContracts.Schema(type);
             RebaseReferences(schema, location);
             return schema;
         }

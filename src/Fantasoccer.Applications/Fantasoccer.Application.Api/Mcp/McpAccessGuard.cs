@@ -92,6 +92,7 @@ public sealed class McpAccessGuard(IRepository<Group, string> groups, IRepositor
 
         // Controllers keep their own model binding and resource checks; close the missing group boundaries here.
         var controller = (operation.Api.ActionDescriptor as ControllerActionDescriptor)?.ControllerName ?? parts[0];
+        if (controller == "Context") return operation.ReadOnly;
         if (controller is "Recalculation") return false;
         if (controller is "Card") return operation.ReadOnly;
         if (controller is "Ping" or "PushNotification" or "McpAuction") return true;

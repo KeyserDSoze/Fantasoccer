@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Fantasoccer.Application.Api.Mcp.Storage;
 using Fantasoccer.InMemory;
 using Azure.Storage.Blobs;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Protocol;
@@ -26,6 +27,9 @@ public static class McpRegistration
         // Public authorization anchors must remain protected even before MCP is enabled.
         builder.Services.AddSingleton<McpEndpointCatalog>();
         builder.Services.AddScoped<McpAccessGuard>();
+        builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.AddSingleton<FantasoccerSeasonContext>();
+        builder.Services.AddSingleton<McpModelCatalog>();
         if (!settings.Enabled)
         {
             // Disabling OAuth must not remove the key store/certificate needed
@@ -209,10 +213,11 @@ public static class McpRegistration
                 context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
-        builder.Services.AddMcpServer()
+        builder.Services.AddMcpServer(options => options.ServerInstructions = FantasoccerGuide.ServerInstructions)
             .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
             .WithTools<McpAccountTools>()
             .WithTools<McpCatalogTools>()
+            .WithTools<McpContextTools>()
             .WithListToolsHandler((request, cancellationToken) =>
             {
                 var services = request.Services!;

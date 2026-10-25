@@ -2,16 +2,12 @@
 {
     public static class FantacalcioTime
     {
-        public static int ActualYear
-        {
-            get
-            {
-                int actualYear = DateTime.UtcNow.Year - 2011;
-                if (DateTime.UtcNow.Month < 8 || (DateTime.UtcNow.Month == 8 && DateTime.UtcNow.Day < 10))
-                    actualYear--;
-                return actualYear;
-            }
-        }
+        public static int ActualYear => SeasonYearAt(DateTime.UtcNow);
+
+        // Shared by normal application logic and the MCP context. The season
+        // changes on August 10 UTC, not on January 1 or the first Serie A match.
+        public static int SeasonYearAt(DateTime utcDate)
+            => utcDate.Year - 2011 - (utcDate.Month < 8 || (utcDate.Month == 8 && utcDate.Day < 10) ? 1 : 0);
         public static string ActualLabelYear
             => LabelYear(DateTime.UtcNow);
         public static string LabelYear(DateTime date, char splitter = '/', bool lastYearMin = false)
