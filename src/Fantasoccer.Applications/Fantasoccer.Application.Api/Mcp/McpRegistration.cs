@@ -222,7 +222,7 @@ public static class McpRegistration
             {
                 var services = request.Services!;
                 var tools = settings.PublishAllTools
-                    ? services.GetRequiredService<McpEndpointCatalog>().Operations.Values.Select(x => x.Tool).ToList()
+                    ? services.GetRequiredService<McpEndpointCatalog>().McpOperations.Values.Select(x => x.Tool).ToList()
                     : [];
                 return ValueTask.FromResult(new ListToolsResult { Tools = tools });
             })

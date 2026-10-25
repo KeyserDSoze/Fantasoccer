@@ -85,7 +85,7 @@ public sealed class McpModelCatalog(McpEndpointCatalog catalog)
                     foreach (var property in info.Properties.Where(x => x.Get != null || x.Set != null)) Visit(property.PropertyType);
             }
         }
-        foreach (var operation in catalog.Operations.Values)
+        foreach (var operation in catalog.McpOperations.Values)
         {
             foreach (var parameter in operation.Api.ParameterDescriptions.Where(x => x.Source != BindingSource.Services)) Visit(parameter.Type);
             foreach (var response in operation.Api.SupportedResponseTypes.Where(x => x.Type != null)) Visit(response.Type!);

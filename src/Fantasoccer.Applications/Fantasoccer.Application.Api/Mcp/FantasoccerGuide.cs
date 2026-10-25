@@ -7,6 +7,11 @@ public static class FantasoccerGuide
     public const string ServerInstructions = """
         Fantasoccer is a fantasy-football application, not a general football feed.
         Start with get_fantasoccer_guide (overview), get_current_season and get_my_account.
+        Data lives in NoSQL/Blob documents. Use point reads: account.groups[].i -> Group/Get -> league/basket/year/owner IDs -> Get/Exist.
+        Generic repository Query/Count/Operation scans and aggregations are not exposed to MCP, even for admins. The 'query' argument is only the HTTP parameter container.
+        For roster/opponent lookup read get_fantasoccer_guide(topic='lookups') and the catalog's pointReadRecipe. Group is an index of identifiers, not the roster itself.
+        CalendarGame.h/a are team names, o/u are owner EMAILS. Use the containing Day.a for Serie A matchday; Day.n is a fantasy turn, not that matchday.
+        Team/Get key = {g,y,b,e}; Team/day/Get adds d. Team keys do NOT have l. Resolve b via League.b and Group.b[].y[].t[].o for the requested season/owner.
         API year/y normally means a season INDEX: 1 = 2012/13, 15 = 2026/27. Never substitute a calendar year.
         Saved account selections can be historical. Verify the requested season exists in the selected group's leagues/baskets.
         Payloads use context-dependent abbreviations. Use list_api_operations for exact input/response schemas and repository key models,
@@ -23,10 +28,25 @@ public static class FantasoccerGuide
             1. get_current_season restituisce data server e stagione corrente; get_my_account identifica utente, gruppi e selezioni salvate.
             2. Scopri api/Group/Get con list_api_operations e leggi il gruppo autorizzato. Non inventare ID di gruppo, lega, basket, partita o owner.
             3. Nel gruppo scegli lega e stagione configurata; League.BasketsId collega la competizione ai basket che contengono le squadre annuali.
-            4. Consulta la guida tematica e describe_api_model per decodificare i payload; cerca poi l'operazione esatta nel catalogo.
+            4. Segui la guida lookups e le pointReadRecipe del catalogo: i documenti sono NoSQL/Blob e si leggono puntualmente tramite ID/chiavi ricavati dai documenti precedenti. Query/Count/Operation generiche non sono disponibili su MCP.
             5. Per modificare dati usa solo il flusso dedicato, dopo richiesta esplicita, e controlla il risultato business.
             La guida descrive possibilità dell'app, non garantisce che ogni funzione sia abilitata per l'utente o per quella lega.
             """, ["api/Group/Get"]),
+        new("lookups", "Letture puntuali: dall'account alla rosa dell'avversario", """
+            Questa applicazione usa documenti NoSQL su Blob Storage: il percorso MCP è fatto di Get/Exist puntuali e di navigazione nei documenti già letti, non di SQL, join o scansioni generiche. Non è una regola universale di tutti i database NoSQL, ma il contratto di questo server. Query/Count/Operation e relative varianti Stream non sono disponibili su MCP.
+            Il campo arguments.query contiene soltanto i parametri HTTP: usarlo per query.key è corretto e NON significa chiamare il metodo repository Query.
+
+            1. ACCOUNT → GRUPPO: get_my_account restituisce groups[].i (ID gruppo); per ogni gruppo pertinente usa api/Group/Get con query.key = quell'ID stringa. groups[].n è il nome, groups[].r la bitmask ruoli. savedSelections è una selezione UI, non una fonte di privilegi e non necessariamente la stagione corrente.
+            2. INDICE DEL GRUPPO: Group.l contiene le leghe (i=ID,n=nome,b=ID basket,y=AnnualLeague[]); in league.y[].y trovi l'indice stagione e in .s le regole. Group.b contiene i basket (i=ID,y=YearlyBasket[]); basket.y[].y è la stagione e .t contiene le squadre annuali (n=nome,o=email owner,a=comproprietari). Group.u contiene gli utenti (u=username,e=email,r=ruoli). Il gruppo contiene gli identificatori per i collegamenti, NON l'elenco dei calciatori delle rose.
+            3. RISOLVI LA SQUADRA: seleziona la lega richiesta; considera solo i basket il cui i compare in league.b. Nel basket seleziona la stagione richiesta e la squadra per owner o nome. Per uno username usa Group.u[].u → .e e poi trova AnnualTeam.o/a; l'email da usare nella chiave è sempre AnnualTeam.o, non quella del comproprietario. Se ci sono più corrispondenze chiedi quale usare, non indovinare.
+            4. ROSA ATTUALE: api/Team/Get con query.key stringa JSON {"g":"GROUP_ID","y":15,"b":"BASKET_ID","e":"OWNER_EMAIL"}. TeamKey NON ha l (lega) né d (giornata). Il risultato Team.p contiene Player; per la rosa attiva controlla Player.s/PlayerInTeamStatus, senza eliminare o riscrivere giocatori.
+            5. CALENDARIO E AVVERSARIO: api/Calendar/Get usa {g,l,y}. Calendar.y è la stagione; Calendar.r è un dizionario di round → Day[]. Ogni Day.a è SerieADay, Day.n è il turno fantasy, Day.g contiene CalendarGame. In CalendarGame: h=nome casa,a=nome ospite,o=email HomeOwner,u=email AwayOwner,i=gameId,n=numero partita. Per l'avversario scegli il lato opposto all'owner della tua squadra, poi ritrova il suo basket nella stagione del calendario. Non usare h/a o uno username come email.
+            6. FORMAZIONE DELLA PARTITA: api/Team/day/Get con {g,y,b,d,e}, dove y=Calendar.y e d=Day.a del giorno che contiene la partita. Esempio: turno fantasy n=2 e SerieADay a=9 richiedono d=9, NON 2. Se lo snapshot giornaliero manca, api/Team/Get può fornire la rosa stagionale: dichiara che è un fallback, non la formazione salvata di quella partita. Per un incontro storico non sostituire y/d con stagione/giornata live.
+            Puoi verificare uno snapshot con api/Team/day/Exist: i=false indica assenza di quel documento, non impossibilità di leggere la rosa stagionale. Un Get senza documento può restituire body vuoto/null anche con HTTP 200: non tentare di decodificare una stringa vuota come JSON e non ripiegare su Query.
+            7. CLASSIFICA: api/Rank/Get usa {g,l,y}; api/Rank/day/Get aggiunge d=SerieADay. Dati dei giocatori, voti e calendario reale si leggono tramite i rispettivi wrapper con chiave stagione o stagione+giornata, poi si selezionano localmente nel documento restituito.
+
+            Gli esempi delle pointReadRecipe contengono placeholder, non ID eseguibili: sostituiscili solo con valori ottenuti dai documenti autorizzati. Ordine e casing dei campi JSON non devono essere usati per inventare un separatore nativo. Un 403 su una ricerca generica non prova che la rosa sia illeggibile: usa la lettura puntuale corretta, senza tentare bypass dei permessi.
+            """, ["api/Group/Get", "api/Calendar/Get", "api/Team/Get", "api/Team/day/Get", "api/Rank/Get", "api/Rank/day/Get"]),
         new("seasons", "Stagioni, anni e giornate", """
             La numerazione è 1-based: 2012/13=1, 2025/26=14, 2026/27=15. startYear=seasonIndex+2011.
             Il cambio avviene il 10 agosto alle 00:00 UTC. Per la stagione live/corrente usa get_current_season o Context/GetCurrentSeason, non l'orologio del client.
@@ -53,11 +73,13 @@ public static class FantasoccerGuide
             League identifica una competizione e contiene Years (AnnualLeague) con tipo e regole della singola stagione; BasketsId seleziona i basket partecipanti. AnnualLeague.Type=Null eredita League.Type.
             Basket.Years (YearlyBasket) contiene AnnualTeam: nome, Owner e AdditionalOwners. Più leghe possono condividere lo stesso basket/rosa stagionale.
             La squadra è identificata dall'email dell'owner, non dal nome visualizzato o dal comproprietario. Un comproprietario usa comunque la chiave dell'owner effettivo.
+            Per risolvere nomi squadra/username nei documenti compatti e costruire le chiavi senza scansioni consulta lookups; non chiamare Team/Query.
             Le selezioni di AppIdentity.State indicano gruppo/lega/stagione e MeOrLeaderEmail selezionati, ma non concedono impersonazione né diritti.
             IdentityRole: None=0, Reader=1, Participant=2, Admin=4, SuperAdmin=8; i flag possono essere combinati. Il ruolo amministrativo del gruppo è distinto dal privilegio globale applicativo.
             """, ["api/Group/Get", "api/Team/Get"]),
         new("formations", "Rose, formazioni e cambi live", """
             Team è la rosa server con owner, prezzi, stati, ricavi e crediti. Player.Role è il ruolo calcistico; Player.Position/FantaSoccerRole è la collocazione (titolare, panchina, tribuna). Non confonderli.
+            Per leggere i calciatori usa api/Team/Get (rosa stagionale, chiave g/y/b/e) o api/Team/day/Get (snapshot della giornata, aggiunge d=SerieADay). Ricava owner e basket dal gruppo/calendario seguendo lookups: non cercare squadre con Query/Count/Operation generiche.
             Leggi la squadra/partita con Game e il calendario della lega. Per suggerire una formazione usa Game/OptimalFormation; il suggerimento non è un salvataggio.
             Per salvare usa Game/SaveTeam e i parametri richiesti dal catalogo; il server mantiene la rosa autorevole e applica solo i cambi consentiti dal modo di modifica.
             Game/Switch gestisce il cambio live tra due giocatori, verificando ownership, ruoli, finestra, modulo e limite della lega. Non sostituirlo con Team/Update.

@@ -11,7 +11,7 @@ public sealed class McpContextTools(FantasoccerSeasonContext seasons, McpModelCa
     public FantasoccerSeasonSnapshot GetCurrentSeason() => seasons.GetCurrent();
 
     [McpServerTool(Name = "get_fantasoccer_guide", ReadOnly = true, Destructive = false, OpenWorld = false)]
-    [Description("Read how Fantasoccer works before using its APIs. Topics: overview, seasons, payloads, groups, formations, market, auctions, scores, opening, administration, personal. Every result includes a topic index. topic=models returns a searchable paginated list of exposed JSON models; then use describe_api_model for field aliases, enum values and nested models. This is documentation, not account data or permission to write.")]
+    [Description("Read how Fantasoccer works. Start with lookups to follow NoSQL/Blob point reads: account -> group -> league/basket/year/owner -> Team/Get or Team/day/Get; calendar owner emails and Serie A matchday resolve opponents without generic queries. Other topics: overview, seasons, payloads, groups, formations, market, auctions, scores, opening, administration, personal. topic=models lists JSON models. Metadata search is not a document scan. Documentation grants no permission to write.")]
     public object GetGuide(
         [Description("Guide topic; use models to list model IDs, with optional filter/offset/limit.")] string topic = "overview",
         string? filter = null, int offset = 0, int limit = 20)
@@ -22,6 +22,7 @@ public sealed class McpContextTools(FantasoccerSeasonContext seasons, McpModelCa
         {
             topics = index,
             section = FantasoccerGuide.Sections.FirstOrDefault(x => x.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase)),
+            pointReadRecipes = topic.Equals("lookups", StringComparison.OrdinalIgnoreCase) ? McpPointReadRecipes.All : null,
             models = topic.Equals("models", StringComparison.OrdinalIgnoreCase) ? models.List(filter, offset, limit) : null,
             error = topic.Equals("models", StringComparison.OrdinalIgnoreCase) || FantasoccerGuide.Sections.Any(x => x.Topic.Equals(topic, StringComparison.OrdinalIgnoreCase))
                 ? null : "Unknown topic; choose one from topics."
