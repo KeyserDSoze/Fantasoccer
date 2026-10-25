@@ -127,15 +127,36 @@ Prima di qualsiasi scrittura Azure lo script di deploy controlla configurazione,
 Per default vengono pubblicati sei tool:
 
 1. `get_my_account`: identità, gruppi, selezioni salvate (anche storiche) e stagione corrente; nessun parametro utente arbitrario. I campi precedenti `email`, `username`, `groups`, `state` sono conservati; `savedSelections` e `currentSeason` aggiungono contesto leggibile.
-2. `list_api_operations`: catalogo ricercabile/paginato con identificatore operazione, route, verbo, annotazione di scrittura, schemi input/risposta e contratto della chiave di ogni repository/factory.
+2. `list_api_operations`: ricerca/paginazione dei metadata delle operazioni supportate, con identificatore, route, verbo, annotazione di scrittura, schemi input/risposta, contratto della chiave e `pointReadRecipe` per i percorsi principali. Non cerca nei documenti degli utenti.
 3. `execute_api_operation`: esecuzione per identificatore di catalogo, con `query`, `route`, `body` e/o `files`.
 4. `get_current_season`: data UTC server, indice e label della stagione corrente, confini temporali e convenzioni delle giornate.
-5. `get_fantasoccer_guide`: guida tematica a stagioni, JSON, gruppi, formazioni, mercato, aste, risultati, competizione iniziale, amministrazione e funzioni personali. Con `topic=models` elenca i modelli esposti con filtro/paginazione.
+5. `get_fantasoccer_guide`: guida tematica a letture puntuali (`topic=lookups`, con ricette strutturate), stagioni, JSON, gruppi, formazioni, mercato, aste, risultati, competizione iniziale, amministrazione e funzioni personali. Con `topic=models` elenca i modelli esposti con filtro/paginazione.
 6. `describe_api_model`: nomi JSON compatti → proprietà estese, significato, tipo, riferimenti ai modelli annidati, flag di sola lettura, schema e valori enum effettivamente serializzati (numeri o stringhe).
 
 Questo evita di inviare centinaia di schemi a ogni connessione. `PublishAllTools=true` pubblica anche un tool per ogni operazione per i client che lo supportano; non è necessario per avere accesso all'intero catalogo.
 
-Il catalogo deriva da ApiExplorer: controller applicativi e repository **effettivamente esposti**. Conserva varianti/factory di repository, route parameter, parametri query e body. Non pubblica login, emissione token, metadata, Swagger, repository `SetNotExposable` o URL scelte dal modello.
+Il catalogo deriva da ApiExplorer: controller applicativi e repository effettivamente disponibili, filtrati per la superficie MCP. Conserva varianti/factory, route parameter, parametri query e body. Non pubblica login, emissione token, metadata, Swagger, repository `SetNotExposable` o URL scelte dal modello. **Query, Count e Operation generiche dei repository, comprese varianti Stream, non sono esposte né eseguibili via MCP**, anche con `PublishAllTools=true`, privilegi globali o identificatori conservati da un vecchio catalogo. I controller applicativi espliciti e le ricerche nei metadata dei tool restano disponibili.
+
+Questa scelta riguarda il contratto MCP di questa applicazione a documenti/Blob, non significa che un database NoSQL non possa supportare query. Gli endpoint HTTP usati dal sito non vengono eliminati e conservano i loro controlli. `McpEndpointCatalog.Operations` mantiene i metadata completi necessari al middleware di autorizzazione legacy; `McpOperations` è il sottoinsieme usato da discovery, schemi MCP e dispatch. Non filtrare il catalogo completo usato da `McpResourceBoundaryMiddleware`, altrimenti una query HTTP legacy potrebbe non essere più controllata.
+
+### Percorso NoSQL: account → gruppo → calendario/rosa
+
+Il documento utente indica gruppi e selezioni salvate. Il documento Group è l'indice delle relazioni, non contiene tutte le rose:
+
+| Documento/campo JSON | Significato e uso |
+| --- | --- |
+| `get_my_account.groups[].i` | ID per il semplice `api/Group/Get`; `nextRead` suggerisce questo passaggio |
+| `Group.l[].i`, `.b`, `.y[].y` | ID lega, ID dei basket partecipanti e stagioni configurate |
+| `Group.b[].i → .y[]` con `.y=seasonIndex → .t[]` | Squadre annuali: `n=nome`, `o=email owner`, `a=comproprietari` |
+| `Group.u[]` | `u=username`, `e=email`, `r=ruoli`: lo username va risolto a email, poi alla squadra annuale/owner effettivo |
+| `Calendar.y → Calendar.r[round][]` | Stagione della partita; nel Day `a=SerieADay`, `n=turno fantasy`, `g=partite` |
+| `CalendarGame.h/a`, `.o/u` | Nomi casa/ospite, distinti dalle email HomeOwner/AwayOwner; gli owner identificano le rose avversarie |
+
+Per `api/Team/Get` usare la chiave MCP JSON `{g,y,b,e}` (senza `l`); per `api/Team/day/Get` aggiungere `d=Day.a`. Risolvere `b` solo nei basket elencati dalla lega e nella stagione richiesta; usare sempre l'owner effettivo (`AnnualTeam.o`), anche per un comproprietario. Se un nome non è univoco, chiedere quale squadra/lega usare. Calendario, classifica e classifica giornaliera usano rispettivamente `LeagueKey` e `YearDayLeague`: consultare le ricette, non riutilizzare una chiave di un'altra factory.
+
+Esempio: una partita nel turno fantasy `n=2` ma giornata Serie A `a=9`, con `Calendar.y=15`, richiede stagione 15 e `d=9` per la formazione giornaliera dell'avversario, non turno 2 né stagione/giornata live. Se lo snapshot giornaliero manca (verificabile con `Exist`), leggere la rosa stagionale con `Team/Get` e dichiarare il fallback: non è la formazione storica salvata. Un corpo vuoto/null può indicare assenza del documento anche con HTTP 200; non è una ragione per tentare Query generiche.
+
+`get_fantasoccer_guide(topic="lookups")` restituisce la spiegazione completa e `pointReadRecipes`: percorsi, modelli delle chiavi, sorgente di ogni componente ed esempi di `arguments` con soli placeholder. `list_api_operations` allega la ricetta pertinente a ciascuna lettura principale. Le istruzioni di handshake, la descrizione dell'account e i significati dei campi calendario ribadiscono questo percorso. Dopo l'aggiornamento, i client con catalogo congelato devono aggiornare/scansionare nuovamente gli strumenti per non proporre più Query rimosse.
 
 ### Contesto applicativo fornito al client
 
@@ -223,7 +244,7 @@ Non viene aperta una connessione SignalR persistente per ChatGPT: non riceve aut
 - Le scritture generiche dei documenti `Team` (stagionali, giornalieri e competizione iniziale) richiedono un ruolo amministrativo **nel gruppo autorevole**. Proprietà/comproprietà non autorizza a cancellare giocatori, venderli, cambiarne prezzo/stato o riscrivere crediti. Le formazioni passano dai controller dedicati, che copiano solo le posizioni sulla rosa server; i trasferimenti passano dal mercato o dal flusso amministrativo/asta autorizzato. Batch/bootstrap generici delle squadre sono bloccati.
 - Gli admin di gruppo possono cercare/provisionare identità come nel frontend, ma modificare solo membership di gruppi che amministrano, senza attribuirsi `SuperAdmin`.
 - Un utente ordinario può aggiornare il proprio stato/profilo, non le proprie membership o i ruoli.
-- Bulk/batch/bootstrap e query non circoscrivibili a un gruppo sono riservati al super-admin globale; le query delle identità restano disponibili agli amministratori verificati per mantenere il workflow admin esistente.
+- Le query/aggregazioni generiche non sono disponibili su MCP; bulk/batch/bootstrap restano soggetti ai controlli esistenti (e sono bloccati per le squadre). Sulle API HTTP legacy le query delle identità restano disponibili agli amministratori verificati per mantenere il workflow admin del sito, senza riaprirle tramite MCP.
 - I repository non esposti dal backend non diventano automaticamente accessibili via MCP.
 - Le operazioni GET che modificano dati (es. creazione calendario, ricalcoli) **non** vengono marcate read-only.
 

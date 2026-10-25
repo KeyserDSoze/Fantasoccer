@@ -122,6 +122,7 @@ export default function McpGuideScreen() {
       <YStack gap="$3">
         <H2 role="heading" aria-level={2} color="$color12" fontSize="$7">Come l’assistente capisce Fantasoccer</H2>
         <Paragraph color="$color11">Il server invia istruzioni iniziali e mette a disposizione una guida e un dizionario dei payload. Non è un addestramento né una garanzia di correttezza: l’assistente deve consultarli prima di usare le API.</Paragraph>
+        <Paragraph color="$color11">I dati sono documenti NoSQL: l’assistente parte dal tuo account, legge il gruppo e trova gli ID di lega e basket, la stagione e l’email dell’owner. Da lì legge direttamente rosa, formazione o classifica. Non usa ricerche generiche su tutte le squadre; il gruppo è l’indice dei collegamenti, non contiene già tutti i calciatori.</Paragraph>
         <Paragraph color="$color11">Una stagione non è un anno solare: 2012/13 è la numero 1, 2026/27 è la numero 15. La stagione corrente è calcolata dal server con cambio il 10 agosto UTC; le tue selezioni sul sito possono essere storiche. Non significa che una partita sia in corso.</Paragraph>
         <YStack backgroundColor="$color2" borderRadius="$4" padding="$4" gap="$3">
           {mcpTools.map(tool => <YStack key={tool.name} gap="$1">

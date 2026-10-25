@@ -99,7 +99,7 @@ public sealed class McpDomainContextTests(ApiFactory factory)
         }
         var catalog = factory.Services.GetRequiredService<McpEndpointCatalog>();
         var tools = new McpCatalogTools(catalog, factory.Services.GetRequiredService<McpApiFacade>());
-        for (var offset = 0; offset < catalog.Operations.Count; offset += 20)
+        for (var offset = 0; offset < catalog.McpOperations.Count; offset += 20)
         {
             var page = Json(tools.ListOperations(offset: offset, limit: 20));
             foreach (var operation in page.GetProperty("items").EnumerateArray())

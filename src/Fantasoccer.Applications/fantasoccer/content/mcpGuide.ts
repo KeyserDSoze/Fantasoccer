@@ -42,7 +42,7 @@ export const mcpPromptExamples = [
   },
   {
     title: 'Suggerimento formazione',
-    text: 'Analizza la mia rosa e suggeriscimi una formazione per la prossima giornata. Spiegami le scelte, senza salvarla.',
+    text: 'Ricava dal mio gruppo owner e basket della mia squadra, leggi la rosa con una lettura puntuale e suggeriscimi una formazione per la prossima giornata. Spiegami le scelte, senza salvarla.',
   },
   {
     title: 'Mercato',
@@ -53,13 +53,17 @@ export const mcpPromptExamples = [
 export const mcpTools = [
   { name: 'get_current_season', description: 'Legge data server e stagione corrente: 2026/27 corrisponde all’indice 15.' },
   { name: 'get_my_account', description: 'Identifica il tuo account, i gruppi e le selezioni salvate, che possono riferirsi anche a stagioni storiche.' },
-  { name: 'get_fantasoccer_guide', description: 'Spiega regole d’uso e funzionalità: gruppi, leghe, formazioni, mercato, aste e classifiche.' },
+  { name: 'get_fantasoccer_guide', description: 'Spiega regole d’uso e funzionalità. Il tema lookups mostra come seguire account → gruppo → lega, basket e owner → rosa o formazione della partita.' },
   { name: 'describe_api_model', description: 'Decodifica nomi JSON abbreviati, tipi e valori enum. La stessa lettera può significare cose diverse nei diversi modelli.' },
-  { name: 'list_api_operations', description: 'Cerca le operazioni disponibili e ne descrive parametri, risposte e chiavi. Vedere un’operazione non dà il permesso di eseguirla.' },
+  { name: 'list_api_operations', description: 'Cerca nel catalogo delle operazioni, non nei dati degli utenti. Descrive letture puntuali, ricette per le chiavi e flussi autorizzati; non espone ricerche o aggregazioni generiche sui repository.' },
   { name: 'execute_api_operation', description: 'Esegue le operazioni applicative con i tuoi permessi. Può modificare dati: non è uno strumento di sola lettura.' },
 ] as const
 
 export const mcpTroubleshooting = [
+  {
+    question: 'Vedo calendario e classifica, ma l’assistente non recupera la rosa.',
+    answer: 'Chiedigli di leggere la guida con il tema lookups. Dal gruppo deve risolvere basket, stagione e owner effettivo, poi usare Team/Get; per una formazione salvata usa Team/day/Get e la giornata Serie A della partita. Il calendario contiene le email degli owner, distinte dai nomi squadra. Le ricerche generiche come Team/Query non sono disponibili su MCP. Se manca lo snapshot giornaliero può leggere la rosa stagionale, spiegando che non è la formazione salvata di quella partita.',
+  },
   {
     question: 'Non vedo Plugins, Crea o il pulsante per aggiungere il server.',
     answer: 'La disponibilità dipende dal piano ChatGPT, dai permessi del workspace e dalla versione dell’interfaccia. Controlla la guida ufficiale OpenAI o chiedi all’amministratore del workspace. Nella nuova interfaccia Plugins non serve abilitare prima la modalità sviluppatore; in alcune interfacce precedenti l’opzione può essere nelle impostazioni avanzate delle App.',

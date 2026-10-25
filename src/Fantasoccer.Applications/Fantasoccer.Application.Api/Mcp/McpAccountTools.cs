@@ -9,7 +9,7 @@ namespace Fantasoccer.Application.Api.Mcp;
 public sealed class McpAccountTools(IHttpContextAccessor context, IRepository<AppIdentity, string> users, FantasoccerSeasonContext seasons)
 {
     [McpServerTool(Name = "get_my_account", ReadOnly = true, Destructive = false, OpenWorld = false)]
-    [Description("Get your authenticated account, group IDs, saved selections and server current season. savedSelections expands the compact account.State; its year is a season index and may be historical, not the live season. Identity is server-resolved. Use the payload/model guide rather than guessing abbreviated fields.")]
+    [Description("Start here: get your account, group IDs, saved selections and server current season. Follow groups[].i with api/Group/Get, then resolve league/basket/year/owner IDs from that document and use point reads. No generic repository queries are exposed. savedSelections may be historical. Identity is server-resolved; a display name/username is not an owner email. Read get_fantasoccer_guide(topic='lookups') for exact navigation.")]
     public async Task<object> GetMyAccountAsync(CancellationToken cancellationToken)
     {
         var email = context.HttpContext?.User.FindFirstValue(ClaimTypes.Email) ?? throw new UnauthorizedAccessException();
@@ -26,7 +26,12 @@ public sealed class McpAccountTools(IHttpContextAccessor context, IRepository<Ap
                 selectedTeamOwnerEmail = account.State.MeOrLeaderEmail,
                 note = "Saved UI selections, not authorization and not necessarily the current season."
             },
-            currentSeason = season.CurrentSeason, serverTimeUtc = season.ServerTimeUtc
+            currentSeason = season.CurrentSeason, serverTimeUtc = season.ServerTimeUtc,
+            nextRead = new
+            {
+                path = "api/Group/Get", keySource = "groups[].i", guideTopic = "lookups",
+                note = "Read the selected group by its simple ID. Use its leagues, annual baskets/teams and owner emails as the lookup index for subsequent Get/Exist calls; do not search all documents."
+            }
         };
     }
 }

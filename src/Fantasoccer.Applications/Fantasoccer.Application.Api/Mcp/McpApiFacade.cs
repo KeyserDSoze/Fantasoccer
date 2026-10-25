@@ -32,7 +32,16 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
     {
         var parent = contexts.HttpContext;
         if (parent?.User.Identity?.IsAuthenticated != true) return Error("Authentication required.");
-        if (!catalog.Operations.TryGetValue(request.Name, out var operation)) return Error("Unknown tool.");
+        if (!catalog.McpOperations.TryGetValue(request.Name, out var operation))
+        {
+            var removedQuery = catalog.Operations.ContainsKey(request.Name);
+            if (removedQuery)
+                logger.LogWarning("MCP tool {Tool} rejected: generic repository scans and aggregations are unavailable; request {TraceId}. No arguments or credentials logged.",
+                    request.Name, parent.TraceIdentifier);
+            return Error(removedQuery
+                ? "Generic repository queries and aggregations are not available through MCP. Read get_fantasoccer_guide(topic='lookups'), resolve IDs from your account/group/calendar, and use Get/Exist point reads discovered with list_api_operations."
+                : "Unknown tool.");
+        }
         var args = request.Arguments == null ? new Dictionary<string, JsonElement>() : new Dictionary<string, JsonElement>(request.Arguments);
         if (args.Keys.Any(x => x is not ("query" or "route" or "body" or "files"))) return Error("Unknown argument.");
         if (args.Any(x => x.Key != "body" && x.Value.ValueKind != JsonValueKind.Object)) return Error("query, route and files must be objects.");

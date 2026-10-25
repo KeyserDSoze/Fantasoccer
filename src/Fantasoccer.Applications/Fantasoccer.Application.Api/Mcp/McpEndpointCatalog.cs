@@ -13,10 +13,34 @@ namespace Fantasoccer.Application.Api.Mcp;
 public sealed record McpRepositoryContract(Type ModelType, Type KeyType, string Factory);
 public sealed record McpOperation(ApiDescription Api, Tool Tool, bool ReadOnly, McpRepositoryContract? Repository);
 
-public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
+public sealed class McpEndpointCatalog
 {
-    private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _operations = new(() => Build(descriptions, registry));
+    private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _operations;
+    private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _mcpOperations;
+
+    public McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
+    {
+        _operations = new(() => Build(descriptions, registry));
+        _mcpOperations = new(() => Operations.Where(x => IsExposedToMcp(x.Value))
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal));
+    }
+
+    // Keep the complete metadata for legacy resource-boundary authorization.
+    // Removing HTTP Query metadata would make that middleware skip its checks.
     public IReadOnlyDictionary<string, McpOperation> Operations => _operations.Value;
+    public IReadOnlyDictionary<string, McpOperation> McpOperations => _mcpOperations.Value;
+
+    public static bool IsExposedToMcp(McpOperation operation)
+    {
+        if (operation.Api.ActionDescriptor is ControllerActionDescriptor ||
+            !operation.Api.RelativePath!.StartsWith("api/", StringComparison.OrdinalIgnoreCase)) return true;
+        var parts = operation.Api.RelativePath.Split('?')[0].Trim('/').Split('/');
+        var action = parts[^1].Equals("Stream", StringComparison.OrdinalIgnoreCase) && parts.Length > 1 ? parts[^2] : parts[^1];
+        // This document/Blob application navigates known IDs with Get/Exist.
+        // Do not advertise arbitrary repository scans or generic aggregations,
+        // including cached/direct calls and their streaming variants.
+        return action.ToUpperInvariant() is not ("QUERY" or "COUNT" or "OPERATION");
+    }
     private static IReadOnlyDictionary<string, McpOperation> Build(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
     {
         var result = new Dictionary<string, McpOperation>(StringComparer.Ordinal);
@@ -109,6 +133,7 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
                 Description = $"{api.HttpMethod} /{path}. Executes the existing Fantasoccer API with your authenticated account and all API/business authorization checks. " +
                     (readOnly ? "Reads data." : "MAY CHANGE DATA. Obtain the user's explicit instruction before calling; do not retry automatically after an uncertain outcome.") +
                     " For MCP, composite query.key is a JSON-encoded object; the server converts it to the native repository wire format after validating all key fields. year/y means season index (15=2026/27), not calendar year. Use describe_api_model to decode compact fields; identical letters mean different things in different models. No credentials or user impersonation headers are accepted." +
+                    (McpPointReadRecipes.Find(path) is { } recipe ? " Point-read workflow: " + recipe.Notes : "") +
                     (path.StartsWith("McpAuction/") ? " Discover auction command arguments using McpAuction/Commands before invoking a command." : ""),
                 InputSchema = JsonSerializer.SerializeToElement(ObjectSchema(properties, required)),
                 Annotations = new ToolAnnotations { ReadOnlyHint = readOnly, DestructiveHint = !readOnly, IdempotentHint = readOnly, OpenWorldHint = false }
