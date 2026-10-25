@@ -646,6 +646,76 @@ public sealed class McpApiTests : IDisposable
         return json.GetProperty("result").Clone();
     }
 
+    [Fact]
+    public async Task Domain_context_tools_and_season_HTTP_endpoint_are_discoverable_and_read_only()
+    {
+        var anonymous = await _client.GetAsync("/Context/GetCurrentSeason", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        var token = (await ConnectAsync()).GetProperty("access_token").GetString()!;
+        static JsonElement Data(JsonElement result) => JsonSerializer.Deserialize<JsonElement>(result.GetProperty("content")[0].GetProperty("text").GetString()!);
+        var season = Data(await CallAsync(token, "get_current_season", new { }));
+        Assert.Equal(FantacalcioTime.ActualYear, season.GetProperty("currentSeason").GetProperty("seasonIndex").GetInt32());
+        var overview = Data(await CallAsync(token, "get_fantasoccer_guide", new { }));
+        Assert.Equal("overview", overview.GetProperty("section").GetProperty("topic").GetString());
+        Assert.Contains(overview.GetProperty("topics").EnumerateArray(), x => x.GetProperty("topic").GetString() == "models");
+        var guide = Data(await CallAsync(token, "get_fantasoccer_guide", new { topic = "seasons" }));
+        Assert.Contains("2026/27=15", guide.GetProperty("section").GetProperty("content").GetString());
+        var model = Data(await CallAsync(token, "describe_api_model", new { model = "TeamKey" }));
+        Assert.Contains(model.GetProperty("fields").EnumerateArray(), x => x.GetProperty("jsonName").GetString() == "y" && x.GetProperty("name").GetString() == "Year");
+        var account = Data(await CallAsync(token, "get_my_account", new { }));
+        Assert.True(account.TryGetProperty("savedSelections", out _));
+        Assert.True(account.TryGetProperty("currentSeason", out _));
+        var api = Data(await CallAsync(token, "list_api_operations", new { filter = "api/Team/day/Get" }));
+        Assert.Equal("Fantasoccer.TeamDayKey", api.GetProperty("items")[0].GetProperty("repository").GetProperty("keyType").GetString());
+        Assert.True(api.GetProperty("items")[0].TryGetProperty("responseSchemas", out _));
+        var wrapped = Data(await CallAsync(token, "execute_api_operation", new { operation = Find("Context/GetCurrentSeason"), arguments = new { } }));
+        Assert.Equal(200, wrapped.GetProperty("statusCode").GetInt32());
+        var body = JsonSerializer.Deserialize<JsonElement>(wrapped.GetProperty("body").GetString()!);
+        Assert.Equal(FantacalcioTime.ActualYear, body.GetProperty("currentSeason").GetProperty("seasonIndex").GetInt32());
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await FrontendTokenAsync());
+        var response = await _client.GetAsync("/Context/GetCurrentSeason", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task MCP_handshake_and_tool_list_advertise_domain_documentation()
+    {
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (await ConnectAsync()).GetProperty("access_token").GetString());
+        _client.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/event-stream");
+        var response = await _client.PostAsJsonAsync("/mcp", new { jsonrpc = "2.0", id = 1, method = "initialize", @params = new
+        {
+            protocolVersion = "2025-11-25", capabilities = new { }, clientInfo = new { name = "domain-context-test", version = "1" }
+        } }, TestContext.Current.CancellationToken);
+        var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode, text);
+        Assert.Contains("get_fantasoccer_guide", text);
+        Assert.Contains("get_current_season", text);
+        Assert.Contains("2012/13", text);
+        response = await _client.PostAsJsonAsync("/mcp", new { jsonrpc = "2.0", id = 2, method = "tools/list" }, TestContext.Current.CancellationToken);
+        text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.True(response.IsSuccessStatusCode, text);
+        foreach (var tool in new[] { "get_current_season", "get_fantasoccer_guide", "describe_api_model" }) Assert.Contains(tool, text);
+    }
+
+    [Fact]
+    public async Task Current_season_context_does_not_overwrite_a_users_historical_selection()
+    {
+        var email = "historical-context-" + Guid.NewGuid().ToString("N") + "@example.com";
+        await FrontendTokenAsync(email);
+        var users = _factory.Services.GetRequiredService<IRepository<AppIdentity, string>>();
+        var account = await users.GetAsync(email, TestContext.Current.CancellationToken);
+        account!.State.Year = 1;
+        await users.UpdateAsync(email, account, TestContext.Current.CancellationToken);
+        var access = (await ConnectAsync(email)).GetProperty("access_token").GetString()!;
+        var result = await CallAsync(access, "get_my_account", new { });
+        var data = JsonSerializer.Deserialize<JsonElement>(result.GetProperty("content")[0].GetProperty("text").GetString()!);
+        Assert.Equal(1, data.GetProperty("savedSelections").GetProperty("seasonIndex").GetInt32());
+        Assert.Equal("2012/13", data.GetProperty("savedSelections").GetProperty("seasonLabel").GetString());
+        Assert.Equal(FantacalcioTime.ActualYear, data.GetProperty("currentSeason").GetProperty("seasonIndex").GetInt32());
+        Assert.Equal(1, (await users.GetAsync(email, TestContext.Current.CancellationToken))!.State.Year);
+    }
+
     private async Task<string> FrontendTokenAsync(string email = Email, string username = "MCP owner")
     {
         using var scope = _factory.Services.CreateScope();

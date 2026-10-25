@@ -124,15 +124,55 @@ Prima di qualsiasi scrittura Azure lo script di deploy controlla configurazione,
 
 ## Tool e copertura delle API
 
-Per default vengono pubblicati tre tool:
+Per default vengono pubblicati sei tool:
 
-1. `get_my_account`: identità, gruppi e selezioni correnti; nessun parametro utente arbitrario.
-2. `list_api_operations`: catalogo ricercabile/paginato con identificatore operazione, route, verbo, annotazione di scrittura e JSON Schema esatto.
+1. `get_my_account`: identità, gruppi, selezioni salvate (anche storiche) e stagione corrente; nessun parametro utente arbitrario. I campi precedenti `email`, `username`, `groups`, `state` sono conservati; `savedSelections` e `currentSeason` aggiungono contesto leggibile.
+2. `list_api_operations`: catalogo ricercabile/paginato con identificatore operazione, route, verbo, annotazione di scrittura, schemi input/risposta e contratto della chiave di ogni repository/factory.
 3. `execute_api_operation`: esecuzione per identificatore di catalogo, con `query`, `route`, `body` e/o `files`.
+4. `get_current_season`: data UTC server, indice e label della stagione corrente, confini temporali e convenzioni delle giornate.
+5. `get_fantasoccer_guide`: guida tematica a stagioni, JSON, gruppi, formazioni, mercato, aste, risultati, competizione iniziale, amministrazione e funzioni personali. Con `topic=models` elenca i modelli esposti con filtro/paginazione.
+6. `describe_api_model`: nomi JSON compatti → proprietà estese, significato, tipo, riferimenti ai modelli annidati, flag di sola lettura, schema e valori enum effettivamente serializzati (numeri o stringhe).
 
 Questo evita di inviare centinaia di schemi a ogni connessione. `PublishAllTools=true` pubblica anche un tool per ogni operazione per i client che lo supportano; non è necessario per avere accesso all'intero catalogo.
 
 Il catalogo deriva da ApiExplorer: controller applicativi e repository **effettivamente esposti**. Conserva varianti/factory di repository, route parameter, parametri query e body. Non pubblica login, emissione token, metadata, Swagger, repository `SetNotExposable` o URL scelte dal modello.
+
+### Contesto applicativo fornito al client
+
+Durante l'handshake MCP il server invia `instructions` che indirizzano il modello alla guida, alla stagione corrente e al proprio account. La guida resta consultabile tramite tool anche per i client che non usano le istruzioni iniziali; non è necessario incollare la documentazione in ogni chat. I metadata non concedono accesso ai dati: tutte le letture/scritture applicative continuano ad attraversare i controlli esistenti.
+
+Gli alias sono **specifici del modello**: ad esempio `Team.p=Players`, `Player.p=Price`, `AppIdentity.g=Groups`, `TeamKey.g=Group`. Il dizionario e le descrizioni negli schemi derivano dai contratti JSON .NET reali, incluse proprietà ereditate e attributi `JsonIgnore`; non viene creato un formato di storage/API alternativo. I valori enum sono serializzati con lo stesso contratto (es. `IdentityRole.Admin=4`, `AuctionCommand.PlaceBid="PlaceBid"`). Le spiegazioni semantiche aggiungono unità, flussi e avvertenze per i campi principali.
+
+La navigazione è incrementale: richiedere `get_fantasoccer_guide(topic="models", filter="Team", offset=0, limit=20)` e poi `describe_api_model(model="Fantasoccer.Team")`. `list_api_operations` restituisce `inputModels`, `responseSchemas[].models` e, per i repository, `repository.model`, `keyType`, `factory` e `keySchema`. Il grafo dei modelli deriva solo dai contratti delle operazioni esposte, non da uno scan di opzioni OAuth, credenziali o repository interni. Gli endpoint con risposta dichiarata `object`/`IActionResult` non diventano magicamente tipizzati: il catalogo segnala il limite; consultare guida e discovery dei comandi d'asta per le risposte dinamiche.
+
+### Stagione corrente e storico
+
+Il nuovo endpoint autenticato **`GET /Context/GetCurrentSeason`** è disponibile anche alle API normali, ed esposto via catalogo MCP; `get_current_season` fornisce gli stessi dati senza dover scoprire la route.
+
+```json
+{
+  "serverTimeUtc": "2026-10-24T12:00:00+00:00",
+  "currentSeason": {
+    "seasonIndex": 15,
+    "label": "2026/27",
+    "fullLabel": "2026/2027",
+    "startYear": 2026,
+    "endYear": 2027,
+    "startsAtUtc": "2026-08-10T00:00:00+00:00",
+    "endsAtUtcExclusive": "2027-08-10T00:00:00+00:00",
+    "firstGlobalDayId": 533,
+    "lastGlobalDayId": 570
+  }
+}
+```
+
+Esempio abbreviato: la risposta reale contiene anche le regole di interpretazione. La data viene calcolata a ogni richiesta con il clock server, non fissata al deploy. `FantacalcioTime.ActualYear` e il contesto usano la stessa funzione: **2012/13=1**, cambio il **10 agosto alle 00:00 UTC**. `year`/`y` sono normalmente indici stagionali, non `2026`/`2027`; il contesto corrente non modifica la selezione storica salvata dell'utente.
+
+Giornata Serie A (1..38), numero turno fantasy e dayId globale sono distinti: `(seasonIndex-1)*38+SerieADay`. Le stagioni disponibili si verificano su `League.Years`/`Basket.Years`. La stagione corrente non implica una partita live, una finestra formazione aperta o dati già configurati; leggere i calendari e i vincoli server.
+
+### Uso da ChatGPT dopo l'aggiornamento
+
+Se la connessione è stata creata prima dei nuovi tool, aggiornare/scansionare nuovamente gli strumenti nella gestione dell'app ChatGPT (se il workspace conserva uno snapshot del catalogo). Avviare una nuova chat selezionando l'app e chiedere: «Leggi la guida di Fantasoccer e la stagione corrente; poi dimmi a quali gruppi appartengo, senza modificare dati». Gli altri client possono dover riconnettersi o aggiornare `tools/list`. Non occorrono nuovi secrets, callback o registrazioni manuali.
 
 Esempio (recuperare sempre l'identificatore effettivo dal catalogo):
 
@@ -140,7 +180,7 @@ Esempio (recuperare sempre l'identificatore effettivo dal catalogo):
 {
   "operation": "IDENTIFICATORE_RESTITUITO_DAL_CATALOGO",
   "arguments": {
-    "query": { "key": "{\"g\":\"gruppo\",\"l\":\"lega\",\"y\":2026}" }
+      "query": { "key": "{\"g\":\"gruppo\",\"l\":\"lega\",\"y\":15}" }
   }
 }
 ```
