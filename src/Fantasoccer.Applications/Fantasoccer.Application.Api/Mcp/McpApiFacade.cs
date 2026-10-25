@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
 using ModelContextProtocol.Protocol;
 
@@ -32,12 +33,33 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
         var parent = contexts.HttpContext;
         if (parent?.User.Identity?.IsAuthenticated != true) return Error("Authentication required.");
         if (!catalog.Operations.TryGetValue(request.Name, out var operation)) return Error("Unknown tool.");
-        var args = request.Arguments ?? new Dictionary<string, JsonElement>();
+        var args = request.Arguments == null ? new Dictionary<string, JsonElement>() : new Dictionary<string, JsonElement>(request.Arguments);
         if (args.Keys.Any(x => x is not ("query" or "route" or "body" or "files"))) return Error("Unknown argument.");
         if (args.Any(x => x.Key != "body" && x.Value.ValueKind != JsonValueKind.Object)) return Error("query, route and files must be objects.");
         await using var scope = scopes.CreateAsyncScope();
         try
         {
+            string? repositoryWireKey = null;
+            if (args.TryGetValue("query", out var suppliedQuery))
+            {
+                if (suppliedQuery.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != suppliedQuery.EnumerateObject().Count())
+                    return Error("Duplicate query parameter.");
+                var allowed = operation.Api.ParameterDescriptions.Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (suppliedQuery.EnumerateObject().Any(x => !allowed.Contains(x.Name))) return Error("Unknown query parameter.");
+                var key = suppliedQuery.EnumerateObject().FirstOrDefault(x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase));
+                if (key.Name != null && operation.Repository is { } repository &&
+                    repository.KeyType != typeof(string) && !repository.KeyType.IsPrimitive && !repository.KeyType.IsEnum)
+                {
+                    if (key.Value.ValueKind != JsonValueKind.String) throw new McpRepositoryKeyException();
+                    var converted = McpRepositoryKeyConverter.Convert(repository.KeyType, key.Value.GetString()!);
+                    repositoryWireKey = converted.WireValue;
+                    // The guard sees the exact typed/serialized key used for dispatch,
+                    // not the caller's potentially ambiguous aliases or missing fields.
+                    args["query"] = JsonSerializer.SerializeToElement(suppliedQuery.EnumerateObject().ToDictionary(
+                        x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase) ? "key" : x.Name,
+                        x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase) ? JsonSerializer.SerializeToElement(converted.CanonicalJson) : x.Value));
+                }
+            }
             if (!await scope.ServiceProvider.GetRequiredService<McpAccessGuard>().AllowsAsync(operation, args, parent.User, cancellationToken))
                 return Error("Forbidden: this operation or resource is not permitted for your account.");
 
@@ -62,12 +84,9 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
             context.Request.Path = path;
             if (args.TryGetValue("query", out var query))
             {
-                if (query.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != query.EnumerateObject().Count())
-                    return Error("Duplicate query parameter.");
-                var allowed = operation.Api.ParameterDescriptions.Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                if (query.EnumerateObject().Any(x => !allowed.Contains(x.Name))) return Error("Unknown query parameter.");
                 context.Request.QueryString = new QueryString(QueryHelpers.AddQueryString("", query.EnumerateObject()
-                    .ToDictionary(x => x.Name, x => (string?)AsQuery(x.Value))));
+                    .ToDictionary(x => x.Name, x => (string?)(repositoryWireKey != null && x.Name.Equals("key", StringComparison.OrdinalIgnoreCase)
+                        ? repositoryWireKey : AsQuery(x.Value)))));
             }
             using var body = new MemoryStream();
             if (args.TryGetValue("files", out var files))
@@ -93,6 +112,10 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
             body.Position = 0;
             context.Request.Body = body;
             context.Request.ContentLength = body.Length;
+            // Minimal-API repository binders use this server feature to decide
+            // whether a body exists. DefaultHttpContext does not supply it;
+            // Content-Length alone would let a valid JSON body bind as null.
+            context.Features.Set<IHttpRequestBodyDetectionFeature>(new RequestBodyDetection(body.Length > 0));
             using var output = new LimitedResponseStream();
             context.Response.Body = output;
             contexts.HttpContext = context;
@@ -114,6 +137,12 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
                 Content = [new TextContentBlock { Text = payload }]
             };
         }
+        catch (McpRepositoryKeyException exception)
+        {
+            logger.LogWarning("MCP tool {Tool} rejected an invalid composite repository key; request {TraceId}. No arguments or credentials logged.",
+                request.Name, parent.TraceIdentifier);
+            return Error(exception.Message);
+        }
         catch (Exception exception) when (exception is JsonException or FormatException or ArgumentException)
         {
             return Error("Invalid tool arguments.");
@@ -129,6 +158,8 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
 
     private static string AsQuery(JsonElement value) => value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
     private static CallToolResult Error(string message) => new() { IsError = true, Content = [new TextContentBlock { Text = message }] };
+
+    private sealed record RequestBodyDetection(bool CanHaveBody) : IHttpRequestBodyDetectionFeature;
 
     private sealed class LimitedResponseStream : MemoryStream
     {

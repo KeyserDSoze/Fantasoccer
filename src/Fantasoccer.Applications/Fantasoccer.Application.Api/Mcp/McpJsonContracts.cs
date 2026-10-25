@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization.Metadata;
+using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Mcp;
 
@@ -135,6 +136,13 @@ public static class McpJsonContracts
                         obj["description"] = (obj["description"]?.GetValue<string>() ?? "") +
                             " Enum " + context.TypeInfo.Type.Name + ": " + JsonSerializer.Serialize(values, Json) +
                             (context.TypeInfo.Type.IsDefined(typeof(FlagsAttribute)) ? ". Bitmask: combine values with bitwise OR." : ".");
+                    }
+                    if (typeof(IDefaultKey).IsAssignableFrom(context.TypeInfo.Type) && obj["properties"] is JsonObject properties)
+                    {
+                        // MCP's key converter requires every component, including
+                        // fields in older domain keys that do not use C# 'required'.
+                        obj["required"] = new JsonArray(properties.Select(x => (JsonNode?)JsonValue.Create(x.Key)).ToArray());
+                        obj["additionalProperties"] = false;
                     }
                     return obj;
                 }

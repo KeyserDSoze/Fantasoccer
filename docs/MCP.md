@@ -193,13 +193,17 @@ Esempio (recuperare sempre l'identificatore effettivo dal catalogo):
 }
 ```
 
-Le chiavi composite sono le stesse stringhe JSON accettate dalle API, non nuove chiavi MCP. Gli schemi descrivono i nomi JSON dei modelli esistenti.
+Per **MCP**, `query.key` contiene una stringa JSON con i campi della chiave: l'adattatore la deserializza nel tipo corretto per repository/factory, la normalizza e autorizza in forma canonica, poi usa `KeySettings<TKey>.AsString` per il binding HTTP Rystem. Il formato nativo delle API repository non è JSON: con le chiavi attuali è una stringa posizionale separata da `|||`. I client MCP non devono costruirla né dipendere dall'ordine dei campi. Le chiavi semplici restano invariate; i client HTTP/frontend esistenti mantengono il proprio contratto.
+
+Tutti i componenti di una chiave composita sono obbligatori anche se il modello CLR non usa `required`. Lo schema e il glossario riflettono questo requisito. Il convertitore accetta i nomi JSON compatti e i corrispondenti nomi CLR, senza ambiguità, e rifiuta campi sconosciuti/ripetuti, componenti nulli/vuoti, tipi errati e conversioni non reversibili (incluse iniezioni del separatore). Il roundtrip deve corrispondere alla stessa chiave autorizzata. Gli errori diventano tool error espliciti senza esporre chiavi o credenziali; nessun accesso al repository avviene per una chiave non valida.
 
 Gli upload usano `files: { nomeParametro: { fileName, contentType, base64 } }`; la facade ricostruisce il multipart. Limite per file 2 MiB, body/risposta facade 4 MiB, richiesta MCP 8 MiB. Le API mantengono gli ulteriori limiti già presenti. Non vengono effettuati download da URL fornite dal modello.
 
 ### Come viene riutilizzata la business logic
 
 `McpApiFacade` costruisce un `HttpContext` isolato e attraversa routing, autorizzazione e delegate degli endpoint originali nello stesso processo. Vengono eseguiti model binding, filtri MVC, policy, autorizzazione repository e business hook esistenti. Non chiama direttamente repository bypassando gli endpoint e non effettua richieste HTTP verso host selezionabili dall'utente.
+
+Il contesto ricostruito include `IHttpRequestBodyDetectionFeature`: i binder delle API minimali devono riconoscere il corpo JSON/multipart effettivo, non solo `Content-Length`. I test delle scritture autorizzate controllano anche il documento salvato, per escludere che un body venga interpretato come `null` pur restituendo HTTP 200.
 
 Le risposte riportano `statusCode`, `contentType`, `encoding` e `body`; il body conserva il contratto originale (UTF-8 per testo/JSON, base64 per contenuti binari). Le risposte HTTP di errore sono tool error. Un eventuale fallimento business rappresentato da un payload HTTP 200 resta nel payload originale: il client deve leggerlo, non presumere successo dal solo status.
 
