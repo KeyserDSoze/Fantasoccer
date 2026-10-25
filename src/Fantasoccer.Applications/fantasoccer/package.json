@@ -13,7 +13,7 @@
     "test:market": "node --experimental-transform-types --test tests/marketRules.test.mjs",
     "test:player-images": "node --experimental-transform-types --test tests/playerImageRevision.test.mjs",
     "test:push": "node --test tests/pushNotifications.test.mjs",
-    "test:auth": "node --test tests/pkce.test.mjs tests/mcpConnections.test.mjs",
+    "test:auth": "node --test tests/pkce.test.mjs tests/mcpConnections.test.mjs tests/mcpGuide.test.mjs",
     "test:version": "node --test tests/version.test.mjs",
     "test": "npm run test:group-admin && npm run test:market && npm run test:player-images && npm run test:push && npm run test:auth && npm run test:version",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",

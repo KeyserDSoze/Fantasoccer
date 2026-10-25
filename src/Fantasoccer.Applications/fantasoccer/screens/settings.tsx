@@ -23,6 +23,7 @@ import {
 } from 'tamagui';
 import { ScreenContent } from 'components/layout/ScreenContent';
 import { McpConnectionsCard } from 'components/McpConnectionsCard';
+import { McpGuideCard } from 'components/mcp/McpGuideCard';
 import { useApp } from 'providers/AppProvider';
 import { useAuth } from 'providers/AuthProvider';
 import { useSettings } from 'hooks/useSettings';
@@ -135,6 +136,7 @@ export default function SettingsScreen() {
         alignItems="stretch"
         alignSelf="center"
         paddingBottom="$8">
+        <McpGuideCard />
         <McpConnectionsCard key={userEmail} email={userEmail} />
         <Card
           padding="$4"
