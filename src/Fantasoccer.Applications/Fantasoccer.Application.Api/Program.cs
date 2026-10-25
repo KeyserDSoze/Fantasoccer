@@ -43,7 +43,9 @@ if (isInMemory)
     builder.Services.AddRepository<PushNotificationSent, YearDayKey>(x => { x.WithInMemory(); x.SetNotExposable(); });
     builder.Services.AddRepository<RealRank, int>(x => x.WithInMemory());
     builder.Services.AddRepository<LiveGroup, string>(x => x.WithInMemory());
-    builder.Services.AddRepository<Rank, YearDayLeague>(x => x.WithInMemory());
+    // Match the production factory: daily ranks must not replace the default
+    // seasonal Rank<LeagueKey> repository while running regression tests.
+    builder.Services.AddRepository<Rank, YearDayLeague>(x => x.WithInMemory(name: "day"));
     builder.Services.AddRepository<HallOfFame, GeneralLeagueKey>(x => x.WithInMemory());
     builder.Services.AddRepository<CardWrapper, string>(x => x.WithInMemory());
     builder.Services.AddPreDefaultValues();

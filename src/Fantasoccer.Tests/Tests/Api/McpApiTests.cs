@@ -19,7 +19,7 @@ using RepositoryFramework;
 namespace Fantasoccer.Tests.Tests.Api;
 
 [Collection("API integration")]
-public sealed class McpApiTests : IDisposable
+public sealed partial class McpApiTests : IDisposable
 {
     private readonly ApiFactory _factory;
     private readonly HttpClient _client;

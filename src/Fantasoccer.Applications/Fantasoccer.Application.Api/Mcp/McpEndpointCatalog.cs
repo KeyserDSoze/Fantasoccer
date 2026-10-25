@@ -80,8 +80,8 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
                             // Rystem exposes the encoded string, not the composite key shape.
                             obj["description"] = repository.KeyType == typeof(string) || repository.KeyType.IsPrimitive
                                 ? "Chiave semplice del repository: " + McpJsonContracts.TypeName(repository.KeyType) + "."
-                                : "Stringa contenente un oggetto JSON con i campi di " + McpJsonContracts.ModelId(repository.KeyType) +
-                                  ". Consultare repository.keySchema/describe_api_model; usare i nomi compatti, senza cambiare factory.";
+                                : "Stringa contenente un oggetto JSON con tutti i campi di " + McpJsonContracts.ModelId(repository.KeyType) +
+                                  ". Il server valida la chiave e la converte nel formato nativo Rystem; non costruire manualmente la stringa con separatori. Consultare repository.keySchema/describe_api_model; usare i nomi compatti, senza cambiare factory.";
                         }
                     }
                     (isRoute ? routeProperties : queryProperties)[parameter.Name] = schema;
@@ -108,7 +108,7 @@ public sealed class McpEndpointCatalog(IApiDescriptionGroupCollectionProvider de
                 Name = name,
                 Description = $"{api.HttpMethod} /{path}. Executes the existing Fantasoccer API with your authenticated account and all API/business authorization checks. " +
                     (readOnly ? "Reads data." : "MAY CHANGE DATA. Obtain the user's explicit instruction before calling; do not retry automatically after an uncertain outcome.") +
-                    " Composite repository keys use the API's JSON-encoded key string. year/y means season index (15=2026/27), not calendar year. Use describe_api_model to decode compact fields; identical letters mean different things in different models. No credentials or user impersonation headers are accepted." +
+                    " For MCP, composite query.key is a JSON-encoded object; the server converts it to the native repository wire format after validating all key fields. year/y means season index (15=2026/27), not calendar year. Use describe_api_model to decode compact fields; identical letters mean different things in different models. No credentials or user impersonation headers are accepted." +
                     (path.StartsWith("McpAuction/") ? " Discover auction command arguments using McpAuction/Commands before invoking a command." : ""),
                 InputSchema = JsonSerializer.SerializeToElement(ObjectSchema(properties, required)),
                 Annotations = new ToolAnnotations { ReadOnlyHint = readOnly, DestructiveHint = !readOnly, IdempotentHint = readOnly, OpenWorldHint = false }

@@ -38,7 +38,7 @@ public sealed class McpCatalogTools(McpEndpointCatalog catalog, McpApiFacade fac
                     model = McpJsonContracts.ModelId(x.Repository.ModelType),
                     keyType = McpJsonContracts.ModelId(x.Repository.KeyType), factory = x.Repository.Factory,
                     keySchema = McpJsonContracts.Schema(x.Repository.KeyType),
-                    encoding = "query.key is a string; for composite keys it contains a JSON object with the fields in keySchema."
+                    encoding = "For MCP, query.key is a string containing a JSON object with all fields in keySchema. The server validates/canonicalizes it for authorization and converts it with Rystem KeySettings before dispatch; do not construct a native separator-based string. Simple keys remain unchanged."
                 }
             })
         };

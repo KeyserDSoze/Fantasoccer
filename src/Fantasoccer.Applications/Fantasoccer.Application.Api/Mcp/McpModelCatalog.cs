@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Mcp;
 
@@ -42,7 +43,8 @@ public sealed class McpModelCatalog(McpEndpointCatalog catalog)
                 name = (property.AttributeProvider as System.Reflection.MemberInfo)?.Name ?? property.Name,
                 type = McpJsonContracts.TypeName(property.PropertyType),
                 description = McpJsonContracts.PropertyDescription(property),
-                readOnly = property.Set == null, required = property.IsRequired,
+                readOnly = property.Set == null,
+                required = property.IsRequired || (property.Set != null && typeof(IDefaultKey).IsAssignableFrom(type)),
                 models = ReferencedTypes(property.PropertyType).Where(t => _models.Value.ContainsKey(McpJsonContracts.ModelId(t)))
                     .Select(McpJsonContracts.ModelId).Distinct().ToArray()
             }).ToArray() : null,
