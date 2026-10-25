@@ -1,7 +1,9 @@
 import { ScreenContent } from 'components/layout/ScreenContent';
 import { StyleSheet, View } from 'react-native';
 
-import { H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
+import { Button, H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from 'navigation';
 import { Calendar, TrendingUp, Users } from '@tamagui/lucide-icons-2';
 import { LoginButton } from 'features/LoginButton';
 import { useAuth } from 'providers/AuthProvider';
@@ -31,6 +33,7 @@ function AuthenticatedContent({ user }: { user: AuthUser | null }) {
 }
 
 function WelcomeContent() {
+  const navigation = useNavigation<NavigationProp>();
   return (
     <YStack gap="$6" width="100%" alignItems="center">
       <YStack gap="$4" alignItems="center">
@@ -49,6 +52,9 @@ function WelcomeContent() {
           Inizia subito la tua avventura!
         </Text>
         <LoginButton variant="primary" size="$6" />
+        <Button variant="outlined" size="$3" onPress={() => navigation.navigate('McpGuide')}>
+          Come usare Fantasoccer su ChatGPT
+        </Button>
       </YStack>
 
       <Separator width="100%" />

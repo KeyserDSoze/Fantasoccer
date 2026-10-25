@@ -12,6 +12,7 @@ import {
   useMedia
 } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
+import { McpGuideCard } from 'components/mcp/McpGuideCard'
 import { Role } from 'types/group'
 import { PlayerCard } from 'components/lineup/PlayerCard'
 import { GoodDefenseIcon, GoodPeopleIcon, OwnGoalIcon } from 'components/icons/BonusIcons'
@@ -114,7 +115,8 @@ export default function InfoScreen() {
         alignItems="stretch"
         alignSelf="center"
       >
-            {media.gtMd && (
+             <McpGuideCard />
+             {media.gtMd && (
               <Card
                 padding="$4"
                 backgroundColor="$purple2"

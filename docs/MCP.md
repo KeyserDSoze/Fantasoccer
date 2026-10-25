@@ -174,6 +174,14 @@ Giornata Serie A (1..38), numero turno fantasy e dayId globale sono distinti: `(
 
 Se la connessione è stata creata prima dei nuovi tool, aggiornare/scansionare nuovamente gli strumenti nella gestione dell'app ChatGPT (se il workspace conserva uno snapshot del catalogo). Avviare una nuova chat selezionando l'app e chiedere: «Leggi la guida di Fantasoccer e la stagione corrente; poi dimmi a quali gruppi appartengo, senza modificare dati». Gli altri client possono dover riconnettersi o aggiornare `tools/list`. Non occorrono nuovi secrets, callback o registrazioni manuali.
 
+### Guida pubblica nel frontend
+
+La schermata `/mcp-guide` spiega agli utenti come collegare ChatGPT o un altro client compatibile: URL di produzione copiabile, OAuth con registrazione automatica, login/consenso, primi prompt di sola lettura, sei tool, stagioni, limiti dei permessi, revoca e FAQ. Non richiede login, gruppo selezionato o una risposta API MCP per poter essere letta; è raggiungibile da home pubblica, menu, Guida e Impostazioni vicino ai Collegamenti MCP.
+
+Le istruzioni ChatGPT distinguono la nuova interfaccia Plugins e la precedente App, rimandano alla guida ufficiale OpenAI e indicano la data di verifica. La disponibilità dipende dal piano/workspace: non promettono supporto universale alle scritture o una conferma obbligatoria da parte di ogni client. Non vanno distribuiti segreti di deploy o bearer del frontend; la revoca impedisce accessi futuri ma non cancella dati già copiati dal client.
+
+I testi sono in `content/mcpGuide.ts`; il test frontend confronta i nomi dei tool documentati con gli attributi MCP del backend, per segnalare un catalogo diventato obsoleto. Il browser usa la clipboard con fallback alla selezione manuale; su native il pulsante apre la condivisione. La guida non chiama operazioni business né modifica utenti/collegamenti.
+
 Esempio (recuperare sempre l'identificatore effettivo dal catalogo):
 
 ```json

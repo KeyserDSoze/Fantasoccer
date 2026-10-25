@@ -115,6 +115,7 @@ const navigationItems: NavigationSection[] = [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
       { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'route', route: 'Info', label: 'Guida', icon: HelpCircle, description: 'Guida al sito' },
+      { type: 'route', route: 'McpGuide', label: 'MCP e ChatGPT', icon: Sparkles, description: 'Collega un assistente AI a Fantasoccer' },
       { type: 'route', route: 'Settings', label: 'Impostazioni', icon: Settings, description: 'Impostazioni utente' },
       { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Bell, description: 'Gestisci le notifiche push' },
       { type: 'route', route: 'PatchNotes', label: 'Patch Notes', icon: FileText, description: 'Novità e aggiornamenti dell\'app' },

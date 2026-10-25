@@ -12,6 +12,7 @@ import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
 import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
+import McpGuideScreen from 'screens/mcp-guide';
 import TeamSettingsScreen from 'screens/team-settings';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
@@ -40,6 +41,7 @@ import { VersionUpdateBanner } from 'components/version/VersionUpdateBanner';
 import OpeningCompetitionScreen from 'screens/opening-competition';
 import { MarketActivityProvider } from 'providers/MarketActivityProvider';
 import { LiveWidgetLayoutProvider } from 'providers/LiveWidgetLayoutProvider';
+import { MCP_GUIDE_PATH } from '../content/mcpGuide';
 
 // Props per il componente Navigation
 interface NavigationProps {
@@ -79,6 +81,7 @@ export type RootStackParamList = {
   CardsAdmin: undefined;
   CardEdit: { cardId?: string | null };
   Settings: undefined;
+  McpGuide: undefined;
   TeamSettings: undefined;
   Info: undefined;
   PatchNotes: undefined;
@@ -171,6 +174,7 @@ const linking = {
       CardsAdmin: 'cards-admin',
       CardEdit: 'card-edit/:cardId?',
       Settings: 'settings',
+      McpGuide: MCP_GUIDE_PATH,
       TeamSettings: 'team-settings',
       Info: 'info',
       PatchNotes: 'patch-notes',
@@ -235,6 +239,7 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="CardsAdmin" component={CardsAdminScreen} />
         <Stack.Screen name="CardEdit" component={CardEditScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="McpGuide" component={McpGuideScreen} />
         <Stack.Screen name="TeamSettings" component={TeamSettingsScreen} />
         <Stack.Screen name="Info" component={InfoScreen} />
         <Stack.Screen name="PatchNotes" component={PatchNotesScreen} />
