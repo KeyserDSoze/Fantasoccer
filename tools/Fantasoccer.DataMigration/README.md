@@ -59,6 +59,14 @@ Gli errori sui calciatori riportano checksum del documento e `Player details`: c
 
 È solo diagnostica: stessi controlli sulla chiave e sui ruoli `-1..3`, nessun salto, correzione automatica, cambio di mapping/schema o nuova opzione env. Le voci `null` e i record con nome mancante restano rifiutati con un errore mirato invece di un'eccezione generica. I container esclusi non vengono decodificati. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_player) e rianalizzare il dump esistente senza `-Apply`.
 
+### Conservazione puntuale dei cataloghi con nomi vuoti
+
+`PLAYER_CATALOG_RESOLUTIONS_JSON` (CLI diretta: `FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON`) è un array esplicito di `{documentSha256, expectedUnnamedPlayers}`, vuoto per default. Consente di preservare le righe `n:""` di un solo catalogo `realplayerswrapper` identificato univocamente da ciascun hash approvato. Hash mancanti/stantii/ambigui e conteggi diversi restano errori. Non è uno skip globale degli errori; nomi null/whitespace/numerici, ruoli invalidi e identificatori indipendenti valorizzati non vengono assorbiti da questa scelta.
+
+I record vengono conservati in `UnresolvedPlayerCatalogEntries` con frammento JSON **testuale esatto**, checksum/posizione/stagione e ID deterministico per sorgente/documento/indice, senza creare identità di gioco fittizie né collassare righe duplicate. Sorgente e dump restano invariati. I record nominati mantengono nomi e chiavi legacy (nessun merge di alias HTML); tutti i riferimenti negli altri documenti e i cataloghi non approvati continuano a essere validati normalmente.
+
+Il report espone `resolvedPlayerCatalogs` e `unresolvedPlayerCatalogEntries`, avvisi e riferimenti hash, mai i payload. L'analisi non richiede SQL; l'applicazione crea la tabella tramite EF e conserva in un'unica transazione calciatori validi e righe irrisolte. Idempotenza, sostituzione dei soli dati della sorgente approvata, blocco dopo scritture applicative e rifiuto del downgrade con archivio popolato sono verificati. Nessuna UI di recupero nomi/merge viene introdotta: gli irrisolti restano dati da riconciliare, non un cutover completo. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#catalogo-con-nomi-realmente-vuoti-conservazione-sql-approvata).
+
 ## Riconciliazioni e artefatti conservati
 
 ### Escludere le vecchie aste senza fornire le chiavi legacy

@@ -16,6 +16,7 @@ public sealed partial class CoreDatasetImporter
         var seasons = new Dictionary<(Guid Player, int Year), PlayerSeason>();
         var authoritative = new HashSet<(Guid Player, int Year)>();
         var roots = new HashSet<(string Kind, int Year, int Day)>();
+        var catalogResolutions = PreparePlayerCatalogResolutions(dataset, options.PlayerCatalogResolutions);
         void Root(string kind, int year, int day)
         {
             if (!roots.Add((kind, year, day))) throw new CoreImportException("duplicate_football_dataset");
@@ -65,8 +66,22 @@ public sealed partial class CoreDatasetImporter
             var entity = document.Envelope.Deserialize<Entity<RealPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_players_envelope");
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
-            foreach (var (player, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_players")).Select((value, index) => (value, index)))
+            var catalog = entity.Value?.Players ?? throw new CoreImportException("missing_players");
+            catalogResolutions.TryGetValue(document.Sha256, out var resolution);
+            var unnamed = resolution is null ? 0 : catalog.Count(x => x?.Name == string.Empty);
+            if (resolution is not null && unnamed != resolution.ExpectedUnnamedPlayers)
+                throw new CoreImportException("player_catalog_resolution_count_mismatch", documentSha256: document.Sha256);
+            foreach (var (player, index) in catalog.Select((value, index) => (value, index)))
+            {
+                if (resolution is not null && player?.Name == string.Empty)
+                {
+                    PreserveUnnamedCatalogEntry(dataset, plan, document, player, entity.Key, index, map);
+                    continue;
+                }
                 Player(player, entity.Key, true, PlayerOrigin(document, $".p[{index}]"));
+            }
+            if (resolution is not null) plan.ResolvedPlayerCatalogs.Add(new(document.Sha256, DocumentArchiveReference(document), entity.Key,
+                catalog.Count, catalog.Count - unnamed, unnamed));
         }
 
         LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root);

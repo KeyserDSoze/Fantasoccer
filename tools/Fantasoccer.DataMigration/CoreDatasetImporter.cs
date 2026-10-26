@@ -14,7 +14,8 @@ namespace Fantasoccer.DataMigration;
 public sealed record CoreImportReport(int MappingVersion, int Documents, int SkippedDocuments, int Users, int Groups,
     int Teams, string[] PendingContainers, string[] PendingFields, bool FullMigrationComplete = false, string[]? PreservedArtifacts = null,
     string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null,
-    AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0);
+    AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0,
+    AppliedPlayerCatalogResolution[]? ResolvedPlayerCatalogs = null, int UnresolvedPlayerCatalogEntries = 0);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null) : Exception(code)
@@ -29,7 +30,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 27;
+    public const int MappingVersion = 28;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -73,7 +74,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             if (await database.Users.AnyAsync(cancellationToken) || await database.Groups.AnyAsync(cancellationToken) ||
                 await database.Players.AnyAsync(cancellationToken) || await database.Clubs.AnyAsync(cancellationToken) ||
                 await database.FootballMatchdays.AnyAsync(cancellationToken) || await database.FootballDatasets.AnyAsync(cancellationToken) || await database.CardLibraries.AnyAsync(cancellationToken) ||
-                await database.ArchivedOperationalLogs.AnyAsync(cancellationToken) || await database.NewsEditions.AnyAsync(cancellationToken) || await database.TeamAdvice.AnyAsync(cancellationToken))
+                await database.ArchivedOperationalLogs.AnyAsync(cancellationToken) || await database.NewsEditions.AnyAsync(cancellationToken) || await database.TeamAdvice.AnyAsync(cancellationToken) ||
+                await database.UnresolvedPlayerCatalogEntries.AnyAsync(cancellationToken))
                 throw new CoreImportException("target_is_not_empty");
             database.CoreMigrationStates.Add(state = new());
         }
@@ -93,6 +95,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         var groupIds = maps.Where(x => x.Kind == "group").Select(x => x.TargetId).ToArray();
         var userIds = maps.Where(x => x.Kind == "user").Select(x => x.TargetId).ToArray();
         var logIds = maps.Where(x => x.Kind == "operational-log").Select(x => x.TargetId).ToArray();
+        await database.UnresolvedPlayerCatalogEntries.Where(x => x.SourceId == state.SourceId).ExecuteDeleteAsync(cancellationToken);
         await database.ArchivedOperationalLogs.Where(x => logIds.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
         await database.TeamAdvice.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
         await database.NewsEditions.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
@@ -181,6 +184,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         database.Users.AddRange(plan.Users.Values);
         database.Clubs.AddRange(plan.Clubs);
         database.Players.AddRange(plan.Players);
+        database.UnresolvedPlayerCatalogEntries.AddRange(plan.UnresolvedPlayerCatalogEntries);
         database.PlayerSeasons.AddRange(plan.PlayerSeasons);
         database.FootballMatchdays.AddRange(plan.Matchdays);
         database.RosterSnapshots.AddRange(plan.Rosters);
@@ -232,7 +236,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         }));
         await database.SaveChangesAsync(cancellationToken);
         if (await database.Groups.CountAsync(x => plan.GroupIds.Contains(x.Id), cancellationToken) != plan.Groups.Count ||
-            await database.TeamSeasons.CountAsync(x => plan.GroupIds.Contains(x.GroupId), cancellationToken) != plan.Teams.Count)
+            await database.TeamSeasons.CountAsync(x => plan.GroupIds.Contains(x.GroupId), cancellationToken) != plan.Teams.Count ||
+            await database.UnresolvedPlayerCatalogEntries.CountAsync(x => x.SourceId == state.SourceId, cancellationToken) != plan.UnresolvedPlayerCatalogEntries.Count)
             throw new CoreImportException("reconciliation_failed");
         await transaction.CommitAsync(cancellationToken);
         return Report(dataset, plan, 0);
@@ -243,6 +248,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         dataset.Manifest.Containers.Where(x => !Containers.Contains(x.Name) && !PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).Select(x => x.Name)
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
          [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+          .. plan.UnresolvedPlayerCatalogEntries.Count > 0
+              ? new[] { "Explicit checksum-pinned catalog resolutions preserved unnamed rows in SQL UnresolvedPlayerCatalogEntries and the verified dump. They are not usable player identities; review resolvedPlayerCatalogs. Other player references remain strictly validated." } : Array.Empty<string>(),
           .. plan.Users.Values.Any(x => x.Email is null)
                ? new[] { "Named historical owners are existing users without login emails, inactive in their groups. Group administrators can manage their membership by user ID; no emails, roles or authentication bindings were invented." } : Array.Empty<string>(),
           .. plan.ResolvedIdentityConflicts.Count > 0
@@ -263,12 +270,14 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                   .OrderBy(x => x.Name).Select(x => x.Name + ": excluded from SQL by explicit import option; original bytes preserved in verified dump"))
                .Concat(dataset.Manifest.Tables.Where(x => !plan.ImportLegacyLogs && x.Name == "logs" && x.EntityCount > 0)
                    .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump"))
-               .Concat(plan.ResolvedIdentityConflicts.Select(x => "appidentity: unselected duplicate " + x.OtherDocumentSha256 + " preserved in verified dump; selected " + x.PreferredDocumentSha256)).ToArray(),
+               .Concat(plan.ResolvedIdentityConflicts.Select(x => "appidentity: unselected duplicate " + x.OtherDocumentSha256 + " preserved in verified dump; selected " + x.PreferredDocumentSha256))
+               .Concat(plan.ResolvedPlayerCatalogs.Select(x => "realplayerswrapper: " + x.UnresolvedEntries + " unnamed catalog entries preserved in SQL and verified dump; document " + x.DocumentSha256)).ToArray(),
           ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
               .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray(),
           ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray(),
           ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray(),
-          HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null));
+          HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null),
+          ResolvedPlayerCatalogs: plan.ResolvedPlayerCatalogs.ToArray(), UnresolvedPlayerCatalogEntries: plan.UnresolvedPlayerCatalogEntries.Count);
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -593,6 +602,8 @@ public sealed class CorePlan
     public bool ImportLegacyNamedOwners { get; init; }
     public List<string> ReconciledIdentityDocuments { get; } = [];
     public List<AppliedIdentityResolution> ResolvedIdentityConflicts { get; } = [];
+    public List<AppliedPlayerCatalogResolution> ResolvedPlayerCatalogs { get; } = [];
+    public List<UnresolvedPlayerCatalogEntry> UnresolvedPlayerCatalogEntries { get; } = [];
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];
     public Guid[] GroupIds => Groups.Select(x => x.Id).ToArray();

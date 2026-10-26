@@ -22,6 +22,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<CoreMigrationState> CoreMigrationStates => Set<CoreMigrationState>();
     public DbSet<LegacyIdentityMap> LegacyIdentityMaps => Set<LegacyIdentityMap>();
     public DbSet<CoreImportCheckpoint> CoreImportCheckpoints => Set<CoreImportCheckpoint>();
+    public DbSet<UnresolvedPlayerCatalogEntry> UnresolvedPlayerCatalogEntries => Set<UnresolvedPlayerCatalogEntry>();
     public DbSet<AccountPreferences> AccountPreferences => Set<AccountPreferences>();
     public DbSet<AccountSelection> AccountSelections => Set<AccountSelection>();
     public DbSet<UnresolvedAccountSelection> UnresolvedAccountSelections => Set<UnresolvedAccountSelection>();

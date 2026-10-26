@@ -117,6 +117,26 @@ La diagnostica copre cataloghi, rose, campioni voti/probabilità/statistiche, me
 
 Riesegui soltanto l'analisi con `-UseExistingDump` e lo stesso env privato. Non aggiungere opzioni, fare reset, modificare il dump o usare `-Apply` per aggirare il controllo. Condividi il codice errore, `Document SHA-256` e `Player details`, non l'intero documento. Il record va poi esaminato localmente prima di scegliere un'eventuale riconciliazione.
 
+#### Catalogo con nomi realmente vuoti: conservazione SQL approvata
+
+Se il confronto del JSON conferma righe con `n:""` nel catalogo `realplayerswrapper`, senza una chiave calciatore indipendente, non è possibile ricostruire l'identità da club, ruolo o ordine della lista. La `Key` numerica dell'envelope identifica la **stagione**, non un calciatore; la `RealPlayer.Key` del codice è derivata dal nome, quindi anch'essa vuota in questo caso.
+
+Dopo revisione e approvazione del gestore puoi configurare una scelta per **quel documento esatto**, sostituendo il segnaposto SHA-256 e il conteggio con quelli verificati:
+
+```dotenv
+PLAYER_CATALOG_RESOLUTIONS_JSON='[{"documentSha256":"SHA256_CATALOGO_APPROVATO","expectedUnnamedPlayers":2}]'
+```
+
+Il checksum deve avere 64 caratteri esadecimali; il conteggio deve essere positivo e corrispondere esattamente alle righe con nome stringa vuota. Il default è vuoto: nessun catalogo è autorizzato implicitamente. È una variabile del solo tool di migrazione (CLI .NET diretta: `FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON`); **mantieni** le precedenti opzioni e `IDENTITY_RESOLUTIONS_JSON` nell'env privato.
+
+La scelta richiede un solo documento corrispondente in `realplayerswrapper`. Checksum cambiati/mancanti, più copie con lo stesso hash o conteggi diversi rimangono errori `player_catalog_resolution_*`. La regola non accetta nomi null/whitespace/numerici come se fossero `""`, non scavalca ruoli fuori intervallo e non nasconde identificatori `k`/`key`/`id` valorizzati: in quel caso serve una riconciliazione che ne esamini l'affidabilità.
+
+Le righe autorizzate vengono conservate **integralmente in SQL `UnresolvedPlayerCatalogEntries`**, con sorgente, checksum, file hash, stagione, posizione JSON e indice originali. `OriginalPayloadJson` è testo per mantenere anche campi sconosciuti, escape, proprietà duplicate e rappresentazione numerica. Righe identiche a indici diversi restano righe distinte. La loro identità tecnica è quella della riga d'archivio, **non** un `PlayerId` utilizzabile nel gioco. Non si inventano nomi, non si assegnano queste righe a calciatori noti per club/ruolo e non si cambiano i flag originali.
+
+Il resto del catalogo continua a superare i normali controlli e conserva nomi/chiavi legacy, comprese eventuali varianti HTML: questa scelta non le unisce né le normalizza. I controlli sui giocatori nelle rose, voti, classifiche, albo, aste incluse e altri documenti rimangono stretti; un riferimento non identificabile continua a fermare tutta la transazione. Anche un altro catalogo non approvato resta bloccato.
+
+Riesegui l'analisi sul dump esistente senza reset o download. Controlla `resolvedPlayerCatalogs` (`totalEntries`, `importedEntries`, `unresolvedEntries`), `unresolvedPlayerCatalogEntries`, `pendingFields` e `preservedArtifacts`. Il report non stampa i payload irrisolti e mantiene `fullMigrationComplete:false`. Solo dopo l'analisi riuscita e la revisione del report usa `-Apply`: la migration SQL crea la tabella senza cancellare dati esistenti. L'import è atomico e idempotente; conserva il dump originale e non modifica la sorgente. Un downgrade che eliminerebbe righe irrisolte viene rifiutato. Restano i blocchi su target non vuoto/non appartenente alla sorgente e sulle reimportazioni dopo scritture applicative.
+
 ### Se compare `identity_collision`
 
 Non significa necessariamente "due utenti duplicati": l'importatore usa questo blocco anche se una chiave email o il nome email del Blob contraddicono il profilo. La riga `Identity details` ora distingue:

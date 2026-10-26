@@ -15,8 +15,10 @@ public sealed partial class CoreMigrationTests
         var migrations = database.Database.GetMigrations().ToArray();
         var current = migrations.Single(x => x.EndsWith("AccountScopedTeamAdvice", StringComparison.Ordinal));
         var previous = migrations[Array.IndexOf(migrations, current) - 1];
-        var migrator = database.GetService<IMigrator>(); await migrator.MigrateAsync(previous);
+        // The current importer requires the current schema. Seed core data
+        // first, then downgrade only to exercise the legacy advice boundary.
         await ImportAsync();
+        var migrator = database.GetService<IMigrator>(); await migrator.MigrateAsync(previous);
         var team = await database.TeamSeasons.AsNoTracking().OrderBy(x => x.Name).FirstAsync();
         var owner = await database.TeamOwnerships.Where(x => x.TeamId == team.Id && x.IsPrimary).Select(x => x.UserId).SingleAsync();
         await database.Database.ExecuteSqlInterpolatedAsync($"""

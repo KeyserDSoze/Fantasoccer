@@ -6,7 +6,7 @@ using System.Text.Json;
 
 if (args is not ["migrate-schema"] && args is not ["import-core", "--directory", _] && args is not ["analyze-core", "--directory", _])
 {
-    Console.WriteLine("Usage: migrate-schema | analyze-core --directory /dump | import-core --directory /dump. Review pendingFields, pendingContainers, excludedContainers, preservedArtifacts, resolvedIdentityConflicts and historicalNamedUsers; the report cannot authorize production cutover. FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false omits old auctions/orders; FANTASOCCER_IMPORT_LEGACY_LOGS=true opts into historical Table logs (default false). FANTASOCCER_IDENTITY_RESOLUTIONS_JSON supplies operator-approved, checksum-pinned identity choices. FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS=true preserves non-email owners as users inactive in their groups (default false).");
+    Console.WriteLine("Usage: migrate-schema | analyze-core --directory /dump | import-core --directory /dump. Review pendingFields, pendingContainers, excludedContainers, preservedArtifacts, resolvedIdentityConflicts, historicalNamedUsers and resolvedPlayerCatalogs; the report cannot authorize production cutover. FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false omits old auctions/orders; FANTASOCCER_IMPORT_LEGACY_LOGS=true opts into historical Table logs (default false). FANTASOCCER_IDENTITY_RESOLUTIONS_JSON supplies operator-approved, checksum-pinned identity choices. FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS=true preserves non-email owners as users inactive in their groups (default false). FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON pins reviewed unnamed catalog rows for unresolved SQL preservation, not usable player identities (default empty).");
     return args is ["--help"] ? 0 : 2;
 }
 
@@ -20,7 +20,8 @@ try
         throw new InvalidOperationException("FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS must be true or false.");
     var importOptions = new CoreImportOptions(Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_KEY"),
         Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_IV"), importLegacyAuctions, importLegacyLogs,
-        IdentityResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_IDENTITY_RESOLUTIONS_JSON")), importLegacyNamedOwners);
+        IdentityResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_IDENTITY_RESOLUTIONS_JSON")), importLegacyNamedOwners,
+        PlayerCatalogResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON")));
     if (args[0] == "analyze-core")
     {
         var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(args[2], options: importOptions);

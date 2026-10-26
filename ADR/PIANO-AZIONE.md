@@ -254,6 +254,14 @@ La lista include i disattivi e lo stato nel gruppo, gestibile per ID. La riattiv
 
 Il dataset reale ha raggiunto `invalid_player` senza contesto sufficiente per capire se la chiave fosse vuota o il ruolo fuori intervallo. La diagnostica ora accompagna il record in lettura con checksum, file di archivio hash e posizione JSON esatta; distingue chiave vuota, ruolo fuori `-1..3` e voce `null`, senza stampare nomi, chiavi, proprietari o nomi Blob. Il contesto copre cataloghi e copie nei documenti annidati, senza cercare per nome o prevalidare container esclusi. Nome mancante/null rimane rifiutato in modo mirato. Regole di accettazione, mapping, schema, opzioni e transazione restano invariati; nessun dato reale viene corretto, scartato o aggiunto alle fixture.
 
+### Catalogo senza nomi: righe irrisolte conservate, non identità inventate
+
+La revisione del catalogo reale ha confermato un blocco di righe con nome vuoto e soli club/ruolo/stato: non contengono chiavi indipendenti. Il gestore ha chiesto di proseguire con la risoluzione. `PLAYER_CATALOG_RESOLUTIONS_JSON`, vuoto per default e riservato al tool, approva un checksum di catalogo e un conteggio esatto. I riferimenti reali restano nell'env privato, non nelle fixture.
+
+Ogni riga autorizzata è conservata integralmente in SQL `UnresolvedPlayerCatalogEntries`, con identità per sorgente/hash/indice e payload testuale, anche se due righe sono uguali. Non è un calciatore utilizzabile e non viene associata a nomi noti per posizione, club o ruolo. La chiave dell'envelope è la stagione e quella calciatore derivata dal nome non è una fonte alternativa. Identificatori indipendenti presenti, altri errori, cataloghi non approvati e riferimenti non identificabili nelle rose continuano a bloccare l'import. I nomi validi e le varianti HTML conservano le chiavi originali, senza normalizzazioni automatiche.
+
+Report e mapping esplicitano il conteggio e i riferimenti hash; sorgente/dump restano invariati e la completezza resta falsa. La nuova tabella viene applicata senza reset; import/reimport sono atomici e limitati alla sorgente, il downgrade rifiuta di perdere righe e restano i guard su target e scritture applicative. La riconciliazione delle identità irrisolte resta un'attività successiva, non una correzione indovinata.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

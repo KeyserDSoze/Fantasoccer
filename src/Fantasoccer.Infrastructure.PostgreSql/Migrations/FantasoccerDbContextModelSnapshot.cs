@@ -2481,6 +2481,59 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.ToTable("UnresolvedAccountSelections", (string)null);
                 });
 
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.UnresolvedPlayerCatalogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArchiveReference")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("DocumentSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("JsonPath")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OriginalPayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SourceOrdinal")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SeasonIndex");
+
+                    b.HasIndex("SourceId", "DocumentSha256", "SourceOrdinal")
+                        .IsUnique();
+
+                    b.ToTable("UnresolvedPlayerCatalogEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_UnresolvedPlayerCatalogEntries_Ordinal", "\"SourceOrdinal\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.UserAccount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6519,6 +6572,15 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.UserAccount", null)
                         .WithOne()
                         .HasForeignKey("Fantasoccer.Infrastructure.PostgreSql.Entities.UnresolvedAccountSelection", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.UnresolvedPlayerCatalogEntry", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonIndex")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
