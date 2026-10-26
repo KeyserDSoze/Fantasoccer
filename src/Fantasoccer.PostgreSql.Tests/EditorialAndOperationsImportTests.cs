@@ -90,7 +90,7 @@ public sealed partial class CoreMigrationTests
             var options = new CoreImportOptions(ImportLegacyLogs: true);
             await table.AddEntityAsync(new TableEntity("ALog", "SourceJob_12") { ["Message"] = "Historical operational message", ["Counter"] = 9L, ["Binary"] = new byte[] { 1, 2, 3 }, ["Enabled"] = false });
             var source = (await table.GetEntityAsync<TableEntity>("ALog", "SourceJob_12")).Value;
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true, includeTables: true);
             await using var database = fixture.CreateContext();
             await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             var log = await database.ArchivedOperationalLogs.SingleAsync(); var id = log.Id;
@@ -103,10 +103,10 @@ public sealed partial class CoreMigrationTests
             Assert.Equal("false", log.Properties.Single(x => x.Name == "Enabled").EncodedValue);
             var repeated = await new CoreDatasetImporter(database, options).ImportAsync(_dump); Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
             await table.UpsertEntityAsync(new TableEntity("ALog", "SourceJob_12") { ["Message"] = "Updated log" }, TableUpdateMode.Replace);
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true, includeTables: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             Assert.Equal(id, (await database.ArchivedOperationalLogs.SingleAsync()).Id); Assert.Single((await database.ArchivedOperationalLogs.SingleAsync()).Properties);
             await table.DeleteEntityAsync("ALog", "SourceJob_12");
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true, includeTables: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             Assert.Empty(await database.ArchivedOperationalLogs.ToArrayAsync());
         }
         finally { await table.DeleteAsync(); }
@@ -126,7 +126,7 @@ public sealed partial class CoreMigrationTests
             await unknown.CreateAsync(); ownsUnknown = true;
             await logs.AddEntityAsync(new TableEntity("ALog", "old-job") { ["Message"] = "Original historical log" });
             await unknown.AddEntityAsync(new TableEntity("future", "data") { ["Message"] = "Unmapped data must remain pending" });
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true, includeTables: true);
 
             var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
             Assert.DoesNotContain(dataset.Documents, x => x.Container == "table:logs");

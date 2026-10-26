@@ -7,10 +7,11 @@ namespace Fantasoccer.StorageMigration;
 public sealed class StorageExporter(StorageEndpoints source, int pageSize = 500)
 {
     public async Task<DumpManifest> ExportAsync(string directory, bool resume = false,
-        bool sourceQuiesced = false, bool allowRemoteSource = false, CancellationToken cancellationToken = default)
+        bool sourceQuiesced = false, bool allowRemoteSource = false, CancellationToken cancellationToken = default,
+        bool includeTables = false)
     {
         if (pageSize is < 1 or > 1000) throw new ArgumentOutOfRangeException(nameof(pageSize));
-        source.RequireExportPermission(allowRemoteSource);
+        source.RequireExportPermission(allowRemoteSource, includeTables);
         var files = new DumpFiles(directory);
         if (!resume && files.HasEntries)
             throw new InvalidOperationException("Use an empty destination or explicitly --resume an existing dump.");
@@ -27,8 +28,10 @@ public sealed class StorageExporter(StorageEndpoints source, int pageSize = 500)
         {
             SourceId = source.SourceId, ExportId = previous.ExportId,
             SourceAccountName = source.Blobs.AccountName,
-            SourceQuiesced = sourceQuiesced
+            SourceQuiesced = sourceQuiesced,
+            Scope = includeTables ? "blob-table-current-state" : "blob-current-state"
         };
+        if (!includeTables) manifest.Exclusions.Add("Tables");
         // Keep the previous completed checkpoints until a new one is atomically saved.
         var reusable = previous.Containers.SelectMany(container => container.Blobs.Select(blob =>
             (Key: (container.Name, blob.Name), Blob: blob))).ToDictionary(x => x.Key, x => x.Blob);
@@ -78,24 +81,27 @@ public sealed class StorageExporter(StorageEndpoints source, int pageSize = 500)
                 await files.WriteManifestAsync(manifest, cancellationToken);
             }
 
-            await foreach (var table in source.Tables.QueryAsync(maxPerPage: pageSize, cancellationToken: cancellationToken))
+            if (includeTables)
             {
-                var path = files.TablePath(table.Name);
-                long count = 0;
-                // Table snapshots are rewritten on resume: no unsafe continuation across source changes.
-                await DumpFiles.WriteAtomicAsync(path, async stream =>
+                await foreach (var table in source.Tables.QueryAsync(maxPerPage: pageSize, cancellationToken: cancellationToken))
                 {
-                    await foreach (var entity in source.Tables.GetTableClient(table.Name)
-                                       .QueryAsync<Azure.Data.Tables.TableEntity>(maxPerPage: pageSize, cancellationToken: cancellationToken))
+                    var path = files.TablePath(table.Name);
+                    long count = 0;
+                    // Table snapshots are rewritten on resume: no unsafe continuation across source changes.
+                    await DumpFiles.WriteAtomicAsync(path, async stream =>
                     {
-                        await JsonSerializer.SerializeAsync(stream, TableValueCodec.Encode(entity), DumpJson.Compact, cancellationToken);
-                        await stream.WriteAsync(new byte[] { (byte)'\n' }, cancellationToken);
-                        count++;
-                    }
-                }, cancellationToken);
-                var fingerprint = await DumpFiles.FingerprintAsync(path, cancellationToken);
-                manifest.Tables.Add(new(table.Name, count, fingerprint.Length, fingerprint.Sha256));
-                await files.WriteManifestAsync(manifest, cancellationToken);
+                        await foreach (var entity in source.Tables.GetTableClient(table.Name)
+                                           .QueryAsync<Azure.Data.Tables.TableEntity>(maxPerPage: pageSize, cancellationToken: cancellationToken))
+                        {
+                            await JsonSerializer.SerializeAsync(stream, TableValueCodec.Encode(entity), DumpJson.Compact, cancellationToken);
+                            await stream.WriteAsync(new byte[] { (byte)'\n' }, cancellationToken);
+                            count++;
+                        }
+                    }, cancellationToken);
+                    var fingerprint = await DumpFiles.FingerprintAsync(path, cancellationToken);
+                    manifest.Tables.Add(new(table.Name, count, fingerprint.Length, fingerprint.Sha256));
+                    await files.WriteManifestAsync(manifest, cancellationToken);
+                }
             }
 
             manifest.Complete = true;

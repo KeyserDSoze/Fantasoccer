@@ -79,7 +79,7 @@ Cambiare la password nel file env non cambia la password di un utente PostgreSQL
 
 Il profilo Compose sceglie `Telemetry:Provider=OpenTelemetry`, disabilitando la registrazione Application Insights anche se esistono altre configurazioni Azure.
 L'API invia log strutturati, span ASP.NET/HttpClient e metriche runtime via OTLP ad Aspire Dashboard. Fare una chiamata applicativa (anche una risposta 401) per vedere la traccia: gli health check non vengono tracciati.
-I log **storici** della Table `logs` non sono importati in PostgreSQL per default: `IMPORT_LEGACY_LOGS=false`. Restano nel dump verificato; `IMPORT_LEGACY_LOGS=true` riattiva esplicitamente l'archivio SQL. Questa opzione non spegne la telemetria corrente né le ricevute/lease dei job: la loro eventuale semplificazione/retention verrà valutata separatamente.
+I log **storici** della Table `logs` non sono importati in PostgreSQL per default: `IMPORT_LEGACY_LOGS=false`. Anche il download/restore Table è disattivato: serve `-IncludeTables` per acquisirle; se già presenti in un vecchio dump restano conservate lì. `IMPORT_LEGACY_LOGS=true` riattiva solo l'import SQL dell'archivio da un dump che lo contenga. Queste opzioni non spengono la telemetria corrente né le ricevute/lease dei job.
 Le query string, userinfo URL e SQL vengono rimossi dagli span prima dell'export. Non vengono raccolti body o header Authorization. I messaggi di business preesistenti possono comunque contenere email o altri dati: la dashboard e il suo volume sono dati sensibili.
 
 Il token della UI è nel `.env`; l'endpoint OTLP è non autenticato ma non pubblicato sull'host. Non esporre questo stack con tunnel/proxy pubblici.
@@ -164,7 +164,7 @@ Import-Certificate -FilePath .\local-certificates\localhost.cer -CertStoreLocati
 
 Per il percorso guidato completo (connection string sorgente, export/analisi, import SQL/file e reset locale con backup) vedere il [runbook Windows](../../docs/MIGRATION-RUNBOOK.md). `sync-storage.ps1` analizza soltanto per default; `-Apply` importa esplicitamente e non esegue mai un reset automatico. `reset-postgres.ps1` richiede `-ConfirmDatabase fantasoccer_local` e supporta `-WhatIf`.
 
-1. Inserire `FANTASOCCER_EXPORT_STORAGE` nel `.env` privato, idealmente con SAS/credenziale **di sola lettura** per Blob e Table.
+1. Inserire `FANTASOCCER_EXPORT_STORAGE` nel `.env` privato, idealmente con SAS/credenziale **di sola lettura** per Blob (e Table solo se richieste).
 2. Usare una copia esplorativa mentre la sorgente è attiva oppure concordare una finestra in cui **tutti** gli scrittori sono fermi. `-SourceQuiesced` registra la dichiarazione, non ferma Azure.
 3. Eseguire l'export esplicitamente:
 
@@ -179,7 +179,8 @@ Per il percorso guidato completo (connection string sorgente, export/analisi, im
 ```
 
 Il dump rimane in `migration-data/prova1/`, escluso da Git e dai build Docker, visibile sul filesystem Windows. Non contiene solo dati di test se la sorgente è reale.
-`restore` ferma frontend/API prima di scrivere in Azurite e non li riavvia automaticamente. Abilita lettura pubblica dei soli file in `images`, `logos`, `cardimages` sull'emulatore locale (`--public-local-files`); gli altri container nuovi restano privati. Non cancella oggetti locali estranei: usare un laboratorio dedicato per ottenere una copia esatta. Non esiste restore remoto.
+Per default export e restore operano solo sui Blob. Aggiungere `-IncludeTables` a `local.ps1 export`/`restore` o `sync-storage.ps1` solo per richiedere esplicitamente anche le Table. `-Resume` riusa i Blob invariati verificati; `-UseExistingDump` nel wrapper sync evita ogni nuovo accesso ad Azure. Un `invalid_email` dell'import riguarda un documento Blob, non la fase Table: vedere la diagnosi nel runbook.
+`restore` ferma frontend/API prima di scrivere in Azurite e non li riavvia automaticamente. Ripristina Table solo con `-IncludeTables`. Abilita lettura pubblica dei soli file in `images`, `logos`, `cardimages` sull'emulatore locale (`--public-local-files`); gli altri container nuovi restano privati. Non cancella oggetti locali estranei: usare un laboratorio dedicato per ottenere una copia esatta. Non esiste restore remoto.
 `migrate` è ripetibile e applica solo le migration EF. Per l'import dei dati, eseguire esplicitamente:
 
 ```powershell

@@ -39,8 +39,10 @@ internal sealed class DumpFiles
         await using var stream = File.OpenRead(Path.Combine(_root, "manifest.json"));
         var manifest = await JsonSerializer.DeserializeAsync<DumpManifest>(stream, DumpJson.Compact, cancellationToken)
             ?? throw new InvalidDataException("Manifest is empty.");
-        if (manifest.FormatVersion != 1 || manifest.Scope != "blob-table-current-state")
+        if (manifest.FormatVersion != 1 || manifest.Scope is not ("blob-table-current-state" or "blob-current-state"))
             throw new InvalidDataException("Unsupported manifest format or scope.");
+        if (manifest.Scope == "blob-current-state" && (manifest.Tables.Count != 0 || !manifest.Exclusions.Contains("Tables")))
+            throw new InvalidDataException("Blob-only manifest must explicitly exclude Table Storage and contain no Table entries.");
         if (manifest.Containers.Select(x => x.Name).Distinct().Count() != manifest.Containers.Count ||
             manifest.Tables.Select(x => x.Name).Distinct().Count() != manifest.Tables.Count ||
             manifest.Containers.Any(container => container.Blobs.Select(x => x.Name).Distinct().Count() != container.Blobs.Count))

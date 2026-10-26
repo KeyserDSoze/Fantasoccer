@@ -32,10 +32,10 @@ public sealed class StorageEndpoints
             throw new InvalidOperationException("Restore/test operations require a dedicated local Azurite account.");
     }
 
-    public void RequireExportPermission(bool allowRemoteSource)
+    public void RequireExportPermission(bool allowRemoteSource, bool includeTables = true)
     {
-        if (IsLocal(Blobs.Uri) && IsLocal(Tables.Uri)) return;
-        if (!allowRemoteSource || Blobs.Uri.Scheme != "https" || Tables.Uri.Scheme != "https")
+        if (IsLocal(Blobs.Uri) && (!includeTables || IsLocal(Tables.Uri))) return;
+        if (!allowRemoteSource || Blobs.Uri.Scheme != "https" || (includeTables && Tables.Uri.Scheme != "https"))
             throw new InvalidOperationException("Remote export requires HTTPS and explicit --allow-remote-source.");
     }
 

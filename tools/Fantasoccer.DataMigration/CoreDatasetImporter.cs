@@ -2,6 +2,7 @@ using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
@@ -14,7 +15,12 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     int Teams, string[] PendingContainers, string[] PendingFields, bool FullMigrationComplete = false, string[]? PreservedArtifacts = null,
     string[]? ExcludedContainers = null);
 
-public sealed class CoreImportException(string code) : Exception(code);
+public sealed class CoreImportException(string code, string? field = null, string? reader = null) : Exception(code)
+{
+    // Source-code coordinates only; never the rejected email/payload/key.
+    public string? Field { get; } = field;
+    public string? Reader { get; } = reader;
+}
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
@@ -231,7 +237,9 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         MappingVersion, dataset.Documents.Count, skipped, plan.Users.Count, plan.Groups.Count, plan.Teams.Count,
         dataset.Manifest.Containers.Where(x => !Containers.Contains(x.Name) && !PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).Select(x => x.Name)
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
-        [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+         [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+          .. plan.ImportLegacyLogs && dataset.Manifest.Scope == "blob-current-state"
+              ? new[] { "Historical log import was requested, but this dump excludes Table Storage. Export with --include-tables first." } : Array.Empty<string>(),
          .. plan.Rosters.Any(x => x.Kind == RosterKind.Season && x.RankCreditGranted == null)
              ? new[] { "Legacy rank-credit checkpoints require explicit confirmation before automatic re-awards; imported balances were not changed." } : Array.Empty<string>(),
          .. plan.CardLibraries.Any(x => x.Name != "default")
@@ -308,7 +316,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                         var logoKey = $"{key}/{annual.Year}/{team.Owner}.png";
                         plan.Teams.Add(new() { Id = teamId, GroupId = groupId, BasketId = basketId, SeasonIndex = annual.Year,
                             Name = Name(team.Name), NormalizedName = Name(team.Name).ToLowerInvariant(), LogoBlobName = logoFiles.Contains(logoKey) ? logoKey : null });
-                        foreach (var owner in (team.AdditionalOwners ?? []).Select(Email).Append(email).Distinct())
+                        foreach (var owner in (team.AdditionalOwners ?? []).Select(value => Email(value, "team.AdditionalOwners[]")).Append(email).Distinct())
                         {
                             var user = AddUser(owner, owner);
                             if (!memberships.ContainsKey(owner))
@@ -459,11 +467,12 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         if (entity?.Key is not { Length: > 0 } key || entity.Value is null) throw new CoreImportException("invalid_legacy_envelope");
         return (key, entity.Value);
     }
-    private static string Email(string? value)
+    private static string Email(string? value, [CallerArgumentExpression(nameof(value))] string? field = null,
+        [CallerFilePath] string readerFile = "", [CallerLineNumber] int readerLine = 0)
     {
         var email = value?.Trim().ToLowerInvariant();
         if (email is null || email.Length > 320 || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
-            throw new CoreImportException("invalid_email");
+            throw new CoreImportException("invalid_email", field, Path.GetFileName(readerFile) + ":" + readerLine);
         return email;
     }
     private static string Name(string? value) => value?.Trim() is { Length: >= 1 and <= 200 } name

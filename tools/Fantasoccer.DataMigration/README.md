@@ -41,7 +41,7 @@ Il report dichiara `excludedContainers` e conserva le aste originali nel dump ve
 
 ### Log storici esclusi per default
 
-`IMPORT_LEGACY_LOGS=false` è il default del Compose, del template env e dell'importatore. La Table `logs` resta nel dump verificato ma non viene trasformata in documenti da importare o salvata nell'archivio PostgreSQL. Il report dichiara `table:logs` in `excludedContainers` e, se il dump contiene righe, in `preservedArtifacts`. Altre Table sconosciute restano pendenti. È possibile riabilitare esplicitamente l'archivio con `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`).
+`IMPORT_LEGACY_LOGS=false` è il default del Compose, del template env e dell'importatore. Download/restore Table sono anch'essi opt-in (`-IncludeTables` nel wrapper, `--include-tables` nella CLI): la Table `logs` resta nell'archivio solo se già acquisita o richiesta esplicitamente, ma non viene salvata in SQL. Il report dichiara `table:logs` in `excludedContainers` e, se il dump contiene righe, in `preservedArtifacts`. Altre Table acquisite ma sconosciute restano pendenti. Per importare l'archivio SQL servono sia un dump con Table sia `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`); un opt-in SQL su dump Blob-only produce un avviso nel report.
 
 L'opzione riguarda solo il passato: la telemetria OpenTelemetry/Aspire e lo stato/ricevute dei job SQL non cambiano. La loro futura revisione dovrà separare diagnostica da audit e coordinamento funzionale, senza eliminare controlli di lease/idempotenza insieme ai messaggi di log.
 

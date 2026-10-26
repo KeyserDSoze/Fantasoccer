@@ -206,6 +206,14 @@ Su richiesta successiva il default diventa `IMPORT_LEGACY_LOGS=false` (CLI: `FAN
 
 **Rinviata a una revisione dedicata:** classificare log diagnostici attuali, audit, ricevute e stato dei job; valutare quali messaggi tenere solo su OpenTelemetry/piattaforma di logging e la retention dei dati rimanenti. Questo incremento non modifica i writer correnti, non elimina schemi e non rimuove lease/checkpoint/outbox necessari al comportamento del gioco.
 
+### Export Blob-only e ripresa dopo errori del primo import
+
+Il default senza Table vale ora anche per **download e restore**, non solo per l'import SQL dei log. `-IncludeTables` nei wrapper PowerShell (`INCLUDE_TABLES=true` Bash, `--include-tables` CLI) è l'opt-in esplicito; i manifest dichiarano `blob-current-state`/esclusione `Tables`, mentre i vecchi dump Blob+Table rimangono leggibili. È possibile riprendere un export interrotto sulle Table riutilizzando i checkpoint Blob e omettendo la fase Table; nessun file preesistente viene cancellato.
+
+`-UseExistingDump` evita completamente nuove letture Azure; `-Resume` rifà il listing e riutilizza soltanto i Blob coerenti con ETag/dimensione/checksum. Le scansioni Table, quando richieste, ripartono invece dall'inizio. Un errore `invalid_email` è distinto dalla fase download: la diagnostica indica campo ed esatte coordinate del lettore senza stampare email, chiavi dei documenti o payload. Non vengono saltati o corretti automaticamente utenti: il dataset reale richiederà riconciliazione del campo indicato, senza reset obbligatorio per un'analisi fallita.
+
+Test: assenza di richieste Table sul percorso predefinito, opt-in, riuso Blob fra modalità, recupero di manifest incompleto, restore Table solo su richiesta, errore email da Blob anche senza Table, wrapper PowerShell/Bash e suite PostgreSQL/API.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

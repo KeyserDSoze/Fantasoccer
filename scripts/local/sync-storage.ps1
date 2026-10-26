@@ -7,7 +7,8 @@ param(
     [switch]$Resume,
     [switch]$SourceQuiesced,
     [switch]$UseExistingDump,
-    [switch]$Apply
+    [switch]$Apply,
+    [switch]$IncludeTables
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,8 +25,8 @@ $contexts = @(($contextJson -join "`n") | ConvertFrom-Json)
 if ($contexts.Count -ne 1 -or $contexts[0].Endpoints.docker.Host -notmatch '^(unix|npipe)://') { throw 'This workflow requires a local Docker socket/named-pipe context.' }
 $local = Join-Path $PSScriptRoot 'local.ps1'
 if (-not $UseExistingDump) {
-    Write-Host 'Source: FANTASOCCER_EXPORT_STORAGE from private env (never printed). Only Blob/Table current-state reads; no changes to Azure.'
-    & $local export -EnvFile $EnvFile -DumpName $DumpName -Resume:$Resume -SourceQuiesced:$SourceQuiesced
+    Write-Host 'Source: FANTASOCCER_EXPORT_STORAGE from private env (never printed). Blob-only by default; Table download requires -IncludeTables. No changes to Azure.'
+    & $local export -EnvFile $EnvFile -DumpName $DumpName -Resume:$Resume -SourceQuiesced:$SourceQuiesced -IncludeTables:$IncludeTables
 }
 & $local verify -EnvFile $EnvFile -DumpName $DumpName
 & $local analyze-core -EnvFile $EnvFile -DumpName $DumpName
@@ -37,5 +38,5 @@ Write-Warning 'Local target only. Stop host debug/dotnet processes too. A live-s
 # Import SQL BEFORE restoring files, so a refused import cannot overwrite the
 # local file store. Any later restore failure leaves applications stopped.
 & $local import-core -EnvFile $EnvFile -DumpName $DumpName
-& $local restore -EnvFile $EnvFile -DumpName $DumpName
+& $local restore -EnvFile $EnvFile -DumpName $DumpName -IncludeTables:$IncludeTables
 Write-Host 'Local SQL and Azurite updated from the verified snapshot. Review reports before restarting. No provider was called for writes, no notifications sent. This is NOT continuous/bidirectional sync or automatic production cutover.'

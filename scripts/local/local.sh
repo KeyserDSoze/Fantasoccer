@@ -49,12 +49,15 @@ case "$action" in
     flags=()
     [[ "${RESUME:-false}" != true ]] || flags+=(--resume)
     [[ "${SOURCE_QUIESCED:-false}" != true ]] || flags+=(--source-quiesced)
+    [[ "${INCLUDE_TABLES:-false}" != true ]] || flags+=(--include-tables)
     "${compose[@]}" --profile tools run --rm --build storage-export export --directory "/dumps/$dump_name" --allow-remote-source "${flags[@]}"
     ;;
   verify) "${compose[@]}" --profile tools run --rm --build storage-verify verify --directory "/dumps/$dump_name" ;;
   restore)
     "${compose[@]}" stop frontend api
-    "${compose[@]}" --profile tools run --rm --build storage-restore restore-local --directory "/dumps/$dump_name" --public-local-files
+    flags=(--public-local-files)
+    [[ "${INCLUDE_TABLES:-false}" != true ]] || flags+=(--include-tables)
+    "${compose[@]}" --profile tools run --rm --build storage-restore restore-local --directory "/dumps/$dump_name" "${flags[@]}"
     echo 'Verified snapshot restored to local Azurite. SQL data import is separate (analyze-core/import-core).'
     ;;
   migrate) "${compose[@]}" --profile tools run --rm --build migrate ;;

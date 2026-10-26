@@ -120,7 +120,7 @@ public sealed partial class CoreDatasetImporter
                 Kind = kind, Day = day, TeamOriginYear = originYear, CompetitionId = competition, LeagueId = leagueKey is null ? null : competition,
                 OwnerUserId = owner.Id, Name = Name(team.Name), MoneyFromRank = team.MoneyFromRank, OpeningCompetitionPrize = team.OpeningCompetitionPrize,
                 FormationChanges = team.FormationChanges, LegacyLastUpdateLocal = team.LastUpdate == default ? null : Local(team.LastUpdate) };
-            foreach (var coOwner in (team.AdditionalOwners ?? []).Select(Email).Distinct().Where(value => value != ownerEmail))
+            foreach (var coOwner in (team.AdditionalOwners ?? []).Select(value => Email(value, "team.AdditionalOwners[]")).Distinct().Where(value => value != ownerEmail))
             {
                 var person = addUser(coOwner, coOwner); Member(groupId, person.Id); snapshot.AdditionalOwners.Add(new() { UserId = person.Id });
             }

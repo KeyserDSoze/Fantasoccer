@@ -7,10 +7,12 @@ param(
     [ValidatePattern('^[a-zA-Z0-9][a-zA-Z0-9_-]*$')]
     [string]$DumpName = 'current',
     [switch]$Resume,
-    [switch]$SourceQuiesced
+    [switch]$SourceQuiesced,
+    [switch]$IncludeTables
 )
 
 $ErrorActionPreference = 'Stop'
+if ($IncludeTables -and $Action -notin @('export', 'restore')) { throw '-IncludeTables applies only to export/restore.' }
 $Root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 if (-not [IO.Path]::IsPathRooted($EnvFile)) { $EnvFile = Join-Path $Root $EnvFile }
 
@@ -73,13 +75,16 @@ switch ($Action) {
         $command = @('--profile', 'tools', 'run', '--rm', '--build', 'storage-export', 'export', '--directory', "/dumps/$DumpName", '--allow-remote-source')
         if ($Resume) { $command += '--resume' }
         if ($SourceQuiesced) { $command += '--source-quiesced' }
+        if ($IncludeTables) { $command += '--include-tables' }
         Invoke-Compose -CommandArgs $command
     }
     'verify' { Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'storage-verify', 'verify', '--directory', "/dumps/$DumpName") }
     'restore' {
         # Stop all application writers before replacing documents. No automatic restart.
         Invoke-Compose -CommandArgs @('stop', 'frontend', 'api')
-        Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'storage-restore', 'restore-local', '--directory', "/dumps/$DumpName", '--public-local-files')
+        $command = @('--profile', 'tools', 'run', '--rm', '--build', 'storage-restore', 'restore-local', '--directory', "/dumps/$DumpName", '--public-local-files')
+        if ($IncludeTables) { $command += '--include-tables' }
+        Invoke-Compose -CommandArgs $command
         Write-Host 'Verified snapshot restored to local Azurite. SQL data import is separate (analyze-core/import-core).'
     }
     'migrate' { Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'migrate') }

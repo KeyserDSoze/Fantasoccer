@@ -46,7 +46,7 @@ class WorkflowTests(unittest.TestCase):
         (self.root / "docker").write_text(FAKE_DOCKER)
         (self.root / "docker").chmod(0o700)
         self.log = self.root / "docker-calls.jsonl"
-        self.env = {key: value for key, value in os.environ.items() if key not in ["DOCKER_HOST", "DOCKER_CONTEXT", "FAIL_ON", "APPLY", "WHAT_IF", "USE_EXISTING_DUMP", "RESUME", "SOURCE_QUIESCED", "CONFIRM_DATABASE"]}
+        self.env = {key: value for key, value in os.environ.items() if key not in ["DOCKER_HOST", "DOCKER_CONTEXT", "FAIL_ON", "APPLY", "WHAT_IF", "USE_EXISTING_DUMP", "RESUME", "SOURCE_QUIESCED", "CONFIRM_DATABASE", "INCLUDE_TABLES"]}
         self.env.update(PATH=str(self.root) + os.pathsep + os.environ["PATH"], DOCKER_CALL_LOG=str(self.log))
 
     def tearDown(self):
@@ -117,6 +117,7 @@ class WorkflowTests(unittest.TestCase):
                 self.assertTrue(any("storage-export" in args for args in args_list))
                 self.assertTrue(any("analyze-core" in args for args in args_list))
                 self.assertFalse(any("storage-restore" in args for args in args_list))
+                self.assertFalse(any("--include-tables" in args for args in args_list))
                 self.assertFalse(any("psql" in args for args in args_list))
                 self.assertFalse(any(args[-3:] == ["import-core", "--directory", "/dumps/fixture"] for args in args_list))
                 self.clear()
@@ -129,6 +130,23 @@ class WorkflowTests(unittest.TestCase):
                 restore = next(index for index, row in enumerate(calls) if "storage-restore" in row["args"])
                 self.assertLess(imp, restore)
                 self.assertFalse(any("psql" in row["args"] or "up" in row["args"] for row in calls))
+
+    def test_table_download_and_restore_require_the_explicit_switch(self):
+        for shell in self.shells():
+            with self.subTest(shell=shell):
+                self.clear()
+                args = ["-DumpName", "fixture", "-IncludeTables", "-Resume"] if shell == "ps1" else []
+                result = self.run_script(shell, "sync-storage", args, DUMP_NAME="fixture", INCLUDE_TABLES="true", RESUME="true")
+                self.assertEqual(0, result.returncode, result.stderr)
+                export = next(row["args"] for row in self.calls() if "storage-export" in row["args"])
+                self.assertIn("--include-tables", export); self.assertIn("--resume", export)
+                self.clear()
+                args = ["-DumpName", "fixture", "-UseExistingDump", "-Apply", "-IncludeTables"] if shell == "ps1" else []
+                result = self.run_script(shell, "sync-storage", args, DUMP_NAME="fixture", INCLUDE_TABLES="true", USE_EXISTING_DUMP="true", APPLY="true")
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertFalse(any("storage-export" in row["args"] for row in self.calls()))
+                restore = next(row["args"] for row in self.calls() if "storage-restore" in row["args"])
+                self.assertIn("--include-tables", restore)
 
     def test_export_failure_stops_pipeline_and_whatif_does_nothing(self):
         for shell in self.shells():

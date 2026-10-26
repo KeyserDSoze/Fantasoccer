@@ -43,7 +43,7 @@ try
 catch (Exception exception)
 {
     Console.Error.WriteLine(exception is CoreImportException import
-        ? $"Core import refused: {import.Message}. No partial transaction was committed."
+        ? $"Core import refused: {import.Message}." + (import.Field is null ? "" : $" Field: {import.Field}; reader: {import.Reader}.") + " No partial transaction was committed."
         : $"Operation failed ({exception.GetType().Name}). Connection details and document payloads are not logged.");
     return 1;
 }

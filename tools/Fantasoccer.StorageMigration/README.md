@@ -1,17 +1,17 @@
 # Export e ripristino del dataset legacy
 
-Tool .NET 10 separato dall'applicazione. Esporta lo stato corrente di **tutti i container Blob e tutte le tabelle** accessibili nell'account configurato, compresi container vuoti, immagini e log.
+Tool .NET 10 separato dall'applicazione. Per default esporta lo stato corrente di **tutti i container Blob**, compresi contenitori vuoti e immagini. **Table Storage è opt-in**: solo `--include-tables` effettua listing/query delle tabelle. Il wrapper Windows espone `-IncludeTables`, Bash `INCLUDE_TABLES=true`.
 Non interpreta né rinomina i campi dei documenti Rystem: i byte originali servono all'importatore relazionale successivo.
 
 **Non è ancora l'importatore PostgreSQL e non è un backup disaster-recovery completo dell'account Azure.**
 Non esporta né inventaria Queue/File Share, versioni/snapshot Blob, oggetti soft-deleted, tag, policy di accesso, tier o tipo Blob.
-Le esclusioni sono esplicite nel manifest. `complete=true` significa completo soltanto nell'ambito `blob-table-current-state`, non «tutto l'account».
+Le esclusioni sono esplicite nel manifest. `complete=true` significa completo soltanto nell'ambito `blob-current-state` (con `Tables` escluse) oppure `blob-table-current-state` con opt-in, non «tutto l'account». I vecchi dump Blob+Table restano leggibili.
 Prima dell'uso produttivo occorre verificare l'inventario dei servizi e predisporre un backup separato per tutto ciò che non rientra in questo ambito.
 
 ## Export reale: solo su richiesta esplicita
 
 Il tool esegue esclusivamente letture sulla sorgente. Non avviare un export reale come parte dei test.
-Usare una credenziale con i soli permessi necessari di listing/lettura Blob e listing/query Table. La versione attuale accetta connection string, anche con SAS; il supporto a identità Entra è ancora da implementare.
+Usare una credenziale con i soli permessi necessari di listing/lettura Blob; listing/query Table servono solo con `--include-tables`. La versione attuale accetta connection string di account, anche con SAS; il supporto a identità Entra è ancora da implementare.
 La connection string viene letta da `FANTASOCCER_EXPORT_STORAGE`, mai dagli argomenti della CLI. Non inserirla in comandi salvati nella cronologia, file versionati, report o log.
 
 Esempio Bash per acquisirla senza mostrarla né scriverla nella cronologia:
@@ -42,7 +42,8 @@ bash scripts/migration/export-storage.sh --directory /percorso/protetto/fantasoc
 - Riusa i Blob soltanto se ETag, dimensione e checksum locale corrispondono; i file corrotti vengono riscaricati.
 - Il download è condizionale sull'ETag: modifiche concorrenti possono far fallire l'export, non vengono ignorate.
 - Checkpoint atomico ogni 50 Blob e a fine container/tabella; i Blob non ancora registrati possono essere riscaricati dopo un'interruzione.
-- Le Table vengono riscritte dall'inizio, evitando di riprendere una scansione su uno stato potenzialmente cambiato.
+- Le Table, solo quando richieste con `--include-tables`, vengono riscritte dall'inizio, evitando di riprendere una scansione su uno stato potenzialmente cambiato. Senza il flag non vengono nemmeno elencate.
+- È consentito riprendere un vecchio export Blob+Table senza `--include-tables`: i checkpoint Blob sono riutilizzati, il nuovo manifest esclude le Table. I file Table locali precedenti restano non referenziati, non vengono cancellati.
 - File e manifest vengono scritti prima in `.partial`, poi rinominati. Un lock locale impedisce due esecuzioni del tool sulla stessa directory.
 - In caso di errore/cancellazione il manifest rimane incompleto e non può essere ripristinato.
 - Se il processo viene terminato prima di aver creato il primo manifest valido, usare una nuova directory; nessun checkpoint precedente è disponibile.
@@ -84,7 +85,7 @@ unset FANTASOCCER_RESTORE_STORAGE
 Rifiuta Azure remoto, account non dedicati ed endpoint uguali alla sorgente registrata nel dump. Non esiste un flag che abiliti il restore remoto.
 Sono ammessi loopback e il nome di servizio Docker `azurite`; usare solo l'ambiente locale controllato, non proxy/tunnel verso account reali.
 Verifica l'intero dump prima della prima scrittura. Un guasto successivo può lasciare un restore parziale: rieseguire lo stesso comando.
-Blob sovrascritti e Table upsert `Replace` rendono la riesecuzione idempotente. Non cancella oggetti estranei alla copia: usare un account locale dedicato per riprodurre esattamente il dataset.
+Blob sovrascritti e Table upsert `Replace` rendono la riesecuzione idempotente, ma il restore Table richiede **anch'esso `--include-tables`**, anche se il dump le contiene già. Senza il flag sono ripristinati solo i Blob. Il restore non elimina oggetti estranei: usare un account locale dedicato per riprodurre esattamente il dataset.
 I container nuovi sono privati, anche se quelli sorgente erano pubblici; non viene copiato alcun accesso pubblico o SAS.
 L'opzione esplicita `--public-local-files` (usata dal wrapper `scripts/local`) abilita lettura pubblica dei soli Blob in `images`, `logos`, `cardimages` sul target Azurite per il browser locale. Non rende pubblici i documenti business o altri container.
 I Blob locali sono block blob; vengono preservati byte, metadati e header contenuto, non tier/tipo/versioni Azure.

@@ -9,15 +9,16 @@ if [[ "${USE_EXISTING_DUMP:-false}" == true && ( "${RESUME:-false}" == true || "
   echo 'An existing dump is not re-exported; do not combine USE_EXISTING_DUMP with RESUME/SOURCE_QUIESCED.' >&2; exit 1
 fi
 if [[ "${WHAT_IF:-false}" == true ]]; then
-  echo "Plan: export (unless USE_EXISTING_DUMP), verify and analyze migration-data/$DUMP_NAME. APPLY=${APPLY:-false} adds explicit local SQL import and file restore, never a reset/restart. No commands executed."
+  echo "Plan: Blob export (unless USE_EXISTING_DUMP), verify and analyze migration-data/$DUMP_NAME. INCLUDE_TABLES=${INCLUDE_TABLES:-false}; APPLY=${APPLY:-false} adds explicit local SQL import and file restore, never a reset/restart. No commands executed."
   exit 0
 fi
 [[ -z "${DOCKER_HOST:-}" || "$DOCKER_HOST" == unix://* || "$DOCKER_HOST" == npipe://* ]] || { echo 'Remote DOCKER_HOST refused.' >&2; exit 1; }
 endpoint="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
 [[ "$endpoint" == unix://* || "$endpoint" == npipe://* ]] || { echo 'Only local Docker socket/named-pipe contexts are allowed.' >&2; exit 1; }
 export DUMP_NAME
+export INCLUDE_TABLES="${INCLUDE_TABLES:-false}"
 if [[ "${USE_EXISTING_DUMP:-false}" != true ]]; then
-  echo 'Reading source from private FANTASOCCER_EXPORT_STORAGE (never printed); Blob/Table current state only, no Azure writes.'
+  echo 'Reading source from private FANTASOCCER_EXPORT_STORAGE (never printed); Blob-only by default, Table requires INCLUDE_TABLES=true. No Azure writes.'
   bash "$root/scripts/local/local.sh" export "$env_file"
 fi
 bash "$root/scripts/local/local.sh" verify "$env_file"

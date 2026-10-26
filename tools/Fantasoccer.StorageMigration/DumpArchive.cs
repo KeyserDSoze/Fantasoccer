@@ -74,7 +74,7 @@ public static class DumpArchive
     }
 
     public static async Task<DumpManifest> RestoreLocalAsync(string directory, StorageEndpoints target,
-        CancellationToken cancellationToken = default, bool publicLocalFiles = false)
+        CancellationToken cancellationToken = default, bool publicLocalFiles = false, bool includeTables = false)
     {
         // This path cannot be enabled for remote Azure, even when remote export is allowed.
         target.RequireLocalEmulator();
@@ -107,12 +107,15 @@ public static class DumpArchive
                 }, cancellationToken);
             }
         }
-        foreach (var table in manifest.Tables)
+        if (includeTables)
         {
-            var client = target.Tables.GetTableClient(table.Name);
-            await client.CreateIfNotExistsAsync(cancellationToken);
-            await foreach (var row in ReadRowsAsync(files.TablePath(table.Name), cancellationToken))
-                await client.UpsertEntityAsync(TableValueCodec.Decode(row), TableUpdateMode.Replace, cancellationToken);
+            foreach (var table in manifest.Tables)
+            {
+                var client = target.Tables.GetTableClient(table.Name);
+                await client.CreateIfNotExistsAsync(cancellationToken);
+                await foreach (var row in ReadRowsAsync(files.TablePath(table.Name), cancellationToken))
+                    await client.UpsertEntityAsync(TableValueCodec.Decode(row), TableUpdateMode.Replace, cancellationToken);
+            }
         }
         return manifest;
     }

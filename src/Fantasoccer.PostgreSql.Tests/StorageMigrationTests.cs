@@ -68,11 +68,57 @@ public sealed class StorageMigrationTests : IAsyncLifetime
     }
 
     [AzuriteFact]
+    public async Task Default_export_does_not_query_Table_endpoint_and_explicitly_records_Blob_only_scope()
+    {
+        // A Table request would fail/cancel: Blob-only must not even list it.
+        var configured = Environment.GetEnvironmentVariable("FANTASOCCER_TEST_STORAGE")!;
+        var blobOnlySource = new StorageEndpoints(System.Text.RegularExpressions.Regex.Replace(configured,
+            "TableEndpoint=[^;]*", "TableEndpoint=http://127.0.0.1:1/migrationtest"));
+        Assert.Equal(1, blobOnlySource.Tables.Uri.Port);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var manifest = await new StorageExporter(blobOnlySource).ExportAsync(_dumpDirectory, cancellationToken: timeout.Token);
+        Assert.True(manifest.Complete); Assert.Equal("blob-current-state", manifest.Scope);
+        Assert.Empty(manifest.Tables); Assert.Contains("Tables", manifest.Exclusions);
+        Assert.Equal(_payload, await File.ReadAllBytesAsync(Directory.GetFiles(Path.Combine(_dumpDirectory, "blobs")).Single()));
+        await DumpArchive.VerifyAsync(_dumpDirectory);
+    }
+
+    [AzuriteFact]
+    public async Task Table_opt_in_resume_and_Blob_only_recovery_reuse_downloaded_Blobs_and_restore_is_opt_in_too()
+    {
+        var exporter = new StorageExporter(_source);
+        var first = await exporter.ExportAsync(_dumpDirectory);
+        var path = Directory.GetFiles(Path.Combine(_dumpDirectory, "blobs")).Single();
+        var written = File.GetLastWriteTimeUtc(path);
+        var withTables = await exporter.ExportAsync(_dumpDirectory, resume: true, includeTables: true);
+        Assert.Equal(first.ExportId, withTables.ExportId);
+        Assert.Equal(written, File.GetLastWriteTimeUtc(path));
+        Assert.Equal("blob-table-current-state", withTables.Scope);
+        Assert.Equal(2, withTables.Tables.Count); Assert.DoesNotContain("Tables", withTables.Exclusions);
+        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target);
+        Assert.False(await TableExistsAsync(_target, Table));
+        Assert.Equal(_payload, (await _target.Blobs.GetBlobContainerClient(Container).GetBlobClient(BlobName).DownloadContentAsync()).Value.Content.ToArray());
+        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target, includeTables: true);
+        Assert.True(await TableExistsAsync(_target, Table));
+
+        // Model an old export interrupted at its Table phase. Blob checkpoints
+        // remain reusable; omitted Table files are not destructively deleted.
+        withTables.Complete = false; withTables.CompletedAtUtc = null; withTables.FailureCode = "TableInterrupted";
+        await File.WriteAllTextAsync(Path.Combine(_dumpDirectory, "manifest.json"), JsonSerializer.Serialize(withTables, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        var recovered = await exporter.ExportAsync(_dumpDirectory, resume: true);
+        Assert.True(recovered.Complete); Assert.Empty(recovered.Tables);
+        Assert.Equal(written, File.GetLastWriteTimeUtc(path));
+        Assert.True(Directory.GetFiles(Path.Combine(_dumpDirectory, "tables")).Length > 0);
+        Assert.Contains("Tables", recovered.Exclusions);
+        await DumpArchive.VerifyAsync(_dumpDirectory);
+    }
+
+    [AzuriteFact]
     public async Task Export_preserves_current_payloads_metadata_and_typed_tables_without_source_writes()
     {
         var originalBlob = await _source.Blobs.GetBlobContainerClient(Container).GetBlobClient(BlobName).GetPropertiesAsync();
         var originalEntity = await _source.Tables.GetTableClient(Table).GetEntityAsync<TableEntity>("partition", "owner@example.test");
-        var manifest = await new StorageExporter(_source).ExportAsync(_dumpDirectory, sourceQuiesced: true);
+        var manifest = await new StorageExporter(_source).ExportAsync(_dumpDirectory, sourceQuiesced: true, includeTables: true);
         var verified = await DumpArchive.VerifyAsync(_dumpDirectory);
 
         Assert.True(manifest.Complete);
@@ -95,9 +141,9 @@ public sealed class StorageMigrationTests : IAsyncLifetime
     [AzuriteFact]
     public async Task Local_restore_can_run_twice_and_preserves_original_document_bytes_and_Table_types()
     {
-        await new StorageExporter(_source).ExportAsync(_dumpDirectory);
-        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target);
-        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target);
+        await new StorageExporter(_source).ExportAsync(_dumpDirectory, includeTables: true);
+        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target, includeTables: true);
+        await DumpArchive.RestoreLocalAsync(_dumpDirectory, _target, includeTables: true);
         var container = _target.Blobs.GetBlobContainerClient(Container);
         var blob = container.GetBlobClient(BlobName);
         Assert.Equal(_payload, (await blob.DownloadContentAsync()).Value.Content.ToArray());
@@ -123,15 +169,15 @@ public sealed class StorageMigrationTests : IAsyncLifetime
     public async Task Resume_reuses_verified_blobs_and_repairs_corrupted_local_payloads()
     {
         var exporter = new StorageExporter(_source);
-        var first = await exporter.ExportAsync(_dumpDirectory);
+        var first = await exporter.ExportAsync(_dumpDirectory, includeTables: true);
         var path = Directory.GetFiles(Path.Combine(_dumpDirectory, "blobs")).Single();
         var originalWrite = File.GetLastWriteTimeUtc(path);
-        var second = await exporter.ExportAsync(_dumpDirectory, resume: true);
+        var second = await exporter.ExportAsync(_dumpDirectory, resume: true, includeTables: true);
         Assert.Equal(first.ExportId, second.ExportId);
         Assert.Equal(originalWrite, File.GetLastWriteTimeUtc(path));
 
         await File.WriteAllBytesAsync(path, new byte[_payload.Length]);
-        await exporter.ExportAsync(_dumpDirectory, resume: true);
+        await exporter.ExportAsync(_dumpDirectory, resume: true, includeTables: true);
         Assert.Equal(_payload, await File.ReadAllBytesAsync(path));
         await DumpArchive.VerifyAsync(_dumpDirectory);
     }
@@ -140,12 +186,12 @@ public sealed class StorageMigrationTests : IAsyncLifetime
     public async Task Resume_refreshes_changed_and_removed_source_records_without_stale_manifest_entries()
     {
         var exporter = new StorageExporter(_source);
-        await exporter.ExportAsync(_dumpDirectory);
+        await exporter.ExportAsync(_dumpDirectory, includeTables: true);
         var container = _source.Blobs.GetBlobContainerClient(Container);
         await container.GetBlobClient(BlobName).DeleteAsync();
         await container.GetBlobClient("new.json").UploadAsync(BinaryData.FromString("new payload"));
         await _source.Tables.GetTableClient(Table).DeleteEntityAsync("partition", "owner@example.test");
-        var resumed = await exporter.ExportAsync(_dumpDirectory, resume: true);
+        var resumed = await exporter.ExportAsync(_dumpDirectory, resume: true, includeTables: true);
         Assert.Equal("new.json", Assert.Single(resumed.Containers.Single(x => x.Name == Container).Blobs).Name);
         Assert.Equal(0, resumed.Tables.Single(x => x.Name == Table).EntityCount);
         await DumpArchive.VerifyAsync(_dumpDirectory);
@@ -154,7 +200,7 @@ public sealed class StorageMigrationTests : IAsyncLifetime
     [AzuriteFact]
     public async Task Corrupted_archive_is_rejected_before_any_restore_write()
     {
-        await new StorageExporter(_source).ExportAsync(_dumpDirectory);
+        await new StorageExporter(_source).ExportAsync(_dumpDirectory, includeTables: true);
         await File.AppendAllTextAsync(Directory.GetFiles(Path.Combine(_dumpDirectory, "tables")).First(x => new FileInfo(x).Length > 0), "corruption");
         await Assert.ThrowsAsync<InvalidDataException>(() => DumpArchive.RestoreLocalAsync(_dumpDirectory, _target));
         Assert.False((await _target.Blobs.GetBlobContainerClient(Container).ExistsAsync()).Value);
@@ -201,7 +247,7 @@ public sealed class StorageMigrationTests : IAsyncLifetime
             await container.GetBlobClient($"extra-{index}.bin").UploadAsync(BinaryData.FromBytes(new byte[index]));
             await _source.Tables.GetTableClient(Table).AddEntityAsync(new TableEntity("partition", $"row-{index}") { ["Number"] = index });
         }
-        var manifest = await new StorageExporter(_source, pageSize: 1).ExportAsync(_dumpDirectory);
+        var manifest = await new StorageExporter(_source, pageSize: 1).ExportAsync(_dumpDirectory, includeTables: true);
         Assert.Equal(2, manifest.Containers.Count);
         Assert.Equal(2, manifest.Tables.Count);
         Assert.Equal(4, manifest.Containers.Single(x => x.Name == Container).Blobs.Count);

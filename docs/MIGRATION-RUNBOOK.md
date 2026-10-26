@@ -18,7 +18,7 @@ FANTASOCCER_EXPORT_STORAGE='DefaultEndpointsProtocol=https;AccountName=ACCOUNT_S
 
 # Per NON importare aste storiche e vecchie liste randomizzate:
 IMPORT_LEGACY_AUCTIONS=false
-# I vecchi log Table restano nel dump, senza import SQL (default false).
+# Import SQL dei log storici disattivato; distinto dall'opzione -IncludeTables.
 IMPORT_LEGACY_LOGS=false
 # Possono restare vuoti con la scelta precedente.
 # Se invece IMPORT_LEGACY_AUCTIONS=true, servono le chiavi ORIGINALI per le liste cifrate.
@@ -33,7 +33,7 @@ AI_ENABLED=false
 MCP_ENABLED=false
 ```
 
-Sostituisci i placeholder con la tua connection string; preferisci una **SAS account di sola lettura**, con listing/lettura Blob e query/listing Table. Una SAS di container/Blob non basta a scaricare l'intero dataset. Il tool legge soltanto dalla sorgente anche se la credenziale ha permessi superiori; non supporta ancora managed identity/Entra.
+Sostituisci i placeholder con la tua connection string; preferisci una **SAS account di sola lettura**, con listing/lettura Blob. Query/listing Table servono solo se scegli `-IncludeTables`. Una SAS di un singolo container/Blob non basta a elencare tutti i container dell'account. Il tool legge soltanto dalla sorgente anche se la credenziale ha permessi superiori; non supporta ancora managed identity/Entra.
 
 **Non confondere gli ambienti:** `FANTASOCCER_EXPORT_STORAGE` è la sorgente reale, passata solo al container di export. `ConnectionStrings:Storage` dell'API e il restore puntano ad **Azurite locale**; il restore remoto è vietato. Il target SQL è solo il servizio Compose `postgres`, DB/utente `fantasoccer_local`. Le tue porte personalizzate non cambiano questi indirizzi interni.
 
@@ -55,7 +55,15 @@ Per eseguire export → verifica checksum → analisi mapping:
 
 Il dump è in `migration-data/azure-prova1/`, ignorato da Git e dai build Docker. Contiene **dati reali e possibili token/artefatti privati**: proteggi filesystem, ACL e backup.
 
-Sono esportati **tutti i container Blob e tutte le Table accessibili nello stato corrente**: documenti, file, immagini, log, anche contenitori vuoti. Non è un backup completo dell'account Azure: non include Queue, File Share, vecchie versioni/snapshot Blob, soft delete, tag o policy di accesso. Se mancano permessi o il dump non è completo, la pipeline si ferma.
+Per default sono esportati **solo tutti i container Blob nello stato corrente**, compresi file, immagini e contenitori vuoti: Table Storage non viene nemmeno interrogato. Il manifest dichiara `scope=blob-current-state` e `Tables` tra le esclusioni. Non è un backup completo dell'account Azure: non include Queue, File Share, vecchie versioni/snapshot Blob, soft delete, tag o policy di accesso.
+
+Solo se vuoi scaricare anche tutte le Table, aggiungi l'opzione esplicita:
+
+```powershell
+.\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -Resume -IncludeTables
+```
+
+`-IncludeTables` abilita download e, con `-Apply`, restore locale delle tabelle; **non** abilita automaticamente l'import SQL dei log. Quest'ultimo ha il flag separato `IMPORT_LEGACY_LOGS=true` e richiede che il dump contenga le Table. La CLI .NET usa `--include-tables`; Bash usa `INCLUDE_TABLES=true`.
 
 Ripresa/riacquisizione della **stessa** sorgente:
 
@@ -63,7 +71,21 @@ Ripresa/riacquisizione della **stessa** sorgente:
 .\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -Resume
 ```
 
-`-Resume` rifa il listing, riutilizza solo Blob ancora coerenti e riscrive le Table. Non è un append cieco. Un dump completato si può verificare/analizzare senza ricontattare Azure usando `-UseExistingDump` al posto di `-Resume`.
+`-Resume` rifa il listing ma **non riscarica i Blob invariati** se ETag, dimensione e checksum locale coincidono. Riscarica file modificati, corrotti o non ancora registrati nell'ultimo checkpoint (al massimo 49 prima di un'interruzione brusca). Le Table, **solo con `-IncludeTables`**, vengono invece rilette dall'inizio: non c'è ripresa sicura di una scansione Table cambiata nel frattempo.
+
+Un dump completato si verifica/analizza senza ricontattare Azure con `-UseExistingDump` al posto di `-Resume`. Puoi anche riprendere un vecchio export interrotto sulle Table usando `-Resume` **senza** `-IncludeTables`: riusa i Blob e completa un manifest Blob-only. Eventuali file Table già scaricati restano sul disco ma non sono referenziati dal nuovo manifest, né eliminati automaticamente.
+
+### Se compare `invalid_email`
+
+`Core import refused: invalid_email` è un errore di validazione nei **documenti Blob** (identità, membri, proprietari, preferenze, ecc.), non un errore di accesso a Table Storage. Escludere le tabelle non garantisce di risolverlo. Nessun dato di import viene committato parzialmente: non fare un reset solo per questo errore.
+
+Il tool ora indica `Field` e `reader` (nome del file sorgente del lettore e riga), senza stampare indirizzi email, valori, Blob key o payload. Per ripetere soltanto la diagnosi, senza download o import SQL:
+
+```powershell
+.\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -UseExistingDump
+```
+
+Sostituisci `azure-prova1` con il **nome del dump che hai già scaricato**. Se il manifest è incompleto, usa prima `-Resume`. Non cancellare il dump o i checkpoint e non saltare automaticamente utenti: occorre riconciliare il campo indicato. Puoi condividere codice errore, `Field` e `reader`, non la connection string o l'intero dump.
 
 ## 3. Importare esplicitamente la copia locale
 
@@ -73,7 +95,7 @@ L'esclusione delle aste non tocca squadre, rose, prezzi già salvati, crediti, r
 
 ### Log storici e logging attuale sono separati
 
-I log della Table `logs` sono **esclusi da PostgreSQL per default** (`IMPORT_LEGACY_LOGS=false`). Il dump completo e l'eventuale restore Azurite li conservano; nessuna riga sorgente viene cancellata. Solo se necessario si può riattivare l'import con `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`). Le altre tabelle sconosciute restano segnalate come pendenti, non vengono ignorate.
+I log della Table `logs` sono **esclusi da PostgreSQL per default** (`IMPORT_LEGACY_LOGS=false`). Restano nel dump solo se erano già presenti o vengono acquisiti con `-IncludeTables`; nessuna riga sorgente viene cancellata. Solo se necessario si può riattivare l'import SQL con `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`) su un dump che includa le tabelle. Le altre tabelle acquisite ma sconosciute restano segnalate come pendenti, non vengono ignorate.
 
 Questa scelta non disabilita la telemetria corrente OpenTelemetry/Aspire né elimina ricevute, lease, outbox o audit SQL dell'app. La revisione futura dovrà distinguere log diagnostici da mantenere solo nella piattaforma di logging e dati operativi necessari per coordinamento/idempotenza. Non viene cambiata oggi la retention o la semantica dei job. Anche per cambiare opzione resta valido il blocco di reimport dopo scritture applicative.
 
@@ -83,7 +105,7 @@ Ferma anche eventuali processi `dotnet run`/debug avviati sull'host, poi:
 .\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -UseExistingDump -Apply
 ```
 
-Con `-Apply` lo script ferma API/frontend Compose, applica lo schema e importa SQL in transazione, quindi ripristina i Blob/Table in Azurite. SQL viene importato **prima** del restore file: un DB che rifiuta la reimportazione non causa sovrascritture dei file. Un errore successivo del restore lascia l'app ferma: correggi e ripeti sullo stesso dump. SQL/file non sono una singola transazione distribuita.
+Con `-Apply` lo script ferma API/frontend Compose, applica lo schema e importa SQL in transazione, quindi ripristina i Blob in Azurite (le Table solo con `-IncludeTables`, anche per un vecchio dump che le contenga). SQL viene importato **prima** del restore file: un DB che rifiuta la reimportazione non causa sovrascritture dei file. Un errore successivo del restore lascia l'app ferma: correggi e ripeti sullo stesso dump. SQL/file non sono una singola transazione distribuita.
 
 **Nessun reset automatico, modifica di Azure o riavvio dell'app.** Dopo aver verificato i report, avvia deliberatamente con `local.ps1 up-https -EnvFile .env` (oppure `up` senza TLS).
 
@@ -135,6 +157,7 @@ Il backup contiene dati sensibili: proteggilo con ACL/cifratura. La verifica del
 
 ```bash
 DUMP_NAME=azure-prova1 bash scripts/local/sync-storage.sh .env
+DUMP_NAME=azure-prova1 RESUME=true INCLUDE_TABLES=true bash scripts/local/sync-storage.sh .env
 DUMP_NAME=azure-prova1 USE_EXISTING_DUMP=true APPLY=true bash scripts/local/sync-storage.sh .env
 CONFIRM_DATABASE=fantasoccer_local WHAT_IF=true bash scripts/local/reset-postgres.sh .env
 ```
