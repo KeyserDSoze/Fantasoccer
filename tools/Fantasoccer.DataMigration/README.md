@@ -31,11 +31,13 @@ Dai container legacy `appidentity`, `group`, `settings`, `team`, `dailyteams`, `
 I documenti sono letti dal dump verificato, usando il **converter reale Rystem `Entity<T,TKey>`**: envelope attuale `k/v` e storico `Key/Value`.
 Le abbreviazioni restano nel lettore legacy, non nei nuovi DTO applicativi.
 
-### Identità con chiavi interne legacy non utilizzabili
+### Identità con chiavi legacy distinte dall'email
 
-Il vecchio repository string-key `GetAsync(email)` apriva il Blob tramite l'email e restituiva il profilo (`Value`) senza controllare `Key`. Per `appidentity`, se la chiave interna è opaca, vuota o mancante, il lettore può utilizzare quel lookup solo quando **nome Blob ed email valida del profilo coincidono** (trim/case canonici). Non sono ammessi fallback al solo nome utente, UUID o email del payload senza riscontro; chiavi contenenti un'altra email, lookup discordanti e duplicati rimangono errori.
+Il repository string-key apriva il Blob con la chiave fornita e restituiva il profilo (`Value`) senza confrontare `Key` con l'email. Per `appidentity` sono ammessi chiave email coerente, lookup Blob email coerente con chiave interna opaca/vuota/mancante, oppure **ID tecnico non-email non vuoto che coincide esattamente con il nome del Blob**. In quest'ultimo caso il confronto è case-sensitive e non rimuove spazi: non si presume che un ID tecnico abbia le regole di canonicalizzazione di un'email.
 
-Ogni recupero è segnalato in `pendingFields` e `reconciledIdentityDocuments` (SHA-256 dei documenti), con mapping durevole `identity-document` → ID account, senza alterare ruoli o membership e senza copiare in SQL la chiave opaca originale. Gli originali restano nel dump. Gli errori di identità riportano il checksum del documento per trovarlo nel manifest, non indirizzi o chiavi potenzialmente private. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_email).
+L'email del profilo resta obbligatoria e valida; chiavi che dichiarano un'altra email, lookup email discordanti e documenti con email duplicata rimangono errori. Non vengono decodificati o indovinati ID, non si usa il nome visualizzato per trovare un account e non si tratta l'ID tecnico come subject di autenticazione.
+
+Ogni recupero è segnalato in `pendingFields` e `reconciledIdentityDocuments` (SHA-256 dei documenti), con mapping durevole `identity-document` → ID account e riferimento al file di archivio/checksum sotto forma di hash, senza alterare ID deterministici, ruoli o membership e senza copiare in SQL nomi/chiavi tecniche originali. Gli originali restano nel dump. Gli errori di identità riportano il checksum del documento per trovarlo nel manifest, non indirizzi o chiavi potenzialmente private. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_email).
 
 ## Riconciliazioni e artefatti conservati
 

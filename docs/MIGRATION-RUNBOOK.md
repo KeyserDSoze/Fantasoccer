@@ -81,9 +81,15 @@ Un dump completato si verifica/analizza senza ricontattare Azure con `-UseExisti
 
 Il tool indica `Field` e `reader` (nome del file sorgente del lettore e riga), senza stampare indirizzi email, valori, Blob key o payload. Per gli errori di `appidentity` aggiunge anche `Document SHA-256`, corrispondente alla voce `sha256` nel manifest: permette di identificare localmente il documento senza pubblicarne il nome o il contenuto.
 
-Un caso specifico è `Field: key` durante la lettura delle identità: l'email del profilo è già valida, ma la chiave interna dell'envelope non lo è. Il repository Blob legacy recuperava gli account tramite il nome del Blob e restituiva `Value`, senza usare la chiave interna. L'import supporta quindi chiavi interne opache, vuote o mancanti **solo se nome del Blob ed email del profilo coincidono dopo la normale canonicalizzazione**. Le chiavi interne contenenti un'altra email valida, i nomi Blob/email discordanti e i documenti duplicati restano bloccati: non si assegnano account a persone diverse o si fondono profili.
+Un caso specifico è `Field: key` durante la lettura delle identità: l'email del profilo è già valida, ma la chiave interna dell'envelope non è un indirizzo. La chiave di storage **può essere un identificatore tecnico**, distinto dall'email usata per il login. Sono supportate queste forme, senza inventare indirizzi:
 
-I casi recuperati sono espliciti nel report (`reconciledIdentityDocuments`, hash SHA-256) e in `pendingFields`. La relazione documento sorgente → account viene conservata nel mapping SQL; la chiave interna originale resta nel dump e non viene copiata in log/SQL. Il resto dei dati, i ruoli e i controlli di membership rimangono invariati.
+- chiave interna email, uguale all'email valida del profilo;
+- chiave interna opaca, vuota o mancante, quando il nome del Blob è l'email valida del profilo (trim/case canonici);
+- chiave tecnica non-email **non vuota e identica al nome del Blob**, confrontata esattamente con `Ordinal`: non si ignorano maiuscole o spazi per gli ID tecnici. L'email continua a provenire dal campo del profilo, non dall'ID.
+
+Le chiavi contenenti un'altra email valida, i nomi Blob che dichiarano un'email discordante, i duplicati e gli ID tecnici non corrispondenti restano bloccati. Non si fondono automaticamente profili e un ID di storage non viene usato come subject Microsoft o credenziale.
+
+I casi recuperati sono espliciti nel report (`reconciledIdentityDocuments`, hash SHA-256) e in `pendingFields`. La relazione documento sorgente → account viene conservata nel mapping SQL con riferimento al file di archivio e checksum, **entrambi hash**, senza duplicare in log/SQL il nome o la chiave tecnica originale. Gli originali restano nel dump. Gli ID account deterministici per email, i ruoli e i controlli di membership rimangono invariati.
 
 Per ripetere soltanto l'analisi, senza download o import SQL:
 

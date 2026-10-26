@@ -220,6 +220,12 @@ Il dump reale ha segnalato `invalid_email` sulla chiave interna, dopo la validaz
 
 Il mapping è aggiornato; report e audit del mapping indicano i documenti riconciliati senza copiare chiavi opache in SQL/log. Gli errori `appidentity` espongono solo SHA-256 del documento per individuarlo nel manifest. Test dedicati verificano fallback, idempotenza e stabilità degli ID/ruoli, dati sorgente immutati e rifiuto dei conflitti. Non è una conferma del contenuto del dump del gestore: i casi che non rispettano l'invariante richiedono ancora riconciliazione esplicita.
 
+### Identificatori tecnici corroborati dal dump del gestore
+
+L'ispezione locale del documento bloccante ha mostrato chiave e nome Blob coincidenti nel confronto normalizzato dello script, entrambi di 10 caratteri, non email né codifiche comuni della stessa: la chiave di storage è distinta dall'indirizzo del profilo. Il lettore ammette anche ID tecnici non-email non vuoti **quando chiave interna e nome Blob sono identici con confronto Ordinal**; non estende ai tecnici la normalizzazione di case/spazi usata per le email e non impone che ogni chiave del repository sia un indirizzo. Il profilo continua a richiedere un'email valida e univoca, con le normali verifiche di membership/cache; chiavi email discordanti e duplicati restano bloccati.
+
+Il mapping è aggiornato e il riferimento documento → account usa solo hash del file di archivio e del contenuto, evitando di duplicare gli ID opachi nei metadati SQL/report. Test di regressione coprono ID corti e UUID, stabilità degli ID account durante cambio chiave di storage, ruoli invariati, nessuna creazione di subject Microsoft, sorgente immutata, idempotenza e rifiuto di differenze di case/spazi, email invalide e duplicati. Non viene introdotta una ricerca per nome utente o una decodifica euristica.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

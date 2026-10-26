@@ -25,7 +25,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 23;
+    public const int MappingVersion = 24;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -240,7 +240,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
          [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
           .. plan.ReconciledIdentityDocuments.Count > 0
-              ? new[] { "Some appidentity envelopes had unusable embedded keys. Identity was verified by matching the Blob lookup email with the profile email. Review reconciledIdentityDocuments; original envelopes remain in the verified dump." } : Array.Empty<string>(),
+              ? new[] { "Some appidentity records used legacy storage IDs or unusable embedded keys instead of the profile email. Lookup consistency was verified; review reconciledIdentityDocuments. Original envelopes remain in the verified dump." } : Array.Empty<string>(),
           .. plan.ImportLegacyLogs && dataset.Manifest.Scope == "blob-current-state"
               ? new[] { "Historical log import was requested, but this dump excludes Table Storage. Export with --include-tables first." } : Array.Empty<string>(),
          .. plan.Rosters.Any(x => x.Kind == RosterKind.Season && x.RankCreditGranted == null)
@@ -281,7 +281,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                     // Preserve a durable source -> account audit without copying
                     // an unknown opaque key (possibly sensitive) into SQL/logs.
                     // The original embedded key is retained in the verified dump.
-                    plan.Maps.Add(new() { SourceId = source, Kind = "identity-document", LegacyKey = Composite(document.BlobName, document.Sha256), TargetId = user.Id });
+                    var archiveReference = "blobs/" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(document.Container + "\0" + document.BlobName))) + ".bin";
+                    plan.Maps.Add(new() { SourceId = source, Kind = "identity-document", LegacyKey = Composite(archiveReference, document.Sha256), TargetId = user.Id });
                 }
             }
             catch (CoreImportException fault) when (fault.DocumentSha256 is null)
@@ -502,10 +503,10 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
     }
     private static bool ValidateIdentityKey(LegacyJsonDocument document, string? key, string email)
     {
-        // AppIdentity had no Blob prefix: the legacy string-key repository's
-        // GetAsync(email) opened the Blob by email and returned envelope.Value,
-        // ignoring envelope.Key. Use that lookup identity as corroboration, not
-        // an arbitrary UUID/name or an invented address.
+        // A storage key is not necessarily the login email. Preserve email
+        // corroboration for email-keyed records; for technical string IDs require
+        // an exact match between the embedded key and physical Blob name. Never
+        // guess an ID from a display name or use it as an authentication subject.
         var hasLookupEmail = TryEmail(document.BlobName, out var lookupEmail);
         if (hasLookupEmail && lookupEmail != email) throw new CoreImportException("identity_collision");
         if (TryEmail(key, out var keyEmail))
@@ -514,6 +515,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             return false;
         }
         if (hasLookupEmail && lookupEmail == email) return true;
+        if (!string.IsNullOrWhiteSpace(key) && key.Length <= 1024 &&
+            string.Equals(key, document.BlobName, StringComparison.Ordinal)) return true;
         _ = Email(key); // Keep strict validation when no independent lookup agrees.
         return false;
     }
