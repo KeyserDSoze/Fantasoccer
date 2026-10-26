@@ -131,6 +131,8 @@ const adminItems: NavigationSection[] = [
   {
     section: 'Gestione Gruppo (Admin)',
     items: [
+      { type: 'route', route: 'GroupUsersAdmin', label: 'Membri e inviti', icon: UserCog, description: 'Cerca per email e gestisci i membri del tuo gruppo' },
+      { type: 'route', route: 'GroupWorkspace', label: 'Configura gruppo', icon: Settings, description: 'Membri, squadre, basket e competizioni' },
       { type: 'route', route: 'AuctionCreate', label: 'Asta', icon: Gavel, description: 'Crea e gestisci aste di fantacalcio' },
     ],
   },
@@ -141,7 +143,6 @@ const superAdminItems: NavigationSection[] = [
   {
     section: 'Responsabile del gruppo',
     items: [
-      { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
       { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
       { type: 'route', route: 'GroupLeagueAdmin', label: 'Leghe', icon: Trophy, description: 'Gestisci leghe, settings e ricalcoli del gruppo' },
     ],

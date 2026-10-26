@@ -41,6 +41,8 @@ Non scartare il dump originale e non considerare l'import strutturale equivalent
 
 ## Comandi Docker Desktop
 
+Il [runbook Windows](../../docs/MIGRATION-RUNBOOK.md) documenta anche `sync-storage.ps1` (export/analisi, con import solo tramite `-Apply`) e `reset-postgres.ps1` (reset locale esplicito con backup e conferma).
+
 Dopo export e verifica del dump (vedere `scripts/local/README.md`):
 
 ```powershell
@@ -72,14 +74,14 @@ La CLI rifiuta database remoti o diversi dal laboratorio `fantasoccer_local`. Ne
 
 ## Workspace frontend
 
-Nel Compose root, aprire Impostazioni → **Gruppi PostgreSQL**, oppure `/workspace/groups` dopo il login.
+Nel Compose root, aprire Impostazioni → **Gestisci i tuoi gruppi**, oppure `/workspace/groups` dopo il login.
 La schermata usa DTO leggibili e non usa `Raw`, mapper di abbreviazioni o `rystem.repository.client`.
 Consente lettura dei gruppi, amministrazione membri, creazione basket/partecipazioni/squadre e creazione gruppo per l'amministratore globale.
 Le stesse operazioni applicative sono disponibili ai controller; i tool MCP dedicati riusano direttamente il servizio per elenco, lettura e creazione gruppo.
 
 Il percorso principale di identità, navigazione, gruppi/regolamenti, preferenze, rose, partite/risultati, dati calcistici, classifiche, mercato/aste, albo e carte usa nuove API e DTO. Generazione e ricalcolo sono comandi espliciti. I flussi rimanenti nell'inventario non vengono serviti da un fallback Blob.
 Il login social in modalità PostgreSQL usa ora soltanto l'account SQL. Un amico invitato può autenticarsi senza una copia Blob; i placeholder creati solo per preservare proprietari storici sono disabilitati e diventano attivi solo con un invito esplicito.
-Fuori dal Compose, la visibilità della schermata aggiuntiva è controllata da `EXPO_PUBLIC_WORKSPACE_ENABLED=true`; account, gruppi e rose principali usano già le nuove API. Il backend richiede `PostgreSql:Enabled=true`.
+Il workspace è disponibile anche fuori dal Compose; il backend richiede `PostgreSql:Enabled=true` e una configurazione SQL/file valida.
 
 ## Vincoli e riconciliazioni specifiche
 

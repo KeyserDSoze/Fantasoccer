@@ -1,4 +1,4 @@
-import type { WorkspaceAccount, WorkspaceGroup, WorkspaceDetails, SetWorkspaceMember, CreateWorkspaceTeam } from '../contracts/workspace'
+import type { WorkspaceAccount, WorkspaceGroup, WorkspaceDetails, SetWorkspaceMember, CreateWorkspaceTeam, WorkspaceMemberLookup } from '../contracts/workspace'
 
 export class WorkspaceApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); this.name = 'WorkspaceApiError' }
@@ -37,6 +37,7 @@ export function createWorkspaceApi(options: {
     redeemGroupCode: (name: string, code: string, signal?: AbortSignal) => request<WorkspaceGroup>('/groups/redeem-code', 'POST', { name, code }, signal),
     renameGroup: (id: string, name: string) => request<void>(group(id), 'PATCH', { name }),
     setMember: (id: string, member: SetWorkspaceMember) => request<void>(group(id) + '/members', 'PUT', member),
+    lookupMember: (id: string, email: string, signal?: AbortSignal) => request<WorkspaceMemberLookup>(group(id) + `/members/lookup?email=${encodeURIComponent(email.trim())}`, 'GET', undefined, signal),
     createBasket: (id: string, name: string, seasonIndex: number) => request<{ basketId: string }>(group(id) + '/baskets', 'POST', { name, seasonIndex }),
     createLeague: (id: string, name: string, seasonIndex: number, basketIds: string[]) => request<{ leagueId: string }>(group(id) + '/leagues', 'POST', { name, seasonIndex, basketIds }),
     createTeam: (id: string, team: CreateWorkspaceTeam) => request<{ teamId: string }>(group(id) + '/teams', 'POST', team),

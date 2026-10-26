@@ -35,6 +35,10 @@ public sealed class GroupWorkspaceController(GroupApplicationService groups, Gro
     public async Task<IActionResult> SetMember(Guid groupId, SetGroupMemberRequest request, CancellationToken cancellationToken)
     { await groups.SetMemberAsync(User, groupId, request, cancellationToken); return NoContent(); }
 
+    [HttpGet("groups/{groupId:guid}/members/lookup")]
+    public Task<GroupMemberLookupDto> LookupMember(Guid groupId, [FromQuery] string? email, CancellationToken cancellationToken)
+        => groups.LookupMemberAsync(User, groupId, email, cancellationToken);
+
     [HttpPost("groups/{groupId:guid}/baskets")]
     public async Task<BasketCreatedDto> CreateBasket(Guid groupId, CreateBasketRequest request, CancellationToken cancellationToken)
         => new(await groups.CreateBasketAsync(User, groupId, request, cancellationToken));

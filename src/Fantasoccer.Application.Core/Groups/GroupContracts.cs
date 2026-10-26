@@ -3,6 +3,7 @@ namespace Fantasoccer.Application.Core.Groups;
 public sealed record AccountSummaryDto(Guid UserId, string Email, string DisplayName, bool CanCreateGroups);
 public sealed record GroupSummaryDto(Guid GroupId, string Name, int Roles);
 public sealed record GroupMemberDto(Guid UserId, string Email, string DisplayName, int Roles);
+public sealed record GroupMemberLookupDto(string Email, string? DisplayName, bool Found, bool IsMember);
 public sealed record BasketDto(Guid BasketId, string Name, int[] SeasonIndices);
 public sealed record LeagueDto(Guid LeagueId, string Name, bool IsMain, LeagueSeasonDto[] Seasons);
 public sealed record LeagueSeasonDto(int SeasonIndex, Guid[] BasketIds);

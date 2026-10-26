@@ -66,3 +66,11 @@ test('group activation keeps the secret code in the POST body, never in the URL 
   assert.equal(request.method, 'POST')
   assert.deepEqual(JSON.parse(request.body), { name: 'My group', code: 'FZ-private-code' })
 })
+
+test('member lookup is exact-email and group scoped rather than listing the global account directory', async () => {
+  let request
+  const api = client(async (url, options) => { request = { url, ...options }; return new Response('{"email":"friend@example.test","found":true,"isMember":false,"displayName":"Friend"}') })
+  await api.lookupMember('my-group', ' friend@example.test ')
+  assert.equal(request.url, 'http://local.test/api/workspace/groups/my-group/members/lookup?email=friend%40example.test')
+  assert.equal(request.method, 'GET')
+})

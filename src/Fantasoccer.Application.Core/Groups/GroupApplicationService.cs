@@ -75,6 +75,20 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
     public async Task SetMemberAsync(ClaimsPrincipal caller, Guid groupId, SetGroupMemberRequest request, CancellationToken cancellationToken = default)
         => await SetMembersAsync(caller, [(groupId, request)], cancellationToken);
 
+    public async Task<GroupMemberLookupDto> LookupMemberAsync(ClaimsPrincipal caller, Guid groupId, string? email, CancellationToken cancellationToken = default)
+    {
+        await AccountAsync(caller, cancellationToken);
+        await AuthorizeAsync(caller, groupId, manage: true);
+        var canonical = email?.Trim().ToLowerInvariant();
+        if (canonical is null || canonical.Length > 320 || !MailAddress.TryCreate(canonical, out var address) || address.Address != canonical)
+            throw Invalid("Specificare un indirizzo email completo e valido.");
+        var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == canonical && x.IsEnabled, cancellationToken);
+        var isMember = user != null && await database.GroupMemberships.AnyAsync(x => x.GroupId == groupId && x.UserId == user.Id && x.Roles != GroupRole.None, cancellationToken);
+        // Deliberately no account state, global role or memberships in other
+        // groups, even when the exact email identifies an existing account.
+        return new(canonical, user?.DisplayName, user != null, isMember);
+    }
+
     public async Task SetMembersAsync(ClaimsPrincipal caller, IReadOnlyList<(Guid GroupId, SetGroupMemberRequest Request)> changes, CancellationToken cancellationToken = default)
     {
         await using var transaction = await BeginWriteAsync(cancellationToken);

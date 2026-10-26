@@ -187,6 +187,15 @@ Su richiesta esplicita del gestore, il super admin predefinito è ora `alessandr
 
 Verifiche: suite PostgreSQL e API reali su database isolati, incluso uso concorrente/riuso/revoca/cross-role e rollback forzato; test frontend di presentazione, menu e trasporto codice solo nel POST; TypeScript. Prova browser headless desktop/mobile con risposte API sintetiche per home, riscatto e console globale, non un collaudo di pagamento o di login Microsoft reale. Dettagli operativi: [attivazione gruppi](../docs/GROUP-ACTIVATION.md).
 
+## Incremento 13 — Inviti per email e gestione del laboratorio di migrazione
+
+- Il creatore resta responsabile/amministratore del gruppo; anche gli amministratori delegati possono accedere a **Membri e inviti**. Un pannello condiviso con il workspace effettua lookup di email complete, associa account esistenti e predispone membership per i primi login. Non espone la directory globale o gruppi altrui; non invia email automaticamente. Protezioni sull'ultimo responsabile e sull'assegnazione dei ruoli rimangono nel servizio SQL.
+- `reset-postgres.ps1`/`.sh` operano solo sul Docker locale e DB/ruolo `fantasoccer_local`, richiedono conferma esplicita, supportano anteprima, fermano API/frontend e creano un backup prima del reset transazionale delle righe applicative. Schema/EF history, volumi file/certificati/key ring e dump originali non sono cancellati; nessun riavvio automatico.
+- `sync-storage.ps1`/`.sh` orchestrano export Blob/Table, checksum e analisi. Solo `-Apply`/`APPLY=true` importano SQL e ripristinano Azurite; non esiste reset implicito o scrittura Azure. Sono snapshot a senso unico, non replica continua e non backup completo di tutti i servizi Azure. Rimangono in vigore il blocco dopo scritture interattive e la distinzione fra copia esplorativa e dump finale a sorgente ferma.
+- Test workflow PowerShell/Bash con Docker simulato e reset SQL su fixture PostgreSQL separata senza porte/volumi dell'app; test HTTP di lookup/invito e privacy, frontend/TypeScript e prova browser desktop/mobile con risposte API sintetiche. Nessun reset dei dati dello stack applicativo o export da sorgente reale è stato eseguito durante questo lavoro.
+
+Comandi e precauzioni: [runbook Windows](../docs/MIGRATION-RUNBOOK.md).
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

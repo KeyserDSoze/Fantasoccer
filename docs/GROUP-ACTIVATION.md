@@ -21,6 +21,8 @@ Gli account nuovi restano registrabili senza invito. Senza gruppi la home presen
 
 ## API e sicurezza
 
+Il creatore è responsabile/amministratore del proprio gruppo e può usare **Membri e inviti**. La ricerca richiede un'email completa e restituisce solo nome/email e presenza nel gruppo corrente, mai il catalogo utenti o le membership altrui. Può anche predisporre l'accesso a un'email non ancora registrata; non vengono spedite email automaticamente. La vista globale con tutti gli utenti e i rispettivi gruppi rimane separata in `/platform`. Vedere il [runbook](MIGRATION-RUNBOOK.md).
+
 - `GET /api/platform/users`, `/groups`, `/group-codes`: riservati al super admin verificato, paginati (`offset`, `limit`, massimo 100). Ricerca per utenti e gruppi con `query`.
 - `GET /api/platform/groups/{id}`: panoramica membri/leghe senza impersonazione.
 - `POST /api/platform/group-codes`: `{ "label": "Nota facoltativa" }`, risposta con codice completo e metadati; `Cache-Control: no-store`.

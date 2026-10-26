@@ -2,6 +2,7 @@
 export interface WorkspaceAccount { userId: string; email: string; displayName: string; canCreateGroups: boolean }
 export interface WorkspaceGroup { groupId: string; name: string; roles: number }
 export interface WorkspaceMember { userId: string; email: string; displayName: string; roles: number }
+export interface WorkspaceMemberLookup { email: string; displayName: string | null; found: boolean; isMember: boolean }
 export interface WorkspaceBasket { basketId: string; name: string; seasonIndices: number[] }
 export interface WorkspaceLeague { leagueId: string; name: string; isMain: boolean; seasons: { seasonIndex: number; basketIds: string[] }[] }
 export interface WorkspaceTeam { teamId: string; basketId: string; seasonIndex: number; name: string; owners: { userId: string; displayName: string; isPrimary: boolean }[] }

@@ -33,6 +33,7 @@ La compatibilità dei vecchi URL/JSON non è richiesta. In SQL gli endpoint auto
 ## Verifiche trasversali
 
 - Incremento onboarding: `/api/platform` introduce una panoramica esplicita di tutti gli account/gruppi e la gestione codici, riservata al super admin di piattaforma configurato; non è un bypass delle policy di gioco. `/api/workspace/groups/redeem-code` permette agli account attivi di creare un gruppo con codice monouso in transazione. Vedere [attivazione e limiti pagamenti](../docs/GROUP-ACTIVATION.md).
+- I manager di gruppo non possono enumerare `/api/accounts`: la ricerca richiede un'email completa. Il lookup in `/api/workspace/groups/{id}/members/lookup` autorizza il gruppo e restituisce solo email/nome/presenza nel gruppo corrente; gli inviti usano il servizio di membership, senza invio automatico di email. Reset locale protetto e pipeline snapshot→SQL sono nel [runbook](../docs/MIGRATION-RUNBOOK.md).
 
 - I controller SQL sono in una whitelist esplicita sia nel runtime sia nel catalogo MCP. Il facade MCP continua a eseguire filtri/policy e chiama gli stessi servizi; il guard non accede ai repository legacy per questi controller.
 - I test HTTP/SignalR coprono cambi di ruolo, account esterni, scope cross-group/lega/anno, contraffazione prezzi/stati/ID, versioni stale, co-owner concorrenti e rollback forzato durante un trasferimento.

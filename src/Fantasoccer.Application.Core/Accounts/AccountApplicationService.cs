@@ -71,25 +71,29 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
     public async Task<AccountIdentityDto[]> SearchAsync(ClaimsPrincipal caller, string? email, CancellationToken cancellationToken = default)
     {
         var actor = await CurrentUserAsync(caller, cancellationToken);
-        var global = IsGlobalAdministrator(actor.Email);
+        var global = caller.IsInRole("super_admin") && IsGlobalAdministrator(actor.Email);
         var managed = await database.GroupMemberships.Where(x => x.UserId == actor.Id && (x.Roles & (GroupRole.Admin | GroupRole.SuperAdmin)) != 0)
             .Select(x => x.GroupId).ToArrayAsync(cancellationToken);
         if (!global && managed.Length == 0) throw Denied();
+        // Group managers can look up an exact email for invitations, never
+        // enumerate the platform directory. Their own member list is scoped to
+        // GET /workspace/groups/{id}; full oversight uses /api/platform.
+        if (!global && string.IsNullOrWhiteSpace(email)) throw Denied();
         var query = database.Users.AsNoTracking().Where(x => x.IsEnabled);
         if (!string.IsNullOrWhiteSpace(email))
         {
             var canonical = email.Trim().ToLowerInvariant();
+            if (canonical.Length > 320 || !System.Net.Mail.MailAddress.TryCreate(canonical, out var address) || address.Address != canonical)
+                throw Invalid("Specificare un indirizzo email completo e valido.");
             query = query.Where(x => x.Email == canonical);
         }
-        else if (!global)
-            query = query.Where(x => x.Memberships.Any(m => managed.Contains(m.GroupId)));
         var users = await query.OrderBy(x => x.Email).Take(200).ToArrayAsync(cancellationToken);
         var results = new List<AccountIdentityDto>();
         foreach (var user in users)
         {
             var profile = await ProfileAsync(user, cancellationToken);
             if (user.Id != actor.Id && !global)
-                profile = profile with { State = new(), Groups = profile.Groups.Where(group => managed.Contains(group.Id)).ToArray() };
+                profile = profile with { State = new(), Groups = profile.Groups.Where(group => managed.Contains(group.Id)).ToArray(), IsGlobalAdministrator = false };
             results.Add(profile);
         }
         return results.ToArray();

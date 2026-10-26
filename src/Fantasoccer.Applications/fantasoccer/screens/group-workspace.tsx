@@ -8,6 +8,7 @@ import { getActualFantacalcioYear } from '../utils/timezoneHelpers'
 import { useApp } from '../providers/AppProvider'
 import { useNavigation } from '@react-navigation/native'
 import type { NavigationProp } from '../navigation'
+import { GroupMembersPanel } from '../components/groups/GroupMembersPanel'
 
 const roleOptions = [{ value: 1, label: 'Lettura' }, { value: 2, label: 'Partecipante' }, { value: 4, label: 'Amministratore' }, { value: 8, label: 'Responsabile' }]
 const roleLabel = (roles: number) => roleOptions.filter(role => (roles & role.value) !== 0).map(role => role.label).join(', ') || 'Rimosso'
@@ -25,9 +26,6 @@ export default function GroupWorkspaceScreen() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [rename, setRename] = useState('')
-  const [email, setEmail] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [roles, setRoles] = useState(2)
   const [season, setSeason] = useState(String(getActualFantacalcioYear()))
   const [basketName, setBasketName] = useState('')
   const [leagueName, setLeagueName] = useState('')
@@ -56,7 +54,6 @@ export default function GroupWorkspaceScreen() {
   useEffect(() => {
     const current = ++sequence.current
     setDetails(null); setError(''); setNotice(''); setLeagueBaskets([]); setBasketId(''); setOwnerId(''); setCoOwners([])
-    setEmail(''); setDisplayName(''); setRoles(2)
     if (!groupId || !isAuthenticated) return
     const controller = new AbortController()
     setLoading(true)
@@ -88,7 +85,6 @@ export default function GroupWorkspaceScreen() {
   const baskets = details?.baskets.filter(basket => basket.seasonIndices.includes(index)) || []
   const activeMembers = details?.members.filter(member => member.roles !== 0) || []
   const canManage = !!details && (details.roles & 12) !== 0
-  const canManageOwners = !!details && (details.roles & 8) !== 0
   const toggle = (values: string[], value: string) => values.includes(value) ? values.filter(item => item !== value) : [...values, value]
 
   return <ScreenContent><YStack gap="$4" maxWidth={1000} width="100%" alignSelf="center">
@@ -110,19 +106,15 @@ export default function GroupWorkspaceScreen() {
     {account && groups.length > 0 && <Button alignSelf="flex-start" onPress={() => navigation.navigate('CreateGroup')}>Crea un nuovo gruppo</Button>}
     {details && <>
       <H3>{details.name}</H3><Paragraph>I tuoi ruoli: {roleLabel(details.roles)}</Paragraph>
-      <Card padding="$4" gap="$2"><H3>Membri</H3>{details.members.map(member => <XStack key={member.userId} gap="$2" alignItems="center" flexWrap="wrap">
-        <Text>{member.displayName} · {member.email} · {roleLabel(member.roles)}</Text>
-        {canManage && <Button size="$2" disabled={busy} onPress={() => { setEmail(member.email); setDisplayName(member.displayName); setRoles(member.roles) }}>Modifica membro</Button>}
-      </XStack>)}</Card>
+      <GroupMembersPanel key={`${groupId}:${account?.email}`} groupId={groupId} roles={details.roles} members={details.members} onChanged={async () => {
+        const current = sequence.current
+        const updated = await api.details(groupId)
+        if (current === sequence.current) setDetails(updated)
+        await refreshGroups()
+      }} />
       {canManage && <Card padding="$4" gap="$2"><H3>Amministrazione gruppo</H3>
         <Input aria-label="Nome gruppo" value={rename} onChangeText={setRename} />
         <Button disabled={busy || rename.trim().length < 2} onPress={() => execute(() => api.renameGroup(groupId, rename))}>Salva nome gruppo</Button>
-        <Input aria-label="Email membro" placeholder="Email membro" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <Input aria-label="Nome membro" placeholder="Nome membro" value={displayName} onChangeText={setDisplayName} />
-        <XStack gap="$2" flexWrap="wrap">{roleOptions.map(role => <Button key={role.value} size="$2" disabled={busy || (role.value === 8 && !canManageOwners)}
-          theme={(roles & role.value) !== 0 ? 'blue' : undefined} onPress={() => setRoles(value => value ^ role.value)}>{role.label}</Button>)}</XStack>
-        <Paragraph>Nessun ruolo = membro rimosso; lo storico non viene cancellato. Le modifiche non cambiano il profilo globale degli altri utenti.</Paragraph>
-        <Button disabled={busy || !email.includes('@') || displayName.trim().length < 2} onPress={() => execute(() => api.setMember(groupId, { email, displayName, roles }))}>Salva membro</Button>
       </Card>}
       <Card padding="$4" gap="$2"><H3>Basket e competizioni</H3>
         {details.baskets.map(basket => <Paragraph key={basket.basketId}>{basket.name} · stagioni {basket.seasonIndices.join(', ')}</Paragraph>)}

@@ -55,14 +55,14 @@ case "$action" in
   restore)
     "${compose[@]}" stop frontend api
     "${compose[@]}" --profile tools run --rm --build storage-restore restore-local --directory "/dumps/$dump_name" --public-local-files
-    echo 'Local legacy storage restored. Use analyze-core/import-core for the PARTIAL relational import; the game migration is not complete.'
+    echo 'Verified snapshot restored to local Azurite. SQL data import is separate (analyze-core/import-core).'
     ;;
   migrate) "${compose[@]}" --profile tools run --rm --build migrate ;;
   analyze-core) "${compose[@]}" --profile tools run --rm --build --no-deps import-core analyze-core --directory "/dumps/$dump_name" ;;
   import-core)
     "${compose[@]}" stop frontend api
     "${compose[@]}" --profile tools run --rm --build import-core import-core --directory "/dumps/$dump_name"
-    echo 'Core structure imported. Check pendingContainers/pendingFields: this is NOT a complete migration of the game.'
+    echo 'SQL snapshot imported. Review pendingContainers/pendingFields/preservedArtifacts; production cutover is not automatic. Apps remain stopped.'
     ;;
   logs) "${compose[@]}" logs --tail 100 api ;;
   smoke)

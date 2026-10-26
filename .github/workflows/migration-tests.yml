@@ -65,6 +65,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Test guarded maintenance scripts with mocks and a disposable database
+        run: python3 scripts/local/test-maintenance.py --docker
       - name: Build and start the complete local stack
         run: bash scripts/local/local.sh up .env.test
       - name: Check app and API readiness

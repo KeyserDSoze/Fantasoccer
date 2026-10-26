@@ -80,14 +80,14 @@ switch ($Action) {
         # Stop all application writers before replacing documents. No automatic restart.
         Invoke-Compose -CommandArgs @('stop', 'frontend', 'api')
         Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'storage-restore', 'restore-local', '--directory', "/dumps/$DumpName", '--public-local-files')
-        Write-Host 'Restored local legacy storage. Use analyze-core/import-core for the PARTIAL relational import; the game migration is not complete.'
+        Write-Host 'Verified snapshot restored to local Azurite. SQL data import is separate (analyze-core/import-core).'
     }
     'migrate' { Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'migrate') }
     'analyze-core' { Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', '--no-deps', 'import-core', 'analyze-core', '--directory', "/dumps/$DumpName") }
     'import-core' {
         Invoke-Compose -CommandArgs @('stop', 'frontend', 'api')
         Invoke-Compose -CommandArgs @('--profile', 'tools', 'run', '--rm', '--build', 'import-core', 'import-core', '--directory', "/dumps/$DumpName")
-        Write-Host 'Core structure imported. Check pendingContainers/pendingFields: this is NOT a complete migration of the game.'
+        Write-Host 'SQL snapshot imported. Review pendingContainers, pendingFields and preservedArtifacts; production cutover is not automatic. API/frontend remain stopped.'
     }
     'logs' { Invoke-Compose -CommandArgs @('logs', '--tail', '100', 'api') }
     'smoke' {
