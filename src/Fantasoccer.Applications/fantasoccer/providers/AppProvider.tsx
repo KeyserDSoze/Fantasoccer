@@ -9,7 +9,7 @@ import type { AppIdentityState } from '../types/identity'
 
 export interface AppState {
   currentGroup: Group | null; enhancedGroup: EnhancedGroup | null; userGroups: Group[]; isGroupsLoading: boolean
-  groupsError: string | null; selectedLeagueId: string | null; selectedYear: number | null; superAdminMode: boolean
+  hasLoadedGroups: boolean; groupsError: string | null; selectedLeagueId: string | null; selectedYear: number | null; superAdminMode: boolean
 }
 export interface AppContextType extends AppState {
   refreshGroups: () => Promise<void>; applyGroupUpdate: (group: Group) => void; setCurrentGroup: (id: string | null) => Promise<void>
@@ -25,6 +25,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentGroup, setGroup] = useState<Group | null>(null)
   const [userGroups, setGroups] = useState<Group[]>([])
   const [isGroupsLoading, setLoading] = useState(false)
+  const [loadedGroupsFor, setLoadedGroupsFor] = useState<string | null>(null)
   const [groupsError, setError] = useState<string | null>(null)
   const [selectedLeagueId, setLeague] = useState<string | null>(null)
   const [selectedYear, setYear] = useState<number | null>(null)
@@ -53,6 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   async function refreshGroups() {
     const sequence = ++loadSequence.current
     if (!isAuthenticated || !user) return
+    setLoadedGroupsFor(null)
     setLoading(true); setError(null); showLoading('Caricamento gruppi...')
     try {
       const token = await tokenStorageService.ensureValidToken()
@@ -61,9 +63,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (sequence !== loadSequence.current || profile.email !== user.email || activeEmail.current !== user.email) return
       updateUser(profile)
       setGroups(groups)
+      setLoadedGroupsFor(profile.email.toLowerCase())
       const group = groups.find(value => value.id === profile.state.groupId) ?? groups[0] ?? null
       selectLocally(group, profile.state.leagueId, profile.state.year, profile.state.meOrLeaderEmail)
-    } catch (error) { if (sequence === loadSequence.current) setError(error instanceof Error ? error.message : 'Caricamento non riuscito.') }
+    } catch (error) {
+      if (sequence === loadSequence.current) {
+        setError(error instanceof Error ? error.message : 'Caricamento non riuscito.')
+        setLoadedGroupsFor(user.email.toLowerCase())
+      }
+    }
     finally { if (sequence === loadSequence.current) { setLoading(false); hideLoading() } }
   }
   async function persist(selection: AppIdentityState, group: Group | null) {
@@ -118,12 +126,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isAuthenticated && user && !authLoading) { void refreshGroups(); return }
     if (!isAuthenticated) {
-      loadSequence.current++; selectionSequence.current++; setGroups([]); setGroup(null); setLeague(null); setYear(null); setLoading(false); setError(null)
+      loadSequence.current++; selectionSequence.current++; setGroups([]); setGroup(null); setLeague(null); setYear(null); setLoading(false); setError(null); setLoadedGroupsFor(null)
       desiredSelection.current = null; desiredGroup.current = null
     }
   }, [isAuthenticated, user?.email, authLoading])
+  const hasLoadedGroups = !!user?.email && loadedGroupsFor === user.email.toLowerCase()
   return <AppContext.Provider value={{ currentGroup, enhancedGroup: currentGroup ? enhanceGroup(currentGroup) : null, userGroups,
-    isGroupsLoading, groupsError, selectedLeagueId, selectedYear, superAdminMode, refreshGroups, applyGroupUpdate,
+    isGroupsLoading, hasLoadedGroups, groupsError, selectedLeagueId, selectedYear, superAdminMode, refreshGroups, applyGroupUpdate,
     setCurrentGroup, setSelectedLeague, setSelectedYear, getAvailableLeagues: () => currentGroup?.leagues ?? [],
     getAvailableYears: id => currentGroup?.leagues.find(value => value.id === (id ?? selectedLeagueId))?.years.map(value => value.year) ?? [],
     clearError: () => setError(null), toggleSuperAdminMode: () => setSuperAdmin(value => {

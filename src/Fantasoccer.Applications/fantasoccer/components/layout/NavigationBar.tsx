@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Platform } from 'react-native'
 import {
   Button,
+  Card,
   Sheet,
   XStack,
   YStack,
@@ -11,6 +12,7 @@ import {
   Separator,
   ScrollView,
   useMedia,
+  Spinner,
 } from 'tamagui'
 import {
   Menu,
@@ -162,6 +164,10 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
   const { 
     currentGroup, 
     userGroups,
+    hasLoadedGroups,
+    isGroupsLoading,
+    groupsError,
+    refreshGroups,
     selectedLeagueId,
     selectedYear,
     setCurrentGroup,
@@ -503,45 +509,49 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
 
               <Separator />
 
-              {/* Main Navigation */}
-               {navigationItems.map((section) => renderSection(section))}
-               {openingCompetitionEnabled && renderSection({ section: 'Competizioni', items: [{ type: 'route', route: 'OpeningCompetition', label: 'Competizione d’apertura', icon: Trophy, description: 'Classifica e premi della competizione' }] })}
-
-              {/* Admin Navigation */}
-              {isAdmin && (
+              {!hasLoadedGroups || isGroupsLoading ? (
+                <YStack alignItems="center" gap="$3" padding="$5">
+                  <Spinner />
+                  <Text color="$color10">Caricamento dei tuoi gruppi…</Text>
+                </YStack>
+              ) : groupsError ? (
+                <Card padding="$4" gap="$3">
+                  <Text color="$red10">Non riesco a caricare i gruppi. {groupsError}</Text>
+                  <Button variant="outlined" onPress={() => void refreshGroups()}>Riprova</Button>
+                </Card>
+              ) : userGroups.length === 0 ? (
+                <Card padding="$4" gap="$3">
+                  <Text fontSize="$5" fontWeight="bold" color="$color12">Non fai ancora parte di un gruppo</Text>
+                  <Text color="$color10">Le funzioni di lega, formazioni e mercato appariranno quando sarai invitato in un gruppo.</Text>
+                  <Button variant="outlined" onPress={() => {
+                    (navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate('GroupWorkspace')
+                    setIsOpen(false)
+                  }}>Gestione gruppi</Button>
+                </Card>
+              ) : (
                 <>
-                  <Separator />
-                  {adminItems.map(renderSection)}
-                </>
-              )}
+                  {/* Game navigation is available only to accounts with group membership. */}
+                  {navigationItems.map((section) => renderSection(section))}
+                  {openingCompetitionEnabled && renderSection({ section: 'Competizioni', items: [{ type: 'route', route: 'OpeningCompetition', label: 'Competizione d’apertura', icon: Trophy, description: 'Classifica e premi della competizione' }] })}
 
-              {/* Super Admin Navigation */}
-              {isSuperAdmin && (
-                <>
-                  <Separator />
-                  
-                  {/* Super Admin Mode Toggle */}
-                  <YStack gap="$3" marginBottom="$4" padding="$3" backgroundColor="$purple2" borderRadius="$4">
-                    <Text fontSize="$5" fontWeight="bold" color="$purple11">
-                      🛡️ Modalità Super Admin
-                    </Text>
-                    <Text fontSize="$2" color="$color11">
-                      Attiva questa modalità per modificare le formazioni di tutte le squadre durante le partite live.
-                    </Text>
-                    <Button
-                      size="$3"
-                      backgroundColor={superAdminMode ? "$purple10" : "$purple4"}
-                      borderColor={superAdminMode ? "$purple10" : "$purple8"}
-                      onPress={toggleSuperAdminMode}
-                      pressStyle={{ opacity: 0.8 }}
-                    >
-                      <Text color={superAdminMode ? "white" : "$purple11"} fontWeight="600">
-                        {superAdminMode ? '✓ Modalità Attiva' : 'Attiva Modalità'}
-                      </Text>
-                    </Button>
-                  </YStack>
-                  
-                  {superAdminItems.map(renderSection)}
+                  {isAdmin && <><Separator />{adminItems.map(renderSection)}</>}
+
+                  {isSuperAdmin && (
+                    <>
+                      <Separator />
+                      <YStack gap="$3" marginBottom="$4" padding="$3" backgroundColor="$purple2" borderRadius="$4">
+                        <Text fontSize="$5" fontWeight="bold" color="$purple11">🛡️ Modalità Super Admin</Text>
+                        <Text fontSize="$2" color="$color11">Attiva questa modalità per modificare le formazioni di tutte le squadre durante le partite live.</Text>
+                        <Button size="$3" backgroundColor={superAdminMode ? "$purple10" : "$purple4"}
+                          borderColor={superAdminMode ? "$purple10" : "$purple8"} onPress={toggleSuperAdminMode} pressStyle={{ opacity: 0.8 }}>
+                          <Text color={superAdminMode ? "white" : "$purple11"} fontWeight="600">
+                            {superAdminMode ? '✓ Modalità Attiva' : 'Attiva Modalità'}
+                          </Text>
+                        </Button>
+                      </YStack>
+                      {superAdminItems.map(renderSection)}
+                    </>
+                  )}
                 </>
               )}
 

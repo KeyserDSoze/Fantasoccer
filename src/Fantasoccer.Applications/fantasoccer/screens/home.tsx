@@ -1,7 +1,7 @@
 import { ScreenContent } from 'components/layout/ScreenContent';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, H1, Paragraph, YStack, Text, Separator, H3, XStack, Card } from 'tamagui';
+import { Button, H1, Paragraph, YStack, Text, Separator, H3, XStack, Card, Spinner } from 'tamagui';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from 'navigation';
 import { Calendar, TrendingUp, Users } from '@tamagui/lucide-icons-2';
@@ -10,6 +10,7 @@ import { useAuth } from 'providers/AuthProvider';
 import type { AuthUser } from 'providers/AuthProvider';
 import { SerieALiveWidget } from 'components/seriea/SerieALiveWidget';
 import { HomeLeagueMatchWidget } from 'components/home/HomeLeagueMatchWidget';
+import { useApp } from 'providers/AppProvider';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -24,6 +25,32 @@ export default function Home() {
 }
 
 function AuthenticatedContent({ user }: { user: AuthUser | null }) {
+  const navigation = useNavigation<NavigationProp>();
+  const { userGroups, hasLoadedGroups, isGroupsLoading, groupsError, refreshGroups } = useApp();
+
+  if (!hasLoadedGroups || isGroupsLoading) {
+    return <YStack width="100%" alignItems="center" gap="$3" padding="$6"><Spinner /><Paragraph>Caricamento dei tuoi gruppi…</Paragraph></YStack>;
+  }
+
+  if (groupsError) {
+    return <Card width="100%" padding="$4" gap="$3">
+      <H3>Non riesco a caricare i gruppi</H3>
+      <Paragraph>{groupsError}</Paragraph>
+      <Button variant="outlined" alignSelf="flex-start" onPress={() => void refreshGroups()}>Riprova</Button>
+    </Card>;
+  }
+
+  if (userGroups.length === 0) {
+    return <Card width="100%" padding="$5" gap="$4">
+      <H1 color="$blue10">Benvenuto{user?.username ? `, ${user.username}` : ''}</H1>
+      <Paragraph>
+        Il tuo account è pronto, ma non fai ancora parte di un gruppo. Classifiche, formazioni e mercato saranno disponibili dopo l’invito di un amministratore.
+      </Paragraph>
+      <Paragraph color="$color10">Se sei un amministratore di piattaforma, puoi creare un gruppo dalla gestione gruppi.</Paragraph>
+      <Button alignSelf="flex-start" onPress={() => navigation.navigate('GroupWorkspace')}>Apri gestione gruppi</Button>
+    </Card>;
+  }
+
   return (
     <YStack gap="$4" width="100%" minWidth={0} flexShrink={0}>
       <HomeLeagueMatchWidget />

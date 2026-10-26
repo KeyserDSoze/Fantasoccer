@@ -91,10 +91,15 @@ export default function GroupWorkspaceScreen() {
   const toggle = (values: string[], value: string) => values.includes(value) ? values.filter(item => item !== value) : [...values, value]
 
   return <ScreenContent><YStack gap="$4" maxWidth={1000} width="100%" alignSelf="center">
-    <H2>Gruppi PostgreSQL</H2>
-    <Card padding="$4" gap="$2"><Paragraph>Gestione relazionale di membri, basket, partecipazioni e proprietà delle squadre. I contratti di questa schermata usano direttamente nomi leggibili.</Paragraph>
-      <Paragraph>Identità, gruppi, regolamenti e rose sono relazionali. Il collaudo completo delle schermate partita, mercato e aste deve attendere la migrazione dei relativi flussi.</Paragraph>
-      <Paragraph>Completare l'import prima di modificare i dati: la prima scrittura interattiva blocca le successive reimportazioni sullo stesso database.</Paragraph></Card>
+    <H2>{account && groups.length === 0 ? 'Nessun gruppo associato' : 'Gruppi'}</H2>
+    {account && groups.length === 0 ? <Card padding="$4" gap="$2">
+      <Paragraph>{account.canCreateGroups
+        ? 'Il tuo account può creare il primo gruppo. Dopo averlo creato potrai invitare gli altri partecipanti.'
+        : 'Il tuo account è attivo, ma non appartiene ancora a un gruppo. Chiedi a un amministratore di invitarti per accedere a classifiche, squadre e mercato.'}</Paragraph>
+    </Card> : <Card padding="$4" gap="$2">
+      <Paragraph>Gestisci membri, basket, partecipazioni e proprietà delle squadre del gruppo selezionato.</Paragraph>
+      <Paragraph>Completare l&apos;import prima di modificare i dati: la prima scrittura interattiva blocca le successive reimportazioni sullo stesso database.</Paragraph>
+    </Card>}
     {!enabled && <Text>Workspace non abilitato in questo ambiente.</Text>}
     {enabled && !isAuthenticated && <Text>Accedi per visualizzare i tuoi gruppi.</Text>}
     {error && <Card padding="$3"><Text color="$red10" accessibilityRole="alert">{error}</Text></Card>}
@@ -103,7 +108,6 @@ export default function GroupWorkspaceScreen() {
     {account && <Paragraph>Account: {account.displayName} ({account.email})</Paragraph>}
     <XStack gap="$2" flexWrap="wrap">{groups.map(group => <Button key={group.groupId} disabled={busy} theme={group.groupId === groupId ? 'blue' : undefined}
       onPress={() => setGroupId(group.groupId)}>{group.name}</Button>)}</XStack>
-    {account && groups.length === 0 && <Paragraph>Non appartieni ancora a nessun gruppo PostgreSQL.</Paragraph>}
     {account?.canCreateGroups && <Card padding="$4" gap="$2"><H3>Nuovo gruppo</H3>
       <Input aria-label="Nome nuovo gruppo" placeholder="Nome nuovo gruppo" value={groupName} onChangeText={setGroupName} />
       <Button disabled={busy || groupName.trim().length < 2} onPress={() => execute(async () => {

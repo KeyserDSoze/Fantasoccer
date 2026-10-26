@@ -35,11 +35,15 @@ type UserMatch = {
 
 export function GlobalMatchWidget({ activeRouteName }: { activeRouteName?: string }) {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { userGroups, hasLoadedGroups, isGroupsLoading } = useApp();
 
   if (
     isLoading ||
     !isAuthenticated ||
     !user ||
+    !hasLoadedGroups ||
+    isGroupsLoading ||
+    userGroups.length === 0 ||
     activeRouteName === 'Live' ||
     activeRouteName === 'Game'
   ) {
