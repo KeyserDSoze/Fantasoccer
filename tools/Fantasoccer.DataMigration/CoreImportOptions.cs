@@ -1,3 +1,4 @@
 namespace Fantasoccer.DataMigration;
 
-public sealed record CoreImportOptions(string? LegacyEncryptionKey = null, string? LegacyEncryptionIV = null);
+public sealed record CoreImportOptions(string? LegacyEncryptionKey = null, string? LegacyEncryptionIV = null,
+    bool ImportLegacyAuctions = true);

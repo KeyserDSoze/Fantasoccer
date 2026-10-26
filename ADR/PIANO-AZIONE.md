@@ -196,6 +196,10 @@ Verifiche: suite PostgreSQL e API reali su database isolati, incluso uso concorr
 
 Comandi e precauzioni: [runbook Windows](../docs/MIGRATION-RUNBOOK.md).
 
+### Esclusione esplicita delle aste storiche
+
+Su richiesta del gestore è disponibile `IMPORT_LEGACY_AUCTIONS=false` nel `.env` (CLI: `FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false`). Esclude `auction` e `randomizedplayers` prima della decodifica JSON, lasciando opzionali le chiavi `LEGACY_ENCRYPTION_*`; non tocca gruppi, rose, prezzi, crediti o altre competizioni. L'export mantiene comunque tutti i byte originali verificati e il report dichiara `excludedContainers`/`preservedArtifacts`. Il default rimane inclusivo (`true`) per evitare perdite silenziose. Il mapping è aggiornato e i test coprono idempotenza, esclusione senza chiavi e cambio modalità prima dell'apertura alle scritture applicative.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -16,7 +16,10 @@ Apri il `.env` **privato** nella root e compila:
 # SORGENTE Azure: lettura/export soltanto. Non usare una SAS di un singolo Blob.
 FANTASOCCER_EXPORT_STORAGE='DefaultEndpointsProtocol=https;AccountName=ACCOUNT_SORGENTE;AccountKey=CHIAVE_REALE;EndpointSuffix=core.windows.net'
 
-# Solo se il dataset contiene liste d'asta cifrate: servono i valori ORIGINALI.
+# Per NON importare aste storiche e vecchie liste randomizzate:
+IMPORT_LEGACY_AUCTIONS=false
+# Possono restare vuoti con la scelta precedente.
+# Se invece IMPORT_LEGACY_AUCTIONS=true, servono le chiavi ORIGINALI per le liste cifrate.
 LEGACY_ENCRYPTION_KEY=
 LEGACY_ENCRYPTION_IV=
 
@@ -62,7 +65,9 @@ Ripresa/riacquisizione della **stessa** sorgente:
 
 ## 3. Importare esplicitamente la copia locale
 
-Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.
+Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste e liste con `IMPORT_LEGACY_AUCTIONS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.
+
+L'esclusione delle aste non tocca squadre, rose, prezzi già salvati, crediti, risultati o classifiche. Non elimina i Blob sorgente: i byte restano nel dump completo verificato come archivio, ma non sono caricati nelle tabelle SQL delle aste/ordini. Il default del tool rimane `true` per evitare di perdere dati senza una scelta esplicita.
 
 Ferma anche eventuali processi `dotnet run`/debug avviati sull'host, poi:
 

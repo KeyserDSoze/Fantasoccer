@@ -33,6 +33,12 @@ Le abbreviazioni restano nel lettore legacy, non nei nuovi DTO applicativi.
 
 ## Riconciliazioni e artefatti conservati
 
+### Escludere le vecchie aste senza fornire le chiavi legacy
+
+Nel `.env` privato imposta `IMPORT_LEGACY_AUCTIONS=false`: analisi e import omettono **sia `auction` sia `randomizedplayers`** prima di decodificare i documenti. Puoi lasciare vuoti `LEGACY_ENCRYPTION_KEY` e `LEGACY_ENCRYPTION_IV`. Con CLI .NET diretta l'opzione corrispondente è `FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false`. Il default è `true`: l'assenza delle chiavi non causa omissioni silenziose.
+
+Il report dichiara `excludedContainers` e conserva le aste originali nel dump verificato (`preservedArtifacts`), non in SQL. Non vengono cancellati Blob sorgente, rose, giocatori acquistati, prezzi o saldi già presenti negli snapshot delle squadre. L'opzione non disabilita le nuove aste dell'app. Le chiavi applicative locali `ENCRYPTION_*` sono una configurazione distinta e non vanno svuotate.
+
 Il report elenca `pendingFields`, `pendingContainers`, `preservedArtifacts` e mantiene `fullMigrationComplete=false` per non confondere copertura implementata e accettazione del cutover.
 I job SQL, refresh incrementale albo, editoriale/AI opzionale, log e outbox sono implementati. Restano decisioni dipendenti dai dati: checkpoint crediti/albo non ricostruibili, pending push senza scope verificabile, librerie non-default e container sconosciuti. Non vengono risolte inventando identità o scartando dati.
 `images`, `logos`, `cardimages` restano file Blob. Gli snapshot derivati `livegroup` e le chiavi `mcp-keys` sono conservati nel dump verificato/ripristino privato, non usati come fallback dati SQL né pubblicati: il report li distingue in `preservedArtifacts`. I container sconosciuti rimangono pendenti. Conservare il dump originale e i suoi checksum anche dopo l'import.

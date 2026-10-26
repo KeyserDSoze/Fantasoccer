@@ -12,6 +12,46 @@ namespace Fantasoccer.PostgreSql.Tests;
 public sealed partial class CoreMigrationTests
 {
     [CoreFact]
+    public async Task Explicit_auction_exclusion_skips_decoding_old_sessions_and_orders_without_keys_and_preserves_rosters()
+    {
+        foreach (var name in new[] { "auction", "randomizedplayers" })
+        {
+            var old = await ExtraContainerAsync(name);
+            await old.GetBlobClient("old-archive").UploadAsync(BinaryData.FromString("Old unusable auction payload, intentionally not decoded."));
+        }
+        var club = new RealTeam { Name = "Retained club" };
+        var player = new RealPlayer { Name = "Retained player", RealTeam = club, Role = Role.Forward, IsActive = true };
+        var catalogue = await ExtraContainerAsync("realplayerswrapper");
+        await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new() { Players = [player] }, 15))));
+        var teams = await ExtraContainerAsync("team");
+        await teams.GetBlobClient("roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+        {
+            Name = "Team", Owner = Email, AdditionalOwners = [OtherEmail], MoneyFromRank = 17, OpeningCompetitionPrize = 9,
+            Players = [new() { Name = player.Name, RealTeam = club, Role = Role.Forward, IsActive = true, Price = 37, Position = FantaSoccerRole.Forward }]
+        }, new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email }))));
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var options = new CoreImportOptions(ImportLegacyAuctions: false);
+        var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump, options: options);
+        Assert.DoesNotContain(dataset.Documents, x => x.Container is "auction" or "randomizedplayers");
+        Assert.Empty(plan.Auctions); Assert.Empty(plan.PlayerOrders);
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Equal(new[] { "auction", "randomizedplayers" }, report.ExcludedContainers);
+        Assert.DoesNotContain("auction", report.PendingContainers);
+        Assert.Contains(report.PreservedArtifacts!, x => x.StartsWith("auction: excluded"));
+        Assert.Contains(report.PreservedArtifacts!, x => x.StartsWith("randomizedplayers: excluded"));
+        Assert.Empty(await database.AuctionSessions.ToArrayAsync()); Assert.Empty(await database.LeaguePlayerOrders.ToArrayAsync());
+        var roster = await database.RosterSnapshots.SingleAsync();
+        Assert.Equal(37, Assert.Single(roster.Players).Price); Assert.Equal(17, roster.MoneyFromRank); Assert.Equal(9, roster.OpeningCompetitionPrize);
+        Assert.Equal(2, await database.Groups.CountAsync()); Assert.Equal(4, await database.LeagueRules.CountAsync());
+        var repeated = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+        var manifest = await DumpArchive.VerifyAsync(_dump);
+        Assert.Single(manifest.Containers.Single(x => x.Name == "auction").Blobs);
+        Assert.Single(manifest.Containers.Single(x => x.Name == "randomizedplayers").Blobs);
+    }
+
+    [CoreFact]
     public async Task Auction_import_requires_explicit_legacy_keys_and_preserves_order_current_statistics_timers_and_audit_without_live_presence()
     {
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Other team", Owner = OtherEmail, AdditionalOwners = [] });
@@ -64,6 +104,14 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(2, await database.Players.CountAsync());
         var repeated = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+        // Switching this option must reconcile the target, not incorrectly take
+        // the unchanged-snapshot fast path and keep previously imported sessions.
+        var excluded = await new CoreDatasetImporter(database, new(ImportLegacyAuctions: false)).ImportAsync(_dump);
+        Assert.Equal(0, excluded.SkippedDocuments); Assert.Contains("auction", excluded.ExcludedContainers!);
+        Assert.Empty(await database.AuctionSessions.ToArrayAsync());
+        Assert.Equal(2, await database.Players.CountAsync());
+        await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Single(await database.AuctionSessions.ToArrayAsync());
         await container.DeleteBlobAsync(auction.Id);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await new CoreDatasetImporter(database, options).ImportAsync(_dump);

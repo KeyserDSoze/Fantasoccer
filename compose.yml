@@ -186,6 +186,7 @@ services:
       FANTASOCCER_POSTGRES_CONNECTION: *postgres-connection
       FANTASOCCER_LEGACY_ENCRYPTION_KEY: ${LEGACY_ENCRYPTION_KEY:-}
       FANTASOCCER_LEGACY_ENCRYPTION_IV: ${LEGACY_ENCRYPTION_IV:-}
+      FANTASOCCER_IMPORT_LEGACY_AUCTIONS: ${IMPORT_LEGACY_AUCTIONS:-true}
     volumes:
       - ./migration-data:/dumps:ro
     command: ["import-core", "--directory", "/dumps/current"]
