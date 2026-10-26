@@ -26,7 +26,7 @@ Dai container legacy `appidentity`, `group`, `settings`, `team`, `dailyteams`, `
 - preferenze e dispositivi push con audit originale; checkpoint, baseline voti, sequenze, ricevute e pending con tag/tentativi/scadenze originali (pending legacy in quarantena, mai inviate dall'import);
 - documenti OAuth privati con versione/CAS e retention preservate.
 - news con contenuto/date originali e suggerimenti privati legati al proprietario identificato dalla chiave sorgente, non al proprietario corrente indovinato;
-- log operativi come archivio SQL privato, con PK/RowKey, ETag, proprietà tipizzate e timestamp originali (tick esatti separati dall'istante indicizzato).
+- log storici, **solo con opt-in `IMPORT_LEGACY_LOGS=true`**, come archivio SQL privato con PK/RowKey, ETag, proprietà tipizzate e timestamp originali (tick esatti separati dall'istante indicizzato).
 
 I documenti sono letti dal dump verificato, usando il **converter reale Rystem `Entity<T,TKey>`**: envelope attuale `k/v` e storico `Key/Value`.
 Le abbreviazioni restano nel lettore legacy, non nei nuovi DTO applicativi.
@@ -39,7 +39,13 @@ Nel `.env` privato imposta `IMPORT_LEGACY_AUCTIONS=false`: analisi e import omet
 
 Il report dichiara `excludedContainers` e conserva le aste originali nel dump verificato (`preservedArtifacts`), non in SQL. Non vengono cancellati Blob sorgente, rose, giocatori acquistati, prezzi o saldi già presenti negli snapshot delle squadre. L'opzione non disabilita le nuove aste dell'app. Le chiavi applicative locali `ENCRYPTION_*` sono una configurazione distinta e non vanno svuotate.
 
-Il report elenca `pendingFields`, `pendingContainers`, `preservedArtifacts` e mantiene `fullMigrationComplete=false` per non confondere copertura implementata e accettazione del cutover.
+### Log storici esclusi per default
+
+`IMPORT_LEGACY_LOGS=false` è il default del Compose, del template env e dell'importatore. La Table `logs` resta nel dump verificato ma non viene trasformata in documenti da importare o salvata nell'archivio PostgreSQL. Il report dichiara `table:logs` in `excludedContainers` e, se il dump contiene righe, in `preservedArtifacts`. Altre Table sconosciute restano pendenti. È possibile riabilitare esplicitamente l'archivio con `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`).
+
+L'opzione riguarda solo il passato: la telemetria OpenTelemetry/Aspire e lo stato/ricevute dei job SQL non cambiano. La loro futura revisione dovrà separare diagnostica da audit e coordinamento funzionale, senza eliminare controlli di lease/idempotenza insieme ai messaggi di log.
+
+Il report elenca `pendingFields`, `pendingContainers`, `excludedContainers`, `preservedArtifacts` e mantiene `fullMigrationComplete=false` per non confondere copertura implementata e accettazione del cutover.
 I job SQL, refresh incrementale albo, editoriale/AI opzionale, log e outbox sono implementati. Restano decisioni dipendenti dai dati: checkpoint crediti/albo non ricostruibili, pending push senza scope verificabile, librerie non-default e container sconosciuti. Non vengono risolte inventando identità o scartando dati.
 `images`, `logos`, `cardimages` restano file Blob. Gli snapshot derivati `livegroup` e le chiavi `mcp-keys` sono conservati nel dump verificato/ripristino privato, non usati come fallback dati SQL né pubblicati: il report li distingue in `preservedArtifacts`. I container sconosciuti rimangono pendenti. Conservare il dump originale e i suoi checksum anche dopo l'import.
 I loghi importati mantengono il riferimento al blob originale (inclusa la maiuscola dell'owner nel nome file), non un percorso inventato usando i nuovi UUID. Gli altri riferimenti ai file vanno riconciliati prima del passaggio definitivo.

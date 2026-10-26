@@ -87,10 +87,12 @@ public sealed partial class CoreMigrationTests
         Assert.False(await TableExistsAsync()); await table.CreateAsync();
         try
         {
+            var options = new CoreImportOptions(ImportLegacyLogs: true);
             await table.AddEntityAsync(new TableEntity("ALog", "SourceJob_12") { ["Message"] = "Historical operational message", ["Counter"] = 9L, ["Binary"] = new byte[] { 1, 2, 3 }, ["Enabled"] = false });
             var source = (await table.GetEntityAsync<TableEntity>("ALog", "SourceJob_12")).Value;
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await ImportAsync();
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
             await using var database = fixture.CreateContext();
+            await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             var log = await database.ArchivedOperationalLogs.SingleAsync(); var id = log.Id;
             Assert.Equal(source.Timestamp!.Value.UtcTicks, log.LegacyTimestampUtcTicks);
             Assert.InRange(Math.Abs(source.Timestamp.Value.UtcTicks - log.TimestampUtc!.Value.UtcTicks), 0, 9);
@@ -99,15 +101,64 @@ public sealed partial class CoreMigrationTests
             Assert.Equal("Edm.Int64", log.Properties.Single(x => x.Name == "Counter").Type);
             Assert.Equal("\"AQID\"", log.Properties.Single(x => x.Name == "Binary").EncodedValue);
             Assert.Equal("false", log.Properties.Single(x => x.Name == "Enabled").EncodedValue);
-            var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump); Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+            var repeated = await new CoreDatasetImporter(database, options).ImportAsync(_dump); Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
             await table.UpsertEntityAsync(new TableEntity("ALog", "SourceJob_12") { ["Message"] = "Updated log" }, TableUpdateMode.Replace);
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database).ImportAsync(_dump);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             Assert.Equal(id, (await database.ArchivedOperationalLogs.SingleAsync()).Id); Assert.Single((await database.ArchivedOperationalLogs.SingleAsync()).Properties);
             await table.DeleteEntityAsync("ALog", "SourceJob_12");
-            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database).ImportAsync(_dump);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database, options).ImportAsync(_dump);
             Assert.Empty(await database.ArchivedOperationalLogs.ToArrayAsync());
         }
         finally { await table.DeleteAsync(); }
         async Task<bool> TableExistsAsync() { await foreach (var item in _storage.Tables.QueryAsync(filter: "TableName eq 'logs'")) return true; return false; }
+    }
+
+    [CoreFact]
+    public async Task Historical_logs_are_excluded_by_default_preserved_in_dump_and_can_be_opted_in_without_hiding_unknown_tables()
+    {
+        var logs = _storage.Tables.GetTableClient("logs");
+        var unknownName = "unmapped" + Guid.NewGuid().ToString("N");
+        var unknown = _storage.Tables.GetTableClient(unknownName);
+        await logs.CreateAsync();
+        var ownsUnknown = false;
+        try
+        {
+            await unknown.CreateAsync(); ownsUnknown = true;
+            await logs.AddEntityAsync(new TableEntity("ALog", "old-job") { ["Message"] = "Original historical log" });
+            await unknown.AddEntityAsync(new TableEntity("future", "data") { ["Message"] = "Unmapped data must remain pending" });
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+
+            var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
+            Assert.DoesNotContain(dataset.Documents, x => x.Container == "table:logs");
+            Assert.Empty(plan.Logs);
+            await using var database = fixture.CreateContext();
+            var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+            Assert.Contains("table:logs", report.ExcludedContainers!);
+            Assert.DoesNotContain("table:logs", report.PendingContainers);
+            Assert.Contains("table:" + unknownName, report.PendingContainers);
+            Assert.Contains(report.PreservedArtifacts!, x => x.StartsWith("table:logs:"));
+            Assert.Empty(await database.ArchivedOperationalLogs.ToArrayAsync());
+            Assert.Equal(2, await database.Groups.CountAsync());
+            var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
+            Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+
+            var included = await new CoreDatasetImporter(database, new(ImportLegacyLogs: true)).ImportAsync(_dump);
+            Assert.DoesNotContain("table:logs", included.ExcludedContainers!);
+            Assert.Equal("Original historical log", (await database.ArchivedOperationalLogs.SingleAsync()).Message);
+            // Re-excluding must not hit the unchanged-document fast path and
+            // leave an archive behind. Interactive-write protection is unchanged.
+            var excludedAgain = await new CoreDatasetImporter(database).ImportAsync(_dump);
+            Assert.Equal(0, excludedAgain.SkippedDocuments);
+            Assert.Empty(await database.ArchivedOperationalLogs.ToArrayAsync());
+            Assert.Equal(2, await database.Groups.CountAsync());
+            var manifest = await DumpArchive.VerifyAsync(_dump);
+            Assert.Equal(1, manifest.Tables.Single(x => x.Name == "logs").EntityCount);
+            Assert.Equal("Original historical log", (await logs.GetEntityAsync<TableEntity>("ALog", "old-job")).Value["Message"]);
+        }
+        finally
+        {
+            if (ownsUnknown) await unknown.DeleteAsync();
+            await logs.DeleteAsync();
+        }
     }
 }

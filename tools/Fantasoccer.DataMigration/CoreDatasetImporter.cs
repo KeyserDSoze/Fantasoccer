@@ -18,7 +18,7 @@ public sealed class CoreImportException(string code) : Exception(code);
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 21;
+    public const int MappingVersion = 22;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -39,9 +39,9 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
     {
         options ??= new();
         // Verify ALL original payload hashes, but do not decode/resolve the
-        // deliberately excluded auction documents. They remain in the dump.
+        // deliberately excluded auction/log documents. They remain in the dump.
         var selected = options.ImportLegacyAuctions ? Containers : Containers.Except(LegacyAuctionContainers).ToHashSet(StringComparer.Ordinal);
-        var dataset = await DumpArchive.ReadJsonDatasetAsync(directory, selected, cancellationToken, Tables);
+        var dataset = await DumpArchive.ReadJsonDatasetAsync(directory, selected, cancellationToken, options.ImportLegacyLogs ? Tables : null);
         return (dataset, BuildPlan(dataset, options));
     }
 
@@ -240,13 +240,16 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
          .. plan.HallArchives.Any(x => !x.ContributionsInitialized) ? new[] { "Hall career totals do not match the available seasonal snapshots; confirm a baseline before incremental refresh. Imported totals were preserved." } : Array.Empty<string>()],
          PreservedArtifacts: dataset.Manifest.Containers.Where(x => PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).OrderBy(x => x.Name)
              .Select(x => x.Name + ": " + PreservedContainers[x.Name])
-             .Concat(dataset.Manifest.Containers.Where(x => !plan.ImportLegacyAuctions && LegacyAuctionContainers.Contains(x.Name) && x.Blobs.Count > 0)
-                 .OrderBy(x => x.Name).Select(x => x.Name + ": excluded from SQL by explicit import option; original bytes preserved in verified dump")).ToArray(),
-         ExcludedContainers: plan.ImportLegacyAuctions ? [] : LegacyAuctionContainers.Order().ToArray());
+              .Concat(dataset.Manifest.Containers.Where(x => !plan.ImportLegacyAuctions && LegacyAuctionContainers.Contains(x.Name) && x.Blobs.Count > 0)
+                  .OrderBy(x => x.Name).Select(x => x.Name + ": excluded from SQL by explicit import option; original bytes preserved in verified dump"))
+              .Concat(dataset.Manifest.Tables.Where(x => !plan.ImportLegacyLogs && x.Name == "logs" && x.EntityCount > 0)
+                  .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump")).ToArray(),
+          ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
+              .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
-        var plan = new CorePlan { ImportLegacyAuctions = options.ImportLegacyAuctions };
+        var plan = new CorePlan { ImportLegacyAuctions = options.ImportLegacyAuctions, ImportLegacyLogs = options.ImportLegacyLogs };
         var source = dataset.Manifest.SourceId;
         var logoFiles = dataset.Manifest.Containers.Where(x => x.Name == "logos").SelectMany(x => x.Blobs).Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
         var accounts = new Dictionary<string, AppIdentity>(StringComparer.Ordinal);
@@ -471,6 +474,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
 public sealed class CorePlan
 {
     public bool ImportLegacyAuctions { get; init; } = true;
+    public bool ImportLegacyLogs { get; init; }
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];
     public Guid[] GroupIds => Groups.Select(x => x.Id).ToArray();

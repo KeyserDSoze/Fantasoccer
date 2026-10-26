@@ -200,6 +200,12 @@ Comandi e precauzioni: [runbook Windows](../docs/MIGRATION-RUNBOOK.md).
 
 Su richiesta del gestore è disponibile `IMPORT_LEGACY_AUCTIONS=false` nel `.env` (CLI: `FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false`). Esclude `auction` e `randomizedplayers` prima della decodifica JSON, lasciando opzionali le chiavi `LEGACY_ENCRYPTION_*`; non tocca gruppi, rose, prezzi, crediti o altre competizioni. L'export mantiene comunque tutti i byte originali verificati e il report dichiara `excludedContainers`/`preservedArtifacts`. Il default rimane inclusivo (`true`) per evitare perdite silenziose. Il mapping è aggiornato e i test coprono idempotenza, esclusione senza chiavi e cambio modalità prima dell'apertura alle scritture applicative.
 
+### Log Table fuori dall'import SQL predefinito
+
+Su richiesta successiva il default diventa `IMPORT_LEGACY_LOGS=false` (CLI: `FANTASOCCER_IMPORT_LEGACY_LOGS=false`): il dump continua a preservare la Table `logs`, ma l'archivio PostgreSQL non viene popolato. È disponibile opt-in con `true`; il report esplicita `table:logs` tra esclusioni e artefatti conservati, senza nascondere eventuali altre Table sconosciute. Il mapping è aggiornato; i test verificano default, opt-in, cambio opzione e conservazione dei dati sorgente/gruppi.
+
+**Rinviata a una revisione dedicata:** classificare log diagnostici attuali, audit, ricevute e stato dei job; valutare quali messaggi tenere solo su OpenTelemetry/piattaforma di logging e la retention dei dati rimanenti. Questo incremento non modifica i writer correnti, non elimina schemi e non rimuove lease/checkpoint/outbox necessari al comportamento del gioco.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

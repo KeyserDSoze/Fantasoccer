@@ -6,7 +6,7 @@ using System.Text.Json;
 
 if (args is not ["migrate-schema"] && args is not ["import-core", "--directory", _] && args is not ["analyze-core", "--directory", _])
 {
-    Console.WriteLine("Usage: migrate-schema | analyze-core --directory /dump | import-core --directory /dump. Review pendingFields, pendingContainers, excludedContainers and preservedArtifacts; the report cannot authorize production cutover. FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false explicitly omits legacy auction sessions/orders.");
+    Console.WriteLine("Usage: migrate-schema | analyze-core --directory /dump | import-core --directory /dump. Review pendingFields, pendingContainers, excludedContainers and preservedArtifacts; the report cannot authorize production cutover. FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false omits old auctions/orders; FANTASOCCER_IMPORT_LEGACY_LOGS=true opts into historical Table logs (default false).");
     return args is ["--help"] ? 0 : 2;
 }
 
@@ -14,8 +14,10 @@ try
 {
     if (!bool.TryParse(Environment.GetEnvironmentVariable("FANTASOCCER_IMPORT_LEGACY_AUCTIONS") ?? "true", out var importLegacyAuctions))
         throw new InvalidOperationException("FANTASOCCER_IMPORT_LEGACY_AUCTIONS must be true or false.");
+    if (!bool.TryParse(Environment.GetEnvironmentVariable("FANTASOCCER_IMPORT_LEGACY_LOGS") ?? "false", out var importLegacyLogs))
+        throw new InvalidOperationException("FANTASOCCER_IMPORT_LEGACY_LOGS must be true or false.");
     var importOptions = new CoreImportOptions(Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_KEY"),
-        Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_IV"), importLegacyAuctions);
+        Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_IV"), importLegacyAuctions, importLegacyLogs);
     if (args[0] == "analyze-core")
     {
         var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(args[2], options: importOptions);

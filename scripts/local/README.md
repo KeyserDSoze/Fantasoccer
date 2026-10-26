@@ -79,6 +79,7 @@ Cambiare la password nel file env non cambia la password di un utente PostgreSQL
 
 Il profilo Compose sceglie `Telemetry:Provider=OpenTelemetry`, disabilitando la registrazione Application Insights anche se esistono altre configurazioni Azure.
 L'API invia log strutturati, span ASP.NET/HttpClient e metriche runtime via OTLP ad Aspire Dashboard. Fare una chiamata applicativa (anche una risposta 401) per vedere la traccia: gli health check non vengono tracciati.
+I log **storici** della Table `logs` non sono importati in PostgreSQL per default: `IMPORT_LEGACY_LOGS=false`. Restano nel dump verificato; `IMPORT_LEGACY_LOGS=true` riattiva esplicitamente l'archivio SQL. Questa opzione non spegne la telemetria corrente né le ricevute/lease dei job: la loro eventuale semplificazione/retention verrà valutata separatamente.
 Le query string, userinfo URL e SQL vengono rimossi dagli span prima dell'export. Non vengono raccolti body o header Authorization. I messaggi di business preesistenti possono comunque contenere email o altri dati: la dashboard e il suo volume sono dati sensibili.
 
 Il token della UI è nel `.env`; l'endpoint OTLP è non autenticato ma non pubblicato sull'host. Non esporre questo stack con tunnel/proxy pubblici.
@@ -193,7 +194,7 @@ Controllare `pendingContainers`, `pendingFields` e `preservedArtifacts`. Navigaz
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.
 
-I log applicativi sono su `/api/operations/logs`, con autorizzazione globale verificata, limiti e redazione. I log legacy sono archiviati privatamente senza perdere proprietà/tipi originali.
+La vista operativa `/api/operations/logs` richiede amministrazione globale verificata e applica limiti/redazione. I log legacy compaiono solo se importati con `IMPORT_LEGACY_LOGS=true`; altrimenti restano nel dump, non in SQL. Le ricevute dei job attuali sono distinte dall'archivio storico e per ora rimangono invariate.
 
 Per generazione AI esplicita impostare nell'env privato `AI_ENABLED=true`, `AI_ENDPOINT`, `AI_API_KEY`, `AI_MODEL`, oltre ad abilitare HTTP esterno. Le news richiedono un manager della lega e risultati salvati completi; i suggerimenti sono personali per account, anche fra co-owner. Le letture restano disponibili con AI disabilitata. Nessuna chiamata AI a pagamento viene schedulata automaticamente.
 

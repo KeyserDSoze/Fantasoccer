@@ -18,6 +18,8 @@ FANTASOCCER_EXPORT_STORAGE='DefaultEndpointsProtocol=https;AccountName=ACCOUNT_S
 
 # Per NON importare aste storiche e vecchie liste randomizzate:
 IMPORT_LEGACY_AUCTIONS=false
+# I vecchi log Table restano nel dump, senza import SQL (default false).
+IMPORT_LEGACY_LOGS=false
 # Possono restare vuoti con la scelta precedente.
 # Se invece IMPORT_LEGACY_AUCTIONS=true, servono le chiavi ORIGINALI per le liste cifrate.
 LEGACY_ENCRYPTION_KEY=
@@ -65,9 +67,15 @@ Ripresa/riacquisizione della **stessa** sorgente:
 
 ## 3. Importare esplicitamente la copia locale
 
-Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste e liste con `IMPORT_LEGACY_AUCTIONS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.
+Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste/liste con `IMPORT_LEGACY_AUCTIONS=false`, `table:logs` con `IMPORT_LEGACY_LOGS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.
 
 L'esclusione delle aste non tocca squadre, rose, prezzi già salvati, crediti, risultati o classifiche. Non elimina i Blob sorgente: i byte restano nel dump completo verificato come archivio, ma non sono caricati nelle tabelle SQL delle aste/ordini. Il default del tool rimane `true` per evitare di perdere dati senza una scelta esplicita.
+
+### Log storici e logging attuale sono separati
+
+I log della Table `logs` sono **esclusi da PostgreSQL per default** (`IMPORT_LEGACY_LOGS=false`). Il dump completo e l'eventuale restore Azurite li conservano; nessuna riga sorgente viene cancellata. Solo se necessario si può riattivare l'import con `IMPORT_LEGACY_LOGS=true` (CLI diretta: `FANTASOCCER_IMPORT_LEGACY_LOGS=true`). Le altre tabelle sconosciute restano segnalate come pendenti, non vengono ignorate.
+
+Questa scelta non disabilita la telemetria corrente OpenTelemetry/Aspire né elimina ricevute, lease, outbox o audit SQL dell'app. La revisione futura dovrà distinguere log diagnostici da mantenere solo nella piattaforma di logging e dati operativi necessari per coordinamento/idempotenza. Non viene cambiata oggi la retention o la semantica dei job. Anche per cambiare opzione resta valido il blocco di reimport dopo scritture applicative.
 
 Ferma anche eventuali processi `dotnet run`/debug avviati sull'host, poi:
 

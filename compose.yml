@@ -187,6 +187,7 @@ services:
       FANTASOCCER_LEGACY_ENCRYPTION_KEY: ${LEGACY_ENCRYPTION_KEY:-}
       FANTASOCCER_LEGACY_ENCRYPTION_IV: ${LEGACY_ENCRYPTION_IV:-}
       FANTASOCCER_IMPORT_LEGACY_AUCTIONS: ${IMPORT_LEGACY_AUCTIONS:-true}
+      FANTASOCCER_IMPORT_LEGACY_LOGS: ${IMPORT_LEGACY_LOGS:-false}
     volumes:
       - ./migration-data:/dumps:ro
     command: ["import-core", "--directory", "/dumps/current"]
