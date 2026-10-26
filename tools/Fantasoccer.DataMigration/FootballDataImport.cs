@@ -10,7 +10,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadFootballSamples(VerifiedJsonDataset dataset, CorePlan plan,
-        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club, Action<int> season,
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, ClubSource, string> club, Action<int> season,
         Action<string, int, int> root)
     {
         var votes = new HashSet<(string, int, int, FootballVoteSource)>();
@@ -22,11 +22,12 @@ public sealed partial class CoreDatasetImporter
             var source = document.Container == "live" ? FootballVoteSource.Live : document.Container == "official" ? FootballVoteSource.Official : FootballVoteSource.Notification;
             foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_vote_players")).Select((value, index) => (value, index)))
             {
-                var identity = player(value, key.Year, false, PlayerOrigin(document, $".p[{index}]"));
+                var origin = PlayerOrigin(document, $".p[{index}]");
+                var identity = player(value, key.Year, false, origin);
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
                 if (!votes.Add((identity.PlayerId, key.Year, key.Day, source)) || !float.IsFinite(vote.Value)) throw new CoreImportException("duplicate_or_invalid_vote");
                 plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
-                    ClubId = club(value.RealTeam), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
+                    ClubId = club(value.RealTeam, ClubOrigin(origin)), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
                     VoteRole = (int)vote.Role, Value = vote.Value, IsFinal = vote.IsFinal, Goals = vote.Goal, Penalties = vote.Penalty,
                     Assists = vote.Assist, StoppedPenalties = vote.StoppedPenalty, SufferedGoals = vote.SufferedGoal,
                     WrongedPenalties = vote.WrongedPenalty, OwnGoals = vote.OwnGoal, Status = (int)vote.Status, ManOfTheMatch = vote.ManOfTheMatch,
@@ -43,11 +44,12 @@ public sealed partial class CoreDatasetImporter
             var index = 0;
             foreach (var value in entity.Value?.Players ?? throw new CoreImportException("missing_chance_players"))
             {
-                var identity = player(value, key.Year, false, PlayerOrigin(document, $".p[{index}]"));
+                var origin = PlayerOrigin(document, $".p[{index}]");
+                var identity = player(value, key.Year, false, origin);
                 var chance = value.Chance ?? throw new CoreImportException("missing_chance");
                 if (!chances.Add((identity.PlayerId, key.Year, key.Day))) throw new CoreImportException("duplicate_chance");
                 var row = new FootballChance { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day,
-                    ClubId = club(value.RealTeam), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
+                    ClubId = club(value.RealTeam, ClubOrigin(origin)), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
                     Fantagazzetta = chance.Fantagazzetta, Gazzetta = chance.Gazzetta, Mediaset = chance.Mediaset, Sky = chance.Sky,
                     Status = (int)chance.Status, Description = chance.Description };
                 // These fields existed in older documents but no longer in the
@@ -70,11 +72,12 @@ public sealed partial class CoreDatasetImporter
             season(entity.Key); root(document.Container, entity.Key, 0);
             foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players")).Select((value, index) => (value, index)))
             {
-                var identity = player(value, entity.Key, false, PlayerOrigin(document, $".p[{index}]"));
+                var origin = PlayerOrigin(document, $".p[{index}]");
+                var identity = player(value, entity.Key, false, origin);
                 if (!statistics.Add((identity.PlayerId, entity.Key)) || !float.IsFinite(value.Summatory) || !float.IsFinite(value.FantaSummatory))
                     throw new CoreImportException("duplicate_or_invalid_statistics");
                 var row = new FootballPlayerStatistic { PlayerId = identity.PlayerId, SeasonIndex = entity.Key,
-                    ClubId = club(value.RealTeam), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
+                    ClubId = club(value.RealTeam, ClubOrigin(origin)), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
                     Summatory = value.Summatory, FantaSummatory = value.FantaSummatory, WithVote = value.WithVote, WithoutVote = value.WithoutVote,
                     NoPlayed = value.NoPlayed, WithSpecial = value.WithSpecial, Goals = value.Goal, Penalties = value.Penalty, Assists = value.Assist,
                     StoppedPenalties = value.StoppedPenalty, SufferedGoals = value.SufferedGoal, WrongedPenalties = value.WrongedPenalty,
@@ -103,7 +106,7 @@ public sealed partial class CoreDatasetImporter
                 // manufacture a code from the first letters of that label.
                 var known = plan.Clubs.Where(x => string.Equals(x.Name, value.Name?.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
                 if (known.Length > 1) throw new CoreImportException("ambiguous_real_rank_club");
-                var id = known.Length == 1 ? known[0].Id : club(new() { Name = value.Name! });
+                var id = known.Length == 1 ? known[0].Id : club(new() { Name = value.Name! }, ClubOrigin(document, $".r[{ordinal}]"));
                 if (!clubs.Add(id)) throw new CoreImportException("duplicate_real_rank_club");
                 plan.ClubRanks.Add(new() { SeasonIndex = entity.Key, ClubId = id, Ordinal = ordinal, Points = value.Point,
                     Victories = value.Victories, Draws = value.Draws, Defeats = value.Defeats, GoalsFor = value.Goal, GoalsAgainst = value.SufferedGoal, Played = value.Played });

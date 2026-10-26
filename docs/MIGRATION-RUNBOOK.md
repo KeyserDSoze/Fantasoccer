@@ -139,6 +139,20 @@ Se una rosa contiene un calciatore con nome valido assente dal catalogo, il lett
 
 Rianalizza con `-UseExistingDump`. Controlla cataloghi irrisolti, recuperi, avvisi e riferimenti hash: il report non stampa i payload e mantiene `fullMigrationComplete:false`. Usa `-Apply` solo dopo analisi riuscita e revisione. Le migration e l'import sono atomici; un downgrade con dati calcistici presenti viene rifiutato anziché ricostruire UUID. Restano i blocchi su target non appartenente alla sorgente e reimport dopo scritture applicative.
 
+### Se compare `invalid_club_code` o `missing_real_club`
+
+Riguarda una squadra reale di calcio, non una squadra di fantacalcio, un account o i permessi Docker. Il codice naturale del club deve avere esattamente tre lettere ASCII; un nome completo senza codice non autorizza a ricavarlo dalle prime tre lettere. Il messaggio generico del wrapper PowerShell segnala solo l'uscita del tool: la causa da esaminare è `Core import refused`.
+
+La diagnostica `Club details` indica:
+
+- `Document SHA-256`, `container`, `archiveReference` e `jsonPath`: documento e posizione effettivamente rifiutati, per esempio `$.v.t[2]` nel catalogo club, `$.v.p[7].t` in una rosa oppure `$.Value.d[0].g[1].a` nel calendario;
+- `reasons`: `missing_club_code`, `club_code_length`, `club_code_not_ascii_letters`, `null_club` o `empty_club_name`;
+- `nameMissing`, `nameLength`, `abbreviationMissing`, `abbreviationLength`: soltanto forma/lunghezza dei campi, mai nomi, codici, proprietari o payload.
+
+Il contesto copre cataloghi, rose, voti/probabilità/statistiche, classifiche reali, calendario, mercato, albo, partite salvate, baseline push e aste incluse. Anche una copia con club invalido di un giocatore già noto riporta il proprio documento, non il primo catalogo in cui il giocatore era valido. Il casing storico delle baseline push viene mantenuto nella posizione JSON; i container esclusi non vengono decodificati per cercare club.
+
+Rianalizza con `-UseExistingDump`, senza `-Apply`, e condividi la riga `Core import refused` completa di checksum e `Club details`, non il dump o l'env. Queste coordinate permettono di esaminare localmente il solo record prima di scegliere una riconciliazione verificata. Non fare reset, non modificare gli originali e non aggiungere alias/sigle indovinate per far passare il controllo. L'arricchimento diagnostico non cambia schema, mapping, regole di accettazione o opzioni dell'importatore.
+
 ### Se compare `identity_collision`
 
 Non significa necessariamente "due utenti duplicati": l'importatore usa questo blocco anche se una chiave email o il nome email del Blob contraddicono il profilo. La riga `Identity details` ora distingue:

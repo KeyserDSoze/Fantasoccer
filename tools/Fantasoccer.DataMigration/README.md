@@ -59,6 +59,10 @@ Gli errori sui calciatori riportano checksum del documento e `Player details`: c
 
 La diagnostica non inventa identità. Nei documenti di gioco restano i controlli sulla chiave e sui ruoli `-1..3`; nei cataloghi le righe senza nome vengono invece conservate separatamente, non come giocatori. I container esclusi non vengono decodificati. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_player).
 
+### Diagnosi di `invalid_club_code` / `missing_real_club`
+
+Gli errori sui club riportano `Field: club`, reader, checksum e `Club details`: container, archivio hash, posizione JSON esatta, motivi controllati e presenza/lunghezza di nome/codice. Distinguono codice mancante, lunghezza diversa da tre, caratteri non ASCII-lettera e club/nome mancante. Non mostrano i valori, non inventano codici e non cambiano schema, MappingVersion o regole di accettazione. Il contesto segue tutti i lettori calcistici, anche le copie discordanti già note e le baseline push con casing storico, senza decodificare aste escluse. Rianalizzare il dump originale senza reset o `-Apply`; vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_club_code-o-missing_real_club).
+
 ### Cataloghi vuoti e recupero dalle rose
 
 Le righe `realplayerswrapper` senza nome (anche null/whitespace) non creano calciatori: sono conservate automaticamente in `UnresolvedPlayerCatalogEntries`, con frammento JSON testuale esatto, checksum, posizione e stagione. I duplicati restano distinti e i flag originali non vengono cambiati. Non occorre un pin per applicare questa regola. I pin opzionali `PLAYER_CATALOG_RESOLUTIONS_JSON` restano disponibili per controllare un documento e un conteggio verificati: hash mancanti/stantii/ambigui o conteggi diversi continuano a fermare l'analisi se il pin è presente.

@@ -276,6 +276,12 @@ Il catalogo senza nome non crea anagrafiche: gli originali vengono archiviati au
 
 Verifica finale su fixture locali: 111 test PostgreSQL/migrazione e 53 test API passati senza skip, 75 test frontend passati, TypeScript senza errori, modello EF allineato e publish Release di API/tool riuscito. Sono coperti conversione di rose/voti/albo popolati, valori economici, GUID di provenienza, collisioni globali e codici club mancanti/duplicati, recuperi da rose, lookup tra anni, FK annuali, alias immagini e idempotenza. Il codice club esplicito è distinto dal fallback di visualizzazione legacy; le classifiche nome-only possono collegarsi soltanto a un'etichetta univoca già dotata di codice verificato. Nessun import/reset sul dump reale né scrittura sulla sorgente; l'accettazione del dataset reale e il cutover restano da approvare.
 
+### Diagnostica dei club rifiutati dal controllo sulle chiavi naturali
+
+L'analisi del dump reale ha raggiunto `invalid_club_code`, ma il messaggio non identificava il record. Ogni lettore ora passa esplicitamente le coordinate della copia effettiva del club: checksum documento, archivio hash e posizione JSON, incluse rose/campioni con giocatore già noto, calendario, classifiche nome-only, mercato, albo, partite salvate, aste incluse e baseline push con casing storico. La diagnostica distingue codice mancante/lunghezza/caratteri e club/nome mancante attraverso motivi controllati e lunghezze, senza mostrare valori o cercare per somiglianza nel dump. Nessuna modifica alle PK/FK, al mapping, alle regole di accettazione, alle opzioni o ai dati; nessun reset, merge, scrittura Azure o aggiramento dei container esclusi. La riconciliazione del club reale resta subordinata all'esame del record indicato.
+
+Verificati 115 test PostgreSQL/migrazione e 53 test API senza errori o skip, più publish Release del tool. Le nuove fixture controllano entrambi gli envelope, tutte le sorgenti annidate, casing push, privacy del messaggio, integrità hash/posizione, immutabilità della sorgente e assenza di scritture SQL parziali. MappingVersion resta 29: l'arricchimento non riscrive import già completati né cambia le scelte dell'operatore.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

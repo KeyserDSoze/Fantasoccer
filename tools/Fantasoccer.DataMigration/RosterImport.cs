@@ -23,14 +23,11 @@ public sealed partial class CoreDatasetImporter
             map("football-dataset", Composite(kind, year.ToString(CultureInfo.InvariantCulture), day.ToString(CultureInfo.InvariantCulture)));
             plan.Datasets.Add(new() { Kind = kind, SeasonIndex = year, Day = day });
         }
-        string Club(RealTeam? club)
+        string Club(RealTeam? club, ClubSource origin)
         {
-            if (club?.Name is not { Length: > 0 }) throw new CoreImportException("missing_real_club");
-            string key;
-            try { key = KeyUtils.GetClubKey(club.ExplicitAbbreviation, club.Name); }
-            catch (ArgumentException) { throw new CoreImportException("invalid_club_code"); }
+            var key = CheckedClubCode(club, origin);
             if (clubs.TryGetValue(key, out var existing)) return existing.Id;
-            var row = new FootballClub { Id = key, LegacyId = map("club", club.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
+            var row = new FootballClub { Id = key, LegacyId = map("club", club!.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
             clubs.Add(key, row); plan.Clubs.Add(row); return row.Id;
         }
         string Person(RealPlayer player, PlayerSource origin)
@@ -50,7 +47,7 @@ public sealed partial class CoreDatasetImporter
             if (root && !authoritative.Add(identity)) throw new CoreImportException("duplicate_player_season");
             if (!seasons.TryGetValue(identity, out var row))
             {
-                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = Club(player.RealTeam),
+                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = Club(player.RealTeam, ClubOrigin(origin)),
                     Position = (PlayerPosition)(int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible };
                 seasons.Add(identity, row); plan.PlayerSeasons.Add(row);
             }
@@ -61,7 +58,8 @@ public sealed partial class CoreDatasetImporter
             var entity = document.Envelope.Deserialize<Entity<RealTeamWrapper, int>>() ?? throw new CoreImportException("invalid_club_envelope");
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
-            foreach (var club in entity.Value?.Teams ?? throw new CoreImportException("missing_clubs")) Club(club);
+            foreach (var (club, index) in (entity.Value?.Teams ?? throw new CoreImportException("missing_clubs")).Select((club, index) => (club, index)))
+                Club(club, ClubOrigin(document, $".t[{index}]"));
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realplayerswrapper"))
         {
@@ -153,7 +151,7 @@ public sealed partial class CoreDatasetImporter
                 if (!wasSeasonKnown) plan.RecoveredRosterPlayers.Add(new(document.Sha256, DocumentArchiveReference(document), origin.JsonPath, year, !wasKnown));
                 if ((int)player.Status is < 0 or > 4 || (int)player.Position is < -2 or > 11 ||
                     (player.Status == PlayerInTeamStatus.Active && !active.Add(playerSeason.PlayerId))) throw new CoreImportException("invalid_roster_player");
-                snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = Club(player.RealTeam),
+                snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = Club(player.RealTeam, ClubOrigin(origin)),
                     PlayerRole = (int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible, Price = player.Price, Revenue = player.Revenue,
                     Status = (int)player.Status, Position = (int)player.Position });
             }
@@ -173,13 +171,14 @@ public sealed partial class CoreDatasetImporter
             addSeason(calendar.Key);
             Root(document.Container, calendar.Key, 0);
             map("calendar", calendar.Key.ToString(CultureInfo.InvariantCulture));
-            foreach (var day in value.Days ?? [])
+            foreach (var (day, dayIndex) in (value.Days ?? []).Select((day, index) => (day, index)))
             {
                 if (day.SerieADay is < 1 or > 38 || !matchdays.Add((calendar.Key, day.SerieADay))) throw new CoreImportException("duplicate_real_matchday");
                 var row = new FootballMatchday { SeasonIndex = calendar.Key, SerieADay = day.SerieADay };
                 foreach (var (game, ordinal) in (day.Games ?? []).Select((value, index) => (value, index)))
                     row.Matches.Add(new() { SeasonIndex = calendar.Key, SerieADay = day.SerieADay, Ordinal = ordinal,
-                        HomeClubId = Club(game.Home), AwayClubId = Club(game.Away), HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
+                        HomeClubId = Club(game.Home, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].h")),
+                        AwayClubId = Club(game.Away, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].a")), HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
                         Delayed = game.Delayed, LegacyKickoffLocal = game.Date is { } date ? Local(date) : null,
                         KickoffUtc = game.Date is { } kickoff ? ToUtc(kickoff) : null });
                 plan.Matchdays.Add(row);

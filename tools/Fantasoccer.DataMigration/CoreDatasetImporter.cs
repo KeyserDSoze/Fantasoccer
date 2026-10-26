@@ -19,7 +19,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     RecoveredRosterPlayer[]? RecoveredRosterPlayers = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
-    IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null) : Exception(code)
+    IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
+    ClubValidationDetails? clubValidation = null) : Exception(code)
 {
     // Source-code coordinates only; never the rejected email/payload/key.
     public string? Field { get; } = field;
@@ -27,6 +28,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
     public string? DocumentSha256 { get; } = documentSha256;
     public IdentityConflictDetails? IdentityConflict { get; } = identityConflict;
     public PlayerValidationDetails? PlayerValidation { get; } = playerValidation;
+    public ClubValidationDetails? ClubValidation { get; } = clubValidation;
 }
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)

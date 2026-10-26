@@ -10,7 +10,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadPushOutbox(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club, Func<string, string, UserAccount> addUser, Action<int> season)
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, ClubSource, string> club, Func<string, string, UserAccount> addUser, Action<int> season)
     {
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var keys = new HashSet<(int, int)>();
@@ -49,10 +49,11 @@ public sealed partial class CoreDatasetImporter
             }
             foreach (var (sample, index) in (value.MatchEventVotes?.Players ?? []).Select((value, index) => (value, index)))
             {
-                var identity = player(sample, key.Year, false, PlayerOrigin(document, $"{votesPath}[{index}]"));
+                var origin = PlayerOrigin(document, $"{votesPath}[{index}]");
+                var identity = player(sample, key.Year, false, origin);
                 var vote = sample.Vote ?? throw new CoreImportException("missing_push_baseline_vote");
                 if (!float.IsFinite(vote.Value)) throw new CoreImportException("invalid_push_baseline_vote");
-                checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam), PlayerRole = (int)sample.Role,
+                checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam, ClubOrigin(origin)), PlayerRole = (int)sample.Role,
                     IsActive = sample.IsActive, IsVisible = sample.Visible, VoteRole = (int)vote.Role, Value = vote.Value, IsFinal = vote.IsFinal, Goals = vote.Goal, Penalties = vote.Penalty,
                     Assists = vote.Assist, StoppedPenalties = vote.StoppedPenalty, SufferedGoals = vote.SufferedGoal, WrongedPenalties = vote.WrongedPenalty, OwnGoals = vote.OwnGoal,
                     Status = (int)vote.Status, ManOfTheMatch = vote.ManOfTheMatch, HasVote = vote.HasVote, IsOut = vote.IsOut, IsIn = vote.IsIn, Injured = vote.Injured });
