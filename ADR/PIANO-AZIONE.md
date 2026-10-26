@@ -214,6 +214,12 @@ Il default senza Table vale ora anche per **download e restore**, non solo per l
 
 Test: assenza di richieste Table sul percorso predefinito, opt-in, riuso Blob fra modalità, recupero di manifest incompleto, restore Table solo su richiesta, errore email da Blob anche senza Table, wrapper PowerShell/Bash e suite PostgreSQL/API.
 
+### Riconciliazione delle chiavi interne `appidentity`
+
+Il dump reale ha segnalato `invalid_email` sulla chiave interna, dopo la validazione dell'email del profilo. Verificato il comportamento dell'adapter Blob Rystem installato: il point read usava l'email per il nome del Blob e ritornava `Value`, senza usare `Entity.Key`. L'importatore ammette quindi metadati `Key` opachi/vuoti/mancanti soltanto se il lookup Blob è un'email valida e coincide con quella del profilo. Chiavi con email diverse, lookup discordanti, email del profilo invalide e duplicati continuano a bloccare l'import.
+
+Il mapping è aggiornato; report e audit del mapping indicano i documenti riconciliati senza copiare chiavi opache in SQL/log. Gli errori `appidentity` espongono solo SHA-256 del documento per individuarlo nel manifest. Test dedicati verificano fallback, idempotenza e stabilità degli ID/ruoli, dati sorgente immutati e rifiuto dei conflitti. Non è una conferma del contenuto del dump del gestore: i casi che non rispettano l'invariante richiedono ancora riconciliazione esplicita.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

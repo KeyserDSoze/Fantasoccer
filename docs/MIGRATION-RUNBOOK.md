@@ -79,13 +79,19 @@ Un dump completato si verifica/analizza senza ricontattare Azure con `-UseExisti
 
 `Core import refused: invalid_email` è un errore di validazione nei **documenti Blob** (identità, membri, proprietari, preferenze, ecc.), non un errore di accesso a Table Storage. Escludere le tabelle non garantisce di risolverlo. Nessun dato di import viene committato parzialmente: non fare un reset solo per questo errore.
 
-Il tool ora indica `Field` e `reader` (nome del file sorgente del lettore e riga), senza stampare indirizzi email, valori, Blob key o payload. Per ripetere soltanto la diagnosi, senza download o import SQL:
+Il tool indica `Field` e `reader` (nome del file sorgente del lettore e riga), senza stampare indirizzi email, valori, Blob key o payload. Per gli errori di `appidentity` aggiunge anche `Document SHA-256`, corrispondente alla voce `sha256` nel manifest: permette di identificare localmente il documento senza pubblicarne il nome o il contenuto.
+
+Un caso specifico è `Field: key` durante la lettura delle identità: l'email del profilo è già valida, ma la chiave interna dell'envelope non lo è. Il repository Blob legacy recuperava gli account tramite il nome del Blob e restituiva `Value`, senza usare la chiave interna. L'import supporta quindi chiavi interne opache, vuote o mancanti **solo se nome del Blob ed email del profilo coincidono dopo la normale canonicalizzazione**. Le chiavi interne contenenti un'altra email valida, i nomi Blob/email discordanti e i documenti duplicati restano bloccati: non si assegnano account a persone diverse o si fondono profili.
+
+I casi recuperati sono espliciti nel report (`reconciledIdentityDocuments`, hash SHA-256) e in `pendingFields`. La relazione documento sorgente → account viene conservata nel mapping SQL; la chiave interna originale resta nel dump e non viene copiata in log/SQL. Il resto dei dati, i ruoli e i controlli di membership rimangono invariati.
+
+Per ripetere soltanto l'analisi, senza download o import SQL:
 
 ```powershell
 .\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -UseExistingDump
 ```
 
-Sostituisci `azure-prova1` con il **nome del dump che hai già scaricato**. Se il manifest è incompleto, usa prima `-Resume`. Non cancellare il dump o i checkpoint e non saltare automaticamente utenti: occorre riconciliare il campo indicato. Puoi condividere codice errore, `Field` e `reader`, non la connection string o l'intero dump.
+Sostituisci `azure-prova1` con il **nome del dump che hai già scaricato**. Se il manifest è incompleto, usa prima `-Resume`. Non cancellare il dump o i checkpoint e non saltare automaticamente utenti: per i conflitti non recuperabili occorre riconciliare il campo indicato. Puoi condividere codice errore, `Field`, `reader` e `Document SHA-256`, non connection string, email, nomi dei Blob o l'intero dump.
 
 ## 3. Importare esplicitamente la copia locale
 

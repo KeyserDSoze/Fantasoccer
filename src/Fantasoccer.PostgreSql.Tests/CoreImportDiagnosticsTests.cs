@@ -18,6 +18,7 @@ public sealed partial class CoreMigrationTests
         Assert.Equal("invalid_email", error.Message);
         Assert.Equal("account.Email", error.Field);
         Assert.StartsWith("CoreDatasetImporter.cs:", error.Reader);
+        Assert.NotNull(error.DocumentSha256);
         Assert.DoesNotContain(invalid, error.ToString() + error.Field + error.Reader);
         await using var database = fixture.CreateContext();
         Assert.Empty(await database.Groups.ToArrayAsync());

@@ -13,18 +13,19 @@ namespace Fantasoccer.DataMigration;
 
 public sealed record CoreImportReport(int MappingVersion, int Documents, int SkippedDocuments, int Users, int Groups,
     int Teams, string[] PendingContainers, string[] PendingFields, bool FullMigrationComplete = false, string[]? PreservedArtifacts = null,
-    string[]? ExcludedContainers = null);
+    string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null);
 
-public sealed class CoreImportException(string code, string? field = null, string? reader = null) : Exception(code)
+public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null) : Exception(code)
 {
     // Source-code coordinates only; never the rejected email/payload/key.
     public string? Field { get; } = field;
     public string? Reader { get; } = reader;
+    public string? DocumentSha256 { get; } = documentSha256;
 }
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 22;
+    public const int MappingVersion = 23;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -238,6 +239,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         dataset.Manifest.Containers.Where(x => !Containers.Contains(x.Name) && !PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).Select(x => x.Name)
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
          [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+          .. plan.ReconciledIdentityDocuments.Count > 0
+              ? new[] { "Some appidentity envelopes had unusable embedded keys. Identity was verified by matching the Blob lookup email with the profile email. Review reconciledIdentityDocuments; original envelopes remain in the verified dump." } : Array.Empty<string>(),
           .. plan.ImportLegacyLogs && dataset.Manifest.Scope == "blob-current-state"
               ? new[] { "Historical log import was requested, but this dump excludes Table Storage. Export with --include-tables first." } : Array.Empty<string>(),
          .. plan.Rosters.Any(x => x.Kind == RosterKind.Season && x.RankCreditGranted == null)
@@ -253,7 +256,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
               .Concat(dataset.Manifest.Tables.Where(x => !plan.ImportLegacyLogs && x.Name == "logs" && x.EntityCount > 0)
                   .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump")).ToArray(),
           ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
-              .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray());
+              .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray(),
+          ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -263,10 +267,27 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         var accounts = new Dictionary<string, AppIdentity>(StringComparer.Ordinal);
         foreach (var document in dataset.Documents.Where(x => x.Container == "appidentity"))
         {
-            var (key, account) = Read<AppIdentity>(document);
-            var email = Email(account.Email);
-            if (Email(key) != email || !accounts.TryAdd(email, account)) throw new CoreImportException("identity_collision");
-            AddUser(email, account.Username ?? email);
+            try
+            {
+                var envelope = document.Envelope.Deserialize<Entity<AppIdentity, string>>();
+                var account = envelope?.Value ?? throw new CoreImportException("invalid_legacy_envelope");
+                var email = Email(account.Email);
+                var reconciled = ValidateIdentityKey(document, envelope!.Key, email);
+                if (!accounts.TryAdd(email, account)) throw new CoreImportException("identity_collision");
+                var user = AddUser(email, account.Username ?? email);
+                if (reconciled)
+                {
+                    plan.ReconciledIdentityDocuments.Add(document.Sha256);
+                    // Preserve a durable source -> account audit without copying
+                    // an unknown opaque key (possibly sensitive) into SQL/logs.
+                    // The original embedded key is retained in the verified dump.
+                    plan.Maps.Add(new() { SourceId = source, Kind = "identity-document", LegacyKey = Composite(document.BlobName, document.Sha256), TargetId = user.Id });
+                }
+            }
+            catch (CoreImportException fault) when (fault.DocumentSha256 is null)
+            {
+                throw new CoreImportException(fault.Message, fault.Field, fault.Reader, document.Sha256);
+            }
         }
         var legacyGroups = new HashSet<string>(StringComparer.Ordinal);
         foreach (var document in dataset.Documents.Where(x => x.Container == "group"))
@@ -470,10 +491,31 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
     private static string Email(string? value, [CallerArgumentExpression(nameof(value))] string? field = null,
         [CallerFilePath] string readerFile = "", [CallerLineNumber] int readerLine = 0)
     {
-        var email = value?.Trim().ToLowerInvariant();
-        if (email is null || email.Length > 320 || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+        if (!TryEmail(value, out var email))
             throw new CoreImportException("invalid_email", field, Path.GetFileName(readerFile) + ":" + readerLine);
         return email;
+    }
+    private static bool TryEmail(string? value, out string email)
+    {
+        email = value?.Trim().ToLowerInvariant() ?? "";
+        return email.Length is > 0 and <= 320 && MailAddress.TryCreate(email, out var parsed) && parsed.Address == email;
+    }
+    private static bool ValidateIdentityKey(LegacyJsonDocument document, string? key, string email)
+    {
+        // AppIdentity had no Blob prefix: the legacy string-key repository's
+        // GetAsync(email) opened the Blob by email and returned envelope.Value,
+        // ignoring envelope.Key. Use that lookup identity as corroboration, not
+        // an arbitrary UUID/name or an invented address.
+        var hasLookupEmail = TryEmail(document.BlobName, out var lookupEmail);
+        if (hasLookupEmail && lookupEmail != email) throw new CoreImportException("identity_collision");
+        if (TryEmail(key, out var keyEmail))
+        {
+            if (keyEmail != email) throw new CoreImportException("identity_collision");
+            return false;
+        }
+        if (hasLookupEmail && lookupEmail == email) return true;
+        _ = Email(key); // Keep strict validation when no independent lookup agrees.
+        return false;
     }
     private static string Name(string? value) => value?.Trim() is { Length: >= 1 and <= 200 } name
         ? name : throw new CoreImportException("invalid_name");
@@ -484,6 +526,7 @@ public sealed class CorePlan
 {
     public bool ImportLegacyAuctions { get; init; } = true;
     public bool ImportLegacyLogs { get; init; }
+    public List<string> ReconciledIdentityDocuments { get; } = [];
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];
     public Guid[] GroupIds => Groups.Select(x => x.Id).ToArray();
