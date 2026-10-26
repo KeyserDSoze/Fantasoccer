@@ -226,6 +226,12 @@ L'ispezione locale del documento bloccante ha mostrato chiave e nome Blob coinci
 
 Il mapping è aggiornato e il riferimento documento → account usa solo hash del file di archivio e del contenuto, evitando di duplicare gli ID opachi nei metadati SQL/report. Test di regressione coprono ID corti e UUID, stabilità degli ID account durante cambio chiave di storage, ruoli invariati, nessuna creazione di subject Microsoft, sorgente immutata, idempotenza e rifiuto di differenze di case/spazi, email invalide e duplicati. Non viene introdotta una ricerca per nome utente o una decodifica euristica.
 
+### Diagnostica delle collisioni senza fusione automatica
+
+Il passo successivo sul dump reale ha segnalato `identity_collision`, senza ancora indicare quale dei tre controlli l'avesse generato. La diagnostica ora distingue nome email del Blob discordante, chiave email interna discordante ed email di profilo duplicata. In quest'ultimo caso conserva l'hash del documento precedente e i due riferimenti di archivio hash, con soli confronti booleani di profilo completo, nome, selezione, gruppi/ruoli e label; nessun indirizzo, valore di selezione o ID tecnico viene stampato.
+
+Non è una riconciliazione automatica e non modifica il mapping o le regole di import: i duplicati continuano a essere rifiutati. La scelta della politica sul dataset reale resta subordinata ai dettagli del conflitto e alla decisione del gestore, senza reset, cancellazioni o unione di privilegi come scorciatoia.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

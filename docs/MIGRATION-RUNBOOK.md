@@ -99,6 +99,18 @@ Per ripetere soltanto l'analisi, senza download o import SQL:
 
 Sostituisci `azure-prova1` con il **nome del dump che hai già scaricato**. Se il manifest è incompleto, usa prima `-Resume`. Non cancellare il dump o i checkpoint e non saltare automaticamente utenti: per i conflitti non recuperabili occorre riconciliare il campo indicato. Puoi condividere codice errore, `Field`, `reader` e `Document SHA-256`, non connection string, email, nomi dei Blob o l'intero dump.
 
+### Se compare `identity_collision`
+
+Non significa necessariamente "due utenti duplicati": l'importatore usa questo blocco anche se una chiave email o il nome email del Blob contraddicono il profilo. La riga `Identity details` ora distingue:
+
+- `blob_email_mismatch`: il nome Blob è un'email valida diversa da quella del profilo;
+- `embedded_key_email_mismatch`: la chiave interna è un'email valida diversa da quella del profilo;
+- `duplicate_profile_email`: due documenti hanno la stessa email canonica del profilo, anche se le chiavi tecniche sono diverse.
+
+Per i duplicati indica checksum e riferimenti di archivio **hash** di entrambe le copie. I booleani `profilesIdentical`, `displayNameMatches`, `selectionMatches`, `groupRolesMatch` e `groupLabelsMatch` confrontano i dati senza mostrarli. I gruppi/ruoli sono confrontati indipendentemente dall'ordine; `profilesIdentical` confronta l'intero valore JSON, inclusi eventuali campi non modellati. I flag `currentBlobIsEmailLookup`/`otherBlobIsEmailLookup` indicano soltanto se il nome del Blob corrisponde all'email del profilo, non quale copia sia automaticamente autorevole.
+
+**La diagnostica non cambia le regole dell'import:** copie identiche o discordanti rimangono bloccate fino a una riconciliazione esplicita. Non usare un reset o cancellare una copia solo per far passare il controllo. Rilancia soltanto `analyze-core` sul dump esistente e condividi `Identity details`, non i valori originali dei documenti. Dopo aver stabilito che cosa differisce si potrà scegliere una politica di riconciliazione; nessuna unione di ruoli o preferenza arbitraria viene introdotta.
+
 ## 3. Importare esplicitamente la copia locale
 
 Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste/liste con `IMPORT_LEGACY_AUCTIONS=false`, `table:logs` con `IMPORT_LEGACY_LOGS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.

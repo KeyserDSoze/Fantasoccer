@@ -43,8 +43,7 @@ try
 catch (Exception exception)
 {
     Console.Error.WriteLine(exception is CoreImportException import
-        ? $"Core import refused: {import.Message}." + (import.Field is null ? "" : $" Field: {import.Field}; reader: {import.Reader}.")
-            + (import.DocumentSha256 is null ? "" : $" Document SHA-256: {import.DocumentSha256}.") + " No partial transaction was committed."
+        ? CoreImportDiagnostics.Format(import)
         : $"Operation failed ({exception.GetType().Name}). Connection details and document payloads are not logged.");
     return 1;
 }

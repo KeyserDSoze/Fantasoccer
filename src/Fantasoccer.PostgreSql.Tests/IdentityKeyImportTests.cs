@@ -127,6 +127,15 @@ public sealed partial class CoreMigrationTests
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var fault = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
         Assert.Equal("identity_collision", fault.Message); Assert.NotNull(fault.DocumentSha256);
+        var details = Assert.IsType<IdentityConflictDetails>(fault.IdentityConflict);
+        Assert.Equal("duplicate_profile_email", details.Kind);
+        Assert.NotNull(details.OtherDocumentSha256);
+        Assert.True(details.ProfilesIdentical); Assert.True(details.DisplayNameMatches); Assert.True(details.SelectionMatches);
+        Assert.True(details.GroupRolesMatch); Assert.True(details.GroupLabelsMatch);
+        Assert.False(details.CurrentBlobIsEmailLookup); Assert.False(details.OtherBlobIsEmailLookup);
+        var formatted = CoreImportDiagnostics.Format(fault);
+        Assert.Contains("\"profilesIdentical\":true", formatted);
+        Assert.DoesNotContain(Email, formatted); Assert.DoesNotContain("legacy0001", formatted); Assert.DoesNotContain("legacy0002", formatted);
         await using var database = fixture.CreateContext(); Assert.Empty(await database.Users.ToArrayAsync());
     }
 
@@ -152,11 +161,49 @@ public sealed partial class CoreMigrationTests
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var keyConflict = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
         Assert.Equal("identity_collision", keyConflict.Message); Assert.NotNull(keyConflict.DocumentSha256);
+        Assert.Equal("embedded_key_email_mismatch", keyConflict.IdentityConflict!.Kind);
+        Assert.Null(keyConflict.IdentityConflict.OtherDocumentSha256);
         await WriteIdentityEnvelopeAsync(Email, Email, account);
         await WriteIdentityEnvelopeAsync(OtherEmail, "opaque-old-key", account);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var lookupConflict = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
         Assert.Equal("identity_collision", lookupConflict.Message); Assert.NotNull(lookupConflict.DocumentSha256);
+        Assert.Equal("blob_email_mismatch", lookupConflict.IdentityConflict!.Kind);
+        Assert.Null(lookupConflict.IdentityConflict.OtherDocumentSha256);
+        Assert.DoesNotContain(Email, CoreImportDiagnostics.Format(keyConflict) + CoreImportDiagnostics.Format(lookupConflict));
+        Assert.DoesNotContain(OtherEmail, CoreImportDiagnostics.Format(keyConflict) + CoreImportDiagnostics.Format(lookupConflict));
+        await using var database = fixture.CreateContext(); Assert.Empty(await database.Users.ToArrayAsync());
+    }
+
+    [CoreFact]
+    public async Task Duplicate_identity_diagnostics_compare_fields_without_leaking_names_selections_memberships_or_opaque_keys()
+    {
+        var container = _storage.Blobs.GetBlobContainerClient("appidentity");
+        var original = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        foreach (var changeRoles in new[] { false, true })
+        {
+            var copy = new AppIdentity
+            {
+                Email = Email, Username = "private display name fixture",
+                State = new() { GroupId = "private-selected-group", LeagueId = "private-selected-league", Year = 14, MeOrLeaderEmail = "private-working@example.test" },
+                Groups = original.Groups.Select(group => new GroupForIdentity { Id = group.Id, Name = "private group label fixture", Role = changeRoles ? IdentityRole.Reader : group.Role }).ToList()
+            };
+            await WriteIdentityEnvelopeAsync("private-storage-key", "private-storage-key", copy);
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+            var fault = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
+            Assert.Equal("identity_collision", fault.Message);
+            var details = Assert.IsType<IdentityConflictDetails>(fault.IdentityConflict);
+            Assert.Equal("duplicate_profile_email", details.Kind);
+            Assert.False(details.ProfilesIdentical); Assert.False(details.DisplayNameMatches); Assert.False(details.SelectionMatches);
+            Assert.Equal(!changeRoles, details.GroupRolesMatch); Assert.False(details.GroupLabelsMatch);
+            Assert.NotEqual(details.CurrentBlobIsEmailLookup, details.OtherBlobIsEmailLookup);
+            Assert.True(File.Exists(Path.Combine(_dump, details.CurrentArchiveReference!)));
+            Assert.True(File.Exists(Path.Combine(_dump, details.OtherArchiveReference!)));
+            Assert.NotEqual(details.CurrentArchiveReference, details.OtherArchiveReference);
+            var formatted = CoreImportDiagnostics.Format(fault);
+            foreach (var privateValue in new[] { Email, "private display name fixture", "private-selected-group", "private-selected-league", "private-working@example.test", "private group label fixture", "private-storage-key" })
+                Assert.DoesNotContain(privateValue, formatted);
+        }
         await using var database = fixture.CreateContext(); Assert.Empty(await database.Users.ToArrayAsync());
     }
 

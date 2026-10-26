@@ -39,6 +39,8 @@ L'email del profilo resta obbligatoria e valida; chiavi che dichiarano un'altra 
 
 Ogni recupero è segnalato in `pendingFields` e `reconciledIdentityDocuments` (SHA-256 dei documenti), con mapping durevole `identity-document` → ID account e riferimento al file di archivio/checksum sotto forma di hash, senza alterare ID deterministici, ruoli o membership e senza copiare in SQL nomi/chiavi tecniche originali. Gli originali restano nel dump. Gli errori di identità riportano il checksum del documento per trovarlo nel manifest, non indirizzi o chiavi potenzialmente private. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_email).
 
+`identity_collision` mantiene il blocco, ma fornisce `Identity details`: distingue conflitto del nome email del Blob, conflitto della chiave email interna e duplicato dell'email del profilo. Per i duplicati espone i due riferimenti hash e confronti booleani di profilo completo, nome, selezione e gruppi/ruoli (senza valori). Nessuna copia viene scelta, scartata o unita automaticamente, nemmeno se identica: è un aiuto alla riconciliazione, non una modifica dei dati. Vedere [diagnosi collisioni](../../docs/MIGRATION-RUNBOOK.md#se-compare-identity_collision).
+
 ## Riconciliazioni e artefatti conservati
 
 ### Escludere le vecchie aste senza fornire le chiavi legacy
