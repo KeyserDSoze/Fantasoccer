@@ -232,6 +232,12 @@ Il passo successivo sul dump reale ha segnalato `identity_collision`, senza anco
 
 Non è una riconciliazione automatica e non modifica il mapping o le regole di import: i duplicati continuano a essere rifiutati. La scelta della politica sul dataset reale resta subordinata ai dettagli del conflitto e alla decisione del gestore, senza reset, cancellazioni o unione di privilegi come scorciatoia.
 
+### Risoluzione puntuale approvata dal gestore
+
+Il confronto reale ha confermato due copie della stessa email, con ruoli e selezione differenti: una nel lookup email e una sotto ID tecnico. Il gestore ha approvato la prima **per questa coppia**. È disponibile `IDENTITY_RESOLUTIONS_JSON`, vuoto per default, con coppie di checksum `preferredDocumentSha256`/`otherDocumentSha256`; i checksum reali restano nell'env privato, non nel codice.
+
+La risoluzione richiede due soli candidati per email, hash univoci/presenti e corrispondenza email comune, copia preferita sotto lookup email e altra copia non-email; rifiuta scelte invertite, file cambiati/mancanti, sovrapposizioni e terze copie. Il profilo viene scelto interamente, mai con OR dei ruoli o unione delle selezioni. Tutte le identità sono validate e restano le verifiche autorevoli delle membership dei gruppi. La decisione è esplicita in `resolvedIdentityConflicts`, `preservedArtifacts` e mapping hash `identity-resolution`, senza mutare sorgente/dump. Il mapping è aggiornato e l'opzione arriva soltanto ai tool di migrazione. `local.env` viene inoltre escluso da Git/build context per proteggere il nome di file privato utilizzato dal gestore.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

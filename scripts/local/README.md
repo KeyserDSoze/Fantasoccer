@@ -163,6 +163,7 @@ Import-Certificate -FilePath .\local-certificates\localhost.cer -CertStoreLocati
 ## 4. Scaricare lo Storage e ripristinarlo localmente
 
 Per il percorso guidato completo (connection string sorgente, export/analisi, import SQL/file e reset locale con backup) vedere il [runbook Windows](../../docs/MIGRATION-RUNBOOK.md). `sync-storage.ps1` analizza soltanto per default; `-Apply` importa esplicitamente e non esegue mai un reset automatico. `reset-postgres.ps1` richiede `-ConfirmDatabase fantasoccer_local` e supporta `-WhatIf`.
+Le collisioni d'identità non vengono ignorate: dopo confronto e approvazione si può configurare `IDENTITY_RESOLUTIONS_JSON` nell'env privato, vincolando la scelta ai due checksum esatti. Non è un merge di ruoli e non scavalca le membership dei gruppi. Anche `local.env` è ora escluso da Git e dal contesto Docker come `.env.local`; le esclusioni non rimuovono file eventualmente già versionati.
 
 1. Inserire `FANTASOCCER_EXPORT_STORAGE` nel `.env` privato, idealmente con SAS/credenziale **di sola lettura** per Blob (e Table solo se richieste).
 2. Usare una copia esplorativa mentre la sorgente è attiva oppure concordare una finestra in cui **tutti** gli scrittori sono fermi. `-SourceQuiesced` registra la dichiarazione, non ferma Azure.

@@ -109,7 +109,23 @@ Non significa necessariamente "due utenti duplicati": l'importatore usa questo b
 
 Per i duplicati indica checksum e riferimenti di archivio **hash** di entrambe le copie. I booleani `profilesIdentical`, `displayNameMatches`, `selectionMatches`, `groupRolesMatch` e `groupLabelsMatch` confrontano i dati senza mostrarli. I gruppi/ruoli sono confrontati indipendentemente dall'ordine; `profilesIdentical` confronta l'intero valore JSON, inclusi eventuali campi non modellati. I flag `currentBlobIsEmailLookup`/`otherBlobIsEmailLookup` indicano soltanto se il nome del Blob corrisponde all'email del profilo, non quale copia sia automaticamente autorevole.
 
-**La diagnostica non cambia le regole dell'import:** copie identiche o discordanti rimangono bloccate fino a una riconciliazione esplicita. Non usare un reset o cancellare una copia solo per far passare il controllo. Rilancia soltanto `analyze-core` sul dump esistente e condividi `Identity details`, non i valori originali dei documenti. Dopo aver stabilito che cosa differisce si potrà scegliere una politica di riconciliazione; nessuna unione di ruoli o preferenza arbitraria viene introdotta.
+**Per default le copie rimangono bloccate**, anche se identiche. Non usare un reset o cancellare una copia solo per far passare il controllo. Rilancia soltanto `analyze-core` sul dump esistente e condividi `Identity details`, non i valori originali dei documenti.
+
+### Scelta esplicita e vincolata ai checksum
+
+Dopo aver confrontato le copie, il gestore può approvare **una specifica coppia**, scegliendo il profilo del Blob il cui nome coincide con l'email, senza unire ruoli/selezioni e senza modificare la sorgente o il dump. Inserisci nel file env privato una sola riga, sostituendo i segnaposto con i due SHA-256 completi di 64 caratteri:
+
+```dotenv
+IDENTITY_RESOLUTIONS_JSON='[{"preferredDocumentSha256":"SHA256_COPIA_EMAIL_APPROVATA","otherDocumentSha256":"SHA256_ALTRA_COPIA_APPROVATA"}]'
+```
+
+Questa variabile è passata **solo ai tool di analisi/import**, non all'API o al frontend. Per CLI .NET diretta usa `FANTASOCCER_IDENTITY_RESOLUTIONS_JSON`. In caso di più coppie approvate, aggiungi oggetti all'array; uno stesso checksum non può comparire in più scelte. Non è una politica globale "preferisci sempre l'email".
+
+La scelta è ammessa soltanto se i due documenti esistono, sono identificati univocamente dal contenuto, hanno la stessa email valida e sono **le sole due copie** di quell'email; la copia preferita deve essere un lookup email, l'altra un alias non-email. I metadati delle identità vengono validati prima della scelta e i normali controlli di membership/cache dei gruppi restano attivi. Una risoluzione non può scavalcare `membership_conflict`.
+
+Se cambia un contenuto, compare una terza copia, mancano file o la scelta è invertita, l'import si ferma (`identity_resolution_*`) e richiede una nuova revisione. Lo stesso vale per un checksum che identifica più Blob, perché non permetterebbe di scegliere in modo univoco. Non usare la scelta per collegare email di persone diverse.
+
+Prima esegui l'analisi sul dump esistente con lo stesso env privato e controlla `resolvedIdentityConflicts`, che indica entrambi i checksum/riferimenti hash; la copia non selezionata è dichiarata anche in `preservedArtifacts`. Solo dopo usa `-Apply`. Conserva la configurazione approvata per le reimportazioni di quel dump: rimuoverla ripristina il blocco sui duplicati. Restano validi idempotenza, transazione e rifiuto delle reimportazioni dopo scritture applicative.
 
 ## 3. Importare esplicitamente la copia locale
 

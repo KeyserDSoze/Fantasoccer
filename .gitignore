@@ -378,5 +378,6 @@ FodyWeavers.xsd
 # Private environment files; only synthetic local-test defaults are versioned.
 **/.env
 **/.env.*
+**/local.env
 !/.env.test
 /local-certificates/

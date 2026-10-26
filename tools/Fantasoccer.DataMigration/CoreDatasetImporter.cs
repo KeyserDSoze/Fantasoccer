@@ -13,7 +13,8 @@ namespace Fantasoccer.DataMigration;
 
 public sealed record CoreImportReport(int MappingVersion, int Documents, int SkippedDocuments, int Users, int Groups,
     int Teams, string[] PendingContainers, string[] PendingFields, bool FullMigrationComplete = false, string[]? PreservedArtifacts = null,
-    string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null);
+    string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null,
+    AppliedIdentityResolution[]? ResolvedIdentityConflicts = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null) : Exception(code)
@@ -27,7 +28,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 24;
+    public const int MappingVersion = 25;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -241,6 +242,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         dataset.Manifest.Containers.Where(x => !Containers.Contains(x.Name) && !PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).Select(x => x.Name)
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
          [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+          .. plan.ResolvedIdentityConflicts.Count > 0
+              ? new[] { "Explicit checksum-pinned identity resolutions selected the email-lookup profiles. Roles and selections were not merged; review resolvedIdentityConflicts. Original copies remain in the verified dump." } : Array.Empty<string>(),
           .. plan.ReconciledIdentityDocuments.Count > 0
               ? new[] { "Some appidentity records used legacy storage IDs or unusable embedded keys instead of the profile email. Lookup consistency was verified; review reconciledIdentityDocuments. Original envelopes remain in the verified dump." } : Array.Empty<string>(),
           .. plan.ImportLegacyLogs && dataset.Manifest.Scope == "blob-current-state"
@@ -255,11 +258,13 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
              .Select(x => x.Name + ": " + PreservedContainers[x.Name])
               .Concat(dataset.Manifest.Containers.Where(x => !plan.ImportLegacyAuctions && LegacyAuctionContainers.Contains(x.Name) && x.Blobs.Count > 0)
                   .OrderBy(x => x.Name).Select(x => x.Name + ": excluded from SQL by explicit import option; original bytes preserved in verified dump"))
-              .Concat(dataset.Manifest.Tables.Where(x => !plan.ImportLegacyLogs && x.Name == "logs" && x.EntityCount > 0)
-                  .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump")).ToArray(),
+               .Concat(dataset.Manifest.Tables.Where(x => !plan.ImportLegacyLogs && x.Name == "logs" && x.EntityCount > 0)
+                   .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump"))
+               .Concat(plan.ResolvedIdentityConflicts.Select(x => "appidentity: unselected duplicate " + x.OtherDocumentSha256 + " preserved in verified dump; selected " + x.PreferredDocumentSha256)).ToArray(),
           ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
               .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray(),
-          ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray());
+          ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray(),
+          ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -267,7 +272,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         var source = dataset.Manifest.SourceId;
         var logoFiles = dataset.Manifest.Containers.Where(x => x.Name == "logos").SelectMany(x => x.Blobs).Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
         var accounts = new Dictionary<string, AppIdentity>(StringComparer.Ordinal);
-        var accountDocuments = new Dictionary<string, LegacyJsonDocument>(StringComparer.Ordinal);
+        var identityCandidates = new List<IdentityCandidate>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "appidentity"))
         {
             try
@@ -276,26 +281,31 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                 var account = envelope?.Value ?? throw new CoreImportException("invalid_legacy_envelope");
                 var email = Email(account.Email);
                 var reconciled = ValidateIdentityKey(document, envelope!.Key, email);
-                if (accounts.TryGetValue(email, out var previous))
-                    throw new CoreImportException("identity_collision", identityConflict:
-                        CompareIdentityDocuments(document, account, accountDocuments[email], previous, email));
-                accounts.Add(email, account);
-                accountDocuments.Add(email, document);
-                var user = AddUser(email, account.Username ?? email);
-                if (reconciled)
-                {
-                    plan.ReconciledIdentityDocuments.Add(document.Sha256);
-                    // Preserve a durable source -> account audit without copying
-                    // an unknown opaque key (possibly sensitive) into SQL/logs.
-                    // The original embedded key is retained in the verified dump.
-                    var archiveReference = IdentityArchiveReference(document);
-                    plan.Maps.Add(new() { SourceId = source, Kind = "identity-document", LegacyKey = Composite(archiveReference, document.Sha256), TargetId = user.Id });
-                }
+                identityCandidates.Add(new(document, account, email, reconciled));
             }
             catch (CoreImportException fault) when (fault.DocumentSha256 is null)
             {
                 throw new CoreImportException(fault.Message, fault.Field, fault.Reader, document.Sha256, fault.IdentityConflict);
             }
+        }
+        var identitySelection = SelectIdentityCandidates(identityCandidates, options.IdentityResolutions);
+        foreach (var candidate in identitySelection.Selected) accounts.Add(candidate.Email, candidate.Account);
+        foreach (var candidate in identitySelection.Selected)
+        {
+            var user = AddUser(candidate.Email, candidate.Account.Username ?? candidate.Email);
+            if (!candidate.KeyReconciled) continue;
+            plan.ReconciledIdentityDocuments.Add(candidate.Document.Sha256);
+            plan.Maps.Add(new() { SourceId = source, Kind = "identity-document",
+                LegacyKey = Composite(IdentityArchiveReference(candidate.Document), candidate.Document.Sha256), TargetId = user.Id });
+        }
+        foreach (var (preferred, other) in identitySelection.Resolved)
+        {
+            var applied = new AppliedIdentityResolution(preferred.Document.Sha256, other.Document.Sha256,
+                IdentityArchiveReference(preferred.Document), IdentityArchiveReference(other.Document));
+            plan.ResolvedIdentityConflicts.Add(applied);
+            plan.Maps.Add(new() { SourceId = source, Kind = "identity-resolution",
+                LegacyKey = Composite(applied.PreferredArchiveReference, applied.PreferredDocumentSha256, applied.OtherArchiveReference, applied.OtherDocumentSha256),
+                TargetId = plan.Users[preferred.Email].Id });
         }
         var legacyGroups = new HashSet<string>(StringComparer.Ordinal);
         foreach (var document in dataset.Documents.Where(x => x.Container == "group"))
@@ -562,6 +572,7 @@ public sealed class CorePlan
     public bool ImportLegacyAuctions { get; init; } = true;
     public bool ImportLegacyLogs { get; init; }
     public List<string> ReconciledIdentityDocuments { get; } = [];
+    public List<AppliedIdentityResolution> ResolvedIdentityConflicts { get; } = [];
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];
     public Guid[] GroupIds => Groups.Select(x => x.Id).ToArray();
