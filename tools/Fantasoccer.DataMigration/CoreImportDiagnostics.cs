@@ -20,5 +20,6 @@ public static class CoreImportDiagnostics
         + (fault.Field is null ? "" : $" Field: {fault.Field}; reader: {fault.Reader}.")
         + (fault.DocumentSha256 is null ? "" : $" Document SHA-256: {fault.DocumentSha256}.")
         + (fault.IdentityConflict is null ? "" : " Identity details: " + JsonSerializer.Serialize(fault.IdentityConflict, Json))
+        + (fault.PlayerValidation is null ? "" : " Player details: " + JsonSerializer.Serialize(fault.PlayerValidation, Json))
         + " No partial transaction was committed.";
 }

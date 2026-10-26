@@ -17,13 +17,14 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
-    IdentityConflictDetails? identityConflict = null) : Exception(code)
+    IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null) : Exception(code)
 {
     // Source-code coordinates only; never the rejected email/payload/key.
     public string? Field { get; } = field;
     public string? Reader { get; } = reader;
     public string? DocumentSha256 { get; } = documentSha256;
     public IdentityConflictDetails? IdentityConflict { get; } = identityConflict;
+    public PlayerValidationDetails? PlayerValidation { get; } = playerValidation;
 }
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
@@ -300,12 +301,12 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             if (!candidate.KeyReconciled) continue;
             plan.ReconciledIdentityDocuments.Add(candidate.Document.Sha256);
             plan.Maps.Add(new() { SourceId = source, Kind = "identity-document",
-                LegacyKey = Composite(IdentityArchiveReference(candidate.Document), candidate.Document.Sha256), TargetId = user.Id });
+                LegacyKey = Composite(DocumentArchiveReference(candidate.Document), candidate.Document.Sha256), TargetId = user.Id });
         }
         foreach (var (preferred, other) in identitySelection.Resolved)
         {
             var applied = new AppliedIdentityResolution(preferred.Document.Sha256, other.Document.Sha256,
-                IdentityArchiveReference(preferred.Document), IdentityArchiveReference(other.Document),
+                DocumentArchiveReference(preferred.Document), DocumentArchiveReference(other.Document),
                 TryEmail(other.Document.BlobName, out var otherLookup) && otherLookup == preferred.Email);
             plan.ResolvedIdentityConflicts.Add(applied);
             plan.Maps.Add(new() { SourceId = source, Kind = "identity-resolution",
@@ -544,11 +545,11 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         // guess an ID from a display name or use it as an authentication subject.
         var hasLookupEmail = TryEmail(document.BlobName, out var lookupEmail);
         if (hasLookupEmail && lookupEmail != email)
-            throw new CoreImportException("identity_collision", identityConflict: new("blob_email_mismatch", CurrentArchiveReference: IdentityArchiveReference(document)));
+            throw new CoreImportException("identity_collision", identityConflict: new("blob_email_mismatch", CurrentArchiveReference: DocumentArchiveReference(document)));
         if (TryEmail(key, out var keyEmail))
         {
             if (keyEmail != email)
-                throw new CoreImportException("identity_collision", identityConflict: new("embedded_key_email_mismatch", CurrentArchiveReference: IdentityArchiveReference(document)));
+                throw new CoreImportException("identity_collision", identityConflict: new("embedded_key_email_mismatch", CurrentArchiveReference: DocumentArchiveReference(document)));
             return false;
         }
         if (hasLookupEmail && lookupEmail == email) return true;
@@ -557,7 +558,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         _ = Email(key); // Keep strict validation when no independent lookup agrees.
         return false;
     }
-    private static string IdentityArchiveReference(LegacyJsonDocument document) => "blobs/"
+    private static string DocumentArchiveReference(LegacyJsonDocument document) => "blobs/"
         + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(document.Container + "\0" + document.BlobName))) + ".bin";
 
     private static IdentityConflictDetails CompareIdentityDocuments(LegacyJsonDocument currentDocument, AppIdentity current,
@@ -572,7 +573,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         var currentLabels = (current.Groups ?? []).Select(x => (Id: x?.Id, Name: x?.Name, IsNull: x is null)).OrderBy(x => x.Id, StringComparer.Ordinal).ThenBy(x => x.Name, StringComparer.Ordinal).ThenBy(x => x.IsNull);
         var previousLabels = (previous.Groups ?? []).Select(x => (Id: x?.Id, Name: x?.Name, IsNull: x is null)).OrderBy(x => x.Id, StringComparer.Ordinal).ThenBy(x => x.Name, StringComparer.Ordinal).ThenBy(x => x.IsNull);
         return new("duplicate_profile_email", previousDocument.Sha256,
-            IdentityArchiveReference(currentDocument), IdentityArchiveReference(previousDocument),
+            DocumentArchiveReference(currentDocument), DocumentArchiveReference(previousDocument),
             JsonElement.DeepEquals(Profile(currentDocument), Profile(previousDocument)),
             string.Equals(current.Username, previous.Username, StringComparison.Ordinal),
             JsonElement.DeepEquals(JsonSerializer.SerializeToElement(current.State), JsonSerializer.SerializeToElement(previous.State)),

@@ -53,6 +53,12 @@ L'identità sorgente è il valore esatto **nel gruppo**, con un mapping determin
 
 Nella lista membri sono visibili anche i disattivi: un amministratore del gruppo può gestirli per ID, riattivarli con ruoli espliciti e configurare un'email reale ancora mancante. L'operazione non unisce un account già esistente con quell'email, non modifica email già configurate e non riabilita account disabilitati globalmente. Il login richiede comunque la verifica Microsoft. Vedere [gestione utenti](../../docs/GROUP-ACTIVATION.md#utenti-esistenti-e-stato-nel-gruppo).
 
+### Diagnosi di `invalid_player`
+
+Gli errori sui calciatori riportano checksum del documento e `Player details`: container, riferimento hash al file del dump, percorso JSON del record, motivi controllati (`empty_player_key`, `role_out_of_range`, `null_player`), presenza/lunghezza del nome e ruolo numerico. Nomi, chiavi giocatore, proprietari, nomi Blob originali e payload non sono loggati. Il contesto è passato esplicitamente dal lettore, anche per snapshot annidati e per copie discordanti di un giocatore già noto; supporta envelope `k/v` e `Key/Value` e il casing storico accettato dal lettore push.
+
+È solo diagnostica: stessi controlli sulla chiave e sui ruoli `-1..3`, nessun salto, correzione automatica, cambio di mapping/schema o nuova opzione env. Le voci `null` e i record con nome mancante restano rifiutati con un errore mirato invece di un'eccezione generica. I container esclusi non vengono decodificati. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_player) e rianalizzare il dump esistente senza `-Apply`.
+
 ## Riconciliazioni e artefatti conservati
 
 ### Escludere le vecchie aste senza fornire le chiavi legacy

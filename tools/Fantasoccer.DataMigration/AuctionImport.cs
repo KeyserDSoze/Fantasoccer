@@ -11,7 +11,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadAuctions(VerifiedJsonDataset dataset, CorePlan plan, CoreImportOptions options,
-        Func<string, string, Guid> map, Func<RealPlayer, int, bool, PlayerSeason> player, Func<RealTeam?, Guid> club,
+        Func<string, string, Guid> map, Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club,
         Func<string, string, UserAccount> addUser)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId
@@ -38,7 +38,7 @@ public sealed partial class CoreDatasetImporter
             if (source.Actual is { } actual)
             {
                 var sample = actual.Player ?? throw new CoreImportException("missing_actual_auction_player");
-                var identity = player(sample, key.Year, false);
+                var identity = player(sample, key.Year, false, PlayerOrigin(document, ".a.pl"));
                 var team = Team(actual.Owner);
                 auction.Actual = new() { PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam), PlayerRole = (int)sample.Role, IsActive = sample.IsActive,
                     IsVisible = sample.Visible, StartedAtUtc = Utc(actual.Started), LegacyStartedUtc = Local(actual.Started),

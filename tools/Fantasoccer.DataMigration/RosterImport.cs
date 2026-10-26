@@ -30,10 +30,9 @@ public sealed partial class CoreDatasetImporter
             var row = new FootballClub { Id = map("club", key), Name = club.Name.Trim(), Abbreviation = club.Abbreviation };
             clubs.Add(key, row); plan.Clubs.Add(row); return row.Id;
         }
-        Guid Person(RealPlayer player)
+        Guid Person(RealPlayer player, PlayerSource origin)
         {
-            var legacyKey = player.Key;
-            if (string.IsNullOrWhiteSpace(legacyKey) || player.Role is < Role.Undefined or > Role.Forward) throw new CoreImportException("invalid_player");
+            var legacyKey = CheckedPlayerKey(player, origin);
             if (!players.TryGetValue(legacyKey, out var person))
             {
                 person = new() { Id = map("player", legacyKey), Name = Name(player.Name) };
@@ -41,9 +40,9 @@ public sealed partial class CoreDatasetImporter
             }
             return person.Id;
         }
-        PlayerSeason Player(RealPlayer player, int year, bool root)
+        PlayerSeason Player(RealPlayer player, int year, bool root, PlayerSource origin)
         {
-            var playerId = Person(player);
+            var playerId = Person(player, origin);
             var identity = (playerId, year);
             if (root && !authoritative.Add(identity)) throw new CoreImportException("duplicate_player_season");
             if (!seasons.TryGetValue(identity, out var row))
@@ -66,7 +65,8 @@ public sealed partial class CoreDatasetImporter
             var entity = document.Envelope.Deserialize<Entity<RealPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_players_envelope");
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
-            foreach (var player in entity.Value?.Players ?? throw new CoreImportException("missing_players")) Player(player, entity.Key, true);
+            foreach (var (player, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_players")).Select((value, index) => (value, index)))
+                Player(player, entity.Key, true, PlayerOrigin(document, $".p[{index}]"));
         }
 
         LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root);
@@ -128,7 +128,7 @@ public sealed partial class CoreDatasetImporter
             var active = new HashSet<Guid>();
             foreach (var (player, ordinal) in (team.Players ?? []).Select((value, ordinal) => (value, ordinal)))
             {
-                var playerSeason = Player(player, year, false);
+                var playerSeason = Player(player, year, false, PlayerOrigin(document, $".p[{ordinal}]"));
                 if ((int)player.Status is < 0 or > 4 || (int)player.Position is < -2 or > 11 ||
                     (player.Status == PlayerInTeamStatus.Active && !active.Add(playerSeason.PlayerId))) throw new CoreImportException("invalid_roster_player");
                 snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = Club(player.RealTeam),

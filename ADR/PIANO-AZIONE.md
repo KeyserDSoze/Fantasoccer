@@ -250,6 +250,10 @@ Il dataset reale usa anche riferimenti non-email per proprietari nelle vecchie s
 
 La lista include i disattivi e lo stato nel gruppo, gestibile per ID. La riattivazione rapida concede soltanto Partecipante; configurare una prima email reale non cambia ID/storico e non unisce account in conflitto. Restano i vincoli sull'ultimo responsabile, i confini gruppo/piattaforma, la verifica Microsoft e il blocco di reimport dopo scritture applicative. Email note univoche; downgrade rifiutato in presenza di utenti senza email. Nessuna modifica a sorgente o dump né notifiche durante la migrazione.
 
+### Diagnostica puntuale dei calciatori rifiutati
+
+Il dataset reale ha raggiunto `invalid_player` senza contesto sufficiente per capire se la chiave fosse vuota o il ruolo fuori intervallo. La diagnostica ora accompagna il record in lettura con checksum, file di archivio hash e posizione JSON esatta; distingue chiave vuota, ruolo fuori `-1..3` e voce `null`, senza stampare nomi, chiavi, proprietari o nomi Blob. Il contesto copre cataloghi e copie nei documenti annidati, senza cercare per nome o prevalidare container esclusi. Nome mancante/null rimane rifiutato in modo mirato. Regole di accettazione, mapping, schema, opzioni e transazione restano invariati; nessun dato reale viene corretto, scartato o aggiunto alle fixture.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -10,7 +10,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadFootballSamples(VerifiedJsonDataset dataset, CorePlan plan,
-        Func<RealPlayer, int, bool, PlayerSeason> player, Func<RealTeam?, Guid> club, Action<int> season,
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club, Action<int> season,
         Action<string, int, int> root)
     {
         var votes = new HashSet<(Guid, int, int, FootballVoteSource)>();
@@ -20,9 +20,9 @@ public sealed partial class CoreDatasetImporter
             var key = entity.Key ?? throw new CoreImportException("missing_votes_key");
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var source = document.Container == "live" ? FootballVoteSource.Live : document.Container == "official" ? FootballVoteSource.Official : FootballVoteSource.Notification;
-            foreach (var value in entity.Value?.Players ?? throw new CoreImportException("missing_vote_players"))
+            foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_vote_players")).Select((value, index) => (value, index)))
             {
-                var identity = player(value, key.Year, false);
+                var identity = player(value, key.Year, false, PlayerOrigin(document, $".p[{index}]"));
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
                 if (!votes.Add((identity.PlayerId, key.Year, key.Day, source)) || !float.IsFinite(vote.Value)) throw new CoreImportException("duplicate_or_invalid_vote");
                 plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
@@ -43,7 +43,7 @@ public sealed partial class CoreDatasetImporter
             var index = 0;
             foreach (var value in entity.Value?.Players ?? throw new CoreImportException("missing_chance_players"))
             {
-                var identity = player(value, key.Year, false);
+                var identity = player(value, key.Year, false, PlayerOrigin(document, $".p[{index}]"));
                 var chance = value.Chance ?? throw new CoreImportException("missing_chance");
                 if (!chances.Add((identity.PlayerId, key.Year, key.Day))) throw new CoreImportException("duplicate_chance");
                 var row = new FootballChance { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day,
@@ -68,9 +68,9 @@ public sealed partial class CoreDatasetImporter
         {
             var entity = document.Envelope.Deserialize<Entity<StatPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_statistics_envelope");
             season(entity.Key); root(document.Container, entity.Key, 0);
-            foreach (var value in entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players"))
+            foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players")).Select((value, index) => (value, index)))
             {
-                var identity = player(value, entity.Key, false);
+                var identity = player(value, entity.Key, false, PlayerOrigin(document, $".p[{index}]"));
                 if (!statistics.Add((identity.PlayerId, entity.Key)) || !float.IsFinite(value.Summatory) || !float.IsFinite(value.FantaSummatory))
                     throw new CoreImportException("duplicate_or_invalid_statistics");
                 var row = new FootballPlayerStatistic { PlayerId = identity.PlayerId, SeasonIndex = entity.Key,

@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadHallArchives(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, Guid> player, Func<RealTeam?, Guid> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
+        Func<RealPlayer, PlayerSource, Guid> player, Func<RealTeam?, Guid> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId ?? throw new CoreImportException("missing_hall_reference");
         foreach (var document in dataset.Documents.Where(x => x.Container == "halloffame"))
@@ -32,16 +32,16 @@ public sealed partial class CoreDatasetImporter
             if (value.RecordPlayer is { } single)
             {
                 if (!float.IsFinite(single.Points)) throw new CoreImportException("invalid_hall_points");
-                archive.PlayerRecords.Add(new() { Kind = 0, Points = single.Points, Player = Snapshot(single.Player) });
+                archive.PlayerRecords.Add(new() { Kind = 0, Points = single.Points, Player = Snapshot(single.Player, PlayerOrigin(document, ".rp.p")) });
             }
             if (value.PlayerWithMostPointsInYear is { } yearly)
             {
                 season(yearly.Year);
                 if (!float.IsFinite(yearly.Points)) throw new CoreImportException("invalid_hall_points");
-                archive.PlayerRecords.Add(new() { Kind = 1, Year = yearly.Year, Points = yearly.Points, Player = Snapshot(yearly.Player) });
+                archive.PlayerRecords.Add(new() { Kind = 1, Year = yearly.Year, Points = yearly.Points, Player = Snapshot(yearly.Player, PlayerOrigin(document, ".ppmy.p")) });
             }
-            foreach (var winning in value.WinningPlayers ?? []) archive.WinningPlayers.Add(new() { Ordinal = archive.WinningPlayers.Count,
-                Player = Snapshot(winning.Player), Wins = Wins(winning.Wins) });
+            foreach (var (winning, index) in (value.WinningPlayers ?? []).Select((value, index) => (value, index))) archive.WinningPlayers.Add(new() { Ordinal = archive.WinningPlayers.Count,
+                Player = Snapshot(winning.Player, PlayerOrigin(document, $".wp[{index}].p")), Wins = Wins(winning.Wins) });
             foreach (var winning in value.WinningTeams ?? []) archive.WinningTeams.Add(new() { Ordinal = archive.WinningTeams.Count,
                 OwnerUserId = Member(winning.Owner), OwnerEmail = winning.Owner, Name = winning.Team, Wins = Wins(winning.Wins) });
             foreach (var rank in value.Ranks ?? [])
@@ -60,10 +60,10 @@ public sealed partial class CoreDatasetImporter
                 return person.Id;
             }
         }
-        HallPlayerSnapshot Snapshot(Player source)
+        HallPlayerSnapshot Snapshot(Player source, PlayerSource origin)
         {
             if (source is null) throw new CoreImportException("missing_hall_player");
-            return new() { PlayerId = player(source), ClubId = club(source.RealTeam), Name = source.Name, PlayerRole = (int)source.Role,
+            return new() { PlayerId = player(source, origin), ClubId = club(source.RealTeam), Name = source.Name, PlayerRole = (int)source.Role,
                 IsActive = source.IsActive, IsVisible = source.Visible, Price = source.Price, Revenue = source.Revenue, Status = (int)source.Status, Position = (int)source.Position };
         }
         ICollection<HallWinStage> Wins(Dictionary<string, List<int>> source)

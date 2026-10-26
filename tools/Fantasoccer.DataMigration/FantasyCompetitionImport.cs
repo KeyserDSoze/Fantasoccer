@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadFantasyCompetitions(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, int, bool, PlayerSeason> player, Func<RealTeam?, Guid> club)
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId
             ?? throw new CoreImportException("missing_competition_reference");
@@ -52,7 +52,7 @@ public sealed partial class CoreDatasetImporter
                 foreach (var (fromBuyer, rows) in new[] { (true, value.BuyerPlayers), (false, value.SellerPlayers) })
                     foreach (var (item, index) in (rows ?? []).Select((item, index) => (item, index)))
                     {
-                        var identity = player(item, key.Year, false);
+                        var identity = player(item, key.Year, false, PlayerOrigin(document, $".m[{trade.Ordinal}].{(fromBuyer ? "bp" : "sp")}[{index}]"));
                         trade.Players.Add(new() { FromBuyer = fromBuyer, Ordinal = index, PlayerId = identity.PlayerId, ClubId = club(item.RealTeam),
                             PlayerRole = (int)item.Role, IsActive = item.IsActive, IsVisible = item.Visible, Price = item.Price, Revenue = item.Revenue,
                             Status = (int)item.Status, Position = (int)item.Position });
@@ -75,9 +75,9 @@ public sealed partial class CoreDatasetImporter
             if (plan.PlayerOrders.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year)) throw new CoreImportException("player_order_collision");
             var order = new LeaguePlayerOrder { GroupId = group, LeagueId = league, SeasonIndex = key.Year };
             var ids = new HashSet<Guid>();
-            foreach (var item in entity.Value?.Players ?? throw new CoreImportException("missing_randomized_players"))
+            foreach (var (item, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_randomized_players")).Select((value, index) => (value, index)))
             {
-                var identity = player(item, key.Year, false);
+                var identity = player(item, key.Year, false, PlayerOrigin(document, $".p[{index}]"));
                 if (!ids.Add(identity.PlayerId)) throw new CoreImportException("duplicate_player_in_order");
                 order.Players.Add(new() { Ordinal = order.Players.Count, PlayerId = identity.PlayerId, ClubId = club(item.RealTeam),
                     PlayerRole = (int)item.Role, IsActive = item.IsActive, IsVisible = item.Visible });
@@ -196,7 +196,7 @@ public sealed partial class CoreDatasetImporter
             foreach (var (isHome, rows) in new[] { (true, value.HomePlayers), (false, value.AwayPlayers) })
                 foreach (var (item, ordinal) in (rows ?? []).Select((item, ordinal) => (item, ordinal)))
                 {
-                    var identity = player(item, key.Year, false);
+                    var identity = player(item, key.Year, false, PlayerOrigin(document, $"['{(isHome ? "1" : "2")}'][{ordinal}]"));
                     snapshot.Players.Add(new() { IsHome = isHome, Ordinal = ordinal, PlayerId = identity.PlayerId, ClubId = club(item.RealTeam),
                         PlayerRole = (int)item.Role, IsActive = item.IsActive, IsVisible = item.Visible, Price = item.Price, Revenue = item.Revenue,
                         Status = (int)item.Status, Position = (int)item.Position });

@@ -10,7 +10,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadPushOutbox(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, int, bool, PlayerSeason> player, Func<RealTeam?, Guid> club, Func<string, string, UserAccount> addUser, Action<int> season)
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club, Func<string, string, UserAccount> addUser, Action<int> season)
     {
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var keys = new HashSet<(int, int)>();
@@ -38,9 +38,18 @@ public sealed partial class CoreDatasetImporter
             var checkpoint = new PushDayCheckpoint { SeasonIndex = key.Year, Day = key.Day, DeploymentReminder = value.DeploymentReminder, EndDay = value.EndDay,
                 LiveChangesReminder = value.LiveChangesReminder, HasMatchEventVotes = value.MatchEventVotes != null, MatchEventSequence = value.MatchEventSequence,
                 FormationReceipts = value.LiveFormationChangeNotifications.Select((receipt, ordinal) => new LegacyFormationPushReceipt { Receipt = receipt, Ordinal = ordinal }).ToArray() };
-            foreach (var sample in value.MatchEventVotes?.Players ?? [])
+            var votesPath = ".matchEventVotes.p";
+            if (value.MatchEventVotes?.Players is { Count: > 0 })
             {
-                var identity = player(sample, key.Year, false);
+                // Web options also accept historical PascalCase properties.
+                // Retain the exact accepted spelling in the source coordinate.
+                var rawVotes = Value(document.Envelope).EnumerateObject().Last(x => string.Equals(x.Name, "matchEventVotes", StringComparison.OrdinalIgnoreCase));
+                var rawPlayers = rawVotes.Value.EnumerateObject().Last(x => string.Equals(x.Name, "p", StringComparison.OrdinalIgnoreCase));
+                votesPath = $".{rawVotes.Name}.{rawPlayers.Name}";
+            }
+            foreach (var (sample, index) in (value.MatchEventVotes?.Players ?? []).Select((value, index) => (value, index)))
+            {
+                var identity = player(sample, key.Year, false, PlayerOrigin(document, $"{votesPath}[{index}]"));
                 var vote = sample.Vote ?? throw new CoreImportException("missing_push_baseline_vote");
                 if (!float.IsFinite(vote.Value)) throw new CoreImportException("invalid_push_baseline_vote");
                 checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam), PlayerRole = (int)sample.Role,

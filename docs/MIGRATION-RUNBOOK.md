@@ -99,6 +99,24 @@ Per ripetere soltanto l'analisi, senza download o import SQL:
 
 Sostituisci `azure-prova1` con il **nome del dump che hai già scaricato**. Se il manifest è incompleto, usa prima `-Resume`. Non cancellare il dump o i checkpoint e non saltare automaticamente utenti: per i conflitti non recuperabili occorre riconciliare il campo indicato. Puoi condividere codice errore, `Field`, `reader` e `Document SHA-256`, non connection string, email, nomi dei Blob o l'intero dump.
 
+### Se compare `invalid_player`
+
+Riguarda un **calciatore**, non gli account o i ruoli dei membri. Il lettore continua a rifiutare una chiave giocatore vuota dopo la normalizzazione legacy oppure un ruolo fuori intervallo. Il ruolo ammesso è `-1` (non definito), `0` (portiere), `1` (difensore), `2` (centrocampista), `3` (attaccante).
+
+Il messaggio indica ora `Document SHA-256` e `Player details`:
+
+- `container`: il container del documento effettivamente in lettura;
+- `archiveReference`: il percorso hash relativo al dump, per esempio `blobs/<hash>.bin`; non è il nome Blob originale;
+- `jsonPath`: posizione esatta del record, a partire da `$.v` oppure `$.Value` nell'envelope storico. Per esempio `$.v.p[7]` è l'ottavo calciatore della lista, `$.v.wp[1].p` il giocatore della seconda voce dell'albo;
+- `reasons`: `empty_player_key` se il nome non produce una chiave con la vecchia normalizzazione, `role_out_of_range` se il ruolo numerico non è ammesso; possono comparire entrambi. `null_player` identifica una voce calciatore `null`;
+- `nameMissing`, `nameLength`, `role`: sola forma del nome e valore numerico del ruolo, mai nome o chiave del calciatore.
+
+`Document SHA-256` è il checksum del contenuto registrato nel manifest; il nome del file in `archiveReference` deriva invece dall'hash container/nome Blob. Sono due riferimenti distinti. Il contesto segue il record effettivamente rifiutato anche se un altro documento ha già fornito una copia valida dello stesso giocatore: non viene cercato per nome in un file arbitrario.
+
+La diagnostica copre cataloghi, rose, campioni voti/probabilità/statistiche, mercato, partite salvate, albo, baseline push e aste **solo se incluse**. Non decodifica i container esclusi per cercare altri errori, non corregge o salta record e non cambia il mapping SQL. Nomi, email dei proprietari, nomi Blob originali e payload non vengono stampati.
+
+Riesegui soltanto l'analisi con `-UseExistingDump` e lo stesso env privato. Non aggiungere opzioni, fare reset, modificare il dump o usare `-Apply` per aggirare il controllo. Condividi il codice errore, `Document SHA-256` e `Player details`, non l'intero documento. Il record va poi esaminato localmente prima di scegliere un'eventuale riconciliazione.
+
 ### Se compare `identity_collision`
 
 Non significa necessariamente "due utenti duplicati": l'importatore usa questo blocco anche se una chiave email o il nome email del Blob contraddicono il profilo. La riga `Identity details` ora distingue:
