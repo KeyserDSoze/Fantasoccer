@@ -19,6 +19,9 @@ public sealed class IdentityResolutionConfigurationTests
         var rules = IdentityResolutionConfiguration.Parse(JsonSerializer.Serialize(new[] { new IdentityDocumentResolution(preferred, other) }));
         Assert.Equal(preferred.ToLowerInvariant(), Assert.Single(rules).PreferredDocumentSha256);
         Assert.Equal(other, rules[0].OtherDocumentSha256);
+        Assert.False(rules[0].AllowEmailLookupAlias);
+        var aliasRule = IdentityResolutionConfiguration.Parse(JsonSerializer.Serialize(new[] { new IdentityDocumentResolution(preferred, other, true) }));
+        Assert.True(Assert.Single(aliasRule).AllowEmailLookupAlias);
         foreach (var invalid in new[] { "null", "{}", "[{}]", "[{\"preferredDocumentSha256\":\"private-invalid-value\",\"otherDocumentSha256\":\"bad\"}]", "[{\"unexpected\":true}]" })
         {
             var fault = Assert.Throws<CoreImportException>(() => IdentityResolutionConfiguration.Parse(invalid));
@@ -32,6 +35,74 @@ public sealed class IdentityResolutionConfigurationTests
 
 public sealed partial class CoreMigrationTests
 {
+    [CoreFact]
+    public async Task Approved_case_only_email_alias_resolution_keeps_the_chosen_group_and_selection_and_coexists_with_technical_ID_choices()
+    {
+        var container = _storage.Blobs.GetBlobContainerClient("appidentity");
+        _first.Users.Single(user => user.Email == Email).Role = IdentityRole.Reader;
+        _second.Users.RemoveAll(user => user.Email == Email);
+        await PutGroupAsync(_first); await PutGroupAsync(_second);
+        var preferred = new AppIdentity { Email = Email, Username = Email,
+            State = new() { GroupId = "first", LeagueId = "league", Year = 15 },
+            Groups = [new() { Id = "first", Name = "first", Role = IdentityRole.Reader }] };
+        var emptyAlias = new AppIdentity { Email = Email.ToUpperInvariant(), Username = Email.ToUpperInvariant(), State = new(), Groups = [] };
+        await WriteIdentityEnvelopeAsync(Email, Email, preferred);
+        await WriteIdentityEnvelopeAsync(Email.ToUpperInvariant(), Email.ToUpperInvariant(), emptyAlias);
+        var otherProfile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(OtherEmail).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", otherProfile);
+        var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var technical = Resolutions(manifest, OtherEmail, "legacy0001")[0];
+        var aliases = Resolutions(manifest, Email, Email.ToUpperInvariant(), allowEmailLookupAlias: true)[0];
+        var before = (await container.GetBlobClient(Email.ToUpperInvariant()).GetPropertiesAsync()).Value.ETag;
+        var parsed = IdentityResolutionConfiguration.Parse(JsonSerializer.Serialize(new[] { technical, aliases }));
+        var options = new CoreImportOptions(IdentityResolutions: parsed);
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Equal(2, report.ResolvedIdentityConflicts!.Length);
+        Assert.True(report.ResolvedIdentityConflicts.Single(x => x.PreferredDocumentSha256 == aliases.PreferredDocumentSha256).EmailLookupAlias);
+        Assert.False(report.ResolvedIdentityConflicts.Single(x => x.PreferredDocumentSha256 == technical.PreferredDocumentSha256).EmailLookupAlias);
+        Assert.Equal(2, await database.Users.CountAsync());
+        var user = await database.Users.AsNoTracking().SingleAsync(x => x.Email == Email);
+        Assert.Equal(Email, user.DisplayName);
+        var firstId = (await database.LegacyIdentityMaps.SingleAsync(x => x.Kind == "group" && x.LegacyKey == "first")).TargetId;
+        var membership = await database.GroupMemberships.SingleAsync(x => x.UserId == user.Id && x.GroupId == firstId);
+        Assert.Equal(GroupRole.Reader, membership.Roles);
+        Assert.DoesNotContain(await database.GroupMemberships.Where(x => x.UserId == user.Id).ToArrayAsync(), x => (x.Roles & (GroupRole.Admin | GroupRole.SuperAdmin)) != 0);
+        var selection = await database.AccountSelections.SingleAsync(x => x.UserId == user.Id);
+        Assert.Equal(firstId, selection.GroupId); Assert.NotNull(selection.LeagueId); Assert.Equal(15, selection.Year);
+        Assert.Empty(await database.ExternalLogins.ToArrayAsync());
+        Assert.Contains("case-only-email-lookups", (await database.LegacyIdentityMaps.SingleAsync(x => x.Kind == "identity-resolution" && x.TargetId == user.Id)).LegacyKey);
+        Assert.Equal(before, (await container.GetBlobClient(Email.ToUpperInvariant()).GetPropertiesAsync()).Value.ETag);
+        var repeated = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+        // Choosing the empty copy is not made valid by the alias exception:
+        // authoritative membership checks must still refuse it.
+        var reversed = aliases with { PreferredDocumentSha256 = aliases.OtherDocumentSha256, OtherDocumentSha256 = aliases.PreferredDocumentSha256 };
+        var wrongCopy = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump,
+            options: new(IdentityResolutions: [technical, reversed])));
+        Assert.Equal("membership_conflict", wrongCopy.Message);
+    }
+
+    [CoreFact]
+    public async Task Email_alias_opt_in_is_not_a_generic_override_for_technical_IDs_or_space_normalization()
+    {
+        var container = _storage.Blobs.GetBlobContainerClient("appidentity");
+        var profile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", profile);
+        var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var technical = Resolutions(manifest, Email, "legacy0001", allowEmailLookupAlias: true);
+        var wrongMode = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump, options: new(IdentityResolutions: technical)));
+        Assert.Equal("identity_resolution_email_alias_required", wrongMode.Message);
+        await container.DeleteBlobAsync("legacy0001");
+        var spacedName = Email + " ";
+        await WriteIdentityEnvelopeAsync(spacedName, spacedName, profile);
+        manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var spaced = Resolutions(manifest, Email, spacedName, allowEmailLookupAlias: true);
+        var notCaseOnly = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump, options: new(IdentityResolutions: spaced)));
+        Assert.Equal("identity_resolution_email_alias_required", notCaseOnly.Message);
+        await using var database = fixture.CreateContext(); Assert.Empty(await database.Users.ToArrayAsync());
+    }
+
     [CoreFact]
     public async Task Explicit_hash_resolution_chooses_only_the_email_lookup_profile_without_merging_roles_or_selections_and_is_idempotent()
     {
@@ -167,9 +238,9 @@ public sealed partial class CoreMigrationTests
         Assert.Equal("identity_resolution_lookup_required", refused.Message);
     }
 
-    private static IdentityDocumentResolution[] Resolutions(DumpManifest manifest, string preferredName, string otherName)
+    private static IdentityDocumentResolution[] Resolutions(DumpManifest manifest, string preferredName, string otherName, bool allowEmailLookupAlias = false)
     {
         var blobs = manifest.Containers.Single(x => x.Name == "appidentity").Blobs;
-        return [new(blobs.Single(x => x.Name == preferredName).Sha256, blobs.Single(x => x.Name == otherName).Sha256)];
+        return [new(blobs.Single(x => x.Name == preferredName).Sha256, blobs.Single(x => x.Name == otherName).Sha256, allowEmailLookupAlias)];
     }
 }

@@ -123,7 +123,19 @@ Questa variabile è passata **solo ai tool di analisi/import**, non all'API o al
 
 La scelta è ammessa soltanto se i due documenti esistono, sono identificati univocamente dal contenuto, hanno la stessa email valida e sono **le sole due copie** di quell'email; la copia preferita deve essere un lookup email, l'altra un alias non-email. I metadati delle identità vengono validati prima della scelta e i normali controlli di membership/cache dei gruppi restano attivi. Una risoluzione non può scavalcare `membership_conflict`.
 
-Se cambia un contenuto, compare una terza copia, mancano file o la scelta è invertita, l'import si ferma (`identity_resolution_*`) e richiede una nuova revisione. Lo stesso vale per un checksum che identifica più Blob, perché non permetterebbe di scegliere in modo univoco. Non usare la scelta per collegare email di persone diverse.
+#### Due lookup email diversi solo per maiuscole
+
+Se entrambe le copie hanno nome Blob email e differiscono soltanto per maiuscole/minuscole, la regola precedente resta rifiutata per default. Dopo confronto dei profili e approvazione del gestore, **solo l'oggetto di quella coppia** può aggiungere `"allowEmailLookupAlias":true`:
+
+```dotenv
+IDENTITY_RESOLUTIONS_JSON='[{"preferredDocumentSha256":"SHA256_COPIA_APPROVATA","otherDocumentSha256":"SHA256_ALIAS_NON_SCELTO","allowEmailLookupAlias":true}]'
+```
+
+I segnaposto vanno sostituiti con checksum completi di 64 caratteri. Questo flag richiede due lookup email della stessa email canonica e nomi Blob diversi **esclusivamente per case**; non permette di rimuovere spazi, risolvere altri ID o scegliere fra persone con email diverse. La copia viene mantenuta integralmente, non viene preferito automaticamente il profilo più ricco o il nome tutto minuscolo. Anche una copia vuota è conservata nel dump e non eliminata.
+
+Se nell'array esistono altre risoluzioni approvate, **mantienile** e aggiungi il nuovo oggetto: il flag va solo sulla coppia di alias email, non sulle coppie email/ID tecnico. `resolvedIdentityConflicts` mostra `emailLookupAlias` per distinguere le due modalità; il mapping SQL registra la modalità con soli riferimenti hash. Tutti i vincoli su checksum, cardinalità, finestra d'import e membership rimangono invariati.
+
+Se cambia un contenuto, compare una terza copia o mancano file, l'import si ferma (`identity_resolution_*`) e richiede una nuova revisione. Lo stesso vale per un checksum che identifica più Blob, perché non permetterebbe di scegliere in modo univoco. Nella modalità email/ID tecnico non è ammesso invertire la preferenza; fra alias email il checksum preferito identifica invece la copia scelta dal gestore e deve comunque superare i controlli di membership. Non usare la scelta per collegare email di persone diverse.
 
 Prima esegui l'analisi sul dump esistente con lo stesso env privato e controlla `resolvedIdentityConflicts`, che indica entrambi i checksum/riferimenti hash; la copia non selezionata è dichiarata anche in `preservedArtifacts`. Solo dopo usa `-Apply`. Conserva la configurazione approvata per le reimportazioni di quel dump: rimuoverla ripristina il blocco sui duplicati. Restano validi idempotenza, transazione e rifiuto delle reimportazioni dopo scritture applicative.
 

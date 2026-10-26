@@ -5,9 +5,10 @@ using Fantasoccer.StorageMigration;
 
 namespace Fantasoccer.DataMigration;
 
-public sealed record IdentityDocumentResolution(string PreferredDocumentSha256, string OtherDocumentSha256);
+public sealed record IdentityDocumentResolution(string PreferredDocumentSha256, string OtherDocumentSha256,
+    bool AllowEmailLookupAlias = false);
 public sealed record AppliedIdentityResolution(string PreferredDocumentSha256, string OtherDocumentSha256,
-    string PreferredArchiveReference, string OtherArchiveReference);
+    string PreferredArchiveReference, string OtherArchiveReference, bool EmailLookupAlias = false);
 
 public static class IdentityResolutionConfiguration
 {
@@ -35,7 +36,7 @@ public static class IdentityResolutionConfiguration
             var preferred = rule.PreferredDocumentSha256.ToLowerInvariant();
             var other = rule.OtherDocumentSha256.ToLowerInvariant();
             if (!used.Add(preferred) || !used.Add(other)) throw Invalid();
-            result.Add(new(preferred, other));
+            result.Add(new(preferred, other, rule.AllowEmailLookupAlias));
         }
         return result.AsReadOnly();
     }
@@ -66,11 +67,19 @@ public sealed partial class CoreDatasetImporter
             var preferred = preferredMatches[0]; var other = otherMatches[0];
             if (preferred.Email != other.Email) throw new CoreImportException("identity_resolution_email_mismatch");
             if (byEmail[preferred.Email].Length != 2) throw new CoreImportException("identity_resolution_ambiguous");
-            // This policy is deliberately narrow: one email lookup and one
-            // technical-key alias. It cannot reverse the decision, silently
-            // absorb a third copy, or override contradictory email metadata.
-            if (!IsEmailLookup(preferred) || IsEmailLookup(other))
+            // The default only handles one email lookup and one technical-key
+            // alias. A separate operator opt-in handles case-only email aliases;
+            // neither policy absorbs a third copy or contradictory metadata.
+            if (!IsEmailLookup(preferred))
                 throw new CoreImportException("identity_resolution_lookup_required");
+            if (rule.AllowEmailLookupAlias)
+            {
+                if (!IsEmailLookup(other) ||
+                    !string.Equals(preferred.Document.BlobName, other.Document.BlobName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(preferred.Document.BlobName, other.Document.BlobName, StringComparison.Ordinal))
+                    throw new CoreImportException("identity_resolution_email_alias_required");
+            }
+            else if (IsEmailLookup(other)) throw new CoreImportException("identity_resolution_lookup_required");
             if (!resolvedByEmail.TryAdd(preferred.Email, (preferred, other)))
                 throw new CoreImportException("identity_resolution_ambiguous");
         }

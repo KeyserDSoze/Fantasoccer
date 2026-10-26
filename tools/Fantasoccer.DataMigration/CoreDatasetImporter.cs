@@ -28,7 +28,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 25;
+    public const int MappingVersion = 26;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -301,10 +301,12 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         foreach (var (preferred, other) in identitySelection.Resolved)
         {
             var applied = new AppliedIdentityResolution(preferred.Document.Sha256, other.Document.Sha256,
-                IdentityArchiveReference(preferred.Document), IdentityArchiveReference(other.Document));
+                IdentityArchiveReference(preferred.Document), IdentityArchiveReference(other.Document),
+                TryEmail(other.Document.BlobName, out var otherLookup) && otherLookup == preferred.Email);
             plan.ResolvedIdentityConflicts.Add(applied);
             plan.Maps.Add(new() { SourceId = source, Kind = "identity-resolution",
-                LegacyKey = Composite(applied.PreferredArchiveReference, applied.PreferredDocumentSha256, applied.OtherArchiveReference, applied.OtherDocumentSha256),
+                LegacyKey = Composite(applied.EmailLookupAlias ? "case-only-email-lookups" : "email-lookup-over-technical-key",
+                    applied.PreferredArchiveReference, applied.PreferredDocumentSha256, applied.OtherArchiveReference, applied.OtherDocumentSha256),
                 TargetId = plan.Users[preferred.Email].Id });
         }
         var legacyGroups = new HashSet<string>(StringComparer.Ordinal);

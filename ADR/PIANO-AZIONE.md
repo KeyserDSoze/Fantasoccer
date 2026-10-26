@@ -238,6 +238,12 @@ Il confronto reale ha confermato due copie della stessa email, con ruoli e selez
 
 La risoluzione richiede due soli candidati per email, hash univoci/presenti e corrispondenza email comune, copia preferita sotto lookup email e altra copia non-email; rifiuta scelte invertite, file cambiati/mancanti, sovrapposizioni e terze copie. Il profilo viene scelto interamente, mai con OR dei ruoli o unione delle selezioni. Tutte le identità sono validate e restano le verifiche autorevoli delle membership dei gruppi. La decisione è esplicita in `resolvedIdentityConflicts`, `preservedArtifacts` e mapping hash `identity-resolution`, senza mutare sorgente/dump. Il mapping è aggiornato e l'opzione arriva soltanto ai tool di migrazione. `local.env` viene inoltre escluso da Git/build context per proteggere il nome di file privato utilizzato dal gestore.
 
+### Alias email con case diverso: seconda scelta approvata
+
+Un'ulteriore collisione reale è stata confrontata localmente: due lookup della stessa email con case diverso, uno con gruppo/selezione e uno vuoto. Il gestore ha approvato integralmente la prima copia per questa seconda coppia. La configurazione ammette `allowEmailLookupAlias:true` soltanto sull'oggetto approvato; il default rimane `false` e le precedenti coppie email/ID tecnico non cambiano modalità.
+
+Il flag richiede due lookup email con nomi diversi solo per case, non spazi o altre trasformazioni; conserva le copie originali, non fa merge e non sceglie automaticamente il profilo più ricco. Report e audit hash distinguono la modalità. Test riproducono gruppo/selezione contro alias vuoto, risoluzioni miste, idempotenza, sorgente invariata e blocco di modalità errata o membership incoerenti; nessun dato personale del gestore è inserito nel codice o nei test.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.
