@@ -29,10 +29,10 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         if (archive.ContributionsInitialized) throw new ApplicationFault(409, "hall_baseline_already_initialized", "Il checkpoint dell'albo è già inizializzato.");
         if (archive.Ranks.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningTeams.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).Any(x => x.Count() > 1)) throw BaselineRequired();
         var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SnapshotDay == 0).AsSplitQuery().ToArrayAsync(cancellationToken);
-        var owners = await database.Users.AsNoTracking().ToDictionaryAsync(x => x.Email, x => x.Id, cancellationToken);
+        var owners = await OwnersAsync(group, cancellationToken);
         var actor = await database.Users.Where(x => x.Email == caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant() && x.IsEnabled).Select(x => x.Id).SingleAsync(cancellationToken);
         await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ExecuteDeleteAsync(cancellationToken);
-        foreach (var snapshot in snapshots) database.HallRankContributions.AddRange(HallContributionMath.FromSnapshot(snapshot, email => Owner(owners, email)));
+        foreach (var snapshot in snapshots) database.HallRankContributions.AddRange(HallContributionMath.FromSnapshot(snapshot, email => Owner(owners, group, email)));
         database.HallBaselineConfirmations.Add(new() { GroupId = group, LeagueId = league, ActorUserId = actor, ArchiveVersion = archive.Version, RecordedAtUtc = clock.GetUtcNow() });
         archive.ContributionsInitialized = true; archive.Version++;
         // Confirmation seals the current source baseline, never replaces the
@@ -51,11 +51,11 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         if (archive == null) database.HallArchives.Add(archive = new() { GroupId = group, LeagueId = league, ContributionsInitialized = true, Version = 0 });
         if (!archive.ContributionsInitialized) throw BaselineRequired();
         var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SnapshotDay == 0).OrderBy(x => x.SeasonIndex).AsSplitQuery().ToArrayAsync(cancellationToken);
-        var users = await database.Users.AsNoTracking().ToDictionaryAsync(x => x.Email, x => x.Id, cancellationToken);
+        var users = await OwnersAsync(group, cancellationToken);
         var baselines = await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ToListAsync(cancellationToken);
         foreach (var snapshot in snapshots)
         {
-            var current = HallContributionMath.FromSnapshot(snapshot, email => Owner(users, email));
+            var current = HallContributionMath.FromSnapshot(snapshot, email => Owner(users, group, email));
             foreach (var user in current.Select(x => x.OwnerUserId).Union(baselines.Where(x => x.SeasonIndex == snapshot.SeasonIndex).Select(x => x.OwnerUserId)).ToArray())
             {
                 var next = current.SingleOrDefault(x => x.OwnerUserId == user) ?? new() { GroupId = group, LeagueId = league, SeasonIndex = snapshot.SeasonIndex, OwnerUserId = user };
@@ -66,9 +66,9 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
                 var rank = rows.SingleOrDefault();
                 if (rank == null)
                 {
-                    var name = snapshot.Stages.SelectMany(x => x.Teams).FirstOrDefault(x => Owner(users, x.Owner) == user);
+                    var name = snapshot.Stages.SelectMany(x => x.Teams).FirstOrDefault(x => Owner(users, group, x.Owner) == user);
                     archive.Ranks.Add(rank = new() { Ordinal = archive.Ranks.Select(x => x.Ordinal).DefaultIfEmpty(-1).Max() + 1, OwnerUserId = user,
-                        OwnerEmail = users.Single(x => x.Value == user).Key, Name = name?.Name ?? "" });
+                        OwnerEmail = name?.Owner ?? "user:" + user.ToString("D"), Name = name?.Name ?? "" });
                 }
                 ApplyDelta(rank, next, old);
                 if (old == null) { database.HallRankContributions.Add(next); baselines.Add(next); }
@@ -99,9 +99,9 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
                 Victories = row.Victories, Draws = row.Draws, Defeats = row.Defeats, Goal = row.GoalsFor, SufferedGoal = row.GoalsAgainst, Money = row.Money, PlusMoney = row.PlusMoney }).ToList()) };
             foreach (var winner in calculator.GetTheYearlyWinners(rank, CompetitionMapping.Domain(calendar)))
             {
-                var ownerId = Owner(users, winner.Owner);
+                var ownerId = Owner(users, group, winner.Owner);
                 var owner = archive.WinningTeams.SingleOrDefault(x => x.OwnerUserId == ownerId);
-                var annual = snapshot.Stages.SelectMany(x => x.Teams).Where(x => Owner(users, x.Owner) == ownerId).DistinctBy(x => x.TeamId).ToArray();
+                var annual = snapshot.Stages.SelectMany(x => x.Teams).Where(x => Owner(users, group, x.Owner) == ownerId).DistinctBy(x => x.TeamId).ToArray();
                 if (annual.Length != 1) throw new ApplicationFault(409, "ambiguous_hall_winner", "La vittoria non identifica una sola squadra annuale.");
                 if (owner == null) archive.WinningTeams.Add(owner = new() { Ordinal = archive.WinningTeams.Select(x => x.Ordinal).DefaultIfEmpty(-1).Max() + 1,
                     OwnerUserId = ownerId, OwnerEmail = winner.Owner, Name = annual[0].Name });
@@ -127,7 +127,22 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         .Where(x => x.GroupId == group && x.LeagueId == league).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
     private async Task ManagerAsync(ClaimsPrincipal caller, Guid group)
     { if (!(await authorization.AuthorizeAsync(caller, group, "workspace-manager")).Succeeded) throw new ApplicationFault(403, "hall_manager_required", "Serve un amministratore del gruppo per aggiornare l'albo."); }
-    private static Guid Owner(Dictionary<string, Guid> users, string email) => users.GetValueOrDefault(email.Trim().ToLowerInvariant()) is var id && id != Guid.Empty ? id : throw BaselineRequired();
+    private async Task<Dictionary<string, Guid>> OwnersAsync(Guid group, CancellationToken cancellationToken)
+    {
+        var members = await database.GroupMemberships.AsNoTracking().Where(x => x.GroupId == group).Include(x => x.User).ToArrayAsync(cancellationToken);
+        var result = members.ToDictionary(x => x.User.OwnerReference, x => x.UserId, StringComparer.Ordinal);
+        var ids = members.Select(x => x.UserId).ToArray();
+        var historical = await database.LegacyIdentityMaps.AsNoTracking().Where(x => x.Kind == "user" &&
+            x.LegacyKey.StartsWith(HistoricalParticipantIdentity.Prefix) && ids.Contains(x.TargetId)).ToArrayAsync(cancellationToken);
+        foreach (var entry in historical) result.TryAdd(entry.LegacyKey, entry.TargetId);
+        return result;
+    }
+    private static Guid Owner(Dictionary<string, Guid> users, Guid group, string value)
+    {
+        var historical = users.GetValueOrDefault(HistoricalParticipantIdentity.Key(group, value));
+        if (historical != Guid.Empty) return historical;
+        return users.GetValueOrDefault(value.Trim().ToLowerInvariant()) is var id && id != Guid.Empty ? id : throw BaselineRequired();
+    }
     private static bool AddWin(ICollection<HallWinStage> wins, string name, int year)
     {
         var stage = wins.SingleOrDefault(x => x.Stage == name);

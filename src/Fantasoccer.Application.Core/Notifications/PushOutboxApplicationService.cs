@@ -66,7 +66,7 @@ internal static class PushDeliveryAccess
     public static Task<bool> IsCurrentOwnerAsync(FantasoccerDbContext database, PushDelivery delivery, CancellationToken cancellationToken) =>
         database.TeamSeasons.AnyAsync(team => team.GroupId == delivery.GroupId && team.SeasonIndex == delivery.SeasonIndex && !team.IsArchived &&
             (delivery.TeamId == null || team.Id == delivery.TeamId && team.BasketId == delivery.BasketId) &&
-            team.Owners.Any(owner => owner.UserId == delivery.UserId && owner.Membership.Roles != GroupRole.None && owner.Membership.User.IsEnabled) &&
+            team.Owners.Any(owner => owner.UserId == delivery.UserId && owner.Membership.Roles != GroupRole.None && owner.Membership.User.IsEnabled && owner.Membership.User.Email != null) &&
             database.LeagueBasketSeasons.Any(link => link.GroupId == team.GroupId && link.LeagueId == delivery.LeagueId && link.SeasonIndex == team.SeasonIndex && link.BasketId == team.BasketId) &&
             database.LeagueSeasons.Any(league => league.GroupId == team.GroupId && league.LeagueId == delivery.LeagueId && league.SeasonIndex == team.SeasonIndex && !league.IsArchived && !league.League.IsArchived), cancellationToken);
 

@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadRosters(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<string, string, UserAccount> addUser, Action<int> addSeason, CoreImportOptions options)
+        Func<string, string, UserAccount> addUser, Func<Guid, string, string, UserAccount> addOwner, Action<int> addSeason, CoreImportOptions options)
     {
         var clubs = new Dictionary<string, FootballClub>(StringComparer.Ordinal);
         var players = new Dictionary<string, FootballPlayer>(StringComparer.Ordinal);
@@ -104,8 +104,8 @@ public sealed partial class CoreDatasetImporter
             if ((kind is RosterKind.Matchday or RosterKind.OpeningMatchday) && day is < 1 or > 38) throw new CoreImportException("invalid_roster_day");
             var groupId = Existing("group", groupKey);
             var basketId = Existing("basket", Composite(groupKey, basketKey));
-            var ownerEmail = Email(email);
-            if (Email(team.Owner) != ownerEmail) throw new CoreImportException("roster_owner_mismatch");
+            var ownerEmail = OwnerKey(plan, groupId, email);
+            if (OwnerKey(plan, groupId, team.Owner) != ownerEmail) throw new CoreImportException("roster_owner_mismatch");
             var originYear = kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday ? year - 1 : year;
             var teamMap = plan.Maps.SingleOrDefault(x => x.Kind == "team" && x.LegacyKey == Composite(groupKey, basketKey, originYear.ToString(CultureInfo.InvariantCulture), ownerEmail));
             // A historical owner cannot be guessed from a display name. Stop for an
@@ -114,15 +114,16 @@ public sealed partial class CoreDatasetImporter
             if (metadata is null) throw new CoreImportException("unresolved_historical_team_identity");
             Guid competition = leagueKey is null ? Guid.Empty : Existing("league", Composite(groupKey, leagueKey));
             if (!snapshots.Add((metadata.Id, kind, day, competition))) throw new CoreImportException("duplicate_roster_snapshot");
-            var owner = addUser(ownerEmail, ownerEmail);
+            var owner = ExistingOwner(plan, groupId, email, "unresolved_historical_team_identity");
             Member(groupId, owner.Id);
             var snapshot = new RosterSnapshot { GroupId = groupId, BasketId = basketId, SeasonIndex = year, TeamId = metadata.Id,
                 Kind = kind, Day = day, TeamOriginYear = originYear, CompetitionId = competition, LeagueId = leagueKey is null ? null : competition,
                 OwnerUserId = owner.Id, Name = Name(team.Name), MoneyFromRank = team.MoneyFromRank, OpeningCompetitionPrize = team.OpeningCompetitionPrize,
                 FormationChanges = team.FormationChanges, LegacyLastUpdateLocal = team.LastUpdate == default ? null : Local(team.LastUpdate) };
-            foreach (var coOwner in (team.AdditionalOwners ?? []).Select(value => Email(value, "team.AdditionalOwners[]")).Distinct().Where(value => value != ownerEmail))
+            foreach (var coOwner in (team.AdditionalOwners ?? []).Distinct(StringComparer.Ordinal).Where(value => OwnerKey(plan, groupId, value) != ownerEmail))
             {
-                var person = addUser(coOwner, coOwner); Member(groupId, person.Id); snapshot.AdditionalOwners.Add(new() { UserId = person.Id });
+                var person = addOwner(groupId, coOwner, coOwner); Member(groupId, person.Id);
+                if (!snapshot.AdditionalOwners.Any(x => x.UserId == person.Id)) snapshot.AdditionalOwners.Add(new() { UserId = person.Id });
             }
             var active = new HashSet<Guid>();
             foreach (var (player, ordinal) in (team.Players ?? []).Select((value, ordinal) => (value, ordinal)))
@@ -165,7 +166,7 @@ public sealed partial class CoreDatasetImporter
 
         LoadFantasyCompetitions(dataset, plan, map, Player, Club);
         LoadAuctions(dataset, plan, options, map, Player, Club, addUser);
-        LoadHallArchives(dataset, plan, map, Person, Club, addUser, addSeason);
+        LoadHallArchives(dataset, plan, map, Person, Club, addOwner, addSeason);
         LoadPushOutbox(dataset, plan, map, Player, Club, addUser, addSeason);
 
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId

@@ -37,7 +37,9 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(100.25f, saved.RecordGame.Result!.Home!.Value);
         Assert.Equal(new[] { 1, 2, 2 }, saved.WinningPlayers.Single().Wins.Single(x => x.Stage == "@").Years.OrderBy(x => x.Ordinal).Select(x => x.Year));
         var historical = await database.Users.SingleAsync(x => x.Email == retired);
-        Assert.False(historical.IsEnabled);
+        Assert.True(historical.IsEnabled);
+        Assert.Equal(Fantasoccer.Infrastructure.PostgreSql.Entities.GroupRole.None,
+            (await database.GroupMemberships.SingleAsync(x => x.GroupId == saved.GroupId && x.UserId == historical.Id)).Roles);
         Assert.True(historical.IsHistoricalPlaceholder);
         Assert.Equal(historical.Id, saved.Ranks.Single().OwnerUserId);
         Assert.Equal(1000.5f, saved.Ranks.Single().Points);

@@ -27,6 +27,12 @@ public sealed class PushDispatcher(FantasoccerDbContext database, IPushDeliveryT
             if (status == PushDeliveryStatus.Pending)
             {
                 var email = await database.Users.Where(x => x.Id == row.UserId).Select(x => x.Email).SingleAsync(cancellationToken);
+                if (email is null)
+                {
+                    await FinishAsync(id, lease, PushDeliveryStatus.Suppressed, false, cancellationToken);
+                    suppressed++;
+                    continue;
+                }
                 var done = row.Receipts.Select(x => x.EndpointHash).ToArray();
                 var targets = await database.PushDeviceBindings.AsNoTracking().Where(x => x.UserId == row.UserId && x.IsActive && x.IsValid && !done.Contains(x.EndpointHash))
                     .OrderBy(x => x.EndpointHash).Take(10).ToArrayAsync(cancellationToken);

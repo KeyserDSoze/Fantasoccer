@@ -139,6 +139,22 @@ Se cambia un contenuto, compare una terza copia o mancano file, l'import si ferm
 
 Prima esegui l'analisi sul dump esistente con lo stesso env privato e controlla `resolvedIdentityConflicts`, che indica entrambi i checksum/riferimenti hash; la copia non selezionata è dichiarata anche in `preservedArtifacts`. Solo dopo usa `-Apply`. Conserva la configurazione approvata per le reimportazioni di quel dump: rimuoverla ripristina il blocco sui duplicati. Restano validi idempotenza, transazione e rifiuto delle reimportazioni dopo scritture applicative.
 
+### Se un proprietario storico non ha un'email
+
+Le vecchie stagioni possono identificare alcuni proprietari con nomi/etichette invece che email. Dopo aver confermato questa forma del dataset, puoi aggiungere al tuo env privato (per esempio `.env.local`):
+
+```dotenv
+IMPORT_LEGACY_NAMED_OWNERS=true
+```
+
+Non sostituire `IDENTITY_RESOLUTIONS_JSON`: sono opzioni indipendenti e le scelte sulle copie d'identità rimangono necessarie. Il flag è passato soltanto al tool di migrazione e resta `false` per default. Con CLI diretta usa `FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS`.
+
+Ogni riferimento esatto non-email viene conservato come **utente esistente**, senza inventare un indirizzo, con appartenenza al gruppo inizialmente disattiva. Lo stesso valore in un altro gruppo non viene collegato alla stessa persona; differenze di case/spazi non vengono normalizzate come fossero email. I collegamenti a squadre, rose, classifiche, calendari e albo rimangono tramite gli ID stabili, non attraverso un confronto del nome visualizzato. Valori vuoti, troppo lunghi, caratteri di controllo e indirizzi malformati contenenti `@` rimangono errori; nessuna regola sui profili di login o sulle membership attive viene allentata.
+
+Rianalizza con `-UseExistingDump`, senza reset o nuovi download, e controlla `historicalNamedUsers` e gli avvisi. Solo dopo un'analisi riuscita e la revisione del report usa `-Apply`. Le migration SQL sono additive per questo caso: l'email può essere assente, le email note restano univoche; nessun utente esistente viene cancellato. Il downgrade viene rifiutato finché esistono utenti senza email, anziché inventare indirizzi o perdere lo storico.
+
+Dopo aver completato l'import, in **Membri del gruppo** l'amministratore vede la colonna **Stato nel gruppo**, anche per i disattivi. Può riattivare/disattivare l'appartenenza e configurare l'email reale ancora mancante da **Modifica utente**. La riattivazione rapida assegna soltanto Partecipante; privilegi maggiori richiedono scelta e autorizzazione esplicite. Disattivare un gruppo non disabilita l'account globale o le altre appartenenze. Se l'email appartiene già a un altro account, l'operazione si ferma: non avviene un merge implicito. Queste sono scritture applicative: eseguirle solo dopo aver chiuso la migrazione, perché impediscono le reimportazioni successive.
+
 ## 3. Importare esplicitamente la copia locale
 
 Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste/liste con `IMPORT_LEGACY_AUCTIONS=false`, `table:logs` con `IMPORT_LEGACY_LOGS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.

@@ -122,6 +122,12 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
             .Include(x => x.Players).ThenInclude(x => x.Club).Include(x => x.AdditionalOwners).ThenInclude(x => x.User)
             .Where(x => x.GroupId == group && x.BasketId == basket && x.SeasonIndex == year && x.Kind == kind && x.Day == day && x.CompetitionId == competitionId);
         if (teamId is { } id) query = query.Where(x => x.TeamId == id);
+        else if (UserAccount.TryOwnerReference(owner, out var userId))
+        {
+            query = kind is RosterKind.Season or RosterKind.OpeningSeason
+                ? query.Where(x => database.TeamOwnerships.Any(ownership => ownership.GroupId == group && ownership.TeamId == x.TeamId && ownership.IsPrimary && ownership.UserId == userId))
+                : query.Where(x => x.OwnerUserId == userId);
+        }
         else if (kind is RosterKind.Season or RosterKind.OpeningSeason)
             query = query.Where(x => database.TeamOwnerships.Any(ownership => ownership.GroupId == group && ownership.TeamId == x.TeamId && ownership.IsPrimary && ownership.Membership.User.Email == email));
         else query = query.Where(x => database.Users.Any(user => user.Id == x.OwnerUserId && user.Email == email));
@@ -154,11 +160,11 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
         var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
             .SingleAsync(x => x.Id == row.TeamId, cancellationToken);
         current = current && !metadata.IsArchived && metadata.Owners.Any(x => x.IsPrimary);
-        var owner = current ? metadata.Owners.Single(x => x.IsPrimary).Membership.User.Email
-            : await database.Users.Where(x => x.Id == row.OwnerUserId).Select(x => x.Email).SingleAsync(cancellationToken);
+        var owner = current ? metadata.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference
+            : (await database.Users.SingleAsync(x => x.Id == row.OwnerUserId, cancellationToken)).OwnerReference;
         return new(row.TeamId, row.GroupId, row.BasketId, row.SeasonIndex, (int)row.Kind, row.Day, row.LeagueId,
             current ? metadata.Name : row.Name, owner,
-            current ? metadata.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.Email).ToArray() : row.AdditionalOwners.Select(x => x.User.Email).ToArray(),
+            current ? metadata.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).ToArray() : row.AdditionalOwners.Select(x => x.User.OwnerReference).ToArray(),
             row.Players.OrderBy(x => x.Ordinal).Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, x.Player.Name,
                 new(x.Club.Name, x.Club.Abbreviation), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)).ToArray(),
             row.MoneyFromRank, row.OpeningCompetitionPrize, row.LastUpdateUtc?.ToString("O") ?? row.LegacyLastUpdateLocal?.ToString("s"), row.FormationChanges,

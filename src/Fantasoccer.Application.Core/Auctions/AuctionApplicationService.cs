@@ -59,7 +59,7 @@ public sealed partial class AuctionApplicationService(FantasoccerDbContext datab
         var teams = new List<AuctionTeamDto>();
         foreach (var team in await TeamsAsync(auction.GroupId, auction.LeagueId, auction.SeasonIndex, cancellationToken))
         {
-            var owner = team.Owners.Single(x => x.IsPrimary).Membership.User.Email;
+            var owner = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
             var roster = await rosters.GetAsync(caller, auction.GroupId, team.BasketId, auction.SeasonIndex, owner, teamId: team.Id, cancellationToken: cancellationToken)
                 ?? throw new ApplicationFault(409, "auction_roster_unavailable", "Una rosa dell'asta non è disponibile.");
             teams.Add(new(new(auction.GroupId, auction.SeasonIndex, team.BasketId, roster.Owner), roster));
@@ -111,7 +111,7 @@ public sealed partial class AuctionApplicationService(FantasoccerDbContext datab
         var email = caller.FindFirstValue(ClaimTypes.Email)?.Trim().ToLowerInvariant();
         var membership = await database.GroupMemberships.AsNoTracking().Include(x => x.User).SingleOrDefaultAsync(x => x.GroupId == group && x.User.Email == email && x.User.IsEnabled && x.Roles != GroupRole.None, cancellationToken)
             ?? throw Denied();
-        return (membership.UserId, membership.User.Email, membership.Roles);
+        return (membership.UserId, membership.User.Email!, membership.Roles);
     }
     private Task<FantasyTeamSeason[]> TeamsAsync(Guid group, Guid league, int year, CancellationToken cancellationToken) => database.TeamSeasons.AsNoTracking()
         .Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User).Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived &&

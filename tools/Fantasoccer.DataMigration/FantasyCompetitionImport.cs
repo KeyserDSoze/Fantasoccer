@@ -23,8 +23,7 @@ public sealed partial class CoreDatasetImporter
         }
         FantasyTeamSeason Resolve(Guid group, Guid league, int year, string owner)
         {
-            var email = Email(owner);
-            var user = plan.Users.GetValueOrDefault(email) ?? throw new CoreImportException("missing_competition_owner");
+            var user = ExistingOwner(plan, group, owner, "missing_competition_owner");
             var baskets = plan.Participations.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).Select(x => x.BasketId).ToHashSet();
             var teams = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == year && x.UserId == user.Id && x.IsPrimary && baskets.Contains(x.BasketId))
                 .Select(owner => plan.Teams.Single(team => team.Id == owner.TeamId)).ToArray();
@@ -171,8 +170,7 @@ public sealed partial class CoreDatasetImporter
             var baskets = plan.LeagueBaskets.Where(x => x.GroupId == group && x.LeagueId == league).Select(x => x.BasketId).ToHashSet();
             foreach (var item in value.Teams)
             {
-                var email = Email(item.Owner);
-                var owner = plan.Users.GetValueOrDefault(email) ?? throw new CoreImportException("missing_opening_owner");
+                var owner = ExistingOwner(plan, group, item.Owner, "missing_opening_owner");
                 var owners = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == key.Year - 1 && x.UserId == owner.Id && x.IsPrimary && baskets.Contains(x.BasketId)).ToArray();
                 if (owners.Length != 1 || snapshot.Teams.Any(x => x.TeamId == owners[0].TeamId) || !float.IsFinite(item.Score))
                     throw new CoreImportException("unresolved_historical_team_identity");

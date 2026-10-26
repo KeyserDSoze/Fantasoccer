@@ -48,6 +48,7 @@ public sealed partial class AuctionApplicationService
                 case "transfer-auctioneer":
                     var target = await database.GroupMemberships.Include(x => x.User).SingleOrDefaultAsync(x => x.GroupId == auction.GroupId && x.UserId == request.NewAuctioneerUserId && x.User.IsEnabled, cancellationToken);
                     if (target is null || !IsAuctioneer(target.Roles)) throw Invalid("Il nuovo banditore deve essere un amministratore attivo del gruppo.");
+                    if (target.User.Email is null) throw Invalid("Il banditore deve avere un'email di accesso configurata.");
                     auction.CreatorUserId = target.UserId; auction.CreatorEmail = target.User.Email; break;
                 case "show": await ShowAsync(caller, auction, request, teams, cancellationToken); break;
                 case "bid": await BidAsync(auction, request, teams, actor.Id, admin, rules, cancellationToken); break;
@@ -104,7 +105,7 @@ public sealed partial class AuctionApplicationService
         if (request.Amount is not (> 0) || request.Amount <= lot.Price) throw Invalid("L'offerta deve essere maggiore dell'offerta attuale.");
         var roster = await RosterAsync(auction, team.Id, cancellationToken);
         ValidateBid(auction, lot, roster, rules, request.Amount.Value, request.SubstitutedPlayerId);
-        lot.WinningTeamId = team.Id; lot.WinningBasketId = team.BasketId; lot.OwnerEmail = team.Owners.Single(x => x.IsPrimary).Membership.User.Email;
+        lot.WinningTeamId = team.Id; lot.WinningBasketId = team.BasketId; lot.OwnerEmail = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
         lot.Price = request.Amount.Value; lot.SubstitutedPlayerId = request.SubstitutedPlayerId; lot.TimerStartedAtUtc = clock.GetUtcNow();
     }
 

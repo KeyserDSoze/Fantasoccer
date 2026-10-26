@@ -39,8 +39,8 @@ public sealed partial class CoreDatasetImporter
             var key = entity.Key ?? throw new CoreImportException("missing_advice_key"); season(key.Year);
             if (key.Day is < 1 or > 38) throw new CoreImportException("invalid_advice_day");
             var group = Existing("group", key.Group); var basket = Existing("basket", Composite(key.Group, key.BasketId));
-            var id = Existing("team", Composite(key.Group, key.BasketId, key.Year.ToString(CultureInfo.InvariantCulture), Email(key.Email)));
-            var owner = plan.Users[Email(key.Email)].Id;
+            var id = Existing("team", Composite(key.Group, key.BasketId, key.Year.ToString(CultureInfo.InvariantCulture), OwnerKey(plan, group, key.Email)));
+            var owner = ExistingOwner(plan, group, key.Email, "missing_advice_owner").Id;
             if (plan.Advice.Any(x => x.GroupId == group && x.TeamId == id && x.SeasonIndex == key.Year && x.Day == key.Day && x.OwnerUserId == owner)) throw new CoreImportException("advice_collision");
             plan.Advice.Add(new() { GroupId = group, BasketId = basket, TeamId = id, OwnerUserId = owner, SeasonIndex = key.Year, Day = key.Day,
                 Message = entity.Value?.Message ?? throw new CoreImportException("missing_advice") });
@@ -56,7 +56,7 @@ public sealed partial class CoreDatasetImporter
         foreach (var archive in plan.HallArchives)
         {
             var baselines = plan.Standings.Where(x => x.GroupId == archive.GroupId && x.LeagueId == archive.LeagueId && x.SnapshotDay == 0)
-                .SelectMany(snapshot => HallContributionMath.FromSnapshot(snapshot, email => plan.Users[Email(email)].Id)).ToArray();
+                .SelectMany(snapshot => HallContributionMath.FromSnapshot(snapshot, owner => ExistingOwner(plan, archive.GroupId, owner, "missing_hall_owner").Id)).ToArray();
             archive.ContributionsInitialized = HallContributionMath.Matches(archive, baselines) &&
                 archive.Ranks.GroupBy(x => x.OwnerUserId).All(x => x.Count() == 1) && archive.WinningTeams.GroupBy(x => x.OwnerUserId).All(x => x.Count() == 1) &&
                 archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).All(x => x.Count() == 1);

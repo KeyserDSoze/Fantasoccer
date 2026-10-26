@@ -244,6 +244,12 @@ Un'ulteriore collisione reale è stata confrontata localmente: due lookup della 
 
 Il flag richiede due lookup email con nomi diversi solo per case, non spazi o altre trasformazioni; conserva le copie originali, non fa merge e non sceglie automaticamente il profilo più ricco. Report e audit hash distinguono la modalità. Test riproducono gruppo/selezione contro alias vuoto, risoluzioni miste, idempotenza, sorgente invariata e blocco di modalità errata o membership incoerenti; nessun dato personale del gestore è inserito nel codice o nei test.
 
+### Utenti storici esistenti, inattivi soltanto nel gruppo
+
+Il dataset reale usa anche riferimenti non-email per proprietari nelle vecchie stagioni. Il gestore ha chiesto veri utenti esistenti e riattivabili dall'amministratore del gruppo, non account globalmente disabilitati. L'import opt-in `IMPORT_LEGACY_NAMED_OWNERS` conserva questi partecipanti con ID deterministici, email nullable (mai inventate) e membership `None`. Nome sorgente esatto e gruppo costituiscono la chiave, senza associare persone tramite somiglianza o condividere identità omonime tra gruppi. I controlli dei profili di login e delle membership attive restano stretti.
+
+La lista include i disattivi e lo stato nel gruppo, gestibile per ID. La riattivazione rapida concede soltanto Partecipante; configurare una prima email reale non cambia ID/storico e non unisce account in conflitto. Restano i vincoli sull'ultimo responsabile, i confini gruppo/piattaforma, la verifica Microsoft e il blocco di reimport dopo scritture applicative. Email note univoche; downgrade rifiutato in presenza di utenti senza email. Nessuna modifica a sorgente o dump né notifiche durante la migrazione.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

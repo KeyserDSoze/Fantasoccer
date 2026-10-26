@@ -110,7 +110,7 @@ function PlatformAdminContent() {
     {page && <>
       <Paragraph>{page.total} {tab === 'users' ? 'utenti' : tab === 'groups' ? 'gruppi' : 'codici'} · {page.items.length === 0 ? 'Nessun risultato' : `${page.offset + 1}–${page.offset + page.items.length}`}</Paragraph>
       {tab === 'users' && (page.items as PlatformUser[]).map(item => <Card key={item.id} padding="$4" gap="$2">
-        <H3>{item.displayName}</H3><Text selectable>{item.email}</Text>
+        <H3>{item.displayName}</H3><Text selectable>{item.email ?? 'Email di accesso non configurata'}</Text>
         <Paragraph>{item.isEnabled ? 'Attivo' : 'Disabilitato'}{item.isGlobalAdministrator ? ' · Super admin di piattaforma' : ''}</Paragraph>
         <Paragraph>{item.groups.map(group => group.name).join(', ') || 'Nessun gruppo'}</Paragraph>
       </Card>)}
@@ -129,7 +129,7 @@ function PlatformAdminContent() {
     </>}
     {details && <Card padding="$4" gap="$3" borderWidth={1} borderColor="$blue7">
       <H3>{details.name} · Dettagli</H3>
-      <Paragraph fontWeight="bold">Membri</Paragraph>{details.members.map(member => <Text key={member.userId}>{member.displayName} · {member.email}</Text>)}
+      <Paragraph fontWeight="bold">Membri</Paragraph>{details.members.map(member => <Text key={member.userId}>{member.displayName} · {member.email ?? 'Senza email'} · {member.isActive ? 'Attivo' : 'Disattivo'}</Text>)}
       <Paragraph fontWeight="bold">Leghe</Paragraph>{details.leagues.map(league => <Text key={league.id}>{league.name}{league.isArchived ? ' (archiviata)' : ''}</Text>)}
       <Button alignSelf="flex-start" variant="outlined" onPress={() => setDetails(null)}>Chiudi dettagli</Button>
     </Card>}

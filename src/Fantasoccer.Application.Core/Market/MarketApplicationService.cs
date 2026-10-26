@@ -172,7 +172,7 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
         .SequenceEqual(seller.GroupBy(x => x.PlayerRole).Select(x => (x.Key, Count: x.Count())).OrderBy(x => x.Key));
     private static long Cost(RosterSnapshot row) => row.Players.Sum(x => (long)x.Price) - row.Players.Where(x => x.Status == 3).Sum(x => (long)x.Revenue - x.Price)
         - row.MoneyFromRank - row.MarketBalanceAdjustment - row.OpeningCompetitionPrize - row.Players.Where(x => x.Status == 1).Sum(x => (long)(x.Price / 2));
-    private static string Primary(FantasyTeamSeason team) => team.Owners.Single(x => x.IsPrimary).Membership.User.Email;
+    private static string Primary(FantasyTeamSeason team) => team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
     private static void SetVote(MarketTrade trade, FantasyTeamSeason team, Guid actor, bool approve)
     {
         var vote = trade.Votes.SingleOrDefault(x => x.TeamId == team.Id);

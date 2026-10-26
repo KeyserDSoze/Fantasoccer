@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fantasoccer.Application.Core.Accounts;
 
 public sealed record PlatformPage<T>(T[] Items, int Total, int Offset, int Limit);
-public sealed record PlatformUserDto(Guid Id, string Email, string DisplayName, bool IsEnabled, bool IsGlobalAdministrator, IdentityGroupDto[] Groups);
+public sealed record PlatformUserDto(Guid Id, string? Email, string DisplayName, bool IsEnabled, bool IsGlobalAdministrator, IdentityGroupDto[] Groups);
 public sealed record PlatformGroupDto(Guid Id, string Name, int Revision, int Members, int Leagues);
 public sealed record PlatformGroupDetailsDto(Guid Id, string Name, GroupMemberDto[] Members, PlatformLeagueDto[] Leagues);
 public sealed record PlatformLeagueDto(Guid Id, string Name, bool IsArchived);
@@ -20,10 +20,10 @@ public sealed class PlatformApplicationService(FantasoccerDbContext database, Ac
         await accounts.RequireGlobalAdministratorAsync(caller, cancellationToken);
         var search = Search(query); Page(offset, ref limit);
         var users = database.Users.AsNoTracking().AsQueryable();
-        if (search.Length > 0) users = users.Where(x => x.Email.Contains(search) || x.DisplayName.ToLower().Contains(search));
+        if (search.Length > 0) users = users.Where(x => (x.Email != null && x.Email.Contains(search)) || x.DisplayName.ToLower().Contains(search));
         var total = await users.CountAsync(cancellationToken);
         var rows = await users.OrderBy(x => x.Email).ThenBy(x => x.Id).Skip(offset).Take(limit)
-            .Include(x => x.Memberships.Where(m => m.Roles != 0)).ThenInclude(x => x.Group).AsSplitQuery().ToArrayAsync(cancellationToken);
+            .Include(x => x.Memberships).ThenInclude(x => x.Group).AsSplitQuery().ToArrayAsync(cancellationToken);
         return new(rows.Select(x => new PlatformUserDto(x.Id, x.Email, x.DisplayName, x.IsEnabled, accounts.IsGlobalAdministrator(x.Email),
             x.Memberships.OrderBy(m => m.Group.Name).Select(m => new IdentityGroupDto(m.GroupId, m.Group.Name, (int)m.Roles)).ToArray())).ToArray(), total, offset, limit);
     }
@@ -45,7 +45,7 @@ public sealed class PlatformApplicationService(FantasoccerDbContext database, Ac
         await accounts.RequireGlobalAdministratorAsync(caller, cancellationToken);
         var group = await database.Groups.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new ApplicationFault(404, "group_not_found", "Gruppo non trovato.");
-        var members = await database.GroupMemberships.AsNoTracking().Where(x => x.GroupId == id && x.Roles != 0)
+        var members = await database.GroupMemberships.AsNoTracking().Where(x => x.GroupId == id)
             .OrderBy(x => x.User.DisplayName).Select(x => new GroupMemberDto(x.UserId, x.User.Email, x.User.DisplayName, (int)x.Roles)).ToArrayAsync(cancellationToken);
         var leagues = await database.Leagues.AsNoTracking().Where(x => x.GroupId == id).OrderBy(x => x.Name)
             .Select(x => new PlatformLeagueDto(x.LeagueId, x.Name, x.IsArchived)).ToArrayAsync(cancellationToken);

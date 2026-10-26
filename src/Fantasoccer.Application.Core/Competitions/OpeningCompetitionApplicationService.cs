@@ -73,7 +73,7 @@ public sealed class OpeningCompetitionApplicationService(FantasoccerDbContext da
         stored.Teams.Clear();
         foreach (var (team, ordinal) in previous.OrderByDescending(x => scores[x.Id]).ThenBy(x => x.Id).Select((team, index) => (team, index)))
             stored.Teams.Add(new() { TeamId = team.Id, BasketId = team.BasketId, TeamOriginYear = year - 1, Ordinal = ordinal,
-                Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.Email, Name = team.Name, Score = scores[team.Id],
+                Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference, Name = team.Name, Score = scores[team.Id],
                 Prize = prizes.GetValueOrDefault(team.Id.ToString()), Position = scores.Count(x => x.Value > scores[team.Id]) + 1 });
         await database.SaveChangesAsync(cancellationToken);
         var result = Dto(stored);

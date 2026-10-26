@@ -45,6 +45,6 @@ public sealed partial class AuctionApplicationService
         await ActorAsync(caller, auction.GroupId, cancellationToken);
     }
     private Task<string[]> ConnectedUsersCoreAsync(AuctionSession auction, CancellationToken cancellationToken) =>
-        database.AuctionPresence.Where(x => x.AuctionId == auction.Id && database.GroupMemberships.Any(member => member.GroupId == x.GroupId && member.UserId == x.UserId && member.Roles != GroupRole.None && member.User.IsEnabled))
-            .Select(x => database.Users.Where(user => user.Id == x.UserId).Select(user => user.Email).First()).Distinct().Order().ToArrayAsync(cancellationToken);
+        database.AuctionPresence.Where(x => x.AuctionId == auction.Id && database.GroupMemberships.Any(member => member.GroupId == x.GroupId && member.UserId == x.UserId && member.Roles != GroupRole.None && member.User.IsEnabled && member.User.Email != null))
+            .Select(x => database.Users.Where(user => user.Id == x.UserId).Select(user => user.Email!).First()).Distinct().Order().ToArrayAsync(cancellationToken);
 }

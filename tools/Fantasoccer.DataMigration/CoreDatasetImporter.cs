@@ -14,7 +14,7 @@ namespace Fantasoccer.DataMigration;
 public sealed record CoreImportReport(int MappingVersion, int Documents, int SkippedDocuments, int Users, int Groups,
     int Teams, string[] PendingContainers, string[] PendingFields, bool FullMigrationComplete = false, string[]? PreservedArtifacts = null,
     string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null,
-    AppliedIdentityResolution[]? ResolvedIdentityConflicts = null);
+    AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null) : Exception(code)
@@ -28,7 +28,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 26;
+    public const int MappingVersion = 27;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -242,6 +242,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         dataset.Manifest.Containers.Where(x => !Containers.Contains(x.Name) && !PreservedContainers.ContainsKey(x.Name) && x.Blobs.Count > 0).Select(x => x.Name)
             .Concat(dataset.Manifest.Tables.Where(x => x.EntityCount > 0 && !Tables.Contains(x.Name)).Select(x => "table:" + x.Name)).Order().ToArray(),
          [.. plan.UnresolvedSelections.Count == 0 ? Array.Empty<string>() : new[] { "Unresolved historical account selections: review UnresolvedAccountSelections" },
+          .. plan.Users.Values.Any(x => x.Email is null)
+               ? new[] { "Named historical owners are existing users without login emails, inactive in their groups. Group administrators can manage their membership by user ID; no emails, roles or authentication bindings were invented." } : Array.Empty<string>(),
           .. plan.ResolvedIdentityConflicts.Count > 0
               ? new[] { "Explicit checksum-pinned identity resolutions selected the email-lookup profiles. Roles and selections were not merged; review resolvedIdentityConflicts. Original copies remain in the verified dump." } : Array.Empty<string>(),
           .. plan.ReconciledIdentityDocuments.Count > 0
@@ -264,11 +266,13 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
           ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
               .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray(),
           ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray(),
-          ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray());
+          ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray(),
+          HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null));
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
-        var plan = new CorePlan { ImportLegacyAuctions = options.ImportLegacyAuctions, ImportLegacyLogs = options.ImportLegacyLogs };
+        var plan = new CorePlan { ImportLegacyAuctions = options.ImportLegacyAuctions, ImportLegacyLogs = options.ImportLegacyLogs,
+            ImportLegacyNamedOwners = options.ImportLegacyNamedOwners };
         var source = dataset.Manifest.SourceId;
         var logoFiles = dataset.Manifest.Containers.Where(x => x.Name == "logos").SelectMany(x => x.Blobs).Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
         var accounts = new Dictionary<string, AppIdentity>(StringComparer.Ordinal);
@@ -319,11 +323,11 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             var memberships = new Dictionary<string, GroupMembership>(StringComparer.Ordinal);
             foreach (var member in group.Users ?? [])
             {
-                var email = Email(member.Email);
                 var roles = (GroupRole)(int)member.Role;
+                var email = roles == GroupRole.None ? OwnerKey(plan, groupId, member.Email) : Email(member.Email);
                 if ((int)roles is < 0 or > 15 || memberships.ContainsKey(email)) throw new CoreImportException("membership_collision");
                 if (roles != GroupRole.None && !accounts.ContainsKey(email)) throw new CoreImportException("missing_active_account");
-                var user = AddUser(email, member.Username ?? email);
+                var user = AddOwner(groupId, member.Email, member.Username ?? member.Email);
                 if (accounts.TryGetValue(email, out var account))
                 {
                     var cached = (account.Groups ?? []).Where(x => x.Id == key).ToArray();
@@ -351,19 +355,21 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                     var owners = new HashSet<string>(StringComparer.Ordinal);
                     foreach (var team in annual.Teams ?? [])
                     {
-                        var email = Email(team.Owner);
+                        var email = OwnerKey(plan, groupId, team.Owner);
                         if (!owners.Add(email) || !names.Add(Name(team.Name))) throw new CoreImportException("team_collision");
                         var teamId = Map("team", Composite(key, basket.Id, annual.Year.ToString(System.Globalization.CultureInfo.InvariantCulture), email));
                         var logoKey = $"{key}/{annual.Year}/{team.Owner}.png";
                         plan.Teams.Add(new() { Id = teamId, GroupId = groupId, BasketId = basketId, SeasonIndex = annual.Year,
                             Name = Name(team.Name), NormalizedName = Name(team.Name).ToLowerInvariant(), LogoBlobName = logoFiles.Contains(logoKey) ? logoKey : null });
-                        foreach (var owner in (team.AdditionalOwners ?? []).Select(value => Email(value, "team.AdditionalOwners[]")).Append(email).Distinct())
+                        foreach (var owner in (team.AdditionalOwners ?? []).Append(team.Owner).Distinct(StringComparer.Ordinal))
                         {
-                            var user = AddUser(owner, owner);
-                            if (!memberships.ContainsKey(owner))
-                                memberships.Add(owner, new() { GroupId = groupId, UserId = user.Id, Roles = GroupRole.None });
+                            var ownerKey = OwnerKey(plan, groupId, owner);
+                            var user = AddOwner(groupId, owner, owner);
+                            if (!memberships.ContainsKey(ownerKey))
+                                memberships.Add(ownerKey, new() { GroupId = groupId, UserId = user.Id, Roles = GroupRole.None });
+                            if (plan.Owners.Any(x => x.TeamId == teamId && x.UserId == user.Id)) continue;
                             plan.Owners.Add(new() { GroupId = groupId, TeamId = teamId, BasketId = basketId,
-                                SeasonIndex = annual.Year, UserId = user.Id, IsPrimary = owner == email });
+                                SeasonIndex = annual.Year, UserId = user.Id, IsPrimary = ownerKey == email });
                         }
                     }
                 }
@@ -404,7 +410,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         foreach (var account in accounts.Values)
             if ((account.Groups ?? []).Any(x => x.Role != IdentityRole.None && !legacyGroups.Contains(x.Id)))
                 throw new CoreImportException("missing_group");
-        LoadRosters(dataset, plan, Map, AddUser, AddSeason, options);
+        LoadRosters(dataset, plan, Map, AddUser, AddOwner, AddSeason, options);
         LoadCards(dataset, plan, Map);
         LoadEditorialAndLogs(dataset, plan, Map, AddSeason);
         LoadPushPreferences(dataset, plan, AddUser);
@@ -454,7 +460,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                     }
                     if (!string.IsNullOrWhiteSpace(state.MeOrLeaderEmail))
                     {
-                        if (!plan.Users.TryGetValue(Email(state.MeOrLeaderEmail), out var owner)) unresolved = true;
+                        if (!plan.Users.TryGetValue(OwnerKey(plan, groupMap.TargetId, state.MeOrLeaderEmail), out var owner)) unresolved = true;
                         else
                         {
                             selection.WorkingUserId = owner.Id;
@@ -490,8 +496,18 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         {
             if (plan.Users.TryGetValue(email, out var existing)) return existing;
             var user = new UserAccount { Id = Map("user", email), Email = email, DisplayName = Name(displayName),
-                IsEnabled = accounts.ContainsKey(email), IsHistoricalPlaceholder = !accounts.ContainsKey(email) };
+                IsEnabled = true, IsHistoricalPlaceholder = !accounts.ContainsKey(email) };
             plan.Users.Add(email, user);
+            return user;
+        }
+        UserAccount AddOwner(Guid groupId, string owner, string displayName)
+        {
+            var key = OwnerKey(plan, groupId, owner);
+            if (TryEmail(owner, out var email)) return AddUser(email, displayName);
+            if (plan.Users.TryGetValue(key, out var existing)) return existing;
+            var user = new UserAccount { Id = Map("user", key), Email = null, DisplayName = Name(displayName),
+                IsEnabled = true, IsHistoricalPlaceholder = true };
+            plan.Users.Add(key, user);
             return user;
         }
         void AddSeason(int index)
@@ -573,6 +589,7 @@ public sealed class CorePlan
 {
     public bool ImportLegacyAuctions { get; init; } = true;
     public bool ImportLegacyLogs { get; init; }
+    public bool ImportLegacyNamedOwners { get; init; }
     public List<string> ReconciledIdentityDocuments { get; } = [];
     public List<AppliedIdentityResolution> ResolvedIdentityConflicts { get; } = [];
     public Dictionary<string, UserAccount> Users { get; } = [];

@@ -74,3 +74,14 @@ test('member lookup is exact-email and group scoped rather than listing the glob
   assert.equal(request.url, 'http://local.test/api/workspace/groups/my-group/members/lookup?email=friend%40example.test')
   assert.equal(request.method, 'GET')
 })
+
+test('member status changes are scoped to a group and stable user ID, not a fabricated email', async () => {
+  let request
+  const api = client(async (url, options) => { request = { url, ...options }; return new Response(null, { status: 204 }) })
+  await api.updateMember('group-a', 'historical-user', { isActive: false, roles: 0 })
+  assert.equal(request.url, 'http://local.test/api/workspace/groups/group-a/members/historical-user')
+  assert.equal(request.method, 'PATCH')
+  assert.deepEqual(JSON.parse(request.body), { isActive: false, roles: 0 })
+  await api.updateMember('group-a', 'historical-user', { isActive: true, roles: 2, email: 'real@example.test' })
+  assert.deepEqual(JSON.parse(request.body), { isActive: true, roles: 2, email: 'real@example.test' })
+})

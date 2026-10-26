@@ -21,7 +21,8 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
     {
         var group = await database.Groups.AsNoTracking().SingleAsync(x => x.Id == groupId, cancellationToken);
         var users = await database.GroupMemberships.Where(x => x.GroupId == groupId)
-            .OrderBy(x => x.User.DisplayName).Select(x => new GameGroupUserDto(x.User.DisplayName, x.User.Email, (int)x.Roles)).ToArrayAsync(cancellationToken);
+            .OrderBy(x => x.User.DisplayName).Select(x => new GameGroupUserDto(x.User.DisplayName,
+                x.User.Email ?? "user:" + x.UserId.ToString(), (int)x.Roles)).ToArrayAsync(cancellationToken);
         var baskets = await database.Baskets.AsNoTracking().Include(x => x.Seasons).Where(x => x.GroupId == groupId && !x.IsArchived)
             .OrderBy(x => x.Name).AsSplitQuery().ToArrayAsync(cancellationToken);
         var teams = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
@@ -38,8 +39,8 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
             baskets.Select(basket => new GameBasketDto(basket.BasketId, basket.Name,
                 basket.Seasons.Where(x => !x.IsArchived).OrderBy(x => x.SeasonIndex).Select(year => new GameBasketYearDto(year.SeasonIndex,
                     teams.Where(team => team.BasketId == basket.BasketId && team.SeasonIndex == year.SeasonIndex).OrderBy(team => team.Name)
-                        .Select(team => new GameAnnualTeamDto(team.Name, team.Owners.Single(x => x.IsPrimary).Membership.User.Email,
-                            team.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.Email).Order().ToArray(), team.Id, AssetLinks.Logo(assets.Value, team.LogoBlobName))).ToArray())).ToArray())).ToArray(), group.Revision);
+                        .Select(team => new GameAnnualTeamDto(team.Name, team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference,
+                            team.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).Order().ToArray(), team.Id, AssetLinks.Logo(assets.Value, team.LogoBlobName))).ToArray())).ToArray())).ToArray(), group.Revision);
     }
 
     public async Task<GameGroupDto[]> ListAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
@@ -69,19 +70,22 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
         var changes = new List<GameGroupUserDto>();
         foreach (var member in request.Users)
         {
-            var previous = oldMembers.SingleOrDefault(x => x.User.Email == Canonical(member.Email));
+            var previous = oldMembers.SingleOrDefault(x => x.User.OwnerReference == Canonical(member.Email));
             if (previous is null || (int)previous.Roles != member.Role)
                 changes.Add(member);
         }
-        foreach (var previous in oldMembers.Where(x => x.Roles != GroupRole.None && !request.Users.Any(member => Canonical(member.Email) == x.User.Email)))
-            changes.Add(new(previous.User.DisplayName, previous.User.Email, 0));
+        foreach (var previous in oldMembers.Where(x => x.Roles != GroupRole.None && !request.Users.Any(member => Canonical(member.Email) == x.User.OwnerReference)))
+            changes.Add(new(previous.User.DisplayName, previous.User.OwnerReference, 0));
         // Promote successors first and change the actor's own role last. Flush
         // inside the transaction so last-manager checks see the intermediate rows;
         // any later failure still rolls back the entire group command.
         foreach (var member in changes.OrderBy(x => Canonical(x.Email) == actorEmail ? 1 : 0)
                      .ThenByDescending(x => (x.Role & 8) != 0 ? 2 : (x.Role & 4) != 0 ? 1 : 0))
         {
-            await memberships.SetMemberCoreAsync(caller, groupId, new(member.Email, member.Username, member.Role), cancellationToken);
+            var previous = oldMembers.SingleOrDefault(x => x.User.OwnerReference == Canonical(member.Email));
+            if (previous?.User.Email is null && previous is not null)
+                await memberships.SetMemberRolesCoreAsync(caller, groupId, previous.User, member.Role, cancellationToken);
+            else await memberships.SetMemberCoreAsync(caller, groupId, new(member.Email, member.Username, member.Role), cancellationToken);
             await database.SaveChangesAsync(cancellationToken);
         }
         await database.SaveChangesAsync(cancellationToken);
@@ -114,7 +118,7 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
                     annual.Teams.Select(x => Name(x.Name).ToLowerInvariant()).Distinct().Count() != annual.Teams.Length) throw Invalid("Squadre o proprietari duplicati.");
                 foreach (var dto in annual.Teams)
                 {
-                    var owner = allUsers.SingleOrDefault(x => x.User.Email == Canonical(dto.Owner)) ?? throw Invalid("Proprietario non presente nel gruppo.");
+                    var owner = allUsers.SingleOrDefault(x => x.User.OwnerReference == Canonical(dto.Owner)) ?? throw Invalid("Proprietario non presente nel gruppo.");
                     var scoped = teams.Where(x => x.BasketId == basketDto.Id && x.SeasonIndex == annual.Year).ToArray();
                     var team = scoped.SingleOrDefault(x => dto.TeamId == x.Id) ?? scoped.SingleOrDefault(x => x.Owners.Any(o => o.IsPrimary && o.UserId == owner.UserId));
                     if (team is null)
@@ -127,8 +131,8 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
                     }
                     if (!retainedTeams.Add(team.Id)) throw Invalid("La stessa squadra è presente più volte.");
                     team.Name = Name(dto.Name); team.NormalizedName = "updating-" + team.Id.ToString("N"); team.IsArchived = false;
-                    var owners = (dto.AdditionalOwners ?? []).Select(Canonical).Append(owner.User.Email).Distinct()
-                        .Select(email => allUsers.SingleOrDefault(x => x.User.Email == email)?.UserId ?? throw Invalid("Comproprietario non presente nel gruppo.")).ToArray();
+                    var owners = (dto.AdditionalOwners ?? []).Select(Canonical).Append(owner.User.OwnerReference).Distinct()
+                        .Select(email => allUsers.SingleOrDefault(x => x.User.OwnerReference == email)?.UserId ?? throw Invalid("Comproprietario non presente nel gruppo.")).ToArray();
                     incomingTeams.Add((team, owner.UserId, owners));
                 }
             }
@@ -180,8 +184,13 @@ public sealed class GameGroupApplicationService(FantasoccerDbContext database, I
                     throw Invalid("Lega di qualificazione esterna al gruppo.");
                 await database.LeagueRules.Where(x => x.GroupId == groupId && x.LeagueId == dto.Id && x.SeasonIndex == annual.Year).ExecuteDeleteAsync(cancellationToken);
                 database.LeagueRules.Add(rules);
-                await database.LeagueBasketSeasons.Where(x => x.GroupId == groupId && x.LeagueId == dto.Id && x.SeasonIndex == annual.Year).ExecuteDeleteAsync(cancellationToken);
-                foreach (var basketId in dto.BasketsId.Distinct().Where(id => basketYears.Any(x => x.BasketId == id && x.SeasonIndex == annual.Year && !x.IsArchived)))
+                // Keep unchanged participation keys: saved standings/matches may
+                // reference them even when this command only changes a member.
+                var desiredBaskets = dto.BasketsId.Distinct().Where(id => basketYears.Any(x => x.BasketId == id && x.SeasonIndex == annual.Year && !x.IsArchived)).ToArray();
+                var previousBaskets = await database.LeagueBasketSeasons.Where(x => x.GroupId == groupId && x.LeagueId == dto.Id && x.SeasonIndex == annual.Year)
+                    .Select(x => x.BasketId).ToArrayAsync(cancellationToken);
+                await database.LeagueBasketSeasons.Where(x => x.GroupId == groupId && x.LeagueId == dto.Id && x.SeasonIndex == annual.Year && !desiredBaskets.Contains(x.BasketId)).ExecuteDeleteAsync(cancellationToken);
+                foreach (var basketId in desiredBaskets.Except(previousBaskets))
                     database.LeagueBasketSeasons.Add(new() { GroupId = groupId, LeagueId = dto.Id, BasketId = basketId, SeasonIndex = annual.Year });
             }
         }

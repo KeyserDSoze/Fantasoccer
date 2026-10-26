@@ -31,8 +31,8 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
             await database.PlayedMatchSnapshots.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken)))
             throw new ApplicationFault(409, "calendar_has_results", "Un calendario con risultati storici non può essere sostituito da questa operazione.");
         var teams = (await TeamsAsync(group, league, year, cancellationToken)).Where(x => !x.IsArchived).ToArray();
-        var members = teams.Select(team => new AnnualTeam { Name = team.Name, Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.Email,
-            AdditionalOwners = team.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.Email).ToList() }).ToList();
+        var members = teams.Select(team => new AnnualTeam { Name = team.Name, Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference,
+            AdditionalOwners = team.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).ToList() }).ToList();
         if (members.Count < 2 || members.Select(x => x.Owner).Distinct(StringComparer.OrdinalIgnoreCase).Count() != members.Count || members.Count % 2 != 0)
             throw new ApplicationFault(400, "invalid_competition_teams", "Servono almeno due squadre, in numero pari e con proprietari principali distinti.");
         if (type == LeagueType.Cup)
@@ -127,7 +127,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         // are distinct. Do not manufacture daily snapshots for untouched history.
         await StoreRankAsync(group, league, year, 0, rank, teams, cancellationToken);
         if (rank.SerieADay > 0) await StoreRankAsync(group, league, year, rank.SerieADay, rank, teams, cancellationToken);
-        var annualTeams = teams.Select(x => new AnnualTeam { Name = x.Name, Owner = x.Owners.Single(o => o.IsPrimary).Membership.User.Email, AdditionalOwners = [] }).ToList();
+        var annualTeams = teams.Select(x => new AnnualTeam { Name = x.Name, Owner = x.Owners.Single(o => o.IsPrimary).Membership.User.OwnerReference, AdditionalOwners = [] }).ToList();
         var expanded = calculator.AddDaysInLeague(year, new() { Year = year, Type = type, Settings = settings }, annualTeams, rank, domain);
         AppendCalendar(calendar, expanded, teams);
         calendar.Version++;
@@ -183,7 +183,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
     }
     private static FantasyTeamSeason Resolve(FantasyTeamSeason[] teams, string owner)
     {
-        var matches = teams.Where(x => x.Owners.Any(o => o.IsPrimary && string.Equals(o.Membership.User.Email, owner, StringComparison.OrdinalIgnoreCase))).ToArray();
+        var matches = teams.Where(x => x.Owners.Any(o => o.IsPrimary && string.Equals(o.Membership.User.OwnerReference, owner, StringComparison.OrdinalIgnoreCase))).ToArray();
         return matches.Length == 1 ? matches[0] : throw new ApplicationFault(409, "ambiguous_competition_owner", "Il proprietario non identifica più una sola squadra annuale: riconciliare il calendario prima di ricalcolare.");
     }
     private static void AppendCalendar(FantasyCalendar calendar, Calendar domain, FantasyTeamSeason[] teams)

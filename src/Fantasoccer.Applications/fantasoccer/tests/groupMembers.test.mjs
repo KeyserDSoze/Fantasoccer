@@ -64,3 +64,48 @@ test('email lookup adds a participant only to the chosen group and ignores stale
   assert.equal(changes, 1)
   assert.deepEqual(saves, [{ group: 'group', body: { email: 'friend@example.test', displayName: 'Friend', roles: 2 } }])
 })
+
+test('inactive users without email remain visible with a group status column; only managers can reactivate them', () => {
+  const { GroupMembersPanel } = loadTypeScript('components/groups/GroupMembersPanel.tsx', {
+    react: React, 'react/jsx-runtime': runtime,
+    tamagui: Object.fromEntries(Object.entries(tags).map(([name, tag]) => [name, element(tag)])),
+    '../../services/workspaceService': { workspaceService: {} },
+  })
+  const historical = { userId: 'historical', email: null, displayName: 'Historical captain', roles: 0, isActive: false }
+  const render = roles => renderToStaticMarkup(React.createElement(GroupMembersPanel, { groupId: 'group', roles, members: [member, historical], onChanged() {} }))
+  const manager = render(4)
+  assert.match(manager, /Historical captain/)
+  assert.match(manager, /Stato nel gruppo/)
+  assert.match(manager, /Disattivo/)
+  assert.match(manager, /Email di accesso non configurata/)
+  assert.match(manager, /Riattiva/)
+  assert.doesNotMatch(render(2), /Riattiva|Disattiva|Modifica utente/)
+})
+
+test('reactivation uses the stable user ID and only the participant role, suppresses double clicks and leaves global account data untouched', async () => {
+  const cells = [], refs = [], saves = []
+  let cursor = 0, refCursor = 0, changes = 0, finish
+  const state = {
+    useState(initial) { const index = cursor++; if (!(index in cells)) cells[index] = initial; return [cells[index], value => { cells[index] = typeof value === 'function' ? value(cells[index]) : value }] },
+    useRef(initial) { const index = refCursor++; return refs[index] ??= { current: initial } },
+    useEffect() {},
+  }
+  const jsx = (type, props) => ({ type, props })
+  const { GroupMemberRow } = loadTypeScript('components/groups/GroupMembersPanel.tsx', {
+    react: state, 'react/jsx-runtime': { jsx, jsxs: jsx }, tamagui: Object.fromEntries(Object.keys(tags).map(name => [name, name])),
+    '../../services/workspaceService': { workspaceService: { updateMember: async (group, userId, body) => {
+      saves.push({ group, userId, body: JSON.parse(JSON.stringify(body)) }); await new Promise(resolve => { finish = resolve })
+    } } },
+  })
+  function find(tree, label) {
+    if (!tree || typeof tree !== 'object') return
+    if (tree.type === 'Button' && tree.props.children === label) return tree
+    for (const child of [tree.props?.children].flat(Infinity)) { const found = find(child, label); if (found) return found }
+  }
+  function render() { cursor = 0; refCursor = 0; return GroupMemberRow({ groupId: 'group', roles: 4, member: { userId: 'historical', email: null, displayName: 'Captain', roles: 0 }, onChanged: async () => { changes++ } }) }
+  const button = find(render(), 'Riattiva')
+  button.props.onPress(); button.props.onPress()
+  assert.deepEqual(saves, [{ group: 'group', userId: 'historical', body: { isActive: true, roles: 2 } }])
+  finish(); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(changes, 1)
+})

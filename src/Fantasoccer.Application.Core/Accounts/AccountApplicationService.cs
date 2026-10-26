@@ -10,13 +10,14 @@ namespace Fantasoccer.Application.Core.Accounts;
 public sealed class AccountApplicationService(FantasoccerDbContext database, GroupApplicationService groups,
     IOptions<GlobalAdministratorOptions> administrators)
 {
-    public bool IsGlobalAdministrator(string email) => administrators.Value.Emails.Any(value =>
+    public bool IsGlobalAdministrator(string? email) => email is not null && administrators.Value.Emails.Any(value =>
         string.Equals(value.Trim(), email, StringComparison.OrdinalIgnoreCase));
 
     public async Task<AccountIdentityDto?> FindForLoginAsync(string email, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(email)) return null;
         var canonical = email.Trim().ToLowerInvariant();
+        if (!System.Net.Mail.MailAddress.TryCreate(canonical, out var parsed) || parsed.Address != canonical) return null;
         var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == canonical && x.IsEnabled, cancellationToken);
         return user is null ? null : await ProfileAsync(user, cancellationToken);
     }
@@ -79,7 +80,7 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
         // enumerate the platform directory. Their own member list is scoped to
         // GET /workspace/groups/{id}; full oversight uses /api/platform.
         if (!global && string.IsNullOrWhiteSpace(email)) throw Denied();
-        var query = database.Users.AsNoTracking().Where(x => x.IsEnabled);
+        var query = database.Users.AsNoTracking().Where(x => x.IsEnabled && x.Email != null);
         if (!string.IsNullOrWhiteSpace(email))
         {
             var canonical = email.Trim().ToLowerInvariant();
@@ -130,8 +131,10 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
         if (!string.IsNullOrWhiteSpace(request.MeOrLeaderEmail))
         {
             var workingEmail = request.MeOrLeaderEmail.Trim().ToLowerInvariant();
-            workingId = await database.GroupMemberships.Where(x => x.GroupId == request.GroupId && x.User.Email == workingEmail)
-                .Select(x => (Guid?)x.UserId).SingleOrDefaultAsync(cancellationToken);
+            var working = database.GroupMemberships.Where(x => x.GroupId == request.GroupId);
+            working = UserAccount.TryOwnerReference(workingEmail, out var referenceId)
+                ? working.Where(x => x.UserId == referenceId) : working.Where(x => x.User.Email == workingEmail);
+            workingId = await working.Select(x => (Guid?)x.UserId).SingleOrDefaultAsync(cancellationToken);
             if (workingId is null) throw Invalid("Il proprietario selezionato non appartiene al gruppo.");
         }
         var selection = await database.AccountSelections.SingleOrDefaultAsync(x => x.UserId == user.Id, cancellationToken);
@@ -202,14 +205,15 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
         var memberships = await database.GroupMemberships.Where(x => x.UserId == user.Id && x.Roles != GroupRole.None)
             .OrderBy(x => x.Group.Name).Select(x => new IdentityGroupDto(x.GroupId, x.Group.Name, (int)x.Roles)).ToArrayAsync(cancellationToken);
         var selection = await database.AccountSelections.AsNoTracking().Include(x => x.WorkingUser).SingleOrDefaultAsync(x => x.UserId == user.Id, cancellationToken);
-        return new(user.Id, user.DisplayName, user.Email,
-            selection is null ? new() : new(selection.GroupId, selection.LeagueId, selection.Year, selection.WorkingUser?.Email), memberships, IsGlobalAdministrator(user.Email));
+        return new(user.Id, user.DisplayName, user.Email ?? throw Denied(),
+            selection is null ? new() : new(selection.GroupId, selection.LeagueId, selection.Year, selection.WorkingUser?.OwnerReference), memberships, IsGlobalAdministrator(user.Email));
     }
 
     private async Task<UserAccount> CurrentUserAsync(ClaimsPrincipal caller, CancellationToken cancellationToken)
     {
         if (caller.Identity?.IsAuthenticated != true) throw new ApplicationFault(401, "authentication_required", "Accesso richiesto.");
         var email = caller.FindFirstValue(ClaimTypes.Email)?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email)) throw Denied();
         return await database.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == email && x.IsEnabled, cancellationToken) ?? throw Denied();
     }
     private static ApplicationFault Denied() => new(403, "account_access_denied", "Account non disponibile o accesso non consentito.");

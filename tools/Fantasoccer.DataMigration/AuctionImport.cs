@@ -77,8 +77,7 @@ public sealed partial class CoreDatasetImporter
             FantasyTeamSeason? Team(string? owner)
             {
                 if (string.IsNullOrEmpty(owner)) return null;
-                var email = Email(owner);
-                var user = plan.Users.GetValueOrDefault(email) ?? throw new CoreImportException("missing_auction_owner");
+                var user = ExistingOwner(plan, group, owner, "missing_auction_owner");
                 var baskets = plan.Participations.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year).Select(x => x.BasketId).ToHashSet();
                 var teams = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == key.Year && x.UserId == user.Id && x.IsPrimary && baskets.Contains(x.BasketId)).ToArray();
                 return teams.Length == 1 ? plan.Teams.Single(x => x.Id == teams[0].TeamId) : throw new CoreImportException("unresolved_historical_team_identity");

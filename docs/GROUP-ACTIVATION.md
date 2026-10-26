@@ -21,6 +21,16 @@ Gli account nuovi restano registrabili senza invito. Senza gruppi la home presen
 
 ## API e sicurezza
 
+### Utenti esistenti e stato nel gruppo
+
+La lista **Membri del gruppo** include anche gli utenti disattivi, con colonna **Stato nel gruppo** e azioni amministrative per ID utente. La disattivazione azzera i ruoli della membership (`Roles=None`), senza eliminare l'utente, le squadre o i risultati e senza disabilitare le altre appartenenze. L'account globale ha uno stato distinto, che un amministratore di gruppo non può scavalcare.
+
+La riattivazione rapida assegna solo Partecipante. **Modifica utente** permette una scelta esplicita dei ruoli: soltanto un responsabile può modificare/concedere il ruolo Responsabile, e non si può disattivare l'ultimo responsabile/amministratore. Un partecipante importato senza email è un utente esistente con ID stabile, ma non ha un'identità di login finché non viene configurata un'email reale e verificata dal provider Microsoft. La gestione non invia messaggi automaticamente.
+
+Il gestore può impostare un'email soltanto se ancora assente, il partecipante appartiene solo al proprio gruppo e non esistono account o login in conflitto. Non può cambiare l'email di un profilo esistente o fondere un altro account per recuperarne lo storico. Un conflitto richiede riconciliazione separata.
+
+`PATCH /api/workspace/groups/{groupId}/members/{userId}` accetta `{ "isActive": true, "roles": 2 }`, oppure `isActive:false` per disattivare. L'email reale mancante può essere aggiunta con `email`; il DTO membro espone email nullable e `isActive`. I riferimenti opachi `user:{id}` nei contratti di gioco identificano partecipanti, **mai indirizzi email o credenziali**. Le normali autorizzazioni restano basate su email verificate e membership attive.
+
 Il creatore è responsabile/amministratore del proprio gruppo e può usare **Membri e inviti**. La ricerca richiede un'email completa e restituisce solo nome/email e presenza nel gruppo corrente, mai il catalogo utenti o le membership altrui. Può anche predisporre l'accesso a un'email non ancora registrata; non vengono spedite email automaticamente. La vista globale con tutti gli utenti e i rispettivi gruppi rimane separata in `/platform`. Vedere il [runbook](MIGRATION-RUNBOOK.md).
 
 - `GET /api/platform/users`, `/groups`, `/group-codes`: riservati al super admin verificato, paginati (`offset`, `limit`, massimo 100). Ricerca per utenti e gruppi con `query`.

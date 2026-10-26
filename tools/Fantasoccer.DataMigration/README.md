@@ -45,6 +45,14 @@ Il gestore può approvare una coppia esatta tramite `IDENTITY_RESOLUTIONS_JSON` 
 
 Per due lookup email diversi **solo per case**, è necessaria un'approvazione separata: quell'oggetto deve impostare `allowEmailLookupAlias:true` (default `false`). Sono rifiutati ID tecnici, differenze di spazi o altri nomi non equivalenti: non è un override generico. La copia preferita viene scelta integralmente e il report espone `emailLookupAlias`; le regole precedenti restano nell'array senza questo flag. Non si tratta di un'unione automatica dei gruppi o di una scelta basata su nome/quantità di dati. Vedere [alias email](../../docs/MIGRATION-RUNBOOK.md#due-lookup-email-diversi-solo-per-maiuscole).
 
+### Proprietari storici senza email
+
+`IMPORT_LEGACY_NAMED_OWNERS=true` (CLI: `FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS`) abilita esplicitamente i riferimenti non-email dei partecipanti storici. Il default è `false`. Sono creati veri record `Users`, globalmente abilitati, con email `null`, nome originale e membership di gruppo disattiva (`Roles=None`). Non sono email fittizie né identità di autenticazione. Il report espone il conteggio `historicalNamedUsers`.
+
+L'identità sorgente è il valore esatto **nel gruppo**, con un mapping deterministico hash: nessun accorpamento per nome visualizzato, case/spazi o fra gruppi diversi. Rose, classifiche, calendari e albo mantengono i collegamenti tramite gli ID; i valori storici originali restano nei relativi snapshot e nel dump. Valori vuoti, con caratteri di controllo, oltre 200 caratteri o email malformate contenenti `@` rimangono errori. Le identità di login e i membri con ruoli attivi continuano a richiedere email valide e a superare i controlli di membership.
+
+Nella lista membri sono visibili anche i disattivi: un amministratore del gruppo può gestirli per ID, riattivarli con ruoli espliciti e configurare un'email reale ancora mancante. L'operazione non unisce un account già esistente con quell'email, non modifica email già configurate e non riabilita account disabilitati globalmente. Il login richiede comunque la verifica Microsoft. Vedere [gestione utenti](../../docs/GROUP-ACTIVATION.md#utenti-esistenti-e-stato-nel-gruppo).
+
 ## Riconciliazioni e artefatti conservati
 
 ### Escludere le vecchie aste senza fornire le chiavi legacy
@@ -106,7 +114,7 @@ Consente lettura dei gruppi, amministrazione membri, creazione basket/partecipaz
 Le stesse operazioni applicative sono disponibili ai controller; i tool MCP dedicati riusano direttamente il servizio per elenco, lettura e creazione gruppo.
 
 Il percorso principale di identità, navigazione, gruppi/regolamenti, preferenze, rose, partite/risultati, dati calcistici, classifiche, mercato/aste, albo e carte usa nuove API e DTO. Generazione e ricalcolo sono comandi espliciti. I flussi rimanenti nell'inventario non vengono serviti da un fallback Blob.
-Il login social in modalità PostgreSQL usa ora soltanto l'account SQL. Un amico invitato può autenticarsi senza una copia Blob; i placeholder creati solo per preservare proprietari storici sono disabilitati e diventano attivi solo con un invito esplicito.
+Il login social in modalità PostgreSQL usa soltanto l'account SQL. Un amico invitato può autenticarsi senza una copia Blob. I proprietari storici esistono come utenti, ma senza membership attive non hanno accesso ai gruppi; quelli senza email non possono effettuare il login. Lo stato del gruppo è distinto dalla disabilitazione globale dell'account.
 Il workspace è disponibile anche fuori dal Compose; il backend richiede `PostgreSql:Enabled=true` e una configurazione SQL/file valida.
 
 ## Vincoli e riconciliazioni specifiche

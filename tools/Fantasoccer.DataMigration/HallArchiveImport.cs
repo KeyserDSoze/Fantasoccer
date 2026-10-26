@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadHallArchives(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, Guid> player, Func<RealTeam?, Guid> club, Func<string, string, UserAccount> user, Action<int> season)
+        Func<RealPlayer, Guid> player, Func<RealTeam?, Guid> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId ?? throw new CoreImportException("missing_hall_reference");
         foreach (var document in dataset.Documents.Where(x => x.Container == "halloffame"))
@@ -43,15 +43,22 @@ public sealed partial class CoreDatasetImporter
             foreach (var winning in value.WinningPlayers ?? []) archive.WinningPlayers.Add(new() { Ordinal = archive.WinningPlayers.Count,
                 Player = Snapshot(winning.Player), Wins = Wins(winning.Wins) });
             foreach (var winning in value.WinningTeams ?? []) archive.WinningTeams.Add(new() { Ordinal = archive.WinningTeams.Count,
-                OwnerUserId = user(Email(winning.Owner), winning.Owner).Id, OwnerEmail = winning.Owner, Name = winning.Team, Wins = Wins(winning.Wins) });
+                OwnerUserId = Member(winning.Owner), OwnerEmail = winning.Owner, Name = winning.Team, Wins = Wins(winning.Wins) });
             foreach (var rank in value.Ranks ?? [])
             {
                 if (!new[] { rank.Point, rank.ValuePoint, rank.SufferedValuePoint }.All(float.IsFinite)) throw new CoreImportException("invalid_hall_rank");
-                archive.Ranks.Add(new() { Ordinal = archive.Ranks.Count, OwnerUserId = user(Email(rank.Owner), rank.Owner).Id, OwnerEmail = rank.Owner,
+                archive.Ranks.Add(new() { Ordinal = archive.Ranks.Count, OwnerUserId = Member(rank.Owner), OwnerEmail = rank.Owner,
                     Name = rank.Name, Points = rank.Point, Victories = rank.Victories, Draws = rank.Draws, Defeats = rank.Defeats, Goals = rank.Goal,
                     SufferedGoals = rank.SufferedGoal, ValuePoints = rank.ValuePoint, SufferedValuePoints = rank.SufferedValuePoint, PlusMoney = rank.PlusMoney, Money = rank.Money });
             }
             plan.HallArchives.Add(archive);
+            Guid Member(string owner)
+            {
+                var person = user(group, owner, owner);
+                if (!plan.Memberships.Any(x => x.GroupId == group && x.UserId == person.Id))
+                    plan.Memberships.Add(new() { GroupId = group, UserId = person.Id, Roles = GroupRole.None });
+                return person.Id;
+            }
         }
         HallPlayerSnapshot Snapshot(Player source)
         {

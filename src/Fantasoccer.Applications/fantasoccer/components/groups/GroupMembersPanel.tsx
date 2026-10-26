@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Card, H3, Input, Paragraph, Spinner, Text, XStack, YStack } from 'tamagui'
 import { workspaceService as api } from '../../services/workspaceService'
-import type { WorkspaceMember, WorkspaceMemberLookup } from '../../contracts/workspace'
+import type { WorkspaceMember, WorkspaceMemberLookup, UpdateWorkspaceMember } from '../../contracts/workspace'
 
 const rolesList = [{ value: 1, label: 'Lettura' }, { value: 2, label: 'Partecipante' }, { value: 4, label: 'Amministratore' }, { value: 8, label: 'Responsabile' }]
-const roleLabel = (value: number) => rolesList.filter(role => (value & role.value) !== 0).map(role => role.label).join(', ') || 'Rimosso'
+const roleLabel = (value: number) => rolesList.filter(role => (value & role.value) !== 0).map(role => role.label).join(', ') || 'Nessun ruolo attivo'
 const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) && value.trim().length <= 320
 
 export function GroupMembersPanel({ groupId, roles, members, onChanged }: {
@@ -24,7 +24,7 @@ export function GroupMembersPanel({ groupId, roles, members, onChanged }: {
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; searchRequest.current?.abort() } }, [])
   const canManage = (roles & 12) !== 0
   const canManageOwners = (roles & 8) !== 0
-  const editingOwner = lookup && members.some(member => member.email.toLowerCase() === lookup.email.toLowerCase() && (member.roles & 8) !== 0)
+  const editingOwner = lookup && members.some(member => member.email?.toLowerCase() === lookup.email.toLowerCase() && (member.roles & 8) !== 0)
 
   function changeEmail(value: string) {
     searchRequest.current?.abort(); setSearching(false); setEmail(value); setLookup(null); setName(''); setMemberRoles(2); setError(''); setNotice('')
@@ -38,7 +38,7 @@ export function GroupMembersPanel({ groupId, roles, members, onChanged }: {
       const result = await api.lookupMember(groupId, email, controller.signal)
       if (!controller.signal.aborted) {
         setLookup(result); setName(result.displayName ?? result.email.split('@')[0].slice(0, 200));
-        setMemberRoles(members.find(member => member.email.toLowerCase() === result.email.toLowerCase())?.roles ?? 2)
+        setMemberRoles(members.find(member => member.email?.toLowerCase() === result.email.toLowerCase())?.roles || 2)
       }
     } catch (cause) { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Ricerca non riuscita.') }
     finally { if (!controller.signal.aborted) setSearching(false) }
@@ -57,13 +57,9 @@ export function GroupMembersPanel({ groupId, roles, members, onChanged }: {
 
   return <YStack gap="$4">
     <Card padding="$4" gap="$3"><H3>Membri del gruppo</H3>
-      {members.filter(member => member.roles !== 0).map(member => <XStack key={member.userId} gap="$2" alignItems="center" flexWrap="wrap">
-        <YStack flex={1}><Text>{member.displayName} · {member.email}</Text><Text color="$color10">{roleLabel(member.roles)}</Text></YStack>
-        {canManage && <Button size="$2" disabled={busy || (!canManageOwners && (member.roles & 8) !== 0)} onPress={() => {
-          searchRequest.current?.abort(); setSearching(false); setEmail(member.email); setName(member.displayName); setMemberRoles(member.roles)
-          setLookup({ email: member.email, displayName: member.displayName, found: true, isMember: true }); setError(''); setNotice('')
-        }}>Modifica membro</Button>}
-      </XStack>)}
+      <Paragraph>Gli utenti disattivi restano nel gruppo e conservano squadre e risultati. Lo stato riguarda solo questo gruppo, non l’account globale.</Paragraph>
+      <XStack gap="$2" flexWrap="wrap" $sm={{ display: 'none' }}><Text flex={2} minWidth={180} fontWeight="bold">Utente</Text><Text flex={1} minWidth={150} fontWeight="bold">Ruoli</Text><Text width={150} fontWeight="bold">Stato nel gruppo</Text>{canManage && <Text width={150} fontWeight="bold">Azioni</Text>}</XStack>
+      {members.map(member => <GroupMemberRow key={member.userId} groupId={groupId} roles={roles} member={member} onChanged={onChanged} />)}
     </Card>
     {canManage && <Card padding="$4" gap="$3">
       <H3>Aggiungi o invita tramite email</H3>
@@ -82,7 +78,57 @@ export function GroupMembersPanel({ groupId, roles, members, onChanged }: {
         <Paragraph color="$color10">L’associazione non invia email automaticamente. Nessun ruolo del gruppo concede privilegi di piattaforma. La rimozione non cancella lo storico.</Paragraph>
       </YStack>}
     </Card>}
-    {error && <Text color="$red10" accessibilityRole="alert">{error}</Text>}
-    {notice && <Text color="$green10" accessibilityRole="alert">{notice}</Text>}
+    {error && <Text color="$red10" role="alert">{error}</Text>}
+    {notice && <Text color="$green10" role="status">{notice}</Text>}
+  </YStack>
+}
+
+export function GroupMemberRow({ groupId, roles, member, onChanged }: {
+  groupId: string; roles: number; member: WorkspaceMember; onChanged: () => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [email, setEmail] = useState('')
+  const [selectedRoles, setSelectedRoles] = useState(member.roles || 2)
+  const [active, setActive] = useState(member.roles !== 0)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const pending = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const canManageOwners = (roles & 8) !== 0
+  const isManager = (roles & 12) !== 0
+  const canManage = isManager && (canManageOwners || (member.roles & 8) === 0)
+  async function save(body: UpdateWorkspaceMember) {
+    if (!canManage || pending.current) return
+    pending.current = true; setBusy(true); setError('')
+    try {
+      await api.updateMember(groupId, member.userId, body)
+      if (!mounted.current) return
+      await onChanged()
+      if (mounted.current) { setEditing(false); setEmail('') }
+    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : 'Modifica non riuscita.') }
+    finally { pending.current = false; if (mounted.current) setBusy(false) }
+  }
+  return <YStack gap="$2" paddingVertical="$2" borderBottomWidth={1} borderColor="$borderColor">
+    <XStack gap="$2" alignItems="center" flexWrap="wrap">
+      <YStack flex={2} minWidth={180}><Text>{member.displayName}</Text><Text color="$color10">{member.email ?? 'Email di accesso non configurata'}</Text></YStack>
+      <Text flex={1} minWidth={150}>{roleLabel(member.roles)}</Text>
+      <YStack width={150} gap="$2"><Text>{member.roles !== 0 ? 'Attivo' : 'Disattivo'}</Text>
+        {canManage && <Button size="$2" disabled={busy} onPress={() => void save({ isActive: member.roles === 0, roles: member.roles === 0 ? 2 : 0 })}>{member.roles !== 0 ? 'Disattiva' : 'Riattiva'}</Button>}
+      </YStack>
+      {isManager && <YStack width={150}>{canManage ? <Button size="$2" disabled={busy} onPress={() => { setEditing(!editing); setEmail(''); setSelectedRoles(member.roles || 2); setActive(member.roles !== 0); setError('') }}>Modifica utente</Button> : <Text color="$color10">Gestito dal responsabile</Text>}</YStack>}
+    </XStack>
+    {editing && <YStack gap="$3" padding="$3">
+      {!member.email && <>
+        <Paragraph>Puoi configurare l’email reale senza cambiare l’ID o lo storico. Nessun account verrà unito automaticamente. L’accesso richiederà un login Microsoft verificato con questa email.</Paragraph>
+        <Input aria-label="Email del partecipante storico" placeholder="Email reale (facoltativa)" value={email} onChangeText={setEmail} maxLength={320} disabled={busy} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+      </>}
+      <Button alignSelf="flex-start" variant="outlined" disabled={busy} onPress={() => setActive(value => !value)}>{active ? 'Attivo nel gruppo' : 'Disattivo nel gruppo'}</Button>
+      <XStack gap="$2" flexWrap="wrap">{rolesList.map(role => <Button key={role.value} size="$2" disabled={busy || !active || (role.value === 8 && !canManageOwners)}
+        theme={(selectedRoles & role.value) !== 0 ? 'blue' : undefined} onPress={() => setSelectedRoles(value => value ^ role.value)}>{role.label}</Button>)}</XStack>
+      <Paragraph>La riattivazione rapida assegna soltanto il ruolo Partecipante. Senza un’email configurata l’utente esiste, ma non può effettuare il login.</Paragraph>
+      <Button alignSelf="flex-start" disabled={busy || (active && selectedRoles === 0) || (!!email.trim() && !validEmail(email))} onPress={() => void save({ isActive: active, roles: active ? selectedRoles : 0, ...(!member.email && email.trim() ? { email: email.trim() } : {}) })}>Salva utente del gruppo</Button>
+    </YStack>}
+    {error && <Text color="$red10" role="alert">{error}</Text>}
   </YStack>
 }

@@ -44,7 +44,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
             if (id is null) continue;
             var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
                 .SingleAsync(x => x.Id == id && x.GroupId == group && x.SeasonIndex == year, cancellationToken);
-            var owner = metadata.Owners.SingleOrDefault(x => x.IsPrimary)?.Membership.User.Email ?? (id == match.HomeTeamId ? match.HomeOwner : match.AwayOwner) ?? "";
+            var owner = metadata.Owners.SingleOrDefault(x => x.IsPrimary)?.Membership.User.OwnerReference ?? (id == match.HomeTeamId ? match.HomeOwner : match.AwayOwner) ?? "";
             var daily = await rosters.GetAsync(caller, group, metadata.BasketId, year, owner, RosterKind.Matchday, day, cancellationToken: cancellationToken, teamId: id);
             var source = daily;
             if (source is null && (before || liveWindow))
@@ -101,7 +101,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
             throw new ApplicationFault(400, "team_not_in_match", "La squadra non appartiene alla partita.");
         var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
             .SingleAsync(x => x.GroupId == group && x.Id == request.TeamId && x.SeasonIndex == year, cancellationToken);
-        var owner = metadata.Owners.Single(x => x.IsPrimary).Membership.User.Email;
+        var owner = metadata.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
         return await rosters.SaveFormationAsync(caller, new(group, metadata.BasketId, year, owner, match.Matchday.SerieADay, league,
             (int)RosterKind.Matchday, request.Positions, request.ExpectedVersion, request.Live, request.AsAdmin, metadata.Id, request.SourceVersion, matchId), cancellationToken);
     }

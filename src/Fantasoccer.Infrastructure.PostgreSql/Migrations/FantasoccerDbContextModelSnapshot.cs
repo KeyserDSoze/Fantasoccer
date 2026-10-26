@@ -2493,7 +2493,6 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
 
@@ -2512,7 +2511,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.ToTable("Users", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Users_EmailCanonical", "\"Email\" = lower(btrim(\"Email\")) AND length(\"Email\") > 0");
+                            t.HasCheckConstraint("CK_Users_EmailCanonical", "\"Email\" IS NULL OR (\"Email\" = lower(btrim(\"Email\")) AND length(\"Email\") > 0)");
                         });
                 });
 

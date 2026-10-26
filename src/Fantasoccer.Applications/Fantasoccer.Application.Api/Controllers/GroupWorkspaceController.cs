@@ -35,6 +35,10 @@ public sealed class GroupWorkspaceController(GroupApplicationService groups, Gro
     public async Task<IActionResult> SetMember(Guid groupId, SetGroupMemberRequest request, CancellationToken cancellationToken)
     { await groups.SetMemberAsync(User, groupId, request, cancellationToken); return NoContent(); }
 
+    [HttpPatch("groups/{groupId:guid}/members/{userId:guid}")]
+    public async Task<IActionResult> UpdateMember(Guid groupId, Guid userId, UpdateGroupMemberRequest request, CancellationToken cancellationToken)
+    { await groups.UpdateMemberAsync(User, groupId, userId, request, cancellationToken); return NoContent(); }
+
     [HttpGet("groups/{groupId:guid}/members/lookup")]
     public Task<GroupMemberLookupDto> LookupMember(Guid groupId, [FromQuery] string? email, CancellationToken cancellationToken)
         => groups.LookupMemberAsync(User, groupId, email, cancellationToken);

@@ -37,7 +37,7 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, Te
                 var rules = await rosters.RulesAsync(team, year, null, false, cancellationToken);
                 var league = await database.LeagueSeasons.Include(x => x.League).SingleAsync(x => x.GroupId == rules.GroupId && x.LeagueId == rules.LeagueId && x.SeasonIndex == year, cancellationToken);
                 var type = (LeagueType)(league.CompetitionType != 0 ? league.CompetitionType : league.League.CompetitionType != 0 ? league.League.CompetitionType : 1);
-                var domain = new Team { Name = team.Name, Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.Email, AdditionalOwners = [], Players = snapshot.Players.Select(CompetitionMapping.Domain).ToList() };
+                var domain = new Team { Name = team.Name, Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference, AdditionalOwners = [], Players = snapshot.Players.Select(CompetitionMapping.Domain).ToList() };
                 var proposal = await optimal.CalculateAsync(domain, year, next.Day, type, LeagueRulesMapping.ToDomain(rules), cancellationToken);
                 var positions = proposal.Players.ToDictionary(x => x.PlayerKey, x => x.Position);
                 foreach (var player in snapshot.Players.Where(x => x.Status == 0))
