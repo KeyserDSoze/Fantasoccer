@@ -18,8 +18,11 @@ public sealed class PlayerOrderApplicationService(FantasoccerDbContext database,
         await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
         var order = await database.LeaguePlayerOrders.AsNoTracking().Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
             .Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
-        return order is null ? null : new(order.Players.OrderBy(x => x.Ordinal).Select(x => new FootballPlayerDto(x.PlayerId, x.Player.Name,
-            FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible)).ToArray(), order.Version);
+        if (order is null) return null;
+        var keys = await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == year)
+            .ToDictionaryAsync(x => x.PlayerId, x => x.PlayerKey, cancellationToken);
+        return new(order.Players.OrderBy(x => x.Ordinal).Select(x => new FootballPlayerDto(x.PlayerId, x.Player.Name,
+            FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible) { SeasonIndex = year, PlayerKey = keys[x.PlayerId] }).ToArray(), order.Version);
     }
     public async Task RandomizeAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, RandomizePlayerOrderRequest request, CancellationToken cancellationToken = default)
     {

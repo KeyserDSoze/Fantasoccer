@@ -13,7 +13,9 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
     public async Task<MarketDto[]> ListAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken = default)
     {
         await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
-        return (await Query(group, league, year).AsNoTracking().OrderBy(x => x.Ordinal).ToArrayAsync(cancellationToken)).Select(Dto).ToArray();
+        var rows = await Query(group, league, year).AsNoTracking().OrderBy(x => x.Ordinal).ToArrayAsync(cancellationToken);
+        var keys = await SeasonKeysAsync(year, cancellationToken);
+        return rows.Select(x => Dto(x, keys)).ToArray();
     }
 
     public async Task<MarketOperationDto> CreateAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CreateMarketRequest request, CancellationToken cancellationToken = default)
@@ -48,7 +50,7 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
         Event(trade, actorId, "created");
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new(true, "Proposta creata.", Dto(trade));
+        return new(true, "Proposta creata.", Dto(trade, await SeasonKeysAsync(year, cancellationToken)));
     }
 
     public async Task<MarketOperationDto> CommandAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid tradeId, string action,
@@ -93,7 +95,7 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         var ok = trade.Status is not ((int)MarketStatus.NoMoney) and not ((int)MarketStatus.NoPlayers);
-        return new(ok, ok ? "Proposta aggiornata." : trade.Status == (int)MarketStatus.NoMoney ? "Fondi insufficienti: nessuna rosa è stata modificata." : "Giocatori non più disponibili: nessuna rosa è stata modificata.", Dto(trade));
+        return new(ok, ok ? "Proposta aggiornata." : trade.Status == (int)MarketStatus.NoMoney ? "Fondi insufficienti: nessuna rosa è stata modificata." : "Giocatori non più disponibili: nessuna rosa è stata modificata.", Dto(trade, await SeasonKeysAsync(year, cancellationToken)));
     }
 
     private async Task ExecuteAsync(MarketTrade trade, LeagueRules rules, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
@@ -185,10 +187,13 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
     private static bool HasQuorum(MarketTrade trade, FantasyTeamSeason[] teams, bool approve) => trade.Votes.Count(x => x.Approved == approve && VoteIsCurrent(x, teams)) >= teams.Length / 2 + 1;
     private static RosterPlayer CopyPlayer(RosterPlayer source) => new() { PlayerId = source.PlayerId, Player = source.Player, ClubId = source.ClubId, Club = source.Club,
         PlayerRole = source.PlayerRole, IsActive = source.IsActive, IsVisible = source.IsVisible, Price = source.Price, Revenue = source.Revenue, Status = source.Status, Position = source.Position };
-    private static MarketDto Dto(MarketTrade trade)
+    private Task<Dictionary<Guid, string>> SeasonKeysAsync(int year, CancellationToken cancellationToken) => database.PlayerSeasons
+        .AsNoTracking().Where(x => x.SeasonIndex == year).ToDictionaryAsync(x => x.PlayerId, x => x.PlayerKey, cancellationToken);
+    private static MarketDto Dto(MarketTrade trade, IReadOnlyDictionary<Guid, string> keys)
     {
         RosterPlayerDto[] Players(bool buyer) => trade.Players.Where(x => x.FromBuyer == buyer).OrderBy(x => x.Ordinal).Select(x => new RosterPlayerDto(x.PlayerId,
-            x.Ordinal, x.Player.Name, new(x.Club.Name, x.Club.Abbreviation), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)).ToArray();
+            x.Ordinal, x.Player.Name, new(x.Club.Name, x.Club.Abbreviation), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
+            { SeasonIndex = trade.SeasonIndex, PlayerKey = keys[x.PlayerId] }).ToArray();
         return new(trade.Id, trade.BuyerTeamId, trade.SellerTeamId, trade.BuyerOwner, trade.SellerOwner, Players(true), Players(false), trade.MoneyFromBuyer,
             trade.MoneyFromSeller, trade.Votes.Where(x => x.Approved).OrderBy(x => x.Ordinal).Select(x => x.OwnerEmail).ToArray(),
             trade.Votes.Where(x => !x.Approved).OrderBy(x => x.Ordinal).Select(x => x.OwnerEmail).ToArray(), trade.SellerAccepted, trade.Status, trade.CreatedAtUtc, trade.Version);

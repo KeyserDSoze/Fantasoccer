@@ -1753,6 +1753,18 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<bool>("IsVisible")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PlayerKey")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasMaxLength(220)
+                        .HasColumnType("character varying(220)")
+                        .HasComputedColumnSql("\"SeasonIndex\"::text || ':' || \"NormalizedName\"", true);
+
                     b.Property<int>("Position")
                         .HasColumnType("integer");
 
@@ -1760,10 +1772,15 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ClubId");
 
+                    b.HasIndex("PlayerKey")
+                        .IsUnique();
+
                     b.HasIndex("SeasonIndex");
 
                     b.ToTable("PlayerSeasons", null, t =>
                         {
+                            t.HasCheckConstraint("CK_PlayerSeasons_NormalizedName", "\"NormalizedName\" ~ '^[a-z]+$'");
+
                             t.HasCheckConstraint("CK_PlayerSeasons_Position", "\"Position\" >= -1 AND \"Position\" <= 3");
                         });
                 });

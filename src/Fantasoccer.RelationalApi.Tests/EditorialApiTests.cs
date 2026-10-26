@@ -82,7 +82,7 @@ public sealed partial class WorkspaceApiTests
             for (var index = 0; index < roles.Length; index++)
             {
                 var player = new FootballPlayer { Name = "Advice player " + Guid.NewGuid().ToString("N") }; database.Players.Add(player);
-                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = (PlayerPosition)roles[index] });
+                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = (PlayerPosition)roles[index] });
                 roster.Players.Add(new() { Ordinal = index, Player = player, Club = club, PlayerRole = roles[index], Position = roles[index], Price = 10 });
             }
             database.TeamAdvice.Add(new() { GroupId = group.GroupId, BasketId = graph.Baskets[0].Id, TeamId = team, OwnerUserId = first.Id, SeasonIndex = year, Day = 9, Message = "Original private message" });

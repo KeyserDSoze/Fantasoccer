@@ -29,7 +29,7 @@ public sealed partial class WorkspaceApiTests
             var club = new FootballClub { Name = "Formation automation home", Abbreviation = "fah" }; var away = new FootballClub { Name = "Formation automation away", Abbreviation = "faa" };
             var player = new FootballPlayer { Name = "Automatic player " + Guid.NewGuid().ToString("N") };
             database.Clubs.AddRange(club, away); database.Players.Add(player);
-            database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
+            database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = PlayerPosition.Forward });
             var seasonal = await database.RosterSnapshots.SingleAsync(x => x.TeamId == team && x.Kind == RosterKind.Season);
             seasonal.MoneyFromRank = 30; seasonal.MarketBalanceAdjustment = -5;
             seasonal.Players.Add(new() { Ordinal = 0, Player = player, Club = club, Price = 50, Position = 11, PlayerRole = 3 });

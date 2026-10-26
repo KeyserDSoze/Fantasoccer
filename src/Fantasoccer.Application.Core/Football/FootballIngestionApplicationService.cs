@@ -92,11 +92,13 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var active = new HashSet<Guid>();
         foreach (var sample in parsed)
         {
-            var person = Person(sample, players);
+            ValidatePlayer(sample);
+            var row = existing.SingleOrDefault(x => x.NormalizedName == sample.Key);
+            var person = row?.Player ?? Person(sample, players);
             var club = Club(sample.RealTeam, clubs);
             active.Add(person.Id);
-            var row = existing.SingleOrDefault(x => x.PlayerId == person.Id);
-            if (row is null) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year });
+            if (row is null && existing.Any(x => x.PlayerId == person.Id)) throw Invalid("La PlayerKey stagionale è cambiata: serve una riconciliazione esplicita.");
+            if (row is null) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year, NormalizedName = sample.Key });
             row.Club = club; row.Position = (PlayerPosition)sample.Role; row.IsActive = true; row.IsVisible = sample.Visible;
         }
         foreach (var row in existing.Where(x => !active.Contains(x.PlayerId))) row.IsActive = false;
@@ -125,11 +127,14 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         await SeasonAsync(year, cancellationToken);
         var players = await database.Players.ToArrayAsync(cancellationToken); var clubs = await database.Clubs.ToArrayAsync(cancellationToken);
         var source = final ? FootballVoteSource.Official : FootballVoteSource.Live;
+        var identities = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         var rows = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).ToArrayAsync(cancellationToken);
         var received = new HashSet<Guid>();
         foreach (var sample in samples)
         {
-            var person = Person(sample, players); var club = Club(sample.RealTeam, clubs); received.Add(club.Id);
+            ValidatePlayer(sample);
+            var person = identities.SingleOrDefault(x => x.NormalizedName == sample.Key)?.Player ?? Person(sample, players);
+            var club = Club(sample.RealTeam, clubs); received.Add(club.Id);
             await PlayerSeasonAsync(person, club, sample, year, cancellationToken);
             var row = rows.SingleOrDefault(x => x.PlayerId == person.Id);
             if (row is null) database.FootballVotes.Add(row = new() { Player = person, SeasonIndex = year, Day = day, Source = source });
@@ -163,7 +168,7 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var existing = await database.FootballChances.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
         foreach (var player in players.Where(x => x.ClubId != null))
         {
-            var found = samples.Where(x => x.Key == KeyUtils.GetPlayerKey(player.Player.Name)).ToArray();
+            var found = samples.Where(x => x.Key == player.NormalizedName).ToArray();
             var row = existing.SingleOrDefault(x => x.PlayerId == player.PlayerId);
             if (row is null) database.FootballChances.Add(row = new() { SeasonIndex = year, Day = day, PlayerId = player.PlayerId });
             row.ClubId = player.ClubId!.Value; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
@@ -176,15 +181,21 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
     private async Task PlayerSeasonAsync(FootballPlayer person, FootballClub club, RealPlayer sample, int year, CancellationToken cancellationToken)
     {
         if (!database.PlayerSeasons.Local.Any(x => x.PlayerId == person.Id && x.SeasonIndex == year) && !await database.PlayerSeasons.AnyAsync(x => x.PlayerId == person.Id && x.SeasonIndex == year, cancellationToken))
-            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, Position = (PlayerPosition)sample.Role, IsActive = sample.IsActive, IsVisible = sample.Visible });
+            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, NormalizedName = sample.Key,
+                Position = (PlayerPosition)sample.Role, IsActive = sample.IsActive, IsVisible = sample.Visible });
     }
     private FootballPlayer Person(RealPlayer sample, FootballPlayer[] players)
     {
-        if (string.IsNullOrWhiteSpace(sample.Name) || sample.Role is < Role.Undefined or > Role.Forward) throw Invalid("Giocatore del provider non valido.");
+        ValidatePlayer(sample);
         var matches = players.Concat(database.Players.Local).Distinct().Where(x => KeyUtils.GetPlayerKey(x.Name) == sample.Key).ToArray();
         if (matches.Length > 1) throw Invalid("Identità del giocatore ambigua.");
         if (matches.Length == 1) return matches[0];
         var player = new FootballPlayer { Name = sample.Name.Trim() }; database.Players.Add(player); return player;
+    }
+    private static void ValidatePlayer(RealPlayer sample)
+    {
+        if (string.IsNullOrWhiteSpace(sample?.Name) || string.IsNullOrWhiteSpace(sample.Key) || sample.Role is < Role.Undefined or > Role.Forward)
+            throw Invalid("Giocatore del provider non valido.");
     }
     private FootballClub Club(RealTeam sample, FootballClub[] clubs)
     {

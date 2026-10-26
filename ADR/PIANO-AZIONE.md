@@ -262,6 +262,12 @@ Ogni riga autorizzata è conservata integralmente in SQL `UnresolvedPlayerCatalo
 
 Report e mapping esplicitano il conteggio e i riferimenti hash; sorgente/dump restano invariati e la completezza resta falsa. La nuova tabella viene applicata senza reset; import/reimport sono atomici e limitati alla sorgente, il downgrade rifiuta di perdere righe e restano i guard su target e scritture applicative. La riconciliazione delle identità irrisolte resta un'attività successiva, non una correzione indovinata.
 
+### PlayerKey autorevole per stagione, GUID per le dipendenze
+
+Il gestore ha confermato la disambiguazione dei nomi della fonte fantacalcio.it e richiesto una chiave leggibile anno/nome normalizzato indicizzata. `PlayerSeasons` mantiene la PK `(PlayerId, SeasonIndex)` e aggiunge `NormalizedName` e `PlayerKey` generata `<anno>:<nomeNormalizzato>` con indice UNIQUE: l'unicità della fonte è un vincolo SQL, non una deduzione per club/ruolo. I GUID e le FK delle rose/voti/statistiche restano invariati. Catalogo e letture stagionali espongono la chiave e il lookup restituisce l'ID già usato dalle dipendenze.
+
+La normalizzazione legacy e gli alias compatibili di ricerca/immagini non vengono sostituiti con decodifiche o merge automatici. Il backfill privilegia le chiavi storiche registrate, rifiuta casi non verificabili/collisioni senza riassegnare identità e non inventa PlayerKey per i record senza nome in archivio irrisolto. Test coprono indice generato, unicità per anno, lookup, FK verso l'anno corretto e conservazione delle dipendenze durante upgrade.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -2,7 +2,11 @@ namespace Fantasoccer.Application.Core.Teams;
 
 public sealed record FootballClubDto(string Name, string Abbreviation);
 public sealed record RosterPlayerDto(Guid PlayerId, int Ordinal, string Name, FootballClubDto Team, int Role, bool IsActive,
-    bool Visible, int Price, int Revenue, int Status, int Position);
+    bool Visible, int Price, int Revenue, int Status, int Position)
+{
+    public int? SeasonIndex { get; init; }
+    public string? PlayerKey { get; init; }
+}
 public sealed record FormationPlayerChangeDto(string Name, int FromPosition, int ToPosition);
 public sealed record FormationChangeDto(string? Date, string Author, FormationPlayerChangeDto[] Players);
 public sealed record TeamRosterDto(Guid TeamId, Guid GroupId, Guid BasketId, int SeasonIndex, int Kind, int Day,

@@ -58,7 +58,7 @@ public sealed partial class WorkspaceApiTests
             {
                 var player = new FootballPlayer { Name = "Market player " + Guid.NewGuid().ToString("N") };
                 database.Players.Add(player);
-                database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = year, Club = club, Position = PlayerPosition.Forward });
+                database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Club = club, Position = PlayerPosition.Forward });
                 var roster = await database.RosterSnapshots.SingleAsync(x => x.GroupId == group.GroupId && x.TeamId == teamIds[i] && x.Kind == RosterKind.Season);
                 roster.Players.Add(new() { Ordinal = 0, Player = player, Club = club, PlayerRole = 3, Price = i == 0 ? 50 : 80, Position = 3, Status = 0 });
                 if (i == 0) roster.Players.Add(new() { Ordinal = 1, Player = player, Club = club, PlayerRole = 3, Price = 10, Revenue = 15, Position = 11, Status = 3 });

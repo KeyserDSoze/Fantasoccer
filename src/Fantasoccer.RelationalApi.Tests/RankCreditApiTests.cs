@@ -35,7 +35,7 @@ public sealed partial class WorkspaceApiTests
             var club = new FootballClub { Name = "Credit club", Abbreviation = "crc" };
             var player = new FootballPlayer { Name = "Credit available player " + Guid.NewGuid().ToString("N") };
             database.Clubs.Add(club); database.Players.Add(player);
-            database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
+            database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = PlayerPosition.Forward });
             database.FantasyStandingSnapshots.Add(new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, SnapshotDay = 0, SerieADay = 3, Stages =
                 [new() { Stage = "@", Teams = [new() { TeamId = team, BasketId = basket, Name = "Credit team", Owner = account.Email, GoalsFor = 4, GoalsAgainst = 3 }] }] });
             await database.SaveChangesAsync();

@@ -46,7 +46,7 @@ public sealed partial class WorkspaceApiTests
                 {
                     var player = new FootballPlayer { Name = "Game player " + Guid.NewGuid().ToString("N") };
                     database.Players.Add(player);
-                    database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 18, Club = club, Position = (PlayerPosition)roles[i] });
+                    database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 18, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Club = club, Position = (PlayerPosition)roles[i] });
                     roster.Players.Add(new() { Ordinal = i, Player = player, Club = club, PlayerRole = roles[i], Status = 0,
                         Price = i + 10, Position = i == 11 ? 5 : roles[i], IsActive = true, IsVisible = true });
                 }
@@ -79,6 +79,10 @@ public sealed partial class WorkspaceApiTests
         response.EnsureSuccessStatusCode();
         var stored = (await response.Content.ReadFromJsonAsync<FormationSavedDto>())!;
         Assert.Equal(1, stored.Team.Version);
+        Assert.All(stored.Team.Players, player =>
+        {
+            Assert.Equal(18, player.SeasonIndex); Assert.Equal(KeyUtils.GetSeasonPlayerKey(player.Name, 18), player.PlayerKey);
+        });
         Assert.Equal(HttpStatusCode.Conflict, (await owner.PutAsJsonAsync(path + "/formation", request)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await opponent.PutAsJsonAsync(path + "/formation", request with { ExpectedVersion = 1 })).StatusCode);
@@ -116,7 +120,7 @@ public sealed partial class WorkspaceApiTests
             var away = new FootballClub { Name = "Shared HTTP away", Abbreviation = "sha" };
             var player = new FootballPlayer { Name = "Shared HTTP player" };
             database.Clubs.AddRange(club, away); database.Players.Add(player);
-            database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 19, Club = club, Position = PlayerPosition.Forward, IsActive = true });
+            database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 19, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Club = club, Position = PlayerPosition.Forward, IsActive = true });
             database.FootballVotes.Add(new() { Player = player, Club = club, SeasonIndex = 19, Day = 2, Source = FootballVoteSource.Official,
                 PlayerRole = 3, VoteRole = 3, Value = 7.5f, HasVote = true, Goals = 1 });
             database.FootballMatchdays.Add(new() { SeasonIndex = 19, SerieADay = 2, Matches =
@@ -127,6 +131,11 @@ public sealed partial class WorkspaceApiTests
         var json = await reader.GetFromJsonAsync<JsonElement>("/api/football/19/days/2/votes/official");
         var voted = json.GetProperty("players")[0];
         Assert.True(voted.TryGetProperty("playerId", out _));
+        Assert.Equal(19, voted.GetProperty("seasonIndex").GetInt32());
+        Assert.Equal("19:sharedhttpplayer", voted.GetProperty("playerKey").GetString());
+        var found = (await reader.GetFromJsonAsync<FootballPlayerDto>("/api/football/19/players/by-key/19%3Asharedhttpplayer"))!;
+        Assert.Equal(voted.GetProperty("playerId").GetGuid(), found.PlayerId); Assert.Equal("19:sharedhttpplayer", found.PlayerKey);
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.GetAsync("/api/football/19/players/by-key/18%3Asharedhttpplayer")).StatusCode);
         Assert.Equal(7.5f, voted.GetProperty("vote").GetProperty("value").GetSingle());
         Assert.False(voted.TryGetProperty("v", out _));
         Assert.Empty((await reader.GetFromJsonAsync<PlayersDto<VotedPlayerDto>>("/api/football/19/days/3/votes/official"))!.Players);

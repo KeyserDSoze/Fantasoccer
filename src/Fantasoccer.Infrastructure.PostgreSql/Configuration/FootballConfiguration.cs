@@ -25,7 +25,7 @@ internal sealed class FootballPlayerConfiguration : IEntityTypeConfiguration<Foo
     {
         builder.ToTable("Players");
         builder.HasKey(x => x.Id);
-        // Names are deliberately not unique: homonyms must not be merged.
+        // Uniqueness is seasonal, enforced by PlayerSeasons.PlayerKey.
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
     }
 }
@@ -44,9 +44,16 @@ internal sealed class PlayerSeasonConfiguration : IEntityTypeConfiguration<Playe
 {
     public void Configure(EntityTypeBuilder<PlayerSeason> builder)
     {
-        builder.ToTable("PlayerSeasons", table => table.HasCheckConstraint("CK_PlayerSeasons_Position",
-            "\"Position\" >= -1 AND \"Position\" <= 3"));
+        builder.ToTable("PlayerSeasons", table =>
+        {
+            table.HasCheckConstraint("CK_PlayerSeasons_Position", "\"Position\" >= -1 AND \"Position\" <= 3");
+            table.HasCheckConstraint("CK_PlayerSeasons_NormalizedName", "\"NormalizedName\" ~ '^[a-z]+$'");
+        });
         builder.HasKey(x => new { x.PlayerId, x.SeasonIndex });
+        builder.Property(x => x.NormalizedName).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.PlayerKey).HasMaxLength(220)
+            .HasComputedColumnSql("\"SeasonIndex\"::text || ':' || \"NormalizedName\"", stored: true);
+        builder.HasIndex(x => x.PlayerKey).IsUnique();
         builder.HasOne(x => x.Player).WithMany(x => x.Seasons).HasForeignKey(x => x.PlayerId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Season).WithMany().HasForeignKey(x => x.SeasonIndex)

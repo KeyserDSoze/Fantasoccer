@@ -32,7 +32,7 @@ public sealed partial class WorkspaceApiTests
             var other = new FootballClub { Name = "Push producer opponent", Abbreviation = "ppo" };
             var person = new FootballPlayer { Name = "Push producer " + Guid.NewGuid().ToString("N") };
             database.Clubs.AddRange(club, other); database.Players.Add(person);
-            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
+            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = PlayerPosition.Forward });
             database.FootballMatchdays.Add(new() { SeasonIndex = year, SerieADay = 33, Matches =
                 [new() { SeasonIndex = year, SerieADay = 33, HomeClub = club, AwayClub = other, KickoffUtc = DateTimeOffset.UtcNow.AddMinutes(-30) }] });
             database.FootballMatchdays.Add(new() { SeasonIndex = year, SerieADay = 34, Matches =

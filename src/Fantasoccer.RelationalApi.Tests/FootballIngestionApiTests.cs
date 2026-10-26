@@ -42,6 +42,16 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             Assert.Equal(2, identities.Length); Assert.Equal(1, await database.FootballMatches.CountAsync());
         }
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).EnsureSuccessStatusCode();
+        var catalogue = (await client.GetFromJsonAsync<PlayersDto<FootballPlayerDto>>($"/api/football/{year}/players"))!;
+        Assert.All(catalogue.Players, player =>
+        {
+            Assert.Equal(year, player.SeasonIndex); Assert.Equal(KeyUtils.GetSeasonPlayerKey(player.Name, year), player.PlayerKey);
+        });
+        sources.InvalidCatalogueRole = true;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
+        sources.InvalidCatalogueRole = false; sources.DuplicateCatalogueKey = true;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
+        sources.DuplicateCatalogueKey = false;
         sources.EmptyCatalogue = true;
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
         sources.EmptyCatalogue = false; sources.IncompleteOfficial = true;
@@ -67,11 +77,19 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
     {
         public bool EmptyCatalogue { get; set; }
         public bool IncompleteOfficial { get; set; }
+        public bool InvalidCatalogueRole { get; set; }
+        public bool DuplicateCatalogueKey { get; set; }
         private static RealPlayer[] Players => [new() { Name = "Ingestion forward", RealTeam = new() { Name = "Ingestion home", Abbreviation = "inh" }, Role = Role.Forward, IsActive = true },
             new() { Name = "Ingestion defender", RealTeam = new() { Name = "Ingestion away", Abbreviation = "ina" }, Role = Role.Defensor, IsActive = true }];
         public Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38) => Task.FromResult(new RealCalendar { Year = FantacalcioTime.ActualYear, Days =
             [new() { Year = FantacalcioTime.ActualYear, SerieADay = 1, Games = [new() { Home = Players[0].RealTeam, Away = Players[1].RealTeam, Date = FantacalcioTime.ItalyNow.Date.AddDays(-1).AddHours(12), HomeGoal = 1, AwayGoal = 0 }] }] });
-        public Task<List<RealPlayer>> GetAsync() => Task.FromResult(EmptyCatalogue ? new List<RealPlayer>() : Players.ToList());
+        public Task<List<RealPlayer>> GetAsync()
+        {
+            var players = EmptyCatalogue ? new List<RealPlayer>() : Players.ToList();
+            if (InvalidCatalogueRole) players[0].Role = (Role)99;
+            if (DuplicateCatalogueKey) players.Add(new() { Name = "INGESTION-FORWARD", RealTeam = Players[0].RealTeam, Role = Role.Forward });
+            return Task.FromResult(players);
+        }
         public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
             { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } }).ToList());
     }

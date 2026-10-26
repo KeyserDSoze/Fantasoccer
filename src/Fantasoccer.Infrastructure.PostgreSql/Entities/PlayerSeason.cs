@@ -15,6 +15,10 @@ public sealed class PlayerSeason
 {
     public Guid PlayerId { get; set; }
     public int SeasonIndex { get; set; }
+    // The provider's normalized name is authoritative within this season.
+    // PlayerId remains the technical identity used by every foreign key.
+    public required string NormalizedName { get; set; }
+    public string PlayerKey { get; private set; } = null!;
     public Guid? ClubId { get; set; }
     public PlayerPosition Position { get; set; } = PlayerPosition.Undefined;
     public bool IsActive { get; set; }

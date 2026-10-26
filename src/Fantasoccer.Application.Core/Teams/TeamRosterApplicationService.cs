@@ -162,11 +162,15 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
         current = current && !metadata.IsArchived && metadata.Owners.Any(x => x.IsPrimary);
         var owner = current ? metadata.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference
             : (await database.Users.SingleAsync(x => x.Id == row.OwnerUserId, cancellationToken)).OwnerReference;
+        var ids = row.Players.Select(x => x.PlayerId).ToArray();
+        var keys = await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == row.SeasonIndex && ids.Contains(x.PlayerId))
+            .ToDictionaryAsync(x => x.PlayerId, x => x.PlayerKey, cancellationToken);
         return new(row.TeamId, row.GroupId, row.BasketId, row.SeasonIndex, (int)row.Kind, row.Day, row.LeagueId,
             current ? metadata.Name : row.Name, owner,
             current ? metadata.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).ToArray() : row.AdditionalOwners.Select(x => x.User.OwnerReference).ToArray(),
             row.Players.OrderBy(x => x.Ordinal).Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, x.Player.Name,
-                new(x.Club.Name, x.Club.Abbreviation), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)).ToArray(),
+                new(x.Club.Name, x.Club.Abbreviation), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
+                { SeasonIndex = row.SeasonIndex, PlayerKey = keys[x.PlayerId] }).ToArray(),
             row.MoneyFromRank, row.OpeningCompetitionPrize, row.LastUpdateUtc?.ToString("O") ?? row.LegacyLastUpdateLocal?.ToString("s"), row.FormationChanges,
             row.FormationHistory.OrderBy(x => x.Ordinal).Select(x => new FormationChangeDto(x.DateUtc?.ToString("O") ?? x.LegacyDateLocal?.ToString("s"), x.Author,
                 x.Players.OrderBy(player => player.Ordinal).Select(player => new FormationPlayerChangeDto(player.PlayerName, player.FromPosition, player.ToPosition)).ToArray())).ToArray(), row.Version,

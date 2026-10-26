@@ -37,7 +37,7 @@ public sealed partial class WorkspaceApiTests
             for (var i = 0; i < 2; i++)
             {
                 var player = new FootballPlayer { Name = "Image HTTP " + Guid.NewGuid().ToString("N") }; database.Players.Add(player);
-                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
+                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = PlayerPosition.Forward });
                 roster.Players.Add(new() { Ordinal = i, Player = player, Club = club, PlayerRole = 3 });
                 await database.SaveChangesAsync(); ids.Add(player.Id);
             }

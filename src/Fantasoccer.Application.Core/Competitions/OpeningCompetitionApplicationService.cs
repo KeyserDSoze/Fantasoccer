@@ -46,7 +46,8 @@ public sealed class OpeningCompetitionApplicationService(FantasoccerDbContext da
                 foreach (var player in source.Players.DistinctBy(x => x.PlayerId))
                     if (!database.PlayerSeasons.Local.Any(x => x.PlayerId == player.PlayerId && x.SeasonIndex == year) &&
                         !await database.PlayerSeasons.AnyAsync(x => x.PlayerId == player.PlayerId && x.SeasonIndex == year, cancellationToken))
-                        database.PlayerSeasons.Add(new() { PlayerId = player.PlayerId, SeasonIndex = year, ClubId = player.ClubId, Position = (PlayerPosition)player.PlayerRole,
+                        database.PlayerSeasons.Add(new() { PlayerId = player.PlayerId, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Player.Name),
+                            ClubId = player.ClubId, Position = (PlayerPosition)player.PlayerRole,
                             IsActive = player.IsActive, IsVisible = player.IsVisible });
                 database.RosterSnapshots.Add(snapshot); opening.Add(snapshot);
             }

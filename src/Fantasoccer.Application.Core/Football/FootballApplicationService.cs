@@ -21,7 +21,19 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
             .Where(x => x.SeasonIndex == year).OrderBy(x => x.Position).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync("realplayerswrapper", year, 0, cancellationToken)) return null;
         return new(rows.Select(x => new FootballPlayerDto(x.PlayerId, x.Player.Name, x.Club is null ? null : FootballMapping.Club(x.Club),
-            (int)x.Position, x.IsActive, x.IsVisible)).ToArray());
+            (int)x.Position, x.IsActive, x.IsVisible) { SeasonIndex = x.SeasonIndex, PlayerKey = x.PlayerKey }).ToArray());
+    }
+
+    public async Task<FootballPlayerDto?> PlayerByKeyAsync(ClaimsPrincipal caller, int year, string playerKey, CancellationToken cancellationToken = default)
+    {
+        await AccessAsync(caller, year, cancellationToken);
+        var prefix = year.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":";
+        if (!playerKey.StartsWith(prefix, StringComparison.Ordinal) || playerKey.Length <= prefix.Length ||
+            playerKey[prefix.Length..].Any(x => x is < 'a' or > 'z')) throw Invalid();
+        var row = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
+            .SingleOrDefaultAsync(x => x.PlayerKey == playerKey && x.SeasonIndex == year, cancellationToken);
+        return row is null ? null : new(row.PlayerId, row.Player.Name, row.Club is null ? null : FootballMapping.Club(row.Club),
+            (int)row.Position, row.IsActive, row.IsVisible) { SeasonIndex = row.SeasonIndex, PlayerKey = row.PlayerKey };
     }
 
     public async Task<FootballCalendarDto?> CalendarAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
@@ -41,7 +53,9 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync(source.ToString().ToLowerInvariant(), year, day, cancellationToken)) return null;
-        return new(rows.Select(x => new VotedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))).ToArray());
+        var keys = await SeasonKeysAsync(year, cancellationToken);
+        return new(rows.Select(x => new VotedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))
+            { SeasonIndex = year, PlayerKey = keys[x.PlayerId] }).ToArray());
     }
 
     public async Task<PlayersDto<ChancedPlayerDto>?> ChancesAsync(ClaimsPrincipal caller, int year, int day, CancellationToken cancellationToken = default)
@@ -50,7 +64,9 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballChances.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync("chancedrealplayerwrapper", year, day, cancellationToken)) return null;
-        return new(rows.Select(x => new ChancedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Chance(x))).ToArray());
+        var keys = await SeasonKeysAsync(year, cancellationToken);
+        return new(rows.Select(x => new ChancedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Chance(x))
+            { SeasonIndex = year, PlayerKey = keys[x.PlayerId] }).ToArray());
     }
 
     public async Task<PlayersDto<StatisticPlayerDto>?> StatisticsAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
@@ -59,11 +75,12 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballPlayerStatistics.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year).OrderBy(x => x.Player.Name).AsSplitQuery().ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync("statplayerswrapper", year, 0, cancellationToken)) return null;
+        var keys = await SeasonKeysAsync(year, cancellationToken);
         return new(rows.Select(x => new StatisticPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible,
             x.Summatory, x.FantaSummatory, x.WithVote, x.WithoutVote, x.NoPlayed, x.WithSpecial, x.Goals, x.Penalties, x.Assists, x.StoppedPenalties,
             x.SufferedGoals, x.WrongedPenalties, x.OwnGoals, x.YellowCards, x.RedCards, x.EnoughVotes, x.ManOfTheMatch, x.Injured,
             x.Games.OrderBy(game => game.Ordinal).Select(game => new StatisticGameDto(game.Day, game.Vote, game.Positiveness)).ToArray(),
-            x.HasDescription ? new(x.DescriptionTop, x.DescriptionDown) : null)).ToArray());
+            x.HasDescription ? new(x.DescriptionTop, x.DescriptionDown) : null) { SeasonIndex = year, PlayerKey = keys[x.PlayerId] }).ToArray());
     }
 
     public async Task<ClubStandingsDto?> RankAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
@@ -96,6 +113,8 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
     }
     private Task<bool> ExistsAsync(string kind, int year, int day, CancellationToken cancellationToken) =>
         database.FootballDatasets.AnyAsync(x => x.Kind == kind && x.SeasonIndex == year && x.Day == day, cancellationToken);
+    private Task<Dictionary<Guid, string>> SeasonKeysAsync(int year, CancellationToken cancellationToken) => database.PlayerSeasons
+        .AsNoTracking().Where(x => x.SeasonIndex == year).ToDictionaryAsync(x => x.PlayerId, x => x.PlayerKey, cancellationToken);
     private static void CheckDay(int day) { if (day is < 1 or > 38) throw Invalid(); }
     private static ApplicationFault Invalid() => new(400, "invalid_football_context", "Stagione, giornata o sorgente non valida.");
 }

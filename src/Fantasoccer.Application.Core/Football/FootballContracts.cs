@@ -3,8 +3,11 @@ namespace Fantasoccer.Application.Core.Football;
 public sealed record ClubDto(Guid ClubId, string Name, string Abbreviation);
 public record FootballPlayerDto(Guid PlayerId, string Name, ClubDto? RealTeam, int Role, bool IsActive, bool IsVisible)
 {
-    // Display/search alias only; writes identify players exclusively by PlayerId.
+    // Legacy name-only search/image alias. PlayerKey is the indexed seasonal key;
+    // writes and foreign keys continue to identify players by ID and season.
     public string Key => KeyUtils.GetPlayerKey(Name);
+    public int? SeasonIndex { get; init; }
+    public string? PlayerKey { get; init; }
     public string RoleLabel => ((Role)Role).AsString();
 }
 public sealed record PlayersDto<T>(T[] Players);

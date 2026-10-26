@@ -48,7 +48,7 @@ public sealed partial class WorkspaceApiTests
                 var club = clubs[index++];
                 var player = new FootballPlayer { Name = "Lifecycle keeper " + Guid.NewGuid().ToString("N") };
                 database.Players.Add(player);
-                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = 20, Position = PlayerPosition.Goalkeeper });
+                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = 20, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = PlayerPosition.Goalkeeper });
                 database.FootballVotes.Add(new() { Player = player, Club = club, SeasonIndex = 20, Day = 4, Source = FootballVoteSource.Official, Value = 6,
                     PlayerRole = 0, VoteRole = 0, HasVote = true, IsFinal = true });
                 database.RosterSnapshots.Add(new() { GroupId = group.GroupId, BasketId = basket, SeasonIndex = 20, TeamOriginYear = 20,

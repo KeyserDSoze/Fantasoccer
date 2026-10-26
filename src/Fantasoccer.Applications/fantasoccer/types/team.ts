@@ -93,6 +93,8 @@ export interface RealPlayer {
 
 export interface Player extends RealPlayer {
   playerId?: string
+  seasonIndex?: number | null
+  playerKey?: string | null
   ordinal?: number
   price: number
   revenue: number

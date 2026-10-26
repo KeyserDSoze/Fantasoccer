@@ -54,7 +54,7 @@ public sealed partial class WorkspaceApiTests
             {
                 var person = new FootballPlayer { Name = "Auction runtime " + Guid.NewGuid().ToString("N") };
                 database.Players.Add(person);
-                database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward, IsActive = true });
+                database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = PlayerPosition.Forward, IsActive = true });
                 await database.SaveChangesAsync(); players.Add(person.Id);
             }
         }

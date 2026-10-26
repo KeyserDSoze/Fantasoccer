@@ -257,7 +257,7 @@ public sealed partial class WorkspaceApiTests
             {
                 var person = new FootballPlayer { Name = "Formation player " + Guid.NewGuid().ToString("N") };
                 database.Players.Add(person);
-                database.PlayerSeasons.Add(new() { Player = person, SeasonIndex = 17, Club = club, Position = (PlayerPosition)roles[index], IsActive = true });
+                database.PlayerSeasons.Add(new() { Player = person, SeasonIndex = 17, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Club = club, Position = (PlayerPosition)roles[index], IsActive = true });
                 roster.Players.Add(new() { Ordinal = index, Player = person, Club = club, PlayerRole = roles[index], IsActive = true,
                     IsVisible = true, Price = 10 + index, Status = 0, Position = index == 11 ? 5 : roles[index] });
             }

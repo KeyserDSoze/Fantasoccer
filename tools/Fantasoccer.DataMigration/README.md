@@ -69,6 +69,10 @@ Il report espone `resolvedPlayerCatalogs` e `unresolvedPlayerCatalogEntries`, av
 
 ## Riconciliazioni e artefatti conservati
 
+### Identità stagionale indicizzata dei calciatori
+
+I record validi producono `PlayerSeasons.NormalizedName` con la normalizzazione legacy e una `PlayerKey` SQL generata `<anno>:<nomeNormalizzato>`, indicizzata univocamente. GUID e FK `(PlayerId, SeasonIndex)` restano invariati: la chiave leggibile consente il lookup della stessa identità, non crea un altro calciatore o collegamenti tramite nomi liberi. La migration preserva le chiavi già mappate e rifiuta collisioni/backfill non verificabili senza merge. Gli irrisolti non ricevono PlayerKey fittizie. Vedere [contratto dei calciatori](../../docs/PLAYER-IDENTITY.md).
+
 ### Escludere le vecchie aste senza fornire le chiavi legacy
 
 Nel `.env` privato imposta `IMPORT_LEGACY_AUCTIONS=false`: analisi e import omettono **sia `auction` sia `randomizedplayers`** prima di decodificare i documenti. Puoi lasciare vuoti `LEGACY_ENCRYPTION_KEY` e `LEGACY_ENCRYPTION_IV`. Con CLI .NET diretta l'opzione corrispondente è `FANTASOCCER_IMPORT_LEGACY_AUCTIONS=false`. Il default è `true`: l'assenza delle chiavi non causa omissioni silenziose.

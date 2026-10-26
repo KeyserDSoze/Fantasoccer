@@ -43,7 +43,7 @@ public sealed partial class WorkspaceApiTests
             {
                 var person = new FootballPlayer { Name = "Opening player " + Guid.NewGuid().ToString("N") };
                 database.Players.Add(person);
-                database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = 21, Position = (PlayerPosition)roles[i] });
+                database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = 21, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = (PlayerPosition)roles[i] });
                 source.Players.Add(new() { Ordinal = i, Player = person, Club = club, PlayerRole = roles[i], Status = 0, Position = roles[i], Price = 10 });
             }
             database.FootballMatchdays.Add(new() { SeasonIndex = 22, SerieADay = 1, Matches =

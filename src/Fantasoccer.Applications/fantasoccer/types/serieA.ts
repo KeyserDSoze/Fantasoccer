@@ -8,7 +8,7 @@ export interface RealDay { year: number; serieADay: number; games: RealGame[] }
 export interface RealCalendar { year: number; days: RealDay[] }
 export interface RealRankedTeam { clubId?: string; name: string; points: number; victories: number; draws: number; defeats: number; goalsFor: number; goalsAgainst: number; goalDifference: number; played: number }
 export interface RealRank { teams: RealRankedTeam[] }
-export interface RealPlayer { playerId?: string; name: string; key: string; realTeam: RealTeam; role: Role; roleLabel: string; isActive: boolean; isVisible: boolean }
+export interface RealPlayer { playerId?: string; seasonIndex?: number | null; playerKey?: string | null; name: string; key: string; realTeam: RealTeam; role: Role; roleLabel: string; isActive: boolean; isVisible: boolean }
 export interface RealPlayersWrapper { players: RealPlayer[] }
 export type RealPlayerRoleBuckets = Partial<Record<Role, RealPlayer[]>>
 export interface EnhancedRealPlayersWrapper extends RealPlayersWrapper { activePlayers: RealPlayer[]; inactivePlayers: RealPlayer[]; playersByRole: RealPlayerRoleBuckets; hasVisiblePlayers: boolean }

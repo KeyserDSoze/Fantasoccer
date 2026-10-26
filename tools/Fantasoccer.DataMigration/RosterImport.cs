@@ -48,7 +48,7 @@ public sealed partial class CoreDatasetImporter
             if (root && !authoritative.Add(identity)) throw new CoreImportException("duplicate_player_season");
             if (!seasons.TryGetValue(identity, out var row))
             {
-                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = Club(player.RealTeam),
+                row = new() { PlayerId = playerId, SeasonIndex = year, NormalizedName = player.Key, ClubId = Club(player.RealTeam),
                     Position = (PlayerPosition)(int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible };
                 seasons.Add(identity, row); plan.PlayerSeasons.Add(row);
             }
