@@ -10,7 +10,7 @@ services:
       Http__RedirectToHttps: "true"
       Mcp__Enabled: ${MCP_ENABLED:-false}
       Mcp__Issuer: https://localhost:${HTTPS_PORT:-5443}
-      Mcp__FrontendUrl: ${FRONTEND_ORIGIN:-http://localhost:3000}/
+      Mcp__FrontendUrl: ${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT:-3000}}/
       Mcp__CertificatePath: /https/localhost.pfx
       Mcp__CertificatePassword: ${LOCAL_HTTPS_CERT_PASSWORD:-local-https-test-only}
       Mcp__DataProtectionKeyPath: /home/app/.aspnet/DataProtection-Keys

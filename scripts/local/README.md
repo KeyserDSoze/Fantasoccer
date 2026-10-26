@@ -37,7 +37,7 @@ I segreti in `.env` e nell'ambiente dei container sono leggibili dagli utenti co
 
 ### Login e contenuti di gioco
 
-La home e i servizi partono senza credenziali Microsoft. Per accedere ai dati occorrono un dataset importato in PostgreSQL (oppure un invito SQL da un amministratore esistente) e `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` di una registrazione che ammetta `http://localhost:3000/` come redirect. `GLOBAL_ADMIN_EMAIL` identifica l'amministratore globale fidato, non un nome profilo modificabile.
+La home e i servizi partono senza credenziali Microsoft. Per accedere ai dati occorrono un dataset importato in PostgreSQL (oppure un invito SQL da un amministratore esistente) e `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` di una registrazione che ammetta l'origine frontend scelta (default `http://localhost:3000/`) come redirect. `GLOBAL_ADMIN_EMAIL` identifica l'amministratore globale fidato, non un nome profilo modificabile.
 Non viene introdotto un bypass delle policy o un utente super-admin fittizio. Non è ancora disponibile un seed demo completo del gioco.
 Per le liste aste cifrate copiate dalla produzione servono `LEGACY_ENCRYPTION_KEY` e `LEGACY_ENCRYPTION_IV` originali nel `.env` privato: non sono le nuove chiavi applicative `ENCRYPTION_*` generate da `init`. Non sostituire le chiavi reali sull'hosting.
 
@@ -53,7 +53,22 @@ Per le liste aste cifrate copiate dalla produzione servono `LEGACY_ENCRYPTION_KE
 | Azurite Queue / Table | localhost:21001 / localhost:21002 | Account `migrationrestore` e chiave `AZURITE_KEY` |
 
 Tutte le porte pubblicate sono su `127.0.0.1`, non sulla LAN. OTLP è raggiungibile soltanto nella rete Compose.
-`localhost` nei valori `PUBLIC_*` indica il browser Windows, non il container API. Per modificare una porta aggiornare anche URL pubblici, origine CORS e redirect Microsoft corrispondenti, poi ricostruire il frontend.
+Le porte pubblicate sono tutte configurabili nel `.env`: `FRONTEND_PORT`, `API_PORT` (HTTP), `HTTPS_PORT`, `POSTGRES_PORT`, `BLOB_PORT`, `QUEUE_PORT`, `TABLE_PORT` e `DASHBOARD_PORT`. Gli URL predefiniti per API, Blob, CORS, redirect Microsoft e frontend MCP sono derivati automaticamente da queste porte. `PUBLIC_API_URL`, `PUBLIC_BLOB_URL` e `FRONTEND_ORIGIN` servono solo per hostname/reverse proxy personalizzati e, se valorizzati, prevalgono sui default. `localhost` indica il browser/host Windows, non i container.
+
+Esempio di porte alternative, modificando i valori nel `.env`:
+
+```dotenv
+FRONTEND_PORT=3300
+API_PORT=5081
+HTTPS_PORT=5444
+POSTGRES_PORT=25433
+BLOB_PORT=21010
+QUEUE_PORT=21011
+TABLE_PORT=21012
+DASHBOARD_PORT=18889
+```
+
+Poi ricreare i container e il bundle frontend: `.\scripts\local\local.ps1 up -EnvFile .env` oppure `up-https` se usi TLS. Le porte `8080/8443`, `5432`, `10000–10002` e `18888/18889` sono interne alla rete Docker e restano fisse; cambiano le porte host pubblicate. OTLP rimane interno e non è esposto sulla macchina.
 Immagini e loghi sono configurati per Azurite, senza URL fisse allo Storage produttivo. I container file creati dall'app possono essere pubblici sul solo emulatore locale per conservare il comportamento legacy; i documenti applicativi non devono essere resi pubblici.
 
 API Data Protection, PostgreSQL, Azurite e telemetria hanno volumi persistenti distinti. Le nuove chiavi di sessione locali sono indipendenti dalle sessioni reali: dopo restore occorre il login locale.
@@ -74,6 +89,53 @@ Aspire conserva una cronologia locale limitata nel volume `local-telemetry`, non
 
 Fuori dal Compose si può scegliere `Telemetry__Provider=ApplicationInsights` con `ConnectionStrings__AppInsights`, oppure `None`. Il comportamento produttivo non viene cambiato implicitamente.
 MCP applicativo non è la dashboard. Nel Compose HTTP resta disabilitato; per abilitarlo usare il profilo HTTPS descritto sotto, non indebolire il requisito HTTPS del protocollo.
+
+### Debug API in VS Code su Windows
+
+Questa modalità esegue PostgreSQL, Azurite e Dashboard in Docker, ma l'API come processo .NET locale, così i breakpoint di VS Code funzionano. Usa i valori sintetici di `.env.test`; per `.env` privato sostituisci password/chiavi con gli stessi valori del tuo file. Imposta prima le porte desiderate nell'env e riportale nelle variabili PowerShell sotto.
+
+```powershell
+# Nella root repo; scegli .env oppure .env.test
+$envFile = '.env.test'
+docker compose --env-file $envFile up -d --wait postgres azurite dashboard
+
+# Valori da allineare al proprio env file e alle porte selezionate
+$pgPort = 25432; $blobPort = 21000; $queuePort = 21001; $tablePort = 21002; $apiPort = 5080
+$azuriteKey = 'bG9jYWwtdGVzdC1vbmx5'
+$pgPassword = 'local-postgres-test-only'
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+$env:ASPNETCORE_URLS = "http://localhost:$apiPort"
+$env:PostgreSql__Enabled = 'true'
+$env:Integrations__Infrastructure = 'Storage'
+$env:ConnectionStrings__PostgreSql = "Host=localhost;Port=$pgPort;Database=fantasoccer_local;Username=fantasoccer_local;Password=$pgPassword;GSS Encryption Mode=Disable"
+$env:ConnectionStrings__Storage = "DefaultEndpointsProtocol=http;AccountName=migrationrestore;AccountKey=$azuriteKey;BlobEndpoint=http://127.0.0.1:$blobPort/migrationrestore;QueueEndpoint=http://127.0.0.1:$queuePort/migrationrestore;TableEndpoint=http://127.0.0.1:$tablePort/migrationrestore"
+$env:Authorization__GlobalAdministrators__0 = 'admin@example.test'
+$env:Assets__PublicBlobBaseUrl = "http://localhost:$blobPort/migrationrestore"
+$frontendPort = 3000 # allineare a FRONTEND_PORT se personalizzata
+$frontendOrigin = "http://localhost:$frontendPort"
+$env:Cors__Origins__0 = $frontendOrigin
+$env:SocialLogin__Microsoft__RedirectDomains = $frontendOrigin
+$env:Encryption__Key = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+$env:Encryption__IV = 'AAAAAAAAAAAAAAAAAAAAAA=='
+$env:ExternalHttp__Enabled = 'false'; $env:BackgroundJobs__Enabled = 'false'; $env:Push__Enabled = 'false'; $env:Mcp__Enabled = 'false'
+$env:Startup__WarmUpEnabled = 'false'; $env:Http__RedirectToHttps = 'false'; $env:Telemetry__Provider = 'None'
+dotnet run --project src/Fantasoccer.Applications/Fantasoccer.Application.Api --no-launch-profile --urls $env:ASPNETCORE_URLS
+```
+
+L'API applica le migration PostgreSQL all'avvio. Per fermarla premi `Ctrl+C`; per i breakpoint seleziona in VS Code **Run and Debug → Attach to .NET Process** e scegli `Fantasoccer.Application.Api`. Swagger è su `http://localhost:<API_PORT>/swagger` e health su `/health/ready`.
+
+Per il frontend web con hot reload in un secondo terminale (Node/npm richiesti):
+
+```powershell
+cd src/Fantasoccer.Applications/fantasoccer
+npm ci
+$frontendPort = 3000 # scegliere FRONTEND_PORT
+$env:EXPO_PUBLIC_API_URL = 'http://localhost:5080' # sostituire 5080 con API_PORT
+npm run web -- --port $frontendPort
+```
+
+Se usi porte diverse, imposta CORS e redirect Microsoft alla stessa origine frontend e aggiorna `EXPO_PUBLIC_API_URL` come sopra. Per l'app completa in container invece usa `local.ps1 up`; non avviare contemporaneamente l'API host e il servizio `api` Compose sulla stessa porta.
+Per l'app Expo dev-client, scegli la porta esplicitamente con `npm start -- --port 3000` (sostituisci con `FRONTEND_PORT`); lo script non fissa più la porta.
 
 ### HTTPS e MCP locale
 

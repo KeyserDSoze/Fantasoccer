@@ -17,8 +17,8 @@ services:
       context: .
       dockerfile: ops/local/frontend.Dockerfile
       args:
-        EXPO_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:5080}
-        EXPO_PUBLIC_BLOB_URL: ${PUBLIC_BLOB_URL:-http://localhost:21000/migrationrestore}
+        EXPO_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:${API_PORT:-5080}}
+        EXPO_PUBLIC_BLOB_URL: ${PUBLIC_BLOB_URL:-http://localhost:${BLOB_PORT:-21000}/migrationrestore}
         EXPO_PUBLIC_MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-95de3061-5eab-437d-a2cc-6d71cfaef4d1}
         EXPO_PUBLIC_WORKSPACE_ENABLED: "true"
     ports:
@@ -64,12 +64,12 @@ services:
       OpenAi__ApiKey: ${AI_API_KEY:-}
       OpenAi__ModelName: ${AI_MODEL:-}
       Http__RedirectToHttps: "false"
-      Cors__Origins__0: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      Cors__Origins__0: ${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT:-3000}}
       SocialLogin__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-95de3061-5eab-437d-a2cc-6d71cfaef4d1}
       SocialLogin__Microsoft__ClientSecret: ${MICROSOFT_CLIENT_SECRET:-}
-      SocialLogin__Microsoft__RedirectDomains: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      SocialLogin__Microsoft__RedirectDomains: ${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT:-3000}}
       Authorization__GlobalAdministrators__0: ${GLOBAL_ADMIN_EMAIL:-alessandro.rapiti44@gmail.com}
-      Assets__PublicBlobBaseUrl: ${PUBLIC_BLOB_URL:-http://localhost:21000/migrationrestore}
+      Assets__PublicBlobBaseUrl: ${PUBLIC_BLOB_URL:-http://localhost:${BLOB_PORT:-21000}/migrationrestore}
       Encryption__Key: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in env file}
       Encryption__IV: ${ENCRYPTION_IV:?Set ENCRYPTION_IV in env file}
       Mcp__Enabled: ${MCP_ENABLED:-false}
