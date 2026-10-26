@@ -7,6 +7,11 @@ namespace Fantasoccer
         [JsonPropertyName("n")]
         public required string Name { get; set; }
         private string? _abbreviation;
+        private bool _hasExplicitAbbreviation;
+        // Natural SQL identities must not mistake the legacy display fallback
+        // below for an abbreviation actually supplied by the provider/source.
+        [JsonIgnore]
+        public string? ExplicitAbbreviation => _hasExplicitAbbreviation ? _abbreviation : null;
         [JsonPropertyName("a")]
         public string Abbreviation
         {
@@ -17,6 +22,7 @@ namespace Fantasoccer
             set
             {
                 _abbreviation = value;
+                _hasExplicitAbbreviation = true;
             }
         }
     }

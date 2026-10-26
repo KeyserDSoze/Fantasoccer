@@ -89,16 +89,16 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var existing = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         if (existing.Length > 0 && parsed.Count < existing.Count(x => x.IsActive) * 0.8) throw Invalid("Il catalogo del provider è troppo ridotto; nessun giocatore è stato disattivato.");
         var players = await database.Players.ToArrayAsync(cancellationToken); var clubs = await database.Clubs.ToArrayAsync(cancellationToken);
-        var active = new HashSet<Guid>();
+        var active = new HashSet<string>(StringComparer.Ordinal);
         foreach (var sample in parsed)
         {
             ValidatePlayer(sample);
-            var row = existing.SingleOrDefault(x => x.NormalizedName == sample.Key);
+            var row = existing.SingleOrDefault(x => x.PlayerId == sample.Key);
             var person = row?.Player ?? Person(sample, players);
             var club = Club(sample.RealTeam, clubs);
             active.Add(person.Id);
             if (row is null && existing.Any(x => x.PlayerId == person.Id)) throw Invalid("La PlayerKey stagionale è cambiata: serve una riconciliazione esplicita.");
-            if (row is null) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year, NormalizedName = sample.Key });
+            if (row is null) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year });
             row.Club = club; row.Position = (PlayerPosition)sample.Role; row.IsActive = true; row.IsVisible = sample.Visible;
         }
         foreach (var row in existing.Where(x => !active.Contains(x.PlayerId))) row.IsActive = false;
@@ -111,7 +111,7 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
             var changed = false;
             foreach (var player in roster.Players.Where(x => x.Status == 0))
                 if (seasons.TryGetValue(player.PlayerId, out var source) && (player.ClubId != source.ClubId || player.IsActive != source.IsActive))
-                { player.ClubId = source.ClubId!.Value; player.IsActive = source.IsActive; changed = true; }
+                { player.ClubId = source.ClubId!; player.IsActive = source.IsActive; changed = true; }
             if (changed) { roster.Version++; roster.LastUpdateUtc = clock.GetUtcNow(); }
         }
         foreach (var group in rosters.GroupBy(x => x.GroupId)) await availability.SynchronizeFutureAsync(group.Key, year, group.Select(x => x.TeamId).ToArray(), cancellationToken);
@@ -129,11 +129,11 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var source = final ? FootballVoteSource.Official : FootballVoteSource.Live;
         var identities = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         var rows = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).ToArrayAsync(cancellationToken);
-        var received = new HashSet<Guid>();
+        var received = new HashSet<string>(StringComparer.Ordinal);
         foreach (var sample in samples)
         {
             ValidatePlayer(sample);
-            var person = identities.SingleOrDefault(x => x.NormalizedName == sample.Key)?.Player ?? Person(sample, players);
+            var person = identities.SingleOrDefault(x => x.PlayerId == sample.Key)?.Player ?? Person(sample, players);
             var club = Club(sample.RealTeam, clubs); received.Add(club.Id);
             await PlayerSeasonAsync(person, club, sample, year, cancellationToken);
             var row = rows.SingleOrDefault(x => x.PlayerId == person.Id);
@@ -168,10 +168,10 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var existing = await database.FootballChances.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
         foreach (var player in players.Where(x => x.ClubId != null))
         {
-            var found = samples.Where(x => x.Key == player.NormalizedName).ToArray();
+            var found = samples.Where(x => x.Key == player.PlayerId).ToArray();
             var row = existing.SingleOrDefault(x => x.PlayerId == player.PlayerId);
             if (row is null) database.FootballChances.Add(row = new() { SeasonIndex = year, Day = day, PlayerId = player.PlayerId });
-            row.ClubId = player.ClubId!.Value; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
+            row.ClubId = player.ClubId!; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
             row.Fantagazzetta = found.Any(x => x.Chance.Fantagazzetta); row.Gazzetta = found.Any(x => x.Chance.Gazzetta); row.Mediaset = found.Any(x => x.Chance.Mediaset); row.Sky = found.Any(x => x.Chance.Sky);
             row.Status = (int)(found.LastOrDefault()?.Chance.Status ?? ChanceType.Normal); row.Description = found.LastOrDefault()?.Chance.Description;
         }
@@ -181,13 +181,13 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
     private async Task PlayerSeasonAsync(FootballPlayer person, FootballClub club, RealPlayer sample, int year, CancellationToken cancellationToken)
     {
         if (!database.PlayerSeasons.Local.Any(x => x.PlayerId == person.Id && x.SeasonIndex == year) && !await database.PlayerSeasons.AnyAsync(x => x.PlayerId == person.Id && x.SeasonIndex == year, cancellationToken))
-            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year, NormalizedName = sample.Key,
+            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year,
                 Position = (PlayerPosition)sample.Role, IsActive = sample.IsActive, IsVisible = sample.Visible });
     }
     private FootballPlayer Person(RealPlayer sample, FootballPlayer[] players)
     {
         ValidatePlayer(sample);
-        var matches = players.Concat(database.Players.Local).Distinct().Where(x => KeyUtils.GetPlayerKey(x.Name) == sample.Key).ToArray();
+        var matches = players.Concat(database.Players.Local).Distinct().Where(x => x.Id == sample.Key).ToArray();
         if (matches.Length > 1) throw Invalid("Identità del giocatore ambigua.");
         if (matches.Length == 1) return matches[0];
         var player = new FootballPlayer { Name = sample.Name.Trim() }; database.Players.Add(player); return player;
@@ -200,10 +200,13 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
     private FootballClub Club(RealTeam sample, FootballClub[] clubs)
     {
         if (string.IsNullOrWhiteSpace(sample?.Name)) throw Invalid("Squadra reale del provider non valida.");
-        var matches = clubs.Concat(database.Clubs.Local).Distinct().Where(x => string.Equals(x.Name, sample.Name.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        string code;
+        try { code = KeyUtils.GetClubKey(sample.ExplicitAbbreviation, sample.Name); }
+        catch (ArgumentException) { throw Invalid("Codice club del provider non valido: servono tre lettere."); }
+        var matches = clubs.Concat(database.Clubs.Local).Distinct().Where(x => x.Id == code).ToArray();
         if (matches.Length > 1) throw Invalid("Identità della squadra reale ambigua.");
         if (matches.Length == 1) { if (!string.IsNullOrWhiteSpace(sample.Abbreviation)) matches[0].Abbreviation = sample.Abbreviation; return matches[0]; }
-        var club = new FootballClub { Name = sample.Name.Trim(), Abbreviation = sample.Abbreviation ?? "" }; database.Clubs.Add(club); return club;
+        var club = new FootballClub { Id = code, Name = sample.Name.Trim(), Abbreviation = code }; database.Clubs.Add(club); return club;
     }
     private async Task SeasonAsync(int year, CancellationToken cancellationToken)
     { if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == year, cancellationToken)) database.Seasons.Add(new() { SeasonIndex = year, StartYear = year + 2011 }); }
@@ -245,10 +248,10 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var existing = await database.FootballPlayerStatistics.Where(x => x.SeasonIndex == year).AsSplitQuery().ToArrayAsync(cancellationToken);
         foreach (var sample in samples.Players)
         {
-            var player = players.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == sample.Key);
+            var player = players.Single(x => x.PlayerId == sample.Key);
             var row = existing.SingleOrDefault(x => x.PlayerId == player.PlayerId);
             if (row is null) database.FootballPlayerStatistics.Add(row = new() { SeasonIndex = year, PlayerId = player.PlayerId });
-            row.ClubId = player.ClubId!.Value; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
+            row.ClubId = player.ClubId!; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
             row.Summatory = sample.Summatory; row.FantaSummatory = sample.FantaSummatory; row.WithVote = sample.WithVote; row.WithoutVote = sample.WithoutVote; row.NoPlayed = sample.NoPlayed;
             row.WithSpecial = sample.WithSpecial; row.Goals = sample.Goal; row.Penalties = sample.Penalty; row.Assists = sample.Assist; row.StoppedPenalties = sample.StoppedPenalty;
             row.SufferedGoals = sample.SufferedGoal; row.WrongedPenalties = sample.WrongedPenalty; row.OwnGoals = sample.OwnGoal; row.YellowCards = sample.YellowCard; row.RedCards = sample.RedCard;

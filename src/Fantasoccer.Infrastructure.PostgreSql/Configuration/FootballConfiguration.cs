@@ -23,9 +23,10 @@ internal sealed class FootballPlayerConfiguration : IEntityTypeConfiguration<Foo
 {
     public void Configure(EntityTypeBuilder<FootballPlayer> builder)
     {
-        builder.ToTable("Players");
+        builder.ToTable("Players", t => t.HasCheckConstraint("CK_Players_PlayerKey", "\"PlayerKey\" ~ '^[a-z]+$'"));
         builder.HasKey(x => x.Id);
-        // Uniqueness is seasonal, enforced by PlayerSeasons.PlayerKey.
+        builder.Property(x => x.Id).HasColumnName("PlayerKey").HasMaxLength(200).ValueGeneratedNever().UsePropertyAccessMode(PropertyAccessMode.Property);
+        builder.HasIndex(x => x.LegacyId).IsUnique();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
     }
 }
@@ -34,8 +35,10 @@ internal sealed class FootballClubConfiguration : IEntityTypeConfiguration<Footb
 {
     public void Configure(EntityTypeBuilder<FootballClub> builder)
     {
-        builder.ToTable("Clubs");
+        builder.ToTable("Clubs", t => t.HasCheckConstraint("CK_Clubs_ClubCode", "\"ClubCode\" ~ '^[a-z]{3}$'"));
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("ClubCode").HasMaxLength(3).ValueGeneratedNever().UsePropertyAccessMode(PropertyAccessMode.Property);
+        builder.HasIndex(x => x.LegacyId).IsUnique();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
     }
 }
@@ -47,13 +50,8 @@ internal sealed class PlayerSeasonConfiguration : IEntityTypeConfiguration<Playe
         builder.ToTable("PlayerSeasons", table =>
         {
             table.HasCheckConstraint("CK_PlayerSeasons_Position", "\"Position\" >= -1 AND \"Position\" <= 3");
-            table.HasCheckConstraint("CK_PlayerSeasons_NormalizedName", "\"NormalizedName\" ~ '^[a-z]+$'");
         });
         builder.HasKey(x => new { x.PlayerId, x.SeasonIndex });
-        builder.Property(x => x.NormalizedName).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.PlayerKey).HasMaxLength(220)
-            .HasComputedColumnSql("\"SeasonIndex\"::text || ':' || \"NormalizedName\"", stored: true);
-        builder.HasIndex(x => x.PlayerKey).IsUnique();
         builder.HasOne(x => x.Player).WithMany(x => x.Seasons).HasForeignKey(x => x.PlayerId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Season).WithMany().HasForeignKey(x => x.SeasonIndex)

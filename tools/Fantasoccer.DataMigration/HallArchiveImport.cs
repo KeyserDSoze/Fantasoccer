@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadHallArchives(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, PlayerSource, Guid> player, Func<RealTeam?, Guid> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
+        Func<RealPlayer, PlayerSource, string> player, Func<RealTeam?, string> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId ?? throw new CoreImportException("missing_hall_reference");
         foreach (var document in dataset.Documents.Where(x => x.Container == "halloffame"))

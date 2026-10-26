@@ -169,10 +169,10 @@ public sealed class RelationalFoundationTests(PostgreSqlFixture fixture) : IClas
         await using var transaction = await database.Database.BeginTransactionAsync();
         var season = new Season { SeasonIndex = 15, StartYear = 2026 };
         var first = new PlayerSeason { Player = new() { Name = "Same name" }, Season = season, NormalizedName = "samename" };
-        database.PlayerSeasons.AddRange(first, new() { Player = new() { Name = "Same name" },
+        database.PlayerSeasons.AddRange(first, new() { Player = first.Player,
             Season = new() { SeasonIndex = 16, StartYear = 2027 }, NormalizedName = "samename" });
         await database.SaveChangesAsync();
-        Assert.Equal(2, await database.Players.CountAsync());
+        Assert.Equal(1, await database.Players.CountAsync());
         database.ChangeTracker.Clear();
         database.PlayerSeasons.Add(new() { PlayerId = first.PlayerId, SeasonIndex = 15, NormalizedName = "samename" });
         await AssertSqlStateAsync(database, PostgresErrorCodes.UniqueViolation);

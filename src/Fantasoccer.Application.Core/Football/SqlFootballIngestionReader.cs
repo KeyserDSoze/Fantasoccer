@@ -25,7 +25,7 @@ public sealed class SqlFootballIngestionReader(FantasoccerDbContext database) : 
     public async Task<RealTeamWrapper?> ClubsAsync(int year)
     {
         var ids = await database.FootballMatches.Where(x => x.SeasonIndex == year).Select(x => x.HomeClubId).Union(database.FootballMatches.Where(x => x.SeasonIndex == year).Select(x => x.AwayClubId))
-            .Union(database.PlayerSeasons.Where(x => x.SeasonIndex == year && x.ClubId != null).Select(x => x.ClubId!.Value)).Distinct().ToArrayAsync();
+            .Union(database.PlayerSeasons.Where(x => x.SeasonIndex == year && x.ClubId != null).Select(x => x.ClubId!)).Distinct().ToArrayAsync();
         return new() { Teams = (await database.Clubs.AsNoTracking().Where(x => ids.Contains(x.Id)).OrderBy(x => x.Name).ToArrayAsync()).Select(FootballMapping.DomainClub).ToList() };
     }
 }

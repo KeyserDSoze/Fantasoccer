@@ -8,9 +8,9 @@ namespace Fantasoccer.PostgreSql.Tests;
 public sealed class SeasonPlayerKeyFormatTests
 {
     [Theory]
-    [InlineData("Mario Rossi", 11, "11:mariorossi")]
-    [InlineData("D'Angelo", 12, "12:dangelo")]
-    [InlineData("Named&#x27;", 15, "15:namedx")]
+    [InlineData("Mario Rossi", 11, "11/mariorossi")]
+    [InlineData("D'Angelo", 12, "12/dangelo")]
+    [InlineData("Named&#x27;", 15, "15/namedx")]
     public void Readable_season_keys_retain_the_legacy_normalization(string name, int year, string expected)
         => Assert.Equal(expected, KeyUtils.GetSeasonPlayerKey(name, year));
 
@@ -21,38 +21,70 @@ public sealed class SeasonPlayerKeyFormatTests
         Assert.Throws<ArgumentException>(() => KeyUtils.GetSeasonPlayerKey("12345", 15));
         Assert.Throws<ArgumentOutOfRangeException>(() => KeyUtils.GetSeasonPlayerKey("Player", 0));
     }
+
+    [Fact]
+    public void Club_keys_use_three_letter_codes_and_player_keys_remain_stable_when_display_names_change()
+    {
+        Assert.Equal("nap", KeyUtils.GetClubKey("NAP", "Napoli"));
+        Assert.Equal("nap", KeyUtils.GetClubKey(null, "NAP"));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, "Napoli"));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("N4P", "Napoli"));
+        var legacy = new RealTeam { Name = "Napoli" };
+        Assert.Equal("nap", legacy.Abbreviation); // Existing display behavior is unchanged.
+        Assert.Null(legacy.ExplicitAbbreviation); // But no provider code was supplied.
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(legacy.ExplicitAbbreviation, legacy.Name));
+        legacy.Abbreviation = "NAP";
+        Assert.Equal("nap", KeyUtils.GetClubKey(legacy.ExplicitAbbreviation, legacy.Name));
+        var player = new FootballPlayer { Name = "Provider player" };
+        Assert.Equal("providerplayer", player.Id);
+        player.Name = "Updated display label";
+        Assert.Equal("providerplayer", player.Id);
+        Assert.Null(player.LegacyId);
+        var club = new FootballClub { Name = "Napoli", Abbreviation = "NAP" };
+        Assert.Equal("nap", club.Id);
+        club.Name = "Updated club label"; club.Abbreviation = "other";
+        Assert.Equal("nap", club.Id);
+        Assert.Null(club.LegacyId);
+    }
 }
 
 public sealed class SeasonPlayerKeyTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>
 {
     [PostgreSqlFact]
-    public async Task A_generated_indexed_key_is_unique_by_year_and_normalized_name_not_by_club_role_or_GUID()
+    public async Task Global_player_key_and_composite_year_key_are_real_primary_keys_not_generated_yearly_strings()
     {
         await using var database = fixture.CreateContext();
         await using var transaction = await database.Database.BeginTransactionAsync();
         var first = new PlayerSeason { Player = new() { Name = "Provider player" }, NormalizedName = "providerplayer",
             Season = new() { SeasonIndex = 15, StartYear = 2026 } };
-        var second = new PlayerSeason { Player = new() { Name = "Provider player" }, NormalizedName = "providerplayer",
+        var second = new PlayerSeason { Player = first.Player, NormalizedName = "providerplayer",
             Season = new() { SeasonIndex = 16, StartYear = 2027 } };
         database.PlayerSeasons.AddRange(first, second); await database.SaveChangesAsync();
-        Assert.Equal("15:providerplayer", first.PlayerKey); Assert.Equal("16:providerplayer", second.PlayerKey);
-        Assert.Equal(first.PlayerId, (await database.PlayerSeasons.SingleAsync(x => x.PlayerKey == "15:providerplayer")).PlayerId);
+        Assert.Equal("providerplayer", first.PlayerKey); Assert.Equal(first.PlayerId, second.PlayerId);
+        Assert.Equal(first.PlayerId, (await database.PlayerSeasons.SingleAsync(x => x.PlayerId == "providerplayer" && x.SeasonIndex == 15)).PlayerId);
         var index = await database.Database.SqlQueryRaw<string>("""
-            SELECT indexdef AS "Value" FROM pg_indexes WHERE tablename = 'PlayerSeasons' AND indexname = 'IX_PlayerSeasons_PlayerKey'
+            SELECT indexdef AS "Value" FROM pg_indexes WHERE tablename = 'PlayerSeasons' AND indexname = 'PK_PlayerSeasons'
             """).SingleAsync();
         Assert.Contains("CREATE UNIQUE INDEX", index);
-        database.PlayerSeasons.Add(new() { Player = new() { Name = "PROVIDER-PLAYER" }, NormalizedName = "providerplayer", SeasonIndex = 15 });
+        Assert.Contains("\"PlayerKey\", \"SeasonIndex\"", index);
+        Assert.Equal(0, await database.Database.SqlQueryRaw<int>("""
+            SELECT count(*)::int AS "Value" FROM information_schema.columns
+            WHERE table_schema='public' AND table_name='PlayerSeasons' AND
+                (column_name IN ('NormalizedName','YearlyPlayerKey') OR is_generated='ALWAYS')
+            """).SingleAsync());
+        database.ChangeTracker.Clear();
+        database.PlayerSeasons.Add(new() { PlayerId = "providerplayer", SeasonIndex = 15 });
         var conflict = Assert.IsType<PostgresException>((await Assert.ThrowsAsync<DbUpdateException>(() => database.SaveChangesAsync())).InnerException);
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, conflict.SqlState); Assert.Equal("IX_PlayerSeasons_PlayerKey", conflict.ConstraintName);
+        Assert.Equal(PostgresErrorCodes.UniqueViolation, conflict.SqlState); Assert.Equal("PK_PlayerSeasons", conflict.ConstraintName);
     }
 
     [PostgreSqlFact]
-    public async Task Existing_ID_foreign_keys_reject_a_player_from_another_year_even_when_the_global_ID_exists()
+    public async Task Composite_natural_foreign_keys_reject_a_player_from_another_year_even_when_the_global_key_exists()
     {
         await using var database = fixture.CreateContext();
         await using var transaction = await database.Database.BeginTransactionAsync();
         var person = new FootballPlayer { Name = "Traceable player" };
-        var club = new FootballClub { Name = "Traceable club" };
+        var club = new FootballClub { Name = "Traceable club", Abbreviation = "trc" };
         database.Seasons.AddRange(new() { SeasonIndex = 15, StartYear = 2026 }, new() { SeasonIndex = 16, StartYear = 2027 });
         database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = 15, NormalizedName = "traceableplayer" });
         await database.SaveChangesAsync();
@@ -67,7 +99,7 @@ public sealed class SeasonPlayerKeyTests(PostgreSqlFixture fixture) : IClassFixt
     {
         await using var database = fixture.CreateContext();
         await using var transaction = await database.Database.BeginTransactionAsync();
-        database.PlayerSeasons.Add(new() { Player = new() { Name = "Invalid key player" }, NormalizedName = "",
+        database.PlayerSeasons.Add(new() { Player = new() { Id = "", Name = "Invalid key player" }, NormalizedName = "",
             Season = new() { SeasonIndex = 15, StartYear = 2026 } });
         var conflict = Assert.IsType<PostgresException>((await Assert.ThrowsAsync<DbUpdateException>(() => database.SaveChangesAsync())).InnerException);
         Assert.Equal(PostgresErrorCodes.CheckViolation, conflict.SqlState);

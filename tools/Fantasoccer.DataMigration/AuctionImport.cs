@@ -11,7 +11,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadAuctions(VerifiedJsonDataset dataset, CorePlan plan, CoreImportOptions options,
-        Func<string, string, Guid> map, Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club,
+        Func<string, string, Guid> map, Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club,
         Func<string, string, UserAccount> addUser)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId
@@ -68,9 +68,9 @@ public sealed partial class CoreDatasetImporter
                     CoOwners = (participant.AdditionalOwners ?? []).Select((email, index) => new AuctionLegacyCoOwner { Ordinal = index, Email = email }).ToList() });
             plan.Auctions.Add(auction);
 
-            Guid Identity(string legacyKey)
+            string Identity(string legacyKey)
             {
-                var id = Existing("player", legacyKey);
+                var id = plan.Players.SingleOrDefault(x => x.Id == legacyKey)?.Id ?? throw new CoreImportException("missing_auction_reference");
                 if (!plan.PlayerSeasons.Any(x => x.PlayerId == id && x.SeasonIndex == key.Year)) throw new CoreImportException("missing_auction_player_season");
                 return id;
             }

@@ -67,7 +67,7 @@ public sealed class TeamRosterAvailabilityService(FantasoccerDbContext database,
             row.Version++; row.LastUpdateUtc = clock.GetUtcNow();
         }
     }
-    private static (Guid, int, Guid, int, bool, bool, int, int, int) Signature(RosterPlayer player) =>
+    private static (string, int, string, int, bool, bool, int, int, int) Signature(RosterPlayer player) =>
         (player.PlayerId, player.Ordinal, player.ClubId, player.PlayerRole, player.IsActive, player.IsVisible, player.Price, player.Revenue, player.Status);
     private static ApplicationFault Denied() => new(403, "roster_access_denied", "Non sei autorizzato ad aggiornare la disponibilità di questa rosa.");
 }

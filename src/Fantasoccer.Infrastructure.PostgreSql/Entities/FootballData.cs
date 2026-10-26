@@ -10,11 +10,11 @@ public sealed class FootballDataset
 public enum FootballVoteSource { Live = 0, Notification = 1, Official = 2 }
 public sealed class FootballVote
 {
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public int SeasonIndex { get; set; }
     public int Day { get; set; }
     public FootballVoteSource Source { get; set; }
-    public Guid ClubId { get; set; }
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -40,10 +40,10 @@ public sealed class FootballVote
 
 public sealed class FootballChance
 {
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public int SeasonIndex { get; set; }
     public int Day { get; set; }
-    public Guid ClubId { get; set; }
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -63,9 +63,9 @@ public sealed class FootballChance
 
 public sealed class FootballPlayerStatistic
 {
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public int SeasonIndex { get; set; }
-    public Guid ClubId { get; set; }
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -106,7 +106,7 @@ public sealed class FootballStatisticGame
 public sealed class FootballClubRank
 {
     public int SeasonIndex { get; set; }
-    public Guid ClubId { get; set; }
+    public string ClubId { get; set; } = null!;
     public int Ordinal { get; set; }
     public float Points { get; set; }
     public int Victories { get; set; }

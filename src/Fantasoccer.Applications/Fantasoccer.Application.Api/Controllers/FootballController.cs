@@ -15,6 +15,8 @@ public sealed class FootballController(FootballApplicationService football, Foot
     public async Task<IActionResult> Refresh(RefreshFootballRequest request, CancellationToken cancellationToken)
     { await ingestion.RefreshAsync(User, request, cancellationToken); return NoContent(); }
     [HttpGet("years")] public Task<int[]> Years(CancellationToken cancellationToken) => football.YearsAsync(User, cancellationToken);
+    [HttpGet("players/by-key/{playerKey}")]
+    public Task<PlayerHistoryDto?> PlayerHistory(string playerKey, CancellationToken cancellationToken) => football.PlayerHistoryAsync(User, playerKey, cancellationToken);
     [HttpGet("{year:int}/players")] public Task<PlayersDto<FootballPlayerDto>?> Players(int year, CancellationToken cancellationToken) => football.PlayersAsync(User, year, cancellationToken);
     [HttpGet("{year:int}/players/by-key/{playerKey}")]
     public Task<FootballPlayerDto?> PlayerByKey(int year, string playerKey, CancellationToken cancellationToken) => football.PlayerByKeyAsync(User, year, playerKey, cancellationToken);

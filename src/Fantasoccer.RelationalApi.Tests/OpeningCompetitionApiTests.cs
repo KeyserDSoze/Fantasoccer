@@ -45,6 +45,7 @@ public sealed partial class WorkspaceApiTests
                 database.Players.Add(person);
                 database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = 21, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = (PlayerPosition)roles[i] });
                 source.Players.Add(new() { Ordinal = i, Player = person, Club = club, PlayerRole = roles[i], Status = 0, Position = roles[i], Price = 10 });
+                if (i == 0) person.Name = "Updated opening display label"; // The latched natural key is still authoritative.
             }
             database.FootballMatchdays.Add(new() { SeasonIndex = 22, SerieADay = 1, Matches =
                 [new() { SeasonIndex = 22, SerieADay = 1, Ordinal = 0, HomeClub = club, AwayClub = away, KickoffUtc = DateTimeOffset.UtcNow.AddDays(1) }] });
@@ -73,5 +74,8 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(21, saved.TeamOriginYear);
         Assert.All(saved.Players, x => Assert.Equal(10, x.Price));
         Assert.Equal(11, await final.PlayerSeasons.CountAsync(x => x.SeasonIndex == 22));
+        var updated = await final.Players.SingleAsync(x => x.Name == "Updated opening display label");
+        Assert.NotEqual(KeyUtils.GetPlayerKey(updated.Name), updated.Id);
+        Assert.Equal(new[] { 21, 22 }, await final.PlayerSeasons.Where(x => x.PlayerId == updated.Id).OrderBy(x => x.SeasonIndex).Select(x => x.SeasonIndex).ToArrayAsync());
     }
 }

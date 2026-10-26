@@ -16,7 +16,7 @@ namespace Fantasoccer.RelationalApi.Tests;
 public sealed partial class WorkspaceApiTests
 {
     [PostgreSqlFact]
-    public async Task SQL_player_image_refresh_resolves_UUIDs_on_server_checks_current_ownership_and_returns_partial_batch_failures()
+    public async Task SQL_player_image_refresh_preserves_natural_keys_and_legacy_image_aliases_checks_ownership_and_returns_partial_failures()
     {
         using var owner = await factory.AccountAsync(globalAdmin: true);
         using var member = await factory.AccountAsync();
@@ -29,15 +29,15 @@ public sealed partial class WorkspaceApiTests
         var graph = (await owner.GetFromJsonAsync<GameGroupDto>($"/api/groups/{group.GroupId}"))!;
         var created = await owner.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(graph.Baskets[0].Id, year, "Image team", account.Id, []));
         created.EnsureSuccessStatusCode(); var team = (await created.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
-        var ids = new List<Guid>();
+        var ids = new List<string>();
         await using (var database = factory.Database.CreateContext())
         {
             var club = new FootballClub { Name = "Image HTTP club", Abbreviation = "ihc" }; database.Clubs.Add(club);
             var roster = await database.RosterSnapshots.SingleAsync(x => x.TeamId == team && x.Kind == RosterKind.Season);
             for (var i = 0; i < 2; i++)
             {
-                var player = new FootballPlayer { Name = "Image HTTP " + Guid.NewGuid().ToString("N") }; database.Players.Add(player);
-                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Position = PlayerPosition.Forward });
+                var player = new FootballPlayer { Id = i == 0 ? "recordedimagea" : "recordedimageb", Name = "Image HTTP " + Guid.NewGuid().ToString("N") }; database.Players.Add(player);
+                database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
                 roster.Players.Add(new() { Ordinal = i, Player = player, Club = club, PlayerRole = 3 });
                 await database.SaveChangesAsync(); ids.Add(player.Id);
             }
@@ -49,7 +49,8 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PostAsJsonAsync("/api/player-images/refresh", request)).StatusCode);
         var refreshed = await client.PostAsJsonAsync("/api/player-images/refresh", request);
         refreshed.EnsureSuccessStatusCode();
-        Assert.Equal(ids[0], (await refreshed.Content.ReadFromJsonAsync<RefreshedPlayerImageDto>())!.PlayerId);
+        var single = (await refreshed.Content.ReadFromJsonAsync<RefreshedPlayerImageDto>())!;
+        Assert.Equal(ids[0], single.PlayerId); Assert.Equal(single.PlayerId, single.PlayerKey);
         Assert.Equal(1, source.SingleCalls);
         client.DefaultRequestHeaders.Remove("X-Workspace-User"); client.DefaultRequestHeaders.Add("X-Workspace-User", reader.Email);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/player-images/refresh-team", new RefreshTeamImagesRequest(group.GroupId, year, team))).StatusCode);
@@ -59,6 +60,8 @@ public sealed partial class WorkspaceApiTests
         batch.EnsureSuccessStatusCode(); var summary = (await batch.Content.ReadFromJsonAsync<TeamImagesRefreshedDto>())!;
         Assert.Equal(2, summary.Total); Assert.Single(summary.Succeeded); Assert.Single(summary.Failed);
         Assert.Equal(ids.Order(), summary.Succeeded.Select(x => x.PlayerId).Concat(summary.Failed.Select(x => x.PlayerId)).Order());
+        Assert.All(summary.Succeeded, row => Assert.Equal(row.PlayerId, row.PlayerKey));
+        Assert.All(summary.Failed, row => Assert.Equal(row.PlayerId, row.PlayerKey));
     }
     private sealed class StubImages : IPlayerImageRefresher
     {

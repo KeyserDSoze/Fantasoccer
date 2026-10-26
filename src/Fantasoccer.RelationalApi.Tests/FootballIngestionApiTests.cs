@@ -35,7 +35,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         var calendar = await client.PostAsJsonAsync(path, new RefreshFootballRequest("calendar", year));
         Assert.True(calendar.IsSuccessStatusCode, await calendar.Content.ReadAsStringAsync());
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).EnsureSuccessStatusCode();
-        Guid[] identities;
+        string[] identities;
         await using (var database = factory.Database.CreateContext())
         {
             identities = await database.Players.OrderBy(x => x.Name).Select(x => x.Id).ToArrayAsync();
@@ -45,7 +45,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         var catalogue = (await client.GetFromJsonAsync<PlayersDto<FootballPlayerDto>>($"/api/football/{year}/players"))!;
         Assert.All(catalogue.Players, player =>
         {
-            Assert.Equal(year, player.SeasonIndex); Assert.Equal(KeyUtils.GetSeasonPlayerKey(player.Name, year), player.PlayerKey);
+            Assert.Equal(year, player.SeasonIndex); Assert.Equal(KeyUtils.GetPlayerKey(player.Name), player.PlayerKey);
         });
         sources.InvalidCatalogueRole = true;
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);

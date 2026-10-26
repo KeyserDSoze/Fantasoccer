@@ -24,7 +24,7 @@ public sealed partial class WorkspaceApiTests
         teamResponse.EnsureSuccessStatusCode();
         var team = (await teamResponse.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
         (await owner.PatchAsJsonAsync("/api/push-notifications", new PushPreferencesPatch(DeploymentReminder: true))).EnsureSuccessStatusCode();
-        Guid player;
+        string player;
         await using (var database = factory.Database.CreateContext())
         {
             (await database.Leagues.SingleAsync(x => x.GroupId == group.GroupId && x.LeagueId == league)).IsMain = true;

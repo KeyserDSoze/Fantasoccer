@@ -262,11 +262,19 @@ Ogni riga autorizzata è conservata integralmente in SQL `UnresolvedPlayerCatalo
 
 Report e mapping esplicitano il conteggio e i riferimenti hash; sorgente/dump restano invariati e la completezza resta falsa. La nuova tabella viene applicata senza reset; import/reimport sono atomici e limitati alla sorgente, il downgrade rifiuta di perdere righe e restano i guard su target e scritture applicative. La riconciliazione delle identità irrisolte resta un'attività successiva, non una correzione indovinata.
 
-### PlayerKey autorevole per stagione, GUID per le dipendenze
+### Proposta precedente: PlayerKey stagionale e GUID (superata dal contratto seguente)
 
 Il gestore ha confermato la disambiguazione dei nomi della fonte fantacalcio.it e richiesto una chiave leggibile anno/nome normalizzato indicizzata. `PlayerSeasons` mantiene la PK `(PlayerId, SeasonIndex)` e aggiunge `NormalizedName` e `PlayerKey` generata `<anno>:<nomeNormalizzato>` con indice UNIQUE: l'unicità della fonte è un vincolo SQL, non una deduzione per club/ruolo. I GUID e le FK delle rose/voti/statistiche restano invariati. Catalogo e letture stagionali espongono la chiave e il lookup restituisce l'ID già usato dalle dipendenze.
 
 La normalizzazione legacy e gli alias compatibili di ricerca/immagini non vengono sostituiti con decodifiche o merge automatici. Il backfill privilegia le chiavi storiche registrate, rifiuta casi non verificabili/collisioni senza riassegnare identità e non inventa PlayerKey per i record senza nome in archivio irrisolto. Test coprono indice generato, unicità per anno, lookup, FK verso l'anno corretto e conservazione delle dipendenze durante upgrade.
+
+### Contratto definitivo: PlayerKey globale, coppia anno/PlayerKey e codici club nelle FK
+
+Il gestore ha scelto chiavi naturali reali: `Players.PlayerKey`, `Clubs.ClubCode` (tre lettere) e PK/FK annuali composte da PlayerKey e anno (`SeasonIndex`), senza campo YearlyPlayerKey persistito. Le dipendenze calcistiche vengono convertite dai vecchi UUID a queste chiavi; i GUID rimangono soltanto come `LegacyId` per tracciabilità. I nomi compatibili dei DTO `playerId`/`clubId` contengono ora valori testuali parlanti. La migration verifica prima mappe e collisioni, converte tutti i collegamenti nello stesso confine transazionale e rifiuta merge o UUID trasformati semplicemente in stringhe. Lo schema vuoto può essere downgradato; quello con dati richiede backup verificato.
+
+Il catalogo senza nome non crea anagrafiche: gli originali vengono archiviati automaticamente con payload/hash/posizione, senza perdere duplicati o flag. I pin precedenti diventano asserzioni opzionali e restano verificati se presenti. Le rose possono creare un giocatore globale e/o l'anno mancante da un nome valido; chiavi esplicite devono concordare con il nome, e una chiave già nota può recuperare un'anagrafica verificata. `k` nelle rose compatte è posizione, non identità. Riferimenti irrisolti o contraddittori nelle rose rimangono errori atomici. Il report espone recuperi e archivi senza valori sensibili; sorgente/dump, ruoli e autorizzazioni restano invariati.
+
+Verifica finale su fixture locali: 111 test PostgreSQL/migrazione e 53 test API passati senza skip, 75 test frontend passati, TypeScript senza errori, modello EF allineato e publish Release di API/tool riuscito. Sono coperti conversione di rose/voti/albo popolati, valori economici, GUID di provenienza, collisioni globali e codici club mancanti/duplicati, recuperi da rose, lookup tra anni, FK annuali, alias immagini e idempotenza. Il codice club esplicito è distinto dal fallback di visualizzazione legacy; le classifiche nome-only possono collegarsi soltanto a un'etichetta univoca già dotata di codice verificato. Nessun import/reset sul dump reale né scrittura sulla sorgente; l'accettazione del dataset reale e il cutover restano da approvare.
 
 ## Fase 1 — Inventario e caratterizzazione
 

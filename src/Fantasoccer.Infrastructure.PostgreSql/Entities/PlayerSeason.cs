@@ -13,13 +13,15 @@ public enum PlayerPosition
 // ClubId is the current club, not a substitute for future historical transfer records.
 public sealed class PlayerSeason
 {
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public int SeasonIndex { get; set; }
-    // The provider's normalized name is authoritative within this season.
-    // PlayerId remains the technical identity used by every foreign key.
-    public required string NormalizedName { get; set; }
-    public string PlayerKey { get; private set; } = null!;
-    public Guid? ClubId { get; set; }
+    // CLR aliases keep callers readable while the actual PK/FKs are the natural
+    // (PlayerKey, SeasonIndex) pair. No concatenated yearly key is persisted.
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string PlayerKey => PlayerId;
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string NormalizedName { get => PlayerId; set => PlayerId = value; }
+    public string? ClubId { get; set; }
     public PlayerPosition Position { get; set; } = PlayerPosition.Undefined;
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; } = true;

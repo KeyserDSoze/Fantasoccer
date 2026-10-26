@@ -10,10 +10,10 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadFootballSamples(VerifiedJsonDataset dataset, CorePlan plan,
-        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club, Action<int> season,
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club, Action<int> season,
         Action<string, int, int> root)
     {
-        var votes = new HashSet<(Guid, int, int, FootballVoteSource)>();
+        var votes = new HashSet<(string, int, int, FootballVoteSource)>();
         foreach (var document in dataset.Documents.Where(x => x.Container is "live" or "notification" or "official"))
         {
             var entity = document.Envelope.Deserialize<Entity<VotedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_votes_envelope");
@@ -33,7 +33,7 @@ public sealed partial class CoreDatasetImporter
                     HasVote = vote.HasVote, IsOut = vote.IsOut, IsIn = vote.IsIn, Injured = vote.Injured });
             }
         }
-        var chances = new HashSet<(Guid, int, int)>();
+        var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))
         {
             var entity = document.Envelope.Deserialize<Entity<ChancedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_chance_envelope");
@@ -63,7 +63,7 @@ public sealed partial class CoreDatasetImporter
                 plan.Chances.Add(row);
             }
         }
-        var statistics = new HashSet<(Guid, int)>();
+        var statistics = new HashSet<(string, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "statplayerswrapper"))
         {
             var entity = document.Envelope.Deserialize<Entity<StatPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_statistics_envelope");
@@ -94,11 +94,16 @@ public sealed partial class CoreDatasetImporter
         {
             var entity = document.Envelope.Deserialize<Entity<RealRank, int>>() ?? throw new CoreImportException("invalid_real_rank_envelope");
             season(entity.Key); root(document.Container, entity.Key, 0);
-            var clubs = new HashSet<Guid>();
+            var clubs = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (value, ordinal) in (entity.Value?.Teams ?? throw new CoreImportException("missing_real_rank")).Select((item, ordinal) => (item, ordinal)))
             {
                 if (!float.IsFinite(value.Point)) throw new CoreImportException("invalid_real_rank_points");
-                var id = club(new() { Name = value.Name });
+                // Legacy standings store a display name only. Link an exact,
+                // unambiguous label already carrying a verified code; never
+                // manufacture a code from the first letters of that label.
+                var known = plan.Clubs.Where(x => string.Equals(x.Name, value.Name?.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (known.Length > 1) throw new CoreImportException("ambiguous_real_rank_club");
+                var id = known.Length == 1 ? known[0].Id : club(new() { Name = value.Name! });
                 if (!clubs.Add(id)) throw new CoreImportException("duplicate_real_rank_club");
                 plan.ClubRanks.Add(new() { SeasonIndex = entity.Key, ClubId = id, Ordinal = ordinal, Points = value.Point,
                     Victories = value.Victories, Draws = value.Draws, Defeats = value.Defeats, GoalsFor = value.Goal, GoalsAgainst = value.SufferedGoal, Played = value.Played });

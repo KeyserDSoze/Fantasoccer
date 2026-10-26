@@ -26,18 +26,18 @@ public sealed class AuctionPlayerEntry
 {
     public int Role { get; set; }
     public int Ordinal { get; set; }
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public bool IsShown { get; set; }
 }
 public sealed class AuctionLastShown
 {
     public int Role { get; set; }
-    public Guid? PlayerId { get; set; }
+    public string? PlayerId { get; set; }
 }
 public sealed class AuctionWinning
 {
     public int Ordinal { get; set; }
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public Guid? TeamId { get; set; }
     public Guid? BasketId { get; set; }
     public string? OwnerEmail { get; set; }
@@ -56,8 +56,8 @@ public sealed class AuctionLegacyCoOwner { public int Ordinal { get; set; } publ
 
 public sealed class AuctionCurrentLot
 {
-    public Guid PlayerId { get; set; }
-    public Guid ClubId { get; set; }
+    public string PlayerId { get; set; } = null!;
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -68,7 +68,7 @@ public sealed class AuctionCurrentLot
     public Guid? WinningTeamId { get; set; }
     public Guid? WinningBasketId { get; set; }
     public string? OwnerEmail { get; set; }
-    public Guid? SubstitutedPlayerId { get; set; }
+    public string? SubstitutedPlayerId { get; set; }
     public int Price { get; set; }
     public AuctionPlayerStatistic Statistics { get; set; } = new();
 }
@@ -121,7 +121,7 @@ public sealed class AuctionRosterChange
     public Guid AuctionId { get; set; }
     public Guid TeamId { get; set; }
     public Guid BasketId { get; set; }
-    public Guid PlayerId { get; set; }
+    public string PlayerId { get; set; } = null!;
     public Guid ActorUserId { get; set; }
     public int RosterOrdinal { get; set; }
     public int PreviousStatus { get; set; }

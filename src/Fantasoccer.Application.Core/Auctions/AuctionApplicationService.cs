@@ -65,21 +65,19 @@ public sealed partial class AuctionApplicationService(FantasoccerDbContext datab
             teams.Add(new(new(auction.GroupId, auction.SeasonIndex, team.BasketId, roster.Owner), roster));
         }
         var catalogue = await CatalogueAsync(caller, auction.SeasonIndex, cancellationToken);
-        var playerIds = auction.Winnings.Select(x => x.PlayerId).Concat(auction.Actual?.SubstitutedPlayerId is { } substitute ? [substitute] : []).Distinct().ToArray();
-        var keys = await database.Players.Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => KeyUtils.GetPlayerKey(x.Name), cancellationToken);
         ActualAuctionDto? actual = null;
         if (auction.Actual is { } current)
         {
             var person = await database.Players.AsNoTracking().SingleAsync(x => x.Id == current.PlayerId, cancellationToken);
             var club = await database.Clubs.AsNoTracking().SingleAsync(x => x.Id == current.ClubId, cancellationToken);
             actual = new(Statistic(current, person, club), current.StartedAtUtc, current.TimerStartedAtUtc, current.WinningTeamId, current.OwnerEmail,
-                current.SubstitutedPlayerId, current.SubstitutedPlayerId is { } sub ? keys[sub] : null, current.Price);
+                current.SubstitutedPlayerId, current.SubstitutedPlayerId, current.Price);
         }
         var emails = await ConnectedUsersCoreAsync(auction, cancellationToken);
         var participants = teams.Where(team => emails.Any(email => team.Value.Owner == email || team.Value.AdditionalOwners.Contains(email)))
             .Select(team => new GameAnnualTeamDto(team.Value.Name, team.Value.Owner, team.Value.AdditionalOwners, team.Value.TeamId)).ToArray();
         return new(new(auction.Id, new(auction.GroupId, auction.LeagueId, auction.SeasonIndex), auction.CreatorEmail, auction.CreatedAtUtc, auction.Type, auction.Kind,
-            actual, auction.Winnings.OrderBy(x => x.Ordinal).Select(x => new AuctionWinDto(x.PlayerId, keys[x.PlayerId], x.TeamId, x.OwnerEmail, x.Price)).ToArray(),
+            actual, auction.Winnings.OrderBy(x => x.Ordinal).Select(x => new AuctionWinDto(x.PlayerId, x.PlayerId, x.TeamId, x.OwnerEmail, x.Price)).ToArray(),
             auction.Status, auction.PlayerOrder.GroupBy(x => x.Role).ToDictionary(x => x.Key, x => new AuctionRoleCountDto(x.Count(), x.Count(row => row.IsShown))), participants,
             auction.LastShown.ToDictionary(x => x.Role, x => x.PlayerId), auction.SecondsPerAuction, auction.CurrentRole, auction.Version),
             clock.GetUtcNow(), new(auction.SeasonIndex, season.CompetitionType, LeagueRulesMapping.ToDto(rules)), season.League.Name, teams.ToArray(), catalogue,

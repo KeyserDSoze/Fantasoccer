@@ -50,6 +50,8 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(new[] { 2, 3 }, storedStats.Games.OrderBy(x => x.Ordinal).Select(x => x.Day));
         Assert.Equal("Strength", storedStats.DescriptionTop);
         Assert.Equal(4.5f, (await database.FootballClubRanks.SingleAsync()).Points);
+        Assert.Equal("sam", (await database.Clubs.SingleAsync()).Id);
+        Assert.Equal("sam", (await database.FootballClubRanks.SingleAsync()).ClubId);
         Assert.Equal(storedChance.PlayerId, storedStats.PlayerId);
         var ids = await database.Players.Select(x => x.Id).ToArrayAsync();
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);

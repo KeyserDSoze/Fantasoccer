@@ -8,10 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Football;
 
-public sealed record RefreshPlayerImageRequest(Guid GroupId, int Year, Guid PlayerId);
+public sealed record RefreshPlayerImageRequest(Guid GroupId, int Year, string PlayerId);
 public sealed record RefreshTeamImagesRequest(Guid GroupId, int Year, Guid TeamId);
-public sealed record RefreshedPlayerImageDto(Guid PlayerId, string PlayerKey, string PlayerName, string Revision);
-public sealed record PlayerImageFailureDto(Guid PlayerId, string PlayerKey, string PlayerName, string? Error);
+public sealed record RefreshedPlayerImageDto(string PlayerId, string PlayerKey, string PlayerName, string Revision);
+public sealed record PlayerImageFailureDto(string PlayerId, string PlayerKey, string PlayerName, string? Error);
 public sealed record TeamImagesRefreshedDto(int Total, int SucceededCount, int FailedCount, RefreshedPlayerImageDto[] Succeeded, PlayerImageFailureDto[] Failed);
 
 public sealed class PlayerImagesApplicationService(FantasoccerDbContext database, IAuthorizationService authorization, IPlayerImageRefresher images)
@@ -30,7 +30,7 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { throw new ApplicationFault(504, "image_source_timeout", "La fonte immagini non ha risposto entro il limite."); }
         catch (Exception error) when (error is HttpRequestException or System.Text.Json.JsonException or InvalidDataException)
         { throw new ApplicationFault(502, "image_source_unavailable", "La fonte immagini non è disponibile o ha restituito dati non validi."); }
-        return new(player.PlayerId, KeyUtils.GetPlayerKey(player.Player.Name), player.Player.Name, Guid.NewGuid().ToString("N"));
+        return new(player.PlayerId, player.PlayerId, player.Player.Name, Guid.NewGuid().ToString("N"));
     }
     public async Task<TeamImagesRefreshedDto> RefreshTeamAsync(ClaimsPrincipal caller, RefreshTeamImagesRequest request, CancellationToken cancellationToken = default)
     {
@@ -47,9 +47,11 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
         var active = roster.Players.Where(x => x.Status == 0).DistinctBy(x => x.PlayerId).ToArray();
         var result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.PlayerRole,
             RealTeam = FootballMapping.DomainClub(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
-        Guid Identity(string key) => active.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == key).PlayerId;
-        var succeeded = result.Where(x => x.Succeeded).Select(x => new RefreshedPlayerImageDto(Identity(x.PlayerKey), x.PlayerKey, x.PlayerName, Guid.NewGuid().ToString("N"))).ToArray();
-        var failed = result.Where(x => !x.Succeeded).Select(x => new PlayerImageFailureDto(Identity(x.PlayerKey), x.PlayerKey, x.PlayerName, x.Error)).ToArray();
+        // The image service returns the legacy name-only image alias for the
+        // exact samples we sent. Map it back without changing the domain key.
+        string Identity(string imageAlias) => active.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == imageAlias).PlayerId;
+        var succeeded = result.Where(x => x.Succeeded).Select(x => new RefreshedPlayerImageDto(Identity(x.PlayerKey), Identity(x.PlayerKey), x.PlayerName, Guid.NewGuid().ToString("N"))).ToArray();
+        var failed = result.Where(x => !x.Succeeded).Select(x => new PlayerImageFailureDto(Identity(x.PlayerKey), Identity(x.PlayerKey), x.PlayerName, x.Error)).ToArray();
         return new(result.Count, succeeded.Length, failed.Length, succeeded, failed);
     }
     private async Task MemberAsync(ClaimsPrincipal caller, Guid group)

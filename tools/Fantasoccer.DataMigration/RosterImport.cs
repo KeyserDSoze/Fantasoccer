@@ -13,8 +13,8 @@ public sealed partial class CoreDatasetImporter
     {
         var clubs = new Dictionary<string, FootballClub>(StringComparer.Ordinal);
         var players = new Dictionary<string, FootballPlayer>(StringComparer.Ordinal);
-        var seasons = new Dictionary<(Guid Player, int Year), PlayerSeason>();
-        var authoritative = new HashSet<(Guid Player, int Year)>();
+        var seasons = new Dictionary<(string Player, int Year), PlayerSeason>();
+        var authoritative = new HashSet<(string Player, int Year)>();
         var roots = new HashSet<(string Kind, int Year, int Day)>();
         var catalogResolutions = PreparePlayerCatalogResolutions(dataset, options.PlayerCatalogResolutions);
         void Root(string kind, int year, int day)
@@ -23,20 +23,22 @@ public sealed partial class CoreDatasetImporter
             map("football-dataset", Composite(kind, year.ToString(CultureInfo.InvariantCulture), day.ToString(CultureInfo.InvariantCulture)));
             plan.Datasets.Add(new() { Kind = kind, SeasonIndex = year, Day = day });
         }
-        Guid Club(RealTeam? club)
+        string Club(RealTeam? club)
         {
             if (club?.Name is not { Length: > 0 }) throw new CoreImportException("missing_real_club");
-            var key = club.Name.Trim().ToLowerInvariant();
+            string key;
+            try { key = KeyUtils.GetClubKey(club.ExplicitAbbreviation, club.Name); }
+            catch (ArgumentException) { throw new CoreImportException("invalid_club_code"); }
             if (clubs.TryGetValue(key, out var existing)) return existing.Id;
-            var row = new FootballClub { Id = map("club", key), Name = club.Name.Trim(), Abbreviation = club.Abbreviation };
+            var row = new FootballClub { Id = key, LegacyId = map("club", club.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
             clubs.Add(key, row); plan.Clubs.Add(row); return row.Id;
         }
-        Guid Person(RealPlayer player, PlayerSource origin)
+        string Person(RealPlayer player, PlayerSource origin)
         {
             var legacyKey = CheckedPlayerKey(player, origin);
             if (!players.TryGetValue(legacyKey, out var person))
             {
-                person = new() { Id = map("player", legacyKey), Name = Name(player.Name) };
+                person = new() { Id = legacyKey, LegacyId = map("player", legacyKey), Name = Name(player.Name) };
                 players.Add(legacyKey, person); plan.Players.Add(person);
             }
             return person.Id;
@@ -48,7 +50,7 @@ public sealed partial class CoreDatasetImporter
             if (root && !authoritative.Add(identity)) throw new CoreImportException("duplicate_player_season");
             if (!seasons.TryGetValue(identity, out var row))
             {
-                row = new() { PlayerId = playerId, SeasonIndex = year, NormalizedName = player.Key, ClubId = Club(player.RealTeam),
+                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = Club(player.RealTeam),
                     Position = (PlayerPosition)(int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible };
                 seasons.Add(identity, row); plan.PlayerSeasons.Add(row);
             }
@@ -68,20 +70,20 @@ public sealed partial class CoreDatasetImporter
             Root(document.Container, entity.Key, 0);
             var catalog = entity.Value?.Players ?? throw new CoreImportException("missing_players");
             catalogResolutions.TryGetValue(document.Sha256, out var resolution);
-            var unnamed = resolution is null ? 0 : catalog.Count(x => x?.Name == string.Empty);
+            var unnamed = catalog.Count(x => string.IsNullOrWhiteSpace(x?.Name));
             if (resolution is not null && unnamed != resolution.ExpectedUnnamedPlayers)
                 throw new CoreImportException("player_catalog_resolution_count_mismatch", documentSha256: document.Sha256);
             foreach (var (player, index) in catalog.Select((value, index) => (value, index)))
             {
-                if (resolution is not null && player?.Name == string.Empty)
+                if (string.IsNullOrWhiteSpace(player?.Name))
                 {
                     PreserveUnnamedCatalogEntry(dataset, plan, document, player, entity.Key, index, map);
                     continue;
                 }
                 Player(player, entity.Key, true, PlayerOrigin(document, $".p[{index}]"));
             }
-            if (resolution is not null) plan.ResolvedPlayerCatalogs.Add(new(document.Sha256, DocumentArchiveReference(document), entity.Key,
-                catalog.Count, catalog.Count - unnamed, unnamed));
+            if (unnamed > 0 || resolution is not null) plan.ResolvedPlayerCatalogs.Add(new(document.Sha256, DocumentArchiveReference(document), entity.Key,
+                catalog.Count, catalog.Count - unnamed, unnamed, resolution is not null));
         }
 
         LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root);
@@ -140,10 +142,15 @@ public sealed partial class CoreDatasetImporter
                 var person = addOwner(groupId, coOwner, coOwner); Member(groupId, person.Id);
                 if (!snapshot.AdditionalOwners.Any(x => x.UserId == person.Id)) snapshot.AdditionalOwners.Add(new() { UserId = person.Id });
             }
-            var active = new HashSet<Guid>();
+            var active = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (player, ordinal) in (team.Players ?? []).Select((value, ordinal) => (value, ordinal)))
             {
-                var playerSeason = Player(player, year, false, PlayerOrigin(document, $".p[{ordinal}]"));
+                var origin = PlayerOrigin(document, $".p[{ordinal}]");
+                ValidateRosterPlayerReference(player, Value(document.Envelope).GetProperty("p")[ordinal], players, origin);
+                var wasKnown = players.ContainsKey(player.Key);
+                var wasSeasonKnown = wasKnown && seasons.ContainsKey((player.Key, year));
+                var playerSeason = Player(player, year, false, origin);
+                if (!wasSeasonKnown) plan.RecoveredRosterPlayers.Add(new(document.Sha256, DocumentArchiveReference(document), origin.JsonPath, year, !wasKnown));
                 if ((int)player.Status is < 0 or > 4 || (int)player.Position is < -2 or > 11 ||
                     (player.Status == PlayerInTeamStatus.Active && !active.Add(playerSeason.PlayerId))) throw new CoreImportException("invalid_roster_player");
                 snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = Club(player.RealTeam),

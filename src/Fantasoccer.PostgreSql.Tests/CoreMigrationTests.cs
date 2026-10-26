@@ -147,7 +147,7 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
         await using var database = fixture.CreateContext();
         Assert.Equal(1, await database.Players.CountAsync());
         Assert.Equal(1, await database.PlayerSeasons.CountAsync());
-        Assert.Equal("15:sharedplayer", (await database.PlayerSeasons.SingleAsync()).PlayerKey);
+        Assert.Equal("sharedplayer", (await database.PlayerSeasons.SingleAsync()).PlayerKey);
         Assert.Equal(1, await database.Clubs.CountAsync());
         Assert.Equal(5, await database.RosterSnapshots.CountAsync());
         var roster = await database.RosterSnapshots.Where(x => x.Kind == RosterKind.Matchday).AsSplitQuery().SingleAsync();

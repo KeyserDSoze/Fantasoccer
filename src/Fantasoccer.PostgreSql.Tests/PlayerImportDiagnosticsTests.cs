@@ -20,16 +20,14 @@ public sealed partial class CoreMigrationTests
     };
 
     [CoreFact]
-    public async Task Invalid_player_diagnostics_distinguish_empty_keys_roles_and_null_records_in_both_envelopes_without_logging_values()
+    public async Task Invalid_player_diagnostics_distinguish_invalid_normalized_keys_and_roles_in_both_envelopes_without_logging_values()
     {
         foreach (var oldEnvelope in new[] { false, true })
         foreach (var (invalid, reasons) in new (Player?, string[])[]
         {
             (DiagnosticPlayer(3, "123456789012345"), ["empty_player_key"]),
             (DiagnosticPlayer(), ["role_out_of_range"]),
-            (DiagnosticPlayer(99, "!!!"), ["empty_player_key", "role_out_of_range"]),
-            (DiagnosticPlayer(2, null), ["empty_player_key"]),
-            (null, ["null_player"])
+            (DiagnosticPlayer(99, "!!!"), ["empty_player_key", "role_out_of_range"])
         })
         {
             var wrapper = new RealPlayersWrapper { Players = [DiagnosticPlayer(3, "Valid player"), invalid!] };
@@ -52,6 +50,14 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(2, await database.Players.CountAsync());
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(report.Documents, repeated.SkippedDocuments);
+    }
+
+    [CoreFact]
+    public async Task A_null_roster_entry_is_not_silently_dropped_or_replaced_by_a_fake_player()
+    {
+        var fault = await RefusePlayerDocumentAsync("team", new TeamKey { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email },
+            new Team { Name = "Private team", Owner = Email, Players = [null!] }, "$.v.p[0]");
+        Assert.Equal(new[] { "null_player" }, fault.PlayerValidation!.Reasons);
     }
 
     [CoreFact]

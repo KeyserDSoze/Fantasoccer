@@ -289,7 +289,7 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(7, saved.Team.Players.Single(x => x.Status == 3).Price);
         Assert.Equal(baseline.Players.Select(x => x.Price), saved.Team.Players.Select(x => x.Price));
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/teams/formation", request)).StatusCode);
-        var forged = request with { ExpectedVersion = saved.Team.Version, Positions = [new(Guid.NewGuid(), 0), .. positions.Skip(1)] };
+        var forged = request with { ExpectedVersion = saved.Team.Version, Positions = [new("foreignplayer", 0), .. positions.Skip(1)] };
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/teams/formation", forged)).StatusCode);
         using var outsider = await factory.AccountAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PutAsJsonAsync("/api/teams/formation", request)).StatusCode);

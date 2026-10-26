@@ -16,7 +16,7 @@ namespace Fantasoccer.RelationalApi.Tests;
 public sealed partial class WorkspaceApiTests
 {
     [PostgreSqlFact]
-    public async Task Game_HTTP_uses_SQL_scopes_saved_scores_UUID_formations_and_live_limits_without_client_financial_data()
+    public async Task Game_HTTP_uses_SQL_scopes_saved_scores_natural_player_keys_and_live_limits_without_client_financial_data()
     {
         using var owner = await factory.AccountAsync(globalAdmin: true);
         using var opponent = await factory.AccountAsync();
@@ -81,7 +81,7 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(1, stored.Team.Version);
         Assert.All(stored.Team.Players, player =>
         {
-            Assert.Equal(18, player.SeasonIndex); Assert.Equal(KeyUtils.GetSeasonPlayerKey(player.Name, 18), player.PlayerKey);
+            Assert.Equal(18, player.SeasonIndex); Assert.Equal(KeyUtils.GetPlayerKey(player.Name), player.PlayerKey);
         });
         Assert.Equal(HttpStatusCode.Conflict, (await owner.PutAsJsonAsync(path + "/formation", request)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync(path)).StatusCode);
@@ -89,7 +89,7 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(HttpStatusCode.BadRequest, (await owner.PutAsJsonAsync(path + "/formation", request with { TeamId = Guid.NewGuid() })).StatusCode);
         var optimal = await owner.GetAsync($"/api/competitions/{group.GroupId}/{league}/18/optimal-formation?day=1&owner={Uri.EscapeDataString(first.Email)}");
         optimal.EnsureSuccessStatusCode();
-        Assert.All((await optimal.Content.ReadFromJsonAsync<OptimalGameFormationDto>())!.Players, player => Assert.NotEqual(Guid.Empty, player.PlayerId));
+        Assert.All((await optimal.Content.ReadFromJsonAsync<OptimalGameFormationDto>())!.Players, player => Assert.False(string.IsNullOrWhiteSpace(player.PlayerId)));
         await using (var database = factory.Database.CreateContext())
         {
             var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == 18 && x.SerieADay == 1);
@@ -120,7 +120,9 @@ public sealed partial class WorkspaceApiTests
             var away = new FootballClub { Name = "Shared HTTP away", Abbreviation = "sha" };
             var player = new FootballPlayer { Name = "Shared HTTP player" };
             database.Clubs.AddRange(club, away); database.Players.Add(player);
+            if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == 20)) database.Seasons.Add(new() { SeasonIndex = 20, StartYear = 2031 });
             database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 19, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Club = club, Position = PlayerPosition.Forward, IsActive = true });
+            database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = 20, Club = away, Position = PlayerPosition.Forward, IsActive = true });
             database.FootballVotes.Add(new() { Player = player, Club = club, SeasonIndex = 19, Day = 2, Source = FootballVoteSource.Official,
                 PlayerRole = 3, VoteRole = 3, Value = 7.5f, HasVote = true, Goals = 1 });
             database.FootballMatchdays.Add(new() { SeasonIndex = 19, SerieADay = 2, Matches =
@@ -132,9 +134,18 @@ public sealed partial class WorkspaceApiTests
         var voted = json.GetProperty("players")[0];
         Assert.True(voted.TryGetProperty("playerId", out _));
         Assert.Equal(19, voted.GetProperty("seasonIndex").GetInt32());
-        Assert.Equal("19:sharedhttpplayer", voted.GetProperty("playerKey").GetString());
-        var found = (await reader.GetFromJsonAsync<FootballPlayerDto>("/api/football/19/players/by-key/19%3Asharedhttpplayer"))!;
-        Assert.Equal(voted.GetProperty("playerId").GetGuid(), found.PlayerId); Assert.Equal("19:sharedhttpplayer", found.PlayerKey);
+        Assert.Equal("sharedhttpplayer", voted.GetProperty("playerKey").GetString());
+        var found = (await reader.GetFromJsonAsync<FootballPlayerDto>("/api/football/19/players/by-key/sharedhttpplayer"))!;
+        Assert.Equal(voted.GetProperty("playerId").GetString(), found.PlayerId); Assert.Equal("sharedhttpplayer", found.PlayerKey);
+        Assert.Equal("shc", found.RealTeam!.ClubCode); Assert.Equal(found.RealTeam.ClubId, found.RealTeam.ClubCode);
+        var history = (await reader.GetFromJsonAsync<PlayerHistoryDto>("/api/football/players/by-key/sharedhttpplayer"))!;
+        Assert.Equal("sharedhttpplayer", history.PlayerKey); Assert.Equal(new[] { 19, 20 }, history.Years);
+        var nextYear = (await reader.GetFromJsonAsync<FootballPlayerDto>("/api/football/20/players/by-key/sharedhttpplayer"))!;
+        Assert.Equal(found.PlayerKey, nextYear.PlayerKey); Assert.Equal(20, nextYear.SeasonIndex); Assert.Equal("sha", nextYear.RealTeam!.ClubCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await reader.GetAsync("/api/football/players/by-key/unknownplayer")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await reader.GetAsync("/api/football/players/by-key/not-a-canonical-key")).StatusCode);
+        using var anonymous = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/football/players/by-key/sharedhttpplayer")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await reader.GetAsync("/api/football/19/players/by-key/18%3Asharedhttpplayer")).StatusCode);
         Assert.Equal(7.5f, voted.GetProperty("vote").GetProperty("value").GetSingle());
         Assert.False(voted.TryGetProperty("v", out _));

@@ -48,7 +48,10 @@ public sealed partial class CoreMigrationTests
         var source = _storage.Blobs.GetBlobContainerClient("realplayerswrapper").GetBlobClient("catalog");
         var etag = (await source.GetPropertiesAsync()).Value.ETag;
         await using var database = fixture.CreateContext();
-        Assert.Equal("invalid_player", (await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database).ImportAsync(_dump))).Message);
+        var (_, preview) = await CoreDatasetImporter.AnalyzeAsync(_dump);
+        Assert.Equal(2, preview.UnresolvedPlayerCatalogEntries.Count);
+        Assert.False(Assert.Single(preview.ResolvedPlayerCatalogs).ExplicitApproval);
+        Assert.Empty(await database.Players.ToArrayAsync());
         await using (var interrupted = new FantasoccerDbContext(new DbContextOptionsBuilder<FantasoccerDbContext>()
             .UseNpgsql(database.Database.GetConnectionString()).AddInterceptors(new RejectCommit()).Options))
             await Assert.ThrowsAsync<InvalidOperationException>(() => new CoreDatasetImporter(interrupted, options).ImportAsync(_dump));
@@ -58,7 +61,7 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(rule.DocumentSha256, applied.DocumentSha256); Assert.Equal(4, applied.TotalEntries);
         Assert.Equal(2, applied.ImportedEntries); Assert.Equal(2, applied.UnresolvedEntries); Assert.Equal(15, applied.SeasonIndex);
         Assert.Equal(2, report.UnresolvedPlayerCatalogEntries); Assert.False(report.FullMigrationComplete);
-        Assert.Contains(report.PendingFields, x => x.Contains("not usable player identities"));
+        Assert.Contains(report.PendingFields, x => x.Contains("not imported as usable players"));
         Assert.Contains(report.PreservedArtifacts!, x => x.Contains(rule.DocumentSha256) && x.Contains("SQL"));
         var rows = await database.UnresolvedPlayerCatalogEntries.AsNoTracking().OrderBy(x => x.SourceOrdinal).ToArrayAsync();
         Assert.Equal(new[] { 0, 2 }, rows.Select(x => x.SourceOrdinal)); Assert.NotEqual(rows[0].Id, rows[1].Id);
@@ -83,7 +86,9 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(json, await File.ReadAllTextAsync(Path.Combine(_dump, applied.ArchiveReference)));
         Assert.DoesNotContain("private-catalog-note", JsonSerializer.Serialize(report));
         Assert.DoesNotContain("Fixture club", JsonSerializer.Serialize(report));
-        Assert.Equal("invalid_player", (await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database).ImportAsync(_dump))).Message);
+        var automatic = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(automatic.Documents, automatic.SkippedDocuments);
+        Assert.False(Assert.Single(automatic.ResolvedPlayerCatalogs!).ExplicitApproval);
         Assert.Equal(2, await database.UnresolvedPlayerCatalogEntries.CountAsync());
         // Downgrades must refuse to drop archived anomalies with source data.
         await Assert.ThrowsAsync<PostgresException>(() => database.GetService<IMigrator>().MigrateAsync("20261026172736_HistoricalParticipantAccounts"));
@@ -117,22 +122,23 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
-    public async Task Catalog_resolution_is_not_a_generic_invalid_player_override_and_does_not_hide_independent_keys()
+    public async Task Unnamed_catalog_rows_are_archived_including_raw_keys_but_never_become_usable_players()
     {
-        foreach (var (row, expected) in new[]
+        foreach (var row in new[]
         {
-            ("{\"n\":\"\",\"r\":99}", "invalid_player"),
-            ("{\"n\":\"\",\"r\":3,\"k\":\"independent-player-key\"}", "player_catalog_resolution_identifier_present"),
-            ("{\"n\":null,\"r\":3}", "player_catalog_resolution_count_mismatch"),
-            ("{\"n\":\" \",\"r\":3}", "player_catalog_resolution_count_mismatch"),
-            ("{\"n\":\"12345\",\"r\":3}", "player_catalog_resolution_count_mismatch")
+            "{\"n\":\"\",\"r\":99}",
+            "{\"n\":\"\",\"r\":3,\"key\":\"independentplayerkey\"}",
+            "{\"n\":null,\"r\":3}",
+            "{\"n\":\" \",\"r\":3}",
+            "null"
         })
         {
             var (_, rule) = await WriteCatalogResolutionSourceAsync(CatalogDocument(row, NamedCatalogRow()), 1);
-            var fault = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump, options: new(PlayerCatalogResolutions: [rule])));
-            Assert.Equal(expected, fault.Message); Assert.DoesNotContain("independent-player-key", CoreImportDiagnostics.Format(fault));
+            var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump, options: new(PlayerCatalogResolutions: [rule]));
+            Assert.Equal(row, Assert.Single(plan.UnresolvedPlayerCatalogEntries).OriginalPayloadJson);
+            Assert.Single(plan.Players); Assert.All(plan.Players, player => Assert.False(string.IsNullOrWhiteSpace(player.Name)));
         }
-        foreach (var bad in new[] { NamedCatalogRow("Named but invalid role", 99), "null" })
+        foreach (var bad in new[] { NamedCatalogRow("Named but invalid role", 99), NamedCatalogRow("12345") })
         {
             var (_, rule) = await WriteCatalogResolutionSourceAsync(CatalogDocument(UnnamedCatalogRow, bad), 1);
             Assert.Equal("invalid_player", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump,
@@ -142,7 +148,7 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
-    public async Task Catalog_approval_never_resolves_a_nameless_roster_or_an_unapproved_catalog_and_never_partially_replaces_existing_SQL()
+    public async Task A_nameless_roster_still_blocks_while_other_unnamed_catalogs_are_archived_without_changing_valid_players()
     {
         var (_, rule) = await WriteCatalogResolutionSourceAsync(CatalogDocument(UnnamedCatalogRow, NamedCatalogRow()), 1);
         var options = new CoreImportOptions(PlayerCatalogResolutions: [rule]);
@@ -160,9 +166,10 @@ public sealed partial class CoreMigrationTests
         await _storage.Blobs.GetBlobContainerClient("realplayerswrapper").GetBlobClient("unapproved").UploadAsync(BinaryData.FromString(
             "{\"Key\":14,\"Value\":{\"p\":[" + UnnamedCatalogRow + "]}}"));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
-        Assert.Equal("invalid_player", (await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database, options).ImportAsync(_dump))).Message);
-        Assert.Equal(original.Id, (await database.UnresolvedPlayerCatalogEntries.AsNoTracking().SingleAsync()).Id);
-        Assert.Equal(original.OriginalPayloadJson, (await database.UnresolvedPlayerCatalogEntries.AsNoTracking().SingleAsync()).OriginalPayloadJson);
+        var report = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Equal(2, report.UnresolvedPlayerCatalogEntries);
+        Assert.Contains(report.ResolvedPlayerCatalogs!, x => !x.ExplicitApproval && x.SeasonIndex == 14);
+        Assert.Equal(original.OriginalPayloadJson, (await database.UnresolvedPlayerCatalogEntries.AsNoTracking().SingleAsync(x => x.Id == original.Id)).OriginalPayloadJson);
         Assert.Equal(1, await database.Players.CountAsync());
     }
 

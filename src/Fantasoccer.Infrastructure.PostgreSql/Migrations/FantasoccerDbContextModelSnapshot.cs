@@ -173,8 +173,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<Guid>("LeagueId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("PlayerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
 
                     b.Property<int>("PreviousStatus")
                         .HasColumnType("integer");
@@ -600,8 +603,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballChance", b =>
                 {
-                    b.Property<Guid>("PlayerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
 
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
@@ -609,8 +614,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Day")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ClubId")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -665,13 +673,17 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<string>("Abbreviation")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("LegacyId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -680,7 +692,13 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Clubs", (string)null);
+                    b.HasIndex("LegacyId")
+                        .IsUnique();
+
+                    b.ToTable("Clubs", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Clubs_ClubCode", "\"ClubCode\" ~ '^[a-z]{3}$'");
+                        });
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClubRank", b =>
@@ -688,8 +706,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<int>("Defeats")
                         .HasColumnType("integer");
@@ -754,8 +774,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Ordinal")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("AwayClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("AwayClubId")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("AwayClubCode");
 
                     b.Property<int?>("AwayGoals")
                         .HasColumnType("integer");
@@ -763,8 +786,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<bool>("Delayed")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("HomeClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("HomeClubId")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("HomeClubCode");
 
                     b.Property<int?>("HomeGoals")
                         .HasColumnType("integer");
@@ -802,8 +828,12 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballPlayer", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
+
+                    b.Property<Guid?>("LegacyId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Name")
@@ -813,13 +843,21 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Players", (string)null);
+                    b.HasIndex("LegacyId")
+                        .IsUnique();
+
+                    b.ToTable("Players", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Players_PlayerKey", "\"PlayerKey\" ~ '^[a-z]+$'");
+                        });
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballPlayerStatistic", b =>
                 {
-                    b.Property<Guid>("PlayerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
 
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
@@ -827,8 +865,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Assists")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ClubId")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<string>("DescriptionDown")
                         .HasColumnType("text");
@@ -911,8 +952,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballVote", b =>
                 {
-                    b.Property<Guid>("PlayerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
 
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
@@ -926,8 +969,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Assists")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ClubId")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<int>("Goals")
                         .HasColumnType("integer");
@@ -1738,32 +1784,24 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.PlayerSeason", b =>
                 {
-                    b.Property<Guid>("PlayerId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("PlayerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
 
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("ClubId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsVisible")
                         .HasColumnType("boolean");
-
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("PlayerKey")
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasMaxLength(220)
-                        .HasColumnType("character varying(220)")
-                        .HasComputedColumnSql("\"SeasonIndex\"::text || ':' || \"NormalizedName\"", true);
 
                     b.Property<int>("Position")
                         .HasColumnType("integer");
@@ -1772,15 +1810,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ClubId");
 
-                    b.HasIndex("PlayerKey")
-                        .IsUnique();
-
                     b.HasIndex("SeasonIndex");
 
                     b.ToTable("PlayerSeasons", null, t =>
                         {
-                            t.HasCheckConstraint("CK_PlayerSeasons_NormalizedName", "\"NormalizedName\" ~ '^[a-z]+$'");
-
                             t.HasCheckConstraint("CK_PlayerSeasons_Position", "\"Position\" >= -1 AND \"Position\" <= 3");
                         });
                 });
@@ -2765,8 +2798,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<Guid>("AuctionId")
                                 .HasColumnType("uuid");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<bool>("IsActive")
                                 .HasColumnType("boolean");
@@ -2783,8 +2819,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<string>("OwnerEmail")
                                 .HasColumnType("text");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");
@@ -2795,8 +2834,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<DateTimeOffset>("StartedAtUtc")
                                 .HasColumnType("timestamp with time zone");
 
-                            b1.Property<Guid?>("SubstitutedPlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("SubstitutedPlayerId")
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("SubstitutedPlayerKey");
 
                             b1.Property<DateTimeOffset?>("TimerStartedAtUtc")
                                 .HasColumnType("timestamp with time zone");
@@ -3000,8 +3041,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Role")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid?>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.HasKey("GroupId", "LeagueId", "SeasonIndex", "AuctionId", "Role");
 
@@ -3108,8 +3151,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<bool>("IsShown")
                                 .HasColumnType("boolean");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.HasKey("GroupId", "LeagueId", "SeasonIndex", "AuctionId", "Role", "Ordinal");
 
@@ -3150,8 +3196,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<string>("OwnerEmail")
                                 .HasColumnType("text");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("Price")
                                 .HasColumnType("integer");
@@ -3647,8 +3696,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.OwnsMany("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballStatisticGame", "Games", b1 =>
                         {
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("SeasonIndex")
                                 .HasColumnType("integer");
@@ -3898,8 +3949,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                                     b2.Property<int>("HallPlayerRecordKind")
                                         .HasColumnType("integer");
 
-                                    b2.Property<Guid>("ClubId")
-                                        .HasColumnType("uuid");
+                                    b2.Property<string>("ClubId")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("ClubCode");
 
                                     b2.Property<bool>("IsActive")
                                         .HasColumnType("boolean");
@@ -3911,8 +3965,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                                         .IsRequired()
                                         .HasColumnType("text");
 
-                                    b2.Property<Guid>("PlayerId")
-                                        .HasColumnType("uuid");
+                                    b2.Property<string>("PlayerId")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("PlayerKey");
 
                                     b2.Property<int>("PlayerRole")
                                         .HasColumnType("integer");
@@ -4153,8 +4210,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                                     b2.Property<int>("HallWinningPlayerOrdinal")
                                         .HasColumnType("integer");
 
-                                    b2.Property<Guid>("ClubId")
-                                        .HasColumnType("uuid");
+                                    b2.Property<string>("ClubId")
+                                        .IsRequired()
+                                        .HasMaxLength(3)
+                                        .HasColumnType("character varying(3)")
+                                        .HasColumnName("ClubCode");
 
                                     b2.Property<bool>("IsActive")
                                         .HasColumnType("boolean");
@@ -4166,8 +4226,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                                         .IsRequired()
                                         .HasColumnType("text");
 
-                                    b2.Property<Guid>("PlayerId")
-                                        .HasColumnType("uuid");
+                                    b2.Property<string>("PlayerId")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("PlayerKey");
 
                                     b2.Property<int>("PlayerRole")
                                         .HasColumnType("integer");
@@ -4458,8 +4521,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Ordinal")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<bool>("IsActive")
                                 .HasColumnType("boolean");
@@ -4467,8 +4533,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<bool>("IsVisible")
                                 .HasColumnType("boolean");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");
@@ -4795,8 +4864,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Ordinal")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<bool>("IsActive")
                                 .HasColumnType("boolean");
@@ -4804,8 +4876,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<bool>("IsVisible")
                                 .HasColumnType("boolean");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");
@@ -5138,8 +5213,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Ordinal")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<bool>("IsActive")
                                 .HasColumnType("boolean");
@@ -5147,8 +5225,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<bool>("IsVisible")
                                 .HasColumnType("boolean");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");
@@ -5377,8 +5458,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Assists")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<int>("Goals")
                                 .HasColumnType("integer");
@@ -5413,8 +5497,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Penalties")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");
@@ -5799,8 +5886,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<int>("Ordinal")
                                 .HasColumnType("integer");
 
-                            b1.Property<Guid>("ClubId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("ClubId")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)")
+                                .HasColumnName("ClubCode");
 
                             b1.Property<bool>("IsActive")
                                 .HasColumnType("boolean");
@@ -5808,8 +5898,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.Property<bool>("IsVisible")
                                 .HasColumnType("boolean");
 
-                            b1.Property<Guid>("PlayerId")
-                                .HasColumnType("uuid");
+                            b1.Property<string>("PlayerId")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)")
+                                .HasColumnName("PlayerKey");
 
                             b1.Property<int>("PlayerRole")
                                 .HasColumnType("integer");

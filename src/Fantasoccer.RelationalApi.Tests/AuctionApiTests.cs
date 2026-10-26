@@ -44,7 +44,7 @@ public sealed partial class WorkspaceApiTests
             var result = await manager.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(basket, year, "Auction team " + i, accounts[i].Id, i == 1 ? [accounts[2].Id] : []));
             result.EnsureSuccessStatusCode(); teams.Add((await result.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId);
         }
-        var players = new List<Guid>();
+        var players = new List<string>();
         await using (var database = factory.Database.CreateContext())
         {
             (await database.Leagues.SingleAsync(x => x.GroupId == group.GroupId && x.LeagueId == league)).IsMain = true;

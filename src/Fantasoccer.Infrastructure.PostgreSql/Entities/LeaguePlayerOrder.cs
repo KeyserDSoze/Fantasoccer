@@ -11,8 +11,8 @@ public sealed class LeaguePlayerOrder
 public sealed class LeaguePlayerOrderEntry
 {
     public int Ordinal { get; set; }
-    public Guid PlayerId { get; set; }
-    public Guid ClubId { get; set; }
+    public string PlayerId { get; set; } = null!;
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }

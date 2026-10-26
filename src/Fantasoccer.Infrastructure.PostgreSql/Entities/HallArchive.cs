@@ -27,8 +27,8 @@ public sealed class HallRecordGame
 }
 public sealed class HallPlayerSnapshot
 {
-    public Guid PlayerId { get; set; }
-    public Guid ClubId { get; set; }
+    public string PlayerId { get; set; } = null!;
+    public string ClubId { get; set; } = null!;
     public required string Name { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }

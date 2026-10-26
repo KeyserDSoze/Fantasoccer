@@ -24,5 +24,5 @@ public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int Seri
     DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview);
 public sealed record SaveGameFormationRequest(Guid TeamId, FormationPositionRequest[] Positions, int ExpectedVersion,
     int? SourceVersion = null, bool Live = false, bool AsAdmin = false);
-public sealed record OptimalGamePlayerDto(Guid PlayerId, string PlayerKey, string PlayerName, int Role, int Position, float Projection, float Confidence);
+public sealed record OptimalGamePlayerDto(string PlayerId, string PlayerKey, string PlayerName, int Role, int Position, float Projection, float Confidence);
 public sealed record OptimalGameFormationDto(OptimalGamePlayerDto[] Players, string Module, float Score, float Confidence, string[] Warnings);

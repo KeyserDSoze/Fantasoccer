@@ -10,7 +10,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadPushOutbox(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club, Func<string, string, UserAccount> addUser, Action<int> season)
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club, Func<string, string, UserAccount> addUser, Action<int> season)
     {
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var keys = new HashSet<(int, int)>();

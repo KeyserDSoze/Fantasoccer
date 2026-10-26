@@ -8,7 +8,7 @@ namespace Fantasoccer.DataMigration;
 
 public sealed record PlayerCatalogResolution(string DocumentSha256, int ExpectedUnnamedPlayers);
 public sealed record AppliedPlayerCatalogResolution(string DocumentSha256, string ArchiveReference, int SeasonIndex,
-    int TotalEntries, int ImportedEntries, int UnresolvedEntries);
+    int TotalEntries, int ImportedEntries, int UnresolvedEntries, bool ExplicitApproval = false);
 
 public static class PlayerCatalogResolutionConfiguration
 {
@@ -59,20 +59,10 @@ public sealed partial class CoreDatasetImporter
     }
 
     private static void PreserveUnnamedCatalogEntry(VerifiedJsonDataset dataset, CorePlan plan, LegacyJsonDocument document,
-        RealPlayer player, int year, int index, Func<string, string, Guid> map)
+        RealPlayer? player, int year, int index, Func<string, string, Guid> map)
     {
         var origin = PlayerOrigin(document, $".p[{index}]");
-        if (player.Role is < Role.Undefined or > Role.Forward) _ = CheckedPlayerKey(player, origin);
         var raw = Value(document.Envelope).GetProperty("p")[index];
-        // A serialized independent identifier warrants its own reconciliation;
-        // don't hide it or treat an empty derived key as a usable player key.
-        if (raw.EnumerateObject().Any(x => (string.Equals(x.Name, "k", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(x.Name, "key", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Name, "id", StringComparison.OrdinalIgnoreCase)) &&
-            x.Value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined) &&
-            !(x.Value.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(x.Value.GetString()))))
-            throw new CoreImportException("player_catalog_resolution_identifier_present", "player", origin.Reader, document.Sha256,
-                playerValidation: new(document.Container, DocumentArchiveReference(document), origin.JsonPath,
-                    ["independent_identifier_present"], false, 0, (int)player.Role));
         plan.UnresolvedPlayerCatalogEntries.Add(new()
         {
             Id = map("unresolved-player-catalog-entry", Composite(document.Sha256, index.ToString(CultureInfo.InvariantCulture))),

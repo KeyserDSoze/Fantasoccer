@@ -44,7 +44,7 @@ public sealed partial class WorkspaceApiTests
             result.EnsureSuccessStatusCode();
             teamIds.Add((await result.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId);
         }
-        var playerIds = new List<Guid>();
+        var playerIds = new List<string>();
         await using (var database = factory.Database.CreateContext())
         {
             (await database.Leagues.SingleAsync(x => x.GroupId == group.GroupId && x.LeagueId == league)).IsMain = true;
@@ -74,7 +74,7 @@ public sealed partial class WorkspaceApiTests
         var request = new CreateMarketRequest(teamIds[0], teamIds[1], [playerIds[0]], [playerIds[1]], 10, 0, 1, 1);
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.PostAsJsonAsync(path, request)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await seller.PostAsJsonAsync(path, request)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await buyer.PostAsJsonAsync(path, request with { BuyerPlayerIds = [Guid.NewGuid()] })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await buyer.PostAsJsonAsync(path, request with { BuyerPlayerIds = ["foreignplayer"] })).StatusCode);
         var response = await buyer.PostAsJsonAsync(path, new { request.BuyerTeamId, request.SellerTeamId, request.BuyerPlayerIds, request.SellerPlayerIds,
             request.MoneyFromBuyer, request.MoneyFromSeller, request.ExpectedBuyerRosterVersion, request.ExpectedSellerRosterVersion, buyerPrices = new[] { 0 }, status = 1, approvers = accounts.Select(x => x.Email) });
         response.EnsureSuccessStatusCode();
@@ -97,7 +97,7 @@ public sealed partial class WorkspaceApiTests
             await database.Database.ExecuteSqlRawAsync($"""
                 CREATE FUNCTION {triggerName}() RETURNS trigger LANGUAGE plpgsql AS $$
                 BEGIN
-                    IF NEW."TeamId" = '{teamIds[1]}'::uuid AND NEW."PlayerId" = '{playerIds[0]}'::uuid THEN
+                    IF NEW."TeamId" = '{teamIds[1]}'::uuid AND NEW."PlayerKey" = '{playerIds[0]}' THEN
                         RAISE EXCEPTION 'Synthetic market transaction failure';
                     END IF;
                     RETURN NEW;

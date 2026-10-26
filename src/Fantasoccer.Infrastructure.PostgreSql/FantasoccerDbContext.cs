@@ -1,5 +1,6 @@
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Fantasoccer.Infrastructure.PostgreSql;
 
@@ -75,5 +76,21 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FantasoccerDbContext).Assembly);
+        // Preserve CLR compatibility names, but store and reference readable
+        // natural identifiers throughout the relational football graph.
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string)))
+        {
+            if (property.Name.EndsWith("PlayerId", StringComparison.Ordinal))
+            {
+                property.SetColumnName(property.Name[..^2] + "Key");
+                property.SetMaxLength(200);
+            }
+            else if (property.Name.EndsWith("ClubId", StringComparison.Ordinal))
+            {
+                property.SetColumnName(property.Name[..^2] + "Code");
+                property.SetMaxLength(3);
+            }
+        }
     }
 }

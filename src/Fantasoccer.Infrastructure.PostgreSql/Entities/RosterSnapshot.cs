@@ -33,8 +33,8 @@ public sealed class RosterSnapshot
 public sealed class RosterPlayer
 {
     public int Ordinal { get; set; }
-    public Guid PlayerId { get; set; }
-    public Guid ClubId { get; set; }
+    public string PlayerId { get; set; } = null!;
+    public string ClubId { get; set; } = null!;
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }

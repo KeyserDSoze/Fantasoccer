@@ -72,9 +72,9 @@ public sealed partial class AuctionApplicationService
     {
         if (request.Role is not (>= 0 and <= 3)) throw Invalid("Ruolo non valido.");
         if (auction.Actual?.WinningTeamId != null) throw new ApplicationFault(409, "current_lot_has_bid", "Assegnare o chiudere il lotto attuale prima di mostrare un altro giocatore.");
-        var next = request.PlayerId ?? auction.PlayerOrder.Where(x => x.Role == request.Role && !x.IsShown).OrderBy(x => x.Ordinal).Select(x => (Guid?)x.PlayerId).FirstOrDefault();
+        var next = request.PlayerId ?? auction.PlayerOrder.Where(x => x.Role == request.Role && !x.IsShown).OrderBy(x => x.Ordinal).Select(x => x.PlayerId).FirstOrDefault();
         if (next is null) throw new ApplicationFault(409, "auction_role_exhausted", "Non ci sono altri giocatori per questo ruolo.");
-        if (auction.Winnings.Any(x => x.PlayerId == next) || await IsOwnedInLeagueAsync(auction, teams, next.Value, cancellationToken)) throw Invalid("Il giocatore è già assegnato a una squadra.");
+        if (auction.Winnings.Any(x => x.PlayerId == next) || await IsOwnedInLeagueAsync(auction, teams, next, cancellationToken)) throw Invalid("Il giocatore è già assegnato a una squadra.");
         var player = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .SingleOrDefaultAsync(x => x.PlayerId == next && x.SeasonIndex == auction.SeasonIndex && (int)x.Position == request.Role, cancellationToken)
             ?? throw Invalid("Giocatore non presente nel catalogo del ruolo richiesto.");
@@ -85,7 +85,7 @@ public sealed partial class AuctionApplicationService
         var last = auction.LastShown.SingleOrDefault(x => x.Role == request.Role);
         if (last is null) auction.LastShown.Add(last = new() { Role = request.Role.Value });
         last.PlayerId = next;
-        auction.Actual = new() { PlayerId = player.PlayerId, ClubId = player.ClubId!.Value, PlayerRole = (int)player.Position,
+        auction.Actual = new() { PlayerId = player.PlayerId, ClubId = player.ClubId!, PlayerRole = (int)player.Position,
             IsActive = player.IsActive, IsVisible = player.IsVisible, StartedAtUtc = clock.GetUtcNow(), Statistics = Snapshot(stat) };
         auction.CurrentRole = request.Role.Value;
         auction.Status = 2;
@@ -175,13 +175,13 @@ public sealed partial class AuctionApplicationService
         await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
             .Include(x => x.AdditionalOwners).ThenInclude(x => x.User).Where(x => x.GroupId == auction.GroupId && x.SeasonIndex == auction.SeasonIndex && x.TeamId == teamId && x.Kind == RosterKind.Season)
             .AsSplitQuery().SingleOrDefaultAsync(cancellationToken) ?? throw new ApplicationFault(409, "auction_roster_unavailable", "Rosa non disponibile.");
-    private Task<bool> IsOwnedInLeagueAsync(AuctionSession auction, FantasyTeamSeason[] teams, Guid player, CancellationToken cancellationToken)
+    private Task<bool> IsOwnedInLeagueAsync(AuctionSession auction, FantasyTeamSeason[] teams, string player, CancellationToken cancellationToken)
     {
         var ids = teams.Select(x => x.Id).ToArray();
         return database.RosterSnapshots.Where(x => x.GroupId == auction.GroupId && x.SeasonIndex == auction.SeasonIndex && x.Kind == RosterKind.Season && ids.Contains(x.TeamId))
             .SelectMany(x => x.Players).AnyAsync(x => x.PlayerId == player && x.Status == 0, cancellationToken);
     }
-    private static void ValidateBid(AuctionSession auction, AuctionCurrentLot lot, RosterSnapshot roster, LeagueRules rules, int price, Guid? replaced)
+    private static void ValidateBid(AuctionSession auction, AuctionCurrentLot lot, RosterSnapshot roster, LeagueRules rules, int price, string? replaced)
     {
         var active = roster.Players.Where(x => x.Status == 0).ToArray();
         var substitute = replaced is null ? null : active.SingleOrDefault(x => x.PlayerId == replaced) ?? throw Invalid("Il sostituito non è attivo nella rosa della squadra.");

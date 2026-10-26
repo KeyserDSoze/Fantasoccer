@@ -9,7 +9,7 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadFantasyCompetitions(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, Guid> club)
+        Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, string> club)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId
             ?? throw new CoreImportException("missing_competition_reference");
@@ -74,7 +74,7 @@ public sealed partial class CoreDatasetImporter
             var (group, league) = Scope(key);
             if (plan.PlayerOrders.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year)) throw new CoreImportException("player_order_collision");
             var order = new LeaguePlayerOrder { GroupId = group, LeagueId = league, SeasonIndex = key.Year };
-            var ids = new HashSet<Guid>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (item, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_randomized_players")).Select((value, index) => (value, index)))
             {
                 var identity = player(item, key.Year, false, PlayerOrigin(document, $".p[{index}]"));

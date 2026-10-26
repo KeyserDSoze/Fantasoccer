@@ -144,13 +144,11 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var clubIds = rows.Select(x => x.ClubId).ToArray();
         var players = await database.Players.Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         var clubs = await database.Clubs.Where(x => clubIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-        var keys = await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == match.SeasonIndex && playerIds.Contains(x.PlayerId))
-            .ToDictionaryAsync(x => x.PlayerId, x => x.PlayerKey, cancellationToken);
         return new(metadata.Id, match.GroupId, metadata.BasketId, match.SeasonIndex, (int)RosterKind.Matchday, day, null,
             home ? saved.HomeName : saved.AwayName, (home ? match.HomeOwner : match.AwayOwner) ?? "", [],
-            rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, new(clubs[x.ClubId].Name, clubs[x.ClubId].Abbreviation),
+            rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, new(clubs[x.ClubId].Name, clubs[x.ClubId].Id),
                 x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
-                { SeasonIndex = match.SeasonIndex, PlayerKey = keys[x.PlayerId] }).ToArray(), 0, 0, null, 0, [], 0);
+                { SeasonIndex = match.SeasonIndex }).ToArray(), 0, 0, null, 0, [], 0);
     }
     private static Player DomainPlayer(RosterPlayerDto row) => new() { Name = row.Name, RealTeam = new() { Name = row.Team.Name, Abbreviation = row.Team.Abbreviation },
         Role = (Role)row.Role, IsActive = row.IsActive, Visible = row.Visible, Price = row.Price, Revenue = row.Revenue, Status = (PlayerInTeamStatus)row.Status, Position = (FantaSoccerRole)row.Position };
