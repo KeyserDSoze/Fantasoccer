@@ -40,6 +40,8 @@ public static class GroupServiceRegistration
         });
         services.AddScoped<IAuthorizationHandler, GroupAccessHandler>();
         services.AddScoped<GroupApplicationService>();
+        services.AddScoped<GroupCreationApplicationService>();
+        services.AddScoped<Fantasoccer.Application.Core.Accounts.PlatformApplicationService>();
         services.AddScoped<GameGroupApplicationService>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<Fantasoccer.Application.Core.Teams.TeamRosterApplicationService>();

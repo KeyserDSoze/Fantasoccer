@@ -115,6 +115,7 @@ const navigationItems: NavigationSection[] = [
     section: 'Altro',
     items: [
       { type: 'route', route: 'HallOfFame', label: 'Hall of Fame', icon: Star, description: 'Vincitori e statistiche di sempre' },
+      { type: 'route', route: 'CreateGroup', label: 'Crea un nuovo gruppo', icon: Users, description: 'Scopri Fantasoccer e attiva un altro gruppo con un codice' },
       { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'route', route: 'Info', label: 'Guida', icon: HelpCircle, description: 'Guida al sito' },
       { type: 'route', route: 'McpGuide', label: 'MCP e ChatGPT', icon: Sparkles, description: 'Collega un assistente AI a Fantasoccer' },
@@ -138,18 +139,21 @@ const adminItems: NavigationSection[] = [
 // Super Admin items (shown only to super admins)
 const superAdminItems: NavigationSection[] = [
   {
-    section: 'Gestione Gruppo (Super Admin)',
+    section: 'Responsabile del gruppo',
     items: [
       { type: 'route', route: 'GroupUsersAdmin', label: 'Utenti', icon: UserCog, description: 'Gestisci utenti e ruoli del gruppo corrente' },
       { type: 'route', route: 'GroupBasketsAdmin', label: 'Basket', icon: Package, description: 'Gestisci basket e teams per anno del gruppo' },
       { type: 'route', route: 'GroupLeagueAdmin', label: 'Leghe', icon: Trophy, description: 'Gestisci leghe, settings e ricalcoli del gruppo' },
     ],
   },
+]
+
+// Platform privileges come from the server, independently of group membership.
+const platformItems: NavigationSection[] = [
   {
-    section: 'Super Admin',
+    section: 'Super admin · Piattaforma',
     items: [
-      { type: 'link', path: '/superadmin', label: 'Super Admin', icon: ShieldCheck, description: 'Super admin dashboard' },
-      { type: 'route', route: 'Users', label: 'Gestione Utenti', icon: Users, description: 'Visualizza tutti gli utenti e i loro gruppi' },
+      { type: 'route', route: 'PlatformAdmin', label: 'Utenti, gruppi e codici', icon: ShieldCheck, description: 'Tutti gli utenti, tutti i gruppi e i codici di attivazione monouso' },
       { type: 'route', route: 'Logs', label: 'Log di Piattaforma', icon: PlayCircle, description: 'Log e errori delle ultime 24 ore per job' },
       { type: 'route', route: 'SerieAAdmin', label: 'Gestione Serie A', icon: Calendar, description: 'Gestisci partite rinviate nel calendario Serie A' },
       { type: 'route', route: 'CardsAdmin', label: 'Gestione Carte', icon: Sparkles, description: 'Crea e gestisci carte speciali del gioco' },
@@ -296,6 +300,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
       {/* Hamburger Menu Button */}
       <Button
         size="$4"
+        aria-label="Apri menu di navigazione"
         circular
         position="relative"
         backgroundColor="transparent"
@@ -522,11 +527,11 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
               ) : userGroups.length === 0 ? (
                 <Card padding="$4" gap="$3">
                   <Text fontSize="$5" fontWeight="bold" color="$color12">Non fai ancora parte di un gruppo</Text>
-                  <Text color="$color10">Le funzioni di lega, formazioni e mercato appariranno quando sarai invitato in un gruppo.</Text>
+                  <Text color="$color10">Entra nel gruppo dei tuoi amici oppure attiva il tuo con un codice monouso.</Text>
                   <Button variant="outlined" onPress={() => {
-                    (navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate('GroupWorkspace')
+                    (navigation as { navigate: (routeName: NavigationRouteName) => void }).navigate('CreateGroup')
                     setIsOpen(false)
-                  }}>Gestione gruppi</Button>
+                  }}>Scopri e crea un gruppo</Button>
                 </Card>
               ) : (
                 <>
@@ -540,7 +545,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                     <>
                       <Separator />
                       <YStack gap="$3" marginBottom="$4" padding="$3" backgroundColor="$purple2" borderRadius="$4">
-                        <Text fontSize="$5" fontWeight="bold" color="$purple11">🛡️ Modalità Super Admin</Text>
+                        <Text fontSize="$5" fontWeight="bold" color="$purple11">🛡️ Modalità responsabile del gruppo</Text>
                         <Text fontSize="$2" color="$color11">Attiva questa modalità per modificare le formazioni di tutte le squadre durante le partite live.</Text>
                         <Button size="$3" backgroundColor={superAdminMode ? "$purple10" : "$purple4"}
                           borderColor={superAdminMode ? "$purple10" : "$purple8"} onPress={toggleSuperAdminMode} pressStyle={{ opacity: 0.8 }}>
@@ -554,6 +559,12 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({ onNavigate }) => {
                   )}
                 </>
               )}
+
+              {user?.isGlobalAdministrator && <><Separator />{platformItems.map(renderSection)}</>}
+              {userGroups.length === 0 && renderSection({ section: 'Il tuo account', items: [
+                { type: 'route', route: 'Home', label: 'Home', icon: Home, description: 'Scopri come funziona Fantasoccer' },
+                { type: 'route', route: 'Settings', label: 'Impostazioni', icon: Settings, description: 'Il tuo profilo e le tue preferenze' },
+              ] })}
 
               <Separator />
 

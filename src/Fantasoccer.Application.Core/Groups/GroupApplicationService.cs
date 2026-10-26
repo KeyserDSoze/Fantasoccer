@@ -188,7 +188,7 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
         if (caller.Identity?.IsAuthenticated != true) throw new ApplicationFault(401, "authentication_required", "Accesso richiesto.");
         var email = caller.FindFirstValue(ClaimTypes.Email)?.Trim().ToLowerInvariant();
         return await database.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == email && x.IsEnabled, cancellationToken)
-            ?? throw new ApplicationFault(403, "account_not_imported", "Account non presente in PostgreSQL. Importare prima gli account legacy.");
+            ?? throw new ApplicationFault(403, "account_unavailable", "Account non disponibile o disabilitato.");
     }
 
     private async Task AuthorizeAsync(ClaimsPrincipal caller, Guid groupId, bool manage)

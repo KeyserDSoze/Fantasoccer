@@ -1018,6 +1018,60 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.ToTable("Baskets", (string)null);
                 });
 
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupCreationCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("RedeemedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RedeemedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RedeemedGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RedeemedByUserId");
+
+                    b.HasIndex("RedeemedGroupId")
+                        .IsUnique();
+
+                    b.ToTable("GroupCreationCodes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GroupCreationCodes_Redemption", "(\"RedeemedAtUtc\" IS NULL AND \"RedeemedByUserId\" IS NULL AND \"RedeemedGroupId\" IS NULL) OR\n(\"RedeemedAtUtc\" IS NOT NULL AND \"RedeemedByUserId\" IS NOT NULL AND \"RedeemedGroupId\" IS NOT NULL AND \"RevokedAtUtc\" IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupLeague", b =>
                 {
                     b.Property<Guid>("GroupId")
@@ -3591,6 +3645,25 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .IsRequired();
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupCreationCode", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RedeemedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FantasyGroup", null)
+                        .WithMany()
+                        .HasForeignKey("RedeemedGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupLeague", b =>

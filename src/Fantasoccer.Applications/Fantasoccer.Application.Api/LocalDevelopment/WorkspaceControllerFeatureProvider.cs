@@ -27,13 +27,14 @@ public sealed class WorkspaceControllerFeatureProvider(bool enabled) : IApplicat
             feature.Controllers.Remove(typeof(PlayerImagesController).GetTypeInfo());
             feature.Controllers.Remove(typeof(EditorialController).GetTypeInfo());
             feature.Controllers.Remove(typeof(OperationsController).GetTypeInfo());
+            feature.Controllers.Remove(typeof(PlatformController).GetTypeInfo());
         }
         else
         {
             // Do not leave a second Blob-backed authorization/data path available
             // after SQL becomes authoritative. Unported adapters stay unavailable.
             var supported = new[] { typeof(AccountsController), typeof(GroupsController), typeof(TeamsController),
-                typeof(GroupWorkspaceController), typeof(TeamAssetsController), typeof(FootballController), typeof(CompetitionsController), typeof(TradesController), typeof(AuctionsController), typeof(HallArchiveController), typeof(CardsController), typeof(NotificationSettingsController), typeof(PlayerImagesController), typeof(EditorialController), typeof(OperationsController), typeof(ContextController), typeof(PingController) };
+                typeof(GroupWorkspaceController), typeof(TeamAssetsController), typeof(FootballController), typeof(CompetitionsController), typeof(TradesController), typeof(AuctionsController), typeof(HallArchiveController), typeof(CardsController), typeof(NotificationSettingsController), typeof(PlayerImagesController), typeof(EditorialController), typeof(OperationsController), typeof(PlatformController), typeof(ContextController), typeof(PingController) };
             foreach (var controller in feature.Controllers.Where(type => !supported.Contains(type.AsType())).ToArray())
                 feature.Controllers.Remove(controller);
         }

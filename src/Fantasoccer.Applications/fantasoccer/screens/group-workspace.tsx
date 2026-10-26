@@ -6,14 +6,16 @@ import { workspaceService as api } from '../services/workspaceService'
 import type { WorkspaceAccount, WorkspaceGroup, WorkspaceDetails } from '../contracts/workspace'
 import { getActualFantacalcioYear } from '../utils/timezoneHelpers'
 import { useApp } from '../providers/AppProvider'
+import { useNavigation } from '@react-navigation/native'
+import type { NavigationProp } from '../navigation'
 
-const enabled = process.env.EXPO_PUBLIC_WORKSPACE_ENABLED === 'true'
 const roleOptions = [{ value: 1, label: 'Lettura' }, { value: 2, label: 'Partecipante' }, { value: 4, label: 'Amministratore' }, { value: 8, label: 'Responsabile' }]
 const roleLabel = (roles: number) => roleOptions.filter(role => (roles & role.value) !== 0).map(role => role.label).join(', ') || 'Rimosso'
 
 export default function GroupWorkspaceScreen() {
   const { isAuthenticated } = useAuth()
   const { refreshGroups } = useApp()
+  const navigation = useNavigation<NavigationProp>()
   const [account, setAccount] = useState<WorkspaceAccount | null>(null)
   const [groups, setGroups] = useState<WorkspaceGroup[]>([])
   const [groupId, setGroupId] = useState('')
@@ -22,7 +24,6 @@ export default function GroupWorkspaceScreen() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [groupName, setGroupName] = useState('')
   const [rename, setRename] = useState('')
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -44,7 +45,7 @@ export default function GroupWorkspaceScreen() {
     setGroupId(previous => list.some(group => group.groupId === previous) ? previous : list[0]?.groupId || '')
   }, [])
   useEffect(() => {
-    if (!enabled || !isAuthenticated) { setDetails(null); setAccount(null); setGroups([]); return }
+    if (!isAuthenticated) { setDetails(null); setAccount(null); setGroups([]); return }
     const controller = new AbortController()
     setLoading(true)
     loadGroups(controller.signal).catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Caricamento non riuscito.') })
@@ -93,26 +94,20 @@ export default function GroupWorkspaceScreen() {
   return <ScreenContent><YStack gap="$4" maxWidth={1000} width="100%" alignSelf="center">
     <H2>{account && groups.length === 0 ? 'Nessun gruppo associato' : 'Gruppi'}</H2>
     {account && groups.length === 0 ? <Card padding="$4" gap="$2">
-      <Paragraph>{account.canCreateGroups
-        ? 'Il tuo account può creare il primo gruppo. Dopo averlo creato potrai invitare gli altri partecipanti.'
-        : 'Il tuo account è attivo, ma non appartiene ancora a un gruppo. Chiedi a un amministratore di invitarti per accedere a classifiche, squadre e mercato.'}</Paragraph>
+      <Paragraph>Chiedi a un amministratore di invitarti oppure crea il tuo gruppo con un codice di attivazione monouso.</Paragraph>
+      <Button alignSelf="flex-start" onPress={() => navigation.navigate('CreateGroup')}>Scopri e crea un gruppo</Button>
     </Card> : <Card padding="$4" gap="$2">
       <Paragraph>Gestisci membri, basket, partecipazioni e proprietà delle squadre del gruppo selezionato.</Paragraph>
       <Paragraph>Completare l&apos;import prima di modificare i dati: la prima scrittura interattiva blocca le successive reimportazioni sullo stesso database.</Paragraph>
     </Card>}
-    {!enabled && <Text>Workspace non abilitato in questo ambiente.</Text>}
-    {enabled && !isAuthenticated && <Text>Accedi per visualizzare i tuoi gruppi.</Text>}
+    {!isAuthenticated && <Text>Accedi per visualizzare i tuoi gruppi.</Text>}
     {error && <Card padding="$3"><Text color="$red10" accessibilityRole="alert">{error}</Text></Card>}
     {notice && <Text accessibilityRole="alert">{notice}</Text>}
     {(loading || busy) && <Spinner />}
     {account && <Paragraph>Account: {account.displayName} ({account.email})</Paragraph>}
     <XStack gap="$2" flexWrap="wrap">{groups.map(group => <Button key={group.groupId} disabled={busy} theme={group.groupId === groupId ? 'blue' : undefined}
       onPress={() => setGroupId(group.groupId)}>{group.name}</Button>)}</XStack>
-    {account?.canCreateGroups && <Card padding="$4" gap="$2"><H3>Nuovo gruppo</H3>
-      <Input aria-label="Nome nuovo gruppo" placeholder="Nome nuovo gruppo" value={groupName} onChangeText={setGroupName} />
-      <Button disabled={busy || groupName.trim().length < 2} onPress={() => execute(async () => {
-        const created = await api.createGroup(groupName); setGroupName(''); setGroupId(created.groupId)
-      })}>Crea gruppo</Button></Card>}
+    {account && groups.length > 0 && <Button alignSelf="flex-start" onPress={() => navigation.navigate('CreateGroup')}>Crea un nuovo gruppo</Button>}
     {details && <>
       <H3>{details.name}</H3><Paragraph>I tuoi ruoli: {roleLabel(details.roles)}</Paragraph>
       <Card padding="$4" gap="$2"><H3>Membri</H3>{details.members.map(member => <XStack key={member.userId} gap="$2" alignItems="center" flexWrap="wrap">

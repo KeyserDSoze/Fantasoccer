@@ -57,3 +57,12 @@ test('propagates cancellation for group switching and never issues a request wit
   const anonymous = createWorkspaceApi({ baseUrl: 'http://local.test', token: async () => null, refresh: async () => null, fetch: async () => assert.fail('anonymous request') })
   await assert.rejects(anonymous.groups(), error => error.status === 401)
 })
+
+test('group activation keeps the secret code in the POST body, never in the URL or query string', async () => {
+  let request
+  const api = client(async (url, options) => { request = { url, ...options }; return new Response('{"groupId":"new-group"}') })
+  await api.redeemGroupCode('My group', 'FZ-private-code')
+  assert.equal(request.url, 'http://local.test/api/workspace/groups/redeem-code')
+  assert.equal(request.method, 'POST')
+  assert.deepEqual(JSON.parse(request.body), { name: 'My group', code: 'FZ-private-code' })
+})

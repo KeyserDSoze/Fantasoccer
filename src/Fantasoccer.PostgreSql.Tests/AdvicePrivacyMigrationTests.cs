@@ -12,8 +12,9 @@ public sealed partial class CoreMigrationTests
     public async Task Advice_schema_upgrade_and_downgrade_refuse_to_guess_or_remove_private_recipients()
     {
         await using var database = fixture.CreateContext();
-        var migrations = database.Database.GetMigrations().ToArray(); var current = migrations[^1]; var previous = migrations[^2];
-        Assert.EndsWith("AccountScopedTeamAdvice", current);
+        var migrations = database.Database.GetMigrations().ToArray();
+        var current = migrations.Single(x => x.EndsWith("AccountScopedTeamAdvice", StringComparison.Ordinal));
+        var previous = migrations[Array.IndexOf(migrations, current) - 1];
         var migrator = database.GetService<IMigrator>(); await migrator.MigrateAsync(previous);
         await ImportAsync();
         var team = await database.TeamSeasons.AsNoTracking().OrderBy(x => x.Name).FirstAsync();

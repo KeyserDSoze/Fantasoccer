@@ -60,6 +60,14 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
     public async Task<AccountIdentityDto> CurrentAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
         => await ProfileAsync(await CurrentUserAsync(caller, cancellationToken), cancellationToken);
 
+    public async Task<AccountIdentityDto> RequireGlobalAdministratorAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
+    {
+        var actor = await CurrentAsync(caller, cancellationToken);
+        if (!caller.IsInRole("super_admin") || !IsGlobalAdministrator(actor.Email))
+            throw new ApplicationFault(403, "platform_admin_required", "Serve un amministratore globale della piattaforma.");
+        return actor;
+    }
+
     public async Task<AccountIdentityDto[]> SearchAsync(ClaimsPrincipal caller, string? email, CancellationToken cancellationToken = default)
     {
         var actor = await CurrentUserAsync(caller, cancellationToken);
@@ -191,7 +199,7 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
             .OrderBy(x => x.Group.Name).Select(x => new IdentityGroupDto(x.GroupId, x.Group.Name, (int)x.Roles)).ToArrayAsync(cancellationToken);
         var selection = await database.AccountSelections.AsNoTracking().Include(x => x.WorkingUser).SingleOrDefaultAsync(x => x.UserId == user.Id, cancellationToken);
         return new(user.Id, user.DisplayName, user.Email,
-            selection is null ? new() : new(selection.GroupId, selection.LeagueId, selection.Year, selection.WorkingUser?.Email), memberships);
+            selection is null ? new() : new(selection.GroupId, selection.LeagueId, selection.Year, selection.WorkingUser?.Email), memberships, IsGlobalAdministrator(user.Email));
     }
 
     private async Task<UserAccount> CurrentUserAsync(ClaimsPrincipal caller, CancellationToken cancellationToken)

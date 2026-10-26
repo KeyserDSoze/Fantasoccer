@@ -9,7 +9,7 @@ namespace Fantasoccer.Application.Api.Controllers;
 [Authorize(Policy = "authenticated")]
 [Route("api/workspace")]
 [ServiceFilter(typeof(WorkspaceFaultFilter))]
-public sealed class GroupWorkspaceController(GroupApplicationService groups) : ControllerBase
+public sealed class GroupWorkspaceController(GroupApplicationService groups, GroupCreationApplicationService creation) : ControllerBase
 {
     [HttpGet("account")]
     public Task<AccountSummaryDto> Account(CancellationToken cancellationToken) => groups.GetAccountAsync(User, cancellationToken);
@@ -23,6 +23,9 @@ public sealed class GroupWorkspaceController(GroupApplicationService groups) : C
     [HttpPost("groups")]
     [Authorize(Policy = "super_admin")]
     public Task<GroupSummaryDto> Create(CreateGroupRequest request, CancellationToken cancellationToken) => groups.CreateAsync(User, request, cancellationToken);
+
+    [HttpPost("groups/redeem-code")]
+    public Task<GroupSummaryDto> Redeem(RedeemGroupCodeRequest request, CancellationToken cancellationToken) => creation.RedeemAsync(User, request, cancellationToken);
 
     [HttpPatch("groups/{groupId:guid}")]
     public async Task<IActionResult> Rename(Guid groupId, RenameGroupRequest request, CancellationToken cancellationToken)

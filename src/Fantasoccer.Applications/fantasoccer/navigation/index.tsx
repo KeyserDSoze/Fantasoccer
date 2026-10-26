@@ -14,6 +14,8 @@ import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
 import McpGuideScreen from 'screens/mcp-guide';
 import GroupWorkspaceScreen from 'screens/group-workspace';
+import CreateGroupScreen from 'screens/create-group';
+import PlatformAdminScreen from 'screens/platform-admin';
 import TeamSettingsScreen from 'screens/team-settings';
 import TeamsScreen from 'screens/teams';
 import EditScreen from 'screens/edit';
@@ -84,6 +86,8 @@ export type RootStackParamList = {
   Settings: undefined;
   McpGuide: undefined;
   GroupWorkspace: undefined;
+  CreateGroup: undefined;
+  PlatformAdmin: undefined;
   TeamSettings: undefined;
   Info: undefined;
   PatchNotes: undefined;
@@ -178,6 +182,8 @@ const linking = {
       Settings: 'settings',
       McpGuide: MCP_GUIDE_PATH,
       GroupWorkspace: 'workspace/groups',
+      CreateGroup: 'groups/new',
+      PlatformAdmin: 'platform',
       TeamSettings: 'team-settings',
       Info: 'info',
       PatchNotes: 'patch-notes',
@@ -244,6 +250,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="McpGuide" component={McpGuideScreen} />
         <Stack.Screen name="GroupWorkspace" component={GroupWorkspaceScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
+        <Stack.Screen name="PlatformAdmin" component={PlatformAdminScreen} />
         <Stack.Screen name="TeamSettings" component={TeamSettingsScreen} />
         <Stack.Screen name="Info" component={InfoScreen} />
         <Stack.Screen name="PatchNotes" component={PatchNotesScreen} />

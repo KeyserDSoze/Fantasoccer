@@ -2,7 +2,7 @@
 export enum IdentityRole { None = 0, Reader = 1, Participant = 2, Admin = 4, SuperAdmin = 8 }
 export interface GroupForIdentity { id: string; name: string; role: IdentityRole }
 export interface AppIdentityState { groupId: string | null; leagueId: string | null; year: number | null; meOrLeaderEmail: string | null }
-export interface AppIdentity { id?: string; username: string; email: string; state: AppIdentityState; groups: GroupForIdentity[] }
+export interface AppIdentity { id?: string; username: string; email: string; state: AppIdentityState; groups: GroupForIdentity[]; isGlobalAdministrator?: boolean }
 export const hasRole = (roles: IdentityRole, role: IdentityRole) => (roles & role) === role
 export const getUserRoleNames = (roles: IdentityRole) => [IdentityRole.Reader, IdentityRole.Participant, IdentityRole.Admin, IdentityRole.SuperAdmin]
   .filter(role => hasRole(roles, role)).map(role => IdentityRole[role])

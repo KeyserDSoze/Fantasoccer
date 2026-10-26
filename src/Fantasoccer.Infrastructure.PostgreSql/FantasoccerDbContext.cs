@@ -69,6 +69,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<SqlJobRun> SqlJobRuns => Set<SqlJobRun>();
     public DbSet<HallRankContribution> HallRankContributions => Set<HallRankContribution>();
     public DbSet<HallBaselineConfirmation> HallBaselineConfirmations => Set<HallBaselineConfirmation>();
+    public DbSet<GroupCreationCode> GroupCreationCodes => Set<GroupCreationCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

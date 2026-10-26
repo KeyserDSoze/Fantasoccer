@@ -34,6 +34,7 @@ export function createWorkspaceApi(options: {
     groups: (signal?: AbortSignal) => request<WorkspaceGroup[]>('/groups', 'GET', undefined, signal),
     details: (id: string, signal?: AbortSignal) => request<WorkspaceDetails>(group(id), 'GET', undefined, signal),
     createGroup: (name: string) => request<WorkspaceGroup>('/groups', 'POST', { name }),
+    redeemGroupCode: (name: string, code: string, signal?: AbortSignal) => request<WorkspaceGroup>('/groups/redeem-code', 'POST', { name, code }, signal),
     renameGroup: (id: string, name: string) => request<void>(group(id), 'PATCH', { name }),
     setMember: (id: string, member: SetWorkspaceMember) => request<void>(group(id) + '/members', 'PUT', member),
     createBasket: (id: string, name: string, seasonIndex: number) => request<{ basketId: string }>(group(id) + '/baskets', 'POST', { name, seasonIndex }),

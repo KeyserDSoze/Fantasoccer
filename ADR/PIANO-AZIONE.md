@@ -176,6 +176,17 @@ La cartella ADR descrive anche gli stati intermedi precedenti: questo incremento
 - Modello EF allineato alle migration; nessuna modifica pendente. Controllo whitespace e audit dei file candidati: nessun certificato/chiave privata, env privato, binario o literal di credenziale aggiunto al pacchetto.
 - Build finale avviato con schema applicato allo startup; health e smoke HTTPS/OAuth/MCP non autenticato passati. Login reale e UI restano accettazione del gestore; nessuna verifica browser manuale viene dichiarata senza client controllabile.
 
+## Incremento 12 — Onboarding e attivazione dei gruppi
+
+Su richiesta esplicita del gestore, il super admin predefinito è ora `alessandro.rapiti44@gmail.com`, configurabile con `Authorization:GlobalAdministrators`/`GLOBAL_ADMIN_EMAIL`. La capability `isGlobalAdministrator` proviene dal profilo server; l'area piattaforma resta visibile anche senza membership e non confonde i responsabili di gruppo con gli amministratori globali.
+
+- `/platform` offre utenti e gruppi globali paginati, ricerca, panoramica membri/leghe e gestione di codici monouso. I controlli server richiedono account attivo, ruolo autenticato e allowlist corrente; le viste globali non aggiungono membership fittizie.
+- I codici contengono 192 bit casuali, sono mostrati integralmente una sola volta, salvati come hash e revocabili finché inutilizzati. Riscatto, creazione gruppo, assegnazione del responsabile e selezione del nuovo gruppo sono atomici, sotto lo stesso lock PostgreSQL delle altre scritture.
+- La home pubblica e senza gruppi presenta funzionalità, leghe/coppe e regole configurabili. `/groups/new` riscatta il codice; il menu permette di creare altri gruppi anche a chi è già membro. Le impostazioni e il workspace rimandano allo stesso percorso.
+- Pagamenti, prezzi e rinnovi annuali sono dichiarati **futuri**, non simulati. I codici attuali non effettuano addebiti e non sospendono gruppi importati/esistenti.
+
+Verifiche: suite PostgreSQL e API reali su database isolati, incluso uso concorrente/riuso/revoca/cross-role e rollback forzato; test frontend di presentazione, menu e trasporto codice solo nel POST; TypeScript. Prova browser headless desktop/mobile con risposte API sintetiche per home, riscatto e console globale, non un collaudo di pagamento o di login Microsoft reale. Dettagli operativi: [attivazione gruppi](../docs/GROUP-ACTIVATION.md).
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -140,11 +140,12 @@ export default function SettingsScreen() {
         alignSelf="center"
         paddingBottom="$8">
         <McpGuideCard />
-        {process.env.EXPO_PUBLIC_WORKSPACE_ENABLED === 'true' && <Card padding="$4" gap="$2">
-          <H3>Gruppi PostgreSQL</H3>
-          <Paragraph>Nuova gestione relazionale di membri, basket e proprietà delle squadre. Le schermate di gioco non sono ancora migrate.</Paragraph>
-          <Button onPress={() => navigation.navigate('GroupWorkspace')}>Apri gestione gruppi PostgreSQL</Button>
-        </Card>}
+        <Card padding="$4" gap="$2">
+          <H3>I tuoi gruppi</H3>
+          <Paragraph>Gestisci membri, competizioni e squadre dei tuoi gruppi oppure attiva un nuovo gruppo con un codice.</Paragraph>
+          <Button onPress={() => navigation.navigate('GroupWorkspace')}>Gestisci i tuoi gruppi</Button>
+          <Button variant="outlined" onPress={() => navigation.navigate('CreateGroup')}>Crea un nuovo gruppo</Button>
+        </Card>
         <McpConnectionsCard key={userEmail} email={userEmail} />
         <Card
           padding="$4"
