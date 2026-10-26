@@ -110,7 +110,7 @@ export default function HallOfFameScreen() {
 
   // Navigate to record game
   const navigateToRecordGame = () => {
-    if (!hallOfFame?.recordGame || !currentGroup || !selectedLeagueId) return
+    if (!hallOfFame?.recordGame?.isLinkedToCalendar || !currentGroup || !selectedLeagueId) return
 
     navigation.navigate('Game', {
       groupId: currentGroup.id,
@@ -333,7 +333,7 @@ export default function HallOfFameScreen() {
 
               {/* Record Game Section */}
               {hallOfFame.recordGame && (
-                <Pressable onPress={navigateToRecordGame}>
+                <Pressable onPress={navigateToRecordGame} disabled={!hallOfFame.recordGame.isLinkedToCalendar}>
                   <Card
                     padding="$4"
                     backgroundColor="$purple2"

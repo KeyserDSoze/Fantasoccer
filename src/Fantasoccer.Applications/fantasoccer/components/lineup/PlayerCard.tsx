@@ -152,7 +152,7 @@ export function PlayerCard({
   const isGameLive = useMemo(() => {
     if (!realGame?.date || !vote) return false;
     const now = new Date();
-    const gameStart = realGame.date;
+    const gameStart = new Date(realGame.date);
     const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000);
     return now >= gameStart && now <= twoHoursAfterStart;
   }, [realGame, vote]);
@@ -163,7 +163,7 @@ export function PlayerCard({
     !!realGame?.date &&
     realGame.homeGoals == null &&
     realGame.awayGoals == null &&
-    new Date() < realGame.date;
+    new Date() < new Date(realGame.date);
 
   // Logica per determinare il colore del voto e se deve lampeggiare
   const voteDisplayInfo = useMemo(() => {
@@ -347,7 +347,7 @@ export function PlayerCard({
   const gameInfo = useMemo(() => {
     if (!realGame) return null;
     const actualDate = new Date();
-    const gameDate = realGame.date ? convertDateToItalianTimezone(realGame.date) : null;
+    const gameDate = realGame.date ? new Date(realGame.date) : null;
     const isPlayed = gameDate && gameDate < actualDate;
 
     const homeTeamName = realGame.home?.name || realGame.home;

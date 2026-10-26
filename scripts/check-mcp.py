@@ -3,23 +3,25 @@
 import argparse
 import json
 import sys
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
 
 
-def check(issuer):
+def check(issuer, ca_file=None):
     parsed = urllib.parse.urlsplit(issuer)
-    if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username:
+    if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/") or parsed.query or parsed.fragment or parsed.username is not None or parsed.password is not None:
         raise ValueError("Issuer must be an HTTPS origin without path, credentials, query or fragment.")
     issuer = issuer.rstrip("/")
     resource = issuer + "/mcp"
+    tls = ssl.create_default_context(cafile=ca_file)
 
     def request(path, data=None):
         req = urllib.request.Request(issuer + path, data=data,
                                      headers={"Accept": "application/json, text/event-stream", "Content-Type": "application/json"})
         try:
-            return urllib.request.urlopen(req, timeout=20)
+            return urllib.request.urlopen(req, timeout=20, context=tls)
         except urllib.error.HTTPError as error:
             return error
 
@@ -46,9 +48,10 @@ def check(issuer):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("issuer", help="Public HTTPS API origin")
+    parser.add_argument("--ca-file", help="Explicit public local CA/certificate file; TLS verification remains enabled")
     args = parser.parse_args()
     try:
-        check(args.issuer)
+        check(args.issuer, args.ca_file)
     except (ValueError, KeyError, OSError) as error:
         print("MCP check failed: " + str(error), file=sys.stderr)
         sys.exit(1)

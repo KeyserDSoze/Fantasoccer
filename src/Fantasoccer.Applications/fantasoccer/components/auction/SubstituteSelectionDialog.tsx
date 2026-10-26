@@ -85,16 +85,16 @@ export function SubstituteSelectionDialog({
                     
                     return (
                       <Card
-                        key={player.name}
+                        key={player.playerId}
                         padding="$4"
-                        backgroundColor={currentSelection === player.name ? '$blue2' : '$color1'}
+                        backgroundColor={currentSelection === player.playerId ? '$blue2' : '$color1'}
                         borderRadius="$4"
                         borderWidth="$0.5"
-                        borderColor={currentSelection === player.name ? '$blue8' : '$borderColor'}
+                        borderColor={currentSelection === player.playerId ? '$blue8' : '$borderColor'}
                         pressStyle={{ scale: 0.98, opacity: 0.9 }}
                         cursor="pointer"
                         onPress={() => {
-                          onSelectPlayer(player.name)
+                          onSelectPlayer(player.playerId ?? '')
                           onOpenChange(false)
                         }}
                       >
@@ -104,7 +104,7 @@ export function SubstituteSelectionDialog({
                               <Text fontSize="$6" fontWeight="700" color="$color11">{player.name}</Text>
                               <Text fontSize="$3" color="$color10">{player.team.name}</Text>
                             </YStack>
-                            {currentSelection === player.name && (
+                            {currentSelection === player.playerId && (
                               <Card padding="$2" paddingHorizontal="$3" backgroundColor="$blue8" borderRadius="$3">
                                 <Text fontSize="$3" color="white" fontWeight="700">✓ SELEZIONATO</Text>
                               </Card>

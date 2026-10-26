@@ -5,8 +5,7 @@ import {
   copyMissingTeams,
   getAnnualLeagueForYear,
   isLeagueSettingValid,
-  preserveRawLeagueSetting,
-  serializeVoteSettings,
+  cloneLeagueSetting,
   upsertAnnualLeague
 } from '../utils/groupAdmin.ts'
 import { getCurrentSeasonYear } from '../utils/season.ts'
@@ -98,11 +97,11 @@ test('copies settings to a new year without mutating the source year', () => {
     moneyForSufferedGoal: -2,
     formation: 1,
     typeSettings: {
-      t: 0,
-      r: [{ n: '@', t: 0, f: true, s: null, e: null }],
-      n: { t: 25, g: 1, d: 5, m: 4, f: 2, mg: 1, md: 1, mb: 1, fb: 1 },
-      fpy: null,
-      ct: { c: { Strategy: 2 } }
+      calendarType: 0,
+      rounds: [{ name: '@', type: 0, fromStart: true, fromRankingStartTeam: null, fromRankingEndTeam: null }],
+      numbers: { maxPlayersInTeam: 25, maxGoalKeepersInTeam: 1, maxDefendersInTeam: 5, maxMidfieldersInTeam: 4, maxForwardsInTeam: 2, maxGoalKeepersInBench: 1, maxDefendersInBench: 1, maxMidfieldersInBench: 1, maxForwardsInBench: 1 },
+      fromPreviousYear: null,
+      cardTrainer: { maxCardsPerType: { 0: 2 } }
     }
   }
   const source = { year: 14, type: 2, settings: completeSettings }
@@ -110,13 +109,13 @@ test('copies settings to a new year without mutating the source year', () => {
 
   copied.settings.startingMoney = 750
   copied.settings.votes[0].goal = 9
-  copied.settings.typeSettings.r[0].n = 'changed'
+  copied.settings.typeSettings.rounds[0].name = 'changed'
 
   assert.equal(copied.year, 15)
   assert.equal(copied.type, 2)
   assert.equal(source.settings.startingMoney, 1000)
   assert.equal(source.settings.votes[0].goal, 4)
-  assert.equal(source.settings.typeSettings.r[0].n, '@')
+  assert.equal(source.settings.typeSettings.rounds[0].name, '@')
   assert.equal(copied.settings.pointForStrongDefense5, 7)
   assert.equal(copied.settings.moneyForSufferedGoal, -2)
 })
@@ -150,26 +149,22 @@ test('copies only missing teams and clones co-owner arrays', () => {
   assert.deepEqual(source[1].additionalOwners, ['three@example.com'])
 })
 
-test('preserves backend-only settings while updating editable values', () => {
-  const settingWithRawFields = {
+test('clones descriptive DTOs without a compact shadow object', () => {
+  const descriptive = {
     ...settings,
     startingMoney: 750,
-    raw: {
-      frm: 1,
-      lt: { custom: 'backend-only' }
-    },
     formation: 1,
-    typeSettings: { custom: 'backend-only' }
+    futureRule: { custom: 'backend-only' }
   }
 
-  const raw = preserveRawLeagueSetting(settingWithRawFields, {})
-
-  assert.equal(raw.s, 750)
-  assert.equal(raw.frm, 1)
-  assert.deepEqual(raw.lt, { custom: 'backend-only' })
+  const dto = cloneLeagueSetting(descriptive)
+  assert.equal(dto.startingMoney, 750)
+  assert.equal(dto.formation, 1)
+  assert.deepEqual(dto.futureRule, { custom: 'backend-only' })
+  assert.equal('raw' in dto, false)
 })
 
-test('serializes every editable setting and canonical vote role keys', () => {
+test('sends every editable setting and vote value using descriptive JSON', () => {
   const complete = {
     ...settings,
     votes: {
@@ -202,11 +197,9 @@ test('serializes every editable setting and canonical vote role keys', () => {
     },
     formation: 1,
     typeSettings: {
-      t: 0,
-      r: [],
-      n: { t: 25, g: 1, d: 5, m: 4, f: 2, mg: 1, md: 1, mb: 1, fb: 1 },
-      fpy: null,
-      ct: { c: {} }
+      calendarType: 0, rounds: [],
+      numbers: { maxPlayersInTeam: 25, maxGoalKeepersInTeam: 1, maxDefendersInTeam: 5, maxMidfieldersInTeam: 4, maxForwardsInTeam: 2, maxGoalKeepersInBench: 1, maxDefendersInBench: 1, maxMidfieldersInBench: 1, maxForwardsInBench: 1 },
+      fromPreviousYear: null, cardTrainer: { maxCardsPerType: {} }
     },
     pointForDraw: 2,
     pointForDefeat: -1,
@@ -219,21 +212,20 @@ test('serializes every editable setting and canonical vote role keys', () => {
     moneyForSufferedGoal: -2
   }
 
-  const raw = preserveRawLeagueSetting(complete, serializeVoteSettings(complete.votes))
-
-  assert.equal(raw.frm, 1)
-  assert.deepEqual(raw.lt, complete.typeSettings)
-  assert.equal(raw.h, 2)
-  assert.equal(raw.b, -1)
-  assert.equal(raw['3'], 3)
-  assert.equal(raw['4'], 5)
-  assert.equal(raw['5'], 7)
-  assert.equal(raw.gp, 4)
-  assert.equal(raw.l, 2)
-  assert.equal(raw.m, 8)
-  assert.equal(raw.n, -2)
-  assert.equal(raw.v.Undefined.g, 3)
-  assert.equal(raw.v.Defensor.a, 1.5)
+  const dto = JSON.parse(JSON.stringify(complete))
+  assert.equal(dto.formation, 1)
+  assert.deepEqual(dto.typeSettings, complete.typeSettings)
+  assert.equal(dto.pointForDraw, 2)
+  assert.equal(dto.pointForDefeat, -1)
+  assert.equal(dto.pointForStrongDefense, 3)
+  assert.equal(dto.pointForStrongDefense4, 5)
+  assert.equal(dto.pointForStrongDefense5, 7)
+  assert.equal(dto.pointForGoodPeople, 4)
+  assert.equal(dto.pointForCleanSheet, 2)
+  assert.equal(dto.moneyForGoal, 8)
+  assert.equal(dto.moneyForSufferedGoal, -2)
+  assert.equal(dto.votes['-1'].goal, 3)
+  assert.equal(dto.votes['1'].assist, 1.5)
 })
 
 test('uses the same UTC season boundary as the backend', () => {

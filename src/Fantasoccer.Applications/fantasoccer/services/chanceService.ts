@@ -1,17 +1,14 @@
-import { RepositoryServices } from 'rystem.repository.client'
+import { getFootballChances } from './footballApi'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
 import {
   ChancedRealPlayer,
   ChancedRealPlayerRoleBuckets,
   ChancedRealPlayerWrapper,
-  ChancedRealPlayerWrapperRaw,
   EnhancedChancedRealPlayerWrapper,
   enhanceChancedRealPlayersWrapper,
-  mapRawChancedWrapperToWrapper,
   ChancedRealPlayerHelper,
 } from 'types/chance'
-import { YearDayKey, YearDayKeyRaw, mapYearDayKeyToRawYearDayKey } from 'types/serieA'
 import { getCurrentSeasonYear } from 'utils/season'
 
 export interface ChanceLookupOptions {
@@ -31,10 +28,6 @@ export class ChanceService {
   // ============================================
   // INTERNAL HELPERS
   // ============================================
-
-  private getRepository() {
-    return RepositoryServices.Repository<ChancedRealPlayerWrapperRaw, YearDayKeyRaw>('ChancedRealPlayerWrapper')
-  }
 
   private async getCurrentUserYear(): Promise<number | null> {
     try {
@@ -57,21 +50,6 @@ export class ChanceService {
       return year
     }
     return this.getCurrentUserYear()
-  }
-
-  private mapWrapper(raw: ChancedRealPlayerWrapperRaw | null | undefined): ChancedRealPlayerWrapper | null {
-    if (!raw) {
-      return null
-    }
-
-    return mapRawChancedWrapperToWrapper(raw)
-  }
-
-  private buildKey(options: ChanceLookupOptions): YearDayKey {
-    return {
-      year: options.year,
-      day: options.day,
-    }
   }
 
   private validateOptions(options: ChanceLookupOptions): boolean {
@@ -125,15 +103,7 @@ export class ChanceService {
       return null
     }
 
-    try {
-      const repository = this.getRepository()
-      const key = mapYearDayKeyToRawYearDayKey(this.buildKey(options))
-      const rawWrapper = await repository.get(key)
-      return this.mapWrapper(rawWrapper)
-    } catch (error) {
-      console.error('Error fetching chanced real players:', options, error)
-      return null
-    }
+    return getFootballChances(options.year, options.day)
   }
 
   async getEnhancedWrapper(options: ChanceLookupOptions): Promise<EnhancedChancedRealPlayerWrapper | null> {

@@ -13,9 +13,9 @@ namespace Fantasoccer.Business.Services;
 // Both the scheduled job and manual refresh use the same official source and blob key.
 public sealed class PlayerImageService(
     IHttpClientFactory httpClientFactory,
-    IRepository<RealPlayersWrapper, int> realPlayers,
+    IFootballIngestionReader realPlayers,
     IFactory<IContentRepository> contentFactory,
-    ILock imageLock)
+    ILock imageLock) : IPlayerImageRefresher
 {
     private const string CompetitionId = "serie-a::Football_Competition::ec93b94f74294dc98ab5bcfd67fc0d88";
     private static readonly Uri MediaBaseUri = new("https://media-sdp.legaseriea.it/");
@@ -27,7 +27,7 @@ public sealed class PlayerImageService(
     public async Task DownloadMissingAsync(CancellationToken cancellationToken)
     {
         var year = FantacalcioTime.ActualYear;
-        var players = (await realPlayers.GetAsync(year, cancellationToken))?.Players;
+        var players = (await realPlayers.PlayersAsync(year).WaitAsync(cancellationToken))?.Players;
         if (players == null || players.Count == 0) return;
         var sourcePlayers = await GetSourcePlayersAsync(year, cancellationToken);
         foreach (var player in players)
@@ -362,5 +362,3 @@ public sealed class PlayerImageService(
         public string? AcronymName { get; set; }
     }
 }
-
-public sealed record PlayerImageReloadResult(string PlayerKey, string PlayerName, bool Succeeded, string? Error);

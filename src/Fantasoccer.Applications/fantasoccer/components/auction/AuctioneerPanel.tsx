@@ -119,7 +119,7 @@ export function AuctioneerPanel({
             <Select.Content>
               <Select.Viewport>
                 {teams.map((team, idx) => (
-                  <Select.Item key={team.value.owner} index={idx} value={team.value.owner}>
+                  <Select.Item key={team.value.teamId} index={idx} value={team.value.teamId ?? ''}>
                     <Select.ItemText>{team.value.name} (€{calculateBudgetRemaining(team)})</Select.ItemText>
                   </Select.Item>
                 ))}
@@ -128,7 +128,7 @@ export function AuctioneerPanel({
           </Select>
           {selectedTeamForBid && (
             <Card padding="$2" backgroundColor="$orange1" borderRadius="$2">
-              <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.owner === selectedTeamForBid)?.value.name}</Text>
+              <Text fontSize="$3" color="$orange11">Selezionato: {teams.find(t => t.value.teamId === selectedTeamForBid)?.value.name}</Text>
             </Card>
           )}
         </YStack>
@@ -143,7 +143,7 @@ export function AuctioneerPanel({
             disabled={!currentPlayer}
           >
             {auctioneerSelectedSubstitute 
-              ? `Sostituisce: ${teams.find(t => t.value.owner === selectedTeamForBid)?.value.players.find(p => p.name === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}` 
+              ? `Sostituisce: ${teams.find(t => t.value.teamId === selectedTeamForBid)?.value.players.find(p => p.playerId === auctioneerSelectedSubstitute)?.name || auctioneerSelectedSubstitute}`
               : 'Seleziona giocatore da sostituire'}
           </Button>
         )}

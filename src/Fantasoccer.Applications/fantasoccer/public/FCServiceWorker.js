@@ -1,10 +1,10 @@
 'use strict'
 
-const DEFAULT_PUBLIC_KEY = 'BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8'
-let applicationServerPublicKey = self.__fantasoccerVapidKey ?? DEFAULT_PUBLIC_KEY
+let applicationServerPublicKey = null
 const PUSH_STATE_CACHE = 'fantasoccer-push-state-v1'
 const RENEWAL_PATH = '/__fantasoccer_push_renewal__'
 const DEVICE_PATH = '/__fantasoccer_push_device__'
+const KEY_PATH = '/__fantasoccer_push_public_key__'
 
 const urlB64ToUint8Array = (base64String) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -41,9 +41,12 @@ self.addEventListener('message', (event) => {
     return
   }
 
-  if (event.data.type === 'SET_VAPID_KEY' && typeof event.data.value === 'string') {
-    self.__fantasoccerVapidKey = event.data.value
+  if (event.data.type === 'SET_VAPID_KEY' && (event.data.value === null || typeof event.data.value === 'string')) {
     applicationServerPublicKey = event.data.value
+    event.waitUntil((async () => {
+      const cache = await caches.open(PUSH_STATE_CACHE)
+      await cache.put(KEY_PATH, Response.json({ publicKey: applicationServerPublicKey }))
+    })())
   }
   
   // Force update on request
@@ -66,52 +69,48 @@ self.addEventListener('push', (event) => {
     }
   })()
 
-  if (!value) {
+  if (!value || typeof value.title !== 'string' || typeof value.body !== 'string') {
     return
   }
 
   const options = {
-    body: value.Body,
-    data: value.Data,
-    icon: value.Icon ?? new URL('icon.png', self.registration.scope).href,
-    badge: value.Badge ?? new URL('adaptive-icon.png', self.registration.scope).href,
-    sound: value.Sound,
-    tag: value.Tag,
-    vibrate: value.Vibrate ?? [500, 110, 500, 110, 450, 110, 200, 110, 170, 40, 450, 110, 200, 110, 170, 40, 500],
-    requireInteraction: value.RequireInteraction ?? false
+    body: value.body,
+    data: value.data,
+    icon: value.icon ?? new URL('icon.png', self.registration.scope).href,
+    badge: value.badge ?? new URL('adaptive-icon.png', self.registration.scope).href,
+    tag: value.tag,
+    requireInteraction: value.requireInteraction ?? false
   }
 
   event.waitUntil((async () => {
     const cache = await caches.open(PUSH_STATE_CACHE)
     const bindingResponse = await cache.match(DEVICE_PATH)
-    if (bindingResponse) {
-      const binding = await bindingResponse.json()
-      if (binding.enabled === false) return
-      if (value.Data?.RecipientEmail && binding.email?.toLowerCase() !== value.Data.RecipientEmail.toLowerCase()) return
-    }
-    await self.registration.showNotification(value.Title ?? 'FantaZone', options)
+    if (!bindingResponse) return
+    const binding = await bindingResponse.json()
+    if (binding.enabled !== true || typeof value.data?.recipientEmail !== 'string' || binding.email?.toLowerCase() !== value.data.recipientEmail.toLowerCase()) return
+    await self.registration.showNotification(value.title, options)
   })())
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  let target = event.notification.data?.Uri ?? event.notification.data?.url
-  if (target && target.includes("fantacalcio.xyz")){
-    target = target.replace("fantacalcio.xyz", "fanta.zone")
-  }
-  if (!target) {
-    return
-  }
+  const uri = event.notification.data?.uri
+  if (typeof uri !== 'string') return
+  let target
+  try {
+    target = new URL(uri, self.registration.scope)
+    if (target.origin !== new URL(self.registration.scope).origin || !['https:', 'http:'].includes(target.protocol)) return
+  } catch { return }
 
   event.waitUntil((async () => {
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     const existing = clients.find((client) => client.url.startsWith(self.registration.scope))
     if (existing && 'focus' in existing) {
       await existing.focus()
-      if ('navigate' in existing && target) await existing.navigate(target)
+      if ('navigate' in existing) await existing.navigate(target.href)
       return
     }
-    await self.clients.openWindow(target)
+    await self.clients.openWindow(target.href)
   })())
 })
 
@@ -122,14 +121,26 @@ self.addEventListener('pushsubscriptionchange', (event) => {
     const saved = previous ? await previous.json() : null
     const bindingResponse = await cache.match(DEVICE_PATH)
     const binding = bindingResponse ? await bindingResponse.json() : null
-    if (binding?.enabled === false) return
+    if (binding?.enabled !== true) return
     const oldEndpoint = saved?.oldEndpoint || event.oldSubscription?.endpoint || binding?.endpoint || ''
     const persist = (value) => cache.put(RENEWAL_PATH, new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } }))
     // Persist even before subscribe: reconnection can recover a failed renewal.
     await persist({ oldEndpoint })
+    const keyResponse = await cache.match(KEY_PATH)
+    const publicKey = keyResponse ? (await keyResponse.json()).publicKey : applicationServerPublicKey
+    if (!publicKey) return // Authenticated foreground reconciliation will retry.
+    const oldKey = event.oldSubscription?.options?.applicationServerKey
+    if (oldKey) {
+      const oldBytes = new Uint8Array(oldKey)
+      const expected = urlB64ToUint8Array(publicKey)
+      if (oldBytes.length !== expected.length || oldBytes.some((value, index) => value !== expected[index])) {
+        await persist({ oldEndpoint, keyRotationRequired: true })
+        return // Different VAPID key: foreground explicit reactivation only.
+      }
+    }
     const newSubscription = event.newSubscription ?? await self.registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(applicationServerPublicKey)
+      applicationServerKey: urlB64ToUint8Array(publicKey)
     })
     const json = newSubscription.toJSON()
     await persist({ oldEndpoint, subscription: { endpoint: json.endpoint, p256dh: json.keys?.p256dh, auth: json.keys?.auth } })

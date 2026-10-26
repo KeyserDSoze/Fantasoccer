@@ -369,3 +369,14 @@ FodyWeavers.xsd
 
 # Local Data Protection keys (production uses private Blob storage)
 **/mcp-keys/
+
+# Protected migration exports and local environment overrides
+/migration-data/
+/ops/migration/.env
+/ops/migration/compose.override.yml
+
+# Private environment files; only synthetic local-test defaults are versioned.
+**/.env
+**/.env.*
+!/.env.test
+/local-certificates/

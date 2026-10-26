@@ -183,7 +183,7 @@ function GlobalMatchWidgetContent({
   const nextDates =
     nextDay?.games
       .filter((game) => !game.delayed && game.date)
-      .map((game) => game.date.getTime()) ?? [];
+      .map((game) => new Date(game.date!).getTime()) ?? [];
   const nextStart = nextDates.length > 0 ? Math.min(...nextDates) : null;
   const countdown = (() => {
     if (!nextStart || now === null) return null;

@@ -149,7 +149,7 @@ export function RemainingPlayersPanel({
                         borderWidth="$0.5"
                         borderColor="$blue7"
                         disabled={!isAuctioneer}
-                        onPress={() => onForceShowPlayer(player.key)}
+                        onPress={() => onForceShowPlayer(player.playerId ?? '')}
                         pressStyle={{ backgroundColor: '$blue3' }}
                         padding="$2"
                         height="auto"

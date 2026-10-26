@@ -1,0 +1,100 @@
+name: Relational Migration Tests
+
+on:
+  pull_request:
+    paths:
+      - 'src/Fantasoccer.Infrastructure.PostgreSql/**'
+      - 'src/Fantasoccer.Application.Core/**'
+      - 'src/Fantasoccer.Domain/**'
+      - 'src/Fantasoccer.Business/**'
+      - 'src/Fantasoccer.Business.BackgroundJobs/**'
+      - 'src/Fantasoccer.Infrastructure.Storage/**'
+      - 'src/Fantasoccer.PostgreSql.Tests/**'
+      - 'src/Fantasoccer.RelationalApi.Tests/**'
+      - 'scripts/migration/**'
+      - 'ops/migration/**'
+      - 'tools/Fantasoccer.StorageMigration/**'
+      - 'tools/Fantasoccer.DataMigration/**'
+      - 'tools/Fantasoccer.LocalCertificates/**'
+      - 'scripts/local/**'
+      - 'ops/local/**'
+      - 'compose.yml'
+      - 'compose.https.yml'
+      - '.dockerignore'
+      - '.env.test'
+      - 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/**'
+      - 'src/Fantasoccer.Applications/fantasoccer/**'
+      - '.github/workflows/migration-tests.yml'
+  push:
+    branches: ['refactor/postgresql-multi-group', 'main']
+    paths:
+      - 'src/Fantasoccer.Infrastructure.PostgreSql/**'
+      - 'src/Fantasoccer.Application.Core/**'
+      - 'src/Fantasoccer.Domain/**'
+      - 'src/Fantasoccer.Business/**'
+      - 'src/Fantasoccer.Business.BackgroundJobs/**'
+      - 'src/Fantasoccer.Infrastructure.Storage/**'
+      - 'src/Fantasoccer.PostgreSql.Tests/**'
+      - 'src/Fantasoccer.RelationalApi.Tests/**'
+      - 'scripts/migration/**'
+      - 'ops/migration/**'
+      - 'tools/Fantasoccer.StorageMigration/**'
+      - 'tools/Fantasoccer.DataMigration/**'
+      - 'tools/Fantasoccer.LocalCertificates/**'
+      - 'scripts/local/**'
+      - 'ops/local/**'
+      - 'compose.yml'
+      - 'compose.https.yml'
+      - '.dockerignore'
+      - '.env.test'
+      - 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/**'
+      - 'src/Fantasoccer.Applications/fantasoccer/**'
+      - '.github/workflows/migration-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and start the complete local stack
+        run: bash scripts/local/local.sh up .env.test
+      - name: Check app and API readiness
+        run: bash scripts/local/local.sh smoke .env.test
+      - name: Apply schema a second time
+        run: bash scripts/local/local.sh migrate .env.test
+      - name: Run migration tests in isolated containers
+        run: bash scripts/local/local.sh test .env.test
+      - name: Generate local TLS certificate without modifying host trust
+        run: bash scripts/local/local.sh certificate .env.test
+      - name: Start HTTPS profile and MCP
+        run: MCP_ENABLED=true bash scripts/local/local.sh up-https .env.test
+      - name: Verify trusted TLS and protected MCP discovery
+        run: |
+          curl --fail --silent --cacert local-certificates/localhost.pem https://localhost:5443/.well-known/oauth-authorization-server > /dev/null
+          status=$(curl --silent --cacert local-certificates/localhost.pem --output /dev/null --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ci-smoke","version":"1"}}}' https://localhost:5443/mcp)
+          test "$status" = 401
+      - name: Stop the local stack
+        if: always()
+        run: docker compose --env-file .env.test --profile test --profile tools down
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.301'
+      - name: Run relational tests with PostgreSQL and Azurite
+        run: bash scripts/migration/test-local.sh --configuration Release
+      - name: Stop the dedicated test environment
+        if: always()
+        run: docker compose -f ops/migration/compose.yml down

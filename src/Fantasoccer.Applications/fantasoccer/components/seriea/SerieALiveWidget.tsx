@@ -474,7 +474,7 @@ type SerieAGameRowProps = {
 }
 
 function SerieAGameRow({ game, isLive }: SerieAGameRowProps) {
-  const kickoffLabel = formatItalianDate(game.date.toString())
+  const kickoffLabel = game.date ? formatItalianDate(new Date(game.date).toISOString()) : 'Da definire'
   const isPlayed = RealCalendarHelper.isGamePlayed(game)
   const hasScore = game.homeGoals != null && game.awayGoals != null
   const showScore = hasScore && (isLive || isPlayed)

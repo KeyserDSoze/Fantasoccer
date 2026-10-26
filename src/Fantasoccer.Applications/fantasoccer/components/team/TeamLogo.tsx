@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Image } from 'tamagui'
 import { View } from 'react-native'
-import { getTeamLogoUrl } from '../../utils/teamLogo'
+import { useApp } from '../../providers/AppProvider'
 
 interface TeamLogoProps {
   groupId: string
@@ -10,6 +10,8 @@ interface TeamLogoProps {
   size?: number
   fallbackColor?: string
   cacheBuster?: number // Optional timestamp to force cache refresh
+  logoUrl?: string | null
+  teamId?: string
 }
 
 // SVG fallback logo
@@ -54,19 +56,26 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   ownerEmail,
   size = 40,
   fallbackColor = '#2563eb',
-  cacheBuster
+  cacheBuster,
+  logoUrl: explicitUrl,
+  teamId
 }) => {
   const [imageError, setImageError] = useState(false)
+  const { userGroups } = useApp()
+  const metadata = userGroups.find(group => group.id === groupId)?.baskets.flatMap(basket => basket.years)
+    .filter(season => season.year === Number(year)).flatMap(season => season.teams)
+    .find(team => teamId ? team.teamId === teamId : team.owner.toLowerCase() === ownerEmail.toLowerCase())
   
   // Use provided cacheBuster or generate one based on current day (updates daily)
   const effectiveCacheBuster = cacheBuster ?? Math.floor(Date.now() / (1000 * 60 * 60 * 24))
-  const logoUrl = `${getTeamLogoUrl(groupId, Number(year), ownerEmail)}?t=${effectiveCacheBuster}`
+  const source = explicitUrl ?? metadata?.logoUrl
+  const logoUrl = source ? `${source}${source.includes('?') ? '&' : '?'}t=${effectiveCacheBuster}` : null
 
   useEffect(() => {
     setImageError(false)
   }, [logoUrl])
   
-  if (imageError) {
+  if (imageError || !logoUrl) {
     return <FallbackLogo size={size} color={fallbackColor} />
   }
   

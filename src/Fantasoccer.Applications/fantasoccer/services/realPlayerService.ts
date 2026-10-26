@@ -1,5 +1,7 @@
 // RealPlayer service leveraging Repository Framework
-import { RepositoryServices } from 'rystem.repository.client'
+import { getFootball } from './footballApi'
+import { apiRequest } from './httpClient'
+import { competitionPath } from './gameService'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
 import {
@@ -7,12 +9,10 @@ import {
   RealPlayerHelper,
   RealPlayerRoleBuckets,
   RealPlayersWrapper,
-  RealPlayersWrapperRaw,
-  mapRawPlayersWrapperToPlayersWrapper,
   enhanceRealPlayersWrapper,
   EnhancedRealPlayersWrapper,
 } from 'types/serieA'
-import { LeagueKey, LeagueKeyRaw, mapLeagueKeyToRawLeagueKey } from 'types/rank'
+import { LeagueKey } from 'types/rank'
 import { Role } from 'types/group'
 import { getCurrentSeasonYear } from 'utils/season'
 
@@ -30,14 +30,6 @@ export class RealPlayerService {
   // INTERNAL HELPERS
   // ============================================
 
-  private getYearRepository() {
-    return RepositoryServices.Repository<RealPlayersWrapperRaw, number>('RealPlayers')
-  }
-
-  private getRandomRepository() {
-    return RepositoryServices.Repository<RealPlayersWrapperRaw, LeagueKeyRaw>('RandomRealPlayers')
-  }
-
   private async getCurrentUserYear(): Promise<number | null> {
     try {
       const accessToken = await tokenStorageService.getTokenString()
@@ -54,27 +46,12 @@ export class RealPlayerService {
     }
   }
 
-  private mapWrapper(raw: RealPlayersWrapperRaw | null | undefined): RealPlayersWrapper | null {
-    if (!raw) {
-      return null
-    }
-
-    return mapRawPlayersWrapperToPlayersWrapper(raw)
-  }
-
   // ============================================
   // YEAR-BASED REPOSITORY METHODS
   // ============================================
 
   async getPlayersWrapperByYear(year: number): Promise<RealPlayersWrapper | null> {
-    try {
-      const repository = this.getYearRepository()
-      const rawWrapper = await repository.get(year)
-      return this.mapWrapper(rawWrapper)
-    } catch (error) {
-      console.error('Error fetching RealPlayers for year:', year, error)
-      return null
-    }
+    return getFootball<RealPlayersWrapper>(year, 'players')
   }
 
   async getEnhancedPlayersWrapperByYear(year: number): Promise<EnhancedRealPlayersWrapper | null> {
@@ -116,15 +93,7 @@ export class RealPlayerService {
   // ============================================
 
   async getRandomizedPlayersWrapper(leagueKey: LeagueKey): Promise<RealPlayersWrapper | null> {
-    try {
-      const repository = this.getRandomRepository()
-      const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-      const rawWrapper = await repository.get(rawKey)
-      return this.mapWrapper(rawWrapper)
-    } catch (error) {
-      console.error('Error fetching randomized RealPlayers for league:', leagueKey, error)
-      return null
-    }
+    return (await apiRequest<RealPlayersWrapper | undefined>(`${competitionPath(leagueKey.group, leagueKey.league, leagueKey.year)}/auction-order`)) ?? null
   }
 
   async getRandomizedPlayers(leagueKey: LeagueKey): Promise<RealPlayer[]> {

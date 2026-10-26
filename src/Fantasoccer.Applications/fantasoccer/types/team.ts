@@ -1,10 +1,6 @@
 // Types matching Fantasoccer team/player domain structures
 import { Role } from './group'
-import {
-  RealTeam,
-  RealTeamRaw,
-  mapRawTeamToTeam as mapRawRealTeamToTeam
-} from './serieA'
+import type { RealTeam } from './serieA'
 
 // ============================================
 // ENUMS (matching C# enums)
@@ -83,22 +79,6 @@ export const FantaSoccerRoleHelper = {
 // RAW INTERFACES (matching JSON property names from C#)
 // ============================================
 
-export interface RealPlayerRaw {
-  n: string
-  t: RealTeamRaw
-  r: Role
-  a: boolean
-  vh: boolean
-}
-
-export interface PlayerRaw extends RealPlayerRaw {
-  p: number
-  r: number
-  rv: number
-  s: PlayerInTeamStatus
-  k: FantaSoccerRole
-}
-
 // ============================================
 // CLEAN INTERFACES (with readable property names)
 // ============================================
@@ -112,6 +92,8 @@ export interface RealPlayer {
 }
 
 export interface Player extends RealPlayer {
+  playerId?: string
+  ordinal?: number
   price: number
   revenue: number
   status: PlayerInTeamStatus
@@ -121,37 +103,6 @@ export interface Player extends RealPlayer {
 // ============================================
 // MAPPING FUNCTIONS
 // ============================================
-
-export const mapRawRealPlayerToRealPlayer = (raw: RealPlayerRaw): RealPlayer => ({
-  name: raw.n,
-  team: mapRawRealTeamToTeam(raw.t),
-  role: raw.r,
-  isActive: raw.a,
-  visible: raw.vh
-})
-
-export const mapRawPlayerToPlayer = (raw: PlayerRaw): Player => ({
-  ...mapRawRealPlayerToRealPlayer(raw),
-  price: raw.p,
-  revenue: raw.rv,
-  status: raw.s,
-  position: raw.k
-})
-
-// Reverse mapping (client -> raw) for sending data back to the API
-export const mapPlayerToRawPlayer = (player: Player): PlayerRaw => ({
-  // RealPlayerRaw fields
-  n: player.name,
-  t: { n: player.team.name, a: player.team.abbreviation },
-  r: player.role,
-  a: player.isActive,
-  vh: player.visible,
-  // Player specific fields
-  p: player.price,
-  s: player.status,
-  k: player.position,
-  rv: player.revenue
-})
 
 // ============================================
 // HELPER FUNCTIONS
@@ -175,13 +126,6 @@ export class PlayerHelper {
 // TEAM KEYS (matching C# key classes)
 // ============================================
 
-export interface TeamKeyRaw {
-  g: string
-  y: number
-  b: string
-  e: string
-}
-
 export interface TeamKey {
   group: string
   year: number
@@ -189,37 +133,9 @@ export interface TeamKey {
   email: string
 }
 
-export interface TeamDayKeyRaw extends TeamKeyRaw {
-  d: number
-}
-
 export interface TeamDayKey extends TeamKey {
   day: number
 }
-
-export const mapRawTeamKeyToTeamKey = (raw: TeamKeyRaw): TeamKey => ({
-  group: raw.g,
-  year: raw.y,
-  basketId: raw.b,
-  email: raw.e
-})
-
-export const mapTeamKeyToRawTeamKey = (key: TeamKey): TeamKeyRaw => ({
-  g: key.group,
-  y: key.year,
-  b: key.basketId,
-  e: key.email
-})
-
-export const mapRawTeamDayKeyToTeamDayKey = (raw: TeamDayKeyRaw): TeamDayKey => ({
-  ...mapRawTeamKeyToTeamKey(raw),
-  day: raw.d
-})
-
-export const mapTeamDayKeyToRawTeamDayKey = (key: TeamDayKey): TeamDayKeyRaw => ({
-  ...mapTeamKeyToRawTeamKey(key),
-  d: key.day
-})
 
 export class TeamKeyHelper {
   static create(group: string, year: number, basketId: string, email: string): TeamKey {
@@ -231,11 +147,11 @@ export class TeamKeyHelper {
   }
 
   static toString(key: TeamKey): string {
-    return `${key.group}-${key.year}-${key.basketId}-${key.email}`
+    return JSON.stringify([key.group, key.year, key.basketId, key.email])
   }
 
   static toDayString(key: TeamDayKey): string {
-    return `${key.group}-${key.year}-${key.basketId}-${key.day}-${key.email}`
+    return JSON.stringify([key.group, key.year, key.basketId, key.day, key.email])
   }
 }
 
@@ -243,24 +159,26 @@ export class TeamKeyHelper {
 // TEAM RAW/CLEAN TYPES
 // ============================================
 
-export interface TeamRaw {
-  n: string
-  o: string
-  a?: string[] | null
-  p: PlayerRaw[]
-  m: number
-  op?: number
-  d?: string | null
-}
-
 export interface Team {
+  teamId?: string
+  groupId?: string
+  basketId?: string
+  seasonIndex?: number
+  kind?: number
+  day?: number
+  leagueId?: string | null
+  version?: number
+  sourceVersion?: number | null
+  logoUrl?: string | null
   name: string
   owner: string
   additionalOwners: string[]
   players: Player[]
   moneyFromRank: number
+  marketBalanceAdjustment?: number
+  rankCreditGranted?: number | null
   openingCompetitionPrize: number
-  lastUpdate: Date | null
+  lastUpdate: string | Date | null
 }
 
 export interface EnhancedTeam extends Team {
@@ -273,27 +191,6 @@ export interface EnhancedTeam extends Team {
   cost: number
   netCost: number // Alias for cost
 }
-
-export const mapRawTeamToTeam = (raw: TeamRaw): Team => ({
-  name: raw?.n ?? '',
-  owner: raw?.o ?? '',
-  additionalOwners: raw?.a ?? [],
-  players: raw?.p?.map(mapRawPlayerToPlayer) ?? [],
-  moneyFromRank: raw?.m ?? 0,
-  openingCompetitionPrize: raw?.op ?? 0,
-  lastUpdate: raw?.d ? new Date(raw.d) : null
-})
-
-// Reverse mapping (client -> raw)
-export const mapTeamToRawTeam = (team: Team): TeamRaw => ({
-  n: team.name,
-  o: team.owner,
-  a: team.additionalOwners?.length ? team.additionalOwners : [],
-  p: team.players.map(mapPlayerToRawPlayer),
-  m: team.moneyFromRank,
-  op: team.openingCompetitionPrize,
-  d: team.lastUpdate ? team.lastUpdate.toISOString() : undefined
-})
 
 // ============================================
 // TEAM HELPERS
@@ -339,6 +236,7 @@ export class TeamHelper {
     return TeamHelper.getTotalCostForPlayers(team)
       - TeamHelper.getRevenueMoney(team)
       - team.moneyFromRank
+      - (team.marketBalanceAdjustment ?? 0)
       - team.openingCompetitionPrize
       - TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
   }

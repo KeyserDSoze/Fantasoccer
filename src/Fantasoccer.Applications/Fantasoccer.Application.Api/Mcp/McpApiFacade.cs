@@ -20,7 +20,7 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
         var pipeline = ((IApplicationBuilder)app).New();
         pipeline.UseRouting();
         pipeline.UseAuthorization();
-        pipeline.UseMiddleware<TeamRepositoryBoundaryMiddleware>();
+        if (!app.Configuration.GetValue<bool>("PostgreSql:Enabled")) pipeline.UseMiddleware<TeamRepositoryBoundaryMiddleware>();
         pipeline.UseEndpoints(endpoints =>
         {
             foreach (var source in ((IEndpointRouteBuilder)app).DataSources) endpoints.DataSources.Add(source);

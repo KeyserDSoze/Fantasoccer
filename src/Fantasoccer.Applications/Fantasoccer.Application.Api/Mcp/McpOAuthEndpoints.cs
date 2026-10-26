@@ -54,7 +54,7 @@ public static class McpOAuthEndpoints
 
     private static async Task<IResult> AuthorizeAsync(HttpContext context, McpOptions settings,
         McpConsentTransactions transactions, IOpenIddictApplicationManager applications,
-        IOpenIddictAuthorizationManager authorizations, IRepository<AppIdentity, string> users,
+        IOpenIddictAuthorizationManager authorizations,
         ISocialUserProvider socialUsers)
     {
         NoStore(context);
@@ -82,7 +82,7 @@ public static class McpOAuthEndpoints
         if (consentId == null || await transactions.RedeemAsync(consentId, context.RequestAborted) == null)
             return OAuthError(Errors.AccessDenied, "Consent already used or expired.");
         var email = consent.Principal!.FindFirstValue(ClaimTypes.Email);
-        if (email == null || await users.GetAsync(email, context.RequestAborted) == null)
+        if (email == null || !await AccountAvailableAsync(socialUsers, email, context.RequestAborted))
             return OAuthError(Errors.AccessDenied, "Application account unavailable.");
         var principal = await BuildPrincipalAsync(email, socialUsers, context.RequestAborted);
         principal.SetScopes(request.GetScopes());
@@ -95,7 +95,7 @@ public static class McpOAuthEndpoints
     }
 
     private static async Task<IResult> ApproveAsync(Approval approval, HttpContext context, McpOptions settings,
-        McpConsentTransactions transactions, IRepository<AppIdentity, string> users)
+        McpConsentTransactions transactions, ISocialUserProvider socialUsers)
     {
         NoStore(context);
         // The SPA authenticates this POST with its EXISTING frontend token, not a new Microsoft flow.
@@ -103,7 +103,7 @@ public static class McpOAuthEndpoints
         var email = login.Principal?.FindFirstValue(ClaimTypes.Email);
         if (!login.Succeeded || email == null || login.Principal!.HasClaim(x => x.Type == McpOptions.ResourceClaim))
             return Results.Unauthorized();
-        if (await users.GetAsync(email, context.RequestAborted) == null) return Results.Forbid();
+        if (!await AccountAvailableAsync(socialUsers, email, context.RequestAborted)) return Results.Forbid();
         var origin = context.Request.Headers.Origin.ToString();
         if (origin != new Uri(settings.FrontendUrl).GetLeftPart(UriPartial.Authority)) return Results.StatusCode(403);
         var transaction = await transactions.GetAsync(approval.TransactionId, context.RequestAborted);
@@ -136,14 +136,14 @@ public static class McpOAuthEndpoints
     }
 
     private static async Task<IResult> TokenAsync(HttpContext context, McpOptions settings,
-        IRepository<AppIdentity, string> users, ISocialUserProvider socialUsers)
+        ISocialUserProvider socialUsers)
     {
         NoStore(context);
         var request = context.GetOpenIddictServerRequest()!;
         if (!ValidResource(request, settings)) return OAuthError(Errors.InvalidTarget, "Invalid MCP resource.");
         var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var email = result.Principal?.GetClaim(Claims.Subject);
-        if (!result.Succeeded || email == null || await users.GetAsync(email, context.RequestAborted) == null)
+        if (!result.Succeeded || email == null || !await AccountAvailableAsync(socialUsers, email, context.RequestAborted))
             return OAuthError(Errors.InvalidGrant, "Application account unavailable.");
         var principal = await BuildPrincipalAsync(email, socialUsers, context.RequestAborted);
         principal.SetScopes(result.Principal!.GetScopes());
@@ -194,6 +194,12 @@ public static class McpOAuthEndpoints
 
     private static bool ValidResource(OpenIddictRequest request, McpOptions settings)
         => request.GetResources() is var resources && resources.Length == 1 && resources[0] == settings.Resource;
+
+    internal static async Task<bool> AccountAvailableAsync(ISocialUserProvider users, string email, CancellationToken cancellationToken)
+    {
+        try { return await users.GetAsync(email, [new Claim(ClaimTypes.Email, email)], cancellationToken) is not null; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
 
     private static async Task<ClaimsPrincipal> BuildPrincipalAsync(string email, ISocialUserProvider socialUsers, CancellationToken cancellationToken)
     {

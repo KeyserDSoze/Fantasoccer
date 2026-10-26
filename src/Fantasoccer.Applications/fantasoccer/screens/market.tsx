@@ -151,44 +151,20 @@ export default function MarketScreen() {
         return
       }
 
-      const basketId = league.basketsId[0]
-      const basket = currentGroup.baskets?.find((b: any) => b.id === basketId)
-      if (!basket) {
-        setError('Basket non trovato')
-        setTeams([])
-        setMyTeam(null)
-        setIsLoading(false)
-        return
-      }
-
-      const yearlyBasket = basket.years?.find((y: any) => y.year === selectedYear)
-      if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
-        setError('Nessuna squadra trovata per questo anno')
-        setTeams([])
-        setMyTeam(null)
-        setIsLoading(false)
-        return
-      }
-
       // Get league settings for moneyFromRank calculation
       const annualLeague = league.years?.find((y: any) => y.year === selectedYear)
       const settings = annualLeague?.settings
 
-      const owners = yearlyBasket.teams.map((t: any) => t.owner)
-      const fetchedTeams = await teamService.getEnhancedTeamsByBasket(
-        currentGroup.id,
-        selectedYear,
-        basketId,
-        owners,
-        selectedLeagueId,
-        settings
-      )
+      const fetchedTeams = (await Promise.all(currentGroup.baskets.filter(basket => league.basketsId.includes(basket.id))
+        .map(basket => teamService.getEnhancedTeamsByBasket(currentGroup.id, selectedYear, basket.id,
+          basket.years.find(year => year.year === selectedYear)?.teams.map(team => team.owner) ?? [], selectedLeagueId, settings)))).flat()
 
       setTeams(fetchedTeams)
       
       // Find my team
-      const myTeamData = fetchedTeams.find(t => isEmailForTeam(t, user.email))
-      setMyTeam(myTeamData ?? null)
+      const owned = fetchedTeams.filter(team => isEmailForTeam(team, user.email))
+      setMyTeam(owned.length === 1 ? owned[0] : null)
+      setSelectedTargetTeam(null); setMySelectedPlayers([]); setTargetSelectedPlayers([])
 
     } catch (err: any) {
       console.error('Error loading teams:', err)
@@ -258,14 +234,14 @@ export default function MarketScreen() {
   const togglePlayerSelection = (player: Player, isMyTeam: boolean) => {
     if (isMyTeam) {
       setMySelectedPlayers(prev => 
-        prev.find(p => p.name === player.name)
-          ? prev.filter(p => p.name !== player.name)
+        prev.find(p => p.playerId === player.playerId)
+          ? prev.filter(p => p.playerId !== player.playerId)
           : [...prev, player]
       )
     } else {
       setTargetSelectedPlayers(prev => 
-        prev.find(p => p.name === player.name)
-          ? prev.filter(p => p.name !== player.name)
+        prev.find(p => p.playerId === player.playerId)
+          ? prev.filter(p => p.playerId !== player.playerId)
           : [...prev, player]
       )
     }
@@ -313,6 +289,11 @@ export default function MarketScreen() {
 
     try {
       const market = {
+        buyerTeamId: myTeam.teamId ?? '',
+        sellerTeamId: selectedTargetTeam.teamId ?? '',
+        expectedBuyerRosterVersion: myTeam.version ?? -1,
+        expectedSellerRosterVersion: selectedTargetTeam.version ?? -1,
+        version: 0,
         id: `${Date.now()}-${user.email}`, // Generate unique ID
         buyer: myTeam.owner,
         seller: selectedTargetTeam.owner,
@@ -327,7 +308,7 @@ export default function MarketScreen() {
         creationTime: new Date(),
       }
 
-      const success = await marketService.updateMarket(
+      const success = await marketService.createMarket(
         currentGroup.id,
         selectedYear,
         selectedLeagueId,
@@ -432,6 +413,9 @@ export default function MarketScreen() {
           )}
 
           {/* Main content */}
+          {!isLoading && canCreateTrade && teams.filter(team => isEmailForTeam(team, user?.email)).length > 1 &&
+            <XStack gap="$2" flexWrap="wrap">{teams.filter(team => isEmailForTeam(team, user?.email)).map(team =>
+              <Button key={team.teamId} onPress={() => { setMyTeam(team); setMySelectedPlayers([]); setSelectedTargetTeam(null); setTargetSelectedPlayers([]) }}>{team.name}</Button>)}</XStack>}
           {!isLoading && canCreateTrade && myTeam && (
             <YStack gap="$4">
               {/* My Team Info */}
@@ -472,10 +456,10 @@ export default function MarketScreen() {
                     .filter(t => !isEmailForTeam(t, user?.email))
                     .map((team) => (
                       <Button
-                        key={team.owner}
+                         key={team.teamId}
                         variant="outlined"
-                        backgroundColor={selectedTargetTeam?.owner === team.owner ? '$green2' : 'transparent'}
-                        borderColor={selectedTargetTeam?.owner === team.owner ? '$green8' : '$borderColor'}
+                         backgroundColor={selectedTargetTeam?.teamId === team.teamId ? '$green2' : 'transparent'}
+                         borderColor={selectedTargetTeam?.teamId === team.teamId ? '$green8' : '$borderColor'}
                         onPress={() => {
                           setSelectedTargetTeam(team)
                           setTargetSelectedPlayers([])
@@ -486,7 +470,7 @@ export default function MarketScreen() {
                         height="auto"
                       >
                         <XStack gap="$3" alignItems="flex-start" flex={1} width="100%">
-                          <Users size={20} color={selectedTargetTeam?.owner === team.owner ? '$green10' : '$color11'} style={{ marginTop: 2 }} />
+                           <Users size={20} color={selectedTargetTeam?.teamId === team.teamId ? '$green10' : '$color11'} style={{ marginTop: 2 }} />
                           <YStack flex={1} alignItems="flex-start" gap="$1">
                             <Text fontSize="$4" fontWeight="500" color="$color12">
                               {team.name}
@@ -521,10 +505,10 @@ export default function MarketScreen() {
                         <ScrollView maxHeight={400}>
                           <YStack gap="$2">
                             {getActivePlayers(myTeam).map((player) => {
-                              const isSelected = mySelectedPlayers.find(p => p.name === player.name) != null
+                               const isSelected = mySelectedPlayers.find(p => p.playerId === player.playerId) != null
                               return (
                                 <Button
-                                  key={player.name}
+                                   key={player.playerId}
                                   variant="outlined"
                                   size="$3"
                                   backgroundColor={isSelected ? '$blue2' : 'transparent'}
@@ -573,10 +557,10 @@ export default function MarketScreen() {
                         <ScrollView maxHeight={400}>
                           <YStack gap="$2">
                             {getActivePlayers(selectedTargetTeam).map((player) => {
-                              const isSelected = targetSelectedPlayers.find(p => p.name === player.name) != null
+                               const isSelected = targetSelectedPlayers.find(p => p.playerId === player.playerId) != null
                               return (
                                 <Button
-                                  key={player.name}
+                                   key={player.playerId}
                                   variant="outlined"
                                   size="$3"
                                   backgroundColor={isSelected ? '$orange2' : 'transparent'}

@@ -27,13 +27,8 @@ import {
   Card as CardType,
   CardType as CardTypeEnum,
   CardCondition,
-  CardConditionForPlayers,
-  CardConditionSummatory,
-  CardConditionForPlayersValues,
-  CardConditionSummatoryPlayers,
   getCardTypeLabel
 } from 'types/card'
-import { FantaSoccerRole } from 'types/team'
 
 export default function CardEditScreen() {
   const media = useMedia()
@@ -57,6 +52,9 @@ export default function CardEditScreen() {
   const [points, setPoints] = useState('0')
   const [negativePoints, setNegativePoints] = useState('0')
   const [enemyPoints, setEnemyPoints] = useState('0')
+  const [version, setVersion] = useState<number | undefined>()
+  const [myConditionJson, setMyConditionJson] = useState('{"rolesInvolved":[-2]}')
+  const [enemyConditionJson, setEnemyConditionJson] = useState('{"rolesInvolved":[-2]}')
 
   // Flags per abilitare condizioni
   const [hasMyCondition, setHasMyCondition] = useState(false)
@@ -86,10 +84,13 @@ export default function CardEditScreen() {
         setEnemyPoints(card.enemyPoints.toString())
         setHasMyCondition(!!card.myCondition)
         setHasEnemyCondition(!!card.enemyCondition)
+        setVersion(card.version)
+        setMyConditionJson(JSON.stringify(card.myCondition ?? { rolesInvolved: [-2] }, null, 2))
+        setEnemyConditionJson(JSON.stringify(card.enemyCondition ?? { rolesInvolved: [-2] }, null, 2))
         
         // Load existing image
         if (id) {
-          setImagePreview(cardService.getCardImageUrl(id))
+          setImagePreview(card.imageUrl ?? null)
         }
       }
     } catch (err: any) {
@@ -168,8 +169,9 @@ export default function CardEditScreen() {
         points: parseFloat(points),
         negativePoints: parseFloat(negativePoints),
         enemyPoints: parseFloat(enemyPoints),
-        myCondition: hasMyCondition ? buildEmptyCondition() : null,
-        enemyCondition: hasEnemyCondition ? buildEmptyCondition() : null
+        version,
+        myCondition: hasMyCondition ? JSON.parse(myConditionJson) as CardCondition : null,
+        enemyCondition: hasEnemyCondition ? JSON.parse(enemyConditionJson) as CardCondition : null
       }
 
       let savedCard: CardType
@@ -193,7 +195,7 @@ export default function CardEditScreen() {
       if (selectedImage && savedCard.id) {
         try {
           setUploadingImage(true)
-          await cardService.uploadCardImage(savedCard.id, selectedImage)
+          await cardService.uploadCardImage(savedCard.id, selectedImage, savedCard.version)
           toast.show('Successo', {
             message: 'Immagine caricata con successo',
             variant: 'success'
@@ -217,15 +219,6 @@ export default function CardEditScreen() {
       })
     } finally {
       setSaving(false)
-    }
-  }
-
-  // Helper to build empty condition
-  const buildEmptyCondition = (): CardCondition => {
-    return {
-      rolesInvolved: [FantaSoccerRole.All],
-      conditionForPlayer: null,
-      condition: null
     }
   }
 
@@ -431,8 +424,7 @@ export default function CardEditScreen() {
                       <XStack gap="$2" alignItems="center">
                         <AlertCircle size={20} color="$yellow11" />
                         <Text fontSize="$3" color="$yellow11" flex={1}>
-                          La configurazione avanzata delle condizioni sarà disponibile in una prossima versione.
-                          Per ora puoi abilitare/disabilitare la presenza di condizioni.
+                          Le condizioni usano i nomi leggibili delle API. I campi null non impostano alcuna soglia; le condizioni esistenti vengono preservate durante la modifica.
                         </Text>
                       </XStack>
                     </Card>
@@ -452,6 +444,7 @@ export default function CardEditScreen() {
                         onCheckedChange={setHasMyCondition}
                       />
                     </XStack>
+                    {hasMyCondition && <TextArea value={myConditionJson} onChangeText={setMyConditionJson} minHeight={180} />}
 
                     {/* Enemy Condition Toggle */}
                     <XStack gap="$3" alignItems="center" justifyContent="space-between">
@@ -468,6 +461,7 @@ export default function CardEditScreen() {
                         onCheckedChange={setHasEnemyCondition}
                       />
                     </XStack>
+                    {hasEnemyCondition && <TextArea value={enemyConditionJson} onChangeText={setEnemyConditionJson} minHeight={180} />}
                   </YStack>
                 </Card>
 

@@ -7,17 +7,19 @@ const require = createRequire(import.meta.url)
 const { loadTypeScript } = require('./helpers/loadTypeScript.cjs')
 
 const defaults = () => ({ matchEvents: true, opponentMatchEvents: false, deploymentReminder: false, endDay: false,
-  marketEvents: false, liveChangesReminder: false, liveFormationChangeEvents: false, subscriptions: [] })
+  marketEvents: false, liveChangesReminder: false, liveFormationChangeEvents: false, subscriptions: [], version: 1, publicKey: 'BAAA', deliveryEnabled: false })
 const device = (endpoint = 'https://push.test/device', p256dh = 'key') => ({ endpoint, p256dh, auth: 'auth' })
 const silentConsole = { log() {}, warn() {}, error() {} }
 const loadService = fetch => {
   let refreshed = 0
+  let proof
   const module = loadTypeScript('services/pushNotificationService.ts', {
     './authService': { authService: { getUserInfo: async () => ({ email: 'user@test.local' }) } },
     './tokenStorageService': { tokenStorageService: { ensureValidToken: async () => 'token', forceRefreshToken: async () => { refreshed++; return 'new-token' } } },
-    '../configurations/apiConfig': { buildApiUrl: (path, query) => `https://api.test${path}?${new URLSearchParams(query)}`, getCommonHeaders: (_, token) => ({ Authorization: `Bearer ${token}` }) },
+    '../configurations/apiConfig': { buildApiUrl: (path, query) => `https://api.test${path}?${new URLSearchParams(query)}`, getCommonHeaders: (_, token) => ({ Authorization: `Bearer ${token}` }), ApiError: class extends Error { constructor(message, status) { super(message); this.status = status } } },
+    './pushDeviceCapability': { readDeviceProof: async () => proof, saveDeviceProof: async (_endpoint, value) => { proof = value } },
   }, { fetch })
-  return { service: new module.PushNotificationService(), refreshed: () => refreshed }
+  return { service: new module.PushNotificationService(), refreshed: () => refreshed, proof: () => proof }
 }
 
 test('HTTP 503 is an error, not a successful save or an insert fallback', async () => {
@@ -64,21 +66,21 @@ test('401 refreshes once and keeps the expected account on the retry', async () 
 
 test('device renewal sends an upsert and the previous endpoint', async () => {
   let body
-  const { service } = loadService(async (_url, options) => { body = JSON.parse(options.body); return Response.json(defaults()) })
+  const { service, proof } = loadService(async (_url, options) => { body = JSON.parse(options.body); return Response.json({ settings: defaults(), deviceProof: 'A'.repeat(43) }) })
   await service.addDevice('user@test.local', device('https://push.test/new'), 'https://push.test/old')
   assert.equal(body.previousEndpoint, 'https://push.test/old')
   assert.equal(body.subscription.endpoint, 'https://push.test/new')
+  assert.equal(proof(), 'A'.repeat(43))
+  await service.addDevice('user@test.local', device('https://push.test/new'))
+  assert.equal(body.deviceProof, 'A'.repeat(43))
 })
 
-test('default mapping respects saved false and upsert replaces same-endpoint keys', () => {
+test('readable settings preserve false and reject old casing/flat registration responses', () => {
   const types = loadTypeScript('types/pushNotification.ts')
-  assert.equal(types.mapRawPushNotificationSettingsToSettings(null).matchEvents, true)
-  assert.equal(types.mapRawPushNotificationSettingsToSettings({ MatchEvents: false }).matchEvents, false)
-  const settings = { ...defaults(), subscriptions: [device()] }
-  const updated = types.addSubscription(settings, device(undefined, 'new-key'))
-  assert.equal(updated.subscriptions.length, 1)
-  assert.equal(updated.subscriptions[0].p256dh, 'new-key')
-  assert.equal(settings.subscriptions[0].p256dh, 'key')
+  const settings = { ...defaults(), matchEvents: false, subscriptions: [device()] }
+  types.assertPushSettings(settings)
+  assert.equal(settings.matchEvents, false)
+  assert.throws(() => types.assertPushSettings({ MatchEvents: false, Subscriptions: [] }))
 })
 
 function memoryCache() {
@@ -103,6 +105,8 @@ function workerFixture() {
 
 test('worker persists renewal with no open windows and retains the original endpoint over multiple renewals', async () => {
   const { dispatch, cache } = workerFixture()
+  await cache.put('/__fantasoccer_push_device__', Response.json({ email: 'user@test.local', enabled: true }))
+  await dispatch('message', { data: { type: 'SET_VAPID_KEY', value: 'BAAA' } })
   await dispatch('pushsubscriptionchange', { oldSubscription: { endpoint: 'https://push.test/original' } })
   let pending = await (await cache.match('/__fantasoccer_push_renewal__')).json()
   assert.equal(pending.oldEndpoint, 'https://push.test/original')
@@ -114,7 +118,9 @@ test('worker persists renewal with no open windows and retains the original endp
 
 test('worker suppresses private notifications after logout and for another account', async () => {
   const { dispatch, cache, notifications } = workerFixture()
-  const send = () => dispatch('push', { data: { text: () => JSON.stringify({ Title: 'Test', Body: 'Private', Data: { RecipientEmail: 'user@test.local' } }) } })
+  const send = () => dispatch('push', { data: { text: () => JSON.stringify({ title: 'Test', body: 'Private', data: { recipientEmail: 'user@test.local' } }) } })
+  await send()
+  assert.equal(notifications.length, 0)
   await cache.put('/__fantasoccer_push_device__', Response.json({ email: 'user@test.local', enabled: false }))
   await send()
   await cache.put('/__fantasoccer_push_device__', Response.json({ email: 'other@test.local', enabled: true }))
@@ -127,6 +133,8 @@ test('worker suppresses private notifications after logout and for another accou
 
 test('worker keeps a renewal marker even when subscribing fails offline', async () => {
   const { dispatch, cache, self } = workerFixture()
+  await cache.put('/__fantasoccer_push_device__', Response.json({ email: 'user@test.local', enabled: true }))
+  await dispatch('message', { data: { type: 'SET_VAPID_KEY', value: 'BAAA' } })
   self.registration.pushManager.subscribe = async () => { throw new Error('Offline') }
   await dispatch('pushsubscriptionchange', { oldSubscription: { endpoint: 'https://push.test/old' } })
   const pending = await (await cache.match('/__fantasoccer_push_renewal__')).json()
@@ -138,6 +146,7 @@ function lifecycleFixture({ binding, settings = defaults(), existing = device(),
   const state = new Map(binding ? [['fantasoccer_push_device', JSON.stringify(binding)]] : [])
   const calls = { upserts: [], unsubscribed: 0, removed: [] }
   const webPushSupport = { isSupported: () => true, getSupportState: async () => ({ supported: true, permission: 'granted' }),
+    configure() {},
     getExistingSubscription: async () => existing, subscribe: async () => device('https://push.test/new'),
     unsubscribe: async () => { calls.unsubscribed++; return existing } }
   const module = loadTypeScript('services/pushDeviceService.ts', {
@@ -231,10 +240,27 @@ test('service worker registration can recover after a transient failure and wait
     window: { PushManager() {}, Notification: {}, isSecureContext: true }, navigator, Notification: { permission: 'granted' },
     setInterval: () => 1, clearInterval() {}, console: silentConsole,
   })
-  await assert.rejects(module.subscribeForPush(), /Offline/)
-  await module.subscribeForPush()
+  await assert.rejects(module.subscribeForPush('BAAA'), /Offline/)
+  await module.subscribeForPush('BAAA')
   assert.equal(registrations, 2)
   assert.equal(subscribed, true)
+})
+
+test('key rotation is explicit and never silently unsubscribes a saved device', async () => {
+  let unsubscribed = 0, subscribed = 0
+  const current = { options: { applicationServerKey: new Uint8Array([4, 0, 0]).buffer }, toJSON: () => ({ endpoint: 'old', keys: {} }), unsubscribe: async () => { unsubscribed++; return true } }
+  const registration = { active: { postMessage() {} }, pushManager: { getSubscription: async () => current,
+    subscribe: async () => { subscribed++; return { toJSON: () => ({ endpoint: 'new', keys: {} }) } } } }
+  const module = loadTypeScript('services/webPushClient.ts', { 'react-native': { Platform: { OS: 'web' } } }, {
+    window: { PushManager() {}, Notification: {}, isSecureContext: true }, navigator: { serviceWorker: { register: async () => registration } }, Notification: { permission: 'granted' },
+    setInterval: () => 1, clearInterval() {}, console: silentConsole,
+  })
+  await assert.rejects(module.subscribeForPush(), /non configurata/)
+  await assert.rejects(module.subscribeForPush('BAAB'), /cambiata/)
+  assert.equal(unsubscribed, 0)
+  await module.subscribeForPush('BAAB', true)
+  assert.equal(unsubscribed, 1)
+  assert.equal(subscribed, 1)
 })
 
 test('logout unsubscribes an existing worker offline without registering or updating it', async () => {

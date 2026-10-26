@@ -522,12 +522,12 @@ function GameRow({ game, gameIndex, serieADay, onToggleDelayed, isModified }: Ga
     ? `${game.homeGoals} - ${game.awayGoals}`
     : game.delayed
     ? 'RINVIATA'
-    : new Date(game.date).toLocaleDateString('it-IT', { 
+    : game.date ? new Date(game.date).toLocaleDateString('it-IT', {
         day: '2-digit', 
         month: '2-digit',
         hour: '2-digit',
         minute: '2-digit'
-      })
+      }) : 'Da definire'
 
   return (
     <Card

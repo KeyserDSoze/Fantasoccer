@@ -1,280 +1,42 @@
-// Team service using Repository Framework
-import { RepositoryServices } from 'rystem.repository.client'
-import {
-  TeamRaw,
-  Team,
-  TeamKey,
-  TeamKeyRaw,
-  TeamDayKey,
-  TeamDayKeyRaw,
-  mapRawTeamToTeam,
-  mapTeamKeyToRawTeamKey,
-  mapTeamDayKeyToRawTeamDayKey,
-  TeamKeyHelper,
-  enhanceTeam,
-  EnhancedTeam,
-  TeamHelper,
-  Player
-} from 'types/team'
-import { Role, LeagueSetting } from 'types/group'
-import { rankService } from './rankService'
+import { TeamKeyHelper, enhanceTeam, TeamHelper, type Team, type TeamKey, type TeamDayKey, type EnhancedTeam } from '../types/team'
+import type { Role, LeagueSetting } from '../types/group'
+import { apiRequest } from './httpClient'
 
 export class TeamService {
-  // ============================================
-  // INTERNAL REPOSITORY ACCESSORS
-  // ============================================
-
-  private getSeasonRepository() {
-    return RepositoryServices.Repository<TeamRaw, TeamKeyRaw>('Team')
+  private async roster(key: TeamKey, day = 0): Promise<Team | null> {
+    const query = new URLSearchParams({ groupId: key.group, basketId: key.basketId, year: String(key.year), owner: key.email, kind: day ? '1' : '0', day: String(day) })
+    return (await apiRequest<Team | undefined>(`/api/teams/roster?${query}`)) ?? null
   }
-
-  private getDayRepository() {
-    return RepositoryServices.Repository<TeamRaw, TeamDayKeyRaw>('TeamDay')
+  getTeam(key: TeamKey) { return this.roster(key) }
+  getTeamByComponents(group: string, year: number, basketId: string, email: string) { return this.getTeam(TeamKeyHelper.create(group, year, basketId, email)) }
+  async getEnhancedTeam(key: TeamKey, _leagueId?: string, _settings?: LeagueSetting): Promise<EnhancedTeam | null> {
+    const team = await this.getTeam(key); return team ? enhanceTeam(team) : null
   }
-
-  private async fetchSeasonTeamRaw(key: TeamKeyRaw): Promise<TeamRaw | null> {
-    try {
-      const repository = this.getSeasonRepository()
-      return await repository.get(key)
-    } catch (error) {
-      console.error('Error fetching season team:', error)
-      return null
-    }
+  getEnhancedTeamByComponents(group: string, year: number, basketId: string, email: string, leagueId?: string, settings?: LeagueSetting) { return this.getEnhancedTeam(TeamKeyHelper.create(group, year, basketId, email), leagueId, settings) }
+  async getTeamPlayers(key: TeamKey) { return (await this.getTeam(key))?.players ?? [] }
+  async getActiveTeamPlayers(key: TeamKey) { const team = await this.getTeam(key); return team ? TeamHelper.getActivePlayers(team) : [] }
+  async getTeamPlayersByRole(key: TeamKey, role: Role) { const team = await this.getTeam(key); return team ? TeamHelper.getPlayersByRole(team, role) : [] }
+  getTeamDay(key: TeamDayKey) { return this.roster(key, key.day) }
+  getTeamDayByComponents(group: string, year: number, basketId: string, day: number, email: string) { return this.getTeamDay(TeamKeyHelper.createDayKey(group, year, basketId, day, email)) }
+  async getEnhancedTeamDay(key: TeamDayKey, _leagueId?: string, _settings?: LeagueSetting): Promise<EnhancedTeam | null> {
+    const team = await this.getTeamDay(key); return team ? enhanceTeam(team) : null
   }
-
-  private async fetchDayTeamRaw(key: TeamDayKeyRaw): Promise<TeamRaw | null> {
-    try {
-      const repository = this.getDayRepository()
-      return await repository.get(key)
-    } catch (error) {
-      console.error('Error fetching day team:', error)
-      return null
-    }
-  }
-
-  // ============================================
-  // SEASON TEAM OPERATIONS
-  // ============================================
-
-  async getTeam(key: TeamKey): Promise<Team | null> {
-    const rawKey = mapTeamKeyToRawTeamKey(key)
-    const rawTeam = await this.fetchSeasonTeamRaw(rawKey)
-    return rawTeam ? mapRawTeamToTeam(rawTeam) : null
-  }
-
-  async getTeamByComponents(group: string, year: number, basketId: string, email: string): Promise<Team | null> {
-    const key = TeamKeyHelper.create(group, year, basketId, email)
-    return this.getTeam(key)
-  }
-
-  /**
-   * Calculate moneyFromRank based on rank data and league settings
-   * Matches C# logic: team.MoneyFromRank = teamInRank.Goal * league.Settings.MoneyForGoal + teamInRank.SufferedGoal * league.Settings.MoneyForSufferedGoal
-   */
-  private async calculateMoneyFromRank(
-    team: Team,
-    groupId: string,
-    leagueId: string,
-    year: number,
-    leagueSettings?: LeagueSetting
-  ): Promise<number> {
-    // Se non ci sono settings o non ci sono soldi da assegnare, ritorna 0
-    if (!leagueSettings || (leagueSettings.moneyForGoal === 0 && leagueSettings.moneyForSufferedGoal === 0)) {
-      return 0
-    }
-
-    try {
-      // Recupera la classifica
-      const rank = await rankService.getRankByComponents(groupId, leagueId, year)
-      if (!rank) {
-        return 0
-      }
-
-      // Cerca il team nella classifica (cerca in tutti i gironi)
-      let teamInRank = null
-      for (const roundTeams of Object.values(rank.rounds)) {
-        teamInRank = roundTeams.find(x => x.owner === team.owner)
-        if (teamInRank) break
-      }
-
-      if (!teamInRank) {
-        return 0
-      }
-
-      // Calcola il moneyFromRank come in C#
-      const moneyFromRank = 
-        teamInRank.goal * leagueSettings.moneyForGoal + 
-        teamInRank.sufferedGoal * leagueSettings.moneyForSufferedGoal
-
-      return moneyFromRank
-    } catch (error) {
-      console.error('Error calculating moneyFromRank:', error)
-      return 0
-    }
-  }
-
-  async getEnhancedTeam(
-    key: TeamKey, 
-    leagueId?: string, 
-    leagueSettings?: LeagueSetting
-  ): Promise<EnhancedTeam | null> {
-    const team = await this.getTeam(key)
-    if (!team) return null
-
-    // Se moneyFromRank non è valorizzato (è 0 o undefined) e abbiamo i parametri necessari, calcolalo
-    if ((!team.moneyFromRank || team.moneyFromRank === 0) && leagueId && leagueSettings) {
-      team.moneyFromRank = await this.calculateMoneyFromRank(team, key.group, leagueId, key.year, leagueSettings)
-    }
-
-    return enhanceTeam(team)
-  }
-
-  async getEnhancedTeamByComponents(
-    group: string, 
-    year: number, 
-    basketId: string, 
-    email: string,
-    leagueId?: string,
-    leagueSettings?: LeagueSetting
-  ): Promise<EnhancedTeam | null> {
-    const key = TeamKeyHelper.create(group, year, basketId, email)
-    return this.getEnhancedTeam(key, leagueId, leagueSettings)
-  }
-
-  async getTeamPlayers(key: TeamKey): Promise<Player[]> {
-    const team = await this.getTeam(key)
-    return team ? team.players : []
-  }
-
-  async getActiveTeamPlayers(key: TeamKey): Promise<Player[]> {
-    const team = await this.getTeam(key)
-    return team ? TeamHelper.getActivePlayers(team) : []
-  }
-
-  async getTeamPlayersByRole(key: TeamKey, role: Role): Promise<Player[]> {
-    const team = await this.getTeam(key)
-    return team ? TeamHelper.getPlayersByRole(team, role) : []
-  }
-
-  // ============================================
-  // DAY TEAM OPERATIONS (LINEUPS)
-  // ============================================
-
-  async getTeamDay(key: TeamDayKey): Promise<Team | null> {
-    const rawKey = mapTeamDayKeyToRawTeamDayKey(key)
-    const rawTeam = await this.fetchDayTeamRaw(rawKey)
-    return rawTeam ? mapRawTeamToTeam(rawTeam) : null
-  }
-
-  async getTeamDayByComponents(group: string, year: number, basketId: string, day: number, email: string): Promise<Team | null> {
-    const key = TeamKeyHelper.createDayKey(group, year, basketId, day, email)
-    return this.getTeamDay(key)
-  }
-
-  async getEnhancedTeamDay(
-    key: TeamDayKey,
-    leagueId?: string,
-    leagueSettings?: LeagueSetting
-  ): Promise<EnhancedTeam | null> {
-    const team = await this.getTeamDay(key)
-    if (!team) return null
-
-    // Se moneyFromRank non è valorizzato (è 0 o undefined) e abbiamo i parametri necessari, calcolalo
-    if ((!team.moneyFromRank || team.moneyFromRank === 0) && leagueId && leagueSettings) {
-      team.moneyFromRank = await this.calculateMoneyFromRank(team, key.group, leagueId, key.year, leagueSettings)
-    }
-
-    return enhanceTeam(team)
-  }
-
-  async getEnhancedTeamDayByComponents(
-    group: string, 
-    year: number, 
-    basketId: string, 
-    day: number, 
-    email: string,
-    leagueId?: string,
-    leagueSettings?: LeagueSetting
-  ): Promise<EnhancedTeam | null> {
-    const key = TeamKeyHelper.createDayKey(group, year, basketId, day, email)
-    return this.getEnhancedTeamDay(key, leagueId, leagueSettings)
-  }
-
-  async getTeamDayPlayers(key: TeamDayKey): Promise<Player[]> {
-    const team = await this.getTeamDay(key)
-    return team ? team.players : []
-  }
-
-  async getActiveTeamDayPlayers(key: TeamDayKey): Promise<Player[]> {
-    const team = await this.getTeamDay(key)
-    return team ? TeamHelper.getActivePlayers(team) : []
-  }
-
-  async getTeamDayPlayersByRole(key: TeamDayKey, role: Role): Promise<Player[]> {
-    const team = await this.getTeamDay(key)
-    return team ? TeamHelper.getPlayersByRole(team, role) : []
-  }
-
-  // ============================================
-  // UTILITIES
-  // ============================================
-
-  async getTeamsByBasket(groupId: string, year: number, basketId: string, owners: string[]): Promise<Team[]> {
-    try {
-      const teams: Team[] = []
-      
-      // Per ogni owner (email), recupera il team
-      for (const owner of owners) {
-        const key = TeamKeyHelper.create(groupId, year, basketId, owner)
-        const team = await this.getTeam(key)
-        if (team) {
-          teams.push(team)
-        }
-      }
-      
-      return teams
-    } catch (error) {
-      console.error('Error fetching teams by basket:', error)
-      return []
-    }
-  }
-
-  async getEnhancedTeamsByBasket(
-    groupId: string, 
-    year: number, 
-    basketId: string, 
-    owners: string[],
-    leagueId?: string,
-    leagueSettings?: LeagueSetting
-  ): Promise<EnhancedTeam[]> {
-    try {
-      const teams: EnhancedTeam[] = []
-      
-      // Per ogni owner (email), recupera il team enhanced
-      for (const owner of owners) {
-        const key = TeamKeyHelper.create(groupId, year, basketId, owner)
-        const enhancedTeam = await this.getEnhancedTeam(key, leagueId, leagueSettings)
-        if (enhancedTeam) {
-          teams.push(enhancedTeam)
-        }
-      }
-      
-      return teams
-    } catch (error) {
-      console.error('Error fetching enhanced teams by basket:', error)
-      return []
-    }
-  }
-
-  async getTeamNetCost(key: TeamKey): Promise<number> {
-    const team = await this.getTeam(key)
-    return team ? TeamHelper.getNetCost(team) : 0
-  }
-
-  async getTeamDayNetCost(key: TeamDayKey): Promise<number> {
-    const team = await this.getTeamDay(key)
-    return team ? TeamHelper.getNetCost(team) : 0
+  getEnhancedTeamDayByComponents(group: string, year: number, basketId: string, day: number, email: string, leagueId?: string, settings?: LeagueSetting) { return this.getEnhancedTeamDay(TeamKeyHelper.createDayKey(group, year, basketId, day, email), leagueId, settings) }
+  async getTeamDayPlayers(key: TeamDayKey) { return (await this.getTeamDay(key))?.players ?? [] }
+  async getActiveTeamDayPlayers(key: TeamDayKey) { const team = await this.getTeamDay(key); return team ? TeamHelper.getActivePlayers(team) : [] }
+  async getTeamDayPlayersByRole(key: TeamDayKey, role: Role) { const team = await this.getTeamDay(key); return team ? TeamHelper.getPlayersByRole(team, role) : [] }
+  async getTeamsByBasket(group: string, year: number, basketId: string, owners: string[]) { return (await Promise.all(owners.map(email => this.getTeamByComponents(group, year, basketId, email)))).filter((team): team is Team => !!team) }
+  async getEnhancedTeamsByBasket(group: string, year: number, basketId: string, owners: string[], _leagueId?: string, _settings?: LeagueSetting) { return (await this.getTeamsByBasket(group, year, basketId, owners)).map(enhanceTeam) }
+  async getTeamNetCost(key: TeamKey) { const team = await this.getTeam(key); return team ? TeamHelper.getCost(team) : 0 }
+  async getTeamDayNetCost(key: TeamDayKey) { const team = await this.getTeamDay(key); return team ? TeamHelper.getCost(team) : 0 }
+  async saveFormation(team: Team, leagueId?: string, live = false, asAdmin = false) {
+    if (!team.groupId || !team.basketId || !team.seasonIndex || team.version == null || team.players.some(player => player.status === 0 && !player.playerId))
+      throw new Error('Ricaricare la rosa PostgreSQL prima di salvare.')
+    return apiRequest<{ isOk: boolean; message: string; team: Team }>('/api/teams/formation', 'PUT', {
+      groupId: team.groupId, basketId: team.basketId, year: team.seasonIndex, owner: team.owner, teamId: team.teamId,
+      day: team.day ?? 0, kind: team.kind ?? 0, leagueId: team.leagueId || leagueId || null, expectedVersion: team.version, sourceVersion: team.sourceVersion, live, asAdmin,
+      positions: team.players.filter(player => player.status === 0).map(player => ({ playerId: player.playerId, position: player.position })),
+    })
   }
 }
-
 export const teamService = new TeamService()

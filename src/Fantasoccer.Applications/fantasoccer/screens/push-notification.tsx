@@ -33,7 +33,7 @@ import {
 import { PushNotificationSettings, PushSubscription } from 'types/pushNotification'
 import { UpdatePushNotificationSettingsInput } from 'services/pushNotificationService'
 import { useAuth } from '../providers/AuthProvider'
-import { rememberPushDevice } from '../services/pushDeviceService'
+import { acknowledgePushActivation, rememberPushDevice } from '../services/pushDeviceService'
 import {
   PushSupportState,
   webPushSupport
@@ -177,14 +177,17 @@ const PushNotificationScreen = () => {
     setIsRegistering(true)
     setDeviceError(null)
     try {
-      const subscription = await webPushSupport.subscribe()
+      const previousEndpoint = currentSubscription?.endpoint
+      const subscription = await webPushSupport.subscribe(settings.publicKey, true)
       if (!subscription) {
         setDeviceError('Attivazione non completata: controlla il permesso notifiche del browser.')
         return
       }
 
       await addDevice(subscription)
+      if (previousEndpoint && previousEndpoint !== subscription.endpoint) await removeDevice(previousEndpoint)
       if (user?.email) await rememberPushDevice(user.email, subscription.endpoint, true)
+      await acknowledgePushActivation(subscription.endpoint)
       setCurrentSubscription(subscription)
       await loadSupportState()
     } catch (registerError) {
@@ -193,7 +196,7 @@ const PushNotificationScreen = () => {
     } finally {
       setIsRegistering(false)
     }
-  }, [addDevice, isWeb, loadSupportState, user?.email])
+  }, [addDevice, removeDevice, currentSubscription?.endpoint, settings.publicKey, isWeb, loadSupportState, user?.email])
 
   const handleUnregisterDevice = useCallback(async () => {
     if (!isWeb) {
@@ -259,12 +262,13 @@ const PushNotificationScreen = () => {
       return 'Consenti le notifiche dal browser per attivare le push.'
     }
 
+    if (!settings.deliveryEnabled) return 'Invio push disabilitato sul server. Le preferenze vengono comunque salvate.'
     if (thisDeviceRegistered) {
       return 'Le push sono attive su questo dispositivo.'
     }
 
     return 'Attiva le push per ricevere aggiornamenti in tempo reale.'
-  }, [supportState, thisDeviceRegistered])
+  }, [supportState, thisDeviceRegistered, settings.deliveryEnabled])
 
   const isBusy = isLoading || isRegistering || isUnregistering
 
@@ -370,7 +374,7 @@ const PushNotificationScreen = () => {
                   icon={isUnregistering ? <Loader2 size="$1" color="$color1" /> : <ShieldOff size="$1" color="$color1" />}
                   variant="outlined"
                   onPress={handleUnregisterDevice}
-                  disabled={isBusy || !thisDeviceRegistered}
+                  disabled={isBusy || (!currentSubscription && !thisDeviceRegistered)}
                 >
                   {isUnregistering ? 'Annullamento…' : 'Disattiva su questo device'}
                 </Button>

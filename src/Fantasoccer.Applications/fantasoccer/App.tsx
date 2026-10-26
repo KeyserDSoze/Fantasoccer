@@ -11,7 +11,6 @@ import { LoadingProvider } from 'providers/LoadingProvider';
 import { AuthProvider } from 'providers/AuthProvider';
 import { AppProvider } from 'providers/AppProvider';
 import { ThemeProvider, useAppTheme } from 'providers/ThemeProvider';
-import { setupRepositoryServices } from 'configurations/repositoryConfig';
 import { ToastProvider, ToastViewport, Toast, useToastState } from '@tamagui/toast';
 import { YStack } from 'tamagui';
 import { ServiceWorkerUpdateNotification } from 'components/ServiceWorkerUpdateNotification';
@@ -21,7 +20,6 @@ import { McpConnectionGate } from 'components/McpConnectionGate';
 
 SplashScreen.preventAutoHideAsync();
 
-setupRepositoryServices();
 
 export default function App() {
   const [loaded] = useFonts({

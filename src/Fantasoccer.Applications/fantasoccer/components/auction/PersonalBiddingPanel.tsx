@@ -280,7 +280,7 @@ export function PersonalBiddingPanel({
             }}
           >
             {mySelectedSubstitute 
-              ? `Sostituisce: ${myTeam.value.players.find(p => p.name === mySelectedSubstitute)?.name || mySelectedSubstitute}` 
+              ? `Sostituisce: ${myTeam.value.players.find(p => p.playerId === mySelectedSubstitute)?.name || mySelectedSubstitute}`
               : 'Seleziona giocatore da sostituire'}
           </Button>
         )}

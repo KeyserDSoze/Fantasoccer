@@ -1,19 +1,16 @@
 // Calendar service using Repository Framework
-import { RepositoryServices } from 'rystem.repository.client'
+import { apiRequest } from './httpClient'
+import { competitionPath } from './gameService'
 import {
   Calendar,
-  CalendarRaw,
   CalendarDay,
   CalendarGame,
   EnhancedCalendar,
-  mapRawCalendarToCalendar,
   enhanceCalendar,
   CalendarHelper
 } from 'types/calendar'
 import {
   LeagueKey,
-  LeagueKeyRaw,
-  mapLeagueKeyToRawLeagueKey,
   RankHelper
 } from 'types/rank'
 
@@ -23,20 +20,6 @@ export class CalendarService {
   // INTERNAL HELPERS
   // ============================================
 
-  private getRepository() {
-    return RepositoryServices.Repository<CalendarRaw, LeagueKeyRaw>('Calendar')
-  }
-
-  private async fetchCalendarRaw(leagueKey: LeagueKeyRaw): Promise<CalendarRaw | null> {
-    try {
-      const repository = this.getRepository()
-      return await repository.get(leagueKey)
-    } catch (error) {
-      console.error('Error fetching raw calendar:', error)
-      return null
-    }
-  }
-
   // ============================================
   // MAIN CALENDAR OPERATIONS
   // ============================================
@@ -45,14 +28,7 @@ export class CalendarService {
    * Retrieve the fantasy calendar for a specific league key
    */
   async getCalendar(leagueKey: LeagueKey): Promise<Calendar | null> {
-    const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-    const rawCalendar = await this.fetchCalendarRaw(rawKey)
-
-    if (!rawCalendar) {
-      return null
-    }
-
-    return mapRawCalendarToCalendar(rawCalendar)
+    return (await apiRequest<Calendar | undefined>(`${competitionPath(leagueKey.group, leagueKey.league, leagueKey.year)}/calendar`)) ?? null
   }
 
   /**

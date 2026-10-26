@@ -428,7 +428,7 @@ export const SoccerField = memo(
         const realGame = p.realGame;
         if (!realGame?.date) return false;
         const now = new Date();
-        return now >= realGame.date;
+        return now >= new Date(realGame.date);
       });
     }, [home, away]);
     const controlsDefaultOpen =
@@ -745,8 +745,8 @@ export const SoccerField = memo(
 
       if (isLiveMode) {
         setPendingLiveSwitch([
-          getPlayerKey(selectedPlayer.current.name),
-          getPlayerKey(targetPlayer.current.name),
+          selectedPlayer.current.playerId ?? '',
+          targetPlayer.current.playerId ?? '',
         ]);
       }
 
@@ -928,7 +928,7 @@ export const SoccerField = memo(
         }
         const positions = new Map(
           result.players.map((player) => [
-            player.playerKey.toLowerCase(),
+            player.playerId,
             player.position as FantaSoccerRole,
           ])
         );
@@ -937,7 +937,7 @@ export const SoccerField = memo(
           players: teamToOptimize.players.map((player) => ({
             ...player,
             currentPosition:
-              positions.get(getPlayerKey(player.current.name).toLowerCase()) ??
+              positions.get(player.current.playerId ?? '') ??
               player.currentPosition,
           })),
         };
@@ -1062,7 +1062,6 @@ export const SoccerField = memo(
 
       setIsSaving(true);
       try {
-        let response: { i: boolean; m?: string } | null;
         if (editMode === 'live') {
           if (!pendingLiveSwitch || pendingLiveSwitch.some((key) => !key)) {
             toast.show('Errore: seleziona esattamente due giocatori per il cambio live.', {
@@ -1070,33 +1069,12 @@ export const SoccerField = memo(
             });
             return;
           }
-          response = await gameService.switchPlayers(
-            { groupId, leagueId, year, gameId },
-            pendingLiveSwitch,
-            isAdminMode
-          );
-        } else {
-          const teamData: Team = {
-            name: teamToSave.name,
-            owner: teamToSave.owner,
-            additionalOwners: teamToSave.additionalOwners,
-            lastUpdate: new Date(),
-            moneyFromRank: 0,
-            openingCompetitionPrize: 0,
-            players: teamToSave.players.map((p) => ({
-              ...(p.current as any),
-              position: p.currentPosition,
-            })),
-          };
-
-          response = await gameService.saveTeam(
-            { groupId, leagueId, year, gameId, editMode },
-            teamData,
-            isAdminMode
-          );
         }
+        const response = await gameService.saveTeam(
+          { groupId, leagueId, year, gameId, editMode }, teamToSave, isAdminMode
+        );
 
-        if (response?.i) {
+        if (response.isOk) {
           const remaining = teamToSave.formationChangesRemaining;
           const liveMessage =
             gameWrapper?.isLiveFormationWindow && remaining != null
@@ -1114,7 +1092,7 @@ export const SoccerField = memo(
           }
           setQuickFormationResetKey((current) => current + 1);
         } else {
-          toast.show(`Errore: ${response?.m || 'Salvataggio fallito'}`, { variant: 'error' });
+          toast.show(`Errore: ${response.message || 'Salvataggio fallito'}`, { variant: 'error' });
         }
       } catch (error: any) {
         console.error('Errore salvataggio team:', error);
@@ -1383,11 +1361,11 @@ export const SoccerField = memo(
               paddingTop={index === 0 ? '$2' : 0}>
               <Text fontSize="$2" fontWeight="600">
                 {change.author} ha effettuato il cambio alle{' '}
-                {new Date(change.date).toLocaleTimeString('it-IT', {
+                {change.date ? new Date(change.date).toLocaleTimeString('it-IT', {
                   timeZone: 'Europe/Rome',
                   hour: '2-digit',
                   minute: '2-digit',
-                })}
+                }) : 'orario non disponibile'}
               </Text>
               {change.players.map((player) => (
                 <Text key={`${change.date}-${player.name}`} fontSize="$2" color="$color10">
@@ -2014,7 +1992,7 @@ export const SoccerField = memo(
             onReloadImage={
               groupId && year != null
                 ? async () => {
-                    await reloadPlayerImage(groupId, year, getPlayerKey(quickMenu.player.current.name));
+                    await reloadPlayerImage(groupId, year, quickMenu.player.current.playerId ?? '');
                     toast.show('Foto aggiornata', {
                       message: 'La nuova immagine è stata salvata ed è condivisa con tutti gli utenti.',
                     });

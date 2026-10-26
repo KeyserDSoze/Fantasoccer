@@ -1,0 +1,260 @@
+name: fantasoccer-local
+
+x-local-storage: &local-storage DefaultEndpointsProtocol=http;AccountName=migrationrestore;AccountKey=${AZURITE_KEY:?Use --env-file .env.test or .env};BlobEndpoint=http://azurite:10000/migrationrestore;TableEndpoint=http://azurite:10002/migrationrestore
+x-postgres: &postgres-connection Host=postgres;Database=fantasoccer_local;Username=fantasoccer_local;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your env file};GSS Encryption Mode=Disable
+x-storage-tool: &storage-tool
+  build:
+    context: .
+    dockerfile: ops/local/tools.Dockerfile
+    target: storage-tools
+  profiles: ["tools"]
+  volumes:
+    - ./migration-data:/dumps
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: ops/local/frontend.Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:5080}
+        EXPO_PUBLIC_BLOB_URL: ${PUBLIC_BLOB_URL:-http://localhost:21000/migrationrestore}
+        EXPO_PUBLIC_MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-95de3061-5eab-437d-a2cc-6d71cfaef4d1}
+        EXPO_PUBLIC_WORKSPACE_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: ops/local/api.Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      Integrations__Infrastructure: Storage
+      ConnectionStrings__Storage: *local-storage
+      ConnectionStrings__PostgreSql: *postgres-connection
+      ConnectionStrings__AppInsights: ""
+      PostgreSql__Enabled: "true"
+      Telemetry__Provider: OpenTelemetry
+      OTEL_SERVICE_NAME: fantasoccer-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_BLRP_SCHEDULE_DELAY: "1000"
+      OTEL_BSP_SCHEDULE_DELAY: "1000"
+      Logging__LogLevel__Microsoft.AspNetCore: Warning
+      Logging__LogLevel__System.Net.Http.HttpClient: Warning
+      BackgroundJobs__Enabled: ${BACKGROUND_JOBS_ENABLED:-false}
+      Startup__WarmUpEnabled: "false"
+      ExternalHttp__Enabled: ${EXTERNAL_HTTP_ENABLED:-false}
+      Push__Enabled: ${PUSH_ENABLED:-false}
+      Push__PublicKey: ${PUSH_PUBLIC_KEY:-}
+      Push__PrivateKey: ${PUSH_PRIVATE_KEY:-}
+      Push__Subject: ${PUSH_SUBJECT:-}
+      OpenAi__Enabled: ${AI_ENABLED:-false}
+      OpenAi__Endpoint: ${AI_ENDPOINT:-}
+      OpenAi__ApiKey: ${AI_API_KEY:-}
+      OpenAi__ModelName: ${AI_MODEL:-}
+      Http__RedirectToHttps: "false"
+      Cors__Origins__0: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      SocialLogin__Microsoft__ClientId: ${MICROSOFT_CLIENT_ID:-95de3061-5eab-437d-a2cc-6d71cfaef4d1}
+      SocialLogin__Microsoft__ClientSecret: ${MICROSOFT_CLIENT_SECRET:-}
+      SocialLogin__Microsoft__RedirectDomains: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      Authorization__GlobalAdministrators__0: ${GLOBAL_ADMIN_EMAIL:-alessandro.rapiti44@gmail.com}
+      Assets__PublicBlobBaseUrl: ${PUBLIC_BLOB_URL:-http://localhost:21000/migrationrestore}
+      Encryption__Key: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in env file}
+      Encryption__IV: ${ENCRYPTION_IV:?Set ENCRYPTION_IV in env file}
+      Mcp__Enabled: ${MCP_ENABLED:-false}
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:8080"
+    volumes:
+      - local-api-keys:/home/app/.aspnet/DataProtection-Keys
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: fantasoccer_local
+      POSTGRES_USER: fantasoccer_local
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in env file}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-25432}:5432"
+    volumes:
+      - local-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fantasoccer_local -d fantasoccer_local"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    environment:
+      AZURITE_ACCOUNTS: migrationtest:${AZURITE_KEY:?Set AZURITE_KEY};migrationrestore:${AZURITE_KEY:?Set AZURITE_KEY}
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --location /data --silent
+    ports:
+      - "127.0.0.1:${BLOB_PORT:-21000}:10000"
+      - "127.0.0.1:${QUEUE_PORT:-21001}:10001"
+      - "127.0.0.1:${TABLE_PORT:-21002}:10002"
+    volumes:
+      - local-azurite:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "const n=require('net');Promise.all([10000,10001,10002].map(p=>new Promise((r,j)=>{const s=n.connect(p,'127.0.0.1',()=>{s.end();r();});s.on('error',j);s.setTimeout(1000,()=>{s.destroy();j();});}))).catch(()=>process.exit(1));"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  dashboard:
+    image: mcr.microsoft.com/aspire/dashboard:13.6.1
+    environment:
+      ASPNETCORE_URLS: http://+:18888
+      ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL: http://+:18889
+      DASHBOARD__FRONTEND__AUTHMODE: BrowserToken
+      DASHBOARD__FRONTEND__BROWSERTOKEN: ${DASHBOARD_TOKEN:?Set DASHBOARD_TOKEN in env file}
+      DASHBOARD__OTLP__AUTHMODE: Unsecured
+      DASHBOARD__API__AUTHMODE: ApiKey
+      DASHBOARD__API__PRIMARYAPIKEY: ${DASHBOARD_TOKEN:?Set DASHBOARD_TOKEN in env file}
+      ASPIRE_DASHBOARD_APPLICATION_NAME: fantasoccer-local
+      ASPIRE_DASHBOARD_DATA_DIRECTORY: /home/app/dashboard-data
+      ASPIRE_DASHBOARD_PERSISTENCE_MODE: Resume
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-18888}:18888"
+    # OTLP remains inside the Compose network, not published to Windows/LAN.
+    volumes:
+      - local-telemetry:/home/app
+
+  storage-export:
+    <<: *storage-tool
+    environment:
+      FANTASOCCER_EXPORT_STORAGE: ${FANTASOCCER_EXPORT_STORAGE:-}
+    command: ["export", "--directory", "/dumps/current", "--allow-remote-source"]
+
+  storage-verify:
+    <<: *storage-tool
+    command: ["verify", "--directory", "/dumps/current"]
+    network_mode: none
+
+  storage-restore:
+    <<: *storage-tool
+    environment:
+      FANTASOCCER_RESTORE_STORAGE: *local-storage
+    command: ["restore-local", "--directory", "/dumps/current", "--public-local-files"]
+    depends_on:
+      azurite:
+        condition: service_healthy
+
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: ops/local/tools.Dockerfile
+      target: database-tools
+    environment:
+      FANTASOCCER_POSTGRES_CONNECTION: *postgres-connection
+    command: ["migrate-schema"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  import-core:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: ops/local/tools.Dockerfile
+      target: database-tools
+    environment:
+      FANTASOCCER_POSTGRES_CONNECTION: *postgres-connection
+      FANTASOCCER_LEGACY_ENCRYPTION_KEY: ${LEGACY_ENCRYPTION_KEY:-}
+      FANTASOCCER_LEGACY_ENCRYPTION_IV: ${LEGACY_ENCRYPTION_IV:-}
+    volumes:
+      - ./migration-data:/dumps:ro
+    command: ["import-core", "--directory", "/dumps/current"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  certificates:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: ops/local/tools.Dockerfile
+      target: certificate-tools
+    environment:
+      LOCAL_HTTPS_CERT_PASSWORD: ${LOCAL_HTTPS_CERT_PASSWORD:-local-https-test-only}
+    volumes:
+      - ./local-certificates:/certificates
+
+  tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: ops/local/tests.Dockerfile
+    environment:
+      FANTASOCCER_TEST_POSTGRES: Host=test-postgres;Database=fantasoccer_migration_tests;Username=fantasoccer_test;Password=local-test-only
+      FANTASOCCER_TEST_STORAGE: DefaultEndpointsProtocol=http;AccountName=migrationtest;AccountKey=bG9jYWwtdGVzdC1vbmx5;BlobEndpoint=http://test-azurite:10000/migrationtest;TableEndpoint=http://test-azurite:10002/migrationtest
+      FANTASOCCER_TEST_STORAGE_RESTORE: DefaultEndpointsProtocol=http;AccountName=migrationrestore;AccountKey=bG9jYWwtdGVzdC1vbmx5;BlobEndpoint=http://test-azurite:10000/migrationrestore;TableEndpoint=http://test-azurite:10002/migrationrestore
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-azurite:
+        condition: service_healthy
+
+  frontend-tests:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: ops/local/frontend.Dockerfile
+      target: frontend-tests
+
+  test-postgres:
+    profiles: ["test"]
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: fantasoccer_migration_tests
+      POSTGRES_USER: fantasoccer_test
+      POSTGRES_PASSWORD: local-test-only
+    # Tests have their own DB server and cannot delete the app database.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fantasoccer_test -d fantasoccer_migration_tests"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  test-azurite:
+    profiles: ["test"]
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    environment:
+      AZURITE_ACCOUNTS: migrationtest:bG9jYWwtdGVzdC1vbmx5;migrationrestore:bG9jYWwtdGVzdC1vbmx5
+    command: azurite --blobHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --silent
+    healthcheck:
+      test: ["CMD", "node", "-e", "const n=require('net');Promise.all([10000,10002].map(p=>new Promise((r,j)=>{const s=n.connect(p,'127.0.0.1',()=>{s.end();r();});s.on('error',j);s.setTimeout(1000,()=>{s.destroy();j();});}))).catch(()=>process.exit(1));"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  local-postgres:
+  local-azurite:
+  local-api-keys:
+  local-telemetry:

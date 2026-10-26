@@ -1,177 +1,23 @@
-import { buildApiUrl, getCommonHeaders } from 'configurations/apiConfig';
-import { mapRawGameWrapperToGameWrapper, GameWrapperRaw } from 'types/game';
-import { Team, mapTeamToRawTeam } from 'types/team';
-import { tokenStorageService } from './tokenStorageService';
+import type { GameWrapper, LiveTeam } from '../types/game'
+import type { Team } from '../types/team'
+import { apiRequest } from './httpClient'
+import { formationRequest } from './gameFormation'
 
-export interface OptimalFormationPlayer {
-  playerKey: string;
-  playerName: string;
-  role: number;
-  position: number;
-  projection: number;
-  confidence: number;
-}
-
-export interface OptimalFormationResult {
-  players: OptimalFormationPlayer[];
-  module: string;
-  score: number;
-  confidence: number;
-  warnings: string[];
-}
-
-export const gameEndpoints = {
-  getGame: (params: {
-    groupId: string;
-    leagueId: string;
-    year: number;
-    gameId: string;
-    editMode?: GameEditMode;
-    asAdmin?: boolean;
-  }) => buildApiUrl('/Game/Get', params as any),
-  saveFormation: () => buildApiUrl('/Game/SaveFormation'),
-  saveTeam: (params: GameContext & { asAdmin?: boolean }) => {
-    const { asAdmin, ...context } = params;
-    const query: any = context;
-    if (asAdmin !== undefined) query.asAdmin = asAdmin;
-    return buildApiUrl('/Game/SaveTeam', query);
-  },
-  switchPlayers: (params: Omit<GameContext, 'editMode'> & { asAdmin?: boolean }) => {
-    const { asAdmin, ...context } = params;
-    const query: any = context;
-    if (asAdmin !== undefined) query.asAdmin = asAdmin;
-    return buildApiUrl('/Game/Switch', query);
-  },
-  optimalFormation: (params: {
-    groupId: string;
-    leagueId: string;
-    year: number;
-    day: number;
-    owner: string;
-    asAdmin?: boolean;
-  }) => buildApiUrl('/Game/OptimalFormation', params as any),
-};
-
-export type GameEditMode = 'formation' | 'live' | 'view';
-
-export interface GameContext {
-  groupId: string;
-  leagueId: string;
-  year: number;
-  gameId: string;
-  editMode: GameEditMode;
-}
-
+export interface OptimalFormationPlayer { playerId: string; playerKey: string; playerName: string; role: number; position: number; projection: number; confidence: number }
+export interface OptimalFormationResult { players: OptimalFormationPlayer[]; module: string; score: number; confidence: number; warnings: string[] }
+export type GameEditMode = 'formation' | 'live' | 'view'
+export interface GameContext { groupId: string; leagueId: string; year: number; gameId: string; editMode: GameEditMode }
+export const competitionPath = (group: string, league: string, year: number) => `/api/competitions/${encodeURIComponent(group)}/${encodeURIComponent(league)}/${year}`
+const gamePath = (context: Omit<GameContext, 'editMode'>) => `${competitionPath(context.groupId, context.leagueId, context.year)}/games/${encodeURIComponent(context.gameId)}`
 export const gameService = {
-  async getGame(params: {
-    groupId: string;
-    leagueId: string;
-    year: number;
-    gameId: string;
-    editMode?: GameEditMode;
-    asAdmin?: boolean;
-  }) {
-    const url = gameEndpoints.getGame(params);
-    const accessToken = await tokenStorageService.getTokenString();
-    if (!accessToken) {
-      console.warn('No valid access token available');
-      return null;
-    }
-    const res = await fetch(url, { headers: getCommonHeaders(true, accessToken) });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to fetch game: ${res.status} ${text}`);
-    }
-
-    const raw = (await res.json()) as GameWrapperRaw;
-    return mapRawGameWrapperToGameWrapper(raw);
+  getGame(params: Omit<GameContext, 'editMode'> & { editMode?: GameEditMode; asAdmin?: boolean }) {
+    return apiRequest<GameWrapper>(`${gamePath(params)}?${new URLSearchParams({ editMode: params.editMode ?? 'view', asAdmin: String(params.asAdmin ?? false) })}`)
   },
-
-  async saveFormation(payload: any) {
-    const url = gameEndpoints.saveFormation();
-    const accessToken = await tokenStorageService.getTokenString();
-    if (!accessToken) {
-      console.warn('No valid access token available');
-      return null;
-    }
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to save formation: ${res.status} ${text}`);
-    }
-
-    return await res.json();
+  saveTeam(context: GameContext, team: LiveTeam, asAdmin = false) {
+    return apiRequest<{ isOk: boolean; message: string; team: Team }>(`${gamePath(context)}/formation`, 'PUT', formationRequest(team, context.editMode === 'live', asAdmin))
   },
-
-  async getOptimalFormation(params: {
-    groupId: string;
-    leagueId: string;
-    year: number;
-    day: number;
-    owner: string;
-    asAdmin?: boolean;
-  }): Promise<OptimalFormationResult | null> {
-    const url = gameEndpoints.optimalFormation(params);
-    const accessToken = await tokenStorageService.getTokenString();
-    if (!accessToken) return null;
-    const res = await fetch(url, { headers: getCommonHeaders(true, accessToken) });
-    const body = await res.text();
-    if (!res.ok) {
-      let message = body.trim();
-      try {
-        const problem = message ? JSON.parse(message) : null;
-        message = problem?.detail ?? problem?.title ?? message;
-      } catch {
-        // Keep the raw response when the server did not return JSON.
-      }
-      throw new Error(`Errore calcolo AI (${res.status}): ${message || res.statusText}`);
-    }
-    if (!body.trim()) return null;
-    try {
-      return JSON.parse(body) as OptimalFormationResult | null;
-    } catch {
-      throw new Error('Il server ha restituito una risposta non valida per il calcolo AI.');
-    }
+  getOptimalFormation(params: { groupId: string; leagueId: string; year: number; day: number; owner: string; asAdmin?: boolean }) {
+    return apiRequest<OptimalFormationResult>(`${competitionPath(params.groupId, params.leagueId, params.year)}/optimal-formation?${new URLSearchParams({ day: String(params.day), owner: params.owner, asAdmin: String(params.asAdmin ?? false) })}`)
   },
-
-  async saveTeam(context: GameContext, team: Team, asAdmin?: boolean) {
-    const url = gameEndpoints.saveTeam({ ...context, asAdmin });
-    const accessToken = await tokenStorageService.getTokenString();
-    if (!accessToken) {
-      console.warn('No valid access token available');
-      return null;
-    }
-    const rawTeam = mapTeamToRawTeam(team);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
-      body: JSON.stringify(rawTeam),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to save team: ${res.status} ${text}`);
-    }
-    // TeamResponse -> { i: boolean, m: string }
-    return (await res.json()) as { i: boolean; m?: string };
-  },
-
-  async switchPlayers(context: Omit<GameContext, 'editMode'>, playerKeys: string[], asAdmin?: boolean) {
-    const url = gameEndpoints.switchPlayers({ ...context, asAdmin });
-    const accessToken = await tokenStorageService.getTokenString();
-    if (!accessToken) return null;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { ...getCommonHeaders(true, accessToken), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerKeys }),
-    });
-    if (!res.ok) throw new Error(`Failed to switch players: ${res.status} ${await res.text()}`);
-    return (await res.json()) as { i: boolean; m?: string };
-  },
-};
-
-export default gameService;
+}
+export default gameService

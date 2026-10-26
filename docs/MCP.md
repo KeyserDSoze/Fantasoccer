@@ -124,6 +124,16 @@ Prima di qualsiasi scrittura Azure lo script di deploy controlla configurazione,
 
 ## Tool e copertura delle API
 
+### Workspace relazionale in migrazione
+
+Con `PostgreSql:Enabled=true` sono disponibili anche `list_my_relational_groups`, `get_relational_group` e `create_relational_group`.
+Usano direttamente lo stesso `GroupApplicationService` dei controller `/api/workspace`, con DTO leggibili e verifiche sulle membership PostgreSQL.
+Sono un'anteprima strutturale (account, gruppi, basket, partecipazioni e proprietà), non coprono ancora rose, formazioni o risultati.
+La creazione richiede amministrazione globale; le letture richiedono membership attiva. Non tentare di riusare gli UUID del workspace come chiavi dei repository legacy.
+I tool aggiuntivi non vengono registrati nei deployment senza PostgreSQL; i tool legacy descritti di seguito rimangono invariati finché la migrazione non è completata.
+
+### Superficie legacy
+
 Per default vengono pubblicati sei tool:
 
 1. `get_my_account`: identità, gruppi, selezioni salvate (anche storiche) e stagione corrente; nessun parametro utente arbitrario. I campi precedenti `email`, `username`, `groups`, `state` sono conservati; `savedSelections` e `currentSeason` aggiungono contesto leggibile.

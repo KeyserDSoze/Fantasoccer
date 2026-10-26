@@ -8,6 +8,22 @@ namespace Fantasoccer.Infrastructure
 {
     public static class ServiceCollectionExtensions
     {
+        public static async Task<IServiceCollection> AddFileStorageAsync(this IServiceCollection services, string connectionString)
+        {
+            foreach (var entry in new[] { (Factory: "images", Container: "images"), (Factory: "logos", Container: "logos"), (Factory: "cards", Container: "cardimages") })
+                await services.AddContentRepository().WithBlobStorageIntegrationAsync(builder =>
+                {
+                    builder.ConnectionString = connectionString; builder.ContainerName = entry.Container; builder.IsPublic = true;
+                }, entry.Factory);
+            return services;
+        }
+        public static async Task ValidatePrivateKeyRingAsync(string connectionString)
+        {
+            var container = new Azure.Storage.Blobs.BlobContainerClient(connectionString, "mcp-keys");
+            await container.CreateIfNotExistsAsync();
+            if ((await container.GetPropertiesAsync()).Value.PublicAccess != Azure.Storage.Blobs.Models.PublicAccessType.None)
+                throw new InvalidOperationException("The Data Protection key ring container must be private.");
+        }
         public static async Task AddOAuthBlobStorageAsync(this IServiceCollection services, string connectionString)
         {
             var keyContainer = new Azure.Storage.Blobs.BlobContainerClient(connectionString, "mcp-keys");

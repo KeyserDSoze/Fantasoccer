@@ -17,16 +17,13 @@ namespace Fantasoccer.Business.IngestionData
         private static readonly Regex s_tdedRegex = new("</td>");
         private static readonly Regex s_spanClose = new("</span>");
         private readonly HttpClient _httpClient;
-        private readonly IRepository<RealPlayersWrapper, int> _allPlayers;
-        private readonly IRepository<RealCalendar, int> _realCalendar;
+        private readonly IFootballIngestionReader _context;
 
         public OfficialVote(IHttpClientFactory httpClientFactory,
-            IRepository<RealPlayersWrapper, int> allPlayers,
-            IRepository<RealCalendar, int> realCalendar)
+            IFootballIngestionReader context)
         {
             _httpClient = httpClientFactory.CreateClient("base");
-            _allPlayers = allPlayers;
-            _realCalendar = realCalendar;
+            _context = context;
         }
         public async Task<List<VotedRealPlayer>> GetAsync(int year, int serieADay)
         {
@@ -114,14 +111,14 @@ namespace Fantasoccer.Business.IngestionData
                     }
                 }
             }
-            var serieACalendar = await _realCalendar.GetAsync(year).NoContext();
+            var serieACalendar = await _context.CalendarAsync(year).NoContext();
             if (serieACalendar != null)
             {
                 var day = serieACalendar.Days?.FirstOrDefault(x => x.SerieADay == serieADay);
                 var delayed = day?.Games?.Where(x => x.Delayed).ToList() ?? [];
                 if (delayed.Any())
                 {
-                    var allPlayers = await _allPlayers.GetAsync(year).NoContext();
+                    var allPlayers = await _context.PlayersAsync(year).NoContext();
                     if (allPlayers?.Players != null)
                     {
                         foreach (var game in delayed)
@@ -129,15 +126,17 @@ namespace Fantasoccer.Business.IngestionData
                             Delayed(game.Home);
                             Delayed(game.Away);
                         }
-                        void Delayed(RealTeam team)
-                        {
-                            foreach (var player in allPlayers.Players.Where(x =>
-                                x.RealTeam?.Abbreviation == team.Abbreviation ||
+                         void Delayed(RealTeam team)
+                         {
+                             players.RemoveAll(x => string.Equals(x.RealTeam?.Name, team.Name, StringComparison.OrdinalIgnoreCase));
+                             foreach (var player in allPlayers.Players.Where(x =>
+                                 (!string.IsNullOrWhiteSpace(team.Abbreviation) && x.RealTeam?.Abbreviation == team.Abbreviation) ||
                                 string.Equals(x.RealTeam?.Name, team.Name, StringComparison.OrdinalIgnoreCase)))
                             {
                                 players.Add(new()
                                 {
-                                    Name = player.Name,
+                                     Name = player.Name,
+                                     RealTeam = player.RealTeam, Role = player.Role, IsActive = player.IsActive, Visible = player.Visible,
                                     Vote = new Vote()
                                     {
                                         Role = player.Role,

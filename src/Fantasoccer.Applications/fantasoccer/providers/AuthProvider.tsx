@@ -8,48 +8,7 @@ import { useGlobalLoading } from '../providers/LoadingProvider'
 import { useToastController } from '@tamagui/toast'
 import { disconnectPushDevice } from '../services/pushDeviceService'
 
-// Helper function to convert backend user data to AuthUser
-const mapUserInfoToAuthUser = (userInfo: AppIdentity): AuthUser => {
-  return {
-    username: userInfo.username || '',
-    email: userInfo.email,
-    name: userInfo.username || userInfo.email, // Use username or email as name
-    displayName: userInfo.username || userInfo.email, // Use username or email as display name
-    state: {
-      groupId: userInfo.state.groupId || '',
-      leagueId: userInfo.state.leagueId || '',
-      year: userInfo.state.year || 0,
-      workingEmail: userInfo.state.meOrLeaderEmail || '',
-    },
-    groups: userInfo.groups.map(group => ({
-      id: group.id,
-      name: group.name,
-      role: group.role,
-    })),
-    rawData: userInfo, // Keep original data for compatibility
-  }
-}
-
-// Types
-export interface AuthUser {
-  username: string       // u -> username
-  email: string          // e -> email
-  name: string           // derived from username or email
-  displayName: string    // derived from username
-  state: {               // s -> state
-    groupId: string      // g -> current group ID
-    leagueId: string     // l -> current league ID
-    year: number         // y -> year
-    workingEmail: string // m -> working email
-  }
-  groups: Array<{        // g -> groups
-    id: string           // i -> group ID
-    name: string         // n -> group name
-    role: number         // r -> role flags
-  }>
-  // Raw backend data for compatibility
-  rawData: any
-}
+export type AuthUser = AppIdentity
 
 export interface AuthState {
   isAuthenticated: boolean
@@ -88,7 +47,7 @@ interface AuthProviderProps {
 // MSAL Configuration
 const getMsalConfig = () => ({
   auth: {
-    clientId: "95de3061-5eab-437d-a2cc-6d71cfaef4d1",
+    clientId: process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID || "95de3061-5eab-437d-a2cc-6d71cfaef4d1",
     authority: 'https://login.microsoftonline.com/consumers',
     redirectUri: Platform.select({
       web: typeof window !== 'undefined' ? window.location.origin + '/' : 'http://localhost:3000',
@@ -178,7 +137,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setState(prev => ({
             ...prev,
             isAuthenticated: true,
-            user: mapUserInfoToAuthUser(userInfo),
+            user: userInfo,
             token: storedData.accessToken,
             isLoading: false,
             error: null,
@@ -303,7 +262,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setState(prev => ({
             ...prev,
             isAuthenticated: true,
-            user: mapUserInfoToAuthUser(userInfo),
+            user: userInfo,
             token: tokenResponse.accessToken, // Store accessToken in state
             isLoading: false,
             error: null,
@@ -488,10 +447,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Update user information
   const updateUser = (updatedUser: AppIdentity) => {
-    const mappedUser = mapUserInfoToAuthUser(updatedUser)
     setState(prev => ({
       ...prev,
-      user: mappedUser
+      user: updatedUser
     }))
   }
 

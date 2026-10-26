@@ -149,7 +149,7 @@ export function DiscardedPlayersPanel({
                           size="$3"
                           backgroundColor="transparent"
                           disabled={!isAuctioneer}
-                          onPress={() => onForceShowPlayer(player.key)}
+                          onPress={() => onForceShowPlayer(player.playerId ?? '')}
                           pressStyle={{ opacity: 0.8 }}
                           padding="$0"
                         >

@@ -1,5 +1,6 @@
 // React hooks for FantasoccerLog data management
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAuth } from '../providers/AuthProvider'
 import { fantasoccerLogService } from 'services/fantasoccerLogService'
 import { FantasoccerLog } from 'types/log'
 
@@ -67,6 +68,8 @@ export interface UseLogStatisticsResult {
  */
 export function useAllLogs(options: UseAllLogsOptions = {}): UseAllLogsResult {
   const { refreshInterval, filterErrors, limit } = options
+  const { user, isAuthenticated } = useAuth()
+  const sequence = useRef(0)
 
   const [logs, setLogs] = useState<FantasoccerLog[]>([])
   const [statistics, setStatistics] = useState<LogStatistics | null>(null)
@@ -74,33 +77,38 @@ export function useAllLogs(options: UseAllLogsOptions = {}): UseAllLogsResult {
   const [error, setError] = useState<string | null>(null)
 
   const fetchLogs = useCallback(async () => {
+    const request = ++sequence.current
+    if (!isAuthenticated) { setLogs([]); setStatistics(null); return }
     setLoading(true)
     setError(null)
 
     try {
-      let result = await fantasoccerLogService.getAllLogs()
+      let result = await fantasoccerLogService.getAllLogs(limit ?? 100, filterErrors)
       // Apply limit if specified
       if (limit && limit > 0) {
         result = result.slice(0, limit)
       }
 
+      if (request !== sequence.current) return
       setLogs(result)
 
       // Fetch statistics
       const stats = await fantasoccerLogService.getLogStatistics()
-      setStatistics(stats)
+      if (request === sequence.current) setStatistics(stats)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch logs'
-      setError(errorMessage)
+      if (request === sequence.current) setError(errorMessage)
       console.error('Error in useAllLogs:', err)
     } finally {
-      setLoading(false)
+      if (request === sequence.current) setLoading(false)
     }
-  }, [filterErrors, limit])
+  }, [filterErrors, limit, isAuthenticated, user?.email])
 
   // Initial fetch
   useEffect(() => {
+    setLogs([]); setStatistics(null)
     fetchLogs()
+    return () => { sequence.current++ }
   }, [fetchLogs])
 
   // Auto-refresh

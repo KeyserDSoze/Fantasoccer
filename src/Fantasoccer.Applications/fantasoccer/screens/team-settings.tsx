@@ -205,8 +205,7 @@ export default function TeamSettingsScreen() {
       const summary = await reloadTeamPlayerImages({
         groupId,
         year: userTeamInfo.year,
-        basketId: userTeamInfo.basketId,
-        owner: userTeamInfo.owner,
+        teamId: team?.teamId ?? '',
       });
       setRefreshSummary(summary);
       setRefreshCompletedAt(Date.now());
@@ -218,7 +217,7 @@ export default function TeamSettingsScreen() {
       setRefreshingImages(false);
       setShowRefreshModal(false);
     }
-  }, [groupId, userTeamInfo, refreshingImages]);
+  }, [groupId, userTeamInfo, team?.teamId, refreshingImages]);
 
   return (
     <ScreenContent path="screens/team-settings.tsx" title="Impostazioni squadra">

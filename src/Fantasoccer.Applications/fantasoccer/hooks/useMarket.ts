@@ -235,7 +235,6 @@ export interface UseMarketResult {
   approve: () => Promise<boolean>
   deny: () => Promise<boolean>
   cancel: () => Promise<boolean>
-  update: (market: Market) => Promise<boolean>
 }
 
 /**
@@ -330,24 +329,6 @@ export function useMarket(
     }
   }, [groupId, year, leagueId, marketId, fetchMarket])
 
-  // Update market
-  const update = useCallback(async (updatedMarket: Market): Promise<boolean> => {
-    if (!groupId || !year || !leagueId) {
-      return false
-    }
-
-    try {
-      const success = await marketService.updateMarket(groupId, year, leagueId, updatedMarket)
-      if (success) {
-        await fetchMarket() // Refresh data
-      }
-      return success
-    } catch (err) {
-      console.error('Error updating market:', err)
-      return false
-    }
-  }, [groupId, year, leagueId, fetchMarket])
-
   // Initial fetch
   useEffect(() => {
     fetchMarket()
@@ -368,8 +349,7 @@ export function useMarket(
     refetch: fetchMarket,
     approve,
     deny,
-    cancel,
-    update
+    cancel
   }
 }
 

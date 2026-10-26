@@ -6,14 +6,21 @@ using RepositoryFramework;
 namespace Fantasoccer.Application.Api.Mcp;
 
 [McpServerToolType]
-public sealed class McpAccountTools(IHttpContextAccessor context, IRepository<AppIdentity, string> users, FantasoccerSeasonContext seasons)
+public sealed class McpAccountTools(IHttpContextAccessor context, FantasoccerSeasonContext seasons, IServiceProvider services)
 {
     [McpServerTool(Name = "get_my_account", ReadOnly = true, Destructive = false, OpenWorld = false)]
-    [Description("Start here: get your account, group IDs, saved selections and server current season. Follow groups[].i with api/Group/Get, then resolve league/basket/year/owner IDs from that document and use point reads. No generic repository queries are exposed. savedSelections may be historical. Identity is server-resolved; a display name/username is not an owner email. Read get_fantasoccer_guide(topic='lookups') for exact navigation.")]
+    [Description("Start here: get the authenticated account, memberships, saved selections and current season. PostgreSQL returns readable fields and UUIDs for /api/groups; do not use them as legacy repository keys. Saved selections are not permissions. Consult the guide for the active backend.")]
     public async Task<object> GetMyAccountAsync(CancellationToken cancellationToken)
     {
         var email = context.HttpContext?.User.FindFirstValue(ClaimTypes.Email) ?? throw new UnauthorizedAccessException();
-        var account = await users.GetAsync(email, cancellationToken) ?? throw new UnauthorizedAccessException();
+        if (services.GetService<Fantasoccer.Application.Core.Accounts.AccountApplicationService>() is { } relational)
+        {
+            var profile = await relational.CurrentAsync(context.HttpContext!.User, cancellationToken);
+            return new { profile.Id, profile.Email, profile.Username, profile.Groups, profile.State,
+                currentSeason = seasons.GetCurrent().CurrentSeason,
+                nextRead = new { path = "api/workspace/groups", note = "Use readable groupId values; selection does not grant authorization." } };
+        }
+        var account = await services.GetRequiredService<IRepository<AppIdentity, string>>().GetAsync(email, cancellationToken) ?? throw new UnauthorizedAccessException();
         var season = seasons.GetCurrent();
         return new
         {

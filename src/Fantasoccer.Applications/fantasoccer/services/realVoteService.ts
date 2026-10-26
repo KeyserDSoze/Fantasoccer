@@ -1,4 +1,4 @@
-import { RepositoryServices } from 'rystem.repository.client'
+import { getFootball } from './footballApi'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
 import { getCurrentSeasonYear } from 'utils/season'
@@ -7,12 +7,7 @@ import {
   VotedRealPlayer,
   VotedRealPlayerRoleBuckets,
   VotedRealPlayerWrapper,
-  VotedRealPlayerWrapperRaw,
-  YearDayKey,
-  YearDayKeyRaw,
-  mapRawVotedPlayersWrapperToWrapper,
   enhanceVotedRealPlayersWrapper,
-  mapYearDayKeyToRawYearDayKey,
 } from 'types/serieA'
 
 export interface VoteLookupOptions {
@@ -21,14 +16,6 @@ export interface VoteLookupOptions {
 }
 
 export class RealVoteService {
-  private getLiveRepository() {
-    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('VotedRealPlayerWrapper/live')
-  }
-
-  private getOfficialRepository() {
-    return RepositoryServices.Repository<VotedRealPlayerWrapperRaw, YearDayKeyRaw>('VotedRealPlayerWrapper/official')
-  }
-
   private async getCurrentUserYear(): Promise<number | null> {
     try {
       const accessToken = await tokenStorageService.getTokenString()
@@ -52,21 +39,6 @@ export class RealVoteService {
     return this.getCurrentUserYear()
   }
 
-  private mapWrapper(raw: VotedRealPlayerWrapperRaw | null | undefined): VotedRealPlayerWrapper | null {
-    if (!raw) {
-      return null
-    }
-
-    return mapRawVotedPlayersWrapperToWrapper(raw)
-  }
-
-  private buildKey(options: VoteLookupOptions): YearDayKey {
-    return {
-      year: options.year,
-      day: options.day,
-    }
-  }
-
   private validateOptions(options: VoteLookupOptions): boolean {
     if (options.year == null || Number.isNaN(options.year)) {
       console.error('Year is required to fetch votes')
@@ -88,15 +60,7 @@ export class RealVoteService {
       return null
     }
 
-    try {
-      const repository = this.getLiveRepository()
-      const key = mapYearDayKeyToRawYearDayKey(this.buildKey(options))
-      const rawWrapper = await repository.get(key)
-      return this.mapWrapper(rawWrapper)
-    } catch (error) {
-      console.error('Error fetching live votes:', options, error)
-      return null
-    }
+    return getFootball<VotedRealPlayerWrapper>(options.year, `days/${options.day}/votes/live`)
   }
 
   async getEnhancedLiveWrapper(options: VoteLookupOptions): Promise<EnhancedVotedRealPlayerWrapper | null> {
@@ -123,15 +87,7 @@ export class RealVoteService {
       return null
     }
 
-    try {
-      const repository = this.getOfficialRepository()
-      const key = mapYearDayKeyToRawYearDayKey(this.buildKey(options))
-      const rawWrapper = await repository.get(key)
-      return this.mapWrapper(rawWrapper)
-    } catch (error) {
-      console.error('Error fetching official votes:', options, error)
-      return null
-    }
+    return getFootball<VotedRealPlayerWrapper>(options.year, `days/${options.day}/votes/official`)
   }
 
   async getEnhancedOfficialWrapper(options: VoteLookupOptions): Promise<EnhancedVotedRealPlayerWrapper | null> {

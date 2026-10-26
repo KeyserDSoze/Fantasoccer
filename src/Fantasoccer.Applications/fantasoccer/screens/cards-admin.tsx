@@ -18,7 +18,7 @@ import {
 } from 'tamagui'
 import { Search, Plus, Edit3, Trash2, Image as ImageIcon, Sparkles } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
-import { useNavigation } from '@react-navigation/native'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import type { NavigationProp } from '../navigation'
 import cardService from 'services/cardService'
 import { Card as CardType, CardType as CardTypeEnum, getCardTypeLabel, getCardTypeColor, getCardTypeBgColor } from 'types/card'
@@ -56,9 +56,7 @@ export default function CardsAdminScreen() {
   }, [toast])
 
   // Initial load
-  React.useEffect(() => {
-    loadCards()
-  }, [loadCards])
+  useFocusEffect(useCallback(() => { void loadCards() }, [loadCards]))
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
@@ -108,7 +106,7 @@ export default function CardsAdminScreen() {
     }
 
     try {
-      await cardService.deleteCard(cardId)
+      await cardService.deleteCard(cardId, cards.find(card => card.id === cardId)?.version)
       toast.show('Successo', {
         message: 'Carta eliminata con successo',
         variant: 'success'
@@ -120,7 +118,7 @@ export default function CardsAdminScreen() {
         variant: 'error'
       })
     }
-  }, [toast, loadCards])
+  }, [toast, loadCards, cards])
 
   return (
     <ScreenContent title="Gestione Carte">

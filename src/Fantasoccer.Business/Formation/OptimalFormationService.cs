@@ -7,19 +7,16 @@ namespace Fantasoccer.Business
     {
         private readonly IOptimalFormationEngine _engine;
         private readonly ITeamCalculator _teamCalculator;
-        private readonly IRepository<StatPlayersWrapper, int> _statsRepository;
-        private readonly IRepository<RealRank, int> _rankRepository;
+        private readonly IFormationStatisticsReader _statistics;
 
         public OptimalFormationService(
             IOptimalFormationEngine engine,
             ITeamCalculator teamCalculator,
-            IRepository<StatPlayersWrapper, int> statsRepository,
-            IRepository<RealRank, int> rankRepository)
+            IFormationStatisticsReader statistics)
         {
             _engine = engine;
             _teamCalculator = teamCalculator;
-            _statsRepository = statsRepository;
-            _rankRepository = rankRepository;
+            _statistics = statistics;
         }
 
         public async ValueTask<OptimalFormationResult> CalculateAsync(
@@ -41,8 +38,9 @@ namespace Fantasoccer.Business
             var enrichedPlayers = _teamCalculator.Enrich(activePlayers).ToList();
             var hasProbableLineupData = enrichedPlayers.Any(x =>
                 x.Chance != null && (x.Chance.Fantagazzetta || x.Chance.Gazzetta));
-            var stats = (await _statsRepository.GetAsync(year, cancellationToken))?.Players ?? [];
-            var rank = (await _rankRepository.GetAsync(year, cancellationToken))?.Teams ?? [];
+            var statistics = await _statistics.ReadAsync(year, cancellationToken);
+            var stats = statistics.Players;
+            var rank = statistics.Clubs;
             var projections = enrichedPlayers
                 .Where(x => x.Current != null && !string.IsNullOrWhiteSpace(x.Current.Key))
                 .GroupBy(x => x.Current.Key, StringComparer.OrdinalIgnoreCase)

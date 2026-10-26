@@ -1,266 +1,33 @@
-// Market service using Repository Framework
-import { buildApiUrl, getCommonHeaders } from '../configurations/apiConfig'
-import { tokenStorageService } from './tokenStorageService'
-import { 
-  Market, 
-  MarketRaw, 
-  mapRawMarketWrapperToMarketWrapper,
-  mapMarketToRawMarket,
-  MarketHelper
-} from 'types/market'
+import { apiRequest } from './httpClient'
+import { competitionPath } from './gameService'
+import { marketRequest } from './marketRequest'
+import { MarketHelper, type Market, type MarketDraft } from '../types/market'
 
+const path = (group: string, year: number, league: string) => `${competitionPath(group, league, year)}/market`
 export class MarketService {
-
-  // ============================================
-  // MAIN MARKET OPERATIONS (using Repository Framework)
-  // ============================================
-
-  /**
-   * Get all markets for a specific league
-   */
-  async getMarketsByLeague(
-    groupId: string, 
-    year: number, 
-    leagueId: string
-  ): Promise<Market[]> {
-    try {
-      const token = await tokenStorageService.ensureValidToken()
-      if (!token) return []
-      const response = await fetch(buildApiUrl('/Market/Get', { groupId, year, leagueId }), {
-        headers: getCommonHeaders(true, token)
-      })
-      if (!response.ok) return []
-      const result = await response.json()
-      
-      if (result && result.m) {
-        // Map raw data to clean interface
-        const wrapper = mapRawMarketWrapperToMarketWrapper(result)
-        return wrapper.markets
-      }
-      
-      return []
-    } catch (error) {
-      console.error('Error fetching markets:', error)
-      return []
-    }
+  getMarketsByLeague(group: string, year: number, league: string): Promise<Market[]> { return apiRequest(path(group, year, league)) }
+  async getMarket(group: string, year: number, league: string, id: string) { return (await this.getMarketsByLeague(group, year, league)).find(trade => trade.id === id) ?? null }
+  async createMarket(group: string, year: number, league: string, draft: MarketDraft) {
+    const result = await apiRequest<{ isOk: boolean; message: string }>(path(group, year, league), 'POST', marketRequest(draft))
+    if (!result.isOk) throw new Error(result.message)
+    return true
   }
-
-  /**
-   * Get a specific market by ID
-   */
-  async getMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string, 
-    marketId: string
-  ): Promise<Market | null> {
-    try {
-      const markets = await this.getMarketsByLeague(groupId, year, leagueId)
-      return markets.find(m => m.id === marketId) ?? null
-    } catch (error) {
-      console.error('Error fetching market:', error)
-      return null
-    }
+  private async command(group: string, year: number, league: string, id: string, action: string, expectedVersion?: number, actorTeamId?: string) {
+    const current = expectedVersion ?? (await this.getMarket(group, year, league, id))?.version
+    if (current == null) throw new Error('Proposta non trovata.')
+    const result = await apiRequest<{ isOk: boolean; message: string }>(`${path(group, year, league)}/${encodeURIComponent(id)}/${action}`, 'POST', { expectedVersion: current, actorTeamId })
+    if (!result.isOk) throw new Error(result.message)
+    return true
   }
-
-  /**
-   * Create or update a market
-   */
-  async updateMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    market: Market
-  ): Promise<boolean> {
-    return this.executeCommand('/Market/Create', { groupId, year, leagueId }, mapMarketToRawMarket(market))
-  }
-
-  /** Accept a trade proposal as its seller. */
-  async acceptMarket(
-    groupId: string,
-    year: number,
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    return this.executeCommand('/Market/Accept', { groupId, year, leagueId, marketId })
-  }
-
-  /** Reject a trade proposal as its seller. */
-  async rejectMarket(
-    groupId: string,
-    year: number,
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    return this.executeCommand('/Market/Reject', { groupId, year, leagueId, marketId })
-  }
-
-  /**
-   * Delete a market
-   */
-  async deleteMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    return this.executeCommand('/Market/Cancel', { groupId, year, leagueId, marketId })
-  }
-
-  // ============================================
-  // MARKET APPROVAL OPERATIONS
-  // ============================================
-
-  /**
-   * Approve a market (or change vote from deny to approve)
-   */
-  async approveMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    try {
-      return await this.executeCommand('/Market/Approve', { groupId, year, leagueId, marketId })
-    } catch (error) {
-      console.error('Error approving market:', error)
-      return false
-    }
-  }
-
-  /**
-   * Deny a market (or change vote from approve to deny)
-   */
-  async denyMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    try {
-      return await this.executeCommand('/Market/Deny', { groupId, year, leagueId, marketId })
-    } catch (error) {
-      console.error('Error denying market:', error)
-      return false
-    }
-  }
-
-  /**
-   * Cancel a market (only by buyer or seller)
-   */
-  async cancelMarket(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    marketId: string
-  ): Promise<boolean> {
-    try {
-      return await this.executeCommand('/Market/Cancel', { groupId, year, leagueId, marketId })
-    } catch (error) {
-      console.error('Error cancelling market:', error)
-      return false
-    }
-  }
-
-  // ============================================
-  // FILTERED QUERIES
-  // ============================================
-
-  /**
-   * Get markets for a specific user (buyer or seller)
-   */
-  async getMarketsForUser(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    userEmail: string
-  ): Promise<Market[]> {
-    try {
-      const markets = await this.getMarketsByLeague(groupId, year, leagueId)
-      return MarketHelper.getMarketsForUser(markets, userEmail)
-    } catch (error) {
-      console.error('Error fetching markets for user:', error)
-      return []
-    }
-  }
-
-  /**
-   * Get pending markets that need approval from user
-   */
-  async getPendingMarketsForApproval(
-    groupId: string, 
-    year: number, 
-    leagueId: string,
-    userEmail: string
-  ): Promise<Market[]> {
-    try {
-      const markets = await this.getMarketsByLeague(groupId, year, leagueId)
-      return MarketHelper.getPendingMarketsForApproval(markets, userEmail)
-    } catch (error) {
-      console.error('Error fetching pending markets:', error)
-      return []
-    }
-  }
-
-  /**
-   * Get active (pending) markets
-   */
-  async getActiveMarkets(
-    groupId: string, 
-    year: number, 
-    leagueId: string
-  ): Promise<Market[]> {
-    try {
-      const markets = await this.getMarketsByLeague(groupId, year, leagueId)
-      return MarketHelper.getActiveMarkets(markets)
-    } catch (error) {
-      console.error('Error fetching active markets:', error)
-      return []
-    }
-  }
-
-  /**
-   * Get completed markets
-   */
-  async getCompletedMarkets(
-    groupId: string, 
-    year: number, 
-    leagueId: string
-  ): Promise<Market[]> {
-    try {
-      const markets = await this.getMarketsByLeague(groupId, year, leagueId)
-      return MarketHelper.getCompletedMarkets(markets)
-    } catch (error) {
-      console.error('Error fetching completed markets:', error)
-      return []
-    }
-  }
-
-  private async executeCommand(
-    path: string,
-    parameters: Record<string, string | number>,
-    body?: MarketRaw
-  ): Promise<boolean> {
-    try {
-      const token = await tokenStorageService.ensureValidToken()
-      if (!token) return false
-      const response = await fetch(buildApiUrl(path, parameters), {
-        method: 'POST',
-        headers: {
-          ...getCommonHeaders(true, token),
-          'Content-Type': 'application/json'
-        },
-        body: body ? JSON.stringify(body) : undefined
-      })
-      if (!response.ok) return false
-      const result = await response.json() as { isOk?: boolean }
-      return result.isOk === true
-    } catch (error) {
-      console.error(`Error executing ${path}:`, error)
-      return false
-    }
-  }
+  acceptMarket(group: string, year: number, league: string, id: string, version?: number, actorTeamId?: string) { return this.command(group, year, league, id, 'accept', version, actorTeamId) }
+  rejectMarket(group: string, year: number, league: string, id: string, version?: number, actorTeamId?: string) { return this.command(group, year, league, id, 'reject', version, actorTeamId) }
+  approveMarket(group: string, year: number, league: string, id: string, version?: number, actorTeamId?: string) { return this.command(group, year, league, id, 'approve', version, actorTeamId) }
+  denyMarket(group: string, year: number, league: string, id: string, version?: number, actorTeamId?: string) { return this.command(group, year, league, id, 'deny', version, actorTeamId) }
+  cancelMarket(group: string, year: number, league: string, id: string, version?: number, actorTeamId?: string) { return this.command(group, year, league, id, 'cancel', version, actorTeamId) }
+  deleteMarket(group: string, year: number, league: string, id: string) { return this.cancelMarket(group, year, league, id) }
+  async getMarketsForUser(group: string, year: number, league: string, email: string) { return MarketHelper.getMarketsForUser(await this.getMarketsByLeague(group, year, league), email) }
+  async getPendingMarketsForApproval(group: string, year: number, league: string, email: string) { return MarketHelper.getPendingMarketsForApproval(await this.getMarketsByLeague(group, year, league), email) }
+  async getActiveMarkets(group: string, year: number, league: string) { return MarketHelper.getActiveMarkets(await this.getMarketsByLeague(group, year, league)) }
+  async getCompletedMarkets(group: string, year: number, league: string) { return MarketHelper.getCompletedMarkets(await this.getMarketsByLeague(group, year, league)) }
 }
-
-// Export singleton instance
 export const marketService = new MarketService()

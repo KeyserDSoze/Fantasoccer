@@ -262,14 +262,16 @@ export default function MarketTradesScreen() {
           currentGroup.id,
           selectedYear,
           selectedLeagueId,
-          market.id
+          market.id,
+          market.version
         )
       } else {
         success = await marketService.denyMarket(
           currentGroup.id,
           selectedYear,
           selectedLeagueId,
-          market.id
+          market.id,
+          market.version
         )
       }
 
@@ -296,8 +298,8 @@ export default function MarketTradesScreen() {
     setError(null)
     try {
       const success = decision === 'accept'
-        ? await marketService.acceptMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id)
-        : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id)
+        ? await marketService.acceptMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version)
+        : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version)
       if (success) {
         await loadData()
         await marketActivity.refresh()
@@ -372,7 +374,7 @@ export default function MarketTradesScreen() {
                   {getTeamNameByOwner(market.buyer)} ⇄ {getTeamNameByOwner(market.seller)}
                 </Text>
                 <Text fontSize="$2" color="$color10">
-                  {formatDate(market.creationTime)}
+                  {formatDate(new Date(market.creationTime))}
                 </Text>
               </YStack>
             </XStack>
@@ -705,7 +707,7 @@ export default function MarketTradesScreen() {
                   </H5>
                   <XStack gap="$2" alignItems="center">
                     <Text fontSize="$2" color="$color10">
-                      {formatDate(selectedMarket.creationTime)}
+                      {formatDate(new Date(selectedMarket.creationTime))}
                     </Text>
                     <Text fontSize="$2" color="$color10">•</Text>
                     <Text

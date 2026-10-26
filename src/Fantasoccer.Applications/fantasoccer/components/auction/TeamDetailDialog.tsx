@@ -12,7 +12,7 @@ export interface TeamDetailDialogProps {
   calculateBudgetRemaining: (team: Entity<Team, TeamKey>) => number
   isAuctioneer: boolean
   onOpenChange: (open: boolean) => void
-  onModifyPlayerStatus: (playerKey: string, playerName: string, owner: string) => void
+  onModifyPlayerStatus: (playerKey: string, playerName: string, owner: string, ordinal?: number) => void
   getPlayerKey: (playerName: string) => string
 }
 
@@ -179,7 +179,7 @@ export function TeamDetailDialog({
                                 theme="orange" 
                                 variant="outlined"
                                 onPress={() => {
-                                  onModifyPlayerStatus(getPlayerKey(player.name), player.name, team.value.owner)
+                                  onModifyPlayerStatus(player.playerId ?? '', player.name, team.value.teamId ?? '', player.ordinal)
                                 }}
                               >
                                 Modifica

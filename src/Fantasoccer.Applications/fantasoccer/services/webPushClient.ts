@@ -2,7 +2,7 @@ import { Platform } from 'react-native'
 import { PushSubscription } from 'types/pushNotification'
 
 const SERVICE_WORKER_PATH = '/FCServiceWorker.js'
-const APPLICATION_SERVER_PUBLIC_KEY = 'BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8'
+let applicationServerPublicKey: string | null = null
 
 const base64ToUint8Array = (base64String: string): Uint8Array => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -74,7 +74,7 @@ const postVapidKeyToWorker = (worker?: ServiceWorker | null) => {
     return
   }
   try {
-    worker.postMessage({ type: 'SET_VAPID_KEY', value: APPLICATION_SERVER_PUBLIC_KEY })
+    worker.postMessage({ type: 'SET_VAPID_KEY', value: applicationServerPublicKey })
   } catch (error) {
     console.error('webPushClient: unable to post VAPID key to worker', error)
   }
@@ -172,7 +172,9 @@ export const getExistingSubscription = async (): Promise<PushSubscription | null
   return mapBrowserSubscriptionToDomain(existing)
 }
 
-export const subscribeForPush = async (): Promise<PushSubscription | null> => {
+export const configurePushPublicKey = (publicKey: string | null) => { applicationServerPublicKey = publicKey }
+
+export const subscribeForPush = async (publicKey: string | null = applicationServerPublicKey, allowKeyRotation = false): Promise<PushSubscription | null> => {
   if (!isWebPushSupportedInternally()) return null
   // Ask directly in the click handler before worker/network awaits (Safari).
   const permission = Notification.permission === 'default'
@@ -183,16 +185,23 @@ export const subscribeForPush = async (): Promise<PushSubscription | null> => {
     console.warn('webPushClient: notification permission not granted')
     return null
   }
+  if (!publicKey) throw new Error('Chiave pubblica push non configurata sul server.')
+  applicationServerPublicKey = publicKey
   const registration = await ensureServiceWorkerRegistration()
   if (!registration) return null
 
   try {
     const existing = await registration.pushManager.getSubscription()
     if (existing) {
-      return mapBrowserSubscriptionToDomain(existing)
+      const expected = base64ToUint8Array(publicKey)
+      const current = existing.options?.applicationServerKey ? new Uint8Array(existing.options.applicationServerKey) : null
+      const matches = current && current.length === expected.length && current.every((value, index) => value === expected[index])
+      if (matches) return mapBrowserSubscriptionToDomain(existing)
+      if (!allowKeyRotation) throw new Error('Chiave push cambiata: riattiva esplicitamente questo dispositivo dalle impostazioni.')
+      if (!await existing.unsubscribe()) throw new Error('Impossibile disattivare la vecchia chiave push. Riprova.')
     }
 
-    const applicationServerKey = base64ToUint8Array(APPLICATION_SERVER_PUBLIC_KEY)
+    const applicationServerKey = base64ToUint8Array(publicKey)
     const newSubscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: applicationServerKey as unknown as BufferSource
@@ -252,6 +261,7 @@ export const resetServiceWorkerRegistration = async (): Promise<void> => {
 }
 
 export const webPushSupport = {
+  configure: configurePushPublicKey,
   isSupported: isWebPushSupportedInternally,
   getSupportState: getPushSupportState,
   requestPermission: requestNotificationPermission,

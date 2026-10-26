@@ -9,7 +9,7 @@ const CACHE_NAME = 'fantasoccer-push-state-v1'
 const RENEWAL_PATH = '/__fantasoccer_push_renewal__'
 const DEVICE_PATH = '/__fantasoccer_push_device__'
 interface DeviceBinding { email: string; endpoint: string; enabled: boolean }
-interface PendingRenewal { oldEndpoint: string; subscription?: PushSubscription }
+interface PendingRenewal { oldEndpoint: string; subscription?: PushSubscription; keyRotationRequired?: boolean }
 let deviceRevision = 0
 let bindingWrites: Promise<void> = Promise.resolve()
 
@@ -19,6 +19,13 @@ const readBinding = async (): Promise<DeviceBinding | null> => {
   return value ? JSON.parse(value) : null
 }
 const cacheState = async () => Platform.OS === 'web' && typeof caches !== 'undefined' ? caches.open(CACHE_NAME) : null
+
+export async function acknowledgePushActivation(endpoint: string): Promise<void> {
+  const cache = await cacheState()
+  const response = await cache?.match(RENEWAL_PATH)
+  const pending = response ? await response.json() as PendingRenewal : null
+  if (pending && (pending.keyRotationRequired || pending.subscription?.endpoint === endpoint)) await cache?.delete(RENEWAL_PATH)
+}
 
 export async function rememberPushDevice(email: string, endpoint: string, enabled: boolean): Promise<void> {
   deviceRevision++
@@ -67,7 +74,9 @@ export async function reconcilePushDevice(email: string, isCurrent: () => boolea
   const cache = await cacheState()
   const pendingResponse = await cache?.match(RENEWAL_PATH)
   const pending = pendingResponse ? await pendingResponse.json() as PendingRenewal : null
+  if (pending?.keyRotationRequired) return
   const settings = await pushNotificationService.getSettings(email)
+  webPushSupport.configure(settings.publicKey)
   if (!stillCurrent()) return
   let existing = await webPushSupport.getExistingSubscription()
   const knownEndpoint = pending?.oldEndpoint || binding?.endpoint || existing?.endpoint
@@ -75,7 +84,9 @@ export async function reconcilePushDevice(email: string, isCurrent: () => boolea
     if (binding) await rememberPushDevice(email, binding.endpoint, false)
     return
   }
-  if (!existing && (pending || binding?.enabled)) existing = await webPushSupport.subscribe()
+  // Renewal may use the same configured key, but key rotation requires a user
+  // gesture. Never silently re-enable a removed device or migrate accounts.
+  if (!existing && (pending || binding?.enabled)) existing = await webPushSupport.subscribe(settings.publicKey)
   if (!existing || !stillCurrent()) return
   const saved = settings.subscriptions.find(s => s.endpoint === existing!.endpoint)
   if (!saved || saved.p256dh !== existing.p256dh || saved.auth !== existing.auth || pending) {

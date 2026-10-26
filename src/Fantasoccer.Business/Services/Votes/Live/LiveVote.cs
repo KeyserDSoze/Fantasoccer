@@ -8,9 +8,7 @@ namespace Fantasoccer.Business.IngestionData
     internal sealed class LiveVote : ILiveVote
     {
         private readonly HttpClient _httpClient;
-        private readonly IRepository<RealCalendar, int> _realCalendar;
-        public LiveVote(IHttpClientFactory httpClientFactory,
-            IRepository<RealCalendar, int> realCalendar)
+        public LiveVote(IHttpClientFactory httpClientFactory)
         {
             _httpClient = httpClientFactory.CreateClient("base");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.fantacalcio.it");
@@ -21,7 +19,6 @@ namespace Fantasoccer.Business.IngestionData
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Platform", "Windows");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-origin");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Dest", "empty");
-            _realCalendar = realCalendar;
         }
         public async Task<List<VotedRealPlayer>> GetAsync(int year, int day)
         {

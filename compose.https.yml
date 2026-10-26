@@ -1,0 +1,27 @@
+# Development-only TLS/MCP profile. Keep this profile after first enabling it so
+# the persistent Data Protection keys can still load their encryption certificate.
+services:
+  api:
+    environment:
+      ASPNETCORE_URLS: http://+:8080;https://+:8443
+      ASPNETCORE_HTTPS_PORT: ${HTTPS_PORT:-5443}
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/localhost.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${LOCAL_HTTPS_CERT_PASSWORD:-local-https-test-only}
+      Http__RedirectToHttps: "true"
+      Mcp__Enabled: ${MCP_ENABLED:-false}
+      Mcp__Issuer: https://localhost:${HTTPS_PORT:-5443}
+      Mcp__FrontendUrl: ${FRONTEND_ORIGIN:-http://localhost:3000}/
+      Mcp__CertificatePath: /https/localhost.pfx
+      Mcp__CertificatePassword: ${LOCAL_HTTPS_CERT_PASSWORD:-local-https-test-only}
+      Mcp__DataProtectionKeyPath: /home/app/.aspnet/DataProtection-Keys
+    ports:
+      - "127.0.0.1:${HTTPS_PORT:-5443}:8443"
+    volumes:
+      - ./local-certificates/localhost.pfx:/https/localhost.pfx:ro
+      - ./local-certificates/localhost.pem:/https/localhost.pem:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--cacert", "/https/localhost.pem", "https://localhost:8443/health/ready"]
+  frontend:
+    build:
+      args:
+        EXPO_PUBLIC_API_URL: https://localhost:${HTTPS_PORT:-5443}

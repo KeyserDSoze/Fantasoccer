@@ -4,18 +4,34 @@ using ModelContextProtocol.Server;
 namespace Fantasoccer.Application.Api.Mcp;
 
 [McpServerToolType]
-public sealed class McpContextTools(FantasoccerSeasonContext seasons, McpModelCatalog models)
+public sealed class McpContextTools(FantasoccerSeasonContext seasons, McpModelCatalog models, IConfiguration configuration)
 {
     [McpServerTool(Name = "get_current_season", ReadOnly = true, Destructive = false, OpenWorld = false)]
     [Description("Get the current Fantasoccer season from server UTC time: seasonIndex, label (e.g. 2026/27=15), season boundaries and day-ID conventions. year/y in APIs normally means this 1-based index, not 2026. Saved account selections may be historical; check the group's configured seasons. This does not claim that a football match is live.")]
     public FantasoccerSeasonSnapshot GetCurrentSeason() => seasons.GetCurrent();
 
     [McpServerTool(Name = "get_fantasoccer_guide", ReadOnly = true, Destructive = false, OpenWorld = false)]
-    [Description("Read how Fantasoccer works. Start with lookups to follow NoSQL/Blob point reads: account -> group -> league/basket/year/owner -> Team/Get or Team/day/Get; calendar owner emails and Serie A matchday resolve opponents without generic queries. Other topics: overview, seasons, payloads, groups, formations, market, auctions, scores, opening, administration, personal. topic=models lists JSON models. Metadata search is not a document scan. Documentation grants no permission to write.")]
+    [Description("Read the guide for the active backend. PostgreSQL uses readable DTOs and UUIDs through /api/groups, /api/teams, /api/football and /api/competitions; legacy mode uses Blob point reads. Start with lookups. topic=models lists JSON model metadata, not user data. Documentation grants no permission to write.")]
     public object GetGuide(
         [Description("Guide topic; use models to list model IDs, with optional filter/offset/limit.")] string topic = "overview",
         string? filter = null, int offset = 0, int limit = 20)
     {
+        if (configuration.GetValue<bool>("PostgreSql:Enabled"))
+        {
+            return new { backend = "PostgreSQL", topics = new[] { "overview", "lookups", "models" },
+                note = "Readable DTOs only. Legacy repository operations are not exposed in this mode.",
+                lookups = new[] { "get_my_account", "GET /api/groups", "GET /api/groups/{groupId}",
+                    "GET /api/teams/roster?groupId=...&basketId=...&year=...&owner=...&kind=0&day=0",
+                    "GET /api/football/{year}/calendar", "GET /api/football/{year}/days/{day}/votes/official",
+                    "GET /api/competitions/{groupId}/{leagueId}/{year}/calendar",
+                    "GET /api/competitions/{groupId}/{leagueId}/{year}/games/{gameId}",
+                    "GET /api/competitions/{groupId}/{leagueId}/{year}/rank?day=0" },
+                season = "year is the 1-based season index (2012/13=1); day is a Serie A matchday, not a fantasy round.",
+                formations = "Send playerId/position, teamId, expectedVersion and sourceVersion from the game/roster DTO. Do not send prices or reconstruct IDs from player names.",
+                history = "Saved results and rankings are authoritative. Live resultIsPreview is never saved by a read. Calendar generation/recalculation and opening preparation are explicit POST commands.",
+                authorization = "Membership/ownership and roles are re-read from PostgreSQL by the shared application services; never infer access from a saved selection.",
+                models = topic.Equals("models", StringComparison.OrdinalIgnoreCase) ? models.List(filter, offset, limit) : null };
+        }
         var index = FantasoccerGuide.Sections.Select(x => new { x.Topic, x.Title })
             .Append(new { Topic = "models", Title = "Dizionario dei modelli JSON esposti" });
         return new

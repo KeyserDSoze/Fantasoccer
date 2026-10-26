@@ -8,6 +8,8 @@ import {
 } from 'services/settingsService';
 import type { UserSettings } from 'types/settings';
 import { DEFAULT_USER_SETTINGS } from 'types/settings';
+import { useApp } from '../providers/AppProvider';
+import { useAuth } from '../providers/AuthProvider';
 
 export interface UseSettingsResult {
   // Team logo
@@ -38,6 +40,8 @@ export interface UseSettingsResult {
 }
 
 export function useSettings(): UseSettingsResult {
+  const { refreshGroups } = useApp();
+  const { refreshAuth } = useAuth();
   // Team logo state
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadLogoError, setUploadLogoError] = useState<string | null>(null);
@@ -84,6 +88,7 @@ export function useSettings(): UseSettingsResult {
 
     try {
       const success = await settingsService.uploadLogo(params);
+      if (success) await refreshGroups();
 
       if (!success) {
         setUploadLogoError(
@@ -103,7 +108,7 @@ export function useSettings(): UseSettingsResult {
     } finally {
       setUploadingLogo(false);
     }
-  }, []);
+  }, [refreshGroups]);
 
   // Copy logo from previous year
   const copyLogoFromPreviousYear = useCallback(async (params: CopyLogoParams): Promise<boolean> => {
@@ -112,6 +117,7 @@ export function useSettings(): UseSettingsResult {
 
     try {
       const success = await settingsService.copyLogoFromPreviousYear(params);
+      if (success) await refreshGroups();
 
       if (!success) {
         setCopyLogoError(
@@ -129,7 +135,7 @@ export function useSettings(): UseSettingsResult {
     } finally {
       setCopyingLogo(false);
     }
-  }, []);
+  }, [refreshGroups]);
 
   // Change team name
   const changeTeamName = useCallback(async (params: ChangeTeamNameParams): Promise<boolean> => {
@@ -161,6 +167,7 @@ export function useSettings(): UseSettingsResult {
       }
 
       // If we have messages but none prefixed with error, success
+      await refreshGroups();
       setChangingTeamName(false);
       return true;
     } catch (error) {
@@ -174,7 +181,7 @@ export function useSettings(): UseSettingsResult {
     } finally {
       setChangeTeamNameProgress(null);
     }
-  }, []);
+  }, [refreshGroups]);
 
   // Update username
   const updateUsername = useCallback(async (newUsername: string): Promise<boolean> => {
@@ -183,6 +190,7 @@ export function useSettings(): UseSettingsResult {
 
     try {
       const success = await settingsService.updateUsername(newUsername);
+      if (success) await refreshAuth();
 
       if (!success) {
         setUpdateUsernameError(
@@ -202,7 +210,7 @@ export function useSettings(): UseSettingsResult {
     } finally {
       setUpdatingUsername(false);
     }
-  }, []);
+  }, [refreshAuth]);
 
   const updateAutoOptimalFormation = useCallback(
     async (enabled: boolean): Promise<boolean> => {

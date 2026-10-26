@@ -1,0 +1,79 @@
+name: fantasoccer-migration
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: fantasoccer_migration_tests
+      POSTGRES_USER: fantasoccer_test
+      POSTGRES_PASSWORD: local-test-only
+    ports:
+      - "127.0.0.1:${FANTASOCCER_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - migration-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fantasoccer_test -d fantasoccer_migration_tests"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.35.0
+    environment:
+      AZURITE_ACCOUNTS: migrationtest:bG9jYWwtdGVzdC1vbmx5;migrationrestore:bG9jYWwtdGVzdC1vbmx5
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck --location /data --silent
+    ports:
+      - "127.0.0.1:${FANTASOCCER_BLOB_PORT:-11000}:10000"
+      - "127.0.0.1:${FANTASOCCER_QUEUE_PORT:-11001}:10001"
+      - "127.0.0.1:${FANTASOCCER_TABLE_PORT:-11002}:10002"
+    volumes:
+      - migration-azurite:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "const net=require('net'); Promise.all([10000,10001,10002].map(port=>new Promise((resolve,reject)=>{const s=net.connect(port,'127.0.0.1',()=>{s.end();resolve();});s.on('error',reject);s.setTimeout(1000,()=>{s.destroy();reject();});}))).catch(()=>process.exit(1));"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    image: mcr.microsoft.com/dotnet/sdk:10.0.301
+    profiles: ["test"]
+    working_dir: /workspace
+    environment:
+      FANTASOCCER_TEST_POSTGRES: Host=postgres;Database=fantasoccer_migration_tests;Username=fantasoccer_test;Password=local-test-only
+      FANTASOCCER_TEST_STORAGE: DefaultEndpointsProtocol=http;AccountName=migrationtest;AccountKey=bG9jYWwtdGVzdC1vbmx5;BlobEndpoint=http://azurite:10000/migrationtest;TableEndpoint=http://azurite:10002/migrationtest
+      FANTASOCCER_TEST_STORAGE_RESTORE: DefaultEndpointsProtocol=http;AccountName=migrationrestore;AccountKey=bG9jYWwtdGVzdC1vbmx5;BlobEndpoint=http://azurite:10000/migrationrestore;TableEndpoint=http://azurite:10002/migrationrestore
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    volumes:
+      - ../../src/Fantasoccer.Infrastructure.PostgreSql:/source/Fantasoccer.Infrastructure.PostgreSql:ro
+      - ../../src/Fantasoccer.PostgreSql.Tests:/source/Fantasoccer.PostgreSql.Tests:ro
+      - ../../tools/Fantasoccer.StorageMigration:/source-tools/Fantasoccer.StorageMigration:ro
+      - ../../tools/Fantasoccer.DataMigration:/source-tools/Fantasoccer.DataMigration:ro
+      - ../../src/Fantasoccer.Domain:/source/Fantasoccer.Domain:ro
+      - ../../src/Fantasoccer.Application.Core:/source/Fantasoccer.Application.Core:ro
+      - ../../src/Fantasoccer.RelationalApi.Tests:/source/Fantasoccer.RelationalApi.Tests:ro
+      - ../../src/Fantasoccer.Business:/source/Fantasoccer.Business:ro
+      - ../../src/Fantasoccer.Business.BackgroundJobs:/source/Fantasoccer.Business.BackgroundJobs:ro
+      - ../../src/Fantasoccer.Infrastructure.Storage:/source/Fantasoccer.Infrastructure.Storage:ro
+      - ../../src/Fantasoccer.Infrastructure.InMemory:/source/Fantasoccer.Infrastructure.InMemory:ro
+      - ../../src/Fantasoccer.Applications/Fantasoccer.Application.Api:/source/Fantasoccer.Applications/Fantasoccer.Application.Api:ro
+    tmpfs:
+      - /workspace:exec
+    command:
+      - bash
+      - -euc
+      - |
+        set -o pipefail
+        mkdir -p src tools
+        tar -C /source --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.Infrastructure.PostgreSql Fantasoccer.PostgreSql.Tests Fantasoccer.Domain Fantasoccer.Application.Core Fantasoccer.RelationalApi.Tests Fantasoccer.Business Fantasoccer.Business.BackgroundJobs Fantasoccer.Infrastructure.Storage Fantasoccer.Infrastructure.InMemory Fantasoccer.Applications | tar -C src -xf -
+        tar -C /source-tools --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.StorageMigration Fantasoccer.DataMigration | tar -C tools -xf -
+        dotnet test src/Fantasoccer.PostgreSql.Tests/Fantasoccer.PostgreSql.Tests.csproj --nologo
+        dotnet test src/Fantasoccer.RelationalApi.Tests/Fantasoccer.RelationalApi.Tests.csproj --nologo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+
+volumes:
+  migration-postgres:
+  migration-azurite:

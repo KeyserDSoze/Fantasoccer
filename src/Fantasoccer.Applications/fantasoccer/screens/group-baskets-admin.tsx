@@ -142,7 +142,8 @@ export default function GroupBasketsAdminScreen() {
       
       const updatedGroup = {
         ...currentGroup,
-        baskets: (currentGroup.baskets || []).filter(b => b.id !== basketId)
+        baskets: (currentGroup.baskets || []).filter(b => b.id !== basketId),
+        leagues: currentGroup.leagues.map(league => ({ ...league, basketsId: league.basketsId.filter(id => id !== basketId) }))
       }
 
       const savedGroup = await groupService.updateGroup(currentGroup.id, updatedGroup)
@@ -393,47 +394,13 @@ export default function GroupBasketsAdminScreen() {
     setSuccess(null)
 
     try {
-      let userIdentity = await appIdentityService.getAppIdentity(coOwner)
-      if (!userIdentity) {
-        userIdentity = {
-          email: coOwner,
-          username: coOwner,
-          state: { raw: {} },
-          groups: [{
-            id: currentGroup.id,
-            name: currentGroup.name,
-            role: IdentityRole.Reader,
-            raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
-          }],
-          raw: {
-            e: coOwner,
-            u: coOwner,
-            s: {},
-            g: [{ i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }]
-          }
-        }
-        await appIdentityService.insertAppIdentity(userIdentity)
-      } else {
-        const groupIndex = userIdentity.groups.findIndex(g => g.id === currentGroup.id)
-        if (groupIndex === -1) {
-          userIdentity.groups.push({
-            id: currentGroup.id,
-            name: currentGroup.name,
-            role: IdentityRole.Reader,
-            raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
-          })
-        } else if (userIdentity.groups[groupIndex].role === IdentityRole.None) {
-          userIdentity.groups[groupIndex].role = IdentityRole.Reader
-          userIdentity.groups[groupIndex].raw.r = IdentityRole.Reader
-        }
-        await appIdentityService.updateAppIdentity(userIdentity.email, userIdentity)
-      }
+      const userIdentity = await appIdentityService.getAppIdentity(coOwner)
 
       const users = currentGroup.users?.some(user => user.email.toLowerCase() === coOwner)
         ? currentGroup.users.map(user => user.email.toLowerCase() === coOwner && user.role === IdentityRole.None
           ? { ...user, role: IdentityRole.Reader }
           : user)
-        : [...(currentGroup.users || []), { email: coOwner, username: userIdentity.username || coOwner, role: IdentityRole.Reader }]
+        : [...(currentGroup.users || []), { email: coOwner, username: userIdentity?.username || coOwner, role: IdentityRole.Reader }]
 
       const updatedBasket: Basket = {
         ...selectedBasket,

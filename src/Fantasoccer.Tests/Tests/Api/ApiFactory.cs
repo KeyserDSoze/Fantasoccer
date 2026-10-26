@@ -26,8 +26,17 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // This fixture characterizes the retired backend explicitly. The actual
+        // application defaults to SQL and must not silently fall back to Blob.
+        builder.UseSetting("PostgreSql:Enabled", "false");
+        builder.UseSetting("Push:Enabled", "true"); // All provider HTTP is intercepted below.
+        var pushKeys = WebPush.VapidHelper.GenerateVapidKeys();
+        builder.UseSetting("Push:PublicKey", pushKeys.PublicKey);
+        builder.UseSetting("Push:PrivateKey", pushKeys.PrivateKey);
+        builder.UseSetting("Push:Subject", "mailto:push-tests@example.test");
         builder.UseSetting("Integrations:Infrastructure", "InMemory");
         builder.UseSetting("ConnectionStrings:AppInsights", "InstrumentationKey=00000000-0000-0000-0000-000000000000");
+        builder.UseSetting("Telemetry:Provider", "None");
         builder.UseEnvironment("Testing");
         builder.UseSetting("Mcp:Enabled", "true");
         builder.UseSetting("Mcp:Issuer", "https://localhost");

@@ -4,6 +4,8 @@ import { View, ScrollView, Share, Linking, Platform } from 'react-native'
 import { Button, Card, Input, Separator, Text, XStack, YStack, useMedia, RadioGroup, Label } from 'tamagui'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { auctionService } from 'services/auctionService'
+import { useApp } from 'providers/AppProvider'
+import { openingCompetitionService } from 'services/openingCompetitionService'
 import { 
   AuctionType, 
   AuctionKind, 
@@ -15,6 +17,7 @@ import {
 import { Gavel, Share2, Play, Copy, Check, Monitor } from '@tamagui/lucide-icons-2'
 
 export default function AuctionCreateScreen() {
+  const { currentGroup, selectedLeagueId, selectedYear } = useApp()
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
 
@@ -35,7 +38,11 @@ export default function AuctionCreateScreen() {
     setAuctionId(null)
 
     try {
-      const id = await auctionService.createAuction(selectedType, selectedKind)
+      if (!currentGroup || !selectedLeagueId || selectedYear == null) throw new Error('Selezionare gruppo, lega e stagione.')
+      const rules = currentGroup.leagues.find(league => league.id === selectedLeagueId)?.years.find(year => year.year === selectedYear)?.settings
+      if (selectedKind === AuctionKind.Starting && rules?.openingCompetition.enabled)
+        await openingCompetitionService.prepare(currentGroup.id, selectedLeagueId, selectedYear)
+      const id = await auctionService.createAuction(selectedType, selectedKind, currentGroup.id, selectedLeagueId, selectedYear)
       
       if (!id || id.trim() === '') {
         setError('Non sei autorizzato a creare l\'asta. Solo gli admin/super admin possono crearla per la lega principale del gruppo corrente.')
@@ -49,7 +56,7 @@ export default function AuctionCreateScreen() {
     } finally {
       setLoading(false)
     }
-  }, [selectedType, selectedKind])
+  }, [selectedType, selectedKind, currentGroup?.id, selectedLeagueId, selectedYear])
 
   // Generate auction URL
   const getAuctionUrl = useCallback((id: string): string => {

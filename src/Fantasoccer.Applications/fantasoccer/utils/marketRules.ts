@@ -23,7 +23,7 @@ export interface MarketRuleMarket {
   deniers: string[]
   sellerAccepted?: boolean
   status: MarketStatus
-  creationTime: Date
+  creationTime: string | Date
 }
 
 export const MarketStatusHelper = {
@@ -108,11 +108,11 @@ export class MarketHelper {
   }
 
   static sortByNewest<T extends MarketRuleMarket>(markets: T[]): T[] {
-    return [...markets].sort((first, second) => second.creationTime.getTime() - first.creationTime.getTime())
+    return [...markets].sort((first, second) => new Date(second.creationTime).getTime() - new Date(first.creationTime).getTime())
   }
 
   static sortByOldest<T extends MarketRuleMarket>(markets: T[]): T[] {
-    return [...markets].sort((first, second) => first.creationTime.getTime() - second.creationTime.getTime())
+    return [...markets].sort((first, second) => new Date(first.creationTime).getTime() - new Date(second.creationTime).getTime())
   }
 
   static filterByStatus<T extends MarketRuleMarket>(markets: T[], status: MarketStatus): T[] {

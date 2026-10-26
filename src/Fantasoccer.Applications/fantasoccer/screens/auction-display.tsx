@@ -55,7 +55,8 @@ export default function AuctionDisplayScreen() {
     const next = await auctionService.getAuction(auctionId)
     setState(next)
     setActual(next.wrapper.actual)
-    setTimer(next.wrapper.secondsPerAuction)
+    const start = next.wrapper.actual?.timerStartedAtUtc
+    setTimer(start ? Math.max(0, Math.ceil((Date.parse(start) + next.wrapper.secondsPerAuction * 1000 - Date.now()) / 1000)) : next.wrapper.secondsPerAuction)
     return next
   }, [auctionId])
 
@@ -89,6 +90,12 @@ export default function AuctionDisplayScreen() {
       try { if (active) await refresh() } catch (cause) { if (active) setError(cause instanceof Error ? cause.message : 'Asta non disponibile.') }
     }
     auctionService.setEventHandlers({
+      onStateUpdated: next => {
+        if (!active) return
+        setState(next); setActual(next.wrapper.actual); setBid(null)
+        const start = next.wrapper.actual?.timerStartedAtUtc
+        setTimer(start ? Math.max(0, Math.ceil((Date.parse(start) + next.wrapper.secondsPerAuction * 1000 - Date.now()) / 1000)) : next.wrapper.secondsPerAuction)
+      },
       onPlayerShown: next => { setActual(next); setBid(null) },
       onBidPlaced: setBid,
       onTimerUpdate: setTimer,
@@ -118,7 +125,7 @@ export default function AuctionDisplayScreen() {
 
   // The hub announces timer resets, not every elapsed second. Keep the TV view live locally.
   useEffect(() => {
-    if (state?.wrapper.status !== AuctionStatus.InProgress || !actual || timer <= 0) return
+    if (state?.wrapper.status !== AuctionStatus.InProgress || !actual?.timerStartedAtUtc || timer <= 0) return
     const interval = setInterval(() => setTimer(value => Math.max(0, value - 1)), 1000)
     return () => clearInterval(interval)
   }, [actual, state?.wrapper.status, timer])

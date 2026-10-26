@@ -8,7 +8,7 @@ namespace Fantasoccer.Application.Api.Mcp;
 
 public sealed class McpTokenValidator(McpOptions settings, IOpenIddictTokenManager tokens,
     IOpenIddictAuthorizationManager authorizations, IOpenIddictApplicationManager applications,
-    IRepository<AppIdentity, string> users, ISocialUserProvider socialUsers)
+    ISocialUserProvider socialUsers)
 {
     public async Task<ClaimsPrincipal?> ValidateAsync(AuthenticationTicket ticket, CancellationToken cancellationToken)
     {
@@ -31,7 +31,7 @@ public sealed class McpTokenValidator(McpOptions settings, IOpenIddictTokenManag
         if (application == null || await authorizations.GetApplicationIdAsync(grant, cancellationToken) != applicationId) return null;
 
         var subject = principal.GetClaim(OpenIddictConstants.Claims.Subject);
-        if (subject == null || await users.GetAsync(subject, cancellationToken) == null) return null;
+        if (subject == null || !await McpOAuthEndpoints.AccountAvailableAsync(socialUsers, subject, cancellationToken)) return null;
         var identity = new ClaimsIdentity("BearerToken", ClaimTypes.Name, ClaimTypes.Role);
         // Re-read application claims: demotion takes effect without waiting for token expiry.
         await foreach (var claim in socialUsers.GetClaimsAsync(new TokenResponse { Username = subject, Claims = [] }, cancellationToken))

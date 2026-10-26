@@ -81,7 +81,7 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
     if (!realGame?.date) return 'not_started'
     
     const now = new Date()
-    const gameStart = realGame.date
+    const gameStart = new Date(realGame.date)
     const twoHoursAfterStart = new Date(gameStart.getTime() + 2 * 60 * 60 * 1000)
     
     if (now < gameStart) return 'not_started'

@@ -5,24 +5,16 @@ namespace Fantasoccer.Business
 {
     internal sealed class TeamCalculator : ITeamCalculator
     {
-        private IRepository<VotedRealPlayerWrapper, YearDayKey> _liveVote;
-        private IRepository<VotedRealPlayerWrapper, YearDayKey> _officialVote;
-        private readonly IRepository<RealCalendar, int> _realCalendar;
-        private readonly IRepository<ChancedRealPlayerWrapper, YearDayKey> _chances;
-        private readonly IVotePlayerGenerator _votePlayerGenerator;
+        private readonly IFootballMatchdayReader _matchday;
+        private readonly IVotePlayerGenerator? _votePlayerGenerator;
         private readonly IFactory<ILeagueCalculator> _leagueCalculator;
 
         public TeamCalculator(
-             IRepository<RealCalendar, int> realCalendar,
-             IRepository<ChancedRealPlayerWrapper, YearDayKey> chances,
-             IFactory<IRepository<VotedRealPlayerWrapper, YearDayKey>> voteFactory,
-             IVotePlayerGenerator votePlayerGenerator,
-             IFactory<ILeagueCalculator> leagueCalculator)
+              IFootballMatchdayReader matchday,
+              IFactory<ILeagueCalculator> leagueCalculator,
+              IVotePlayerGenerator? votePlayerGenerator = null)
         {
-            _liveVote = voteFactory.Create("live");
-            _officialVote = voteFactory.Create("official");
-            _realCalendar = realCalendar;
-            _chances = chances;
+            _matchday = matchday;
             _votePlayerGenerator = votePlayerGenerator;
             _leagueCalculator = leagueCalculator;
         }
@@ -41,40 +33,21 @@ namespace Fantasoccer.Business
                 year = FantacalcioTime.ActualYear;
             LeagueSetting = leagueSettings;
             LeagueType = leagueType;
+            IsLive = false;
+            IsEditable = false;
+            Live = null;
+            Official = null;
+            Chance = null;
             if (withVote || withChance || withRealGame || day == 0)
             {
-                var calendar = await _realCalendar.GetAsync(year);
-                if (day == 0)
-                    day = calendar?.NextDay?.SerieADay ?? calendar?.LiveDay?.SerieADay ?? 1;
-                SerieADay = day;
-                var key = new YearDayKey { Day = day, Year = year };
-                RealDay = calendar?.Days?.FirstOrDefault(x => x.SerieADay == key.Day);
-                IsEditable = day == calendar?.NextDay?.SerieADay;
-                if (calendar != null)
-                {
-                    IsLive = calendar.LiveSerieADay == key.Day;
-                    if (withVote)
-                    {
-                        if (IsLive || calendar.LastDay?.SerieADay == key.Day)
-                        {
-                            Live = await _liveVote.GetAsync(key);
-                        }
-                        Official = await _officialVote.GetAsync(key);
-                    }
-                    else
-                    {
-                        Live = null;
-                        Official = null;
-                    }
-                    if (withChance)
-                    {
-                        Chance = await _chances.GetAsync(key);
-                    }
-                    else
-                    {
-                        Chance = null;
-                    }
-                }
+                var input = await _matchday.ReadAsync(year, day, withVote, withChance);
+                SerieADay = input.Day;
+                RealDay = input.RealDay;
+                IsEditable = input.IsEditable;
+                IsLive = input.IsLive;
+                Live = input.Live;
+                Official = input.Official;
+                Chance = input.Chances;
             }
             else
             {
@@ -220,6 +193,7 @@ namespace Fantasoccer.Business
             };
         }
         public ValueTask<bool> RecalculateDayAsync(int serieADay)
-            => _votePlayerGenerator.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true);
+            => _votePlayerGenerator?.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true)
+                ?? throw new NotSupportedException("Vote ingestion must be invoked through the active backend's ingestion service.");
     }
 }

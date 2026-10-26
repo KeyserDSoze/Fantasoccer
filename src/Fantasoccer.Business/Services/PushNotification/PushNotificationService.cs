@@ -1,29 +1,33 @@
 ﻿using System.Text.Json;
 using RepositoryFramework;
 using WebPush;
+using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Business
 {
     internal class PushNotificationService : IPushNotificationService
     {
-        private const string PublicKey = "BC-_PiSEDN7I_pQsMKcDZeIDSPG-_2cCVvseMFvug6SNCI0hI7lqR8viPNdCKig7ny2iSdOeGI7ioBup2vd4tJ8";
-        private const string PrivateKey = "uPF1e0ItKwn4WRSD8f88M9U43XjUuUCY9Bn1tA0GPWg";
         private const int MaxRetries = 3;
         private const int RetryDelayMs = 1000;
         private readonly PushNotificationSettingsService _settings;
         private readonly IFantasoccerLogger _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IOptions<PushTransportOptions> _options;
         private int _attempted, _succeeded, _failed, _discarded;
 
-        public PushNotificationService(PushNotificationSettingsService settings, IFantasoccerLogger logger, IHttpClientFactory httpClientFactory)
+        public PushNotificationService(PushNotificationSettingsService settings, IFantasoccerLogger logger, IHttpClientFactory httpClientFactory, IOptions<PushTransportOptions> options)
         {
             _settings = settings;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _options = options;
         }
 
         public async ValueTask<PushNotificationDeliveryResult> SendNotificationAsync(string email, PushNotificationSettings notificationSettings, Notification message, CancellationToken cancellationToken = default)
         {
+            var configuration = _options.Value;
+            if (string.IsNullOrWhiteSpace(configuration.PublicKey) || string.IsNullOrWhiteSpace(configuration.PrivateKey) || string.IsNullOrWhiteSpace(configuration.Subject))
+                throw new InvalidOperationException("Push VAPID keys and subject must be configured through private environment settings.");
             var result = new PushNotificationDeliveryResult();
             var latest = await _settings.GetAsync(email, cancellationToken);
             var subscriptions = (notificationSettings.Subscriptions ?? [])
@@ -39,7 +43,7 @@ namespace Fantasoccer.Business
                     result.CompletedEndpoints.Add(subscription.Endpoint);
                     continue;
                 }
-                var vapidDetails = new VapidDetails($"mailto:{email.Split('@').First()}@fanta.zone", PublicKey, PrivateKey);
+                var vapidDetails = new VapidDetails(configuration.Subject, configuration.PublicKey, configuration.PrivateKey);
 
                 bool success = false;
                 string? lastError = null;

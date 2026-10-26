@@ -3,58 +3,24 @@ import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
 import {
   Rank,
-  RankRaw,
   LeagueKey,
-  LeagueKeyRaw,
   YearDayLeague,
-  YearDayLeagueRaw,
   RankedTeam,
   EnhancedRank,
   EnhancedRankedTeam,
-  mapRawRankToRank,
-  mapRankToRawRank,
-  mapLeagueKeyToRawLeagueKey,
-  mapYearDayLeagueToRawYearDayLeague,
   enhanceRank,
   enhanceRankedTeam,
   enhanceRankWithTeamPositions,
   RankHelper,
   DefaultRank
 } from 'types/rank'
-import { RepositoryServices } from 'rystem.repository.client'
+import { apiRequest } from './httpClient'
+import { competitionPath } from './gameService'
 
 export class RankService {
   // ============================================
   // INTERNAL REPOSITORY ACCESSORS
   // ============================================
-
-  private getSeasonRepository() {
-    return RepositoryServices.Repository<RankRaw, LeagueKeyRaw>('Rank')
-  }
-
-  private getDailyRepository() {
-    return RepositoryServices.Repository<RankRaw, YearDayLeagueRaw>('DailyRank')
-  }
-
-  private async fetchSeasonRankRaw(key: LeagueKeyRaw): Promise<RankRaw | null> {
-    try {
-      const repository = this.getSeasonRepository()
-      return await repository.get(key)
-    } catch (error) {
-      console.error('Error fetching rank:', error)
-      return null
-    }
-  }
-
-  private async fetchDailyRankRaw(key: YearDayLeagueRaw): Promise<RankRaw | null> {
-    try {
-      const repository = this.getDailyRepository()
-      return await repository.get(key)
-    } catch (error) {
-      console.error('Error fetching daily rank:', error)
-      return null
-    }
-  }
 
   // ============================================
   // MAIN RANK OPERATIONS (using Repository Framework)
@@ -64,10 +30,7 @@ export class RankService {
    * Get rank data for a specific league key (group + league + year)
    */
   async getRank(leagueKey: LeagueKey): Promise<Rank | null> {
-    const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-    const result = await this.fetchSeasonRankRaw(rawKey)
-
-    return result ? mapRawRankToRank(result) : null
+    return (await apiRequest<Rank | undefined>(`${competitionPath(leagueKey.group, leagueKey.league, leagueKey.year)}/rank`)) ?? null
   }
 
   /**
@@ -102,59 +65,12 @@ export class RankService {
   /**
    * Save/Update rank data
    */
-  async saveRank(leagueKey: LeagueKey, rank: Rank): Promise<boolean> {
-    try {
-      // Convert clean data to raw format
-      const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-      const rawRank = mapRankToRawRank(rank)
-      
-      // Save the rank data
-      await this.getSeasonRepository().insert(rawKey, rawRank)
-      
-      return true
-    } catch (error) {
-      console.error('Error saving rank:', error)
-      return false
-    }
-  }
-
   /**
    * Update rank data
    */
-  async updateRank(leagueKey: LeagueKey, rank: Rank): Promise<boolean> {
-    try {
-      // Convert clean data to raw format
-      const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-      const rawRank = mapRankToRawRank(rank)
-      
-      // Update the rank data
-      await this.getSeasonRepository().update(rawKey, rawRank)
-      
-      return true
-    } catch (error) {
-      console.error('Error updating rank:', error)
-      return false
-    }
-  }
-
   /**
    * Delete rank data
    */
-  async deleteRank(leagueKey: LeagueKey): Promise<boolean> {
-    try {
-      // Convert clean key to raw key for repository call
-      const rawKey = mapLeagueKeyToRawLeagueKey(leagueKey)
-      
-      // Delete the rank data
-      await this.getSeasonRepository().delete(rawKey)
-      
-      return true
-    } catch (error) {
-      console.error('Error deleting rank:', error)
-      return false
-    }
-  }
-
   // ============================================
   // DAILY RANK OPERATIONS
   // ============================================
@@ -163,10 +79,7 @@ export class RankService {
    * Get daily rank data for a specific year/day/league key
    */
   async getDailyRank(key: YearDayLeague): Promise<Rank | null> {
-    const rawKey = mapYearDayLeagueToRawYearDayLeague(key)
-    const result = await this.fetchDailyRankRaw(rawKey)
-
-    return result ? mapRawRankToRank(result) : null
+    return (await apiRequest<Rank | undefined>(`${competitionPath(key.group, key.league, key.year)}/rank?day=${key.day}`)) ?? null
   }
 
   /**
@@ -423,16 +336,11 @@ export class RankService {
    * Helper method to create league key from string format
    */
   parseLeagueKeyFromString(keyString: string): LeagueKey | null {
-    const parts = keyString.split('-')
-    if (parts.length !== 3) {
-      return null
-    }
-
-    return {
-      group: parts[0],
-      league: parts[1],
-      year: parseInt(parts[2], 10)
-    }
+    try {
+      const parts: unknown = JSON.parse(keyString)
+      return Array.isArray(parts) && parts.length === 3 && typeof parts[0] === 'string' && typeof parts[1] === 'string' &&
+        typeof parts[2] === 'number' && Number.isInteger(parts[2]) ? { group: parts[0], league: parts[1], year: parts[2] } : null
+    } catch { return null }
   }
 
   /**

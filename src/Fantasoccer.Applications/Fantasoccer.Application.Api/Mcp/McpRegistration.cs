@@ -54,7 +54,7 @@ public static class McpRegistration
             throw new InvalidOperationException("Production MCP requires a certificate and persistent Data Protection keys (Blob or an existing shared key path).");
         var certificate = ConfigureDataProtection(builder, settings);
 
-        if (builder.Configuration["Integrations:Infrastructure"] == "InMemory")
+        if (builder.Configuration["Integrations:Infrastructure"] == "InMemory" && !builder.Configuration.GetValue<bool>("PostgreSql:Enabled"))
             builder.Services.AddSingleton<IOAuthDocumentStorage, InMemoryOAuthDocumentStorage>();
         // Rystem relies on ASP.NET's single-scheme default. Preserve it when adding more schemes.
         builder.Services.PostConfigure<AuthenticationOptions>(options =>
@@ -213,7 +213,9 @@ public static class McpRegistration
                 context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
-        builder.Services.AddMcpServer(options => options.ServerInstructions = FantasoccerGuide.ServerInstructions)
+        var server = builder.Services.AddMcpServer(options => options.ServerInstructions = builder.Configuration.GetValue<bool>("PostgreSql:Enabled")
+                ? "Fantasoccer PostgreSQL: start with get_my_account and list_my_relational_groups. Use readable DTOs from /api/accounts, /api/groups, /api/teams, /api/football and /api/competitions. Group/league/basket/team/player/game IDs are UUIDs. Never construct legacy Blob keys or call legacy repository operations. A formation write contains only teamId, positions[{playerId,position}], expectedVersion and sourceVersion (for a new day), live/asAdmin flags; never send Team prices, credits or name-based player keys. Saved results are authoritative; resultIsPreview marks live projections. Reads never generate calendars or recalculate standings. Membership and ownership are checked by shared application services. Read the current season; year is a seasonal index, not a calendar year."
+                : FantasoccerGuide.ServerInstructions)
             .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
             .WithTools<McpAccountTools>()
             .WithTools<McpCatalogTools>()
@@ -228,6 +230,7 @@ public static class McpRegistration
             })
             .WithCallToolHandler(async (request, cancellationToken) =>
                 await request.Services!.GetRequiredService<McpApiFacade>().CallAsync(request.Params!, cancellationToken));
+        if (builder.Configuration.GetValue<bool>("PostgreSql:Enabled")) server.WithTools<McpWorkspaceTools>();
     }
 
     private static X509Certificate2? ConfigureDataProtection(WebApplicationBuilder builder, McpOptions settings)

@@ -88,6 +88,7 @@ export default function AuctionLiveScreen() {
   const [currentPlayer, setCurrentPlayer] = useState<StatPlayer | null>(null)
   const [teams, setTeams] = useState<Entity<Team, TeamKey>[]>([])
   const teamsRef = useRef<Entity<Team, TeamKey>[]>([])
+  const selectedOwnTeamId = useRef<string | null>(null)
   const [currentBid, setCurrentBid] = useState<number>(0)
   const [currentBidder, setCurrentBidder] = useState<string | null>(null)
   const [currentSubstitute, setCurrentSubstitute] = useState<string | null>(null)
@@ -108,6 +109,7 @@ export default function AuctionLiveScreen() {
   const [timerExpired, setTimerExpired] = useState<boolean>(false)
   const [firstOfferHappened, setFirstOfferHappened] = useState<boolean>(false)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerStartedAtRef = useRef<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<Role>(Role.GoalKeeper)
   const [selectedTeamForBid, setSelectedTeamForBid] = useState<string>('')
   const [showCustomBidDialog, setShowCustomBidDialog] = useState(false)
@@ -116,7 +118,7 @@ export default function AuctionLiveScreen() {
   const [showTeamDetailDialog, setShowTeamDetailDialog] = useState(false)
   const [selectedTeamDetail, setSelectedTeamDetail] = useState<Entity<Team, TeamKey> | null>(null)
   const [showChangeStatusDialog, setShowChangeStatusDialog] = useState(false)
-  const [changeStatusPlayer, setChangeStatusPlayer] = useState<{ playerKey: string; playerName: string; owner: string } | null>(null)
+  const [changeStatusPlayer, setChangeStatusPlayer] = useState<{ playerKey: string; playerName: string; owner: string; ordinal?: number } | null>(null)
   const [playerSearchQuery, setPlayerSearchQuery] = useState('')
   const [selectedPlayerForForce, setSelectedPlayerForForce] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -265,13 +267,14 @@ export default function AuctionLiveScreen() {
       team.additionalOwners?.some(owner => owner.toLowerCase() === normalizedEmail) === true
   }, [])
 
-  const getTeamByUserEmail = useCallback((email: string | null | undefined, sourceTeams: Entity<Team, TeamKey>[] = teams): Entity<Team, TeamKey> | undefined => {
-    return sourceTeams.find(team => isEmailForTeam(team.value, email))
-  }, [isEmailForTeam, teams])
+  const getTeamByUserEmail = useCallback((email: string | null | undefined, sourceTeams: Entity<Team, TeamKey>[] = teamsRef.current): Entity<Team, TeamKey> | undefined => {
+    const owned = sourceTeams.filter(team => isEmailForTeam(team.value, email))
+    return owned.length === 1 ? owned[0] : owned.find(team => team.value.teamId === selectedOwnTeamId.current)
+  }, [isEmailForTeam])
 
   // Helper: Check if auction is repair auction (requires substitution)
   const isRepairAuction = useCallback((): boolean => {
-    return auctionState?.wrapper.king === 1 // 1 = Repair auction (based on AuctionKind enum)
+    return auctionState?.wrapper.kind === 1
   }, [auctionState])
 
   // Helper: Update auction state from API response
@@ -294,12 +297,15 @@ export default function AuctionLiveScreen() {
     const auctionTimer = state.wrapper.secondsPerAuction ?? 10
     setOfferTimeoutSeconds(auctionTimer)
     offerTimeoutSecondsRef.current = auctionTimer // Keep ref in sync
+    timerStartedAtRef.current = state.wrapper.actual?.timerStartedAtUtc ?? null
     
     const myTeamEntity = getTeamByUserEmail(user?.email, state.teams)
     if (myTeamEntity) {
       setMyTeam(myTeamEntity)
       const budget = leagueStartingMoney - TeamHelper.getCost(myTeamEntity.value)
       setMyTeamBudget(budget)
+    } else {
+      setMyTeam(null); setMyTeamBudget(0)
     }
     
     if (state.wrapper.actual) {
@@ -307,6 +313,8 @@ export default function AuctionLiveScreen() {
       setCurrentBid(state.wrapper.actual.price)
       setCurrentBidder(state.wrapper.actual.owner)
       setCurrentSubstitute(state.wrapper.actual.substituted)
+    } else {
+      setCurrentPlayer(null); setCurrentBid(0); setCurrentBidder(null); setCurrentSubstitute(null)
     }
     
   }, [getTeamByUserEmail, user?.email])
@@ -315,7 +323,9 @@ export default function AuctionLiveScreen() {
   // TIMER LOGIC
   // ============================================
   const startTimer = useCallback(() => {
-    const timeout = offerTimeoutSecondsRef.current // Use ref for latest value
+    const timeout = timerStartedAtRef.current
+      ? Math.max(0, Math.ceil((Date.parse(timerStartedAtRef.current) + offerTimeoutSecondsRef.current * 1000 - Date.now()) / 1000))
+      : offerTimeoutSecondsRef.current
     setTimerSecondsLeft(timeout)
     setTimerRunning(true)
     setTimerExpired(false)
@@ -344,6 +354,10 @@ export default function AuctionLiveScreen() {
     setTimerExpired(false)
     setFirstOfferHappened(false)
   }, [])
+  useEffect(() => {
+    if (auctionState?.wrapper.actual?.timerStartedAtUtc) startTimer()
+    else resetTimer()
+  }, [auctionState?.wrapper.actual?.timerStartedAtUtc, auctionState?.wrapper.actual?.player.playerId, startTimer, resetTimer])
 
   useEffect(() => {
     return () => {
@@ -354,7 +368,7 @@ export default function AuctionLiveScreen() {
   // Update selectedTeamDetail when teams change (after AuctionUpdated event)
   useEffect(() => {
     if (selectedTeamDetail && teams.length > 0) {
-      const updatedTeam = teams.find(t => t.value.owner === selectedTeamDetail.value.owner)
+      const updatedTeam = teams.find(t => t.value.teamId === selectedTeamDetail.value.teamId)
       if (updatedTeam) {
         setSelectedTeamDetail(updatedTeam)
       }
@@ -367,15 +381,15 @@ export default function AuctionLiveScreen() {
       // Check if selected substitute has different role than current player
       // Keep substitute even if player doesn't exist in team (was just sold)
       if (mySelectedSubstitute && myTeam) {
-        const player = myTeam.value.players.find(p => p.name === mySelectedSubstitute)
+        const player = myTeam.value.players.find(p => p.playerId === mySelectedSubstitute)
         // Only reset if player exists AND has different role
         if (player && player.role !== currentPlayer.role) {
           setMySelectedSubstitute(null)
         }
       }
       if (auctioneerSelectedSubstitute && selectedTeamForBid) {
-        const team = teams.find(t => t.value.owner === selectedTeamForBid)
-        const player = team?.value.players.find(p => p.name === auctioneerSelectedSubstitute)
+        const team = teams.find(t => t.value.teamId === selectedTeamForBid)
+        const player = team?.value.players.find(p => p.playerId === auctioneerSelectedSubstitute)
         // Only reset if player exists AND has different role
         if (player && player.role !== currentPlayer.role) {
           setAuctioneerSelectedSubstitute(null)
@@ -408,7 +422,7 @@ export default function AuctionLiveScreen() {
     // - If isAuctioneerBid=true, use selectedTeamForBid (auctioneer panel)
     // - Otherwise, use myTeam (personal panel)
     const biddingTeam = isAuctioneerBid && selectedTeamForBid
-      ? teams.find(t => t.value.owner === selectedTeamForBid)
+      ? teams.find(t => t.value.teamId === selectedTeamForBid)
       : myTeam
       
     if (!biddingTeam) {
@@ -437,8 +451,8 @@ export default function AuctionLiveScreen() {
     }
     const teamBudget = calculateBudgetRemaining(biddingTeam)
     const activePlayers = TeamHelper.getActivePlayers(biddingTeam.value)
-    const slotsRemaining = 25 - activePlayers.length
-    const minimumBudgetNeeded = slotsRemaining > 1 ? slotsRemaining - 1 : 0
+    const replacing = isRepairAuction() && !!(isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute)
+    const minimumBudgetNeeded = Math.max(0, 24 - activePlayers.length + (replacing ? 1 : 0))
     if (amount > teamBudget - minimumBudgetNeeded) {
       toast.show(`❌ Budget insufficiente (disponibile: €${teamBudget - minimumBudgetNeeded})`, { variant: 'error' })
       return
@@ -448,7 +462,7 @@ export default function AuctionLiveScreen() {
     setLoading(true)
     try {
       // Only pass bidderEmail if it's an auctioneer bid (for someone else's team)
-      const bidderEmail = isAuctioneerBid ? biddingTeam.value.owner : undefined
+      const bidderTeamId = biddingTeam.value.teamId
       // Choose which substitute to send based on context:
       // - Personal bid (bidderEmail undefined) → use mySelectedSubstitute
       // - Auctioneer bid (bidderEmail specified) → use auctioneerSelectedSubstitute
@@ -457,8 +471,7 @@ export default function AuctionLiveScreen() {
         ? (isAuctioneerBid ? auctioneerSelectedSubstitute : mySelectedSubstitute) 
         : undefined
       
-      const substitutedPlayerKey = selectedSubstituteName ? getPlayerKey(selectedSubstituteName) : undefined
-      await auctionService.placeBid(auctionId, amount, bidderEmail, substitutedPlayerKey)
+      await auctionService.placeBid(auctionId, amount, bidderTeamId, selectedSubstituteName ?? undefined)
     } catch (err) {
       toast.show(`❌ ${err instanceof Error ? err.message : 'Errore sconosciuto'}`, { variant: 'error' })
       setTempBlockButtons(false)
@@ -532,7 +545,7 @@ export default function AuctionLiveScreen() {
       // If there's a selected substitute, exclude it from the count (it will be removed)
       let currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
       if (mySelectedSubstitute && isRepairAuction()) {
-        const substitutePlayer = activePlayers.find(p => p.name === mySelectedSubstitute && p.role === currentPlayer.role)
+        const substitutePlayer = activePlayers.find(p => p.playerId === mySelectedSubstitute && p.role === currentPlayer.role)
         if (substitutePlayer) {
           currentCount -= 1 // Exclude the substitute from the count
         }
@@ -558,14 +571,14 @@ export default function AuctionLiveScreen() {
     
     // Check role limits for selectedTeamForBid
     if (currentPlayer.role >= 0) {
-      const selectedTeam = teams.find(t => t.value.owner === selectedTeamForBid)
+      const selectedTeam = teams.find(t => t.value.teamId === selectedTeamForBid)
       if (selectedTeam) {
         const limit = ROLE_LIMITS[currentPlayer.role] || 0
         const activePlayers = TeamHelper.getActivePlayers(selectedTeam.value)
         // If there's a selected substitute for auctioneer, exclude it from the count (it will be removed)
         let currentCount = activePlayers.filter(p => p.role === currentPlayer.role).length
         if (auctioneerSelectedSubstitute && isRepairAuction()) {
-          const substitutePlayer = activePlayers.find(p => p.name === auctioneerSelectedSubstitute && p.role === currentPlayer.role)
+          const substitutePlayer = activePlayers.find(p => p.playerId === auctioneerSelectedSubstitute && p.role === currentPlayer.role)
           if (substitutePlayer) {
             currentCount -= 1 // Exclude the substitute from the count
           }
@@ -650,6 +663,7 @@ export default function AuctionLiveScreen() {
         
         // Setup event handlers BEFORE connecting
         auctionService.setEventHandlers({
+          onStateUpdated: state => { if (isSubscribed) updateAuctionState(state) },
           onConnected: (connectionId) => {
             console.log('✅ Connected to auction hub, connectionId:', connectionId)
             if (isSubscribed) {
@@ -759,15 +773,15 @@ export default function AuctionLiveScreen() {
               
               // Reset selected substitute if it has a different role
               if (mySelectedSubstitute && myTeam) {
-                const player = myTeam.value.players.find(p => p.name === mySelectedSubstitute)
+                const player = myTeam.value.players.find(p => p.playerId === mySelectedSubstitute)
                 if (player && player.role !== newRole) {
                   setMySelectedSubstitute(null)
                 }
               }
               if (auctioneerSelectedSubstitute && selectedTeamForBid) {
-                const team = teams.find(t => t.value.owner === selectedTeamForBid)
+                const team = teams.find(t => t.value.teamId === selectedTeamForBid)
                 if (team) {
-                  const player = team.value.players.find(p => p.name === auctioneerSelectedSubstitute)
+                  const player = team.value.players.find(p => p.playerId === auctioneerSelectedSubstitute)
                   if (player && player.role !== newRole) {
                     setAuctioneerSelectedSubstitute(null)
                   }
@@ -813,7 +827,7 @@ export default function AuctionLiveScreen() {
               if (data.team) {
                 setTeams(prevTeams => {
                   const updated = prevTeams.map(team => 
-                    team.value.owner === data.team!.value.owner ? data.team! : team
+                    team.value.teamId === data.team!.value.teamId ? data.team! : team
                   )
                   teamsRef.current = updated // Keep ref in sync
                   return updated
@@ -910,7 +924,7 @@ export default function AuctionLiveScreen() {
             if (isSubscribed) {
               // Update teams array
               setTeams(prevTeams => {
-                const updated = prevTeams.map(t => t.value.owner === team.value.owner ? team : t)
+                const updated = prevTeams.map(t => t.value.teamId === team.value.teamId ? team : t)
                 teamsRef.current = updated // Keep ref in sync
                 return updated
               })
@@ -923,7 +937,7 @@ export default function AuctionLiveScreen() {
               }
               
               // Update selectedTeamDetail if it's the team being viewed in the dialog
-              if (selectedTeamDetail && team.value.owner === selectedTeamDetail.value.owner) {
+              if (selectedTeamDetail && team.value.teamId === selectedTeamDetail.value.teamId) {
                 setSelectedTeamDetail(team)
               }
             }
@@ -1413,8 +1427,8 @@ export default function AuctionLiveScreen() {
       calculateBudgetRemaining={calculateBudgetRemaining}
       isAuctioneer={isAuctioneer}
       onOpenChange={setShowTeamDetailDialog}
-      onModifyPlayerStatus={(playerKey, playerName, owner) => {
-        setChangeStatusPlayer({ playerKey, playerName, owner })
+      onModifyPlayerStatus={(playerKey, playerName, owner, ordinal) => {
+        setChangeStatusPlayer({ playerKey, playerName, owner, ordinal })
         setShowChangeStatusDialog(true)
       }}
       getPlayerKey={getPlayerKey}
@@ -1433,7 +1447,7 @@ export default function AuctionLiveScreen() {
       onConfirm={async (owner, playerKey, status, revenue) => {
         setLoading(true)
         try {
-          await auctionService.changePlayerStatus(auctionId, owner, playerKey, status, revenue)
+          await auctionService.changePlayerStatus(auctionId, owner, playerKey, status, revenue, changeStatusPlayer?.ordinal)
           setShowChangeStatusDialog(false)
           setChangeStatusPlayer(null)
           toast.show('✅ Stato giocatore aggiornato', { variant: 'success' })
@@ -1452,7 +1466,7 @@ export default function AuctionLiveScreen() {
   // Substitute Selection Dialog Component
   const renderSubstituteSelectionDialog = () => {
     const team = isSubstituteSelectionForAuctioneer && selectedTeamForBid
-      ? teams.find(t => t.value.owner === selectedTeamForBid)
+      ? teams.find(t => t.value.teamId === selectedTeamForBid)
       : myTeam
     
     const currentSelection = isSubstituteSelectionForAuctioneer ? auctioneerSelectedSubstitute : mySelectedSubstitute
@@ -1792,7 +1806,7 @@ export default function AuctionLiveScreen() {
     if (!auctionState) return null
     
     const auctionTypeLabel = AuctionTypeLabels[auctionState.wrapper.type] || 'Sconosciuto'
-    const auctionKindLabel = AuctionKindLabels[auctionState.wrapper.king] || 'Sconosciuto'
+    const auctionKindLabel = AuctionKindLabels[auctionState.wrapper.kind] || 'Sconosciuto'
     
     return (
       <Accordion overflow="hidden" type="multiple" defaultValue={['header']}>
@@ -1867,6 +1881,12 @@ export default function AuctionLiveScreen() {
                   </XStack>
                 </XStack>
                 
+                {teams.filter(team => isEmailForTeam(team.value, user?.email)).length > 1 &&
+                  <XStack gap="$2" flexWrap="wrap">{teams.filter(team => isEmailForTeam(team.value, user?.email)).map(team =>
+                    <Button key={team.value.teamId} onPress={() => {
+                      selectedOwnTeamId.current = team.value.teamId ?? null
+                      setMyTeam(team); setMyTeamBudget(startingMoney - TeamHelper.getCost(team.value)); setMySelectedSubstitute(null)
+                    }}>Gioca con {team.value.name}</Button>)}</XStack>}
                 {/* UI Visibility Toggles */}
                 <Card padding="$2" backgroundColor="$blue1" borderRadius="$3">
                   <YStack gap="$2.5">

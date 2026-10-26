@@ -69,46 +69,7 @@ export default function GroupUsersAdminScreen() {
       }
 
       // Check if user exists in AppIdentity
-      let user = await appIdentityService.getAppIdentity(newEmail)
-      
-      if (!user) {
-        // Create new AppIdentity if doesn't exist
-        user = {
-          email: newEmail,
-          username: newEmail,
-          state: {
-            raw: {}
-          },
-          groups: [
-            {
-              id: currentGroup.id,
-              name: currentGroup.name,
-              role: IdentityRole.Reader,
-              raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
-            }
-          ],
-          raw: {
-            e: newEmail,
-            u: newEmail,
-            s: {},
-            g: [{ i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }]
-          }
-        }
-
-        await appIdentityService.insertAppIdentity(user)
-      } else {
-        // Add group to existing user if not already present
-        const hasGroup = user.groups.some(g => g.id === currentGroup.id)
-        if (!hasGroup) {
-          user.groups.push({
-            id: currentGroup.id,
-            name: currentGroup.name,
-            role: IdentityRole.Reader,
-            raw: { i: currentGroup.id, n: currentGroup.name, r: IdentityRole.Reader }
-          })
-          await appIdentityService.updateAppIdentity(user.email, user)
-        }
-      }
+      const user = await appIdentityService.getAppIdentity(newEmail)
 
       // Add user to group
       const updatedGroup = {
@@ -117,7 +78,7 @@ export default function GroupUsersAdminScreen() {
           ...currentGroup.users,
           {
             email: newEmail,
-            username: user.username || newEmail,
+            username: user?.username || newEmail,
             role: IdentityRole.Reader
           }
         ]
@@ -155,13 +116,6 @@ export default function GroupUsersAdminScreen() {
       }
 
       await groupService.updateGroup(currentGroup.id, updatedGroup)
-
-      // Update user's AppIdentity to remove this group
-      const userIdentity = await appIdentityService.getAppIdentity(user.email)
-      if (userIdentity) {
-        userIdentity.groups = userIdentity.groups.filter(g => g.id !== currentGroup.id)
-        await appIdentityService.updateAppIdentity(user.email, userIdentity)
-      }
 
       setSuccess(`Utente ${user.email} rimosso con successo`)
       
@@ -204,17 +158,6 @@ export default function GroupUsersAdminScreen() {
       }
 
       await groupService.updateGroup(currentGroup.id, updatedGroup)
-
-      // Update user's AppIdentity
-      const userIdentity = await appIdentityService.getAppIdentity(user.email)
-      if (userIdentity) {
-        const groupIndex = userIdentity.groups.findIndex(g => g.id === currentGroup.id)
-        if (groupIndex !== -1) {
-          userIdentity.groups[groupIndex].role = newRole
-          userIdentity.groups[groupIndex].raw.r = newRole
-        }
-        await appIdentityService.updateAppIdentity(user.email, userIdentity)
-      }
 
       setSuccess(`Ruolo aggiornato per ${user.email}`)
       

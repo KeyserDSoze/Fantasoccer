@@ -34,11 +34,10 @@ export function useSerieALiveVotes({
   const hasLiveGames = useCallback(() => {
     if (!liveDay) return false
     return liveDay.games.some(game => {
-      const isPlayed = RealCalendarHelper.isGamePlayed(game)
-      if (isPlayed || game.delayed) return false
+      if (!game.date || game.delayed) return false
       
       const now = new Date()
-      const gameDate = game.date
+      const gameDate = new Date(game.date)
       const twoHoursAfter = new Date(gameDate.getTime() + 2 * 60 * 60 * 1000)
       
       return now >= gameDate && now <= twoHoursAfter

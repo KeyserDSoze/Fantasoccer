@@ -1,10 +1,8 @@
-import { RepositoryServices } from 'rystem.repository.client'
+import { getFootball } from './footballApi'
 import { authService } from './authService'
 import { tokenStorageService } from './tokenStorageService'
 import {
-  StatPlayersWrapperRaw,
   StatPlayersWrapper,
-  mapRawStatPlayersWrapperToWrapper,
   StatPlayer,
   enhanceStatPlayersWrapper,
   EnhancedStatPlayersWrapper,
@@ -24,10 +22,6 @@ export class StatPlayerService {
   // ============================================
   // INTERNAL HELPERS
   // ============================================
-
-  private getRepository() {
-    return RepositoryServices.Repository<StatPlayersWrapperRaw, number>('StatPlayersWrapper')
-  }
 
   private async getCurrentUserYear(): Promise<number | null> {
     try {
@@ -53,27 +47,12 @@ export class StatPlayerService {
     return this.getCurrentUserYear()
   }
 
-  private map(raw: StatPlayersWrapperRaw | null | undefined): StatPlayersWrapper | null {
-    if (!raw) {
-      return null
-    }
-
-    return mapRawStatPlayersWrapperToWrapper(raw)
-  }
-
   // ============================================
   // PUBLIC API
   // ============================================
 
   async getWrapperByYear(year: number): Promise<StatPlayersWrapper | null> {
-    try {
-      const repository = this.getRepository()
-      const raw = await repository.get(year)
-      return this.map(raw)
-    } catch (error) {
-      console.error('Error fetching stat players for year:', year, error)
-      return null
-    }
+    return getFootball<StatPlayersWrapper>(year, 'statistics')
   }
 
   async getEnhancedWrapperByYear(year: number, topLimit?: number): Promise<EnhancedStatPlayersWrapper | null> {

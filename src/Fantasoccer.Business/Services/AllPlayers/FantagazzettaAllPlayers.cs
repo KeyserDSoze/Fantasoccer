@@ -14,18 +14,18 @@ namespace Fantasoccer.Business.IngestionData
         private const string Defensor = "<span class=\"role\" data-value=\"d\"></span>";
         private const string Goalkeeper = "<span class=\"role\" data-value=\"p\"></span>";
         private readonly HttpClient HttpClient;
-        private readonly IRepository<RealTeamWrapper, int> _repository;
+        private readonly IFootballIngestionReader _context;
 
-        public FantagazzettaAllPlayers(IHttpClientFactory httpClientFactory, IRepository<RealTeamWrapper, int> repository)
+        public FantagazzettaAllPlayers(IHttpClientFactory httpClientFactory, IFootballIngestionReader context)
         {
             HttpClient = httpClientFactory.CreateClient("all-players");
-            _repository = repository;
+            _context = context;
         }
 
         public async Task<List<RealPlayer>> GetAsync()
         {
             var year = FantacalcioTime.ActualYear;
-            var teams = (await _repository.GetAsync(year))!.Teams;
+            var teams = (await _context.ClubsAsync(year))?.Teams ?? [];
             List<RealPlayer> players = new();
             var fantapage = await HttpClient.GetStringAsync("https://www.fantacalcio.it/quotazioni-fantacalcio").NoContext();
             foreach (var playerFromFanta in s_playerRowRegex.Split(fantapage).Skip(1))

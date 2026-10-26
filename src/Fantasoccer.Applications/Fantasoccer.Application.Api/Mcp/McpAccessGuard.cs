@@ -7,8 +7,10 @@ namespace Fantasoccer.Application.Api.Mcp;
 
 // Additional resource checks for the new MCP surface. The existing endpoint policies,
 // repository authorization and business hooks are still executed by McpApiFacade.
-public sealed class McpAccessGuard(IRepository<Group, string> groups, IRepository<AppIdentity, string> users)
+public sealed class McpAccessGuard(IServiceProvider services)
 {
+    private IRepository<Group, string> groups => services.GetRequiredService<IRepository<Group, string>>();
+    private IRepository<AppIdentity, string> users => services.GetRequiredService<IRepository<AppIdentity, string>>();
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> GlobalReadRepositories = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -21,6 +23,8 @@ public sealed class McpAccessGuard(IRepository<Group, string> groups, IRepositor
     {
         var email = user.FindFirstValue(ClaimTypes.Email);
         if (email == null) return false;
+        if (operation.Api.ActionDescriptor is ControllerActionDescriptor { ControllerName: "Accounts" or "Groups" or "Teams" or "TeamAssets" or "Football" or "Competitions" or "Trades" or "Auctions" or "HallArchive" or "Cards" or "NotificationSettings" or "PlayerImages" or "Editorial" or "Operations" or "GroupWorkspace" or "Context" or "Ping" })
+            return true; // These adapters call relational services that authorize every resource.
         if (user.IsInRole("super_admin")) return true;
         if (await users.GetAsync(email, cancellationToken) == null) return false;
         var path = operation.Api.RelativePath!.Split('?')[0];
@@ -92,6 +96,7 @@ public sealed class McpAccessGuard(IRepository<Group, string> groups, IRepositor
 
         // Controllers keep their own model binding and resource checks; close the missing group boundaries here.
         var controller = (operation.Api.ActionDescriptor as ControllerActionDescriptor)?.ControllerName ?? parts[0];
+        if (controller == "GroupWorkspace") return true; // Shared relational services authorize resources, including route parameters.
         if (controller == "Context") return operation.ReadOnly;
         if (controller is "Recalculation") return false;
         if (controller is "Card") return operation.ReadOnly;

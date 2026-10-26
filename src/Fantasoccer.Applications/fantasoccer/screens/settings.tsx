@@ -27,6 +27,8 @@ import { McpGuideCard } from 'components/mcp/McpGuideCard';
 import { useApp } from 'providers/AppProvider';
 import { useAuth } from 'providers/AuthProvider';
 import { useSettings } from 'hooks/useSettings';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '../navigation';
 import { useGroup } from 'hooks/useGroup';
 import { getActualFantacalcioYear } from 'utils/timezoneHelpers';
 import {
@@ -36,6 +38,7 @@ import {
 } from 'components/version/VersionUpdateBanner';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const media = useMedia();
   const containerWidth = media.gtMd ? 800 : '100%';
 
@@ -137,6 +140,11 @@ export default function SettingsScreen() {
         alignSelf="center"
         paddingBottom="$8">
         <McpGuideCard />
+        {process.env.EXPO_PUBLIC_WORKSPACE_ENABLED === 'true' && <Card padding="$4" gap="$2">
+          <H3>Gruppi PostgreSQL</H3>
+          <Paragraph>Nuova gestione relazionale di membri, basket e proprietà delle squadre. Le schermate di gioco non sono ancora migrate.</Paragraph>
+          <Button onPress={() => navigation.navigate('GroupWorkspace')}>Apri gestione gruppi PostgreSQL</Button>
+        </Card>}
         <McpConnectionsCard key={userEmail} email={userEmail} />
         <Card
           padding="$4"

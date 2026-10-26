@@ -18,10 +18,12 @@ public sealed class McpEndpointCatalog
     private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _operations;
     private readonly Lazy<IReadOnlyDictionary<string, McpOperation>> _mcpOperations;
 
-    public McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
+    public McpEndpointCatalog(IApiDescriptionGroupCollectionProvider descriptions, IConfiguration configuration, IServiceProvider services)
     {
-        _operations = new(() => Build(descriptions, registry));
-        _mcpOperations = new(() => Operations.Where(x => IsExposedToMcp(x.Value))
+        _operations = new(() => Build(descriptions, services.GetService<RepositoryFrameworkRegistry>()));
+        var relational = configuration.GetValue<bool>("PostgreSql:Enabled");
+        _mcpOperations = new(() => Operations.Where(x => IsExposedToMcp(x.Value) && (!relational ||
+                x.Value.Api.ActionDescriptor is ControllerActionDescriptor { ControllerName: "Accounts" or "Groups" or "Teams" or "TeamAssets" or "Football" or "Competitions" or "Trades" or "Auctions" or "HallArchive" or "Cards" or "NotificationSettings" or "PlayerImages" or "Editorial" or "Operations" or "GroupWorkspace" or "Context" or "Ping" }))
             .ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal));
     }
 
@@ -41,7 +43,7 @@ public sealed class McpEndpointCatalog
         // including cached/direct calls and their streaming variants.
         return action.ToUpperInvariant() is not ("QUERY" or "COUNT" or "OPERATION");
     }
-    private static IReadOnlyDictionary<string, McpOperation> Build(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry registry)
+    private static IReadOnlyDictionary<string, McpOperation> Build(IApiDescriptionGroupCollectionProvider descriptions, RepositoryFrameworkRegistry? registry)
     {
         var result = new Dictionary<string, McpOperation>(StringComparer.Ordinal);
         foreach (var api in descriptions.ApiDescriptionGroups.Items.SelectMany(x => x.Items))
@@ -55,7 +57,7 @@ public sealed class McpEndpointCatalog
 
             var parts = path.Split('/');
             var factory = parts.Length >= 4 ? parts[2] : "";
-            var repository = controller != null || parts.Length < 3 ? null : registry.Services.Values
+            var repository = controller != null || parts.Length < 3 ? null : registry?.Services.Values
                 .Where(x => x.ModelType.Name.Equals(parts[1], StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(x.FactoryName ?? "", factory, StringComparison.OrdinalIgnoreCase))
                 .Select(x => new McpRepositoryContract(x.ModelType, x.KeyType, x.FactoryName ?? "")).Distinct().SingleOrDefault();

@@ -219,7 +219,8 @@ export default function GameScreen() {
       const TWO_HOURS_MS = 2 * 60 * 60 * 1000; // 2 ore in millisecondi
 
       const hasLiveGame = targetDay.games.some((game) => {
-        const gameStart = game.date.getTime();
+        if (!game.date || game.delayed) return false;
+        const gameStart = new Date(game.date).getTime();
         const gameEnd = gameStart + TWO_HOURS_MS;
         const nowTime = now.getTime();
         return nowTime >= gameStart && nowTime <= gameEnd;
@@ -290,8 +291,8 @@ export default function GameScreen() {
     if (!targetDay || !targetDay.games || targetDay.games.length === 0) return null;
 
     // Prende la prima partita in ordine di tempo di quella giornata
-    const sortedGames = [...targetDay.games].sort((a, b) => a.date.getTime() - b.date.getTime());
-    return sortedGames[0]?.date || null;
+    const sortedGames = targetDay.games.filter(game => !!game.date).sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
+    return sortedGames[0]?.date ? new Date(sortedGames[0].date) : null;
   }, [gameWrapper?.serieADay, calendar]);
 
   const canRecalculateDay = useMemo(() => {
@@ -299,7 +300,7 @@ export default function GameScreen() {
     const targetDay = calendar.days?.find((day) => day.serieADay === gameWrapper.serieADay);
     const gameDates = targetDay?.games
       .filter((game) => !game.delayed && game.date)
-      .map((game) => game.date.getTime()) ?? [];
+      .map((game) => new Date(game.date!).getTime()) ?? [];
     if (gameDates.length === 0) return false;
     return Date.now() >= Math.max(...gameDates) + 135 * 60 * 1000;
   }, [gameWrapper?.serieADay, calendar]);
