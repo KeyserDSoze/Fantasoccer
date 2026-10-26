@@ -19,6 +19,51 @@ namespace Fantasoccer.RelationalApi.Tests;
 public sealed partial class WorkspaceApiTests
 {
     [PostgreSqlFact]
+    public async Task First_verified_Microsoft_login_creates_a_basic_account_once_without_implicit_group_memberships()
+    {
+        var email = $"first-login-{Guid.NewGuid():N}@example.test";
+        await using var scope = factory.Services.CreateAsyncScope();
+        var social = scope.ServiceProvider.GetRequiredService<ISocialUserProvider>();
+        var clientId = factory.Services.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()
+            ["SocialLogin:Microsoft:ClientId"]!;
+        const string issuer = "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0";
+        var response = new TokenResponse
+        {
+            Username = email,
+            Claims = [new("iss", issuer), new("aud", clientId), new("sub", "first-login-" + Guid.NewGuid().ToString("N")), new("name", "First Login")]
+        };
+        var claims = new List<Claim>();
+        await foreach (var claim in social.GetClaimsAsync(response, default)) claims.Add(claim);
+        Assert.Contains(claims, claim => claim.Type == ClaimTypes.Email && claim.Value == email);
+        Assert.DoesNotContain(claims, claim => claim.Type == ClaimTypes.Role);
+        var userId = Assert.Single(claims, claim => claim.Type == ClaimTypes.NameIdentifier).Value;
+        claims.Clear();
+        await foreach (var claim in social.GetClaimsAsync(response, default)) claims.Add(claim);
+        Assert.Equal(userId, Assert.Single(claims, claim => claim.Type == ClaimTypes.NameIdentifier).Value);
+
+        await using var database = factory.Database.CreateContext();
+        var user = await database.Users.SingleAsync(x => x.Email == email);
+        Assert.Equal("First Login", user.DisplayName);
+        Assert.True(user.IsEnabled);
+        Assert.Empty(await database.GroupMemberships.Where(x => x.UserId == user.Id).ToArrayAsync());
+        Assert.Single(await database.ExternalLogins.Where(x => x.UserId == user.Id).ToArrayAsync());
+
+        var administratorEmail = $"bootstrap-admin-{Guid.NewGuid():N}@example.test";
+        var administrators = factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<GlobalAdministratorOptions>>().Value;
+        administrators.Emails = administrators.Emails.Append(administratorEmail).ToArray();
+        var administratorClaims = new List<Claim>();
+        await foreach (var claim in social.GetClaimsAsync(new TokenResponse
+        {
+            Username = administratorEmail,
+            Claims = [new("iss", issuer), new("aud", clientId), new("sub", "bootstrap-admin-" + Guid.NewGuid().ToString("N"))]
+        }, default)) administratorClaims.Add(claim);
+        Assert.Contains(administratorClaims, claim => claim.Type == ClaimTypes.Role && claim.Value == "super_admin");
+        await using var adminDatabase = factory.Database.CreateContext();
+        var administrator = await adminDatabase.Users.SingleAsync(x => x.Email == administratorEmail);
+        Assert.Empty(await adminDatabase.GroupMemberships.Where(x => x.UserId == administrator.Id).ToArrayAsync());
+    }
+
+    [PostgreSqlFact]
     public async Task SQL_invitation_can_log_in_without_a_legacy_identity_and_display_name_does_not_grant_privileges()
     {
         using var creator = await factory.AccountAsync(globalAdmin: true);

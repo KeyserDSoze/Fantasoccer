@@ -37,7 +37,7 @@ I segreti in `.env` e nell'ambiente dei container sono leggibili dagli utenti co
 
 ### Login e contenuti di gioco
 
-La home e i servizi partono senza credenziali Microsoft. Per accedere ai dati occorrono un dataset importato in PostgreSQL (oppure un invito SQL da un amministratore esistente) e `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` di una registrazione che ammetta l'origine frontend scelta (default `http://localhost:3000/`) come redirect. `GLOBAL_ADMIN_EMAIL` identifica l'amministratore globale fidato, non un nome profilo modificabile.
+La home e i servizi partono senza credenziali Microsoft. Il primo login Microsoft validato crea automaticamente un account SQL di base, senza gruppi o ruoli; per accedere ai dati di gioco servono un dataset importato o un invito da un amministratore esistente. Configura `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` di una registrazione che ammetta l'origine frontend scelta (default `http://localhost:3000/`) come redirect. `GLOBAL_ADMIN_EMAIL` identifica l'amministratore globale fidato, non un nome profilo modificabile.
 Non viene introdotto un bypass delle policy o un utente super-admin fittizio. Non è ancora disponibile un seed demo completo del gioco.
 Per le liste aste cifrate copiate dalla produzione servono `LEGACY_ENCRYPTION_KEY` e `LEGACY_ENCRYPTION_IV` originali nel `.env` privato: non sono le nuove chiavi applicative `ENCRYPTION_*` generate da `init`. Non sostituire le chiavi reali sull'hosting.
 

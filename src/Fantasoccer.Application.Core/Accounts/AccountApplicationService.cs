@@ -24,9 +24,12 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
     // Called only with the Microsoft claims already verified by the authentication
     // adapter. Never expose this as an email/subject selected by an HTTP client.
     public async Task<AccountIdentityDto?> ResolveExternalLoginAsync(string email, string issuer, string audience, string subject,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, string? displayName = null)
     {
-        if (subject.Length is < 1 or > 256 || issuer.Length > 256 || audience.Length is < 1 or > 128) return null;
+        if (string.IsNullOrWhiteSpace(email) || subject.Length is < 1 or > 256 || issuer.Length is < 1 or > 256 || audience.Length is < 1 or > 128) return null;
+        var canonical = email.Trim().ToLowerInvariant();
+        if (canonical.Length > 320 || !System.Net.Mail.MailAddress.TryCreate(canonical, out var parsedEmail) ||
+            !string.Equals(parsedEmail.Address, canonical, StringComparison.OrdinalIgnoreCase)) return null;
         var existing = await database.ExternalLogins.AsNoTracking().Include(x => x.User)
             .SingleOrDefaultAsync(x => x.Issuer == issuer && x.Audience == audience && x.Subject == subject, cancellationToken);
         if (existing is not null) return existing.User.IsEnabled ? await ProfileAsync(existing.User, cancellationToken) : null;
@@ -34,10 +37,20 @@ public sealed class AccountApplicationService(FantasoccerDbContext database, Gro
         existing = await database.ExternalLogins.AsNoTracking().Include(x => x.User)
             .SingleOrDefaultAsync(x => x.Issuer == issuer && x.Audience == audience && x.Subject == subject, cancellationToken);
         if (existing is not null) return existing.User.IsEnabled ? await ProfileAsync(existing.User, cancellationToken) : null;
-        if (string.IsNullOrWhiteSpace(email)) return null;
-        var canonical = email.Trim().ToLowerInvariant();
-        var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(x => x.Email == canonical && x.IsEnabled, cancellationToken);
-        if (user is null || await database.ExternalLogins.AnyAsync(x => x.UserId == user.Id && x.Issuer == issuer && x.Audience == audience, cancellationToken)) return null;
+        var user = await database.Users.SingleOrDefaultAsync(x => x.Email == canonical, cancellationToken);
+        if (user is not null && !user.IsEnabled) return null;
+        if (user is not null && await database.ExternalLogins.AnyAsync(x => x.UserId == user.Id && x.Issuer == issuer && x.Audience == audience, cancellationToken)) return null;
+        if (user is null)
+        {
+            // A verified Microsoft identity may create its own basic account.
+            // It is deliberately not added to any group: group data and manager
+            // privileges still require an explicit invitation/provisioning flow.
+            var name = displayName?.Trim();
+            if (string.IsNullOrWhiteSpace(name)) name = canonical[..canonical.IndexOf('@')];
+            if (name.Length > 200) name = name[..200];
+            user = new() { Id = Guid.NewGuid(), Email = canonical, DisplayName = name, IsEnabled = true };
+            database.Users.Add(user);
+        }
         database.ExternalLogins.Add(new() { Issuer = issuer, Audience = audience, Subject = subject, UserId = user.Id });
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

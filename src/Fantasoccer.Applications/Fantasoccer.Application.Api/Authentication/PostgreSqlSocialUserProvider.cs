@@ -27,7 +27,8 @@ public sealed class PostgreSqlSocialUserProvider(AccountApplicationService accou
             var subject = response.Claims.FirstOrDefault(x => x.Type == "sub")?.Value
                 ?? response.Claims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
             if (subject is null) throw new SecurityTokenValidationException("Microsoft subject is missing.");
-            account = await accounts.ResolveExternalLoginAsync(response.Username, issuer, login.Microsoft.ClientId!, subject, cancellationToken);
+            var displayName = response.Claims.FirstOrDefault(x => x.Type is ClaimTypes.Name or "name")?.Value;
+            account = await accounts.ResolveExternalLoginAsync(response.Username, issuer, login.Microsoft.ClientId!, subject, cancellationToken, displayName);
         }
         else account = await accounts.FindForLoginAsync(response.Username, cancellationToken);
         if (account is null) throw new UnauthorizedAccessException("Application account unavailable.");
