@@ -16,7 +16,7 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null,
     AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0,
     AppliedPlayerCatalogResolution[]? ResolvedPlayerCatalogs = null, int UnresolvedPlayerCatalogEntries = 0,
-    RecoveredRosterPlayer[]? RecoveredRosterPlayers = null);
+    RecoveredRosterPlayer[]? RecoveredRosterPlayers = null, ResolvedClubCode[]? ResolvedClubCodes = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -33,7 +33,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 29;
+    public const int MappingVersion = 30;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -257,6 +257,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
               ? new[] { "Unnamed catalog rows were preserved in SQL UnresolvedPlayerCatalogEntries and the verified dump, not imported as usable players. Optional checksum pins remain enforced; review resolvedPlayerCatalogs. Roster references remain strictly validated." } : Array.Empty<string>(),
           .. plan.RecoveredRosterPlayers.Count > 0
               ? new[] { "Identifiable players missing from the yearly catalogue were created or linked from roster snapshots. Review recoveredRosterPlayers; no identity was inferred from club, role or order." } : Array.Empty<string>(),
+          .. plan.ResolvedClubCodes.Count > 0
+              ? new[] { "Missing club codes were resolved from the versioned exact-name provider catalogue. Review resolvedClubCodes; no name prefixes, unknown aliases or conflicting explicit codes were used." } : Array.Empty<string>(),
           .. plan.Users.Values.Any(x => x.Email is null)
                ? new[] { "Named historical owners are existing users without login emails, inactive in their groups. Group administrators can manage their membership by user ID; no emails, roles or authentication bindings were invented." } : Array.Empty<string>(),
           .. plan.ResolvedIdentityConflicts.Count > 0
@@ -285,7 +287,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
           ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray(),
           HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null),
           ResolvedPlayerCatalogs: plan.ResolvedPlayerCatalogs.ToArray(), UnresolvedPlayerCatalogEntries: plan.UnresolvedPlayerCatalogEntries.Count,
-          RecoveredRosterPlayers: plan.RecoveredRosterPlayers.ToArray());
+          RecoveredRosterPlayers: plan.RecoveredRosterPlayers.ToArray(), ResolvedClubCodes: plan.ResolvedClubCodes.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -613,6 +615,7 @@ public sealed class CorePlan
     public List<AppliedPlayerCatalogResolution> ResolvedPlayerCatalogs { get; } = [];
     public List<UnresolvedPlayerCatalogEntry> UnresolvedPlayerCatalogEntries { get; } = [];
     public List<RecoveredRosterPlayer> RecoveredRosterPlayers { get; } = [];
+    public List<ResolvedClubCode> ResolvedClubCodes { get; } = [];
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];
     public Guid[] GroupIds => Groups.Select(x => x.Id).ToArray();

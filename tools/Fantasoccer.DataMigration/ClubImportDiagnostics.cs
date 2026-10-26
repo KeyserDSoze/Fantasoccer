@@ -8,6 +8,8 @@ namespace Fantasoccer.DataMigration;
 public sealed record ClubValidationDetails(string Container, string ArchiveReference, string JsonPath,
     string[] Reasons, bool NameMissing, int? NameLength, bool AbbreviationMissing, int? AbbreviationLength);
 
+public sealed record ResolvedClubCode(string DocumentSha256, string Container, string ArchiveReference, string JsonPath, string CatalogueVersion);
+
 public sealed partial class CoreDatasetImporter
 {
     private readonly record struct ClubSource(LegacyJsonDocument Document, string Suffix, string ReaderFile, int ReaderLine)
@@ -64,6 +66,9 @@ public sealed partial class CoreDatasetImporter
                 {
                     if (candidate.Length != 3) reasons.Add("club_code_length");
                     if (candidate.Any(c => !char.IsAsciiLetter(c))) reasons.Add("club_code_not_ascii_letters");
+                    if (candidate.Length == 3 && candidate.All(char.IsAsciiLetter) &&
+                        FantacalcioClubCodes.TryGetCode(club.Name, out var expected) && candidate.ToLowerInvariant() != expected)
+                        reasons.Add("club_code_name_mismatch");
                 }
             }
         }

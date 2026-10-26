@@ -70,6 +70,19 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         }
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("statistics", year, 2))).EnsureSuccessStatusCode();
         await using (var database = factory.Database.CreateContext()) Assert.Equal("Retain editorial description", (await database.FootballPlayerStatistics.Include(x => x.Player).SingleAsync(x => x.Player.Name == "Ingestion forward")).DescriptionTop);
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("calendar", year))).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official", year, 1))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            Assert.Equal(identities, await database.Players.OrderBy(x => x.Name).Select(x => x.Id).ToArrayAsync());
+            Assert.Equal(new[] { "fio", "nap" }, await database.PlayerSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
+            Assert.Equal("fio", (await database.Clubs.SingleAsync(x => x.Id == "fio")).Abbreviation);
+        }
+        sources.ConflictingKnownClubCode = true;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
+        await using (var database = factory.Database.CreateContext())
+            Assert.Equal(new[] { "fio", "nap" }, await database.PlayerSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
         using var ordinary = await factory.AccountAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
     }
@@ -79,8 +92,10 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         public bool IncompleteOfficial { get; set; }
         public bool InvalidCatalogueRole { get; set; }
         public bool DuplicateCatalogueKey { get; set; }
-        private static RealPlayer[] Players => [new() { Name = "Ingestion forward", RealTeam = new() { Name = "Ingestion home", Abbreviation = "inh" }, Role = Role.Forward, IsActive = true },
-            new() { Name = "Ingestion defender", RealTeam = new() { Name = "Ingestion away", Abbreviation = "ina" }, Role = Role.Defensor, IsActive = true }];
+        public bool ConflictingKnownClubCode { get; set; }
+        private RealPlayer[] Players => [new() { Name = "Ingestion forward", RealTeam = ConflictingKnownClubCode
+                ? new() { Name = "Fiorentina", Abbreviation = "NAP" } : new() { Name = "Fiorentina" }, Role = Role.Forward, IsActive = true },
+            new() { Name = "Ingestion defender", RealTeam = new() { Name = "Napoli" }, Role = Role.Defensor, IsActive = true }];
         public Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38) => Task.FromResult(new RealCalendar { Year = FantacalcioTime.ActualYear, Days =
             [new() { Year = FantacalcioTime.ActualYear, SerieADay = 1, Games = [new() { Home = Players[0].RealTeam, Away = Players[1].RealTeam, Date = FantacalcioTime.ItalyNow.Date.AddDays(-1).AddHours(12), HomeGoal = 1, AwayGoal = 0 }] }] });
         public Task<List<RealPlayer>> GetAsync()

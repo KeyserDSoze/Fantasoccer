@@ -27,12 +27,12 @@ public sealed class SeasonPlayerKeyFormatTests
     {
         Assert.Equal("nap", KeyUtils.GetClubKey("NAP", "Napoli"));
         Assert.Equal("nap", KeyUtils.GetClubKey(null, "NAP"));
-        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, "Napoli"));
+        Assert.Equal("nap", KeyUtils.GetClubKey(null, "Napoli"));
         Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("N4P", "Napoli"));
         var legacy = new RealTeam { Name = "Napoli" };
         Assert.Equal("nap", legacy.Abbreviation); // Existing display behavior is unchanged.
         Assert.Null(legacy.ExplicitAbbreviation); // But no provider code was supplied.
-        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(legacy.ExplicitAbbreviation, legacy.Name));
+        Assert.Equal("nap", KeyUtils.GetClubKey(legacy.ExplicitAbbreviation, legacy.Name));
         legacy.Abbreviation = "NAP";
         Assert.Equal("nap", KeyUtils.GetClubKey(legacy.ExplicitAbbreviation, legacy.Name));
         var player = new FootballPlayer { Name = "Provider player" };
@@ -46,6 +46,32 @@ public sealed class SeasonPlayerKeyFormatTests
         Assert.Equal("nap", club.Id);
         Assert.Null(club.LegacyId);
     }
+
+    [Fact]
+    public void Club_codes_use_a_finite_verified_catalogue_without_prefixes_fuzzy_names_or_guessed_aliases()
+    {
+        Assert.Equal(35, FantacalcioClubCodes.Names.Count);
+        Assert.Equal(35, FantacalcioClubCodes.Names.Values.Distinct().Count());
+        foreach (var (name, code) in FantacalcioClubCodes.Names)
+        {
+            Assert.Matches("^[a-z]{3}$", code);
+            Assert.Equal(code, KeyUtils.GetClubKey(null, name));
+            Assert.Equal(code, KeyUtils.GetClubKey("", name));
+            Assert.Equal(code, KeyUtils.GetClubKey(null, " " + name.ToUpperInvariant() + " "));
+            Assert.Equal(code, KeyUtils.GetClubKey(code.ToUpperInvariant(), name));
+        }
+        Assert.Equal("fio", KeyUtils.GetClubKey(null, "Fiorentina"));
+        foreach (var unknown in new[] { "Fiorentina Primavera", "Fiorent", "Unknown fixture club", "Hellas Verona" })
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
+        Assert.Equal("abc", KeyUtils.GetClubKey("ABC", "Unknown fixture club"));
+    }
+
+    [Theory]
+    [InlineData("Fiorentina", "NAP")]
+    [InlineData("Napoli", "FIO")]
+    [InlineData("Roma", "MIL")]
+    public void Explicit_codes_that_contradict_verified_provider_names_are_refused_not_overwritten(string name, string code)
+        => Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(code, name));
 }
 
 public sealed class SeasonPlayerKeyTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>

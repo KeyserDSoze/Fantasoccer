@@ -20,10 +20,16 @@ namespace Fantasoccer
 
         public static string GetClubKey(string? abbreviation, string name)
         {
-            var key = string.IsNullOrWhiteSpace(abbreviation) && name.Length == 3 ? name : abbreviation;
+            var known = FantacalcioClubCodes.TryGetCode(name, out var providerCode);
+            var key = abbreviation;
+            if (string.IsNullOrWhiteSpace(key))
+                key = known ? providerCode : name.Length == 3 ? name : null;
             if (key is not { Length: 3 } || key.Any(c => !char.IsAsciiLetter(c)))
-                throw new ArgumentException("A club requires its three-letter provider abbreviation.");
-            return key.ToLowerInvariant();
+                throw new ArgumentException("A club requires a verified name or its three-letter provider abbreviation.");
+            key = key.ToLowerInvariant();
+            if (known && key != providerCode)
+                throw new ArgumentException("The explicit club code contradicts the verified provider name.");
+            return key;
         }
     }
 }

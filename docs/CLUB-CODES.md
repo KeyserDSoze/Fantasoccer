@@ -1,0 +1,61 @@
+# Codici club verificati: compatibilità con i nomi legacy
+
+## Fonte e versione
+
+`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di coppie nome/codice della fonte fantacalcio.it, versione `fantacalcio-2026-10-26-v1`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali.
+
+Verifica pubblica del 26 ottobre 2026: pagine della prima giornata delle stagioni da 2015/16 a 2026/27. Ogni pagina espone insieme il nome completo (`meta itemprop="name"`) e la sigla nel relativo link squadra. Il titolo della pagina è stato controllato contro la stagione richiesta: una URL storica che restituisce la stagione corrente non costituisce una prova per quella stagione. Le 240 coppie osservate sulle 12 pagine hanno prodotto 35 nomi/codici distinti, senza discrepanze tra anni.
+
+URL delle fonti: `https://www.fantacalcio.it/voti-fantacalcio-serie-a/<stagione>/1`, dove la stagione usa il formato `2022-23`. La colonna finale indica una delle pagine su cui la coppia è stata verificata, non l'anno di fondazione o l'unico anno in cui il club è ammesso.
+
+| Nome esatto della fonte | Codice | Pagina verificata |
+|---|---|---|
+| Atalanta | `ata` | 2015-16/1 |
+| Benevento | `ben` | 2017-18/1 |
+| Bologna | `bol` | 2015-16/1 |
+| Brescia | `bre` | 2019-20/1 |
+| Cagliari | `cag` | 2016-17/1 |
+| Carpi | `car` | 2015-16/1 |
+| Chievo | `chi` | 2015-16/1 |
+| Como | `com` | 2024-25/1 |
+| Cremonese | `cre` | 2022-23/1 |
+| Crotone | `cro` | 2016-17/1 |
+| Empoli | `emp` | 2015-16/1 |
+| Fiorentina | `fio` | 2022-23/1 |
+| Frosinone | `fro` | 2015-16/1 |
+| Genoa | `gen` | 2015-16/1 |
+| Inter | `int` | 2015-16/1 |
+| Juventus | `juv` | 2015-16/1 |
+| Lazio | `laz` | 2015-16/1 |
+| Lecce | `lec` | 2019-20/1 |
+| Milan | `mil` | 2015-16/1 |
+| Monza | `mon` | 2022-23/1 |
+| Napoli | `nap` | 2015-16/1 |
+| Palermo | `pal` | 2015-16/1 |
+| Parma | `par` | 2018-19/1 |
+| Pescara | `pes` | 2016-17/1 |
+| Pisa | `pis` | 2025-26/1 |
+| Roma | `rom` | 2015-16/1 |
+| Salernitana | `sal` | 2021-22/1 |
+| Sampdoria | `sam` | 2015-16/1 |
+| Sassuolo | `sas` | 2015-16/1 |
+| SPAL | `spa` | 2017-18/1 |
+| Spezia | `spe` | 2020-21/1 |
+| Torino | `tor` | 2015-16/1 |
+| Udinese | `udi` | 2015-16/1 |
+| Venezia | `ven` | 2021-22/1 |
+| Verona | `ver` | 2015-16/1 |
+
+Esempi di verifica diretta: [2022/23](https://www.fantacalcio.it/voti-fantacalcio-serie-a/2022-23/1), [2015/16](https://www.fantacalcio.it/voti-fantacalcio-serie-a/2015-16/1), [2017/18](https://www.fantacalcio.it/voti-fantacalcio-serie-a/2017-18/1), [2019/20](https://www.fantacalcio.it/voti-fantacalcio-serie-a/2019-20/1), [2025/26](https://www.fantacalcio.it/voti-fantacalcio-serie-a/2025-26/1).
+
+## Regole di risoluzione
+
+1. Una sigla esplicita deve comunque avere tre lettere ASCII. Non viene corretta rimuovendo spazi interni, troncando caratteri o sostituendola con una deduzione.
+2. Se il nome è nel catalogo, un codice esplicito discordante viene rifiutato con `club_code_name_mismatch`, non sovrascritto. Per esempio `Fiorentina/NAP` è un conflitto.
+3. Soltanto se il codice è mancante/null/whitespace, un nome presente nella tabella può risolverlo: `{"n":"Fiorentina","a":null}` diventa il riferimento SQL `fio` senza modificare il documento originale.
+4. Il confronto dei nomi ignora soltanto maiuscole/minuscole e spazi esterni. Non usa prefissi, somiglianza, decodifica HTML, ordine degli array o associazioni di giocatori.
+5. Un nome già composto da tre lettere rimane un codice leggibile come prima. Un nome non catalogato richiede un codice esplicito valido: l'elenco non pretende di coprire tutte le società storiche o ogni alias possibile.
+
+Il report `resolvedClubCodes` registra documento SHA-256, container, archivio hash, posizione JSON e versione del catalogo per ogni riferimento recuperato, una sola volta per posizione. Non stampa nomi, codici, giocatori o proprietari. Nell'import la `MappingVersion` è 30; restano i controlli sulla sorgente, l'atomicità, l'idempotenza e il blocco dopo scritture applicative. Nessuna migration SQL aggiuntiva, nuova opzione env, scrittura Azure o modifica al dump è necessaria.
+
+Un'aggiunta alla tabella richiede una nuova corrispondenza verificata, aggiornamento della versione/documentazione e test; non si aggiungono alias soltanto per superare un errore dell'import.

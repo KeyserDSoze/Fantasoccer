@@ -15,11 +15,11 @@ public sealed partial class CoreMigrationTests
     {
         var container = await ExtraContainerAsync("realteamwrapper");
         var blob = container.GetBlobClient("15");
-        await blob.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Napoli\"}]}}"));
+        await blob.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Unknown fixture club\"}]}}"));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var fault = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
         Assert.Equal("invalid_club_code", fault.Message);
-        Assert.DoesNotContain("Napoli", CoreImportDiagnostics.Format(fault));
+        Assert.DoesNotContain("Unknown fixture club", CoreImportDiagnostics.Format(fault));
         await blob.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Napoli\",\"a\":\"NAP\"}]}}"), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
@@ -29,7 +29,8 @@ public sealed partial class CoreMigrationTests
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var (_, linked) = await CoreDatasetImporter.AnalyzeAsync(_dump);
         Assert.Single(linked.Clubs); Assert.Equal("nap", Assert.Single(linked.ClubRanks).ClubId);
-        await blob.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Napoli\",\"a\":\"NAP\"},{\"n\":\"Napoli\",\"a\":\"XYZ\"}]}}"), overwrite: true);
+        await blob.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Unknown fixture club\",\"a\":\"NAP\"},{\"n\":\"Unknown fixture club\",\"a\":\"XYZ\"}]}}"), overwrite: true);
+        await ranks.GetBlobClient("15").UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"r\":[{\"n\":\"Unknown fixture club\",\"p\":4.5}]}}"), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         Assert.Equal("ambiguous_real_rank_club", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump))).Message);
     }

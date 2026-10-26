@@ -282,6 +282,14 @@ L'analisi del dump reale ha raggiunto `invalid_club_code`, ma il messaggio non i
 
 Verificati 115 test PostgreSQL/migrazione e 53 test API senza errori o skip, più publish Release del tool. Le nuove fixture controllano entrambi gli envelope, tutte le sorgenti annidate, casing push, privacy del messaggio, integrità hash/posizione, immutabilità della sorgente e assenza di scritture SQL parziali. MappingVersion resta 29: l'arricchimento non riscrive import già completati né cambia le scelte dell'operatore.
 
+### Club legacy nome-only: catalogo finito e verificato della fonte
+
+Il gestore ha individuato il record `Fiorentina` con abbreviazione null nel catalogo club legacy. Il requisito di abbreviazione esplicita non era compatibile con questo formato. La lettura delle pagine pubbliche storiche fantacalcio.it (giornata 1, stagioni 2015/16–2026/27, titolo verificato per evitare redirect alla stagione corrente) ha confermato 35 corrispondenze nome/codice senza conflitti. La tabella immutabile/versionata è documentata in `docs/CLUB-CODES.md`: permette il recupero dei soli nomi esatti quando manca il codice, non usa prefissi, somiglianza o HTTP a runtime. Le sigle esplicite invalide o discordanti restano errori con coordinate privacy-safe.
+
+Import e ingestione SQL condividono la stessa risoluzione. Il report `resolvedClubCodes` conserva hash/posizione/versione, non valori o payload; sorgente e dump rimangono invariati. MappingVersion 30 forza la rivalutazione controllata senza cambiare schema, opzioni, identità utenti, valori economici o guard su target/scritture applicative. Il catalogo non pretende di coprire ogni club storico o alias: i nomi non verificati richiedono un codice esplicito o un'ulteriore verifica.
+
+Verificati 122 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, publish Release di tool/API e modello EF invariato. Le fixture coprono tutte le 35 coppie in entrambi gli envelope, forma `nome/a:null`, collegamenti fra cataloghi/rose/voti/calendario/classifiche, prezzi e ricavi, report senza valori sensibili, idempotenza e rifiuto atomico di sigle esplicite discordanti. Nessun import/reset è stato eseguito sul dump reale; dopo pubblicazione resta necessaria la sua analisi.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -202,10 +202,10 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         if (string.IsNullOrWhiteSpace(sample?.Name)) throw Invalid("Squadra reale del provider non valida.");
         string code;
         try { code = KeyUtils.GetClubKey(sample.ExplicitAbbreviation, sample.Name); }
-        catch (ArgumentException) { throw Invalid("Codice club del provider non valido: servono tre lettere."); }
+        catch (ArgumentException) { throw Invalid("Nome/codice club del provider non verificabile o discordante."); }
         var matches = clubs.Concat(database.Clubs.Local).Distinct().Where(x => x.Id == code).ToArray();
         if (matches.Length > 1) throw Invalid("Identità della squadra reale ambigua.");
-        if (matches.Length == 1) { if (!string.IsNullOrWhiteSpace(sample.Abbreviation)) matches[0].Abbreviation = sample.Abbreviation; return matches[0]; }
+        if (matches.Length == 1) { matches[0].Abbreviation = code; return matches[0]; }
         var club = new FootballClub { Id = code, Name = sample.Name.Trim(), Abbreviation = code }; database.Clubs.Add(club); return club;
     }
     private async Task SeasonAsync(int year, CancellationToken cancellationToken)

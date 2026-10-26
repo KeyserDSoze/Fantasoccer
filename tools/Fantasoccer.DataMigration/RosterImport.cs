@@ -16,6 +16,7 @@ public sealed partial class CoreDatasetImporter
         var seasons = new Dictionary<(string Player, int Year), PlayerSeason>();
         var authoritative = new HashSet<(string Player, int Year)>();
         var roots = new HashSet<(string Kind, int Year, int Day)>();
+        var resolvedClubs = new HashSet<(string Document, string Path)>();
         var catalogResolutions = PreparePlayerCatalogResolutions(dataset, options.PlayerCatalogResolutions);
         void Root(string kind, int year, int day)
         {
@@ -26,8 +27,12 @@ public sealed partial class CoreDatasetImporter
         string Club(RealTeam? club, ClubSource origin)
         {
             var key = CheckedClubCode(club, origin);
+            if (string.IsNullOrWhiteSpace(club!.ExplicitAbbreviation) && FantacalcioClubCodes.TryGetCode(club.Name, out _) &&
+                resolvedClubs.Add((origin.Document.Sha256, origin.JsonPath)))
+                plan.ResolvedClubCodes.Add(new(origin.Document.Sha256, origin.Document.Container, DocumentArchiveReference(origin.Document), origin.JsonPath,
+                    FantacalcioClubCodes.Version));
             if (clubs.TryGetValue(key, out var existing)) return existing.Id;
-            var row = new FootballClub { Id = key, LegacyId = map("club", club!.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
+            var row = new FootballClub { Id = key, LegacyId = map("club", club.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
             clubs.Add(key, row); plan.Clubs.Add(row); return row.Id;
         }
         string Person(RealPlayer player, PlayerSource origin)
