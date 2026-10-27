@@ -10,6 +10,8 @@ La lista di fantacalcio.it è la fonte dei nomi disambiguati. La PlayerKey è il
 | `PlayerSeasons.SeasonIndex` | Anno nel formato già usato dall'app: `1` = 2012/13, `11` = 2022/23. Non è l'anno solare. |
 | `PlayerSeasons.(PlayerKey, SeasonIndex)` | PK composta della stagione, con FK `PlayerKey → Players.PlayerKey`. |
 | `Clubs.ClubCode` | PK/FK testuale: abbreviazione della fonte di esattamente tre lettere minuscole, per esempio `nap`. |
+| `Clubs.Name` | Nome ufficiale globale determinato dal codice verificato, non dalla prima etichetta incontrata. |
+| `ClubSeasons.(ClubCode, SeasonIndex)` | PK composta dell'appartenenza annuale attestata in Serie A, con FK a club e stagione. |
 | `Players.LegacyId`, `Clubs.LegacyId` | Vecchi GUID, nullable e conservati solo per tracciare la conversione. Non sono le FK del dominio. |
 
 Le PK impongono unicità globale e annuale; i vincoli rifiutano PlayerKey vuote/non canoniche e codici club non validi. Nei modelli C# e in alcuni DTO restano i nomi compatibili `Id`, `PlayerId` e `ClubId`, ma **i loro valori sono le chiavi testuali**, non UUID. Le colonne SQL si chiamano `PlayerKey`, `ClubCode`, `HomeClubCode`, ecc. La notazione `11/osimhen` può essere composta per visualizzazione: l'informazione SQL resta nei due campi separati.
@@ -17,6 +19,8 @@ Le PK impongono unicità globale e annuale; i vincoli rifiutano PlayerKey vuote/
 Il codice club deve essere esplicitamente presente nella fonte, il nome deve essere già un codice di tre lettere oppure deve corrispondere al [catalogo finito di nomi/codici e alias esatti verificati](CLUB-CODES.md). I vecchi record come `{"n":"Fiorentina","a":null}` possono quindi usare `fio`; `Juve` e `Juventus` usano entrambe `juv`, senza modificare il dump o creare due club. Non è il fallback legacy delle prime tre lettere: nomi sconosciuti senza codice restano errori, mentre una sigla esplicita discordante da un nome/alias verificato viene rifiutata. I recuperi sono dichiarati in `resolvedClubCodes`; la visualizzazione legacy rimane invariata.
 
 Le classifiche legacy hanno soltanto il nome: possono collegarsi a un'etichetta esatta e univoca di un club il cui codice è già verificato nel piano. Se più codici hanno quell'etichetta l'import si ferma con `ambiguous_real_rank_club`; se il club non è noto, un nome completo senza codice non permette di crearne uno.
+
+Nomi e anno dei club sono separati: `Juve`/`JUVENTUS`/`juv` producono l'anagrafica `Juventus` e la chiave `juv` in tutti gli anni, mentre le righe `ClubSeasons` attestano la presenza annuale solo da catalogo/calendario/classifica reali. Giocatori e snapshot usano sempre la FK globale `ClubCode`, così una vecchia rosa non inventa un'appartenenza in Serie A. Cambiare il club della riga annuale del giocatore non modifica voti, rose storiche o anni precedenti. Vedere [club e stagioni](CLUB-SEASONS.md).
 
 ## Dipendenze
 

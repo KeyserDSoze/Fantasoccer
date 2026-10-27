@@ -11,7 +11,7 @@ public sealed partial class CoreDatasetImporter
 {
     private static void LoadFootballSamples(VerifiedJsonDataset dataset, CorePlan plan,
         Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, ClubSource, string> club, Action<int> season,
-        Action<string, int, int> root)
+        Action<string, int, int> root, Func<string?, ClubSource, string> rankClub, Action<string, int, ClubMembershipSource> membership)
     {
         var votes = new HashSet<(string, int, int, FootballVoteSource)>();
         foreach (var document in dataset.Documents.Where(x => x.Container is "live" or "notification" or "official"))
@@ -104,10 +104,9 @@ public sealed partial class CoreDatasetImporter
                 // Legacy standings store a display name only. Link an exact,
                 // unambiguous label already carrying a verified code; never
                 // manufacture a code from the first letters of that label.
-                var known = plan.Clubs.Where(x => string.Equals(x.Name, value.Name?.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
-                if (known.Length > 1) throw new CoreImportException("ambiguous_real_rank_club");
-                var id = known.Length == 1 ? known[0].Id : club(new() { Name = value.Name! }, ClubOrigin(document, $".r[{ordinal}]"));
+                var id = rankClub(value.Name, ClubOrigin(document, $".r[{ordinal}]"));
                 if (!clubs.Add(id)) throw new CoreImportException("duplicate_real_rank_club");
+                membership(id, entity.Key, ClubMembershipSource.Standings);
                 plan.ClubRanks.Add(new() { SeasonIndex = entity.Key, ClubId = id, Ordinal = ordinal, Points = value.Point,
                     Victories = value.Victories, Draws = value.Draws, Defeats = value.Defeats, GoalsFor = value.Goal, GoalsAgainst = value.SufferedGoal, Played = value.Played });
             }

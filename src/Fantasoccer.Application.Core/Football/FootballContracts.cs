@@ -14,6 +14,8 @@ public record FootballPlayerDto(string PlayerId, string Name, ClubDto? RealTeam,
 }
 public sealed record PlayersDto<T>(T[] Players);
 public sealed record PlayerHistoryDto(string PlayerKey, string Name, int[] Years);
+public sealed record ClubHistoryDto(ClubDto Club, int[] Years);
+public sealed record ClubSeasonCatalogueDto(int SeasonIndex, ClubDto[] Teams, bool IsComplete);
 public sealed record VoteDto(int Role, float Value, bool IsFinal, int Goals, int Penalties, int Assists, int StoppedPenalties,
     int SufferedGoals, int WrongedPenalties, int OwnGoals, int Status, bool ManOfTheMatch, bool HasVote, bool IsOut, bool IsIn, bool Injured)
 {

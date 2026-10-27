@@ -697,7 +697,13 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.ToTable("Clubs", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Clubs_Abbreviation", "\"Abbreviation\" = \"ClubCode\"");
+
+                            t.HasCheckConstraint("CK_Clubs_CanonicalName", "\"Name\" = CASE \"ClubCode\" WHEN 'ata' THEN 'Atalanta' WHEN 'ben' THEN 'Benevento' WHEN 'bol' THEN 'Bologna' WHEN 'bre' THEN 'Brescia' WHEN 'cag' THEN 'Cagliari' WHEN 'car' THEN 'Carpi' WHEN 'cat' THEN 'Catania' WHEN 'ces' THEN 'Cesena' WHEN 'chi' THEN 'Chievo' WHEN 'com' THEN 'Como' WHEN 'cre' THEN 'Cremonese' WHEN 'cro' THEN 'Crotone' WHEN 'emp' THEN 'Empoli' WHEN 'fio' THEN 'Fiorentina' WHEN 'fro' THEN 'Frosinone' WHEN 'gen' THEN 'Genoa' WHEN 'int' THEN 'Inter' WHEN 'juv' THEN 'Juventus' WHEN 'laz' THEN 'Lazio' WHEN 'lec' THEN 'Lecce' WHEN 'liv' THEN 'Livorno' WHEN 'mil' THEN 'Milan' WHEN 'mon' THEN 'Monza' WHEN 'nap' THEN 'Napoli' WHEN 'pal' THEN 'Palermo' WHEN 'par' THEN 'Parma' WHEN 'pes' THEN 'Pescara' WHEN 'pis' THEN 'Pisa' WHEN 'rom' THEN 'Roma' WHEN 'sal' THEN 'Salernitana' WHEN 'sam' THEN 'Sampdoria' WHEN 'sas' THEN 'Sassuolo' WHEN 'sie' THEN 'Siena' WHEN 'spa' THEN 'SPAL' WHEN 'spe' THEN 'Spezia' WHEN 'tor' THEN 'Torino' WHEN 'udi' THEN 'Udinese' WHEN 'ven' THEN 'Venezia' WHEN 'ver' THEN 'Verona' ELSE \"Name\" END");
+
                             t.HasCheckConstraint("CK_Clubs_ClubCode", "\"ClubCode\" ~ '^[a-z]{3}$'");
+
+                            t.HasCheckConstraint("CK_Clubs_Name", "length(btrim(\"Name\")) > 0");
                         });
                 });
 
@@ -740,6 +746,29 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.HasIndex("ClubId");
 
                     b.ToTable("FootballClubRanks", (string)null);
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClubSeason", b =>
+                {
+                    b.Property<string>("ClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
+
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sources")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ClubId", "SeasonIndex");
+
+                    b.HasIndex("SeasonIndex");
+
+                    b.ToTable("ClubSeasons", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ClubSeasons_Sources", "\"Sources\" BETWEEN 1 AND 7");
+                        });
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDataset", b =>
@@ -3629,6 +3658,25 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .IsRequired();
 
                     b.Navigation("Club");
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClubSeason", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", "Club")
+                        .WithMany("Seasons")
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.Season", "Season")
+                        .WithMany()
+                        .HasForeignKey("SeasonIndex")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+
+                    b.Navigation("Season");
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDataset", b =>
@@ -6766,6 +6814,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FantasyTeamSeason", b =>
                 {
                     b.Navigation("Owners");
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", b =>
+                {
+                    b.Navigation("Seasons");
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballMatchday", b =>

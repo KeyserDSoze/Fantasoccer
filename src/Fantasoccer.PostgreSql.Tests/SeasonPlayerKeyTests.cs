@@ -92,6 +92,22 @@ public sealed class SeasonPlayerKeyFormatTests
     }
 
     [Theory]
+    [InlineData("Juve", null)]
+    [InlineData("JUVENTUS", null)]
+    [InlineData("juventus", "JUV")]
+    [InlineData("juv", null)]
+    [InlineData("JUV", null)]
+    [InlineData(" JuVe ", null)]
+    public void Club_official_name_is_determined_by_the_readable_code_not_first_seen_spelling(string sourceName, string? abbreviation)
+    {
+        var code = KeyUtils.GetClubKey(abbreviation, sourceName);
+        Assert.Equal("juv", code); Assert.Equal("Juventus", FantacalcioClubCodes.CanonicalName(code, sourceName));
+        Assert.True(FantacalcioClubCodes.TryGetName(code.ToUpperInvariant(), out var name)); Assert.Equal("Juventus", name);
+        foreach (var (canonical, key) in FantacalcioClubCodes.Names)
+            Assert.Equal(canonical, FantacalcioClubCodes.CanonicalName(key, "ignored source label"));
+    }
+
+    [Theory]
     [InlineData("Catania", "cat")]
     [InlineData("Siena", "sie")]
     [InlineData("Livorno", "liv")]

@@ -67,6 +67,8 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
             {
                 var home = Club(game.Home, clubs); var away = Club(game.Away, clubs);
                 if (home.Id == away.Id) throw Invalid("Squadre reali non distinte.");
+                await MembershipAsync(home.Id, year, ClubMembershipSource.Calendar, cancellationToken);
+                await MembershipAsync(away.Id, year, ClubMembershipSource.Calendar, cancellationToken);
                 var match = row.Matches.SingleOrDefault(x => x.HomeClubId == home.Id && x.AwayClubId == away.Id);
                 if (match is null) row.Matches.Add(match = new() { SeasonIndex = year, SerieADay = day.SerieADay,
                     Ordinal = row.Matches.Select(x => x.Ordinal).DefaultIfEmpty(-1).Max() + 1, HomeClub = home, AwayClub = away });
@@ -205,8 +207,21 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         catch (ArgumentException) { throw Invalid("Nome/codice club del provider non verificabile o discordante."); }
         var matches = clubs.Concat(database.Clubs.Local).Distinct().Where(x => x.Id == code).ToArray();
         if (matches.Length > 1) throw Invalid("Identità della squadra reale ambigua.");
-        if (matches.Length == 1) { matches[0].Abbreviation = code; return matches[0]; }
-        var club = new FootballClub { Id = code, Name = sample.Name.Trim(), Abbreviation = code }; database.Clubs.Add(club); return club;
+        if (matches.Length == 1)
+        {
+            matches[0].Name = FantacalcioClubCodes.CanonicalName(code, matches[0].Name);
+            matches[0].Abbreviation = code;
+            return matches[0];
+        }
+        var club = new FootballClub { Id = code, Name = FantacalcioClubCodes.CanonicalName(code, sample.Name), Abbreviation = code };
+        database.Clubs.Add(club); return club;
+    }
+    private async Task MembershipAsync(string code, int year, ClubMembershipSource source, CancellationToken cancellationToken)
+    {
+        var row = database.ClubSeasons.Local.SingleOrDefault(x => x.ClubId == code && x.SeasonIndex == year)
+            ?? await database.ClubSeasons.SingleOrDefaultAsync(x => x.ClubId == code && x.SeasonIndex == year, cancellationToken);
+        if (row is null) database.ClubSeasons.Add(new() { ClubId = code, SeasonIndex = year, Sources = source });
+        else row.Sources |= source;
     }
     private async Task SeasonAsync(int year, CancellationToken cancellationToken)
     { if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == year, cancellationToken)) database.Seasons.Add(new() { SeasonIndex = year, StartYear = year + 2011 }); }
@@ -223,6 +238,7 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
     {
         var games = await database.FootballMatches.Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         var ranks = games.SelectMany(x => new[] { x.HomeClubId, x.AwayClubId }).Distinct().ToDictionary(id => id, id => new FootballClubRank { SeasonIndex = year, ClubId = id });
+        foreach (var code in ranks.Keys) await MembershipAsync(code, year, ClubMembershipSource.Standings, cancellationToken);
         foreach (var game in games.Where(x => !x.Delayed && x.KickoffUtc < clock.GetUtcNow() && x.HomeGoals != null && x.AwayGoals != null))
         {
             var home = ranks[game.HomeClubId]; var away = ranks[game.AwayClubId]; home.Played++; away.Played++;

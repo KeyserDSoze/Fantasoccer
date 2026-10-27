@@ -306,6 +306,18 @@ La regressione tratta insieme tutte le 62 coppie in più cataloghi/stagioni, con
 
 Verificati 130 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, TypeScript, publish Release di tool/API e modello EF invariato. La copertura riguarda l'intero elenco pubblico estratto dai cataloghi, non certifica ancora l'analisi dell'intero dump né autorizza il cutover.
 
+### Club globali canonici e appartenenze Serie A annuali
+
+Il gestore ha richiesto il nome ufficiale unico per il club attraverso tutti gli anni, non soltanto l'unificazione della chiave, e una tabella distinta delle presenze annuali. `Clubs` mantiene la PK testuale di tre lettere; nomi/alias/casing verificati risolvono il nome dal codice (`Juve`/`JUVENTUS`/`juv` → `Juventus`, `juv`). Import, ingestione e SaveChanges sync/async condividono la regola; CHECK SQL impediscono alias al posto del nome canonico e abbreviazioni diverse dalla PK. Restano le validazioni indipendenti di nome/sigla: un conflitto non viene mascherato dalla normalizzazione.
+
+`ClubSeasons` ha PK composta `(ClubCode, SeasonIndex)`, FK a club e stagione e provenienza bitmask da catalogo club, calendario reale e classifica reale. Solo queste evidenze attestano la presenza in Serie A: giocatori inattivi, vecchie rose e archivi senza anno non inventano appartenenze. PlayerSeasons e snapshot mantengono la FK globale `ClubCode`; cambiare il club corrente della riga annuale del giocatore non modifica anni precedenti, voti e rose storiche. Le appartenenze non vengono cancellate a seguito del trasferimento di un giocatore.
+
+La nuova migration `20261027171151_ClubSeasonsAndCanonicalNames` normalizza soltanto le anagrafiche coerenti già presenti, preserva chiavi e LegacyId e ricostruisce le appartenenze verificabili da partite/classifiche reali. Rifiuta conflitti preesistenti e downgrade con grafo calcistico popolato; non deduce tutti i club di un anno da marker o riferimenti dei giocatori. Gli esatti cataloghi annuali richiedono l'elaborazione del dump verificato: marker `clubseasoncatalogue`, report `clubs`/`clubSeasons`/`clubCatalogueYears` e letture autenticate dei club globali/annuali/storico con indicazione di completezza del catalogo fornito.
+
+Catalogo v4, MappingVersion 33, nessuna nuova opzione env, scrittura Azure, notifica o reset. Restano dump originale, valori economici, risoluzioni utenti approvate e blocco di reimport dopo scritture applicative. Le migration pubblicate precedenti non vengono modificate; per il rollback di dati presenti occorre un backup verificato. Contratto completo in `docs/CLUB-SEASONS.md`.
+
+Verificati 142 test PostgreSQL/migrazione, 54 test API e 75 test frontend senza errori o skip, TypeScript, publish Release tool/API e modello EF allineato. I test coprono PK/FK annuali reali, CHECK anche su SQL diretto, nomi globali canonici in scrittura sync/async e API, presenza attestata senza deduzioni da rose/giocatori inattivi, appartenenze parziali segnalate, upgrade popolato e rifiuto atomico dei conflitti, downgrade dello schema vuoto, reimport idempotente e trasferimento senza alterare club/valori dello storico. Nessun import sul dataset reale: dopo pubblicazione resta da rianalizzarlo e revisionarne il report prima di Apply.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -132,11 +132,16 @@ public sealed partial class CoreMigrationTests
             await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
             var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
             Assert.Equal(39, plan.Clubs.Count); Assert.Single(plan.Clubs.Where(x => x.Id == "juv"));
+            Assert.Equal("Juventus", plan.Clubs.Single(x => x.Id == "juv").Name);
+            Assert.Equal("SPAL", plan.Clubs.Single(x => x.Id == "spa").Name);
+            Assert.Equal(61, plan.ClubSeasons.Count);
+            Assert.Equal(2, plan.ClubSeasons.Count(x => x.ClubId == "juv"));
             Assert.Equal(samples.Select(x => x.ExpectedCode).Distinct().Order(), plan.Clubs.Select(x => x.Id).Order());
             Assert.Equal(39, plan.ResolvedClubCodes.Count);
             Assert.All(plan.ResolvedClubCodes, x => Assert.Equal(FantacalcioClubCodes.Version, x.CatalogueVersion));
             var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
             Assert.Equal(39, await database.Clubs.CountAsync()); Assert.Equal(1, await database.Clubs.CountAsync(x => x.Id == "juv"));
+            Assert.Equal(61, await database.ClubSeasons.CountAsync()); Assert.Equal(new[] { 1, 15 }, report.ClubCatalogueYears);
             Assert.Equal(39, report.ResolvedClubCodes!.Length);
             var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
             Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
@@ -169,6 +174,7 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal("juv", (await database.Clubs.SingleAsync()).Id);
+        Assert.Equal("Juventus", (await database.Clubs.SingleAsync()).Name);
         Assert.Equal(new[] { 14, 15 }, await database.PlayerSeasons.OrderBy(x => x.SeasonIndex).Select(x => x.SeasonIndex).ToArrayAsync());
         Assert.All(await database.PlayerSeasons.ToArrayAsync(), x => Assert.Equal("juv", x.ClubId));
         Assert.Equal("juv", (await database.FootballVotes.SingleAsync()).ClubId);

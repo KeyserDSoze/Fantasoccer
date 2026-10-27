@@ -52,6 +52,32 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
             new FootballGameDto(x.Ordinal, FootballMapping.Club(x.HomeClub), FootballMapping.Club(x.AwayClub), x.KickoffUtc, x.HomeGoals, x.AwayGoals, x.Delayed)).ToArray())).ToArray());
     }
 
+    public async Task<ClubDto[]> ClubsAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
+    {
+        await accounts.CurrentAsync(caller, cancellationToken);
+        var rows = await database.Clubs.AsNoTracking().OrderBy(x => x.Name).ToArrayAsync(cancellationToken);
+        return rows.Select(FootballMapping.Club).ToArray();
+    }
+
+    public async Task<ClubSeasonCatalogueDto?> SeasonClubsAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
+    {
+        await AccessAsync(caller, year, cancellationToken);
+        var rows = await database.ClubSeasons.AsNoTracking().Include(x => x.Club).Where(x => x.SeasonIndex == year)
+            .OrderBy(x => x.Club.Name).ToArrayAsync(cancellationToken);
+        var complete = await ExistsAsync(FootballClubSeason.CatalogueDatasetKind, year, 0, cancellationToken);
+        return rows.Length == 0 && !complete ? null : new(year, rows.Select(x => FootballMapping.Club(x.Club)).ToArray(), complete);
+    }
+
+    public async Task<ClubHistoryDto?> ClubHistoryAsync(ClaimsPrincipal caller, string clubKey, CancellationToken cancellationToken = default)
+    {
+        await accounts.CurrentAsync(caller, cancellationToken);
+        string code;
+        try { code = KeyUtils.GetClubKey(null, clubKey); }
+        catch (ArgumentException) { throw Invalid(); }
+        var club = await database.Clubs.AsNoTracking().Include(x => x.Seasons).SingleOrDefaultAsync(x => x.Id == code, cancellationToken);
+        return club is null ? null : new(FootballMapping.Club(club), club.Seasons.Select(x => x.SeasonIndex).Order().ToArray());
+    }
+
     public async Task<PlayersDto<VotedPlayerDto>?> VotesAsync(ClaimsPrincipal caller, int year, int day, FootballVoteSource source, CancellationToken cancellationToken = default)
     {
         await AccessAsync(caller, year, cancellationToken); CheckDay(day);

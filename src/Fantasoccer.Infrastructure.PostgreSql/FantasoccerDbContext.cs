@@ -12,6 +12,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<Season> Seasons => Set<Season>();
     public DbSet<FootballPlayer> Players => Set<FootballPlayer>();
     public DbSet<FootballClub> Clubs => Set<FootballClub>();
+    public DbSet<FootballClubSeason> ClubSeasons => Set<FootballClubSeason>();
     public DbSet<PlayerSeason> PlayerSeasons => Set<PlayerSeason>();
     public DbSet<GroupBasket> Baskets => Set<GroupBasket>();
     public DbSet<BasketSeason> BasketSeasons => Set<BasketSeason>();
@@ -72,6 +73,24 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<HallRankContribution> HallRankContributions => Set<HallRankContribution>();
     public DbSet<HallBaselineConfirmation> HallBaselineConfirmations => Set<HallBaselineConfirmation>();
     public DbSet<GroupCreationCode> GroupCreationCodes => Set<GroupCreationCode>();
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        NormalizeClubs();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        NormalizeClubs();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void NormalizeClubs()
+    {
+        foreach (var entry in ChangeTracker.Entries<FootballClub>().Where(x => x.State is EntityState.Added or EntityState.Modified))
+            entry.Entity.NormalizeIdentity();
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

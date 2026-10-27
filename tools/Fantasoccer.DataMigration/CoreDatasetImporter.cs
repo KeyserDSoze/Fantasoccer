@@ -16,7 +16,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     string[]? ExcludedContainers = null, string[]? ReconciledIdentityDocuments = null,
     AppliedIdentityResolution[]? ResolvedIdentityConflicts = null, int HistoricalNamedUsers = 0,
     AppliedPlayerCatalogResolution[]? ResolvedPlayerCatalogs = null, int UnresolvedPlayerCatalogEntries = 0,
-    RecoveredRosterPlayer[]? RecoveredRosterPlayers = null, ResolvedClubCode[]? ResolvedClubCodes = null);
+    RecoveredRosterPlayer[]? RecoveredRosterPlayers = null, ResolvedClubCode[]? ResolvedClubCodes = null,
+    int Clubs = 0, int ClubSeasons = 0, int[]? ClubCatalogueYears = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -33,7 +34,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 32;
+    public const int MappingVersion = 33;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -75,7 +76,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         if (state is null)
         {
             if (await database.Users.AnyAsync(cancellationToken) || await database.Groups.AnyAsync(cancellationToken) ||
-                await database.Players.AnyAsync(cancellationToken) || await database.Clubs.AnyAsync(cancellationToken) ||
+                await database.Players.AnyAsync(cancellationToken) || await database.Clubs.AnyAsync(cancellationToken) || await database.ClubSeasons.AnyAsync(cancellationToken) ||
                 await database.FootballMatchdays.AnyAsync(cancellationToken) || await database.FootballDatasets.AnyAsync(cancellationToken) || await database.CardLibraries.AnyAsync(cancellationToken) ||
                 await database.ArchivedOperationalLogs.AnyAsync(cancellationToken) || await database.NewsEditions.AnyAsync(cancellationToken) || await database.TeamAdvice.AnyAsync(cancellationToken) ||
                 await database.UnresolvedPlayerCatalogEntries.AnyAsync(cancellationToken))
@@ -166,6 +167,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         var clubAliases = maps.Where(x => x.Kind == "club").Select(x => x.TargetId).ToArray();
         var importedPlayers = await database.Players.Where(x => x.LegacyId != null && playerAliases.Contains(x.LegacyId.Value)).Select(x => x.Id).ToArrayAsync(cancellationToken);
         var importedClubs = await database.Clubs.Where(x => x.LegacyId != null && clubAliases.Contains(x.LegacyId.Value)).Select(x => x.Id).ToArrayAsync(cancellationToken);
+        await database.ClubSeasons.Where(x => importedClubs.Contains(x.ClubId)).ExecuteDeleteAsync(cancellationToken);
         await database.PlayerSeasons.Where(x => importedPlayers.Contains(x.PlayerId)).ExecuteDeleteAsync(cancellationToken);
         await database.Players.Where(x => importedPlayers.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
         await database.Clubs.Where(x => importedClubs.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
@@ -188,6 +190,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                 database.Seasons.Add(new() { SeasonIndex = season, StartYear = season + 2011 });
         database.Users.AddRange(plan.Users.Values);
         database.Clubs.AddRange(plan.Clubs);
+        database.ClubSeasons.AddRange(plan.ClubSeasons);
         database.Players.AddRange(plan.Players);
         database.UnresolvedPlayerCatalogEntries.AddRange(plan.UnresolvedPlayerCatalogEntries);
         database.PlayerSeasons.AddRange(plan.PlayerSeasons);
@@ -240,9 +243,11 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             Sha256 = document.Sha256, MappingVersion = MappingVersion
         }));
         await database.SaveChangesAsync(cancellationToken);
+        var plannedClubCodes = plan.Clubs.Select(x => x.Id).ToArray();
         if (await database.Groups.CountAsync(x => plan.GroupIds.Contains(x.Id), cancellationToken) != plan.Groups.Count ||
             await database.TeamSeasons.CountAsync(x => plan.GroupIds.Contains(x.GroupId), cancellationToken) != plan.Teams.Count ||
-            await database.UnresolvedPlayerCatalogEntries.CountAsync(x => x.SourceId == state.SourceId, cancellationToken) != plan.UnresolvedPlayerCatalogEntries.Count)
+            await database.UnresolvedPlayerCatalogEntries.CountAsync(x => x.SourceId == state.SourceId, cancellationToken) != plan.UnresolvedPlayerCatalogEntries.Count ||
+            await database.ClubSeasons.CountAsync(x => plannedClubCodes.Contains(x.ClubId), cancellationToken) != plan.ClubSeasons.Count)
             throw new CoreImportException("reconciliation_failed");
         await transaction.CommitAsync(cancellationToken);
         return Report(dataset, plan, 0);
@@ -287,7 +292,9 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
           ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray(),
           HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null),
           ResolvedPlayerCatalogs: plan.ResolvedPlayerCatalogs.ToArray(), UnresolvedPlayerCatalogEntries: plan.UnresolvedPlayerCatalogEntries.Count,
-          RecoveredRosterPlayers: plan.RecoveredRosterPlayers.ToArray(), ResolvedClubCodes: plan.ResolvedClubCodes.ToArray());
+          RecoveredRosterPlayers: plan.RecoveredRosterPlayers.ToArray(), ResolvedClubCodes: plan.ResolvedClubCodes.ToArray(),
+          Clubs: plan.Clubs.Count, ClubSeasons: plan.ClubSeasons.Count,
+          ClubCatalogueYears: plan.Datasets.Where(x => x.Kind == FootballClubSeason.CatalogueDatasetKind).Select(x => x.SeasonIndex).Order().ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -634,6 +641,7 @@ public sealed class CorePlan
     public List<AccountSelection> Selections { get; } = [];
     public List<UnresolvedAccountSelection> UnresolvedSelections { get; } = [];
     public List<FootballClub> Clubs { get; } = [];
+    public List<FootballClubSeason> ClubSeasons { get; } = [];
     public List<FootballPlayer> Players { get; } = [];
     public List<PlayerSeason> PlayerSeasons { get; } = [];
     public List<RosterSnapshot> Rosters { get; } = [];

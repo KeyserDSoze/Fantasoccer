@@ -78,11 +78,31 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             Assert.Equal(identities, await database.Players.OrderBy(x => x.Name).Select(x => x.Id).ToArrayAsync());
             Assert.Equal(new[] { "fio", "nap" }, await database.PlayerSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
             Assert.Equal("fio", (await database.Clubs.SingleAsync(x => x.Id == "fio")).Abbreviation);
+            Assert.Equal("Fiorentina", (await database.Clubs.SingleAsync(x => x.Id == "fio")).Name);
+            Assert.Equal(new[] { "fio", "nap" }, await database.ClubSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
         }
         sources.ConflictingKnownClubCode = true;
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
         await using (var database = factory.Database.CreateContext())
             Assert.Equal(new[] { "fio", "nap" }, await database.PlayerSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
+        await using (var database = factory.Database.CreateContext())
+        {
+            if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == year - 1)) database.Seasons.Add(new() { SeasonIndex = year - 1, StartYear = year + 2010 });
+            var forward = await database.Players.SingleAsync(x => x.Name == "Ingestion forward");
+            database.PlayerSeasons.Add(new() { PlayerId = forward.Id, SeasonIndex = year - 1, ClubId = "fio", Position = PlayerPosition.Forward });
+            await database.SaveChangesAsync();
+        }
+        sources.ConflictingKnownClubCode = false; sources.ForwardTransferred = true;
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            var forward = await database.Players.SingleAsync(x => x.Name == "Ingestion forward");
+            Assert.Equal("nap", (await database.PlayerSeasons.SingleAsync(x => x.PlayerId == forward.Id && x.SeasonIndex == year)).ClubId);
+            Assert.Equal("fio", (await database.PlayerSeasons.SingleAsync(x => x.PlayerId == forward.Id && x.SeasonIndex == year - 1)).ClubId);
+            Assert.Equal("fio", (await database.FootballVotes.SingleAsync(x => x.PlayerId == forward.Id)).ClubId);
+            Assert.Equal(new[] { "fio", "nap" }, await database.ClubSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
+            Assert.False(await database.ClubSeasons.AnyAsync(x => x.SeasonIndex == year - 1));
+        }
         using var ordinary = await factory.AccountAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
     }
@@ -93,8 +113,9 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         public bool InvalidCatalogueRole { get; set; }
         public bool DuplicateCatalogueKey { get; set; }
         public bool ConflictingKnownClubCode { get; set; }
+        public bool ForwardTransferred { get; set; }
         private RealPlayer[] Players => [new() { Name = "Ingestion forward", RealTeam = ConflictingKnownClubCode
-                ? new() { Name = "Fiorentina", Abbreviation = "NAP" } : new() { Name = "Fiorentina" }, Role = Role.Forward, IsActive = true },
+                ? new() { Name = "Fiorentina", Abbreviation = "NAP" } : ForwardTransferred ? new() { Name = "NAPOLI" } : new() { Name = " fIoReNtInA " }, Role = Role.Forward, IsActive = true },
             new() { Name = "Ingestion defender", RealTeam = new() { Name = "Napoli" }, Role = Role.Defensor, IsActive = true }];
         public Task<RealCalendar> GetCalendarAsync(int min = 1, int max = 38) => Task.FromResult(new RealCalendar { Year = FantacalcioTime.ActualYear, Days =
             [new() { Year = FantacalcioTime.ActualYear, SerieADay = 1, Games = [new() { Home = Players[0].RealTeam, Away = Players[1].RealTeam, Date = FantacalcioTime.ItalyNow.Date.AddDays(-1).AddHours(12), HomeGoal = 1, AwayGoal = 0 }] }] });

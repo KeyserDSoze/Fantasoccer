@@ -12,6 +12,8 @@ public sealed partial class CoreDatasetImporter
         Func<string, string, UserAccount> addUser, Func<Guid, string, string, UserAccount> addOwner, Action<int> addSeason, CoreImportOptions options)
     {
         var clubs = new Dictionary<string, FootballClub>(StringComparer.Ordinal);
+        var clubLabels = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var memberships = new Dictionary<(string Code, int Year), FootballClubSeason>();
         var players = new Dictionary<string, FootballPlayer>(StringComparer.Ordinal);
         var seasons = new Dictionary<(string Player, int Year), PlayerSeason>();
         var authoritative = new HashSet<(string Player, int Year)>();
@@ -31,9 +33,35 @@ public sealed partial class CoreDatasetImporter
                 resolvedClubs.Add((origin.Document.Sha256, origin.JsonPath)))
                 plan.ResolvedClubCodes.Add(new(origin.Document.Sha256, origin.Document.Container, DocumentArchiveReference(origin.Document), origin.JsonPath,
                     FantacalcioClubCodes.Version));
+            var name = FantacalcioClubCodes.CanonicalName(key, club.Name);
+            Label(club.Name, key); Label(name, key);
             if (clubs.TryGetValue(key, out var existing)) return existing.Id;
-            var row = new FootballClub { Id = key, LegacyId = map("club", club.Name.Trim().ToLowerInvariant()), Name = club.Name.Trim(), Abbreviation = key };
+            var row = new FootballClub { Id = key, LegacyId = map("club", club.Name.Trim().ToLowerInvariant()), Name = name, Abbreviation = key };
             clubs.Add(key, row); plan.Clubs.Add(row); return row.Id;
+        }
+        void Label(string name, string code)
+        {
+            if (!clubLabels.TryGetValue(name.Trim(), out var values)) clubLabels.Add(name.Trim(), values = new(StringComparer.Ordinal));
+            values.Add(code);
+        }
+        string RankClub(string? name, ClubSource origin)
+        {
+            if (name is not null && clubLabels.TryGetValue(name.Trim(), out var matches))
+            {
+                if (matches.Count != 1) throw new CoreImportException("ambiguous_real_rank_club");
+                return matches.Single();
+            }
+            return Club(new() { Name = name! }, origin);
+        }
+        void Membership(string code, int year, ClubMembershipSource source)
+        {
+            addSeason(year);
+            if (!memberships.TryGetValue((code, year), out var row))
+            {
+                row = new() { ClubId = code, SeasonIndex = year, Sources = source };
+                memberships.Add((code, year), row); plan.ClubSeasons.Add(row);
+            }
+            else row.Sources |= source;
         }
         string Person(RealPlayer player, PlayerSource origin)
         {
@@ -64,7 +92,8 @@ public sealed partial class CoreDatasetImporter
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
             foreach (var (club, index) in (entity.Value?.Teams ?? throw new CoreImportException("missing_clubs")).Select((club, index) => (club, index)))
-                Club(club, ClubOrigin(document, $".t[{index}]"));
+                Membership(Club(club, ClubOrigin(document, $".t[{index}]")), entity.Key, ClubMembershipSource.Catalogue);
+            Root(FootballClubSeason.CatalogueDatasetKind, entity.Key, 0);
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realplayerswrapper"))
         {
@@ -89,7 +118,7 @@ public sealed partial class CoreDatasetImporter
                 catalog.Count, catalog.Count - unnamed, unnamed, resolution is not null));
         }
 
-        LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root);
+        LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root, RankClub, Membership);
 
         var snapshots = new HashSet<(Guid Team, RosterKind Kind, int Day, Guid Competition)>();
         foreach (var document in dataset.Documents.Where(x => x.Container is "team" or "dailyteams" or "openingteams" or "openingdailyteams"))
@@ -181,11 +210,16 @@ public sealed partial class CoreDatasetImporter
                 if (day.SerieADay is < 1 or > 38 || !matchdays.Add((calendar.Key, day.SerieADay))) throw new CoreImportException("duplicate_real_matchday");
                 var row = new FootballMatchday { SeasonIndex = calendar.Key, SerieADay = day.SerieADay };
                 foreach (var (game, ordinal) in (day.Games ?? []).Select((value, index) => (value, index)))
+                {
+                    var home = Club(game.Home, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].h"));
+                    var away = Club(game.Away, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].a"));
+                    Membership(home, calendar.Key, ClubMembershipSource.Calendar);
+                    Membership(away, calendar.Key, ClubMembershipSource.Calendar);
                     row.Matches.Add(new() { SeasonIndex = calendar.Key, SerieADay = day.SerieADay, Ordinal = ordinal,
-                        HomeClubId = Club(game.Home, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].h")),
-                        AwayClubId = Club(game.Away, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].a")), HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
+                        HomeClubId = home, AwayClubId = away, HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
                         Delayed = game.Delayed, LegacyKickoffLocal = game.Date is { } date ? Local(date) : null,
                         KickoffUtc = game.Date is { } kickoff ? ToUtc(kickoff) : null });
+                }
                 plan.Matchdays.Add(row);
             }
         }
