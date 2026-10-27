@@ -69,6 +69,8 @@ public sealed class FantasyStandingSnapshot
     public Guid GroupId { get; set; }
     public Guid LeagueId { get; set; }
     public int SeasonIndex { get; set; }
+    // Compatibility key component, constrained to zero: only the current rank
+    // is persisted. SerieADay identifies the last calculated matchday.
     public int SnapshotDay { get; set; }
     public int SerieADay { get; set; }
     public ICollection<FantasyStandingStage> Stages { get; set; } = [];

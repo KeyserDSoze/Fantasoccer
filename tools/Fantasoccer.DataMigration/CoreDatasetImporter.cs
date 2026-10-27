@@ -36,11 +36,11 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 35;
+    public const int MappingVersion = 36;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
-            "live", "notification", "official", "chancedrealplayerwrapper", "statplayerswrapper", "realrank", "calendar", "rank", "dailyrank", "playedgame", "openingstandings", "randomizedplayers", "marketwrapper", "auction", "halloffame", "cards", "pushnotification", "pushnotificationsent", "news", "teamwithai" };
+            "live", "notification", "official", "chancedrealplayerwrapper", "statplayerswrapper", "realrank", "calendar", "rank", "playedgame", "openingstandings", "randomizedplayers", "marketwrapper", "auction", "halloffame", "cards", "pushnotification", "pushnotificationsent", "news", "teamwithai" };
     public static readonly IReadOnlySet<string> Tables = new HashSet<string>(StringComparer.Ordinal) { "logs" };
     // These are intentionally not translated into live relational documents.
     // The verified export/restore retains every payload byte and manifest hash.
@@ -50,6 +50,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         ["logos"] = "Blob files: retained with imported/versioned references",
         ["cardimages"] = "Blob files: retained with imported/versioned references",
         ["livegroup"] = "Private historical derived snapshots: archived in the verified dump; live reads use the SQL projection",
+        ["dailyrank"] = "Historical daily standings: retained in the verified dump only; historical reads reconstruct saved calendar/results with the annual rules",
         ["mcp-keys"] = "Private cryptographic artifacts: preserve the original key ring separately; never publish or import as gameplay"
     };
 
@@ -294,8 +295,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                    .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump"))
                .Concat(plan.ResolvedIdentityConflicts.Select(x => "appidentity: unselected duplicate " + x.OtherDocumentSha256 + " preserved in verified dump; selected " + x.PreferredDocumentSha256))
                .Concat(plan.ResolvedPlayerCatalogs.Select(x => "realplayerswrapper: " + x.UnresolvedEntries + " unnamed catalog entries preserved in SQL and verified dump; document " + x.DocumentSha256)).ToArray(),
-          ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
-              .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Order().ToArray(),
+           ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
+               .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Append("dailyrank").Order().ToArray(),
           ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray(),
           ResolvedIdentityConflicts: plan.ResolvedIdentityConflicts.ToArray(),
           HistoricalNamedUsers: plan.Users.Values.Count(x => x.Email is null),

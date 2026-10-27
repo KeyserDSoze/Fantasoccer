@@ -1,13 +1,16 @@
 using System.Security.Claims;
 using Fantasoccer.Application.Core.Groups;
+using Fantasoccer.Business;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Application.Core.Competitions;
 
-public sealed class CompetitionApplicationService(FantasoccerDbContext database, IAuthorizationService authorization)
+public sealed partial class CompetitionApplicationService(FantasoccerDbContext database, IAuthorizationService authorization,
+    IFactory<ILeagueCalculator> calculators)
 {
     public async Task<LeagueSeason> AuthorizeAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken)
     {
@@ -39,8 +42,9 @@ public sealed class CompetitionApplicationService(FantasoccerDbContext database,
 
     public async Task<FantasyRankDto?> RankAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, int day = 0, CancellationToken cancellationToken = default)
     {
-        await AuthorizeAsync(caller, group, league, year, cancellationToken);
+        var season = await AuthorizeAsync(caller, group, league, year, cancellationToken);
         if (day is < 0 or > 38) throw new ApplicationFault(400, "invalid_rank_day", "Giornata non valida.");
+        if (day > 0) return await HistoricalRankAsync(season, group, league, year, day, cancellationToken);
         var snapshot = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == day)
             .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
         return snapshot is null ? null : new(snapshot.SerieADay, snapshot.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,

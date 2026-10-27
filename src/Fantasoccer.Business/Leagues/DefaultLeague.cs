@@ -80,7 +80,8 @@
                     if (!rank.RankedTeams.ContainsKey(round.Key))
                     {
                         rank.RankedTeams.Add(round.Key,
-                            round.Value.First().Games.SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } }).ToList());
+                            round.Value.SelectMany(day => day.Games).SelectMany(x => new RankedTeam[] { new RankedTeam { Name = x.Home, Owner = x.HomeOwner }, new RankedTeam { Name = x.Away, Owner = x.AwayOwner } })
+                                .DistinctBy(x => x.Owner).ToList());
                     }
                     var teams = rank.RankedTeams[round.Key];
                     foreach (var day in round.Value)

@@ -63,7 +63,7 @@ internal sealed class FantasyStandingConfiguration : IEntityTypeConfiguration<Fa
 {
     public void Configure(EntityTypeBuilder<FantasyStandingSnapshot> builder)
     {
-        builder.ToTable("FantasyStandingSnapshots", table => table.HasCheckConstraint("CK_FantasyStandingSnapshots_Day", "\"SnapshotDay\" BETWEEN 0 AND 38 AND \"SerieADay\" BETWEEN 0 AND 38"));
+        builder.ToTable("FantasyStandingSnapshots", table => table.HasCheckConstraint("CK_FantasyStandingSnapshots_Day", "\"SnapshotDay\" = 0 AND \"SerieADay\" BETWEEN 0 AND 38"));
         builder.HasKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.SnapshotDay });
         builder.HasOne<LeagueSeason>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsMany(x => x.Stages, stage =>

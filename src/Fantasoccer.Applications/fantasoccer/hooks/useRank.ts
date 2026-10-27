@@ -196,12 +196,8 @@ export const useDailyRank = (
       return { rank: null, enhancedRank: null }
     }
 
-    const [rank, enhancedRank] = await Promise.all([
-      rankService.getDailyRank(key),
-      rankService.getEnhancedDailyRank(key)
-    ])
-
-    return { rank, enhancedRank }
+    const rank = await rankService.getDailyRank(key)
+    return { rank, enhancedRank: rank ? enhanceRank(rank) : null }
   }, [key])
 
   return useRankBase(fetcher, options)

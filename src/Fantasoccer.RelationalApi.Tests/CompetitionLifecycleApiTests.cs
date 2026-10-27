@@ -68,12 +68,15 @@ public sealed partial class WorkspaceApiTests
         var daily = (await manager.GetFromJsonAsync<FantasyRankDto>(path + "/rank?day=4"))!;
         Assert.Equal(4, rank.SerieADay);
         Assert.Equal(4, daily.SnapshotDay);
+        Assert.True(daily.IsReconstructed); Assert.False(rank.IsReconstructed);
         Assert.All(rank.Rounds.SelectMany(x => x.Value), x => Assert.Equal(1, x.Draws));
         Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync(path + "/recalculate", request)).StatusCode);
         (await manager.PostAsJsonAsync(path + "/recalculate", request with { ExpectedVersion = 2 })).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync(path + "/calendar/generate", new GenerateCompetitionRequest(3, true))).StatusCode);
         await using var final = factory.Database.CreateContext();
         Assert.Equal(1, await final.PlayedMatchSnapshots.CountAsync(x => x.GroupId == group.GroupId));
+        Assert.Equal(1, await final.FantasyStandingSnapshots.CountAsync(x => x.GroupId == group.GroupId && x.LeagueId == league && x.SeasonIndex == 20));
+        Assert.False(await final.FantasyStandingSnapshots.AnyAsync(x => x.GroupId == group.GroupId && x.SnapshotDay != 0));
         Assert.All((await final.PlayedMatchSnapshots.SingleAsync(x => x.GroupId == group.GroupId)).Players, x => Assert.Equal(44, x.Price));
     }
 }

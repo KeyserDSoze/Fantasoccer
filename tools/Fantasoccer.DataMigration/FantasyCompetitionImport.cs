@@ -122,26 +122,15 @@ public sealed partial class CoreDatasetImporter
             }
             plan.Calendars.Add(calendar);
         }
-        foreach (var document in dataset.Documents.Where(x => x.Container is "rank" or "dailyrank"))
+        foreach (var document in dataset.Documents.Where(x => x.Container == "rank"))
         {
-            Rank value; LeagueKey key; int snapshotDay;
-            if (document.Container == "rank")
-            {
-                var entity = document.Envelope.Deserialize<Entity<Rank, LeagueKey>>() ?? throw new CoreImportException("invalid_rank");
-                key = entity.Key ?? throw new CoreImportException("missing_competition_key"); value = entity.Value ?? throw new CoreImportException("missing_rank"); snapshotDay = 0;
-            }
-            else
-            {
-                var entity = document.Envelope.Deserialize<Entity<Rank, YearDayLeague>>() ?? throw new CoreImportException("invalid_daily_rank");
-                var dayKey = entity.Key ?? throw new CoreImportException("missing_competition_key");
-                key = new() { Group = dayKey.Group, League = dayKey.League, Year = dayKey.Year };
-                value = entity.Value ?? throw new CoreImportException("missing_rank"); snapshotDay = dayKey.Day;
-                if (snapshotDay is < 1 or > 38) throw new CoreImportException("invalid_rank_day");
-            }
+            var entity = document.Envelope.Deserialize<Entity<Rank, LeagueKey>>() ?? throw new CoreImportException("invalid_rank");
+            var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
+            var value = entity.Value ?? throw new CoreImportException("missing_rank");
             var (group, league) = Scope(key);
-            if (value.SerieADay is < 0 or > 38 || plan.Standings.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year && x.SnapshotDay == snapshotDay))
+            if (value.SerieADay is < 0 or > 38 || plan.Standings.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year))
                 throw new CoreImportException("rank_collision");
-            var snapshot = new FantasyStandingSnapshot { GroupId = group, LeagueId = league, SeasonIndex = key.Year, SnapshotDay = snapshotDay, SerieADay = value.SerieADay };
+            var snapshot = new FantasyStandingSnapshot { GroupId = group, LeagueId = league, SeasonIndex = key.Year, SnapshotDay = 0, SerieADay = value.SerieADay };
             foreach (var (stageKey, teams) in value.RankedTeams ?? [])
             {
                 var stage = new FantasyStandingStage { Stage = stageKey, Ordinal = snapshot.Stages.Count };

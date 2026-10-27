@@ -10,7 +10,7 @@ namespace Fantasoccer.PostgreSql.Tests;
 public sealed partial class CoreMigrationTests
 {
     [CoreFact]
-    public async Task Fantasy_import_keeps_stage_turn_matchday_results_and_rank_snapshots_distinct()
+    public async Task Fantasy_import_preserves_saved_calendar_and_current_rank_but_leaves_daily_copies_in_the_dump_only()
     {
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Second team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
@@ -44,9 +44,8 @@ public sealed partial class CoreMigrationTests
         Assert.True(match.Result.Home.DefensiveBonus);
         Assert.Equal(2, match.Result.HomeGoals);
         var snapshots = await database.FantasyStandingSnapshots.AsSplitQuery().OrderBy(x => x.SnapshotDay).ToArrayAsync();
-        Assert.Equal(2, snapshots.Length);
+        Assert.Single(snapshots); Assert.Equal(0, snapshots[0].SnapshotDay);
         Assert.Equal(20.5f, snapshots[0].Stages.Single(x => x.Stage == "Final stage").Teams.Single().Points);
-        Assert.Equal(3, snapshots[1].Stages.Single(x => x.Stage == "Final stage").Teams.Single().Points);
         Assert.Empty(snapshots[0].Stages.Single(x => x.Stage == "Empty stage").Teams);
         var saved = await database.PlayedMatchSnapshots.SingleAsync();
         Assert.Equal(match.Id, saved.MatchId);
@@ -56,6 +55,8 @@ public sealed partial class CoreMigrationTests
         var id = match.Id;
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+        Assert.Contains("dailyrank", repeated.ExcludedContainers!);
+        Assert.Contains(repeated.PreservedArtifacts!, x => x.StartsWith("dailyrank:", StringComparison.Ordinal));
         await played.DeleteBlobAsync("sample");
         calendar.Rounds["Final stage"][0].Games[0].Result!.HomeGoal = 5;
         await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(calendar, key))), overwrite: true);

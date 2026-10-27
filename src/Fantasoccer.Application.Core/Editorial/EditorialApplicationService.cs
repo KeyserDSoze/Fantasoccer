@@ -32,7 +32,15 @@ public sealed class EditorialApplicationService(FantasoccerDbContext database, I
         var calendar = await competitions.CalendarAsync(caller, group, league, year, cancellationToken) ?? throw Invalid("Calendario non disponibile.");
         var games = calendar.Rounds.Values.SelectMany(x => x).Where(x => x.SerieADay == day).SelectMany(x => x.Games).ToArray();
         if (games.Length == 0 || games.Any(x => x.Result == null)) throw Invalid("L'articolo richiede risultati salvati completi, non anteprime live.");
-        var rank = await competitions.RankAsync(caller, group, league, year, day, cancellationToken) ?? await competitions.RankAsync(caller, group, league, year, cancellationToken: cancellationToken);
+        FantasyRankDto? rank;
+        try { rank = await competitions.RankAsync(caller, group, league, year, day, cancellationToken); }
+        catch (ApplicationFault fault) when (fault.Code is "historical_rank_identity_unavailable" or "historical_rank_result_unavailable")
+        {
+            // Legacy calendars may retain scores without resolvable team links.
+            // News can still describe saved results, but must not fabricate a
+            // historical standing or substitute today's rank for that day.
+            rank = null;
+        }
         var version = await database.NewsEditions.Where(x => x.GroupId == group && x.SeasonIndex == year && x.Day == day).Select(x => (int?)x.Version).SingleOrDefaultAsync(cancellationToken) ?? 0;
         if (version != request.ExpectedVersion) throw Changed();
         var facts = JsonSerializer.Serialize(new

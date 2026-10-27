@@ -29,14 +29,22 @@ public sealed partial class WorkspaceApiTests
             database.FantasyCalendars.Add(new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, Stages =
                 [new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, Stage = "@", Days =
                     [new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, Stage = "@", SerieADay = 8, FantasyTurn = 1, Games =
-                        [new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, Id = Guid.NewGuid(), Stage = "@", HomeName = "Home", AwayName = "Away", Result = new() { Home = new() { Value = 70 }, Away = new() { Value = 65 }, HomeGoals = 1, AwayGoals = 0 } }] }] }] });
+                         [new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, Id = Guid.NewGuid(), Stage = "@", HomeName = "Home", AwayName = "Away", Result = new() { Home = new() { Value = 70 }, Away = new() { Value = 65 }, HomeGoals = 1, AwayGoals = 0 } }] }] }] });
+            // A newer current rank must not be used as if it described day 8.
+            database.FantasyStandingSnapshots.Add(new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, SnapshotDay = 0, SerieADay = 10 });
             await database.SaveChangesAsync();
         }
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync(path)).StatusCode);
         Assert.Equal("legacy-html", (await owner.GetFromJsonAsync<NewsEditionDto>(path))!.Articles[0].Format);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await owner.PostAsJsonAsync(path + $"/{league}/generate", new GenerateNewsRequest(1))).StatusCode);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var calls = 0;
-        var generator = new StubEditorial(async (_, facts) => { Interlocked.Increment(ref calls); Assert.DoesNotContain(account.Email, facts); entered.TrySetResult(); await release.Task; return "Titolo sintetico\nArticolo basato sui risultati salvati."; });
+        var generator = new StubEditorial(async (_, facts) =>
+        {
+            Interlocked.Increment(ref calls); Assert.DoesNotContain(account.Email, facts);
+            using var context = System.Text.Json.JsonDocument.Parse(facts);
+            Assert.Equal(System.Text.Json.JsonValueKind.Null, context.RootElement.GetProperty("standings").ValueKind);
+            entered.TrySetResult(); await release.Task; return "Titolo sintetico\nArticolo basato sui risultati salvati.";
+        });
         using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<IEditorialTextGenerator>(generator)));
         app.Services.GetRequiredService<IOptions<EditorialAiOptions>>().Value.Enabled = true;
         using var client = app.CreateClient(); client.DefaultRequestHeaders.Add("X-Workspace-User", account.Email);

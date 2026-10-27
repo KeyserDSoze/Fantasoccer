@@ -10,11 +10,14 @@ public sealed record CalendarGameDto(Guid Id, int Number, string Home, string? H
 public sealed record CalendarDayDto(int SerieADay, int Number, CalendarGameDto[] Games);
 public sealed record FantasyCalendarDto(int Year, Dictionary<string, CalendarDayDto[]> Rounds, int Version);
 public sealed record RankedTeamDto(Guid TeamId, Guid BasketId, string Name, string Owner, float Point, int Victories, int Draws, int Defeats,
-    int Goal, int SufferedGoal, float ValuePoint, float SufferedValuePoint, int PlusMoney, int Money)
+    int Goal, int SufferedGoal, float ValuePoint, float SufferedValuePoint, int PlusMoney, int? Money)
 {
-    public int ValueAssets => Money + PlusMoney;
+    public int? ValueAssets => Money + PlusMoney;
 }
-public sealed record FantasyRankDto(int SerieADay, Dictionary<string, RankedTeamDto[]> Rounds, int SnapshotDay);
+public sealed record FantasyRankDto(int SerieADay, Dictionary<string, RankedTeamDto[]> Rounds, int SnapshotDay)
+{
+    public bool IsReconstructed { get; init; }
+}
 public sealed record FinalVoteDto(float Value, bool Special);
 public sealed record LivePlayerDto(RosterPlayerDto Current, VoteDto? Vote, ChanceDto? Chance, FootballGameDto? RealGame, FinalVoteDto? FinalValue, int CurrentPosition);
 public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? SourceVersion, string Name, string Owner, string[] AdditionalOwners,

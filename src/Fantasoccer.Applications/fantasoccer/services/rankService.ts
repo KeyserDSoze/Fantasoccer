@@ -76,7 +76,9 @@ export class RankService {
   // ============================================
 
   /**
-   * Get daily rank data for a specific year/day/league key
+   * Reconstruct standings through this Serie A day from saved results/rules.
+   * No daily snapshot is stored; money/valueAssets are null when historical
+   * balances are unavailable. plusMoney is a theoretical entitlement only.
    */
   async getDailyRank(key: YearDayLeague): Promise<Rank | null> {
     return (await apiRequest<Rank | undefined>(`${competitionPath(key.group, key.league, key.year)}/rank?day=${key.day}`)) ?? null

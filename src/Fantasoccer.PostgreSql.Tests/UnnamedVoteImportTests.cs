@@ -164,7 +164,7 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
-    public async Task Excluding_unnamed_votes_does_not_recalculate_imported_calendar_results_current_rank_or_daily_snapshots()
+    public async Task Excluding_unnamed_votes_does_not_recalculate_imported_calendar_results_or_current_rank()
     {
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Second team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
@@ -198,9 +198,8 @@ public sealed partial class CoreMigrationTests
             Assert.Equal(7, game.Matchday.FantasyTurn); Assert.Equal(1, game.Matchday.SerieADay);
             Assert.Equal(74.25f, game.Result!.Home!.Value); Assert.Equal(3, game.Result.HomeGoals); Assert.Equal(1, game.Result.AwayGoals);
             var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().AsSplitQuery().OrderBy(x => x.SnapshotDay).ToArrayAsync();
-            Assert.Equal(2, snapshots.Length);
+            Assert.Single(snapshots); Assert.Equal(0, snapshots[0].SnapshotDay);
             Assert.Equal(20.5f, Assert.Single(Assert.Single(snapshots[0].Stages).Teams).Points);
-            Assert.Equal(3, Assert.Single(Assert.Single(snapshots[1].Stages).Teams).Points);
             Assert.All(snapshots, x =>
             {
                 var team = Assert.Single(Assert.Single(x.Stages).Teams);

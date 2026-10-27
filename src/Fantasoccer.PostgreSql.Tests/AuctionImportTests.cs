@@ -36,7 +36,7 @@ public sealed partial class CoreMigrationTests
         Assert.Empty(plan.Auctions); Assert.Empty(plan.PlayerOrders);
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
-        Assert.Equal(new[] { "auction", "randomizedplayers", "table:logs" }, report.ExcludedContainers);
+        Assert.Equal(new[] { "auction", "dailyrank", "randomizedplayers", "table:logs" }, report.ExcludedContainers);
         Assert.DoesNotContain("auction", report.PendingContainers);
         Assert.Contains(report.PreservedArtifacts!, x => x.StartsWith("auction: excluded"));
         Assert.Contains(report.PreservedArtifacts!, x => x.StartsWith("randomizedplayers: excluded"));

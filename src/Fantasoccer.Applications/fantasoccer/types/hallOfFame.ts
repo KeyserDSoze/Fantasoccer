@@ -23,7 +23,7 @@ export class HallOfFameHelper {
   static getWinsInStage(team: WinningTeam, stage: string) { return team.wins[stage] ?? [] }
   static getPlayerWinsInStage(player: WinningPlayer, stage: string) { return player.wins[stage] ?? [] }
   static sortByPoints(teams: RankedTeam[]) { return [...teams].sort((a, b) => b.points - a.points) }
-  static sortByValueAssets(teams: RankedTeam[]) { return [...teams].sort((a, b) => b.valueAssets - a.valueAssets) }
+  static sortByValueAssets(teams: RankedTeam[]) { return [...teams].sort((a, b) => (b.valueAssets ?? -Infinity) - (a.valueAssets ?? -Infinity)) }
   static getGoalDifference(team: RankedTeam) { return team.goals - team.sufferedGoals }
   static getValuePointsDifference(team: RankedTeam) { return team.valuePoints - team.sufferedValuePoints }
   static getTotalGamesPlayed(team: RankedTeam) { return team.victories + team.draws + team.defeats }

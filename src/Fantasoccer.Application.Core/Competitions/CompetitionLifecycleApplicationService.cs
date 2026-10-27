@@ -54,7 +54,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         AppendCalendar(calendar, domain, teams);
         database.FantasyCalendars.Add(calendar);
         var rank = calculator.GetRank(settings, domain);
-        await StoreRankAsync(group, league, year, 0, rank, teams, cancellationToken);
+        await StoreRankAsync(group, league, year, rank, teams, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -123,10 +123,9 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         var domain = CompetitionMapping.Domain(calendar);
         var teams = await TeamsAsync(group, league, year, cancellationToken);
         var rank = calculator.GetRank(settings, new() { Year = year, Rounds = domain.Rounds.Where(x => x.Value.Count > 0).ToDictionary(x => x.Key, x => x.Value) });
-        // The current rank and a cumulative snapshot for its actual Serie A day
-        // are distinct. Do not manufacture daily snapshots for untouched history.
-        await StoreRankAsync(group, league, year, 0, rank, teams, cancellationToken);
-        if (rank.SerieADay > 0) await StoreRankAsync(group, league, year, rank.SerieADay, rank, teams, cancellationToken);
+        // Persist only the latest rank. Historical reads project the saved
+        // calendar/results with the annual rules, without storing daily copies.
+        await StoreRankAsync(group, league, year, rank, teams, cancellationToken);
         var annualTeams = teams.Select(x => new AnnualTeam { Name = x.Name, Owner = x.Owners.Single(o => o.IsPrimary).Membership.User.OwnerReference, AdditionalOwners = [] }).ToList();
         var expanded = calculator.AddDaysInLeague(year, new() { Year = year, Type = type, Settings = settings }, annualTeams, rank, domain);
         AppendCalendar(calendar, expanded, teams);
@@ -163,10 +162,10 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         return daily;
     }
 
-    private async Task StoreRankAsync(Guid group, Guid league, int year, int day, Rank rank, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
+    private async Task StoreRankAsync(Guid group, Guid league, int year, Rank rank, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
     {
-        await database.FantasyStandingSnapshots.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == day).ExecuteDeleteAsync(cancellationToken);
-        var snapshot = new FantasyStandingSnapshot { GroupId = group, LeagueId = league, SeasonIndex = year, SnapshotDay = day, SerieADay = rank.SerieADay };
+        await database.FantasyStandingSnapshots.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == 0).ExecuteDeleteAsync(cancellationToken);
+        var snapshot = new FantasyStandingSnapshot { GroupId = group, LeagueId = league, SeasonIndex = year, SnapshotDay = 0, SerieADay = rank.SerieADay };
         foreach (var (name, rows) in rank.RankedTeams)
         {
             var stage = new FantasyStandingStage { Stage = name, Ordinal = snapshot.Stages.Count };

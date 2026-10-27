@@ -557,7 +557,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.ToTable("FantasyStandingSnapshots", null, t =>
                         {
-                            t.HasCheckConstraint("CK_FantasyStandingSnapshots_Day", "\"SnapshotDay\" BETWEEN 0 AND 38 AND \"SerieADay\" BETWEEN 0 AND 38");
+                            t.HasCheckConstraint("CK_FantasyStandingSnapshots_Day", "\"SnapshotDay\" = 0 AND \"SerieADay\" BETWEEN 0 AND 38");
                         });
                 });
 
