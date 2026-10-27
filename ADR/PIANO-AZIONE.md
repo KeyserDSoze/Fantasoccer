@@ -298,6 +298,14 @@ Catalogo `fantacalcio-2026-10-27-v2` di 39 nomi/codici, MappingVersion 31; nessu
 
 Verificati 127 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, TypeScript, publish Release di tool/API e modello EF invariato. Le quattro nuove coppie hanno test positivi e negativi, inclusa la mancata accettazione automatica della sigla alternativa `SNA` per Siena.
 
+### Copertura globale dei cataloghi multi-anno e alias esatto Juve
+
+L'unione completa dei cataloghi club condivisa dal gestore comprende 62 coppie nome/abbreviazione, 40 etichette e 39 club. L'unico nome non coperto dalla v2 è `Juve`; `Spal` è già riconosciuto tramite confronto case-insensitive. La v3 aggiunge l'alias esatto `Juve → Juventus` in un dizionario immutabile separato dai nomi canonici. La corrispondenza è documentata dal sito ufficiale Juventus; il codice `juv` era già verificato sulla fonte fantacalcio.it. Non si introducono prefissi, alias fuzzy, equivalenze fra giocatori o altre abbreviazioni non verificate.
+
+La regressione tratta insieme tutte le 62 coppie in più cataloghi/stagioni, con e senza sigla esplicita, anche invertendone l'ordine: resta un solo club `juv`, le sorgenti restano identiche e la reimportazione è idempotente. Sono verificati anche i riferimenti da rose/voti/anni del giocatore, i valori economici e il rifiuto atomico di `Juve/NAP`. Catalogo `fantacalcio-2026-10-27-v3`, MappingVersion 32; schema, env, risoluzioni utenti, confini autorizzativi e blocchi di reimport restano invariati. Nessun reset, import reale o scrittura Azure.
+
+Verificati 130 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, TypeScript, publish Release di tool/API e modello EF invariato. La copertura riguarda l'intero elenco pubblico estratto dai cataloghi, non certifica ancora l'analisi dell'intero dump né autorizza il cutover.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

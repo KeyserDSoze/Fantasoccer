@@ -73,6 +73,24 @@ public sealed class SeasonPlayerKeyFormatTests
     public void Explicit_codes_that_contradict_verified_provider_names_are_refused_not_overwritten(string name, string code)
         => Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(code, name));
 
+    [Fact]
+    public void Documented_exact_club_aliases_share_canonical_keys_without_enabling_prefix_or_fuzzy_matching()
+    {
+        Assert.Single(FantacalcioClubCodes.Aliases);
+        foreach (var (alias, canonical) in FantacalcioClubCodes.Aliases)
+        {
+            Assert.False(FantacalcioClubCodes.Names.ContainsKey(alias));
+            var code = FantacalcioClubCodes.Names[canonical];
+            Assert.Equal(code, KeyUtils.GetClubKey(null, alias));
+            Assert.Equal(code, KeyUtils.GetClubKey(null, " " + alias.ToUpperInvariant() + " "));
+            Assert.Equal(code, KeyUtils.GetClubKey(code.ToUpperInvariant(), alias));
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("NAP", alias));
+        }
+        Assert.Equal("juv", KeyUtils.GetClubKey(null, "Juve"));
+        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé" })
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
+    }
+
     [Theory]
     [InlineData("Catania", "cat")]
     [InlineData("Siena", "sie")]

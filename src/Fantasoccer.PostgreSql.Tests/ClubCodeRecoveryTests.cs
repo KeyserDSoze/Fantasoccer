@@ -83,6 +83,112 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
+    public async Task All_cross_year_catalogue_name_code_pairs_resolve_together_in_either_order_without_duplicate_clubs_or_source_changes()
+    {
+        // Public football labels/codes only, covering the complete cross-year
+        // catalogue union; no manifest, original Blob name or account data.
+        (string Name, string? Abbreviation, string ExpectedCode)[] samples =
+        [
+            ("Atalanta", null, "ata"), ("Atalanta", "ata", "ata"), ("Benevento", null, "ben"),
+            ("Bologna", null, "bol"), ("Bologna", "bol", "bol"), ("Brescia", null, "bre"),
+            ("Cagliari", null, "cag"), ("Cagliari", "cag", "cag"), ("Carpi", null, "car"),
+            ("Catania", null, "cat"), ("Cesena", null, "ces"), ("Chievo", null, "chi"),
+            ("Como", null, "com"), ("Como", "com", "com"), ("Cremonese", null, "cre"),
+            ("Cremonese", "cre", "cre"), ("Crotone", null, "cro"), ("Empoli", null, "emp"),
+            ("Fiorentina", null, "fio"), ("Fiorentina", "fio", "fio"), ("Frosinone", null, "fro"),
+            ("Frosinone", "fro", "fro"), ("Genoa", null, "gen"), ("Genoa", "gen", "gen"),
+            ("Inter", null, "int"), ("Inter", "int", "int"), ("Juve", null, "juv"),
+            ("Juventus", null, "juv"), ("Juventus", "juv", "juv"), ("Lazio", null, "laz"),
+            ("Lazio", "laz", "laz"), ("Lecce", null, "lec"), ("Lecce", "lec", "lec"),
+            ("Livorno", null, "liv"), ("Milan", null, "mil"), ("Milan", "mil", "mil"),
+            ("Monza", null, "mon"), ("Monza", "mon", "mon"), ("Napoli", null, "nap"),
+            ("Napoli", "nap", "nap"), ("Palermo", null, "pal"), ("Parma", null, "par"),
+            ("Parma", "par", "par"), ("Pescara", null, "pes"), ("Pisa", "pis", "pis"),
+            ("Roma", null, "rom"), ("Roma", "rom", "rom"), ("Salernitana", null, "sal"),
+            ("Sampdoria", null, "sam"), ("Sassuolo", null, "sas"), ("Sassuolo", "sas", "sas"),
+            ("Siena", null, "sie"), ("Spal", null, "spa"), ("Spezia", null, "spe"),
+            ("Torino", null, "tor"), ("Torino", "tor", "tor"), ("Udinese", null, "udi"),
+            ("Udinese", "udi", "udi"), ("Venezia", null, "ven"), ("Venezia", "ven", "ven"),
+            ("Verona", null, "ver"), ("Verona", "ver", "ver")
+        ];
+        Assert.Equal(62, samples.Length); Assert.Equal(40, samples.Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(39, samples.Select(x => x.ExpectedCode).Distinct().Count());
+        foreach (var sample in samples) Assert.Equal(sample.ExpectedCode, KeyUtils.GetClubKey(sample.Abbreviation, sample.Name));
+        var container = await ExtraContainerAsync("realteamwrapper");
+        await using var database = fixture.CreateContext();
+        foreach (var reversed in new[] { false, true })
+        {
+            var ordered = reversed ? samples.Reverse().ToArray() : samples;
+            var sources = new List<(Azure.Storage.Blobs.BlobClient Blob, string Json, Azure.ETag ETag)>();
+            foreach (var explicitCode in new[] { false, true })
+            {
+                var rows = ordered.Where(x => (x.Abbreviation is not null) == explicitCode).Select(x => new { n = x.Name, a = x.Abbreviation }).ToArray();
+                var year = explicitCode ? 15 : 1;
+                var json = JsonSerializer.Serialize(new { Key = year, Value = new { t = rows } });
+                var blob = container.GetBlobClient(explicitCode ? "b-explicit-codes" : "a-name-only");
+                await blob.UploadAsync(BinaryData.FromString(json), overwrite: true);
+                sources.Add((blob, json, (await blob.GetPropertiesAsync()).Value.ETag));
+            }
+            await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+            var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
+            Assert.Equal(39, plan.Clubs.Count); Assert.Single(plan.Clubs.Where(x => x.Id == "juv"));
+            Assert.Equal(samples.Select(x => x.ExpectedCode).Distinct().Order(), plan.Clubs.Select(x => x.Id).Order());
+            Assert.Equal(39, plan.ResolvedClubCodes.Count);
+            Assert.All(plan.ResolvedClubCodes, x => Assert.Equal(FantacalcioClubCodes.Version, x.CatalogueVersion));
+            var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+            Assert.Equal(39, await database.Clubs.CountAsync()); Assert.Equal(1, await database.Clubs.CountAsync(x => x.Id == "juv"));
+            Assert.Equal(39, report.ResolvedClubCodes!.Length);
+            var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
+            Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+            foreach (var (blob, json, etag) in sources)
+            {
+                Assert.Equal(etag, (await blob.GetPropertiesAsync()).Value.ETag);
+                Assert.Equal(json, (await blob.DownloadContentAsync()).Value.Content.ToString());
+            }
+        }
+    }
+
+    [CoreFact]
+    public async Task Exact_Juve_alias_links_rosters_votes_and_player_years_to_one_club_but_never_overrides_an_explicit_conflict()
+    {
+        var clubs = await ExtraContainerAsync("realteamwrapper"); var source = clubs.GetBlobClient("alias-catalogue");
+        await source.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Juve\",\"a\":null},{\"n\":\"Juventus\",\"a\":null}]}}"));
+        var catalogues = await ExtraContainerAsync("realplayerswrapper");
+        await catalogues.GetBlobClient("14").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new()
+            { Players = [new() { Name = "Alias fixture player", Role = Role.Forward, RealTeam = new() { Name = "Juventus", Abbreviation = "JUV" } }] }, 14))));
+        var votes = await ExtraContainerAsync("official");
+        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+            { Players = [new() { Name = "Alias fixture player", Role = Role.Forward, RealTeam = new() { Name = "Juventus", Abbreviation = "" },
+                Vote = new() { Value = 7, HasVote = true, IsFinal = true } }] }, new() { Year = 15, Day = 2 }))));
+        var rosters = await ExtraContainerAsync("team");
+        await rosters.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+            { Name = "Alias fixture roster", Owner = Email, Players = [new() { Name = "Alias fixture player", Role = Role.Forward,
+                RealTeam = new() { Name = "Juve", Abbreviation = "" }, Price = 41, Revenue = 58, Status = PlayerInTeamStatus.Sold, Position = FantaSoccerRole.Tribune }] },
+            new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email }))));
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal("juv", (await database.Clubs.SingleAsync()).Id);
+        Assert.Equal(new[] { 14, 15 }, await database.PlayerSeasons.OrderBy(x => x.SeasonIndex).Select(x => x.SeasonIndex).ToArrayAsync());
+        Assert.All(await database.PlayerSeasons.ToArrayAsync(), x => Assert.Equal("juv", x.ClubId));
+        Assert.Equal("juv", (await database.FootballVotes.SingleAsync()).ClubId);
+        var player = (await database.RosterSnapshots.AsNoTracking().AsSplitQuery().SingleAsync()).Players.Single();
+        Assert.Equal("juv", player.ClubId); Assert.Equal(41, player.Price); Assert.Equal(58, player.Revenue);
+        Assert.Equal((int)PlayerInTeamStatus.Sold, player.Status); Assert.Equal((int)FantaSoccerRole.Tribune, player.Position);
+        Assert.Contains(report.ResolvedClubCodes!, x => x.Container == "team" && x.JsonPath == "$.v.p[0].t");
+        Assert.DoesNotContain("Juve", JsonSerializer.Serialize(report));
+        var checkpoints = await database.CoreImportCheckpoints.AsNoTracking().Select(x => x.Sha256).Order().ToArrayAsync();
+        await source.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Juve\",\"a\":\"NAP\"}]}}"), overwrite: true);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var fault = await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database).ImportAsync(_dump));
+        Assert.Contains("club_code_name_mismatch", fault.ClubValidation!.Reasons);
+        Assert.DoesNotContain("Juve", CoreImportDiagnostics.Format(fault));
+        Assert.Equal(checkpoints, await database.CoreImportCheckpoints.AsNoTracking().Select(x => x.Sha256).Order().ToArrayAsync());
+        Assert.Equal("juv", (await database.Clubs.AsNoTracking().SingleAsync()).Id);
+        Assert.Equal(41, (await database.RosterSnapshots.AsNoTracking().AsSplitQuery().SingleAsync()).Players.Single().Price);
+    }
+
+    [CoreFact]
     public async Task Name_only_clubs_from_players_rosters_votes_calendar_and_rank_share_natural_keys_and_keep_finances()
     {
         async Task Put(string containerName, object key, object value)
