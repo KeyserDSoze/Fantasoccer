@@ -290,6 +290,14 @@ Import e ingestione SQL condividono la stessa risoluzione. Il report `resolvedCl
 
 Verificati 122 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, publish Release di tool/API e modello EF invariato. Le fixture coprono tutte le 35 coppie in entrambi gli envelope, forma `nome/a:null`, collegamenti fra cataloghi/rose/voti/calendario/classifiche, prezzi e ricavi, report senza valori sensibili, idempotenza e rifiuto atomico di sigle esplicite discordanti. Nessun import/reset è stato eseguito sul dump reale; dopo pubblicazione resta necessaria la sua analisi.
 
+### Copertura delle prime stagioni: catalogo club 2012/13–2014/15
+
+L'elenco completo di club condiviso dal gestore corrisponde alla Serie A 2012/13: mancavano Catania e Siena, non valori o privilegi da correggere. La tabella v2 aggiunge `cat` e `sie`, verificati su StatMuse e TNT Sports per Siena–Catania del 9 dicembre 2012. Aggiunge anche Livorno `liv` (2013/14) e Cesena `ces` (2014/15) con fonti storiche documentate, coprendo i quattro club delle prime stagioni assenti dal catalogo 2015–2026 iniziale. Non si attribuiscono queste prove a pagine fantacalcio.it che non espongono quegli archivi, né si importano sigle di provider diversi come alias impliciti.
+
+Catalogo `fantacalcio-2026-10-27-v2` di 39 nomi/codici, MappingVersion 31; nessuna migration SQL o nuova opzione. Una fixture di tutti i 20 club 2012/13, con nomi pubblici e `a:null`, verifica risoluzione, ordine e label originali, coordinate del report, immutabilità dei byte sorgente e idempotenza. Restano i rifiuti di nomi sconosciuti, sigle discordanti e reimport dopo scritture applicative. Nessun intervento sul dump reale, reset o scrittura Azure.
+
+Verificati 127 test PostgreSQL/migrazione, 53 test API e 75 test frontend senza errori o skip, TypeScript, publish Release di tool/API e modello EF invariato. Le quattro nuove coppie hanno test positivi e negativi, inclusa la mancata accettazione automatica della sigla alternativa `SNA` per Siena.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

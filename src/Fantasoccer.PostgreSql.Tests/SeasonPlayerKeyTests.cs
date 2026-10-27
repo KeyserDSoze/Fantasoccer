@@ -50,8 +50,8 @@ public sealed class SeasonPlayerKeyFormatTests
     [Fact]
     public void Club_codes_use_a_finite_verified_catalogue_without_prefixes_fuzzy_names_or_guessed_aliases()
     {
-        Assert.Equal(35, FantacalcioClubCodes.Names.Count);
-        Assert.Equal(35, FantacalcioClubCodes.Names.Values.Distinct().Count());
+        Assert.Equal(39, FantacalcioClubCodes.Names.Count);
+        Assert.Equal(39, FantacalcioClubCodes.Names.Values.Distinct().Count());
         foreach (var (name, code) in FantacalcioClubCodes.Names)
         {
             Assert.Matches("^[a-z]{3}$", code);
@@ -72,6 +72,21 @@ public sealed class SeasonPlayerKeyFormatTests
     [InlineData("Roma", "MIL")]
     public void Explicit_codes_that_contradict_verified_provider_names_are_refused_not_overwritten(string name, string code)
         => Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(code, name));
+
+    [Theory]
+    [InlineData("Catania", "cat")]
+    [InlineData("Siena", "sie")]
+    [InlineData("Livorno", "liv")]
+    [InlineData("Cesena", "ces")]
+    public void Early_legacy_seasons_use_verified_historical_codes_not_unverified_aliases(string name, string code)
+    {
+        Assert.Equal(code, KeyUtils.GetClubKey(null, name));
+        Assert.Equal(code, KeyUtils.GetClubKey("", name));
+        Assert.Equal(code, KeyUtils.GetClubKey(code.ToUpperInvariant(), name));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("xyz", name));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, name + " Primavera"));
+        if (name == "Siena") Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("SNA", name));
+    }
 }
 
 public sealed class SeasonPlayerKeyTests(PostgreSqlFixture fixture) : IClassFixture<PostgreSqlFixture>

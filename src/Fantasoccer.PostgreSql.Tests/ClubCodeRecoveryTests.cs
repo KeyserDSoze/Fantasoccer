@@ -16,6 +16,7 @@ public sealed partial class CoreMigrationTests
         var container = await ExtraContainerAsync("realteamwrapper");
         var blob = container.GetBlobClient("verified-catalogue");
         var names = FantacalcioClubCodes.Names.Keys.Order(StringComparer.Ordinal).ToArray();
+        var count = names.Length;
         await using var database = fixture.CreateContext();
         foreach (var oldEnvelope in new[] { true, false })
         {
@@ -25,7 +26,7 @@ public sealed partial class CoreMigrationTests
             var etag = (await blob.GetPropertiesAsync()).Value.ETag;
             await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
             var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
-            Assert.Equal(35, plan.Clubs.Count); Assert.Equal(35, plan.ResolvedClubCodes.Count);
+            Assert.Equal(count, plan.Clubs.Count); Assert.Equal(count, plan.ResolvedClubCodes.Count);
             Assert.Equal(FantacalcioClubCodes.Names.Values.Order(), plan.Clubs.Select(x => x.Id).Order());
             foreach (var (name, index) in names.Select((name, index) => (name, index)))
             {
@@ -37,7 +38,7 @@ public sealed partial class CoreMigrationTests
                 Assert.Contains(dataset.Documents, x => x.Sha256 == resolved.DocumentSha256);
             }
             var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
-            Assert.Equal(35, await database.Clubs.CountAsync()); Assert.Equal(35, report.ResolvedClubCodes!.Length);
+            Assert.Equal(count, await database.Clubs.CountAsync()); Assert.Equal(count, report.ResolvedClubCodes!.Length);
             Assert.False(report.FullMigrationComplete); Assert.Contains(report.PendingFields, x => x.Contains("resolvedClubCodes"));
             Assert.DoesNotContain("Fiorentina", JsonSerializer.Serialize(report));
             var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
@@ -45,6 +46,40 @@ public sealed partial class CoreMigrationTests
             Assert.Equal(etag, (await blob.GetPropertiesAsync()).Value.ETag);
             Assert.Equal(json, (await blob.DownloadContentAsync()).Value.Content.ToString());
         }
+    }
+
+    [CoreFact]
+    public async Task The_full_2012_13_name_only_club_catalogue_preserves_labels_positions_and_source_bytes_and_is_idempotent()
+    {
+        // Public Serie A club labels only; no real manifest, account, Blob name
+        // or document checksum from the operator's dump is part of this fixture.
+        string[] names = ["Fiorentina", "Udinese", "Juventus", "Parma", "Milan", "Sampdoria", "Atalanta", "Lazio", "Chievo", "Bologna",
+            "Genoa", "Cagliari", "Palermo", "Napoli", "Pescara", "Inter", "Roma", "Catania", "Siena", "Torino"];
+        string[] codes = ["fio", "udi", "juv", "par", "mil", "sam", "ata", "laz", "chi", "bol",
+            "gen", "cag", "pal", "nap", "pes", "int", "rom", "cat", "sie", "tor"];
+        var container = await ExtraContainerAsync("realteamwrapper"); var blob = container.GetBlobClient("season-one-clubs");
+        var json = JsonSerializer.Serialize(new { Key = 1, Value = new { t = names.Select(name => new { n = name, a = (string?)null }).ToArray() } });
+        await blob.UploadAsync(BinaryData.FromString(json)); var etag = (await blob.GetPropertiesAsync()).Value.ETag;
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
+        Assert.Equal(names, plan.Clubs.Select(x => x.Name)); Assert.Equal(codes, plan.Clubs.Select(x => x.Id));
+        Assert.Equal(20, plan.ResolvedClubCodes.Count);
+        foreach (var index in Enumerable.Range(0, names.Length))
+        {
+            var recovery = plan.ResolvedClubCodes.Single(x => x.JsonPath == $"$.Value.t[{index}]");
+            Assert.Equal(FantacalcioClubCodes.Version, recovery.CatalogueVersion);
+            Assert.Equal(json, await File.ReadAllTextAsync(Path.Combine(_dump, recovery.ArchiveReference)));
+        }
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(20, await database.Clubs.CountAsync()); Assert.Equal(20, report.ResolvedClubCodes!.Length);
+        Assert.Equal(2012, (await database.Seasons.SingleAsync(x => x.SeasonIndex == 1)).StartYear);
+        Assert.Equal("cat", (await database.Clubs.SingleAsync(x => x.Name == "Catania")).Id);
+        Assert.Equal("sie", (await database.Clubs.SingleAsync(x => x.Name == "Siena")).Id);
+        var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+        Assert.Equal(etag, (await blob.GetPropertiesAsync()).Value.ETag);
+        Assert.Equal(json, (await blob.DownloadContentAsync()).Value.Content.ToString());
     }
 
     [CoreFact]

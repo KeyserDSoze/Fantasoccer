@@ -2,11 +2,11 @@ using System.Collections.Frozen;
 
 namespace Fantasoccer;
 
-// Exact public provider names and three-letter codes, not a name-prefix rule.
-// Evidence: docs/CLUB-CODES.md. Import/runtime never fetch this catalogue online.
+// Exact public provider names/codes plus documented early-season references,
+// not a name-prefix rule. Evidence: docs/CLUB-CODES.md. No runtime HTTP.
 public static class FantacalcioClubCodes
 {
-    public const string Version = "fantacalcio-2026-10-26-v1";
+    public const string Version = "fantacalcio-2026-10-27-v2";
 
     private static readonly FrozenDictionary<string, string> s_codes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -16,6 +16,8 @@ public static class FantacalcioClubCodes
         ["Brescia"] = "bre",
         ["Cagliari"] = "cag",
         ["Carpi"] = "car",
+        ["Catania"] = "cat",
+        ["Cesena"] = "ces",
         ["Chievo"] = "chi",
         ["Como"] = "com",
         ["Cremonese"] = "cre",
@@ -28,6 +30,7 @@ public static class FantacalcioClubCodes
         ["Juventus"] = "juv",
         ["Lazio"] = "laz",
         ["Lecce"] = "lec",
+        ["Livorno"] = "liv",
         ["Milan"] = "mil",
         ["Monza"] = "mon",
         ["Napoli"] = "nap",
@@ -39,6 +42,7 @@ public static class FantacalcioClubCodes
         ["Salernitana"] = "sal",
         ["Sampdoria"] = "sam",
         ["Sassuolo"] = "sas",
+        ["Siena"] = "sie",
         ["SPAL"] = "spa",
         ["Spezia"] = "spe",
         ["Torino"] = "tor",
