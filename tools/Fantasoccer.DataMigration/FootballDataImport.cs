@@ -13,7 +13,6 @@ public sealed partial class CoreDatasetImporter
         Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, ClubSource, string> club, Action<int> season,
         Action<string, int, int> root, Func<string?, ClubSource, string> rankClub, Action<string, int, ClubMembershipSource> membership)
     {
-        var votes = new HashSet<(string, int, int, FootballVoteSource)>();
         foreach (var document in dataset.Documents.Where(x => x.Container is "live" or "notification" or "official"))
         {
             var entity = document.Envelope.Deserialize<Entity<VotedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_votes_envelope");
@@ -23,6 +22,9 @@ public sealed partial class CoreDatasetImporter
             var missingClubs = 0; string? firstMissingClub = null;
             var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
             var samples = entity.Value?.Players ?? throw new CoreImportException("missing_vote_players");
+            // Root has already enforced a unique source/year/day document.
+            // Retain original source ordinals, not SQL ordinals after skips.
+            var votes = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var (value, index) in samples.Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
@@ -34,7 +36,15 @@ public sealed partial class CoreDatasetImporter
                 }
                 var identity = player(value, key.Year, false, origin);
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
-                if (!votes.Add((identity.PlayerId, key.Year, key.Day, source)) || !float.IsFinite(vote.Value)) throw new CoreImportException("duplicate_or_invalid_vote");
+                var duplicate = !votes.TryAdd(identity.PlayerId, index);
+                if (duplicate || !float.IsFinite(vote.Value))
+                {
+                    var raw = Value(document.Envelope).GetProperty("p");
+                    var previous = duplicate ? votes[identity.PlayerId] : (int?)null;
+                    throw VoteFault("duplicate_or_invalid_vote", origin, key.Year, key.Day, value, raw[index],
+                        previous is { } ordinal ? PlayerOrigin(document, $".p[{ordinal}]") : null,
+                        previous is { } first ? samples[first] : null, previous is { } earlier ? raw[earlier] : null);
+                }
                 var clubCode = VoteClub(value, origin, club);
                 if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
                 plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,

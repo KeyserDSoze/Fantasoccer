@@ -348,6 +348,14 @@ MappingVersion 36: `dailyrank` resta soltanto nel dump verificato, senza decodif
 
 Verificati 155 test PostgreSQL/migrazione, 59 API, 26 regole/calendari e 78 frontend senza errori o skip, TypeScript, modello EF allineato e publish Release tool/API. La regressione copre filtri Serie A/turno, squadre annuali e scope, partecipanti successivi, quattro tipi di competizione, giornate annullate/non giocate, modifiche a risultati/regole, saldi null e nessuna scrittura durante GET, valori correnti preservati, esclusione dei daily Blob senza decodifica ma con verifica checksum e upgrade rifiutato senza perdita su copie SQL preesistenti. Le notizie continuano a usare risultati legacy incompleti senza inventare classifiche o usare quella corrente come storico; restano i controlli CAS. Nessun import/upgrade del target reale eseguito qui.
 
+### Diagnosi dei voti duplicati o non finiti, senza deduplica implicita
+
+L'analisi reale ha raggiunto il codice generico `duplicate_or_invalid_vote`, che non distingueva collisione di PlayerKey/anno/giornata/fonte da valore numerico non finito e non indicava il documento. È stata aggiunta `Vote details` con coordinate strutturali/hash e confronti booleani sui nomi e sui payload raw, inclusi campi sconosciuti. La prima posizione e quella corrente mantengono gli indici originali dopo gli scarti dei senza nome. Le baseline ricevono la stessa diagnostica per valori non finiti, senza vietarne i duplicati nominati per ordinale.
+
+Nessun voto nominato viene scartato, scelto o rietichettato, neppure se identico: prima serve ispezionare la coppia reale e concordare l'eventuale gestione. Schema, MappingVersion 36, risoluzioni utenti, byte del dump/sorgente e confini autorizzativi restano invariati. La struttura di controllo duplicati è locale al documento perché il marker già impone unicità di fonte/anno/giornata, senza trattenere tutte le chiavi del dump in memoria. L'import rimane atomico e bloccante sul dato non riconciliato.
+
+Verificati 159 test PostgreSQL/migrazione e 59 API senza errori o skip, modello EF invariato e publish Release del tool. Le nuove fixture coprono tre fonti e due envelope, duplicati identici, varianti di case/flag, nomi distinti che collidono dopo normalizzazione, campi voto sconosciuti, indici originali dopo scarti, valori float non finiti e motivi combinati, casing push, privacy, immutabilità dei byte e scope anno/giornata/fonte con idempotenza e rifiuto dei documenti dataset duplicati. Nessun errore del dump reale è stato classificato o risolto automaticamente: si attende la diagnostica strutturale del record sul PC dell'operatore.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

@@ -147,6 +147,16 @@ Se una rosa contiene un calciatore con nome valido assente dal catalogo, il lett
 
 Rianalizza con `-UseExistingDump`. Controlla cataloghi irrisolti, recuperi, avvisi e riferimenti hash: il report non stampa i payload e mantiene `fullMigrationComplete:false`. Usa `-Apply` solo dopo analisi riuscita e revisione. Le migration e l'import sono atomici; un downgrade con dati calcistici presenti viene rifiutato anziché ricostruire UUID. Restano i blocchi su target non appartenente alla sorgente e reimport dopo scritture applicative.
 
+### Se compare `duplicate_or_invalid_vote`
+
+Il codice storico resta invariato, ma `Vote details` distingue ora due cause, eventualmente entrambe: `duplicate_player_vote` (due voci con la stessa PlayerKey/anno/giornata/fonte) e `non_finite_vote_value` (valore non rappresentabile come numero `float` finito). Non significa necessariamente che si possa scartare una riga: due nomi diversi possono convergere nella stessa chiave legacy, oppure la stessa identità può avere voti o flag discordanti.
+
+La diagnostica riporta `Field: vote`, reader, checksum del documento, container, riferimento hash, anno/giornata e posizione originale del record. Per il duplicato aggiunge `otherDocumentSha256`, `otherArchiveReference` e `otherJsonPath` della prima voce, mantenendo gli indici sorgente anche quando precedono voti senza nome esclusi. Non stampa nomi/chiavi giocatore, club, nomi Blob, valori dei voti o payload.
+
+`namesEqual`/`namesEqualIgnoringCase` confrontano i nomi originali senza stamparli; `votePayloadsEqual` confronta il JSON del voto completo, inclusi campi sconosciuti e flag; `playerPayloadsEqual` confronta tutta la voce e `playerPayloadsByteEqual` anche la rappresentazione testuale esatta del frammento. Questi confronti **non autorizzano deduplica, scelta del primo/ultimo voto, correzioni dei nomi o merge di identità**, nemmeno se tutto è identico. Prima va esaminata localmente la coppia precisa e concordata una politica sicura. I byte originali rimangono nel dump.
+
+Le baseline push mantengono i duplicati nominati e l'ordine per ordinale; i valori non finiti usano `invalid_push_baseline_vote` con la stessa diagnostica e il casing JSON effettivo. La modifica è soltanto diagnostica: MappingVersion 36 e schema invariati, nessuna nuova opzione env, scrittura Azure, reset o modifica delle risoluzioni utenti. L'import resta bloccato senza commit parziali. Rianalizza con `-UseExistingDump`, senza `-Apply`, e condividi soltanto la riga `Core import refused` con `Vote details`, non il dump o l'env.
+
 ### Se compare `invalid_club_code` o `missing_real_club`
 
 Riguarda una squadra reale di calcio, non una squadra di fantacalcio, un account o i permessi Docker. Il codice naturale del club deve avere esattamente tre lettere ASCII. Un nome completo senza codice può usare soltanto il [catalogo di corrispondenze verificate della fonte](CLUB-CODES.md), mai le prime tre lettere del nome. Per esempio `Fiorentina` con `a:null` risolve `fio`; un nome sconosciuto resta bloccato. Il messaggio generico del wrapper PowerShell segnala solo l'uscita del tool: la causa da esaminare è `Core import refused`.

@@ -22,5 +22,6 @@ public static class CoreImportDiagnostics
         + (fault.IdentityConflict is null ? "" : " Identity details: " + JsonSerializer.Serialize(fault.IdentityConflict, Json))
         + (fault.PlayerValidation is null ? "" : " Player details: " + JsonSerializer.Serialize(fault.PlayerValidation, Json))
         + (fault.ClubValidation is null ? "" : " Club details: " + JsonSerializer.Serialize(fault.ClubValidation, Json))
+        + (fault.VoteValidation is null ? "" : " Vote details: " + JsonSerializer.Serialize(fault.VoteValidation, Json))
         + " No partial transaction was committed.";
 }

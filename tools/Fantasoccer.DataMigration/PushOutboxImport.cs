@@ -39,6 +39,7 @@ public sealed partial class CoreDatasetImporter
                 LiveChangesReminder = value.LiveChangesReminder, HasMatchEventVotes = value.MatchEventVotes != null, MatchEventSequence = value.MatchEventSequence,
                 FormationReceipts = value.LiveFormationChangeNotifications.Select((receipt, ordinal) => new LegacyFormationPushReceipt { Receipt = receipt, Ordinal = ordinal }).ToArray() };
             var votesPath = ".matchEventVotes.p";
+            JsonElement? rawSamples = null;
             if (value.MatchEventVotes?.Players is { Count: > 0 })
             {
                 // Web options also accept historical PascalCase properties.
@@ -46,6 +47,7 @@ public sealed partial class CoreDatasetImporter
                 var rawVotes = Value(document.Envelope).EnumerateObject().Last(x => string.Equals(x.Name, "matchEventVotes", StringComparison.OrdinalIgnoreCase));
                 var rawPlayers = rawVotes.Value.EnumerateObject().Last(x => string.Equals(x.Name, "p", StringComparison.OrdinalIgnoreCase));
                 votesPath = $".{rawVotes.Name}.{rawPlayers.Name}";
+                rawSamples = rawPlayers.Value;
             }
             var missingClubs = 0; string? firstMissingClub = null;
             var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
@@ -61,7 +63,7 @@ public sealed partial class CoreDatasetImporter
                 }
                 var identity = player(sample, key.Year, false, origin);
                 var vote = sample.Vote ?? throw new CoreImportException("missing_push_baseline_vote");
-                if (!float.IsFinite(vote.Value)) throw new CoreImportException("invalid_push_baseline_vote");
+                if (!float.IsFinite(vote.Value)) throw VoteFault("invalid_push_baseline_vote", origin, key.Year, key.Day, sample, rawSamples!.Value[index]);
                 var clubCode = VoteClub(sample, origin, club);
                 if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
                 checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = clubCode, PlayerRole = (int)sample.Role,

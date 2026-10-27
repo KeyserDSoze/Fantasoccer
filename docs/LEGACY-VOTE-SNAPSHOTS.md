@@ -20,6 +20,8 @@ Questo non allenta le validazioni dei record nominati: nomi non vuoti come `!!!`
 
 ## Club annuale e club del voto sono informazioni diverse
 
+I voti nominati duplicati nello stesso anno/giornata/fonte restano bloccanti, anche se identici. `duplicate_or_invalid_vote` espone ora `Vote details` per distinguere una collisione della chiave da un valore non finito, identificare entrambe le posizioni originali e confrontare nomi/payload tramite soli booleani, senza stamparli. Non si scelgono valori dalla squadra, dall'ordine o dal maggiore/minore voto. Vedere [diagnosi e limiti](MIGRATION-RUNBOOK.md#se-compare-duplicate_or_invalid_vote). Nessuna nuova politica di deduplica è stata applicata.
+
 - Se il giocatore ha già la riga annuale con club verificato, un voto minimale non la modifica o disattiva.
 - Se manca la riga annuale, un giocatore nominato e validato può avere una riga annuale con club null, preservando i metadati del riferimento. Non si crea un giocatore da una voce di catalogo senza nome.
 - Una **rosa stagionale `team` dello stesso anno** può completare il solo club annuale mancante, se tutti i riferimenti validi concordano su un unico codice. Il report `recoveredRosterPlayers` indica `filledAnnualClub:true` e la fonte hash/posizione.

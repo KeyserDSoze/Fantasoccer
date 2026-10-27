@@ -59,6 +59,10 @@ Gli errori sui calciatori riportano checksum del documento e `Player details`: c
 
 La diagnostica non inventa identità. Nei documenti di gioco restano i controlli sulla chiave e sui ruoli `-1..3`; nei cataloghi le righe senza nome vengono invece conservate separatamente, non come giocatori. I container esclusi non vengono decodificati. Vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_player).
 
+### Diagnosi di `duplicate_or_invalid_vote`
+
+`Vote details` distingue `duplicate_player_vote` da `non_finite_vote_value`, anche simultanei, con checksum/archivio hash, anno/giornata, posizione corrente e della prima voce. I confronti booleani fra nomi (esatti/ignore-case), JSON del voto completo e voce completa/testo raw non stampano valori, chiavi o nomi Blob e includono i campi sconosciuti, senza limitarsi ai DTO deserializzati. Un duplicato identico resta comunque bloccante: non viene scelta o scartata automaticamente nessuna copia nominata. Per le baseline push rimane permessa la ripetizione nominata per ordinale; solo i valori non finiti aggiungono diagnostica a `invalid_push_baseline_vote`, con il casing sorgente. Nessun cambiamento a MappingVersion 36, schema, risoluzioni o dati importati validi. [Procedura di ispezione](../../docs/MIGRATION-RUNBOOK.md#se-compare-duplicate_or_invalid_vote).
+
 ### Diagnosi di `invalid_club_code` / `missing_real_club`
 
 Gli errori sui club riportano `Field: club`, reader, checksum e `Club details`: container, archivio hash, posizione JSON esatta, motivi controllati e presenza/lunghezza di nome/codice. Distinguono codice mancante, lunghezza diversa da tre, caratteri non ASCII-lettera, discordanza con il nome verificato e club/nome mancante. Non mostrano i valori né inventano sigle. Il contesto segue tutti i lettori calcistici, anche le copie discordanti già note e le baseline push con casing storico, senza decodificare aste escluse. Rianalizzare il dump originale senza reset o `-Apply`; vedere il [runbook](../../docs/MIGRATION-RUNBOOK.md#se-compare-invalid_club_code-o-missing_real_club).
