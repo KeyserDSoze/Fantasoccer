@@ -18,7 +18,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     AppliedPlayerCatalogResolution[]? ResolvedPlayerCatalogs = null, int UnresolvedPlayerCatalogEntries = 0,
     RecoveredRosterPlayer[]? RecoveredRosterPlayers = null, ResolvedClubCode[]? ResolvedClubCodes = null,
     int Clubs = 0, int ClubSeasons = 0, int[]? ClubCatalogueYears = null,
-    MissingVoteClubDocument[]? MissingVoteClubSnapshots = null, int UnresolvedAnnualPlayerClubs = 0, int AmbiguousRosterClubRecoveries = 0);
+    MissingVoteClubDocument[]? MissingVoteClubSnapshots = null, int UnresolvedAnnualPlayerClubs = 0, int AmbiguousRosterClubRecoveries = 0,
+    SkippedUnnamedVoteDocument[]? SkippedUnnamedVotes = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -35,7 +36,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 34;
+    public const int MappingVersion = 35;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -264,7 +265,9 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
           .. plan.RecoveredRosterPlayers.Count > 0
               ? new[] { "Identifiable players missing from the yearly catalogue were created, linked or had missing annual club metadata completed from roster snapshots. Review recoveredRosterPlayers; no identity was inferred from club, role or order." } : Array.Empty<string>(),
           .. plan.MissingVoteClubSnapshots.Count > 0
-              ? new[] { "Minimal legacy votes/baselines without club metadata were preserved with a NULL historical ClubCode, never replaced by the current annual club. Review missingVoteClubSnapshots. Names, votes and flags were not discarded or corrected." } : Array.Empty<string>(),
+              ? new[] { "Named minimal legacy votes/baselines without club metadata were preserved with a NULL historical ClubCode, never replaced by the current annual club. Review missingVoteClubSnapshots. Their votes and flags were not discarded or corrected." } : Array.Empty<string>(),
+          .. plan.SkippedUnnamedVotes.Count > 0
+              ? new[] { "Legacy vote/baseline entries with missing, empty or whitespace-only names were excluded from SQL by operator-approved policy, even when hasVote is true. No player/club was invented and no unresolved-vote SQL archive was created. Original bytes remain in the verified dump. Review skippedUnnamedVotes; named entries and other contexts retain their existing validations." } : Array.Empty<string>(),
           .. plan.PlayerSeasons.Any(x => x.ClubId is null)
               ? new[] { "Some annual player records still have no verified club. A same-year season roster can fill only an unambiguous missing annual club; daily/opening snapshots and competing clubs do not choose it." } : Array.Empty<string>(),
           .. plan.ResolvedClubCodes.Count > 0
@@ -301,7 +304,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
           Clubs: plan.Clubs.Count, ClubSeasons: plan.ClubSeasons.Count,
           ClubCatalogueYears: plan.Datasets.Where(x => x.Kind == FootballClubSeason.CatalogueDatasetKind).Select(x => x.SeasonIndex).Order().ToArray(),
           MissingVoteClubSnapshots: plan.MissingVoteClubSnapshots.ToArray(),
-          UnresolvedAnnualPlayerClubs: plan.PlayerSeasons.Count(x => x.ClubId is null), AmbiguousRosterClubRecoveries: plan.AmbiguousRosterClubRecoveries);
+          UnresolvedAnnualPlayerClubs: plan.PlayerSeasons.Count(x => x.ClubId is null), AmbiguousRosterClubRecoveries: plan.AmbiguousRosterClubRecoveries,
+          SkippedUnnamedVotes: plan.SkippedUnnamedVotes.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -631,6 +635,7 @@ public sealed class CorePlan
     public List<RecoveredRosterPlayer> RecoveredRosterPlayers { get; } = [];
     public List<ResolvedClubCode> ResolvedClubCodes { get; } = [];
     public List<MissingVoteClubDocument> MissingVoteClubSnapshots { get; } = [];
+    public List<SkippedUnnamedVoteDocument> SkippedUnnamedVotes { get; } = [];
     public int AmbiguousRosterClubRecoveries { get; set; }
     public Dictionary<string, UserAccount> Users { get; } = [];
     public List<FantasyGroup> Groups { get; } = [];

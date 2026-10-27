@@ -48,9 +48,17 @@ public sealed partial class CoreDatasetImporter
                 votesPath = $".{rawVotes.Name}.{rawPlayers.Name}";
             }
             var missingClubs = 0; string? firstMissingClub = null;
-            foreach (var (sample, index) in (value.MatchEventVotes?.Players ?? []).Select((value, index) => (value, index)))
+            var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
+            var samples = value.MatchEventVotes?.Players ?? [];
+            foreach (var (sample, index) in samples.Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $"{votesPath}[{index}]");
+                if (IsUnnamedVote(sample))
+                {
+                    unnamed++; if (sample.Vote?.HasVote == true) unnamedWithVote++;
+                    firstUnnamed ??= origin.JsonPath;
+                    continue;
+                }
                 var identity = player(sample, key.Year, false, origin);
                 var vote = sample.Vote ?? throw new CoreImportException("missing_push_baseline_vote");
                 if (!float.IsFinite(vote.Value)) throw new CoreImportException("invalid_push_baseline_vote");
@@ -63,6 +71,8 @@ public sealed partial class CoreDatasetImporter
             }
             if (missingClubs > 0) plan.MissingVoteClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, missingClubs, firstMissingClub!));
+            if (unnamed > 0) plan.SkippedUnnamedVotes.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                key.Year, key.Day, samples.Count, unnamed, unnamedWithVote, firstUnnamed!));
             plan.PushCheckpoints.Add(checkpoint);
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var pending in value.PendingNotifications)

@@ -328,6 +328,16 @@ La nuova migration `20261027182301_OptionalHistoricalVoteClubs` rende nullable s
 
 Verificati 148 test PostgreSQL/migrazione, 55 test API e 76 test frontend senza errori o skip, TypeScript, modello EF allineato e publish Release tool/API. Le fixture sintetiche riproducono 317 giocatori/voti senza club in live/notification/official e baseline, preservando valori/flag e sorgenti; coprono recuperi annuali univoci/ambigui/non stagionali, mancata cancellazione di club annuali noti, strictness degli altri documenti e dei nuovi feed, scoring/API con club storico null, idempotenza, upgrade senza perdita di codici noti e rifiuto del downgrade con null. L'import reale resta da rianalizzare dopo la pubblicazione.
 
+### Esclusione approvata dei voti legacy senza nome
+
+Il documento official stagione 10/giornata 1 contiene 331 voci, di cui 35 senza nome. Il record esaminato ha voto finale 6, hasVote vero, isIn vero, ruolo -1 e club `None`: non coincide con VotedRealPlayer.Empty. Dopo aver chiarito che senza nome/identificatore non è possibile assegnarlo al giocatore annuale, il gestore ha scelto esplicitamente di scartarlo dall'import, senza un nuovo archivio SQL.
+
+La regola si applica a tutti gli anni di live/notification/official e baseline push: gli oggetti con nome assente/null/vuoto/whitespace sono esclusi prima di creare giocatori/club/voti, anche con valore/bonus o hasVote vero. Gli originali restano byte per byte nel dump verificato; `skippedUnnamedVotes` riporta per documento hash, posizione, anno/giornata, totale, scarti e numero con hasVote vero. I cataloghi mantengono il proprio archivio irrisolti; rose e dati economici non vengono scartati. Record nominati e null array item mantengono i controlli e la FK annuale, senza inferenze da club/ordine/ruolo. Nessun cambiamento ai nuovi feed, schema, risoluzioni utenti, sorgente, notifiche o guard di reimport. MappingVersion 35, nessun nuovo env.
+
+Verificato inoltre il modello attuale delle competizioni: calendario e classifica fantasy sono persistiti (generazione/ricalcolo esplicito o job), le letture usano i valori SQL e la vista partita può calcolare un'anteprima live senza sovrascrivere risultati salvati. L'import conserva calendar/rank/dailyrank originali senza ricalcolarli. Calendario/classifica Serie A sono anch'essi persistiti.
+
+Verificati 153 test PostgreSQL/migrazione, 55 API e 76 frontend senza errori o skip, TypeScript, modello EF allineato e publish Release tool/API. Le nuove fixture riproducono 331 voci con 35 senza nome in più anni/fonti e baseline, verificando scarti espliciti, conservazione dei nominati, sorgenti/dump immutati, casing storico, documenti interamente esclusi con marker/checkpoint conservati, controlli stretti sui nominati, duplicati/ordine delle baseline e idempotenza. Un test conferma che risultati, classifica corrente, snapshot giornalieri e valori economici importati non sono ricalcolati dopo gli scarti. Nessuna analisi/import del dump reale eseguita qui.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

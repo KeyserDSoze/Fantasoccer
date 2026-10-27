@@ -21,9 +21,17 @@ public sealed partial class CoreDatasetImporter
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var source = document.Container == "live" ? FootballVoteSource.Live : document.Container == "official" ? FootballVoteSource.Official : FootballVoteSource.Notification;
             var missingClubs = 0; string? firstMissingClub = null;
-            foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_vote_players")).Select((value, index) => (value, index)))
+            var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
+            var samples = entity.Value?.Players ?? throw new CoreImportException("missing_vote_players");
+            foreach (var (value, index) in samples.Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
+                if (IsUnnamedVote(value))
+                {
+                    unnamed++; if (value.Vote?.HasVote == true) unnamedWithVote++;
+                    firstUnnamed ??= origin.JsonPath;
+                    continue;
+                }
                 var identity = player(value, key.Year, false, origin);
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
                 if (!votes.Add((identity.PlayerId, key.Year, key.Day, source)) || !float.IsFinite(vote.Value)) throw new CoreImportException("duplicate_or_invalid_vote");
@@ -38,6 +46,8 @@ public sealed partial class CoreDatasetImporter
             }
             if (missingClubs > 0) plan.MissingVoteClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, missingClubs, firstMissingClub!));
+            if (unnamed > 0) plan.SkippedUnnamedVotes.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                key.Year, key.Day, samples.Count, unnamed, unnamedWithVote, firstUnnamed!));
         }
         var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))

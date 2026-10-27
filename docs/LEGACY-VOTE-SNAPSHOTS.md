@@ -6,7 +6,17 @@ Alcuni documenti storici `live` contengono l'intero elenco di giocatori/voti sen
 
 I voti `live`, `notification`, `official` e le baseline `pushnotificationsent.MatchEventVotes` possono quindi conservare `ClubCode = NULL`. La FK verso `(PlayerKey, SeasonIndex)` resta obbligatoria; la FK verso il club globale rimane valida quando il codice è presente. Non vengono creati club fittizi, indovinati codici, assegnate squadre dal ruolo o dalla posizione, né copiato il club corrente nel voto storico.
 
-Un oggetto club non nullo ma invalido resta un errore, come prima. Cataloghi, rose, probabilità, statistiche e gli altri documenti restano soggetti ai propri controlli: questo non è uno skip generico di `missing_real_club`, né permette giocatori con chiave/nome irrisolvibile o ruoli non validi.
+Per i record nominati, un oggetto club non nullo ma invalido resta un errore, come prima. Cataloghi, rose, probabilità, statistiche e gli altri documenti restano soggetti ai propri controlli: questo non è uno skip generico di `missing_real_club`, né permette giocatori con chiave irrisolvibile o ruoli non validi. L'esclusione approvata dei voti senza nome è distinta e descritta sotto.
+
+## Voti senza nome: esclusione approvata, non archivio SQL
+
+Il documento `official` stagione 10/giornata 1 esaminato contiene 331 voci, di cui 35 senza nome. La voce `$.Value.p[12]` ha nome vuoto, ruolo -1, club `None` e voto finale 6 con `hasVote:true` e `isIn:true`: **non è un segnaposto senza dati**. Il gestore ha esplicitamente scelto di escludere dall'import i voti senza nome, anziché creare un archivio SQL dedicato o inventare un'identità.
+
+La regola vale per tutti gli anni in `live`, `notification`, `official` e nelle baseline `pushnotificationsent.MatchEventVotes`: gli oggetti con nome mancante, null, vuoto o composto soltanto da spazi vengono omessi da giocatori annuali, voti e baseline SQL, anche con `hasVote:true`, valori o bonus. Non si tenta di ricavarne il giocatore da club, ruolo, posizione o rose e non si crea un club `None`. Gli originali rimangono **soltanto nel dump verificato**, con tutti i byte, campi sconosciuti e duplicati invariati. Nessun record viene salvato in `UnresolvedPlayerCatalogEntries`, che resta specifico dei cataloghi.
+
+`skippedUnnamedVotes` raggruppa gli scarti per documento: checksum, container, riferimento hash, anno, giornata, `totalEntries`, `records` esclusi, `withHasVote` e prima posizione JSON originale. Un voto scartato non viene contato anche come voto importato senza club. Se un documento contiene soltanto voci escluse, rimangono il marker del dataset o la baseline push presente ma vuota, con i suoi flag e sequenza; non vengono inventati giocatori. L'ordine relativo e i duplicati delle baseline nominate rimangono invariati.
+
+Questo non allenta le validazioni dei record nominati: nomi non vuoti come `!!!` che non producono una PlayerKey, ruoli fuori intervallo, club invalidi, voti mancanti e duplicati dei voti rimangono errori. Una voce array interamente `null` resta `null_player`, non è un oggetto con nome mancante. Cataloghi senza nome mantengono l'archiviazione già approvata; rose e riferimenti finanziari irrisolti restano bloccanti. L'ingestione ordinaria del provider non viene modificata.
 
 ## Club annuale e club del voto sono informazioni diverse
 
@@ -32,4 +42,4 @@ L'ingestione ordinaria del provider conserva le validazioni già esistenti: acce
 
 La migration aggiuntiva `OptionalHistoricalVoteClubs` rende nullable soltanto `FootballVotes.ClubCode` e `PushVoteBaselines.ClubCode`. Non cambia chiavi, valori dei voti o codici già presenti. Un downgrade con snapshot a club ignoto viene rifiutato, senza introdurre stringhe vuote o altre identità per soddisfare il vecchio NOT NULL.
 
-MappingVersion 34; nessuna nuova opzione env. Rianalizzare l'intero dump verificato con `-UseExistingDump` e le risoluzioni utenti già approvate, senza reset o modifiche agli originali. Usare `-Apply` solo dopo analisi riuscita, revisione del report e backup del target se necessario. Restano atomicità, idempotenza, vincoli sulla sorgente e blocco di reimport dopo scritture applicative.
+MappingVersion 35; nessuna nuova opzione env o migration di schema per escludere i voti senza nome. Rianalizzare l'intero dump verificato con `-UseExistingDump` e le risoluzioni utenti già approvate, senza reset o modifiche agli originali. Usare `-Apply` solo dopo analisi riuscita, revisione del report e backup del target se necessario. Restano atomicità, idempotenza, vincoli sulla sorgente e blocco di reimport dopo scritture applicative.
