@@ -36,7 +36,7 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
             {
                 var rows = votes.Where(x => x.Source == source).ToArray();
                 return rows.Length == 0 ? null : new() { Players = rows.Select(x => new VotedRealPlayer { Name = x.Player.Name,
-                    RealTeam = FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
+                    RealTeam = x.Club is null ? null! : FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
                     Vote = FootballMapping.DomainVote(x) }).ToList() };
             }
             if (day == liveDay || day == lastDay) live = Wrap(FootballVoteSource.Live);

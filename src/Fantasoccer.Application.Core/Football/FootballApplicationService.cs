@@ -85,7 +85,7 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync(source.ToString().ToLowerInvariant(), year, day, cancellationToken)) return null;
-        return new(rows.Select(x => new VotedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))
+        return new(rows.Select(x => new VotedPlayerDto(x.PlayerId, x.Player.Name, x.Club is null ? null : FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))
             { SeasonIndex = year }).ToArray());
     }
 

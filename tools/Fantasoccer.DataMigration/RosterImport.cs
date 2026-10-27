@@ -16,6 +16,8 @@ public sealed partial class CoreDatasetImporter
         var memberships = new Dictionary<(string Code, int Year), FootballClubSeason>();
         var players = new Dictionary<string, FootballPlayer>(StringComparer.Ordinal);
         var seasons = new Dictionary<(string Player, int Year), PlayerSeason>();
+        var partialVoteSeasons = new HashSet<(string Player, int Year)>();
+        var rosterClubCandidates = new Dictionary<(string Player, int Year), Dictionary<string, PlayerSource>>();
         var authoritative = new HashSet<(string Player, int Year)>();
         var roots = new HashSet<(string Kind, int Year, int Day)>();
         var resolvedClubs = new HashSet<(string Document, string Path)>();
@@ -80,9 +82,11 @@ public sealed partial class CoreDatasetImporter
             if (root && !authoritative.Add(identity)) throw new CoreImportException("duplicate_player_season");
             if (!seasons.TryGetValue(identity, out var row))
             {
-                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = Club(player.RealTeam, ClubOrigin(origin)),
+                var missingVoteClub = player.RealTeam is null && AllowsMissingVoteClub(origin);
+                row = new() { PlayerId = playerId, SeasonIndex = year, ClubId = missingVoteClub ? null : Club(player.RealTeam, ClubOrigin(origin)),
                     Position = (PlayerPosition)(int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible };
                 seasons.Add(identity, row); plan.PlayerSeasons.Add(row);
+                if (missingVoteClub) partialVoteSeasons.Add(identity);
             }
             return row;
         }
@@ -185,9 +189,16 @@ public sealed partial class CoreDatasetImporter
                 if (!wasSeasonKnown) plan.RecoveredRosterPlayers.Add(new(document.Sha256, DocumentArchiveReference(document), origin.JsonPath, year, !wasKnown));
                 if ((int)player.Status is < 0 or > 4 || (int)player.Position is < -2 or > 11 ||
                     (player.Status == PlayerInTeamStatus.Active && !active.Add(playerSeason.PlayerId))) throw new CoreImportException("invalid_roster_player");
-                snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = Club(player.RealTeam, ClubOrigin(origin)),
+                var clubCode = Club(player.RealTeam, ClubOrigin(origin));
+                snapshot.Players.Add(new() { Ordinal = ordinal, PlayerId = playerSeason.PlayerId, ClubId = clubCode,
                     PlayerRole = (int)player.Role, IsActive = player.IsActive, IsVisible = player.Visible, Price = player.Price, Revenue = player.Revenue,
                     Status = (int)player.Status, Position = (int)player.Position });
+                if (kind == RosterKind.Season && partialVoteSeasons.Contains((playerSeason.PlayerId, year)))
+                {
+                    var identity = (playerSeason.PlayerId, year);
+                    if (!rosterClubCandidates.TryGetValue(identity, out var candidates)) rosterClubCandidates.Add(identity, candidates = new(StringComparer.Ordinal));
+                    candidates.TryAdd(clubCode, origin);
+                }
             }
             foreach (var (change, ordinal) in (team.FormationChangeHistory ?? []).Select((value, ordinal) => (value, ordinal)))
                 snapshot.FormationHistory.Add(new() { Ordinal = ordinal, Author = change.Author, LegacyDateLocal = Local(change.Date),
@@ -228,6 +239,20 @@ public sealed partial class CoreDatasetImporter
         LoadAuctions(dataset, plan, options, map, Player, Club, addUser);
         LoadHallArchives(dataset, plan, map, Person, Club, addOwner, addSeason);
         LoadPushOutbox(dataset, plan, map, Player, Club, addUser, addSeason);
+
+        // The current annual record may be completed from a unique same-year
+        // season-roster reference, but this never rewrites an unknown vote club.
+        // Daily/opening snapshots do not establish the annual current club.
+        foreach (var identity in partialVoteSeasons)
+        {
+            var row = seasons[identity];
+            if (row.ClubId is not null || !rosterClubCandidates.TryGetValue(identity, out var candidates)) continue;
+            if (candidates.Count != 1) { plan.AmbiguousRosterClubRecoveries++; continue; }
+            var evidence = candidates.Single(); row.ClubId = evidence.Key;
+            var origin = evidence.Value;
+            plan.RecoveredRosterPlayers.Add(new(origin.Document.Sha256, DocumentArchiveReference(origin.Document), origin.JsonPath, identity.Year,
+                CreatedGlobalPlayer: false, FilledAnnualClub: true));
+        }
 
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId
             ?? throw new CoreImportException("missing_roster_reference");

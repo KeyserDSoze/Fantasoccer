@@ -58,6 +58,10 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official", year, 1))).StatusCode);
         await using (var database = factory.Database.CreateContext()) Assert.Equal(0, await database.FootballVotes.CountAsync());
         sources.IncompleteOfficial = false;
+        sources.MissingOfficialClub = true;
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official", year, 1))).StatusCode);
+        await using (var database = factory.Database.CreateContext()) Assert.Equal(0, await database.FootballVotes.CountAsync());
+        sources.MissingOfficialClub = false;
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official", year, 1))).EnsureSuccessStatusCode();
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("statistics", year, 2))).EnsureSuccessStatusCode();
         await using (var database = factory.Database.CreateContext())
@@ -110,6 +114,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
     {
         public bool EmptyCatalogue { get; set; }
         public bool IncompleteOfficial { get; set; }
+        public bool MissingOfficialClub { get; set; }
         public bool InvalidCatalogueRole { get; set; }
         public bool DuplicateCatalogueKey { get; set; }
         public bool ConflictingKnownClubCode { get; set; }
@@ -127,6 +132,6 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             return Task.FromResult(players);
         }
         public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
-            { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } }).ToList());
+            { Name = player.Name, RealTeam = MissingOfficialClub ? null! : player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } }).ToList());
     }
 }

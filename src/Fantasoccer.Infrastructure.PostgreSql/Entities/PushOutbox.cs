@@ -18,7 +18,7 @@ public sealed class PushVoteBaseline
 {
     public int Ordinal { get; set; }
     public string PlayerId { get; set; } = null!;
-    public string ClubId { get; set; } = null!;
+    public string? ClubId { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }

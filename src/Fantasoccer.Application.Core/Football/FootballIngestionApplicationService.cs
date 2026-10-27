@@ -259,7 +259,7 @@ public sealed class FootballIngestionApplicationService(FantasoccerDbContext dat
         var players = await database.PlayerSeasons.Include(x => x.Player).Include(x => x.Club).Where(x => x.SeasonIndex == year && x.ClubId != null).ToArrayAsync(cancellationToken);
         var votes = await database.FootballVotes.Include(x => x.Player).Include(x => x.Club).Where(x => x.SeasonIndex == year && x.Day <= until && x.Source == FootballVoteSource.Official).ToArrayAsync(cancellationToken);
         var domain = votes.GroupBy(x => x.Day).ToDictionary(x => x.Key, x => new VotedRealPlayerWrapper { Players = x.Select(row => new VotedRealPlayer
-        { Name = row.Player.Name, Role = (Role)row.PlayerRole, RealTeam = FootballMapping.DomainClub(row.Club), Vote = FootballMapping.DomainVote(row) }).ToList() });
+        { Name = row.Player.Name, Role = (Role)row.PlayerRole, RealTeam = row.Club is null ? null! : FootballMapping.DomainClub(row.Club), Vote = FootballMapping.DomainVote(row) }).ToList() });
         var samples = FootballStatisticsCalculator.Calculate(players.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.Position, RealTeam = FootballMapping.DomainClub(x.Club!), IsActive = x.IsActive, Visible = x.IsVisible }).ToList(), until, domain, scoring);
         var existing = await database.FootballPlayerStatistics.Where(x => x.SeasonIndex == year).AsSplitQuery().ToArrayAsync(cancellationToken);
         foreach (var sample in samples.Players)

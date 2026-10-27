@@ -47,17 +47,22 @@ public sealed partial class CoreDatasetImporter
                 var rawPlayers = rawVotes.Value.EnumerateObject().Last(x => string.Equals(x.Name, "p", StringComparison.OrdinalIgnoreCase));
                 votesPath = $".{rawVotes.Name}.{rawPlayers.Name}";
             }
+            var missingClubs = 0; string? firstMissingClub = null;
             foreach (var (sample, index) in (value.MatchEventVotes?.Players ?? []).Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $"{votesPath}[{index}]");
                 var identity = player(sample, key.Year, false, origin);
                 var vote = sample.Vote ?? throw new CoreImportException("missing_push_baseline_vote");
                 if (!float.IsFinite(vote.Value)) throw new CoreImportException("invalid_push_baseline_vote");
-                checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam, ClubOrigin(origin)), PlayerRole = (int)sample.Role,
+                var clubCode = VoteClub(sample, origin, club);
+                if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
+                checkpoint.Votes.Add(new() { Ordinal = checkpoint.Votes.Count, PlayerId = identity.PlayerId, ClubId = clubCode, PlayerRole = (int)sample.Role,
                     IsActive = sample.IsActive, IsVisible = sample.Visible, VoteRole = (int)vote.Role, Value = vote.Value, IsFinal = vote.IsFinal, Goals = vote.Goal, Penalties = vote.Penalty,
                     Assists = vote.Assist, StoppedPenalties = vote.StoppedPenalty, SufferedGoals = vote.SufferedGoal, WrongedPenalties = vote.WrongedPenalty, OwnGoals = vote.OwnGoal,
                     Status = (int)vote.Status, ManOfTheMatch = vote.ManOfTheMatch, HasVote = vote.HasVote, IsOut = vote.IsOut, IsIn = vote.IsIn, Injured = vote.Injured });
             }
+            if (missingClubs > 0) plan.MissingVoteClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                key.Year, key.Day, missingClubs, firstMissingClub!));
             plan.PushCheckpoints.Add(checkpoint);
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var pending in value.PendingNotifications)

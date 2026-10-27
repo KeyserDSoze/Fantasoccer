@@ -999,7 +999,6 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("ClubId")
-                        .IsRequired()
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
                         .HasColumnName("ClubCode");
@@ -3784,8 +3783,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", "Club")
                         .WithMany()
                         .HasForeignKey("ClubId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballPlayer", "Player")
                         .WithMany()
@@ -5507,7 +5505,6 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                                 .HasColumnType("integer");
 
                             b1.Property<string>("ClubId")
-                                .IsRequired()
                                 .HasMaxLength(3)
                                 .HasColumnType("character varying(3)")
                                 .HasColumnName("ClubCode");
@@ -5583,8 +5580,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                             b1.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", null)
                                 .WithMany()
                                 .HasForeignKey("ClubId")
-                                .OnDelete(DeleteBehavior.Restrict)
-                                .IsRequired();
+                                .OnDelete(DeleteBehavior.Restrict);
 
                             b1.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.PlayerSeason", null)
                                 .WithMany()

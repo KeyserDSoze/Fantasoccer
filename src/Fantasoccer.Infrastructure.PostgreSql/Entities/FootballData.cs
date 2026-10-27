@@ -14,7 +14,9 @@ public sealed class FootballVote
     public int SeasonIndex { get; set; }
     public int Day { get; set; }
     public FootballVoteSource Source { get; set; }
-    public string ClubId { get; set; } = null!;
+    // Historical feeds may identify the player/vote without a club snapshot.
+    // Never replace an unknown historical club with the current annual club.
+    public string? ClubId { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -35,7 +37,7 @@ public sealed class FootballVote
     public bool IsIn { get; set; }
     public bool Injured { get; set; }
     public FootballPlayer Player { get; set; } = null!;
-    public FootballClub Club { get; set; } = null!;
+    public FootballClub? Club { get; set; }
 }
 
 public sealed class FootballChance

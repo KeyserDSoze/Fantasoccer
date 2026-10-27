@@ -20,19 +20,24 @@ public sealed partial class CoreDatasetImporter
             var key = entity.Key ?? throw new CoreImportException("missing_votes_key");
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var source = document.Container == "live" ? FootballVoteSource.Live : document.Container == "official" ? FootballVoteSource.Official : FootballVoteSource.Notification;
+            var missingClubs = 0; string? firstMissingClub = null;
             foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_vote_players")).Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
                 var identity = player(value, key.Year, false, origin);
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
                 if (!votes.Add((identity.PlayerId, key.Year, key.Day, source)) || !float.IsFinite(vote.Value)) throw new CoreImportException("duplicate_or_invalid_vote");
+                var clubCode = VoteClub(value, origin, club);
+                if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
                 plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
-                    ClubId = club(value.RealTeam, ClubOrigin(origin)), PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
+                    ClubId = clubCode, PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
                     VoteRole = (int)vote.Role, Value = vote.Value, IsFinal = vote.IsFinal, Goals = vote.Goal, Penalties = vote.Penalty,
                     Assists = vote.Assist, StoppedPenalties = vote.StoppedPenalty, SufferedGoals = vote.SufferedGoal,
                     WrongedPenalties = vote.WrongedPenalty, OwnGoals = vote.OwnGoal, Status = (int)vote.Status, ManOfTheMatch = vote.ManOfTheMatch,
                     HasVote = vote.HasVote, IsOut = vote.IsOut, IsIn = vote.IsIn, Injured = vote.Injured });
             }
+            if (missingClubs > 0) plan.MissingVoteClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                key.Year, key.Day, missingClubs, firstMissingClub!));
         }
         var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))

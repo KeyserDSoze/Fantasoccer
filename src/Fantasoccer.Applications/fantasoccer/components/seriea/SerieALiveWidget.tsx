@@ -148,9 +148,9 @@ export function SerieALiveWidget({
       const awayEvents: VotedRealPlayer[] = []
 
       liveEvents.forEach(player => {
-        if (game.home.name === player.realTeam.name) {
+        if (game.home.name === player.realTeam?.name) {
           homeEvents.push(player)
-        } else if (game.away.name === player.realTeam.name) {
+        } else if (game.away.name === player.realTeam?.name) {
           awayEvents.push(player)
         }
       })

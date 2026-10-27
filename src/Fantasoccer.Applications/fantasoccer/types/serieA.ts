@@ -17,7 +17,7 @@ export interface Vote {
   wrongedPenalties: number; ownGoals: number; status: Behaviour; manOfTheMatch: boolean; hasVote: boolean; isOut: boolean; isIn: boolean
   injured: boolean; hasPositiveBonus: boolean; hasNegativeBonus: boolean; hasDoneSomething: boolean
 }
-export interface VotedRealPlayer extends RealPlayer { vote: Vote }
+export interface VotedRealPlayer extends Omit<RealPlayer, 'realTeam'> { realTeam: RealTeam | null; vote: Vote }
 export interface VotedRealPlayerWrapper { players: VotedRealPlayer[] }
 export type VotedRealPlayerRoleBuckets = Partial<Record<Role, VotedRealPlayer[]>>
 export interface EnhancedVotedRealPlayerWrapper extends VotedRealPlayerWrapper {
@@ -27,8 +27,8 @@ export interface YearDayKey { year: number; day: number }
 const ROLE_ORDER = [Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward, Role.Undefined]
 export class RealPlayerHelper {
   static buildKey(name: string) { return getPlayerKey(name) }
-  static sortByRoleAndName<T extends RealPlayer>(players: T[]): T[] { return [...players].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.name.localeCompare(b.name, 'it-IT', { sensitivity: 'base' })) }
-  static groupByRole<T extends RealPlayer>(players: T[]): Partial<Record<Role, T[]>> { return players.reduce<Partial<Record<Role, T[]>>>((groups, player) => { (groups[player.role] ??= []).push(player); return groups }, {}) }
+  static sortByRoleAndName<T extends Pick<RealPlayer, 'name' | 'role'>>(players: T[]): T[] { return [...players].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.name.localeCompare(b.name, 'it-IT', { sensitivity: 'base' })) }
+  static groupByRole<T extends Pick<RealPlayer, 'role'>>(players: T[]): Partial<Record<Role, T[]>> { return players.reduce<Partial<Record<Role, T[]>>>((groups, player) => { (groups[player.role] ??= []).push(player); return groups }, {}) }
   static filterByRole<T extends RealPlayer>(players: T[], role: Role) { return players.filter(player => player.role === role) }
   static filterActive<T extends RealPlayer>(players: T[]) { return players.filter(player => player.isActive) }
   static filterVisible<T extends RealPlayer>(players: T[]) { return players.filter(player => player.isVisible) }

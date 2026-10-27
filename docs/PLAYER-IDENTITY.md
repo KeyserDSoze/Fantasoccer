@@ -28,6 +28,8 @@ Nomi e anno dei club sono separati: `Juve`/`JUVENTUS`/`juv` producono l'anagrafi
 
 Gli archivi che non dichiarano una stagione non ricevono un anno inventato. Le snapshot iniziali mantengono l'anno calcistico della competizione separato da `TeamOriginYear` della squadra.
 
+Nei [voti legacy minimali e nelle baseline](LEGACY-VOTE-SNAPSHOTS.md) il club storico può essere assente: `FootballVotes.ClubCode`/`PushVoteBaselines.ClubCode` restano NULL, mentre la FK al giocatore annuale è obbligatoria. Una rosa stagionale dello stesso anno può completare soltanto un club annuale mancante e univoco, non il club della giornata del voto. Voti, bonus e flag originali non vengono scartati o riscritti.
+
 Per tracciare in sola lettura le rose collegate a una chiave:
 
 ```sql

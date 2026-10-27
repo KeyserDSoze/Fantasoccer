@@ -3,7 +3,8 @@ using Fantasoccer.Infrastructure.PostgreSql.Entities;
 
 namespace Fantasoccer.DataMigration;
 
-public sealed record RecoveredRosterPlayer(string DocumentSha256, string ArchiveReference, string JsonPath, int SeasonIndex, bool CreatedGlobalPlayer);
+public sealed record RecoveredRosterPlayer(string DocumentSha256, string ArchiveReference, string JsonPath, int SeasonIndex, bool CreatedGlobalPlayer,
+    bool FilledAnnualClub = false);
 
 public sealed partial class CoreDatasetImporter
 {

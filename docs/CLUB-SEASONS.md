@@ -42,6 +42,8 @@ Per un trasferimento nella stagione 15 basta aggiornare `PlayerSeasons.ClubCode`
 
 Non vengono cambiati il club delle stagioni precedenti, i voti già salvati o le formazioni di giornate passate. L'ingestione del catalogo aggiorna disponibilità della rosa corrente e snapshot futuri secondo le regole già esistenti, preservando prezzi/ricavi. I voti storici mantengono il proprio `ClubCode`: leggere il club corrente non deve sostituire quello dello snapshot.
 
+Se il [voto legacy non conteneva il club](LEGACY-VOTE-SNAPSHOTS.md), il suo codice resta NULL anche quando è noto il club annuale. Quest'ultimo può essere completato da una rosa stagionale dello stesso anno solo se non esistono codici concorrenti; non viene così creata una presenza in Serie A o una falsa attribuzione storica.
+
 ## Letture autenticate
 
 ```http
@@ -65,4 +67,4 @@ ORDER BY c."Name";
 
 La migration aggiuntiva `ClubSeasonsAndCanonicalNames` normalizza soltanto le anagrafiche dei club e crea la tabella annuale. Ricostruisce le appartenenze già verificabili da `FootballMatches` e `FootballClubRanks`; **non** incrocia tutti i club globali con tutti gli anni e non deduce appartenenze da `PlayerSeasons`. Il vecchio schema non conservava il contenuto annuale del catalogo club, quindi un marker `realteamwrapper` precedente da solo non consente di ricostruirlo o dichiararlo completo.
 
-Una nuova analisi/import del dump verificato, con MappingVersion 33 e le risoluzioni utenti già approvate, ricostruisce i cataloghi esatti se la finestra di reimport è ancora aperta. Non si scavalca il blocco dopo scritture applicative e non si suggerisce un reset per aggirarlo. Il downgrade con club, giocatori o appartenenze presenti è rifiutato; per rollback di dati presenti occorre un backup verificato. Lo schema vuoto può essere smontato e ricreato. Nessuna migration pubblicata precedente viene modificata. Un futuro cambiamento ai nomi/codici canonici deve aggiornare anche i CHECK tramite una nuova migration, non modificare l'SQL congelato nelle migration pubblicate.
+Una nuova analisi/import del dump verificato, con MappingVersion 34 e le risoluzioni utenti già approvate, ricostruisce i cataloghi esatti se la finestra di reimport è ancora aperta. Non si scavalca il blocco dopo scritture applicative e non si suggerisce un reset per aggirarlo. Il downgrade con club, giocatori o appartenenze presenti è rifiutato; per rollback di dati presenti occorre un backup verificato. Lo schema vuoto può essere smontato e ricreato. Nessuna migration pubblicata precedente viene modificata. Un futuro cambiamento ai nomi/codici canonici deve aggiornare anche i CHECK tramite una nuova migration, non modificare l'SQL congelato nelle migration pubblicate.
