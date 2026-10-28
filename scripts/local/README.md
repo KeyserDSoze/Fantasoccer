@@ -232,6 +232,14 @@ Per i calendari reali di Serie A (`calendar_season_mismatch`, `real_calendar_mix
 
 Mostra una riga per calendario: stagione della chiave, anno salvato nel calendario e nelle giornate, numero di giornate e partite, intervallo delle date, stagioni a cui appartengono le partite datate (confine 10 agosto, come l'import) e l'esito che avrebbe nell'import (importato, escluso perché di un'altra stagione, oppure rifiutato e perché). Non stampa club né punteggi.
 
+Per i controlli strutturali che l'import applica dopo i calendari reali (mercato, liste randomizzate, calendari e classifiche fantacalcio, classifiche d'apertura, partite giocate, aste, albo, outbox delle push, carte, news e consigli AI):
+
+```powershell
+.\scripts\local\scan-competitions.ps1 -DumpName prova1
+```
+
+Per ogni problema mostra il codice d'errore che darebbe l'import (per esempio `missing_market_trades`, `played_game_day_mismatch`, `missing_competition_season`), quante volte compare, gli anni, un esempio di posizione e un dettaglio strutturale; per i mercati riassume anche la forma dei documenti (scambi presenti, elenco vuoto, nullo o assente). Non mostra proprietari, nomi, giocatori o testi. Le identità di squadre, giocatori e club restano coperte dalle scansioni precedenti; aste e liste randomizzate contano solo con `IMPORT_LEGACY_AUCTIONS=true`.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.

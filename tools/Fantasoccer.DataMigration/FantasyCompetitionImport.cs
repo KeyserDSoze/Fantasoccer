@@ -38,7 +38,7 @@ public sealed partial class CoreDatasetImporter
             plan.MarketBooks.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = key.Year });
             var ids = new HashSet<string>(StringComparer.Ordinal);
             var ordinal = 0;
-            foreach (var value in entity.Value?.Markets ?? throw new CoreImportException("missing_market_trades"))
+            foreach (var value in entity.Value?.Markets ?? throw new CoreImportException("missing_market_trades", "marketwrapper $.Value.m", "FantasyCompetitionImport.cs", document.Sha256))
             {
                 if (string.IsNullOrWhiteSpace(value.Id) || !ids.Add(value.Id) || (int)value.Status is < 0 or > 6) throw new CoreImportException("invalid_market_trade");
                 var buyer = Resolve(group, league, key.Year, value.Buyer, document, $"$.Value.m[{ordinal}].b");
