@@ -185,7 +185,16 @@ public sealed partial class CoreDatasetImporter
             foreach (var (player, ordinal) in (team.Players ?? []).Select((value, ordinal) => (value, ordinal)))
             {
                 var origin = PlayerOrigin(document, $".p[{ordinal}]");
-                ValidateRosterPlayerReference(player, Value(document.Envelope).GetProperty("p")[ordinal], players, origin);
+                var rawPlayer = Value(document.Envelope).GetProperty("p")[ordinal];
+                if (ExcludedNamelessRosterPlayer(player, rawPlayer))
+                {
+                    // Operator decision: a sold/removed entry without any name or
+                    // stored key is not imported; its money is reported, not lost.
+                    plan.ExcludedNamelessRosterEntries.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document), origin.JsonPath,
+                        year, day, player!.Price, player.Revenue, (int)player.Status, (int)player.Position));
+                    continue;
+                }
+                ValidateRosterPlayerReference(player, rawPlayer, players, origin);
                 var wasKnown = players.ContainsKey(player.Key);
                 var wasSeasonKnown = wasKnown && seasons.ContainsKey((player.Key, year));
                 var playerSeason = Player(player, year, false, origin);

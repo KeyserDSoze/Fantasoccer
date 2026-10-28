@@ -104,9 +104,12 @@ public sealed partial class CoreDatasetImporter
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var original = Value(document.Envelope).GetProperty("p");
             var index = 0;
-            foreach (var value in entity.Value?.Players ?? throw new CoreImportException("missing_chance_players"))
+            var players = entity.Value?.Players ?? throw new CoreImportException("missing_chance_players");
+            var unusable = 0; string? firstUnusable = null;
+            foreach (var value in players)
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
+                if (UnusablePlayerName(value)) { unusable++; firstUnusable ??= origin.JsonPath; index++; continue; }
                 var identity = player(value, key.Year, false, origin);
                 var chance = value.Chance ?? throw new CoreImportException("missing_chance");
                 if (!chances.Add((identity.PlayerId, key.Year, key.Day))) throw new CoreImportException("duplicate_chance");
@@ -126,15 +129,20 @@ public sealed partial class CoreDatasetImporter
                 }
                 plan.Chances.Add(row);
             }
+            if (unusable > 0) plan.SkippedUnusablePlayerRows.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                key.Year, key.Day, players.Count, unusable, firstUnusable!));
         }
         var statistics = new HashSet<(string, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "statplayerswrapper"))
         {
             var entity = document.Envelope.Deserialize<Entity<StatPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_statistics_envelope");
             season(entity.Key); root(document.Container, entity.Key, 0);
-            foreach (var (value, index) in (entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players")).Select((value, index) => (value, index)))
+            var players = entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players");
+            var unusable = 0; string? firstUnusable = null;
+            foreach (var (value, index) in players.Select((value, index) => (value, index)))
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
+                if (UnusablePlayerName(value)) { unusable++; firstUnusable ??= origin.JsonPath; continue; }
                 var identity = player(value, entity.Key, false, origin);
                 if (!statistics.Add((identity.PlayerId, entity.Key)) || !float.IsFinite(value.Summatory) || !float.IsFinite(value.FantaSummatory))
                     throw new CoreImportException("duplicate_or_invalid_statistics");
@@ -154,6 +162,8 @@ public sealed partial class CoreDatasetImporter
                 }
                 plan.Statistics.Add(row);
             }
+            if (unusable > 0) plan.SkippedUnusablePlayerRows.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                entity.Key, 0, players.Count, unusable, firstUnusable!));
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realrank"))
         {

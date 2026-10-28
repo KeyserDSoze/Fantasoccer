@@ -208,6 +208,14 @@ Allo stesso modo, per i voti duplicati (`duplicate_or_invalid_vote`):
 
 Per ogni documento `live`/`notification`/`official` trova i giocatori con la stessa chiave e ripete la classificazione dei 6 d'ufficio dell'import (voce reale accoppiata, rinvio nel calendario, avversario della stessa partita). Riporta quanti duplicati sono già risolti e mostra nel dettaglio solo quelli che bloccherebbero l'import, con club, ruolo, voto, presenza in campo, eventi e stato della partita. Anche questo è di sola lettura; nomi e voti dei calciatori vengono mostrati solo sul tuo terminale.
 
+Per i giocatori senza nome utilizzabile (`invalid_player` con `empty_player_key`):
+
+```powershell
+.\scripts\local\scan-player-names.ps1 -DumpName prova1
+```
+
+Applica a tutti i contenitori con giocatori (voti, catalogo, probabili formazioni, statistiche, rose, competizioni, mercato, aste, albo e baseline push) le stesse regole dell'import, conta le voci già escluse o archiviate e mostra solo quelle che bloccherebbero, con il JSON della voce.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.
