@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Fantasoccer.Business;
 using Fantasoccer.Application.Core.Groups;
+using Fantasoccer.Application.Core.Football;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -94,7 +95,7 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
             throw Invalid("Sono consentiti solo cambi fra due giocatori dello stesso ruolo.");
         var candidate = new Team { Name = roster.Name, Owner = canonical, AdditionalOwners = [], Players = active.Select(x => new Player
         {
-            Name = x.Player.Name, Role = (Role)x.PlayerRole, RealTeam = new() { Name = x.Club.Name, Abbreviation = x.Club.Abbreviation },
+            Name = x.Player.Name, Role = (Role)x.PlayerRole, RealTeam = FootballMapping.DomainClubOrEmpty(x.Club),
             Status = PlayerInTeamStatus.Active, Position = (FantaSoccerRole)positions[x.PlayerId]
         }).ToList() };
         var validation = checker.Validate(candidate);
@@ -166,7 +167,7 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
             current ? metadata.Name : row.Name, owner,
             current ? metadata.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).ToArray() : row.AdditionalOwners.Select(x => x.User.OwnerReference).ToArray(),
             row.Players.OrderBy(x => x.Ordinal).Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, x.Player.Name,
-                new(x.Club.Name, x.Club.Id), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
+                FootballClubDto.Of(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
                 { SeasonIndex = row.SeasonIndex }).ToArray(),
             row.MoneyFromRank, row.OpeningCompetitionPrize, row.LastUpdateUtc?.ToString("O") ?? row.LegacyLastUpdateLocal?.ToString("s"), row.FormationChanges,
             row.FormationHistory.OrderBy(x => x.Ordinal).Select(x => new FormationChangeDto(x.DateUtc?.ToString("O") ?? x.LegacyDateLocal?.ToString("s"), x.Author,

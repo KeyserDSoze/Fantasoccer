@@ -152,13 +152,13 @@ public sealed partial class CoreMigrationTests
         var annual = await database.PlayerSeasons.SingleAsync(); Assert.Equal("gen", annual.ClubId); Assert.True(annual.IsActive);
         Assert.Null((await database.FootballVotes.SingleAsync()).ClubId); Assert.Equal(0, report.UnresolvedAnnualPlayerClubs);
         await votes.DeleteBlobAsync("source"); await catalogue.DeleteBlobAsync("15");
-        foreach (var container in new[] { "realplayerswrapper", "team", "chancedrealplayerwrapper", "statplayerswrapper" })
+        // Rosters may keep a NULL club by operator decision (see
+        // LegacyRosterClubImportTests); catalogue, lineups and statistics stay strict.
+        foreach (var container in new[] { "realplayerswrapper", "chancedrealplayerwrapper", "statplayerswrapper" })
         {
             var sample = ClubDiagnosticPlayer(false); sample.RealTeam = null!;
-            object key = container == "team" ? new TeamKey { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email }
-                : container == "chancedrealplayerwrapper" ? new YearDayKey { Year = 15, Day = 2 } : 15;
-            object value = container == "team" ? new Team { Name = "Strict roster", Owner = Email, Players = [sample] }
-                : new RealPlayersWrapper { Players = [sample] };
+            object key = container == "chancedrealplayerwrapper" ? new YearDayKey { Year = 15, Day = 2 } : 15;
+            object value = new RealPlayersWrapper { Players = [sample] };
             // Analyze directly: this test already has committed SQL to protect.
             var source = _extraContainers.Contains(container) ? _storage.Blobs.GetBlobContainerClient(container) : await ExtraContainerAsync(container);
             await source.GetBlobClient("invalid-source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(new { k = key, v = value })));

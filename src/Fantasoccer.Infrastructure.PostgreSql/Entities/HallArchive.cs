@@ -28,7 +28,8 @@ public sealed class HallRecordGame
 public sealed class HallPlayerSnapshot
 {
     public string PlayerId { get; set; } = null!;
-    public string ClubId { get; set; } = null!;
+    // NULL only for legacy hall snapshots that never recorded the club.
+    public string? ClubId { get; set; }
     public required string Name { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
@@ -37,7 +38,7 @@ public sealed class HallPlayerSnapshot
     public int Revenue { get; set; }
     public int Status { get; set; }
     public int Position { get; set; }
-    public FootballClub Club { get; set; } = null!;
+    public FootballClub? Club { get; set; }
 }
 public sealed class HallPlayerRecord
 {

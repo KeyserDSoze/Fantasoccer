@@ -9,11 +9,13 @@ namespace Fantasoccer.DataMigration;
 public sealed partial class CoreDatasetImporter
 {
     private static void LoadHallArchives(VerifiedJsonDataset dataset, CorePlan plan, Func<string, string, Guid> map,
-        Func<RealPlayer, PlayerSource, string> player, Func<RealTeam?, ClubSource, string> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
+        Func<RealPlayer, PlayerSource, string> player, Func<RealTeam?, ClubSource, string?> club, Func<Guid, string, string, UserAccount> user, Action<int> season)
     {
         Guid Existing(string kind, string key) => plan.Maps.SingleOrDefault(x => x.Kind == kind && x.LegacyKey == key)?.TargetId ?? throw new CoreImportException("missing_hall_reference");
+        var missingClubs = 0; string? firstMissingClub = null;
         foreach (var document in dataset.Documents.Where(x => x.Container == "halloffame"))
         {
+            missingClubs = 0; firstMissingClub = null;
             var entity = document.Envelope.Deserialize<Entity<HallOfFame, GeneralLeagueKey>>() ?? throw new CoreImportException("invalid_hall_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_hall_key");
             var value = entity.Value ?? throw new CoreImportException("missing_hall_archive");
@@ -51,6 +53,9 @@ public sealed partial class CoreDatasetImporter
                     Name = rank.Name, Points = rank.Point, Victories = rank.Victories, Draws = rank.Draws, Defeats = rank.Defeats, Goals = rank.Goal,
                     SufferedGoals = rank.SufferedGoal, ValuePoints = rank.ValuePoint, SufferedValuePoints = rank.SufferedValuePoint, PlusMoney = rank.PlusMoney, Money = rank.Money });
             }
+            // Hall snapshots span several seasons: no single season/day applies.
+            if (missingClubs > 0) plan.MissingRosterClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
+                0, 0, missingClubs, firstMissingClub!));
             plan.HallArchives.Add(archive);
             Guid Member(string owner)
             {
@@ -63,7 +68,9 @@ public sealed partial class CoreDatasetImporter
         HallPlayerSnapshot Snapshot(Player source, PlayerSource origin)
         {
             if (source is null) throw new CoreImportException("missing_hall_player");
-            return new() { PlayerId = player(source, origin), ClubId = club(source.RealTeam, ClubOrigin(origin)), Name = source.Name, PlayerRole = (int)source.Role,
+            var clubId = club(source.RealTeam, ClubOrigin(origin));
+            if (clubId is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
+            return new() { PlayerId = player(source, origin), ClubId = clubId, Name = source.Name, PlayerRole = (int)source.Role,
                 IsActive = source.IsActive, IsVisible = source.Visible, Price = source.Price, Revenue = source.Revenue, Status = (int)source.Status, Position = (int)source.Position };
         }
         ICollection<HallWinStage> Wins(Dictionary<string, List<int>> source)

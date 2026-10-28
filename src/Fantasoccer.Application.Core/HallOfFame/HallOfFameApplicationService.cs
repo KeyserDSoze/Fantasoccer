@@ -36,7 +36,7 @@ public sealed class HallOfFameApplicationService(FantasoccerDbContext database, 
             archive.Ranks.OrderBy(x => x.Ordinal).Select(x => new HallRankDto(x.OwnerUserId, x.Name, x.OwnerEmail, x.Points, x.Victories, x.Draws, x.Defeats,
                 x.Goals, x.SufferedGoals, x.ValuePoints, x.SufferedValuePoints, x.PlusMoney, x.Money)).ToArray(), archive.Version, archive.ContributionsInitialized);
     }
-    private static RosterPlayerDto Player(HallPlayerSnapshot row) => new(row.PlayerId, 0, row.Name, new(row.Club.Name, row.Club.Id),
+    private static RosterPlayerDto Player(HallPlayerSnapshot row) => new(row.PlayerId, 0, row.Name, FootballClubDto.Of(row.Club),
         row.PlayerRole, row.IsActive, row.IsVisible, row.Price, row.Revenue, row.Status, row.Position);
     private static Dictionary<string, int[]> Wins(IEnumerable<HallWinStage> stages) => stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,
         x => x.Years.OrderBy(year => year.Ordinal).Select(year => year.Year).ToArray());

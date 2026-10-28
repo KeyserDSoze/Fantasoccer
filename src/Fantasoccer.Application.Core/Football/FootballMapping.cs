@@ -10,6 +10,8 @@ public static class FootballMapping
     public static ChanceDto Chance(FootballChance row) => new(row.Fantagazzetta, row.Gazzetta, row.Mediaset, row.Sky, row.Status, row.Description,
         row.LegacyLastGameDay is { } day ? new(day, row.LegacyLastGameVote, row.LegacyLastGamePositiveness ?? 0) : null, row.LegacyTrend);
     public static RealTeam DomainClub(FootballClub row) => new() { Name = row.Name, Abbreviation = row.Id };
+    // Same empty club as the legacy snapshot when no club was recorded.
+    public static RealTeam DomainClubOrEmpty(FootballClub? row) => row is null ? new() { Name = "", Abbreviation = "" } : DomainClub(row);
     public static global::Fantasoccer.Vote DomainVote(FootballVote row) => new()
     {
         Role = (Role)row.VoteRole, Value = row.Value, IsFinal = row.IsFinal, Goal = row.Goals, Penalty = row.Penalties, Assist = row.Assists,

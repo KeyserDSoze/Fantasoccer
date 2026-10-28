@@ -25,7 +25,7 @@ internal static class CompetitionMapping
     };
     public static Player Domain(RosterPlayer row) => new()
     {
-        Name = row.Player.Name, RealTeam = new() { Name = row.Club.Name, Abbreviation = row.Club.Abbreviation }, Role = (Role)row.PlayerRole,
+        Name = row.Player.Name, RealTeam = row.Club is null ? new() { Name = "", Abbreviation = "" } : new() { Name = row.Club.Name, Abbreviation = row.Club.Abbreviation }, Role = (Role)row.PlayerRole,
         IsActive = row.IsActive, Visible = row.IsVisible, Status = (PlayerInTeamStatus)row.Status, Position = (FantaSoccerRole)row.Position, Price = row.Price, Revenue = row.Revenue
     };
 }

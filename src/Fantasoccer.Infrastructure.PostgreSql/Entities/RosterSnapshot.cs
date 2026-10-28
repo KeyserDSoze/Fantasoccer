@@ -34,7 +34,8 @@ public sealed class RosterPlayer
 {
     public int Ordinal { get; set; }
     public string PlayerId { get; set; } = null!;
-    public string ClubId { get; set; } = null!;
+    // NULL only for legacy snapshots that never recorded the day's club.
+    public string? ClubId { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
@@ -43,7 +44,7 @@ public sealed class RosterPlayer
     public int Status { get; set; }
     public int Position { get; set; }
     public FootballPlayer Player { get; set; } = null!;
-    public FootballClub Club { get; set; } = null!;
+    public FootballClub? Club { get; set; }
 }
 
 public sealed class RosterOwner { public Guid UserId { get; set; } public UserAccount User { get; set; } = null!; }

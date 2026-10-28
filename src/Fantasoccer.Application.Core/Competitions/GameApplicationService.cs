@@ -142,12 +142,12 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         if (saved is null) return null;
         var rows = saved.Players.Where(x => x.IsHome == home).OrderBy(x => x.Ordinal).ToArray();
         var playerIds = rows.Select(x => x.PlayerId).ToArray();
-        var clubIds = rows.Select(x => x.ClubId).ToArray();
+        var clubIds = rows.Where(x => x.ClubId != null).Select(x => x.ClubId!).ToArray();
         var players = await database.Players.Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         var clubs = await database.Clubs.Where(x => clubIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         return new(metadata.Id, match.GroupId, metadata.BasketId, match.SeasonIndex, (int)RosterKind.Matchday, day, null,
             home ? saved.HomeName : saved.AwayName, (home ? match.HomeOwner : match.AwayOwner) ?? "", [],
-            rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, new(clubs[x.ClubId].Name, clubs[x.ClubId].Id),
+            rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, FootballClubDto.Of(x.ClubId is null ? null : clubs[x.ClubId]),
                 x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
                 { SeasonIndex = match.SeasonIndex }).ToArray(), 0, 0, null, 0, [], 0);
     }

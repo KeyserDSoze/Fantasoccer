@@ -46,7 +46,7 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
             ?? throw new ApplicationFault(404, "roster_not_found", "Rosa non trovata.");
         var active = roster.Players.Where(x => x.Status == 0).DistinctBy(x => x.PlayerId).ToArray();
         var result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.PlayerRole,
-            RealTeam = FootballMapping.DomainClub(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
+            RealTeam = FootballMapping.DomainClubOrEmpty(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
         // The image service returns the legacy name-only image alias for the
         // exact samples we sent. Map it back without changing the domain key.
         string Identity(string imageAlias) => active.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == imageAlias).PlayerId;

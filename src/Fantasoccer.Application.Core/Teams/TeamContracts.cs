@@ -3,6 +3,9 @@ namespace Fantasoccer.Application.Core.Teams;
 public sealed record FootballClubDto(string Name, string Abbreviation)
 {
     public string ClubCode => Abbreviation;
+    // Legacy snapshots without a recorded club keep NULL in SQL; clients get the
+    // same empty club the legacy documents contained, never an invented one.
+    public static FootballClubDto Of(Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub? club) => club is null ? new("", "") : new(club.Name, club.Id);
 }
 public sealed record RosterPlayerDto(string PlayerId, int Ordinal, string Name, FootballClubDto Team, int Role, bool IsActive,
     bool Visible, int Price, int Revenue, int Status, int Position)

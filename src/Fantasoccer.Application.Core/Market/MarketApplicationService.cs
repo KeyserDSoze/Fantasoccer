@@ -33,6 +33,9 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
         var outgoingSeller = FindPlayers(sellerRoster, request.SellerPlayerIds) ?? throw Invalid("Giocatori del venditore non disponibili.");
         if (outgoingBuyer.Length == 0 || outgoingSeller.Length == 0 || !SameRoles(outgoingBuyer, outgoingSeller) ||
             outgoingBuyer.Select(x => x.PlayerId).Intersect(outgoingSeller.Select(x => x.PlayerId)).Any()) throw Invalid("Lo scambio richiede lo stesso numero di giocatori per ruolo e identità distinte.");
+        // Only legacy snapshots can lack a club; a trade must record a real one.
+        if (outgoingBuyer.Concat(outgoingSeller).Any(x => x.ClubId is null))
+            throw new ApplicationFault(409, "market_player_club_unknown", "Un giocatore dello scambio non ha il club registrato nella rosa: lo scambio non può essere registrato.");
         if (!await database.MarketBooks.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken))
             database.MarketBooks.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = year });
         var ordinal = await database.MarketTrades.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).Select(x => (int?)x.Ordinal).MaxAsync(cancellationToken) ?? -1;
@@ -42,7 +45,7 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
         foreach (var (fromBuyer, players) in new[] { (true, outgoingBuyer), (false, outgoingSeller) })
             foreach (var (player, index) in players.Select((player, index) => (player, index)))
                 trade.Players.Add(new() { FromBuyer = fromBuyer, Ordinal = index, RosterOrdinal = player.Ordinal, PlayerId = player.PlayerId, Player = player.Player,
-                    ClubId = player.ClubId, Club = player.Club, PlayerRole = player.PlayerRole, IsActive = player.IsActive, IsVisible = player.IsVisible,
+                    ClubId = player.ClubId!, Club = player.Club!, PlayerRole = player.PlayerRole, IsActive = player.IsActive, IsVisible = player.IsVisible,
                     Price = player.Price, Revenue = player.Revenue, Position = player.Position, Status = player.Status });
         trade.Votes.Add(new() { TeamId = buyer.Id, BasketId = buyer.BasketId, OwnerEmail = trade.BuyerOwner, ActorUserId = actorId, Approved = true });
         database.MarketTrades.Add(trade);

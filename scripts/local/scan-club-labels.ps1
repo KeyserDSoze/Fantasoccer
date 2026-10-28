@@ -46,7 +46,10 @@ function Problem([string]$name, [string]$abbr) {
     return $null
 }
 $found = [Collections.Generic.List[object]]::new()
+# Rosters and hall snapshots without any club are imported with a NULL club.
+$unrecordedAllowed = 'team', 'dailyteams', 'openingteams', 'openingdailyteams', 'halloffame'
 function Check($team, $container, $year, $file, $path) {
+    if ($unrecordedAllowed -contains $container -and [string]::IsNullOrWhiteSpace([string]$team.n) -and [string]::IsNullOrWhiteSpace([string]$team.a)) { return }
     $reason = Problem $team.n $team.a
     if ($reason) { $found.Add([pscustomobject]@{ Container = $container; Anno = "$year"; Nome = "[$($team.n)]"; Sigla = "[$($team.a)]"; Motivo = $reason; Posizione = "$file $path" }) }
 }

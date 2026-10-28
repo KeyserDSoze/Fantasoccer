@@ -117,7 +117,8 @@ public sealed class PlayedMatchPlayer
     public bool IsHome { get; set; }
     public int Ordinal { get; set; }
     public string PlayerId { get; set; } = null!;
-    public string ClubId { get; set; } = null!;
+    // Copied from the roster entry: NULL when the legacy snapshot had no club.
+    public string? ClubId { get; set; }
     public int PlayerRole { get; set; }
     public bool IsActive { get; set; }
     public bool IsVisible { get; set; }
