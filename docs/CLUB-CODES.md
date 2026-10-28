@@ -2,7 +2,7 @@
 
 ## Fonte e versione
 
-`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e due alias espliciti, per 41 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche, `Juve → Juventus` e `Hellas Verona → Verona` documentati sotto, più una variante di sigla del provider (`hel → ver`). Versione `fantacalcio-2026-10-28-v5`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
+`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e due alias espliciti, per 41 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche, `Juve → Juventus` e `Hellas Verona → Verona` documentati sotto, più due varianti di sigla del provider (`hel → ver`, `monz → mon`). Versione `fantacalcio-2026-10-28-v6`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
 
 Verifica pubblica del 26 ottobre 2026: pagine della prima giornata delle stagioni da 2015/16 a 2026/27. Ogni pagina espone insieme il nome completo (`meta itemprop="name"`) e la sigla nel relativo link squadra. Il titolo della pagina è stato controllato contro la stagione richiesta: una URL storica che restituisce la stagione corrente non costituisce una prova per quella stagione. Le 240 coppie osservate sulle 12 pagine hanno prodotto 35 nomi/codici distinti, senza discrepanze tra anni.
 
@@ -69,19 +69,20 @@ Esempi di verifica diretta: [2022/23](https://www.fantacalcio.it/voti-fantacalci
 
 `Aliases` è un dizionario immutabile separato da `Names`: un alias non introduce un altro club o un'altra PK. La corrispondenza è esatta, non per prefisso: `Juve Next Gen`, `Juve Women`, `Hellas Verona Primavera` o un nome simile non vengono accorpati automaticamente. `Spal` non richiede un altro alias, perché il confronto di `SPAL` è già case-insensitive.
 
-### Variante di sigla del provider
+### Varianti di sigla del provider
 
 | Sigla esplicita | Codice verificato | Accettata solo con | Evidenza |
 |---|---|---|---|
 | `hel` | `ver` | il nome verificato del Verona (`Verona` o l'alias `Hellas Verona`) | Il calendario legacy 2024/25 (archivio `blobs/9f2852d838ac1529e5aecbb31df22a73cb67568e9cc616b23b11ac602d5923d2.bin`) usa per lo stesso club sia `Hellas verona/hel` sia `Hellas verona/ver`. |
+| `monz` | `mon` | il nome verificato del Monza | API calendario del provider Gazzetta per la stagione 2026/27 (`https://api2-mtc.gazzetta.it/api/v1/sports/calendar?day=<1-38>&sportId=1&competitionId=21`, verificata il 28 ottobre 2026): `Monza` ha `shortTeamName` `MONZ` in tutte le 38 giornate; le altre 19 squadre hanno sigle di tre lettere coerenti con il catalogo. Lo stesso valore è nel calendario legacy corrente (archivio `blobs/4b14831df26b6578bffacc1f51bee7212571c401ef392d850e95df2eddd4a870.bin`). |
 
-`CodeVariants` è separato dagli alias dei nomi: `hel` insieme a un altro club verificato (per esempio `Juventus/hel`) resta un conflitto, e con un nome non catalogato resta il codice esplicito `hel` come prima. Senza questa variante il calendario 2024/25 avrebbe creato in silenzio un secondo club `hel`, e la classifica non avrebbe potuto scegliere fra le due sigle. Il recupero viene dichiarato in `resolvedClubCodes`.
+`CodeVariants` è separato dagli alias dei nomi. Una variante è confrontata in modo esatto (solo minuscole/maiuscole, nessuno spazio rimosso) e può non essere di tre lettere, perché è un'etichetta del provider e non un codice SQL. Insieme a un altro club verificato (per esempio `Juventus/hel` o `Juventus/monz`) resta un conflitto; con un nome non catalogato `hel` resta il codice esplicito `hel` come prima, mentre `monz` resta invalido. Senza `hel` il calendario 2024/25 avrebbe creato in silenzio un secondo club, e la classifica non avrebbe potuto scegliere fra le due sigle; senza `monz` si bloccherebbero l'import del calendario corrente e il job SQL del calendario. I recuperi vengono dichiarati in `resolvedClubCodes`.
 
 La regressione comprende l'intera unione pubblica dei cataloghi multi-anno: **62 coppie nome/abbreviazione, 40 etichette e 39 codici distinti**, comprese tutte le 23 coppie con sigla esplicita e le 39 senza sigla. Il test esegue analisi/import insieme per tutti i campioni, ripete con ordine invertito e verifica idempotenza e immutabilità della sorgente; una seconda prova collega rose, voti e anni del giocatore attraverso `Juve`/`Juventus`, preservando prezzi/ricavi e rifiutando una sigla discordante. Non si procede più verificando soltanto il catalogo di un singolo anno.
 
 ## Regole di risoluzione
 
-1. Una sigla esplicita deve comunque avere tre lettere ASCII. Non viene corretta rimuovendo spazi interni, troncando caratteri o sostituendola con una deduzione.
+1. Una sigla esplicita deve comunque avere tre lettere ASCII. Non viene corretta rimuovendo spazi interni, troncando caratteri o sostituendola con una deduzione. Fanno eccezione soltanto le varianti del provider documentate sopra, insieme al nome verificato del loro club.
 2. Se il nome è nel catalogo, un codice esplicito discordante viene rifiutato con `club_code_name_mismatch`, non sovrascritto. Per esempio `Fiorentina/NAP` è un conflitto. L'unica eccezione è una variante di sigla documentata sopra, accettata solo con il nome verificato di quel club.
 3. Soltanto se il codice è mancante/null/whitespace, un nome presente nella tabella può risolverlo: `{"n":"Fiorentina","a":null}` diventa il riferimento SQL `fio` senza modificare il documento originale.
 4. Il confronto dei nomi e degli alias espliciti ignora soltanto maiuscole/minuscole e spazi esterni. Non usa prefissi, somiglianza, decodifica HTML, ordine degli array o associazioni di giocatori.

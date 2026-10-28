@@ -24,14 +24,15 @@ namespace Fantasoccer
             var key = abbreviation;
             if (string.IsNullOrWhiteSpace(key))
                 key = known ? providerCode : name.Length == 3 ? name : null;
+            // A documented provider variant is valid only with the verified
+            // name of its club; it may not be a three-letter code itself.
+            else if (known && FantacalcioClubCodes.IsCodeVariant(providerCode, key))
+                return providerCode;
             if (key is not { Length: 3 } || key.Any(c => !char.IsAsciiLetter(c)))
                 throw new ArgumentException("A club requires a verified name or its three-letter provider abbreviation.");
             key = key.ToLowerInvariant();
             if (known && key != providerCode)
-            {
-                if (FantacalcioClubCodes.IsCodeVariant(providerCode, key)) return providerCode;
                 throw new ArgumentException("The explicit club code contradicts the verified provider name.");
-            }
             return key;
         }
     }

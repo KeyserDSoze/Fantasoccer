@@ -192,6 +192,14 @@ Per default export e restore operano solo sui Blob. Aggiungere `-IncludeTables` 
 
 Controllare `pendingContainers`, `pendingFields` e `preservedArtifacts`. Navigazione, gruppi/regolamenti, rose, partite/formazioni, dati calcistici, classifiche, mercato/aste, albo, carte, log ed editoriale usano DTO SQL leggibili. Generazione calendario, ricalcolo, conferme baseline e AI sono comandi espliciti. Le riconciliazioni dipendenti dal dump e il collaudo con login reale non sono sostituiti dai test sintetici.
 
+Per vedere in una volta sola tutte le etichette dei club reali che l'import rifiuterebbe, invece di scoprirle un errore alla volta:
+
+```powershell
+.\scripts\local\scan-club-labels.ps1 -DumpName prova1
+```
+
+Lo script è di sola lettura: non usa Docker, database o Azure e non modifica il dump. Applica le stesse regole dell'import, leggendo nomi, alias e varianti di sigla direttamente da `FantacalcioClubCodes.cs`, e mostra solo etichette dei club, posizione e conteggi. Le righe "da verificare" non bloccano l'import: un nome non catalogato con la sigla di un club noto viene unito a quel club, quindi va controllato che sia davvero la stessa squadra. Il risultato viene anche copiato negli appunti.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.

@@ -37,7 +37,7 @@ public sealed partial class CoreMigrationTests
         // Current season: a played game keeps its score, a future placeholder does not.
         var year = FantacalcioTime.ActualYear; var now = FantacalcioTime.ItalyNow;
         await PutLegacyDocumentAsync("realcalendar", year, new RealCalendar { Year = year, Days = [new() { Year = year, SerieADay = 1, Games =
-            [CalendarGame("Milan", "mil", "Inter", "int", now.AddHours(-3), 2, 1), CalendarGame("Roma", "rom", "Napoli", "nap", now.AddDays(2), 0, 0)] }] });
+            [CalendarGame("Milan", "mil", "Inter", "int", now.AddHours(-3), 2, 1), CalendarGame("Roma", "rom", "Monza", "monz", now.AddDays(2), 0, 0)] }] });
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         string Hash(int key) => manifest.Containers.Single(x => x.Name == "realcalendar").Blobs.Single(x => x.Name == key.ToString()).Sha256;
         await using var database = fixture.CreateContext();
@@ -63,6 +63,9 @@ public sealed partial class CoreMigrationTests
         var current = await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year).OrderBy(x => x.Ordinal).ToArrayAsync();
         Assert.Equal((2, 1), (current[0].HomeGoals, current[0].AwayGoals));
         Assert.Null(current[1].HomeGoals); Assert.Null(current[1].AwayGoals); Assert.NotNull(current[1].KickoffUtc);
+        // The current provider labels Monza "MONZ": same verified club, reported.
+        Assert.Equal("mon", current[1].AwayClubId); Assert.False(await database.Clubs.AnyAsync(x => x.Id == "monz"));
+        Assert.Contains(report.ResolvedClubCodes!, x => x.DocumentSha256 == Hash(year) && x.JsonPath == "$.v.d[0].g[1].a");
         var future = Assert.Single(report.DiscardedFutureScores!);
         Assert.Equal((Hash(year), year, 1, "$.v.d[0].g[1]"), (future.DocumentSha256, future.SeasonIndex, future.Games, future.FirstJsonPath));
         Assert.Equal(manifest.StartedAtUtc, future.ExportStartedAtUtc);

@@ -96,20 +96,32 @@ public sealed class SeasonPlayerKeyFormatTests
     [Fact]
     public void Provider_code_variants_resolve_only_together_with_the_verified_club_name()
     {
-        // The 2024/25 calendar used both "Hellas verona/hel" and "Hellas verona/ver".
-        var variant = Assert.Single(FantacalcioClubCodes.CodeVariants);
-        Assert.Equal(("hel", "ver"), (variant.Key, variant.Value));
+        // The 2024/25 calendar used both "Hellas verona/hel" and "Hellas verona/ver";
+        // the 2026/27 provider calendar labels Monza "MONZ" in all 38 matchdays.
+        Assert.Equal(new[] { ("hel", "ver"), ("monz", "mon") }, FantacalcioClubCodes.CodeVariants.OrderBy(x => x.Key).Select(x => (x.Key, x.Value)));
         foreach (var name in new[] { "Hellas verona", "HELLAS VERONA", "Verona" })
         {
             Assert.Equal("ver", KeyUtils.GetClubKey("hel", name));
             Assert.Equal("ver", KeyUtils.GetClubKey("HEL", name));
             Assert.Equal("ver", KeyUtils.GetClubKey("ver", name));
         }
-        // A variant never moves another verified club, and an unverified name
-        // keeps its own explicit code exactly as before.
+        foreach (var name in new[] { "Monza", "MONZA", " monza " })
+        {
+            Assert.Equal("mon", KeyUtils.GetClubKey("monz", name));
+            Assert.Equal("mon", KeyUtils.GetClubKey("MONZ", name));
+            Assert.Equal("mon", KeyUtils.GetClubKey("MON", name));
+        }
+        // A variant never moves another verified club, an unverified name keeps
+        // its own valid explicit code, and labels are never trimmed or cut.
         foreach (var name in new[] { "Juventus", "Napoli", "Juve" })
+        {
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("hel", name));
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("monz", name));
+        }
         Assert.Equal("hel", KeyUtils.GetClubKey("hel", "Unknown fixture club"));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("monz", "Unknown fixture club"));
+        foreach (var label in new[] { " monz", "monz ", "mon z", "monza", "mnz" })
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(label, "Monza"));
     }
 
     [Theory]

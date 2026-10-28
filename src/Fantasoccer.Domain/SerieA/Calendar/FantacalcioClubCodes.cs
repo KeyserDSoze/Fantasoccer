@@ -6,7 +6,7 @@ namespace Fantasoccer;
 // not a name-prefix rule. Evidence: docs/CLUB-CODES.md. No runtime HTTP.
 public static class FantacalcioClubCodes
 {
-    public const string Version = "fantacalcio-2026-10-28-v5";
+    public const string Version = "fantacalcio-2026-10-28-v6";
 
     private static readonly FrozenDictionary<string, string> s_codes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -63,10 +63,12 @@ public static class FantacalcioClubCodes
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     // Provider short-code variants observed for the same verified club. They
-    // are accepted only together with that club's verified name or alias.
+    // are accepted only together with that club's verified name or alias, as
+    // exact lowercase labels (no trimming), and may differ from three letters.
     private static readonly FrozenDictionary<string, string> s_codeVariants = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["hel"] = "ver"
+        ["hel"] = "ver",
+        ["monz"] = "mon"
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     public static IReadOnlyDictionary<string, string> Names => s_codes;
@@ -74,7 +76,7 @@ public static class FantacalcioClubCodes
     public static IReadOnlyDictionary<string, string> CodeVariants => s_codeVariants;
 
     public static bool IsCodeVariant(string providerCode, string explicitCode)
-        => s_codeVariants.TryGetValue(explicitCode.Trim().ToLowerInvariant(), out var canonical) && canonical == providerCode;
+        => s_codeVariants.TryGetValue(explicitCode.ToLowerInvariant(), out var canonical) && canonical == providerCode;
 
     public static bool TryGetName(string? code, out string name)
     {
