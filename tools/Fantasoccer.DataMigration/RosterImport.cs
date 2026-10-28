@@ -215,7 +215,12 @@ public sealed partial class CoreDatasetImporter
         {
             var calendar = document.Envelope.Deserialize<Entity<RealCalendar, int>>() ?? throw new CoreImportException("invalid_calendar_envelope");
             var value = calendar.Value ?? throw new CoreImportException("missing_calendar");
-            if (value.Year != calendar.Key) throw new CoreImportException("calendar_season_mismatch", "realcalendar $.Value.y", "RosterImport.cs", document.Sha256);
+            if (value.Year != calendar.Key)
+            {
+                if (!CalendarYearConfirmedByDays(value, calendar.Key))
+                    throw new CoreImportException("calendar_season_mismatch", "realcalendar $.Value.y", "RosterImport.cs", document.Sha256);
+                plan.RealCalendarsWithoutYear.Add(new(document.Sha256, DocumentArchiveReference(document), calendar.Key, value.Days!.Count));
+            }
             addSeason(calendar.Key);
             if (OtherSeasonCalendar(document, calendar) is { } excluded)
             {

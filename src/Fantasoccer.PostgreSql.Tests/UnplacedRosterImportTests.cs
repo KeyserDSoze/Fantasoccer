@@ -41,7 +41,7 @@ public sealed partial class CoreMigrationTests
         string Sha(string blob) => manifest.Containers.Single(x => x.Name == "team").Blobs.Single(x => x.Name == blob).Sha256;
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
-        Assert.Equal(42, report.MappingVersion);
+        Assert.Equal(43, report.MappingVersion);
         var skipped = report.SkippedRosterDocuments!.OrderBy(x => x.Reason).ToArray();
         Assert.Equal(2, skipped.Length);
         Assert.Equal(("empty_roster_without_team", Sha("empty"), "team", 15, 0, (string?)null), (skipped[0].Reason, skipped[0].DocumentSha256, skipped[0].Container, skipped[0].SeasonIndex, skipped[0].Day, skipped[0].KeptDocumentSha256));

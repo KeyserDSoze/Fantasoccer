@@ -95,4 +95,36 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext();
         Assert.Empty(await database.FootballMatches.ToArrayAsync());
     }
+
+    [CoreFact]
+    public async Task Calendars_without_a_stored_year_are_accepted_only_when_every_day_confirms_the_key()
+    {
+        // From 2023/24 the legacy calendars store year 0 while every day carries the key.
+        RealDay Day(int year, int number, DateTime date) => new() { Year = year, SerieADay = number, Games = [CalendarGame("Milan", "mil", "Inter", "int", date, 1, 0)] };
+        await PutLegacyDocumentAsync("realcalendar", 11, new RealCalendar { Year = 0, Days = [Day(11, 1, new(2022, 8, 14, 18, 30, 0)), Day(0, 2, new(2022, 8, 21, 18, 30, 0))] });
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var unconfirmed = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
+        Assert.Equal(("calendar_season_mismatch", "realcalendar $.Value.y"), (unconfirmed.Message, unconfirmed.Field));
+        await PutLegacyDocumentAsync("realcalendar", 11, new RealCalendar { Year = 10, Days = [Day(11, 1, new(2022, 8, 14, 18, 30, 0))] });
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var different = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
+        Assert.Equal("calendar_season_mismatch", different.Message);
+
+        await PutLegacyDocumentAsync("realcalendar", 11, new RealCalendar { Year = 11, Days = [Day(11, 1, new(2022, 8, 14, 18, 30, 0))] });
+        await PutLegacyDocumentAsync("realcalendar", 12, new RealCalendar { Year = 0, Days = [Day(12, 1, new(2024, 8, 18, 18, 30, 0))] });
+        await PutLegacyDocumentAsync("realcalendar", 13, new RealCalendar { Year = 0, Days = [Day(13, 1, new(2024, 8, 17, 18, 30, 0)), Day(13, 2, new(2024, 8, 24, 18, 30, 0))] });
+        var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        string Hash(int key) => manifest.Containers.Single(x => x.Name == "realcalendar").Blobs.Single(x => x.Name == key.ToString()).Sha256;
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(new[] { (Hash(12), 12, 1), (Hash(13), 13, 2) },
+            report.RealCalendarsWithoutYear!.OrderBy(x => x.SeasonIndex).Select(x => (x.DocumentSha256, x.SeasonIndex, x.Days)));
+        Assert.Contains(report.PendingFields, x => x.Contains("realCalendarsWithoutYear", StringComparison.Ordinal));
+        // The usual season rules still apply: 12 holds 2024/25 games and stays excluded.
+        Assert.Equal(12, Assert.Single(report.ExcludedRealCalendars!).SeasonIndex);
+        Assert.Equal(new[] { (11, 1), (13, 1), (13, 2) }, (await database.FootballMatchdays.OrderBy(x => x.SeasonIndex).ThenBy(x => x.SerieADay).ToArrayAsync())
+            .Select(x => (x.SeasonIndex, x.SerieADay)));
+        var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
+    }
 }

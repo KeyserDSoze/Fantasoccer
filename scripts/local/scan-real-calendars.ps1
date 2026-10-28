@@ -33,12 +33,15 @@ $rows = foreach ($blob in $(if ($entry) { @($entry.blobs) } else { @() })) {
     $inside = @($seasons | Where-Object { $_ -eq [int]$key }).Count
     $numbers = @(foreach ($day in $days) { [int]$day.a })
     $badDays = @($numbers | Where-Object { $_ -lt 1 -or $_ -gt 38 }).Count + ($numbers.Count - @($numbers | Sort-Object -Unique).Count)
-    # Same order of checks as the import.
-    $outcome = if ([int]$value.y -ne [int]$key) { 'RIFIUTATO: calendar_season_mismatch (anno interno diverso dalla chiave)' }
+    # Same order of checks as the import. Year 0 (never stored) is accepted only
+    # when every day carries the key's season (operator decision).
+    $confirmed = [int]$value.y -eq 0 -and $days.Count -gt 0 -and @($days | Where-Object { [int]$_.y -ne [int]$key }).Count -eq 0
+    $outcome = if ([int]$value.y -ne [int]$key -and -not $confirmed) { 'RIFIUTATO: calendar_season_mismatch (anno interno diverso dalla chiave)' }
         elseif ($seasons.Count -gt 0 -and $inside -eq 0) { 'escluso: tutte le partite datate sono di un''altra stagione' }
         elseif ($inside -lt $seasons.Count) { 'RIFIUTATO: real_calendar_mixed_seasons' }
         elseif ($badDays -gt 0) { 'RIFIUTATO: duplicate_real_matchday' }
         else { 'importato' }
+    if ($confirmed -and [int]$key -ne 0) { $outcome += ' (anno interno assente, confermato dalle giornate)' }
     [pscustomobject]@{
         Chiave = "$key ($(Label $key))"; AnnoInterno = "$($value.y)$(if ($null -ne $value.y -and [int]$value.y -ge 1 -and [int]$value.y -le 40) { " ($(Label $value.y))" })"
         AnniGiornate = ((@($days | ForEach-Object { "$($_.y)" }) | Group-Object | Sort-Object Name | ForEach-Object { "$($_.Name)x$($_.Count)" }) -join ',')
