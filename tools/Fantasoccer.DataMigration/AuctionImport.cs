@@ -40,7 +40,7 @@ public sealed partial class CoreDatasetImporter
                 var sample = actual.Player ?? throw new CoreImportException("missing_actual_auction_player");
                 var origin = PlayerOrigin(document, ".a.pl");
                 var identity = player(sample, key.Year, false, origin);
-                var team = Team(actual.Owner);
+                var team = Team(actual.Owner, "$.Value.a.o");
                 auction.Actual = new() { PlayerId = identity.PlayerId, ClubId = club(sample.RealTeam, ClubOrigin(origin)), PlayerRole = (int)sample.Role, IsActive = sample.IsActive,
                     IsVisible = sample.Visible, StartedAtUtc = Utc(actual.Started), LegacyStartedUtc = Local(actual.Started),
                     TimerStartedAtUtc = actual.StartingTime is { } timer ? Utc(timer) : null, LegacyTimerStartedUtc = actual.StartingTime is { } localTimer ? Local(localTimer) : null,
@@ -60,7 +60,7 @@ public sealed partial class CoreDatasetImporter
                 auction.LastShown.Add(new() { Role = (int)role, PlayerId = string.IsNullOrEmpty(last) ? null : Identity(last) });
             foreach (var (win, ordinal) in (source.Winnings ?? []).Select((win, ordinal) => (win, ordinal)))
             {
-                var team = Team(win.Owner);
+                var team = Team(win.Owner, $"$.Value.w[{ordinal}].o");
                 auction.Winnings.Add(new() { Ordinal = ordinal, PlayerId = Identity(win.PlayerKey), TeamId = team?.Id, BasketId = team?.BasketId,
                     OwnerEmail = win.Owner, Price = win.Price });
             }
@@ -75,13 +75,13 @@ public sealed partial class CoreDatasetImporter
                 if (!plan.PlayerSeasons.Any(x => x.PlayerId == id && x.SeasonIndex == key.Year)) throw new CoreImportException("missing_auction_player_season");
                 return id;
             }
-            FantasyTeamSeason? Team(string? owner)
+            FantasyTeamSeason? Team(string? owner, string jsonPath)
             {
                 if (string.IsNullOrEmpty(owner)) return null;
                 var user = ExistingOwner(plan, group, owner, "missing_auction_owner");
                 var baskets = plan.Participations.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year).Select(x => x.BasketId).ToHashSet();
                 var teams = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == key.Year && x.UserId == user.Id && x.IsPrimary && baskets.Contains(x.BasketId)).ToArray();
-                return teams.Length == 1 ? plan.Teams.Single(x => x.Id == teams[0].TeamId) : throw new CoreImportException("unresolved_historical_team_identity");
+                return teams.Length == 1 ? plan.Teams.Single(x => x.Id == teams[0].TeamId) : throw UnresolvedTeam(document, jsonPath);
             }
         }
     }

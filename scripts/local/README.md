@@ -216,6 +216,14 @@ Per i giocatori senza nome utilizzabile (`invalid_player` con `empty_player_key`
 
 Applica a tutti i contenitori con giocatori (voti, catalogo, probabili formazioni, statistiche, rose, competizioni, mercato, aste, albo e baseline push) le stesse regole dell'import, conta le voci già escluse o archiviate e mostra solo quelle che bloccherebbero, con il JSON della voce.
 
+Per i proprietari che l'import non riesce a collegare a una squadra annuale (`unresolved_historical_team_identity`):
+
+```powershell
+.\scripts\local\scan-team-identities.ps1 -DumpName prova1
+```
+
+Ripete le regole dell'import in tutti i punti in cui serve la squadra di un proprietario: rose (`team`, `dailyteams`, e `openingteams`/`openingdailyteams` con le squadre dell'anno precedente), mercato (acquirente, venditore, voti), calendari e classifiche fantacalcio, classifiche d'apertura e aste. Per ogni riferimento non risolto indica il motivo (per esempio "è solo co-proprietario della squadra", "squadra solo in altri anni", "squadra nello stesso anno ma in un altro basket", "etichetta uguale salvo maiuscole/spazi", "membro del gruppo senza squadre"), gli anni in cui il proprietario ha una squadra (`c` = solo co-proprietario), il numero di giocatori della rosa e un riferimento breve all'archivio. Non mostra email, etichette dei proprietari né nomi delle squadre: ogni proprietario compare come pseudonimo stabile nel gruppo (`P…`), ogni gruppo come `G…`.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.

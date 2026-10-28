@@ -21,13 +21,13 @@ public sealed partial class CoreDatasetImporter
                 throw new CoreImportException("missing_competition_season");
             return (group, league);
         }
-        FantasyTeamSeason Resolve(Guid group, Guid league, int year, string owner)
+        FantasyTeamSeason Resolve(Guid group, Guid league, int year, string owner, LegacyJsonDocument document, string jsonPath)
         {
             var user = ExistingOwner(plan, group, owner, "missing_competition_owner");
             var baskets = plan.Participations.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).Select(x => x.BasketId).ToHashSet();
             var teams = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == year && x.UserId == user.Id && x.IsPrimary && baskets.Contains(x.BasketId))
                 .Select(owner => plan.Teams.Single(team => team.Id == owner.TeamId)).ToArray();
-            return teams.Length == 1 ? teams[0] : throw new CoreImportException("unresolved_historical_team_identity");
+            return teams.Length == 1 ? teams[0] : throw UnresolvedTeam(document, jsonPath);
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "marketwrapper"))
         {
@@ -41,8 +41,8 @@ public sealed partial class CoreDatasetImporter
             foreach (var value in entity.Value?.Markets ?? throw new CoreImportException("missing_market_trades"))
             {
                 if (string.IsNullOrWhiteSpace(value.Id) || !ids.Add(value.Id) || (int)value.Status is < 0 or > 6) throw new CoreImportException("invalid_market_trade");
-                var buyer = Resolve(group, league, key.Year, value.Buyer);
-                var seller = Resolve(group, league, key.Year, value.Seller);
+                var buyer = Resolve(group, league, key.Year, value.Buyer, document, $"$.Value.m[{ordinal}].b");
+                var seller = Resolve(group, league, key.Year, value.Seller, document, $"$.Value.m[{ordinal}].s");
                 var trade = new MarketTrade { GroupId = group, LeagueId = league, SeasonIndex = key.Year,
                     Id = map("market", Composite(key.Group, key.League, key.Year.ToString(CultureInfo.InvariantCulture), value.Id)), Ordinal = ordinal++,
                     BuyerTeamId = buyer.Id, BuyerBasketId = buyer.BasketId, SellerTeamId = seller.Id, SellerBasketId = seller.BasketId,
@@ -59,9 +59,9 @@ public sealed partial class CoreDatasetImporter
                             Status = (int)item.Status, Position = (int)item.Position });
                     }
                 foreach (var (approved, owners) in new[] { (true, value.Approvers), (false, value.Deniers) })
-                    foreach (var ownerEmail in owners ?? [])
+                    foreach (var (ownerEmail, index) in (owners ?? []).Select((value, index) => (value, index)))
                     {
-                        var voter = Resolve(group, league, key.Year, ownerEmail);
+                        var voter = Resolve(group, league, key.Year, ownerEmail, document, $"$.Value.m[{trade.Ordinal}].{(approved ? "a" : "d")}[{index}]");
                         if (trade.Votes.Any(x => x.TeamId == voter.Id)) throw new CoreImportException("market_vote_collision");
                         trade.Votes.Add(new() { TeamId = voter.Id, BasketId = voter.BasketId, OwnerEmail = ownerEmail, Approved = approved, Ordinal = trade.Votes.Count });
                     }
@@ -107,8 +107,8 @@ public sealed partial class CoreDatasetImporter
                     foreach (var game in day.Games ?? [])
                     {
                         if (string.IsNullOrWhiteSpace(game.Id) || !ids.Add(game.Id)) throw new CoreImportException("fantasy_game_collision");
-                        var home = string.IsNullOrWhiteSpace(game.HomeOwner) ? null : Resolve(group, league, key.Year, game.HomeOwner);
-                        var away = string.IsNullOrWhiteSpace(game.AwayOwner) ? null : Resolve(group, league, key.Year, game.AwayOwner);
+                        var home = string.IsNullOrWhiteSpace(game.HomeOwner) ? null : Resolve(group, league, key.Year, game.HomeOwner, document, $"$.Value.r.{stageKey}[{stage.Days.Count}].g[{row.Games.Count}].o");
+                        var away = string.IsNullOrWhiteSpace(game.AwayOwner) ? null : Resolve(group, league, key.Year, game.AwayOwner, document, $"$.Value.r.{stageKey}[{stage.Days.Count}].g[{row.Games.Count}].u");
                         row.Games.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = key.Year,
                             Id = map("match", Composite(key.Group, key.League, key.Year.ToString(CultureInfo.InvariantCulture), game.Id)),
                             Stage = stageKey, DayOrdinal = row.Ordinal, Ordinal = row.Games.Count, Number = game.Number,
@@ -137,7 +137,7 @@ public sealed partial class CoreDatasetImporter
                 var ids = new HashSet<Guid>();
                 foreach (var team in teams ?? throw new CoreImportException("missing_rank_teams"))
                 {
-                    var metadata = Resolve(group, league, key.Year, team.Owner);
+                    var metadata = Resolve(group, league, key.Year, team.Owner, document, $"$.Value.r.{stageKey}[{stage.Teams.Count}].o");
                     if (!ids.Add(metadata.Id) || !new[] { team.Point, team.ValuePoint, team.SufferedValuePoint }.All(float.IsFinite))
                         throw new CoreImportException("invalid_rank_team");
                     stage.Teams.Add(new() { Ordinal = stage.Teams.Count, BasketId = metadata.BasketId, TeamId = metadata.Id,
@@ -164,7 +164,7 @@ public sealed partial class CoreDatasetImporter
                 var owner = ExistingOwner(plan, group, item.Owner, "missing_opening_owner");
                 var owners = plan.Owners.Where(x => x.GroupId == group && x.SeasonIndex == key.Year - 1 && x.UserId == owner.Id && x.IsPrimary && baskets.Contains(x.BasketId)).ToArray();
                 if (owners.Length != 1 || snapshot.Teams.Any(x => x.TeamId == owners[0].TeamId) || !float.IsFinite(item.Score))
-                    throw new CoreImportException("unresolved_historical_team_identity");
+                    throw UnresolvedTeam(document, $"$.Value.t[{snapshot.Teams.Count}].o");
                 snapshot.Teams.Add(new() { TeamId = owners[0].TeamId, BasketId = owners[0].BasketId, TeamOriginYear = key.Year - 1, Ordinal = snapshot.Teams.Count,
                     Owner = item.Owner, Name = item.Name, Score = item.Score, Prize = item.Prize, Position = item.Position });
             }

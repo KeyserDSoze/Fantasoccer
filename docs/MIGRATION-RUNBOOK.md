@@ -288,6 +288,12 @@ Rianalizza con `-UseExistingDump`, senza reset o nuovi download, e controlla `hi
 
 Dopo aver completato l'import, in **Membri del gruppo** l'amministratore vede la colonna **Stato nel gruppo**, anche per i disattivi. Può riattivare/disattivare l'appartenenza e configurare l'email reale ancora mancante da **Modifica utente**. La riattivazione rapida assegna soltanto Partecipante; privilegi maggiori richiedono scelta e autorizzazione esplicite. Disattivare un gruppo non disabilita l'account globale o le altre appartenenze. Se l'email appartiene già a un altro account, l'operazione si ferma: non avviene un merge implicito. Queste sono scritture applicative: eseguirle solo dopo aver chiuso la migrazione, perché impediscono le reimportazioni successive.
 
+### Se compare `unresolved_historical_team_identity`
+
+Un documento cita un proprietario che, nel gruppo, non ha esattamente una squadra annuale principale dove l'import la cerca: per le rose nel basket e nell'anno della chiave (per le rose d'apertura l'anno precedente), per mercato, calendari, classifiche e aste fra i basket della lega in quell'anno, per le classifiche d'apertura fra i basket della lega nell'anno precedente. L'import non sceglie una squadra in base al nome, ai co-proprietari o ad altri anni. L'errore indica contenitore, percorso JSON, riga del codice e SHA-256 del documento, mai il proprietario.
+
+Per vedere tutti i casi in una volta usa `.\scripts\local\scan-team-identities.ps1 -DumpName <nome>` (sola lettura): per ogni riferimento non risolto mostra il motivo, gli anni in cui il proprietario ha una squadra e il numero di giocatori della rosa, con pseudonimi al posto di email ed etichette. Vedere il [README degli script locali](../scripts/local/README.md).
+
 ## 3. Importare esplicitamente la copia locale
 
 Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste/liste con `IMPORT_LEGACY_AUCTIONS=false`, `table:logs` con `IMPORT_LEGACY_LOGS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.

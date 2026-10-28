@@ -172,7 +172,7 @@ public sealed partial class CoreDatasetImporter
             // A historical owner cannot be guessed from a display name. Stop for an
             // explicit mapping instead of accidentally joining the wrong team's history.
             var metadata = teamMap is null ? null : plan.Teams.SingleOrDefault(x => x.Id == teamMap.TargetId);
-            if (metadata is null) throw new CoreImportException("unresolved_historical_team_identity");
+            if (metadata is null) throw UnresolvedTeam(document, "$.Key.e");
             Guid competition = leagueKey is null ? Guid.Empty : Existing("league", Composite(groupKey, leagueKey));
             if (!snapshots.Add((metadata.Id, kind, day, competition))) throw new CoreImportException("duplicate_roster_snapshot");
             var owner = ExistingOwner(plan, groupId, email, "unresolved_historical_team_identity");

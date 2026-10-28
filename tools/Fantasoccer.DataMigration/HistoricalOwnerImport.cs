@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
+using Fantasoccer.StorageMigration;
 
 namespace Fantasoccer.DataMigration;
 
@@ -19,4 +21,11 @@ public sealed partial class CoreDatasetImporter
 
     private static UserAccount ExistingOwner(CorePlan plan, Guid groupId, string value, string missingCode)
         => plan.Users.GetValueOrDefault(OwnerKey(plan, groupId, value)) ?? throw new CoreImportException(missingCode);
+
+    // Container and JSON path (indexes only) plus the reading code line; never
+    // the owner value, which may be an email or a private label.
+    private static CoreImportException UnresolvedTeam(LegacyJsonDocument document, string jsonPath,
+        [CallerFilePath] string readerFile = "", [CallerLineNumber] int readerLine = 0)
+        => new("unresolved_historical_team_identity", document.Container + " " + jsonPath,
+            Path.GetFileName(readerFile) + ":" + readerLine, document.Sha256);
 }
