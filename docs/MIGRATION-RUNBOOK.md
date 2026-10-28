@@ -224,6 +224,8 @@ Dalla MappingVersion 38, per scelta del gestore, un calendario reale le cui part
 
 Un calendario che mescola date di più stagioni viene rifiutato con `real_calendar_mixed_seasons` e il checksum del documento, senza import parziale.
 
+Prima di queste regole l'import controlla che l'anno salvato dentro il calendario (`$.Value.y`) coincida con la chiave; altrimenti si ferma con `calendar_season_mismatch`, indicando checksum e campo. Per vedere in una volta tutti i calendari con chiave, anno interno, date, stagioni effettive ed esito dell'import usa `.\scripts\local\scan-real-calendars.ps1 -DumpName <nome>` (sola lettura, senza club né punteggi).
+
 Un punteggio su una partita con orario successivo all'inizio dell'export (`StartedAtUtc` del manifest) non può essere un risultato. Le vecchie versioni del parser salvavano punteggi di riempimento, per esempio sul calendario corrente. Quelle partite vengono importate **senza risultato**, quindi l'app le mostra "da giocare" e non 0-0. Il risultato vero arriva dal job SQL del calendario. Il report le conta in `discardedFutureScores` (checksum, stagione, numero di partite, prima posizione JSON), senza nomi o valori.
 
 ### Classifica corrente e copie giornaliere legacy

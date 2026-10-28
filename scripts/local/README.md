@@ -224,6 +224,14 @@ Per i proprietari che l'import non riesce a collegare a una squadra annuale (`un
 
 Ripete le regole dell'import in tutti i punti in cui serve la squadra di un proprietario: rose (`team`, `dailyteams`, e `openingteams`/`openingdailyteams` con le squadre dell'anno precedente), mercato (acquirente, venditore, voti), calendari e classifiche fantacalcio, classifiche d'apertura e aste. Per ogni riferimento non risolto indica il motivo (per esempio "è solo co-proprietario della squadra", "squadra solo in altri anni", "squadra nello stesso anno ma in un altro basket", "etichetta uguale salvo maiuscole/spazi", "membro del gruppo senza squadre"), gli anni in cui il proprietario ha una squadra (`c` = solo co-proprietario), il numero di giocatori della rosa e un riferimento breve all'archivio. Non mostra email, etichette dei proprietari né nomi delle squadre: ogni proprietario compare come pseudonimo stabile nel gruppo (`P…`), ogni gruppo come `G…`. Le rose che l'import esclude per decisione del gestore (copie identiche della rosa nel basket della squadra, rose vuote di proprietari senza squadra quell'anno) sono contate a parte e non compaiono fra i problemi; per le rose stagionali che restano bloccanti un'ultima sezione mostra, una riga per documento, i basket coinvolti, l'eventuale copia nel basket della squadra (identica, stessi giocatori o diversa), le rose giornaliere per basket e i campi economici.
 
+Per i calendari reali di Serie A (`calendar_season_mismatch`, `real_calendar_mixed_seasons`, `duplicate_real_matchday`):
+
+```powershell
+.\scripts\local\scan-real-calendars.ps1 -DumpName prova1
+```
+
+Mostra una riga per calendario: stagione della chiave, anno salvato nel calendario e nelle giornate, numero di giornate e partite, intervallo delle date, stagioni a cui appartengono le partite datate (confine 10 agosto, come l'import) e l'esito che avrebbe nell'import (importato, escluso perché di un'altra stagione, oppure rifiutato e perché). Non stampa club né punteggi.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.

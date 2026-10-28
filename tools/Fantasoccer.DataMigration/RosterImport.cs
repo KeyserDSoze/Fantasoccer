@@ -215,7 +215,7 @@ public sealed partial class CoreDatasetImporter
         {
             var calendar = document.Envelope.Deserialize<Entity<RealCalendar, int>>() ?? throw new CoreImportException("invalid_calendar_envelope");
             var value = calendar.Value ?? throw new CoreImportException("missing_calendar");
-            if (value.Year != calendar.Key) throw new CoreImportException("calendar_season_mismatch");
+            if (value.Year != calendar.Key) throw new CoreImportException("calendar_season_mismatch", "realcalendar $.Value.y", "RosterImport.cs", document.Sha256);
             addSeason(calendar.Key);
             if (OtherSeasonCalendar(document, calendar) is { } excluded)
             {
@@ -228,7 +228,7 @@ public sealed partial class CoreDatasetImporter
             var futureScores = 0; string? firstFutureScore = null;
             foreach (var (day, dayIndex) in (value.Days ?? []).Select((day, index) => (day, index)))
             {
-                if (day.SerieADay is < 1 or > 38 || !matchdays.Add((calendar.Key, day.SerieADay))) throw new CoreImportException("duplicate_real_matchday");
+                if (day.SerieADay is < 1 or > 38 || !matchdays.Add((calendar.Key, day.SerieADay))) throw new CoreImportException("duplicate_real_matchday", $"realcalendar $.Value.d[{dayIndex}].a", "RosterImport.cs", document.Sha256);
                 var row = new FootballMatchday { SeasonIndex = calendar.Key, SerieADay = day.SerieADay };
                 foreach (var (game, ordinal) in (day.Games ?? []).Select((value, index) => (value, index)))
                 {
