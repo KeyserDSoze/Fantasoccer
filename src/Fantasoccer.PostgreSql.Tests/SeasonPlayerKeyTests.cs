@@ -76,7 +76,7 @@ public sealed class SeasonPlayerKeyFormatTests
     [Fact]
     public void Documented_exact_club_aliases_share_canonical_keys_without_enabling_prefix_or_fuzzy_matching()
     {
-        Assert.Equal(2, FantacalcioClubCodes.Aliases.Count);
+        Assert.Equal(4, FantacalcioClubCodes.Aliases.Count);
         foreach (var (alias, canonical) in FantacalcioClubCodes.Aliases)
         {
             Assert.False(FantacalcioClubCodes.Names.ContainsKey(alias));
@@ -89,7 +89,13 @@ public sealed class SeasonPlayerKeyFormatTests
         Assert.Equal("juv", KeyUtils.GetClubKey(null, "Juve"));
         Assert.Equal("ver", KeyUtils.GetClubKey(null, "HELLAS VERONA"));
         Assert.Equal("Verona", FantacalcioClubCodes.CanonicalName("ver", "Hellas verona"));
-        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé", "Hellas Verona Primavera", "Hellas Ver" })
+        // Official club names seen in the 2024/25 legacy calendar: stored as the
+        // canonical code and name, never as the long label.
+        Assert.Equal(("com", "Como"), (KeyUtils.GetClubKey(null, "Como 1907"), FantacalcioClubCodes.CanonicalName("com", "Como 1907")));
+        Assert.Equal(("ven", "Venezia"), (KeyUtils.GetClubKey(null, "VENEZIA FC"), FantacalcioClubCodes.CanonicalName("ven", "Venezia FC")));
+        Assert.Equal("com", KeyUtils.GetClubKey("com", "Como 1907"));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("cag", "Como 1907"));
+        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé", "Hellas Verona Primavera", "Hellas Ver", "Como 1907 Women", "Venezia Mestre" })
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
     }
 

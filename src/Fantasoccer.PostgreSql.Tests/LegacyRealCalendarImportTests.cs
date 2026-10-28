@@ -32,7 +32,8 @@ public sealed partial class CoreMigrationTests
              CalendarGame("Venezia FC", null, "Lazio", null, new(2024, 8, 19, 20, 45, 0), delayed: true)] }] });
         await PutLegacyDocumentAsync("realcalendar", 13, new RealCalendar { Year = 13, Days = [new() { Year = 13, SerieADay = 1, Games =
             [CalendarGame("Hellas verona", "hel", "Como 1907", "com", new(2024, 8, 18, 18, 30, 0), 1, 0),
-             CalendarGame("Juventus", "juv", "Hellas verona", "ver", new(2024, 8, 19, 20, 45, 0), 3, 0)] }] });
+             CalendarGame("Juventus", "juv", "Hellas verona", "ver", new(2024, 8, 19, 20, 45, 0), 3, 0),
+             CalendarGame("Venezia FC", null, "Como 1907", null, new(2024, 8, 20, 20, 45, 0), 0, 2)] }] });
         await PutLegacyDocumentAsync("realrank", 13, new RealRank { Teams = [new() { Name = "HELLAS VERONA", Point = 3 }, new() { Name = "COMO", Point = 0 }] });
         // Current season: a played game keeps its score, a future placeholder does not.
         var year = FantacalcioTime.ActualYear; var now = FantacalcioTime.ItalyNow;
@@ -56,7 +57,10 @@ public sealed partial class CoreMigrationTests
         Assert.False(await database.Clubs.AnyAsync(x => x.Id == "hel"));
         Assert.Equal("Verona", (await database.Clubs.SingleAsync(x => x.Id == "ver")).Name);
         var matches = await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == 13).OrderBy(x => x.Ordinal).ToArrayAsync();
-        Assert.Equal(new[] { ("ver", "com"), ("juv", "ver") }, matches.Select(x => (x.HomeClubId, x.AwayClubId)));
+        Assert.Equal(new[] { ("ver", "com"), ("juv", "ver"), ("ven", "com") }, matches.Select(x => (x.HomeClubId, x.AwayClubId)));
+        // Official long names, with or without a code, become the canonical club.
+        Assert.Equal(new[] { ("com", "Como"), ("ven", "Venezia") },
+            (await database.Clubs.Where(x => x.Id == "com" || x.Id == "ven").OrderBy(x => x.Id).ToArrayAsync()).Select(x => (x.Id, x.Name)));
         Assert.Equal(ClubMembershipSource.Calendar | ClubMembershipSource.Standings, (await database.ClubSeasons.SingleAsync(x => x.ClubId == "ver" && x.SeasonIndex == 13)).Sources);
         Assert.Contains(report.ResolvedClubCodes!, x => x.Container == "realcalendar" && x.JsonPath == "$.v.d[0].g[0].h" && x.CatalogueVersion == FantacalcioClubCodes.Version);
 

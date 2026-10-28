@@ -6,7 +6,7 @@ namespace Fantasoccer;
 // not a name-prefix rule. Evidence: docs/CLUB-CODES.md. No runtime HTTP.
 public static class FantacalcioClubCodes
 {
-    public const string Version = "fantacalcio-2026-10-28-v6";
+    public const string Version = "fantacalcio-2026-10-28-v7";
 
     private static readonly FrozenDictionary<string, string> s_codes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -59,7 +59,9 @@ public static class FantacalcioClubCodes
     private static readonly FrozenDictionary<string, string> s_aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["Juve"] = "Juventus",
-        ["Hellas Verona"] = "Verona"
+        ["Hellas Verona"] = "Verona",
+        ["Como 1907"] = "Como",
+        ["Venezia FC"] = "Venezia"
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     // Provider short-code variants observed for the same verified club. They

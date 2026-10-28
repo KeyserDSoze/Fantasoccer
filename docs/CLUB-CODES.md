@@ -2,7 +2,7 @@
 
 ## Fonte e versione
 
-`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e due alias espliciti, per 41 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche, `Juve → Juventus` e `Hellas Verona → Verona` documentati sotto, più due varianti di sigla del provider (`hel → ver`, `monz → mon`). Versione `fantacalcio-2026-10-28-v6`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
+`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e quattro alias espliciti, per 43 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche, `Juve → Juventus`, `Hellas Verona → Verona`, `Como 1907 → Como` e `Venezia FC → Venezia` documentati sotto, più due varianti di sigla del provider (`hel → ver`, `monz → mon`). Versione `fantacalcio-2026-10-28-v7`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
 
 Verifica pubblica del 26 ottobre 2026: pagine della prima giornata delle stagioni da 2015/16 a 2026/27. Ogni pagina espone insieme il nome completo (`meta itemprop="name"`) e la sigla nel relativo link squadra. Il titolo della pagina è stato controllato contro la stagione richiesta: una URL storica che restituisce la stagione corrente non costituisce una prova per quella stagione. Le 240 coppie osservate sulle 12 pagine hanno prodotto 35 nomi/codici distinti, senza discrepanze tra anni.
 
@@ -66,8 +66,12 @@ Esempi di verifica diretta: [2022/23](https://www.fantacalcio.it/voti-fantacalci
 |---|---|---|---|
 | Juve | Juventus | `juv` | [Sito ufficiale del club: La Juve in cima al mondo / La storia di Juventus](https://www.juventus.com/it/club/la-storia/la-juve-in-cima-al-mondo); codice Juventus già verificato nelle fonti fantacalcio.it sopra |
 | Hellas Verona | Verona | `ver` | [Sito ufficiale del club: Hellas Verona FC](https://www.hellasverona.it/) (Hellas Verona Football Club S.p.A.); codice Verona già verificato nelle fonti fantacalcio.it sopra. Etichetta trovata nel dump nel calendario 2024/25 e nelle classifiche reali 2024/25 e 2025/26 (anche in maiuscolo). |
+| Como 1907 | Como | `com` | [Sito ufficiale del club: Como 1907](https://www.comofootball.com/) (verificato il 28 ottobre 2026); codice Como già verificato nelle fonti fantacalcio.it sopra. Etichetta del provider nel calendario legacy 2024/25. |
+| Venezia FC | Venezia | `ven` | [Sito ufficiale del club: Venezia FC](https://www.veneziafc.it/) (verificato il 28 ottobre 2026); codice Venezia già verificato nelle fonti fantacalcio.it sopra. Etichetta del provider nel calendario legacy 2024/25. |
 
-`Aliases` è un dizionario immutabile separato da `Names`: un alias non introduce un altro club o un'altra PK. La corrispondenza è esatta, non per prefisso: `Juve Next Gen`, `Juve Women`, `Hellas Verona Primavera` o un nome simile non vengono accorpati automaticamente. `Spal` non richiede un altro alias, perché il confronto di `SPAL` è già case-insensitive.
+Nel database si salvano sempre e soltanto il codice e il nome canonico (`com`/"Como", `ven`/"Venezia"): il vincolo `CK_Clubs_CanonicalName` impedisce di salvare un alias come nome di un codice noto. Gli alias servono solo a riconoscere l'etichetta originale, anche quando manca la sigla; le etichette lunghe restano soltanto nel dump originale.
+
+`Aliases` è un dizionario immutabile separato da `Names`: un alias non introduce un altro club o un'altra PK. La corrispondenza è esatta, non per prefisso: `Juve Next Gen`, `Juve Women`, `Hellas Verona Primavera`, `Como 1907 Women` o un nome simile non vengono accorpati automaticamente. `Spal` non richiede un altro alias, perché il confronto di `SPAL` è già case-insensitive.
 
 ### Varianti di sigla del provider
 
