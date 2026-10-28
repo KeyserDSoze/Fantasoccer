@@ -105,12 +105,20 @@ function Resolve($container, $scopeKey, $raw, $where) {
     if ($reason) { Report $container $g $y $reason $raw $where '' }
 }
 
+$seasonDocs = Ordinal     # "group|basket|year|owner" -> season roster document
+$dailyBaskets = Ordinal   # "group|year|owner" -> basket -> matchday rosters
+$unplaced = [Collections.Generic.List[object]]::new()
 foreach ($container in 'team', 'dailyteams', 'openingteams', 'openingdailyteams') {
     foreach ($doc in Documents $container) {
         Tally $container
         $g = [string]$doc.Key.g; $b = [string]$doc.Key.b; $y = [int]$doc.Key.y
         $origin = if ($container -like 'opening*') { $y - 1 } else { $y }
         $key = OwnerKey $doc.Key.e
+        if ($key -and $container -eq 'team') { $seasonDocs["$g|$b|$y|$key"] = $doc }
+        if ($key -and $container -eq 'dailyteams') {
+            if (-not $dailyBaskets.ContainsKey("$g|$y|$key")) { $dailyBaskets["$g|$y|$key"] = Ordinal }
+            $dailyBaskets["$g|$y|$key"][$b] = 1 + [int]$dailyBaskets["$g|$y|$key"][$b]
+        }
         if ($key -and $primary.ContainsKey("$g|$b|$origin|$key")) { continue }
         $info = $groups[$g]
         $reason = if (-not $info) { 'gruppo assente' } elseif (-not $info.Baskets.ContainsKey($b)) { 'basket assente' }
@@ -119,6 +127,7 @@ foreach ($container in 'team', 'dailyteams', 'openingteams', 'openingdailyteams'
         if ($reason) {
             $day = if ($null -ne $doc.Key.d) { " giornata $($doc.Key.d)" } else { '' }
             Report $container $g $y $(if ($origin -ne $y) { "$reason (squadre dell'anno $origin)" } else { $reason }) $doc.Key.e "$($doc.File)$day" $(if ($null -eq $doc.Value.p) { 0 } else { @($doc.Value.p).Count })
+            if ($container -eq 'team' -and $info -and $key) { $unplaced.Add([pscustomobject]@{ Doc = $doc; Group = $g; Basket = $b; Year = $y; Key = $key; Reason = $reason }) }
         }
     }
 }
@@ -171,22 +180,64 @@ foreach ($doc in Documents 'auction') {
     foreach ($win in $doc.Value.w) { if (-not [string]::IsNullOrEmpty([string]$win.o)) { Resolve 'auction' $scope $win.o "$($doc.File) w[$w].o" }; $w++ }
 }
 
+# Season rosters saved under a basket other than the owner's team that year:
+# where the owner's team is, whether that basket also has a roster (identical or
+# not), where the matchday rosters are, and what the document carries.
+function BasketRef($g, $b) { 'B' + (Hex "basket`0$g`0$b").Substring(0, 6) }
+function Players($value) { @(foreach ($p in $value.p) { "$(([string]$p.n).ToLowerInvariant() -replace '[^a-z]', '')|$($p.s)|$($p.p)|$($p.rv)|$($p.k)" }) }
+function Same($left, $right) {
+    if (($left | ConvertTo-Json -Compress -Depth 30) -ceq ($right | ConvertTo-Json -Compress -Depth 30)) { return 'identica' }
+    $a = @(Players $left | Sort-Object); $b = @(Players $right | Sort-Object)
+    if (($a -join ';') -ceq ($b -join ';')) { return 'stessi giocatori, altri campi diversi' }
+    $common = @($a | Where-Object { $b -ccontains $_ }).Count
+    return "diversa ($common giocatori in comune su $($a.Count)/$($b.Count))"
+}
+$details = foreach ($item in $unplaced) {
+    $info = $groups[$item.Group]; $value = $item.Doc.Value
+    $owned = @($info.Teams | Where-Object { $_.Year -eq $item.Year -and $_.Owner -ceq $item.Key })
+    $copies = @(foreach ($team in $owned) {
+        $other = $seasonDocs["$($item.Group)|$($team.Basket)|$($item.Year)|$($item.Key)"]
+        if ($other) { Same $value $other.Value } else { 'nessuna' }
+    })
+    $keyYears = (@($info.Teams | Where-Object { $_.Basket -ceq $item.Basket -and ($_.Owner -ceq $item.Key -or $_.CoOwners -ccontains $item.Key) } | ForEach-Object { $_.Year }) | Sort-Object -Unique) -join ','
+    $shared = @(foreach ($team in $owned) { @($info.Leagues.Values | Where-Object { $_.Years -contains $item.Year -and $_.Baskets -ccontains $item.Basket -and $_.Baskets -ccontains $team.Basket }).Count })
+    $daily = $dailyBaskets["$($item.Group)|$($item.Year)|$($item.Key)"]
+    $dailyText = if (-not $daily) { 'nessuna' } else { (@($daily.Keys | Sort-Object | ForEach-Object { "$(BasketRef $item.Group $_)=$($daily[$_])" }) -join ',') }
+    [pscustomobject]@{ Anno = $item.Year; Proprietario = (Pseudonym $item.Group $item.Key); BasketChiave = (BasketRef $item.Group $item.Basket)
+        BasketSquadra = ((@($owned | ForEach-Object { BasketRef $item.Group $_.Basket }) -join ',') -replace '^$', '-')
+        ChiaveNegliAnni = $(if ($keyYears) { $keyYears } else { 'mai' })
+        LegheComuni = ((@($shared) -join ',') -replace '^$', '-')
+        CopiaNelBasketSquadra = ((@($copies) -join ',') -replace '^$', '-')
+        Giornaliere = $dailyText; Giocatori = $(if ($null -eq $value.p) { 0 } else { @($value.p).Count })
+        Soldi = "m=$([int]$value.m) op=$([int]$value.op) fc=$([int]$value.fc) fh=$(if ($null -eq $value.fh) { 0 } else { @($value.fh).Count })"
+        Esempio = $item.Doc.File }
+}
+
+# Plain " | " rows: terminal tables can merge long columns.
+function Rows($rows, [string[]]$columns) {
+    $lines = @($columns -join ' | ')
+    foreach ($row in $rows) { $lines += (@(foreach ($column in $columns) { [string]$row.$column }) -join ' | ') }
+    $lines -join "`n"
+}
+function Years($values) { (@($values | ForEach-Object { [int]$_ }) | Sort-Object -Unique) -join ',' }
 $summary = foreach ($container in 'team', 'dailyteams', 'openingteams', 'openingdailyteams', 'marketwrapper', 'calendar', 'rank', 'openingstandings', 'auction') {
     "$container : $([int]$checked[$container]) controlli, $(@($found | Where-Object Container -eq $container).Count) problemi"
 }
 $text = ($summary -join "`n") + "`n`n" + $(if ($found.Count -eq 0) { 'Nessun problema di identita delle squadre trovato.' } else {
-    'Riepilogo:' + ($found | Group-Object Container, Motivo | ForEach-Object {
+    "Riepilogo:`n" + (Rows ($found | Group-Object Container, Motivo | ForEach-Object {
         [pscustomobject]@{ Container = $_.Group[0].Container; Motivo = $_.Group[0].Motivo; Volte = $_.Count
             Proprietari = @($_.Group.Proprietario | Sort-Object -Unique).Count; Gruppi = (@($_.Group.Gruppo | Sort-Object -Unique) -join ',')
-            Anni = (@($_.Group.Anno | Sort-Object -Unique) -join ','); Esempio = $_.Group[0].Posizione }
-    } | Sort-Object Container, Motivo | Format-Table -AutoSize -Wrap | Out-String -Width 1000) +
-    'Dettaglio per proprietario (pseudonimo stabile per gruppo, non reversibile):' + ($found | Group-Object Container, Gruppo, Proprietario, Motivo | ForEach-Object {
+            Anni = (Years $_.Group.Anno); Esempio = $_.Group[0].Posizione }
+    } | Sort-Object Container, Motivo) 'Container', 'Motivo', 'Volte', 'Proprietari', 'Gruppi', 'Anni', 'Esempio') +
+    "`n`nDettaglio per proprietario (pseudonimo stabile per gruppo, non reversibile; c = solo co-proprietario):`n" + (Rows ($found | Group-Object Container, Gruppo, Proprietario, Motivo | ForEach-Object {
         $first = $_.Group[0]
         [pscustomobject]@{ Container = $first.Container; Gruppo = $first.Gruppo; Proprietario = $first.Proprietario; Tipo = $first.Tipo; Motivo = $first.Motivo
-            Volte = $_.Count; Anni = (@($_.Group.Anno | Sort-Object -Unique) -join ','); AnniSquadra = $first.AnniSquadra
-            Giocatori = $(if ($first.Container -in 'team', 'dailyteams', 'openingteams', 'openingdailyteams') { (@($_.Group.Giocatori | Sort-Object -Unique) -join ',') } else { '' })
+            Volte = $_.Count; Anni = (Years $_.Group.Anno); AnniSquadra = (@($first.AnniSquadra -split ',' | Where-Object { $_ } | Sort-Object { [int]($_ -replace 'c', '') }, { $_ }) -join ',')
+            Giocatori = $(if ($first.Container -in 'team', 'dailyteams', 'openingteams', 'openingdailyteams') { (@($_.Group.Giocatori | Sort-Object { [int]$_ } -Unique) -join ',') } else { '' })
             Esempio = $first.Posizione }
-    } | Sort-Object Container, Gruppo, Proprietario | Format-Table -AutoSize -Wrap | Out-String -Width 1000)
+    } | Sort-Object Container, Gruppo, Proprietario) 'Container', 'Gruppo', 'Proprietario', 'Tipo', 'Motivo', 'Volte', 'Anni', 'AnniSquadra', 'Giocatori', 'Esempio') +
+    $(if ($details) { "`n`nRose stagionali non collegate, una riga per documento (BasketSquadra = basket della squadra del proprietario in quell'anno; ChiaveNegliAnni = anni in cui il proprietario ha una squadra nel basket della chiave; LegheComuni = leghe che contengono entrambi i basket; Giornaliere = rose giornaliere per basket):`n" +
+        (Rows ($details | Sort-Object Proprietario, Anno) 'Anno', 'Proprietario', 'BasketChiave', 'BasketSquadra', 'ChiaveNegliAnni', 'LegheComuni', 'CopiaNelBasketSquadra', 'Giornaliere', 'Giocatori', 'Soldi', 'Esempio') } else { '' })
 })
 $text
 try { $text | Set-Clipboard } catch { Write-Host 'Appunti non disponibili: copia il testo sopra.' }
