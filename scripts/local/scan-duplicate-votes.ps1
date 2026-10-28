@@ -42,17 +42,20 @@ function Flag($value) { $value -eq $true }
 $playerFields = 'n', 't', 'r', 'a', 'vh', 'v'
 $voteFields = 'r', 'v', 'i', 'g', 'p', 'a', 's', 'd', 'w', 'o', 't', 'c', 'h', 'u', 'n', 'j'
 $eventFields = 'g', 'p', 'a', 's', 'd', 'w', 'o', 't'
-function PoliticalShape($sample) {
+function SubstituteVoteShape($sample) {
     $vote = $sample.v
     if ($null -eq $vote -or $vote -isnot [Management.Automation.PSCustomObject]) { return $false }
     if (@($sample.PSObject.Properties.Name | Where-Object { $playerFields -cnotcontains $_ }).Count -gt 0) { return $false }
     if (@($vote.PSObject.Properties.Name | Where-Object { $voteFields -cnotcontains $_ }).Count -gt 0) { return $false }
     if ($null -eq $vote.PSObject.Properties['n'] -or $vote.n -ne $false) { return $false }
-    if ([int]$sample.r -lt -1 -or [int]$sample.r -gt 3 -or [int]$vote.r -ne [int]$sample.r) { return $false }
+    if ([int]$vote.r -lt -1 -or [int]$vote.r -gt 3) { return $false }
     if (-not (Flag $vote.h) -or -not (Flag $vote.i) -or [double]$vote.v -ne 6 -or (Flag $vote.u) -or (Flag $vote.c) -or (Flag $vote.j)) { return $false }
     foreach ($field in $eventFields) { if ([int]$vote.$field -ne 0) { return $false } }
     return $true
 }
+function PoliticalShape($sample) { (SubstituteVoteShape $sample) -and [int]$sample.r -ge -1 -and [int]$sample.r -le 3 -and [int]$sample.v.r -eq [int]$sample.r }
+# Operator decision: a 6 d'ufficio given to an inactive entry is not a vote.
+function InactiveSubstitute($sample) { (SubstituteVoteShape $sample) -and -not (Flag $sample.a) }
 function SameIdentity($first, $other) {
     # Same rule as the import: name ignoring case, roles and the same club.
     if ([string]$first.n -ine [string]$other.n -or [int]$first.r -ne [int]$other.r -or [int]$first.v.r -ne [int]$other.v.r) { return $false }
@@ -95,7 +98,7 @@ foreach ($doc in Documents 'realcalendar') {
     }
 }
 
-$rows = [Collections.Generic.List[object]]::new(); $groups = 0; $separated = 0; $blocking = 0
+$rows = [Collections.Generic.List[object]]::new(); $groups = 0; $separated = 0; $blocking = 0; $inactiveRemoved = 0
 foreach ($container in 'live', 'notification', 'official') {
     $count = 0
     foreach ($doc in Documents $container) {
@@ -106,6 +109,7 @@ foreach ($container in 'live', 'notification', 'official') {
         for ($i = 0; $i -lt $samples.Count; $i++) {
             $sample = $samples[$i]
             if ($null -eq $sample -or [string]::IsNullOrWhiteSpace([string]$sample.n)) { continue }
+            if ($container -eq 'official' -and (InactiveSubstitute $sample)) { $inactiveRemoved++; continue }
             $key = PlayerKey ([string]$sample.n)
             if (-not $key) { continue }
             if (-not $byKey.ContainsKey($key)) { $byKey[$key] = [Collections.Generic.List[int]]::new() }
@@ -155,7 +159,7 @@ foreach ($container in 'live', 'notification', 'official') {
     }
     Write-Host "$container : $count documenti"
 }
-$summary = "Gruppi duplicati: $groups; risolti come 6 d'ufficio: $separated; bloccanti: $blocking"
+$summary = "6 d'ufficio di giocatori inattivi tolti: $inactiveRemoved; gruppi duplicati: $groups; risolti come 6 d'ufficio: $separated; bloccanti: $blocking"
 $lines = foreach ($group in $rows | Group-Object Gruppo) {
     "== $($group.Name): $($group.Group[0].Motivo)"
     foreach ($row in $group.Group) {

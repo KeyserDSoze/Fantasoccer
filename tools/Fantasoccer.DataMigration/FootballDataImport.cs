@@ -23,8 +23,11 @@ public sealed partial class CoreDatasetImporter
             var missingClubs = 0; string? firstMissingClub = null;
             var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
             var samples = entity.Value?.Players ?? throw new CoreImportException("missing_vote_players");
-            var variants = ClassifyPoliticalVotes(document, samples, key.Year, key.Day, postponed);
+            var inactive = InactiveSubstitutes(document, samples);
+            var variants = ClassifyPoliticalVotes(document, samples, key.Year, key.Day, postponed, inactive);
             var political = 0; var paired = 0; string? firstPolitical = null;
+            var removed = 0; var removedWithCounterpart = 0; string? firstRemoved = null;
+            var keptKeys = samples.Where((value, index) => value is not null && !inactive[index] && !IsUnnamedVote(value)).Select(x => x.Key).ToHashSet(StringComparer.Ordinal);
             // Root has already enforced a unique source/year/day document.
             // Retain original source ordinals, not SQL ordinals after skips.
             var votes = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -38,6 +41,14 @@ public sealed partial class CoreDatasetImporter
                 {
                     unnamed++; if (value.Vote?.HasVote == true) unnamedWithVote++;
                     firstUnnamed ??= origin.JsonPath;
+                    continue;
+                }
+                if (inactive[index])
+                {
+                    // Excluded before any player/annual row is created from
+                    // its placeholder metadata; the dump keeps the original.
+                    removed++; if (keptKeys.Contains(value.Key)) removedWithCounterpart++;
+                    firstRemoved ??= origin.JsonPath;
                     continue;
                 }
                 var identity = player(value, key.Year, false, origin);
@@ -82,6 +93,8 @@ public sealed partial class CoreDatasetImporter
             if (unnamed > 0) plan.SkippedUnnamedVotes.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, samples.Count, unnamed, unnamedWithVote, firstUnnamed!));
             if (political > 0) plan.LegacyPoliticalVotes.Add(new(document.Sha256, DocumentArchiveReference(document), key.Year, key.Day, political, paired, firstPolitical!));
+            if (removed > 0) plan.SkippedInactiveSubstitutes.Add(new(document.Sha256, DocumentArchiveReference(document), key.Year, key.Day,
+                removed, removedWithCounterpart, firstRemoved!));
         }
         var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))

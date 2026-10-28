@@ -62,6 +62,8 @@ Una voce ha la forma del 6 d'ufficio se: voto 6, `hasVote:true`, `isFinal:true`,
 
 Queste evidenze valgono per l'intera partita: i 6 d'ufficio dei compagni e dell'avversario dello stesso match vengono separati anche senza una voce reale accoppiata. Un 6 con `isIn:false` senza evidenze resta un voto reale. Due voci reali per lo stesso giocatore restano un errore `duplicate_or_invalid_vote`: non si sceglie nessuna delle due.
 
+Eccezione decisa dal gestore: se la voce del 6 d'ufficio è **inattiva** (`a:false`), non è un voto e viene esclusa da SQL, con o senza prove del rinvio. La vecchia app dava il 6 a tutta la squadra, inattivi compresi; una variante copiava solo nome e voto (niente club, ruolo 0, inattivo). Queste voci non creano giocatori né righe annuali, restano nel dump e sono contate in `skippedInactiveSubstitutes`.
+
 Le voci separate vengono salvate in `LegacyPoliticalVoteEntries` con JSON originale esatto, checksum, riferimento d'archivio, posizione JSON e ordinale sorgente. Non vengono mai lette come voti. Il report le riassume in `legacyPoliticalVotes` (documento, giornata, numero di voci, quante hanno una voce reale accoppiata, prima posizione), senza stampare nomi o valori.
 
 L'import marca `WasPostponed` sulla partita se il calendario la indica come rinviata o se un 6 d'ufficio la attesta. `ActualOfficialVotesReady` viene valorizzato solo per le partite rinviate: `true` se il recupero è giocato e entrambi i club hanno voti ufficiali reali, `false` altrimenti. Per le altre partite resta `null` e vale il controllo sui voti in fase di calcolo.
@@ -70,7 +72,7 @@ L'import marca `WasPostponed` sulla partita se il calendario la indica come rinv
 
 - Migration `20261028112843_PostponedMatchPoliciesAndLegacyVotes`: nuove colonne su partite, giornate, regolamenti e classifica iniziale, più la tabella `LegacyPoliticalVoteEntries`. Il backfill copia `Delayed` in `WasPostponed` e `KickoffUtc` in `OriginalKickoffUtc`. `ActualOfficialVotesReady` è `false` per le partite rinviate, `null` per le altre.
 - Il downgrade è rifiutato se perderebbe informazioni: 6 d'ufficio salvati, impostazioni non default, attese o classifiche provvisorie, recuperi giocati o orari originali diversi. Senza queste informazioni lo schema può essere smontato. Per tornare indietro con dati presenti serve un backup verificato.
-- MappingVersion 38 (la separazione dei 6 d'ufficio è stata introdotta con la 37). Nessuna nuova opzione env; risoluzioni utenti e byte del dump restano invariati.
+- MappingVersion 39 (la separazione dei 6 d'ufficio è stata introdotta con la 37; con la 39 il 6 d'ufficio dato a un giocatore inattivo viene escluso da SQL invece di essere conservato a parte). Nessuna nuova opzione env; risoluzioni utenti e byte del dump restano invariati.
 - Un calendario legacy che contiene un'altra stagione non entra in SQL e non attesta rinvii: vedere il [runbook](MIGRATION-RUNBOOK.md#calendari-reali-con-la-stagione-successiva-e-punteggi-futuri). Nelle stagioni rimaste senza calendario reale i 6 d'ufficio vengono separati solo se accoppiati a un voto reale dello stesso giocatore.
 
 Per l'import reale rianalizza il dump verificato con `-UseExistingDump`, senza reset e senza `-Apply`; usa `-Apply` solo dopo un'analisi riuscita e la revisione del report.

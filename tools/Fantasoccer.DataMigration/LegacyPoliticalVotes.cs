@@ -8,12 +8,23 @@ namespace Fantasoccer.DataMigration;
 public sealed record LegacyPoliticalVoteDocument(string DocumentSha256, string ArchiveReference, int SeasonIndex, int Day,
     int Records, int WithActualCounterpart, string FirstJsonPath);
 
+public sealed record SkippedInactiveSubstituteDocument(string DocumentSha256, string ArchiveReference, int SeasonIndex, int Day,
+    int Records, int WithActualCounterpart, string FirstJsonPath);
+
 public sealed partial class CoreDatasetImporter
 {
     private static bool PoliticalShape(VotedRealPlayer? sample, JsonElement raw)
+        => sample?.Vote is { } vote && sample.Role is >= Role.Undefined and <= Role.Forward && vote.Role == sample.Role && SubstituteVoteShape(vote, raw);
+
+    // An older generator copied only the name and the vote: no club, default
+    // role and IsActive:false. Per operator decision, a 6 d'ufficio given to an
+    // inactive entry is not a vote and is excluded from SQL (dump unchanged).
+    private static bool InactiveSubstituteShape(VotedRealPlayer? sample, JsonElement raw)
+        => sample?.Vote is { } vote && !sample.IsActive && vote.Role is >= Role.Undefined and <= Role.Forward && SubstituteVoteShape(vote, raw);
+
+    private static bool SubstituteVoteShape(Vote vote, JsonElement raw)
     {
-        if (sample?.Vote is not { } vote || sample.Role is < Role.Undefined or > Role.Forward || vote.Role != sample.Role ||
-            !vote.HasVote || !vote.IsFinal || vote.Value != 6 || vote.IsIn || vote.IsOut || vote.Goal != 0 || vote.Penalty != 0 ||
+        if (!vote.HasVote || !vote.IsFinal || vote.Value != 6 || vote.IsIn || vote.IsOut || vote.Goal != 0 || vote.Penalty != 0 ||
             vote.Assist != 0 || vote.StoppedPenalty != 0 || vote.SufferedGoal != 0 || vote.WrongedPenalty != 0 || vote.OwnGoal != 0 ||
             vote.Status != Behaviour.Nothing || vote.ManOfTheMatch || vote.Injured || raw.ValueKind != JsonValueKind.Object ||
             !UniqueProperties(raw) || raw.EnumerateObject().Any(x => x.Name is not ("n" or "t" or "r" or "a" or "vh" or "v")) ||
@@ -21,6 +32,16 @@ public sealed partial class CoreDatasetImporter
             !payload.TryGetProperty("n", out var entered) || entered.ValueKind != JsonValueKind.False)
             return false;
         return UniqueProperties(payload) && payload.EnumerateObject().All(x => x.Name is "r" or "v" or "i" or "g" or "p" or "a" or "s" or "d" or "w" or "o" or "t" or "c" or "h" or "u" or "n" or "j");
+    }
+
+    private static bool[] InactiveSubstitutes(LegacyJsonDocument document, List<VotedRealPlayer> samples)
+    {
+        var inactive = new bool[samples.Count];
+        if (document.Container != "official") return inactive;
+        var raw = Value(document.Envelope).GetProperty("p");
+        for (var index = 0; index < samples.Count; index++)
+            inactive[index] = samples[index] is { } sample && !string.IsNullOrWhiteSpace(sample.Name) && InactiveSubstituteShape(sample, raw[index]);
+        return inactive;
     }
 
     private static bool UniqueProperties(JsonElement value)
@@ -73,12 +94,13 @@ public sealed partial class CoreDatasetImporter
     }
 
     private static bool[] ClassifyPoliticalVotes(LegacyJsonDocument document, List<VotedRealPlayer> samples, int year, int day,
-        LegacyCalendarIndex calendar)
+        LegacyCalendarIndex calendar, bool[] excluded)
     {
         var variants = new bool[samples.Count];
         if (document.Container != "official") return variants;
         var raw = Value(document.Envelope).GetProperty("p");
-        var groups = samples.Select((sample, index) => (sample, index)).Where(x => x.sample is not null && !string.IsNullOrWhiteSpace(x.sample.Name))
+        // Excluded inactive substitutes are neither votes nor evidence.
+        var groups = samples.Select((sample, index) => (sample, index)).Where(x => x.sample is not null && !string.IsNullOrWhiteSpace(x.sample.Name) && !excluded[x.index])
             .GroupBy(x => x.sample.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.ToArray(), StringComparer.Ordinal);
         var shaped = groups.Values.SelectMany(x => x).Where(x => PoliticalShape(x.sample, raw[x.index])).ToArray();
         // A substitute is attested by the calendar, or by an actual entry with
