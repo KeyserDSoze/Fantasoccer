@@ -155,6 +155,8 @@ La diagnostica riporta `Field: vote`, reader, checksum del documento, container,
 
 `namesEqual`/`namesEqualIgnoringCase` confrontano i nomi originali senza stamparli; `votePayloadsEqual` confronta il JSON del voto completo, inclusi campi sconosciuti e flag; `playerPayloadsEqual` confronta tutta la voce e `playerPayloadsByteEqual` anche la rappresentazione testuale esatta del frammento. Questi confronti **non autorizzano deduplica, scelta del primo/ultimo voto, correzioni dei nomi o merge di identità**, nemmeno se tutto è identico. Prima va esaminata localmente la coppia precisa e concordata una politica sicura. I byte originali rimangono nel dump.
 
+Per esaminare tutti i duplicati in una volta, e non uno per esecuzione, usa `.\scripts\local\scan-duplicate-votes.ps1 -DumpName <nome>` (sola lettura). Ripete la classificazione dei 6 d'ufficio dell'import e, per ogni duplicato ancora bloccante, mostra club, ruolo, voto, `hasVote`, `isFinal`, `isIn`, eventi, forma del 6 d'ufficio e rinvio nel calendario. Così si distinguono subito due omonimi di squadre diverse, un 6 d'ufficio non attestato e due voti reali discordanti. Vedere il [README degli script locali](../scripts/local/README.md).
+
 Le baseline push mantengono i duplicati nominati e l'ordine per ordinale; i valori non finiti usano `invalid_push_baseline_vote` con la stessa diagnostica e il casing JSON effettivo. Nessuna nuova opzione env, scrittura Azure, reset o modifica delle risoluzioni utenti. L'import resta bloccato senza commit parziali. Rianalizza con `-UseExistingDump`, senza `-Apply`, e condividi soltanto la riga `Core import refused` con `Vote details`, non il dump o l'env.
 
 #### Voto reale e 6 d'ufficio dello stesso giocatore

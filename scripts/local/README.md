@@ -200,6 +200,14 @@ Per vedere in una volta sola tutte le etichette dei club reali che l'import rifi
 
 Lo script è di sola lettura: non usa Docker, database o Azure e non modifica il dump. Applica le stesse regole dell'import, leggendo nomi, alias e varianti di sigla direttamente da `FantacalcioClubCodes.cs`, e mostra solo etichette dei club, posizione e conteggi. Le righe "da verificare" non bloccano l'import: un nome non catalogato con la sigla di un club noto viene unito a quel club, quindi va controllato che sia davvero la stessa squadra. Il risultato viene anche copiato negli appunti.
 
+Allo stesso modo, per i voti duplicati (`duplicate_or_invalid_vote`):
+
+```powershell
+.\scripts\local\scan-duplicate-votes.ps1 -DumpName prova1
+```
+
+Per ogni documento `live`/`notification`/`official` trova i giocatori con la stessa chiave e ripete la classificazione dei 6 d'ufficio dell'import (voce reale accoppiata, rinvio nel calendario, avversario della stessa partita). Riporta quanti duplicati sono già risolti e mostra nel dettaglio solo quelli che bloccherebbero l'import, con club, ruolo, voto, presenza in campo, eventi e stato della partita. Anche questo è di sola lettura; nomi e voti dei calciatori vengono mostrati solo sul tuo terminale.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.
