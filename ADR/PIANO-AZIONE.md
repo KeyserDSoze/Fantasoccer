@@ -388,6 +388,12 @@ Per rendere robusto il riconoscimento dei dati futuri, il gestore ha poi approva
 
 Verificati 165 test PostgreSQL/migrazione e 61 API senza errori o skip, 481 test di regole/servizi (3 skip preesistenti), modello EF allineato e publish Release di tool e API. Le nuove prove riproducono i calendari reali: stagione successiva sotto l'anno precedente con etichette senza sigla e un rinvio (escluso, senza partite, appartenenze o marker), Verona con `hel`/`ver` e classifica in maiuscolo (un solo club `ver`, recupero dichiarato), punteggio futuro sul calendario corrente (risultato null), calendario misto rifiutato, report senza etichette e reimport idempotente.
 
+### Rose salvate in un basket senza la squadra del proprietario
+
+Con i club risolti, l'analisi del dump reale si è fermata su `unresolved_historical_team_identity`. L'errore ora indica contenitore, percorso JSON, riga del codice e SHA-256 del documento (mai il proprietario); la scansione in sola lettura `scripts/local/scan-team-identities.ps1` ripete le regole dell'import in rose, mercato, calendari, classifiche, classifiche d'apertura e aste. Sul dump reale ha trovato problemi solo in 83 rose stagionali di un gruppo: 82, degli anni 2014/15–2022/23, salvate in un basket dove quei proprietari non hanno mai avuto una squadra e identiche in ogni campo alla rosa nel basket della loro squadra di quell'anno (dove stanno anche tutte le rose giornaliere), con soldi e storico a zero; una del 2025/26, vuota, di un proprietario uscito dopo il 2024/25.
+
+Per decisione del gestore (MappingVersion 42) l'import esclude da SQL una rosa il cui basket non contiene la squadra del proprietario in quell'anno solo in due casi: se è identica (confronto JSON completo) all'unica rosa dello stesso tipo, giornata e lega salvata per quel proprietario nel basket della sua unica squadra principale di quell'anno; oppure se il proprietario non ha nessuna squadra nel gruppo quell'anno, nemmeno come co-proprietario, e la rosa non contiene niente (nessun giocatore, soldi, premio o cambio di formazione). Le esclusioni sono dichiarate in `skippedRosterDocuments` (per le copie anche la rosa tenuta) e i byte restano nel dump. Una copia diversa, una rosa orfana non vuota o un proprietario con più squadre restano errori: nessuna squadra viene scelta per nome, co-proprietà o anno.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

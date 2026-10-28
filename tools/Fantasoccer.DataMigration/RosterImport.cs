@@ -133,46 +133,28 @@ public sealed partial class CoreDatasetImporter
         LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root, RankClub, Membership, map);
 
         var snapshots = new HashSet<(Guid Team, RosterKind Kind, int Day, Guid Competition)>();
-        foreach (var document in dataset.Documents.Where(x => x.Container is "team" or "dailyteams" or "openingteams" or "openingdailyteams"))
+        // All keys first: a roster saved under the wrong basket is compared with
+        // the copy in its team's basket wherever that copy appears in the dump.
+        var rosters = dataset.Documents.Where(x => x.Container is "team" or "dailyteams" or "openingteams" or "openingdailyteams").Select(ReadRoster).ToArray();
+        foreach (var roster in rosters)
         {
-            string groupKey, basketKey, email; int year, day; string? leagueKey = null; Team team; RosterKind kind;
-            switch (document.Container)
-            {
-                case "team":
-                    var season = document.Envelope.Deserialize<Entity<Team, TeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
-                    var key = season.Key ?? throw new CoreImportException("missing_roster_key");
-                    groupKey = key.Group; basketKey = key.BasketId; email = key.Email; year = key.Year; day = 0; kind = RosterKind.Season;
-                    team = season.Value ?? throw new CoreImportException("missing_roster"); break;
-                case "dailyteams":
-                    var daily = document.Envelope.Deserialize<Entity<Team, TeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
-                    var dayKey = daily.Key ?? throw new CoreImportException("missing_roster_key");
-                    groupKey = dayKey.Group; basketKey = dayKey.BasketId; email = dayKey.Email; year = dayKey.Year; day = dayKey.Day; kind = RosterKind.Matchday;
-                    team = daily.Value ?? throw new CoreImportException("missing_roster"); break;
-                case "openingteams":
-                    var opening = document.Envelope.Deserialize<Entity<Team, OpeningTeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
-                    var openingKey = opening.Key ?? throw new CoreImportException("missing_roster_key");
-                    groupKey = openingKey.Group; basketKey = openingKey.BasketId; email = openingKey.Email; year = openingKey.Year; day = 0;
-                    leagueKey = openingKey.League; kind = RosterKind.OpeningSeason;
-                    team = opening.Value ?? throw new CoreImportException("missing_roster"); break;
-                default:
-                    var openingDay = document.Envelope.Deserialize<Entity<Team, OpeningTeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
-                    var openingDayKey = openingDay.Key ?? throw new CoreImportException("missing_roster_key");
-                    groupKey = openingDayKey.Group; basketKey = openingDayKey.BasketId; email = openingDayKey.Email; year = openingDayKey.Year; day = openingDayKey.Day;
-                    leagueKey = openingDayKey.League; kind = RosterKind.OpeningMatchday;
-                    team = openingDay.Value ?? throw new CoreImportException("missing_roster"); break;
-            }
+            var (document, groupKey, basketKey, email, year, day, leagueKey, team, kind) = roster;
             addSeason(year);
             if ((kind is RosterKind.Matchday or RosterKind.OpeningMatchday) && day is < 1 or > 38) throw new CoreImportException("invalid_roster_day");
             var groupId = Existing("group", groupKey);
             var basketId = Existing("basket", Composite(groupKey, basketKey));
             var ownerEmail = OwnerKey(plan, groupId, email);
             if (OwnerKey(plan, groupId, team.Owner) != ownerEmail) throw new CoreImportException("roster_owner_mismatch");
-            var originYear = kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday ? year - 1 : year;
+            var originYear = roster.OriginYear;
             var teamMap = plan.Maps.SingleOrDefault(x => x.Kind == "team" && x.LegacyKey == Composite(groupKey, basketKey, originYear.ToString(CultureInfo.InvariantCulture), ownerEmail));
             // A historical owner cannot be guessed from a display name. Stop for an
             // explicit mapping instead of accidentally joining the wrong team's history.
             var metadata = teamMap is null ? null : plan.Teams.SingleOrDefault(x => x.Id == teamMap.TargetId);
-            if (metadata is null) throw UnresolvedTeam(document, "$.Key.e");
+            if (metadata is null)
+            {
+                if (SkipUnplacedRoster(plan, rosters, roster, groupId, ownerEmail)) continue;
+                throw UnresolvedTeam(document, "$.Key.e");
+            }
             Guid competition = leagueKey is null ? Guid.Empty : Existing("league", Composite(groupKey, leagueKey));
             if (!snapshots.Add((metadata.Id, kind, day, competition))) throw new CoreImportException("duplicate_roster_snapshot");
             var owner = ExistingOwner(plan, groupId, email, "unresolved_historical_team_identity");

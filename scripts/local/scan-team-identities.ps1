@@ -105,31 +105,68 @@ function Resolve($container, $scopeKey, $raw, $where) {
     if ($reason) { Report $container $g $y $reason $raw $where '' }
 }
 
+function Players($value) { @(foreach ($p in $value.p) { "$(([string]$p.n).ToLowerInvariant() -replace '[^a-z]', '')|$($p.s)|$($p.p)|$($p.rv)|$($p.k)" }) }
+function Same($left, $right) {
+    if (($left | ConvertTo-Json -Compress -Depth 30) -ceq ($right | ConvertTo-Json -Compress -Depth 30)) { return 'identica' }
+    $a = @(Players $left | Sort-Object); $b = @(Players $right | Sort-Object)
+    if (($a -join ';') -ceq ($b -join ';')) { return 'stessi giocatori, altri campi diversi' }
+    $common = @($a | Where-Object { $b -ccontains $_ }).Count
+    return "diversa ($common giocatori in comune su $($a.Count)/$($b.Count))"
+}
+# Same exclusions as the import (operator decision): an exact copy of the roster
+# kept in the basket of the owner's only team that year, or an empty roster of
+# an owner without any team in the group that year.
+function SkippedRoster($entry, $info) {
+    $owned = @($info.Teams | Where-Object { $_.Year -eq $entry.Origin -and ($_.Owner -ceq $entry.Key -or $_.CoOwners -ccontains $entry.Key) })
+    $value = $entry.Doc.Value
+    if ($owned.Count -eq 0) {
+        $players = if ($null -eq $value.p) { 0 } else { @($value.p).Count }
+        $history = if ($null -eq $value.fh) { 0 } else { @($value.fh).Count }
+        if ($players -eq 0 -and [int]$value.m -eq 0 -and [int]$value.op -eq 0 -and [int]$value.fc -eq 0 -and $history -eq 0) { return 'rose vuote di proprietari senza squadra' }
+        return $null
+    }
+    $teams = @($owned | Where-Object { $_.Owner -ceq $entry.Key })
+    if ($teams.Count -ne 1 -or $teams[0].Basket -ceq $entry.Basket) { return $null }
+    $kept = $rosterIndex["$($entry.Container)|$($entry.Group)|$($teams[0].Basket)|$($entry.Year)|$($entry.Day)|$($entry.League)|$($entry.Key)"]
+    if ($kept -and (Same $value $kept.Doc.Value) -ceq 'identica') { return 'copie identiche della rosa nel basket della squadra' }
+    return $null
+}
+
 $seasonDocs = Ordinal     # "group|basket|year|owner" -> season roster document
 $dailyBaskets = Ordinal   # "group|year|owner" -> basket -> matchday rosters
+$rosterIndex = Ordinal    # "container|group|basket|year|day|league|owner" -> roster
+$rosterEntries = [Collections.Generic.List[object]]::new()
+$handledRosters = @{}
 $unplaced = [Collections.Generic.List[object]]::new()
 foreach ($container in 'team', 'dailyteams', 'openingteams', 'openingdailyteams') {
     foreach ($doc in Documents $container) {
-        Tally $container
         $g = [string]$doc.Key.g; $b = [string]$doc.Key.b; $y = [int]$doc.Key.y
-        $origin = if ($container -like 'opening*') { $y - 1 } else { $y }
-        $key = OwnerKey $doc.Key.e
-        if ($key -and $container -eq 'team') { $seasonDocs["$g|$b|$y|$key"] = $doc }
-        if ($key -and $container -eq 'dailyteams') {
-            if (-not $dailyBaskets.ContainsKey("$g|$y|$key")) { $dailyBaskets["$g|$y|$key"] = Ordinal }
-            $dailyBaskets["$g|$y|$key"][$b] = 1 + [int]$dailyBaskets["$g|$y|$key"][$b]
-        }
-        if ($key -and $primary.ContainsKey("$g|$b|$origin|$key")) { continue }
-        $info = $groups[$g]
-        $reason = if (-not $info) { 'gruppo assente' } elseif (-not $info.Baskets.ContainsKey($b)) { 'basket assente' }
-            elseif (-not $info.Baskets[$b].ContainsKey($origin)) { "basket senza squadre nell'anno della rosa" }
-            else { Explain $info $doc.Key.e @($b) $origin }
-        if ($reason) {
-            $day = if ($null -ne $doc.Key.d) { " giornata $($doc.Key.d)" } else { '' }
-            Report $container $g $y $(if ($origin -ne $y) { "$reason (squadre dell'anno $origin)" } else { $reason }) $doc.Key.e "$($doc.File)$day" $(if ($null -eq $doc.Value.p) { 0 } else { @($doc.Value.p).Count })
-            if ($container -eq 'team' -and $info -and $key) { $unplaced.Add([pscustomobject]@{ Doc = $doc; Group = $g; Basket = $b; Year = $y; Key = $key; Reason = $reason }) }
+        $entry = [pscustomobject]@{ Container = $container; Doc = $doc; Group = $g; Basket = $b; Year = $y; Day = $(if ($null -ne $doc.Key.d) { [int]$doc.Key.d } else { 0 })
+            League = [string]$doc.Key.l; Key = (OwnerKey $doc.Key.e); Origin = $(if ($container -like 'opening*') { $y - 1 } else { $y }) }
+        $rosterEntries.Add($entry)
+        if (-not $entry.Key) { continue }
+        $rosterIndex["$container|$g|$b|$y|$($entry.Day)|$($entry.League)|$($entry.Key)"] = $entry
+        if ($container -eq 'team') { $seasonDocs["$g|$b|$y|$($entry.Key)"] = $doc }
+        if ($container -eq 'dailyteams') {
+            if (-not $dailyBaskets.ContainsKey("$g|$y|$($entry.Key)")) { $dailyBaskets["$g|$y|$($entry.Key)"] = Ordinal }
+            $dailyBaskets["$g|$y|$($entry.Key)"][$b] = 1 + [int]$dailyBaskets["$g|$y|$($entry.Key)"][$b]
         }
     }
+}
+foreach ($entry in $rosterEntries) {
+    $container = $entry.Container; $doc = $entry.Doc; $g = $entry.Group; $b = $entry.Basket; $y = $entry.Year; $origin = $entry.Origin; $key = $entry.Key
+    Tally $container
+    if ($key -and $primary.ContainsKey("$g|$b|$origin|$key")) { continue }
+    $info = $groups[$g]
+    $reason = if (-not $info) { 'gruppo assente' } elseif (-not $info.Baskets.ContainsKey($b)) { 'basket assente' }
+        elseif (-not $info.Baskets[$b].ContainsKey($origin)) { "basket senza squadre nell'anno della rosa" }
+        else { Explain $info $doc.Key.e @($b) $origin }
+    if (-not $reason) { continue }
+    $handled = if ($info -and $key -and $info.Baskets.ContainsKey($b)) { SkippedRoster $entry $info } else { $null }
+    if ($handled) { $handledRosters["$container : $handled"] = 1 + [int]$handledRosters["$container : $handled"]; continue }
+    $day = if ($null -ne $doc.Key.d) { " giornata $($doc.Key.d)" } else { '' }
+    Report $container $g $y $(if ($origin -ne $y) { "$reason (squadre dell'anno $origin)" } else { $reason }) $doc.Key.e "$($doc.File)$day" $(if ($null -eq $doc.Value.p) { 0 } else { @($doc.Value.p).Count })
+    if ($container -eq 'team' -and $info -and $key) { $unplaced.Add([pscustomobject]@{ Doc = $doc; Group = $g; Basket = $b; Year = $y; Key = $key; Reason = $reason }) }
 }
 foreach ($doc in Documents 'marketwrapper') {
     $i = 0
@@ -184,14 +221,6 @@ foreach ($doc in Documents 'auction') {
 # where the owner's team is, whether that basket also has a roster (identical or
 # not), where the matchday rosters are, and what the document carries.
 function BasketRef($g, $b) { 'B' + (Hex "basket`0$g`0$b").Substring(0, 6) }
-function Players($value) { @(foreach ($p in $value.p) { "$(([string]$p.n).ToLowerInvariant() -replace '[^a-z]', '')|$($p.s)|$($p.p)|$($p.rv)|$($p.k)" }) }
-function Same($left, $right) {
-    if (($left | ConvertTo-Json -Compress -Depth 30) -ceq ($right | ConvertTo-Json -Compress -Depth 30)) { return 'identica' }
-    $a = @(Players $left | Sort-Object); $b = @(Players $right | Sort-Object)
-    if (($a -join ';') -ceq ($b -join ';')) { return 'stessi giocatori, altri campi diversi' }
-    $common = @($a | Where-Object { $b -ccontains $_ }).Count
-    return "diversa ($common giocatori in comune su $($a.Count)/$($b.Count))"
-}
 $details = foreach ($item in $unplaced) {
     $info = $groups[$item.Group]; $value = $item.Doc.Value
     $owned = @($info.Teams | Where-Object { $_.Year -eq $item.Year -and $_.Owner -ceq $item.Key })
@@ -223,7 +252,8 @@ function Years($values) { (@($values | ForEach-Object { [int]$_ }) | Sort-Object
 $summary = foreach ($container in 'team', 'dailyteams', 'openingteams', 'openingdailyteams', 'marketwrapper', 'calendar', 'rank', 'openingstandings', 'auction') {
     "$container : $([int]$checked[$container]) controlli, $(@($found | Where-Object Container -eq $container).Count) problemi"
 }
-$text = ($summary -join "`n") + "`n`n" + $(if ($found.Count -eq 0) { 'Nessun problema di identita delle squadre trovato.' } else {
+$handledText = if ($handledRosters.Count) { "`nRose escluse dall'import per decisione del gestore (restano nel dump; vedi skippedRosterDocuments nel report):`n" + ((@($handledRosters.Keys | Sort-Object | ForEach-Object { "$_ : $($handledRosters[$_])" })) -join "`n") + "`n" } else { '' }
+$text = ($summary -join "`n") + "`n" + $handledText + "`n" + $(if ($found.Count -eq 0) { 'Nessun problema di identita delle squadre trovato.' } else {
     "Riepilogo:`n" + (Rows ($found | Group-Object Container, Motivo | ForEach-Object {
         [pscustomobject]@{ Container = $_.Group[0].Container; Motivo = $_.Group[0].Motivo; Volte = $_.Count
             Proprietari = @($_.Group.Proprietario | Sort-Object -Unique).Count; Gruppi = (@($_.Group.Gruppo | Sort-Object -Unique) -join ',')

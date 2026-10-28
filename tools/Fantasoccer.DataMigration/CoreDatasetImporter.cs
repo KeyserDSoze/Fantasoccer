@@ -22,7 +22,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     SkippedUnnamedVoteDocument[]? SkippedUnnamedVotes = null, LegacyPoliticalVoteDocument[]? LegacyPoliticalVotes = null,
     ExcludedRealCalendarDocument[]? ExcludedRealCalendars = null, DiscardedFutureScoreDocument[]? DiscardedFutureScores = null,
     SkippedInactiveSubstituteDocument[]? SkippedInactiveSubstitutes = null, SkippedUnusablePlayerRowDocument[]? SkippedUnusablePlayerRows = null,
-    ExcludedNamelessRosterEntry[]? ExcludedNamelessRosterEntries = null, MissingVoteClubDocument[]? MissingRosterClubSnapshots = null);
+    ExcludedNamelessRosterEntry[]? ExcludedNamelessRosterEntries = null, MissingVoteClubDocument[]? MissingRosterClubSnapshots = null,
+    SkippedRosterDocument[]? SkippedRosterDocuments = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -40,7 +41,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 41;
+    public const int MappingVersion = 42;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -284,6 +285,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
               ? new[] { "Probable-lineup and statistics rows whose name is missing or forms no player key (for example \"----\") were excluded from SQL by operator decision; no player was created. Named rows keep all validations. Original bytes remain in the verified dump. Review skippedUnusablePlayerRows." } : Array.Empty<string>(),
           .. plan.ExcludedNamelessRosterEntries.Count > 0
               ? new[] { "Sold or removed roster entries without any name or stored player key were excluded from SQL by operator decision. Their price, revenue, status and position are listed in excludedNamelessRosterEntries; costs recomputed from those historical rosters no longer include them. Active nameless entries remain errors. Original bytes remain in the verified dump." } : Array.Empty<string>(),
+          .. plan.SkippedRosterDocuments.Count > 0
+              ? new[] { "Rosters saved under a basket where their owner had no team that year were excluded from SQL by operator decision: exact copies of the roster kept in the basket of the owner's only team that year, and empty rosters (no players, money, prize or formation changes) of owners without any team in the group that year. Different copies and non-empty rosters remain errors. Original bytes remain in the verified dump. Review skippedRosterDocuments." } : Array.Empty<string>(),
           .. plan.SkippedInactiveSubstitutes.Count > 0
               ? new[] { "Official legacy 6 d'ufficio entries given to inactive players (vote 6, hasVote/isFinal true, isIn false, no events) were excluded from SQL by operator decision: they are not votes and created no player or annual row. Original bytes remain in the verified dump. Review skippedInactiveSubstitutes." } : Array.Empty<string>(),
           .. plan.ExcludedRealCalendars.Count > 0
@@ -331,7 +334,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
            SkippedUnnamedVotes: plan.SkippedUnnamedVotes.ToArray(), LegacyPoliticalVotes: plan.LegacyPoliticalVotes.ToArray(),
            ExcludedRealCalendars: plan.ExcludedRealCalendars.ToArray(), DiscardedFutureScores: plan.DiscardedFutureScores.ToArray(),
            SkippedInactiveSubstitutes: plan.SkippedInactiveSubstitutes.ToArray(), SkippedUnusablePlayerRows: plan.SkippedUnusablePlayerRows.ToArray(),
-           ExcludedNamelessRosterEntries: plan.ExcludedNamelessRosterEntries.ToArray(), MissingRosterClubSnapshots: plan.MissingRosterClubSnapshots.ToArray());
+           ExcludedNamelessRosterEntries: plan.ExcludedNamelessRosterEntries.ToArray(), MissingRosterClubSnapshots: plan.MissingRosterClubSnapshots.ToArray(),
+           SkippedRosterDocuments: plan.SkippedRosterDocuments.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -668,6 +672,7 @@ public sealed class CorePlan
     public List<SkippedUnusablePlayerRowDocument> SkippedUnusablePlayerRows { get; } = [];
     public List<ExcludedNamelessRosterEntry> ExcludedNamelessRosterEntries { get; } = [];
     public List<MissingVoteClubDocument> MissingRosterClubSnapshots { get; } = [];
+    public List<SkippedRosterDocument> SkippedRosterDocuments { get; } = [];
     public List<ExcludedRealCalendarDocument> ExcludedRealCalendars { get; } = [];
     public List<DiscardedFutureScoreDocument> DiscardedFutureScores { get; } = [];
     public int AmbiguousRosterClubRecoveries { get; set; }
