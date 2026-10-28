@@ -159,7 +159,7 @@ Le baseline push mantengono i duplicati nominati e l'ordine per ordinale; i valo
 
 #### Voto reale e 6 d'ufficio dello stesso giocatore
 
-Con MappingVersion 37 il caso reale della stagione 10, giornata 26 (`p[33]` voto reale con `isIn:true`, `p[327]` 6 d'ufficio con `isIn:false`, stesso nome/ruolo/club) non è più un duplicato: il 6 d'ufficio viene conservato in `LegacyPoliticalVoteEntries` e la partita viene marcata come rinviata. Lo stesso vale per i 6 d'ufficio dei club la cui partita è attestata come rinviata dal calendario o da una voce accoppiata, avversario compreso. Controlla `legacyPoliticalVotes` nel report. Due voci reali per lo stesso giocatore restano bloccanti, comprese due copie del 6 prive di evidenza del rinvio. Il voto politico effettivo viene calcolato dalle impostazioni della lega, non dal dump: vedere [partite rinviate](POSTPONED-MATCHES.md). La migration `PostponedMatchPoliciesAndLegacyVotes` va applicata al target prima dell'import.
+Dalla MappingVersion 37 il caso reale della stagione 10, giornata 26 (`p[33]` voto reale con `isIn:true`, `p[327]` 6 d'ufficio con `isIn:false`, stesso nome/ruolo/club) non è più un duplicato: il 6 d'ufficio viene conservato in `LegacyPoliticalVoteEntries` e la partita viene marcata come rinviata. Lo stesso vale per i 6 d'ufficio dei club la cui partita è attestata come rinviata dal calendario o da una voce accoppiata, avversario compreso. Controlla `legacyPoliticalVotes` nel report. Due voci reali per lo stesso giocatore restano bloccanti, comprese due copie del 6 prive di evidenza del rinvio. Il voto politico effettivo viene calcolato dalle impostazioni della lega, non dal dump: vedere [partite rinviate](POSTPONED-MATCHES.md). La migration `PostponedMatchPoliciesAndLegacyVotes` va applicata al target prima dell'import.
 
 ### Se compare `invalid_club_code` o `missing_real_club`
 
@@ -173,7 +173,7 @@ La diagnostica `Club details` indica:
 
 Il contesto copre cataloghi, rose, voti/probabilità/statistiche, classifiche reali, calendario, mercato, albo, partite salvate, baseline push e aste incluse. Anche una copia con club invalido di un giocatore già noto riporta il proprio documento, non il primo catalogo in cui il giocatore era valido. Il casing storico delle baseline push viene mantenuto nella posizione JSON; i container esclusi non vengono decodificati per cercare club.
 
-Rianalizza con `-UseExistingDump`, senza `-Apply`, e controlla `resolvedClubCodes`: contiene checksum, archivio, posizione e versione della tabella, non i valori. Il tool lavora offline e non richiede nuove opzioni env; la MappingVersion è 37. Il catalogo comprende le integrazioni storiche Catania, Siena, Livorno e Cesena e l'alias esatto `Juve → Juventus → juv`, con fonti documentate; `Spal` è già riconosciuta come `SPAL`. La copertura viene verificata su tutte le 62 coppie pubbliche nome/sigla dei cataloghi multi-anno, non un anno alla volta. Le sigle esplicite invalide/discordanti non vengono sostituite. Se l'errore resta, condividi la riga `Core import refused` completa di checksum e `Club details`, non il dump o l'env. Queste coordinate permettono di esaminare localmente il solo record prima di scegliere una riconciliazione verificata. Non fare reset, non modificare gli originali e non aggiungere alias/sigle indovinate per far passare il controllo.
+Rianalizza con `-UseExistingDump`, senza `-Apply`, e controlla `resolvedClubCodes`: contiene checksum, archivio, posizione e versione della tabella, non i valori. Il tool lavora offline e non richiede nuove opzioni env; la MappingVersion è 38. Il catalogo comprende le integrazioni storiche Catania, Siena, Livorno e Cesena, gli alias esatti `Juve → Juventus → juv` e `Hellas Verona → Verona → ver` e la variante di sigla `hel → ver` accettata solo con il nome del Verona, con fonti documentate; `Spal` è già riconosciuta come `SPAL`. La copertura viene verificata su tutte le 62 coppie pubbliche nome/sigla dei cataloghi multi-anno, non un anno alla volta. Le sigle esplicite invalide/discordanti non vengono sostituite. Se l'errore resta, condividi la riga `Core import refused` completa di checksum e `Club details`, non il dump o l'env. Queste coordinate permettono di esaminare localmente il solo record prima di scegliere una riconciliazione verificata. Non fare reset, non modificare gli originali e non aggiungere alias/sigle indovinate per far passare il controllo.
 
 #### Nomi ufficiali e club annuali
 
@@ -188,6 +188,23 @@ Alcuni `live` storici hanno nomi/voti validi ma nessun oggetto club in tutti i r
 Una rosa **stagionale** dello stesso anno può completare il club annuale mancante se i riferimenti concordano su un solo codice, dichiarato con `recoveredRosterPlayers[].filledAnnualClub`. Il club storico assente dal voto resta invece null; più candidati, rose giornaliere e competizione iniziale non scelgono il club corrente per supposizione. Un club annuale già verificato non viene cancellato o disattivato dai flag del voto minimale.
 
 Controlla `missingVoteClubSnapshots` (hash/anno/giornata/conteggio/prima posizione, non valori), `unresolvedAnnualPlayerClubs` e `ambiguousRosterClubRecoveries`. Il tool non richiede altre opzioni env o reset. Restano stretti nomi/ruoli, club non null ma invalidi e riferimenti di cataloghi/rose/probabilità/statistiche. Prima di Apply servono analisi riuscita e revisione del report; lo stato `fullMigrationComplete` resta falso. [Contratto dei voti legacy](LEGACY-VOTE-SNAPSHOTS.md).
+
+#### Calendari reali con la stagione successiva e punteggi futuri
+
+Il job legacy salvava il calendario del provider sotto la stagione "corrente" dell'app, che cambia il 10 agosto. A luglio e inizio agosto il provider pubblicava già la stagione successiva, che ha sovrascritto il calendario dell'anno precedente. Nel dump reale è successo due volte:
+- il calendario 12 (2023/24) contiene le partite 2024/25, dal 18/08/2024 al 25/05/2025, con Como e Venezia;
+- il calendario 14 (2025/26) contiene le partite 2026/27, dal 23/08/2026 al 30/05/2027, con 380 punteggi di riempimento.
+
+I calendari veri del 2023/24 e del 2025/26 non sono nel dump.
+
+Dalla MappingVersion 38, per scelta del gestore, un calendario reale le cui partite datate appartengono **tutte** a un'altra stagione (confine del 10 agosto) non entra in SQL:
+- non genera partite, risultati, rinvii o appartenenze `ClubSeasons`, e non viene letto per cercare club;
+- resta nel dump con i byte originali e viene dichiarato in `excludedRealCalendars` (checksum, archivio, stagione, giornate, partite, stagioni effettive, prima e ultima data) e in `preservedArtifacts`;
+- per quelle stagioni non c'è un calendario reale in SQL. I risultati fantasy salvati non cambiano, e un ricalcolo di quelle giornate viene rifiutato invece di usare partite sbagliate.
+
+Un calendario che mescola date di più stagioni viene rifiutato con `real_calendar_mixed_seasons` e il checksum del documento, senza import parziale.
+
+Un punteggio su una partita con orario successivo all'inizio dell'export (`StartedAtUtc` del manifest) non può essere un risultato. Le vecchie versioni del parser salvavano punteggi di riempimento, per esempio sul calendario corrente. Quelle partite vengono importate **senza risultato**, quindi l'app le mostra "da giocare" e non 0-0. Il risultato vero arriva dal job SQL del calendario. Il report le conta in `discardedFutureScores` (checksum, stagione, numero di partite, prima posizione JSON), senza nomi o valori.
 
 ### Classifica corrente e copie giornaliere legacy
 

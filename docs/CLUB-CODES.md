@@ -2,7 +2,7 @@
 
 ## Fonte e versione
 
-`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e un alias esplicito, per 40 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche e `Juve → Juventus` documentati sotto, versione `fantacalcio-2026-10-27-v4`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
+`FantacalcioClubCodes` contiene un elenco **finito ed esatto** di 39 nomi canonici/codici e due alias espliciti, per 41 etichette accettate: 35 coppie verificate sulla fonte fantacalcio.it, quattro integrazioni storiche, `Juve → Juventus` e `Hellas Verona → Verona` documentati sotto, più una variante di sigla del provider (`hel → ver`). Versione `fantacalcio-2026-10-28-v5`. Non deriva sigle dai prefissi dei nomi e non effettua richieste HTTP durante analisi, import o ingestione. I codici sono salvati in minuscolo come PK/FK reali; anche il nome salvato è ora quello ufficiale determinato dal codice, indipendentemente da anno/casing/primo alias letto.
 
 Verifica pubblica del 26 ottobre 2026: pagine della prima giornata delle stagioni da 2015/16 a 2026/27. Ogni pagina espone insieme il nome completo (`meta itemprop="name"`) e la sigla nel relativo link squadra. Il titolo della pagina è stato controllato contro la stagione richiesta: una URL storica che restituisce la stagione corrente non costituisce una prova per quella stagione. Le 240 coppie osservate sulle 12 pagine hanno prodotto 35 nomi/codici distinti, senza discrepanze tra anni.
 
@@ -65,19 +65,28 @@ Esempi di verifica diretta: [2022/23](https://www.fantacalcio.it/voti-fantacalci
 | Etichetta legacy esatta | Nome canonico del catalogo | Codice | Fonte |
 |---|---|---|---|
 | Juve | Juventus | `juv` | [Sito ufficiale del club: La Juve in cima al mondo / La storia di Juventus](https://www.juventus.com/it/club/la-storia/la-juve-in-cima-al-mondo); codice Juventus già verificato nelle fonti fantacalcio.it sopra |
+| Hellas Verona | Verona | `ver` | [Sito ufficiale del club: Hellas Verona FC](https://www.hellasverona.it/) (Hellas Verona Football Club S.p.A.); codice Verona già verificato nelle fonti fantacalcio.it sopra. Etichetta trovata nel dump nel calendario 2024/25 e nelle classifiche reali 2024/25 e 2025/26 (anche in maiuscolo). |
 
-`Aliases` è un dizionario immutabile separato da `Names`: l'alias non introduce un quarantesimo club o un'altra PK. La corrispondenza è esatta, non per prefisso: `Juve Next Gen`, `Juve Women` o un nome simile non vengono accorpati automaticamente. `Spal` non richiede un altro alias, perché il confronto di `SPAL` è già case-insensitive.
+`Aliases` è un dizionario immutabile separato da `Names`: un alias non introduce un altro club o un'altra PK. La corrispondenza è esatta, non per prefisso: `Juve Next Gen`, `Juve Women`, `Hellas Verona Primavera` o un nome simile non vengono accorpati automaticamente. `Spal` non richiede un altro alias, perché il confronto di `SPAL` è già case-insensitive.
+
+### Variante di sigla del provider
+
+| Sigla esplicita | Codice verificato | Accettata solo con | Evidenza |
+|---|---|---|---|
+| `hel` | `ver` | il nome verificato del Verona (`Verona` o l'alias `Hellas Verona`) | Il calendario legacy 2024/25 (archivio `blobs/9f2852d838ac1529e5aecbb31df22a73cb67568e9cc616b23b11ac602d5923d2.bin`) usa per lo stesso club sia `Hellas verona/hel` sia `Hellas verona/ver`. |
+
+`CodeVariants` è separato dagli alias dei nomi: `hel` insieme a un altro club verificato (per esempio `Juventus/hel`) resta un conflitto, e con un nome non catalogato resta il codice esplicito `hel` come prima. Senza questa variante il calendario 2024/25 avrebbe creato in silenzio un secondo club `hel`, e la classifica non avrebbe potuto scegliere fra le due sigle. Il recupero viene dichiarato in `resolvedClubCodes`.
 
 La regressione comprende l'intera unione pubblica dei cataloghi multi-anno: **62 coppie nome/abbreviazione, 40 etichette e 39 codici distinti**, comprese tutte le 23 coppie con sigla esplicita e le 39 senza sigla. Il test esegue analisi/import insieme per tutti i campioni, ripete con ordine invertito e verifica idempotenza e immutabilità della sorgente; una seconda prova collega rose, voti e anni del giocatore attraverso `Juve`/`Juventus`, preservando prezzi/ricavi e rifiutando una sigla discordante. Non si procede più verificando soltanto il catalogo di un singolo anno.
 
 ## Regole di risoluzione
 
 1. Una sigla esplicita deve comunque avere tre lettere ASCII. Non viene corretta rimuovendo spazi interni, troncando caratteri o sostituendola con una deduzione.
-2. Se il nome è nel catalogo, un codice esplicito discordante viene rifiutato con `club_code_name_mismatch`, non sovrascritto. Per esempio `Fiorentina/NAP` è un conflitto.
+2. Se il nome è nel catalogo, un codice esplicito discordante viene rifiutato con `club_code_name_mismatch`, non sovrascritto. Per esempio `Fiorentina/NAP` è un conflitto. L'unica eccezione è una variante di sigla documentata sopra, accettata solo con il nome verificato di quel club.
 3. Soltanto se il codice è mancante/null/whitespace, un nome presente nella tabella può risolverlo: `{"n":"Fiorentina","a":null}` diventa il riferimento SQL `fio` senza modificare il documento originale.
 4. Il confronto dei nomi e degli alias espliciti ignora soltanto maiuscole/minuscole e spazi esterni. Non usa prefissi, somiglianza, decodifica HTML, ordine degli array o associazioni di giocatori.
 5. Un nome già composto da tre lettere rimane un codice leggibile come prima. Un'etichetta non catalogata, né elencata tra gli alias esatti, richiede un codice esplicito valido: l'elenco non pretende di coprire tutte le società storiche o ogni alias possibile.
 
-Il report `resolvedClubCodes` registra documento SHA-256, container, archivio hash, posizione JSON e versione del catalogo per ogni riferimento recuperato, una sola volta per posizione. Non stampa nomi, codici, giocatori o proprietari. Nell'import la `MappingVersion` è 37; restano i controlli sulla sorgente, l'atomicità, l'idempotenza e il blocco dopo scritture applicative. La migration aggiuntiva `ClubSeasonsAndCanonicalNames` allinea i nomi già presenti e introduce le appartenenze annuali attestate, senza cambiare PK/FK testuali, sorgente o dump. `OptionalHistoricalVoteClubs` consente di preservare i [voti legacy senza club](LEGACY-VOTE-SNAPSHOTS.md) senza inventarne uno. Non occorre una nuova opzione env. Le label originali rimangono nel dump: riconoscere un alias non riscrive il documento. Vedere [modello e sicurezza dell'upgrade](CLUB-SEASONS.md).
+Il report `resolvedClubCodes` registra documento SHA-256, container, archivio hash, posizione JSON e versione del catalogo per ogni riferimento recuperato, una sola volta per posizione. Non stampa nomi, codici, giocatori o proprietari. Nell'import la `MappingVersion` è 38; restano i controlli sulla sorgente, l'atomicità, l'idempotenza e il blocco dopo scritture applicative. La migration aggiuntiva `ClubSeasonsAndCanonicalNames` allinea i nomi già presenti e introduce le appartenenze annuali attestate, senza cambiare PK/FK testuali, sorgente o dump. `OptionalHistoricalVoteClubs` consente di preservare i [voti legacy senza club](LEGACY-VOTE-SNAPSHOTS.md) senza inventarne uno. Non occorre una nuova opzione env. Le label originali rimangono nel dump: riconoscere un alias non riscrive il documento. Vedere [modello e sicurezza dell'upgrade](CLUB-SEASONS.md).
 
 Un'aggiunta alla tabella richiede una nuova corrispondenza verificata, aggiornamento della versione/documentazione e test; non si aggiungono alias soltanto per superare un errore dell'import.

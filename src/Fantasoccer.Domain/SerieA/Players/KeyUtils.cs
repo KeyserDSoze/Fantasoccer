@@ -28,7 +28,10 @@ namespace Fantasoccer
                 throw new ArgumentException("A club requires a verified name or its three-letter provider abbreviation.");
             key = key.ToLowerInvariant();
             if (known && key != providerCode)
+            {
+                if (FantacalcioClubCodes.IsCodeVariant(providerCode, key)) return providerCode;
                 throw new ArgumentException("The explicit club code contradicts the verified provider name.");
+            }
             return key;
         }
     }

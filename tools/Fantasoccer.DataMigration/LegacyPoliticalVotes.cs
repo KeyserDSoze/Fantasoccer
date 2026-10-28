@@ -55,6 +55,8 @@ public sealed partial class CoreDatasetImporter
         foreach (var document in dataset.Documents.Where(x => x.Container == "realcalendar"))
         {
             var calendar = document.Envelope.Deserialize<Entity<RealCalendar, int>>() ?? throw new CoreImportException("invalid_calendar_envelope");
+            // Another season's calendar never attests a postponement here.
+            if (OtherSeasonCalendar(document, calendar) is not null) continue;
             foreach (var (day, dayIndex) in (calendar.Value?.Days ?? []).Select((value, index) => (value, index)))
             foreach (var (game, gameIndex) in (day.Games ?? []).Select((value, index) => (value, index)))
             {

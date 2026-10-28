@@ -31,7 +31,10 @@ public sealed partial class CoreDatasetImporter
         string Club(RealTeam? club, ClubSource origin)
         {
             var key = CheckedClubCode(club, origin);
-            if (string.IsNullOrWhiteSpace(club!.ExplicitAbbreviation) && FantacalcioClubCodes.TryGetCode(club.Name, out _) &&
+            // Report catalogue resolutions: a missing code or a documented
+            // provider code variant replaced by the verified club code.
+            var explicitCode = club!.ExplicitAbbreviation?.Trim().ToLowerInvariant();
+            if ((string.IsNullOrWhiteSpace(explicitCode) || explicitCode != key) && FantacalcioClubCodes.TryGetCode(club.Name, out _) &&
                 resolvedClubs.Add((origin.Document.Sha256, origin.JsonPath)))
                 plan.ResolvedClubCodes.Add(new(origin.Document.Sha256, origin.Document.Container, DocumentArchiveReference(origin.Document), origin.JsonPath,
                     FantacalcioClubCodes.Version));
@@ -214,8 +217,15 @@ public sealed partial class CoreDatasetImporter
             var value = calendar.Value ?? throw new CoreImportException("missing_calendar");
             if (value.Year != calendar.Key) throw new CoreImportException("calendar_season_mismatch");
             addSeason(calendar.Key);
+            if (OtherSeasonCalendar(document, calendar) is { } excluded)
+            {
+                // Not decoded for clubs, memberships or matches: another season.
+                plan.ExcludedRealCalendars.Add(excluded);
+                continue;
+            }
             Root(document.Container, calendar.Key, 0);
             map("calendar", calendar.Key.ToString(CultureInfo.InvariantCulture));
+            var futureScores = 0; string? firstFutureScore = null;
             foreach (var (day, dayIndex) in (value.Days ?? []).Select((day, index) => (day, index)))
             {
                 if (day.SerieADay is < 1 or > 38 || !matchdays.Add((calendar.Key, day.SerieADay))) throw new CoreImportException("duplicate_real_matchday");
@@ -226,8 +236,10 @@ public sealed partial class CoreDatasetImporter
                     var away = Club(game.Away, ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}].a"));
                     Membership(home, calendar.Key, ClubMembershipSource.Calendar);
                     Membership(away, calendar.Key, ClubMembershipSource.Calendar);
+                    var future = FutureScore(game, dataset.Manifest.StartedAtUtc);
+                    if (future) { futureScores++; firstFutureScore ??= ClubOrigin(document, $".d[{dayIndex}].g[{ordinal}]").JsonPath; }
                     row.Matches.Add(new() { SeasonIndex = calendar.Key, SerieADay = day.SerieADay, Ordinal = ordinal,
-                        HomeClubId = home, AwayClubId = away, HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
+                        HomeClubId = home, AwayClubId = away, HomeGoals = future ? null : game.HomeGoal, AwayGoals = future ? null : game.AwayGoal,
                          Delayed = game.Delayed, WasPostponed = game.WasPostponed || game.Delayed, IsFinished = game.IsFinished,
                          OriginalKickoffUtc = game.OriginalDate is { } original ? ToUtc(original) : game.Date is { } scheduled ? ToUtc(scheduled) : null,
                          LegacyKickoffLocal = game.Date is { } date ? Local(date) : null,
@@ -235,6 +247,8 @@ public sealed partial class CoreDatasetImporter
                 }
                 plan.Matchdays.Add(row);
             }
+            if (futureScores > 0) plan.DiscardedFutureScores.Add(new(document.Sha256, DocumentArchiveReference(document), calendar.Key,
+                futureScores, dataset.Manifest.StartedAtUtc, firstFutureScore!));
         }
 
         AttestImportedPostponements(plan);

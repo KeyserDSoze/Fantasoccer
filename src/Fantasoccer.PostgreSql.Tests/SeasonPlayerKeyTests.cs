@@ -61,7 +61,7 @@ public sealed class SeasonPlayerKeyFormatTests
             Assert.Equal(code, KeyUtils.GetClubKey(code.ToUpperInvariant(), name));
         }
         Assert.Equal("fio", KeyUtils.GetClubKey(null, "Fiorentina"));
-        foreach (var unknown in new[] { "Fiorentina Primavera", "Fiorent", "Unknown fixture club", "Hellas Verona" })
+        foreach (var unknown in new[] { "Fiorentina Primavera", "Fiorent", "Unknown fixture club", "Hellas" })
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
         Assert.Equal("abc", KeyUtils.GetClubKey("ABC", "Unknown fixture club"));
     }
@@ -76,7 +76,7 @@ public sealed class SeasonPlayerKeyFormatTests
     [Fact]
     public void Documented_exact_club_aliases_share_canonical_keys_without_enabling_prefix_or_fuzzy_matching()
     {
-        Assert.Single(FantacalcioClubCodes.Aliases);
+        Assert.Equal(2, FantacalcioClubCodes.Aliases.Count);
         foreach (var (alias, canonical) in FantacalcioClubCodes.Aliases)
         {
             Assert.False(FantacalcioClubCodes.Names.ContainsKey(alias));
@@ -87,8 +87,29 @@ public sealed class SeasonPlayerKeyFormatTests
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("NAP", alias));
         }
         Assert.Equal("juv", KeyUtils.GetClubKey(null, "Juve"));
-        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé" })
+        Assert.Equal("ver", KeyUtils.GetClubKey(null, "HELLAS VERONA"));
+        Assert.Equal("Verona", FantacalcioClubCodes.CanonicalName("ver", "Hellas verona"));
+        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé", "Hellas Verona Primavera", "Hellas Ver" })
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
+    }
+
+    [Fact]
+    public void Provider_code_variants_resolve_only_together_with_the_verified_club_name()
+    {
+        // The 2024/25 calendar used both "Hellas verona/hel" and "Hellas verona/ver".
+        var variant = Assert.Single(FantacalcioClubCodes.CodeVariants);
+        Assert.Equal(("hel", "ver"), (variant.Key, variant.Value));
+        foreach (var name in new[] { "Hellas verona", "HELLAS VERONA", "Verona" })
+        {
+            Assert.Equal("ver", KeyUtils.GetClubKey("hel", name));
+            Assert.Equal("ver", KeyUtils.GetClubKey("HEL", name));
+            Assert.Equal("ver", KeyUtils.GetClubKey("ver", name));
+        }
+        // A variant never moves another verified club, and an unverified name
+        // keeps its own explicit code exactly as before.
+        foreach (var name in new[] { "Juventus", "Napoli", "Juve" })
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("hel", name));
+        Assert.Equal("hel", KeyUtils.GetClubKey("hel", "Unknown fixture club"));
     }
 
     [Theory]
