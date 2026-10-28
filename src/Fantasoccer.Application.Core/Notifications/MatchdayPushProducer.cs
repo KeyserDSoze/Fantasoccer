@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Notifications;
 
-public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutboxApplicationService outbox, ITeamCalculator scoring, TimeProvider clock)
+public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutboxApplicationService outbox, ITeamCalculator scoring,
+    Fantasoccer.Application.Core.Football.IFootballLiveDataStore liveData, TimeProvider clock)
 {
     public async Task RunAsync(int year, CancellationToken cancellationToken = default)
     {
@@ -64,7 +65,13 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
         if (live != null)
         {
             var checkpoint = await Checkpoint(live.Day);
-            var votes = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Where(x => x.SeasonIndex == year && x.Day == live.Day && x.Source == FootballVoteSource.Live).ToArrayAsync(cancellationToken);
+            // Provisional votes come from the shared cache (one global snapshot).
+            // Baselines/checkpoints stay in PostgreSQL to deduplicate notifications.
+            var snapshot = await liveData.LiveVotesAsync(year, live.Day, cancellationToken);
+            var knownPlayers = (await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == year).Select(x => x.PlayerId).ToArrayAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+            var knownClubs = (await database.Clubs.AsNoTracking().Select(x => x.Id).ToArrayAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+            // Players unknown to the season catalogue cannot be in any roster.
+            var votes = (snapshot?.Payload.Players ?? []).Where(x => knownPlayers.Contains(x.PlayerId)).Select(x => LiveRow(x, year, live.Day, knownClubs)).ToArray();
             var previous = checkpoint.HasMatchEventVotes ? checkpoint.Votes.ToDictionary(x => x.PlayerId) :
                 (await database.FootballVotes.AsNoTracking().Where(x => x.SeasonIndex == year && x.Day == live.Day && x.Source == FootballVoteSource.Notification).ToArrayAsync(cancellationToken))
                     .ToDictionary(x => x.PlayerId, x => Baseline(x, 0));
@@ -88,7 +95,7 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
                         }
                     }
             }
-            if (votes.Length > 0 || await database.FootballDatasets.AnyAsync(x => x.Kind == "live" && x.SeasonIndex == year && x.Day == live.Day, cancellationToken))
+            if (votes.Length > 0 || snapshot is not null)
             {
                 checkpoint.Votes.Clear();
                 await database.SaveChangesAsync(cancellationToken);
@@ -178,6 +185,14 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
             }
         }
     }
+    private static FootballVote LiveRow(Fantasoccer.Application.Core.Football.CachedLiveVote row, int year, int day, HashSet<string> clubs) => new()
+    {
+        PlayerId = row.PlayerId, SeasonIndex = year, Day = day, Source = FootballVoteSource.Live, ClubId = row.ClubId is { } club && clubs.Contains(club) ? club : null,
+        PlayerRole = row.PlayerRole, IsActive = row.IsActive, IsVisible = row.IsVisible, VoteRole = row.Vote.Role, Value = row.Vote.Value, IsFinal = row.Vote.IsFinal,
+        Goals = row.Vote.Goals, Penalties = row.Vote.Penalties, Assists = row.Vote.Assists, StoppedPenalties = row.Vote.StoppedPenalties, SufferedGoals = row.Vote.SufferedGoals,
+        WrongedPenalties = row.Vote.WrongedPenalties, OwnGoals = row.Vote.OwnGoals, Status = row.Vote.Status, ManOfTheMatch = row.Vote.ManOfTheMatch, HasVote = row.Vote.HasVote,
+        IsOut = row.Vote.IsOut, IsIn = row.Vote.IsIn, Injured = row.Vote.Injured, Player = new FootballPlayer { Id = row.PlayerId, Name = row.Name }
+    };
     private static Player Clone(Player player) => new() { Name = player.Name, RealTeam = player.RealTeam, Role = player.Role, IsActive = player.IsActive,
         Visible = player.Visible, Position = player.Position, Status = player.Status, Price = player.Price, Revenue = player.Revenue };
     private static string Describe(PushVoteBaseline? previous, FootballVote current)

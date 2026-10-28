@@ -47,9 +47,9 @@ public sealed partial class FootballIngestionApplicationService
         }
         var liveClubs = matches.Where(x => (pendingOpening || x.WasPostponed || x.Delayed) && !x.Delayed && !Finished(x) && x.KickoffUtc is { } kickoff &&
                 now >= kickoff && now <= kickoff.AddHours(10.25)).SelectMany(x => new[] { x.HomeClubId, x.AwayClubId }).ToHashSet();
-        if (liveClubs.Count > 0) await VotesAsync(year, day, false, cancellationToken, null, liveClubs);
+        if (liveClubs.Count > 0) await LiveVotesAsync(year, day, cancellationToken, null, liveClubs);
         var recovered = matches.Where(x => (pendingOpening || x.WasPostponed || x.Delayed) && Finished(x) && x.ActualOfficialVotesReady != true)
             .SelectMany(x => new[] { x.HomeClubId, x.AwayClubId }).ToHashSet();
-        if (recovered.Count > 0) await VotesAsync(year, day, true, cancellationToken, null, recovered);
+        if (recovered.Count > 0) await OfficialVotesAsync(year, day, cancellationToken, null, recovered);
     }
 }

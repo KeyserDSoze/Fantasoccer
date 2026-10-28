@@ -44,6 +44,12 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Accounts.PlatformApplicationService>();
         services.AddScoped<GameGroupApplicationService>();
         services.TryAddSingleton(TimeProvider.System);
+        // Shared cache layers: L1 IMemoryCache per instance, L2 IDistributedCache
+        // (+ coordinator) registered by the host (Azure Blob, or in-memory for tests).
+        services.AddMemoryCache();
+        services.AddOptions<Fantasoccer.Application.Core.Caching.SharedCacheOptions>();
+        services.TryAddSingleton<Fantasoccer.Application.Core.Caching.SharedSnapshotCache>();
+        services.TryAddSingleton<Fantasoccer.Application.Core.Football.IFootballLiveDataStore, Fantasoccer.Application.Core.Football.FootballLiveDataStore>();
         services.AddScoped<Fantasoccer.Application.Core.Teams.TeamRosterApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballIngestionApplicationService>();

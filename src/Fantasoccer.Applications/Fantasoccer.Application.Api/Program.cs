@@ -47,6 +47,17 @@ if (postgresEnabled)
         ?? throw new InvalidOperationException("PostgreSql requires ConnectionStrings:PostgreSql."));
     healthChecks.AddCheck<PostgreSqlReadinessCheck>("postgresql", tags: ["ready"]);
     builder.Services.AddGroupApplication();
+    builder.Services.Configure<Fantasoccer.Application.Core.Caching.SharedCacheOptions>(builder.Configuration.GetSection("Cache:Shared"));
+    if (isInMemory) Fantasoccer.Infrastructure.Caching.DistributedCacheServiceCollectionExtensions.AddInMemoryCoordinatedDistributedCache(builder.Services);
+    else Fantasoccer.Infrastructure.Caching.DistributedCacheServiceCollectionExtensions.AddAzureBlobDistributedCache(builder.Services, options =>
+    {
+        var section = builder.Configuration.GetSection(Fantasoccer.Infrastructure.Caching.AzureBlobDistributedCacheOptions.SectionName);
+        section.Bind(options);
+        // Same storage account as the files, separate private container. The
+        // namespace keeps environments apart when they share an account.
+        if (string.IsNullOrWhiteSpace(options.ConnectionString)) options.ConnectionString = builder.Configuration.GetConnectionString("Storage");
+        options.Namespace = section["Namespace"] is { Length: > 0 } configured ? configured : builder.Environment.EnvironmentName.ToLowerInvariant();
+    });
     builder.Services.AddOptions<Fantasoccer.Application.Core.Editorial.EditorialAiOptions>().Bind(builder.Configuration.GetSection("OpenAi"))
         .PostConfigure(options => options.Enabled &= builder.Configuration.GetValue("ExternalHttp:Enabled", true))
         .Validate(options => !options.Enabled || (Uri.TryCreate(options.Endpoint, UriKind.Absolute, out var uri) && uri.Scheme == "https" &&

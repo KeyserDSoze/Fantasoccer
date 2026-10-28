@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.11" />
         <PackageReference Include="Rystem.RepositoryFramework.Abstractions" Version="10.0.8" />
         <PackageReference Include="Rystem.Authentication.Social" Version="10.0.8" />
         <PackageReference Include="WebPush" Version="1.0.13" />

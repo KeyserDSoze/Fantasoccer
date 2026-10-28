@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Football;
 
-public sealed class FootballApplicationService(FantasoccerDbContext database, AccountApplicationService accounts)
+public sealed class FootballApplicationService(FantasoccerDbContext database, AccountApplicationService accounts, IFootballLiveDataStore liveData)
 {
     public async Task<int[]> YearsAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
     {
@@ -84,6 +84,14 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
     {
         await AccessAsync(caller, year, cancellationToken); CheckDay(day);
         if (!Enum.IsDefined(source)) throw Invalid();
+        if (source == FootballVoteSource.Live)
+        {
+            // Provisional votes: the shared cache is the only operational source.
+            var snapshot = await liveData.LiveVotesAsync(year, day, cancellationToken);
+            return snapshot is null ? null : new(snapshot.Payload.Players.OrderBy(x => x.PlayerRole).ThenBy(x => x.Name).Select(x =>
+                new VotedPlayerDto(x.PlayerId, x.Name, FootballLiveDataMapping.ClubDto(x.ClubId, x.ClubName), x.PlayerRole, x.IsActive, x.IsVisible,
+                    FootballLiveDataMapping.Dto(x.Vote)) { SeasonIndex = year }).ToArray());
+        }
         var rows = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync(source.ToString().ToLowerInvariant(), year, day, cancellationToken)) return null;
@@ -108,11 +116,13 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
     public async Task<PlayersDto<ChancedPlayerDto>?> ChancesAsync(ClaimsPrincipal caller, int year, int day, CancellationToken cancellationToken = default)
     {
         await AccessAsync(caller, year, cancellationToken); CheckDay(day);
-        var rows = await database.FootballChances.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
-            .Where(x => x.SeasonIndex == year && x.Day == day).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
-        if (rows.Length == 0 && !await ExistsAsync("chancedrealplayerwrapper", year, day, cancellationToken)) return null;
-        return new(rows.Select(x => new ChancedPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Chance(x))
-            { SeasonIndex = year }).ToArray());
+        // One global snapshot per season/day, shared by every group. Same contract as
+        // before: LastGame/Trend were legacy-only fields never produced by ingestion.
+        var snapshot = await liveData.ChancesAsync(year, day, cancellationToken);
+        if (snapshot is null) return null;
+        return new(snapshot.Payload.Players.OrderBy(x => x.Role).ThenBy(x => x.Name).Select(x => new ChancedPlayerDto(x.PlayerId, x.Name,
+            FootballLiveDataMapping.ClubDto(x.ClubId, x.ClubName), x.Role, x.IsActive, x.IsVisible,
+            new ChanceDto(x.Fantagazzetta, x.Gazzetta, x.Mediaset, x.Sky, x.Status, x.Description)) { SeasonIndex = year }).ToArray());
     }
 
     public async Task<PlayersDto<StatisticPlayerDto>?> StatisticsAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)

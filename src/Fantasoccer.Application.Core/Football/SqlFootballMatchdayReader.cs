@@ -5,7 +5,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Football;
 
-public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, TimeProvider clock) : IFootballMatchdayReader
+// The single calculation input for scoring, previews, the optimal formation and
+// push producers: official votes from PostgreSQL, provisional live votes and
+// probable lineups from the shared operational cache.
+public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, IFootballLiveDataStore liveData, TimeProvider clock) : IFootballMatchdayReader
 {
     public async Task<FootballMatchdayInput> ReadAsync(int year, int day, bool withVotes, bool withChances, CancellationToken cancellationToken = default)
     {
@@ -35,28 +38,23 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
         if (withVotes)
         {
             var votes = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
-                .Where(x => x.SeasonIndex == year && x.Day == day && x.Source != FootballVoteSource.Notification).ToArrayAsync(cancellationToken);
-            VotedRealPlayerWrapper? Wrap(FootballVoteSource source)
-            {
-                var rows = votes.Where(x => x.Source == source).ToArray();
-                return rows.Length == 0 ? null : new() { Players = rows.Select(x => new VotedRealPlayer { Name = x.Player.Name,
-                    RealTeam = x.Club is null ? null! : FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
-                    Vote = FootballMapping.DomainVote(x) }).ToList() };
-            }
+                .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == FootballVoteSource.Official).ToArrayAsync(cancellationToken);
+            if (votes.Length > 0) official = new() { Players = votes.Select(x => new VotedRealPlayer { Name = x.Player.Name,
+                RealTeam = x.Club is null ? null! : FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
+                Vote = FootballMapping.DomainVote(x) }).ToList() };
             // Final scoring never fills historical gaps with live votes. A
             // recovery match keeps its own live window on the original day.
-            if (day == liveDay || day == lastDay || recoveryLive) live = Wrap(FootballVoteSource.Live);
-            official = Wrap(FootballVoteSource.Official);
+            if (day == liveDay || day == lastDay || recoveryLive)
+            {
+                var snapshot = await liveData.LiveVotesAsync(year, day, cancellationToken);
+                if (snapshot is { Payload.Players.Length: > 0 }) live = FootballLiveDataMapping.Wrapper(snapshot.Payload);
+            }
         }
         ChancedRealPlayerWrapper? chances = null;
         if (withChances)
         {
-            var rows = await database.FootballChances.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
-                .Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
-            if (rows.Length > 0) chances = new() { Players = rows.Select(x => new ChancedRealPlayer { Name = x.Player.Name,
-                RealTeam = FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
-                Chance = new() { Fantagazzetta = x.Fantagazzetta, Gazzetta = x.Gazzetta, Mediaset = x.Mediaset, Sky = x.Sky,
-                    Status = (ChanceType)x.Status, Description = x.Description } }).ToList() };
+            var snapshot = await liveData.ChancesAsync(year, day, cancellationToken);
+            if (snapshot is { Payload.Players.Length: > 0 }) chances = FootballLiveDataMapping.Wrapper(snapshot.Payload);
         }
         return new(day, day == liveDay || recoveryLive, day == nextDay && selected != null && now < selected.Start,
             games.Count == 0 ? null : new() { Year = year, SerieADay = day, Games = games }, live, official, chances);

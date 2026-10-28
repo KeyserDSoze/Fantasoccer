@@ -14,7 +14,7 @@ namespace Fantasoccer.Application.Core.Football;
 public sealed record RefreshFootballRequest(string Operation, int Year, int? Day = null);
 public sealed partial class FootballIngestionApplicationService(FantasoccerDbContext database, ISerieAInformation schedule, IAllPlayers catalogue,
     ILiveVote live, IOfficialVote official, IFactory<IFormationParser> formations, AccountApplicationService accounts,
-    TeamRosterAvailabilityService availability, ITeamCalculator scoring, TimeProvider clock)
+    TeamRosterAvailabilityService availability, ITeamCalculator scoring, IFootballLiveDataStore liveData, TimeProvider clock)
 {
     public async Task RefreshAsync(ClaimsPrincipal caller, RefreshFootballRequest request, CancellationToken cancellationToken = default)
     {
@@ -34,9 +34,12 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         {
             case "calendar": await CalendarAsync(request.Year, cancellationToken, caller); break;
             case "catalogue": await CatalogueAsync(request.Year, cancellationToken, caller); break;
-            case "live": case "official":
+            case "live":
                 if (request.Day is null) throw Invalid("Specificare la giornata dei voti.");
-                await VotesAsync(request.Year, request.Day.Value, request.Operation == "official", cancellationToken, caller); break;
+                await LiveVotesAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
+            case "official":
+                if (request.Day is null) throw Invalid("Specificare la giornata dei voti.");
+                await OfficialVotesAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
             case "chances":
                 if (request.Day is null) throw Invalid("Specificare la giornata delle probabilità.");
                 await ChancesAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
@@ -129,9 +132,10 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         foreach (var group in rosters.GroupBy(x => x.GroupId)) await availability.SynchronizeFutureAsync(group.Key, year, group.Select(x => x.TeamId).ToArray(), cancellationToken);
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
-    private async Task VotesAsync(int year, int day, bool final, CancellationToken cancellationToken, ClaimsPrincipal? caller, HashSet<string>? clubFilter = null)
+    // Official votes remain authoritative PostgreSQL data used by final scoring and statistics.
+    private async Task OfficialVotesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller, HashSet<string>? clubFilter = null)
     {
-        var samples = await (final ? official.GetAsync(year, day) : live.GetAsync(year, day)).WaitAsync(cancellationToken);
+        var samples = await official.GetAsync(year, day).WaitAsync(cancellationToken);
         if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
         if (samples is not { Count: > 0 } || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) || samples.GroupBy(x => x.Key).Any(x => x.Count() != 1))
             throw Invalid("Voti del provider mancanti o ambigui; lo snapshot salvato non viene cancellato.");
@@ -139,7 +143,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         await AuthorizeAsync(caller, cancellationToken);
         await SeasonAsync(year, cancellationToken);
         var players = await database.Players.ToArrayAsync(cancellationToken); var clubs = await database.Clubs.ToArrayAsync(cancellationToken);
-        var source = final ? FootballVoteSource.Official : FootballVoteSource.Live;
+        const FootballVoteSource source = FootballVoteSource.Official;
         var identities = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         var rows = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).ToArrayAsync(cancellationToken);
         var received = new HashSet<string>(StringComparer.Ordinal);
@@ -158,7 +162,6 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             row.Assists = vote.Assist; row.StoppedPenalties = vote.StoppedPenalty; row.SufferedGoals = vote.SufferedGoal; row.WrongedPenalties = vote.WrongedPenalty;
             row.OwnGoals = vote.OwnGoal; row.Status = (int)vote.Status; row.ManOfTheMatch = vote.ManOfTheMatch; row.HasVote = vote.HasVote; row.IsOut = vote.IsOut; row.IsIn = vote.IsIn; row.Injured = vote.Injured;
         }
-        if (final)
         {
             var matches = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day).ToArrayAsync(cancellationToken);
             // A recovery refresh updates only the recovered clubs. It never
@@ -173,34 +176,62 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
                 else match.ActualOfficialVotesReady = false;
             }
         }
-        await DatasetAsync(final ? "official" : "live", year, day, cancellationToken);
+        await DatasetAsync("official", year, day, cancellationToken);
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+    }
+    // Provisional live votes are a global operational snapshot in the distributed
+    // cache, never PostgreSQL rows. Validation is unchanged: an empty, ambiguous or
+    // non-finite provider response never replaces the snapshot already published.
+    private async Task LiveVotesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller, HashSet<string>? clubFilter = null)
+    {
+        var fetchedAt = clock.GetUtcNow();
+        var samples = await live.GetAsync(year, day).WaitAsync(cancellationToken);
+        if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
+        if (samples is not { Count: > 0 } || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) || samples.GroupBy(x => x.Key).Any(x => x.Count() != 1))
+            throw Invalid("Voti del provider mancanti o ambigui; lo snapshot salvato non viene cancellato.");
+        await AuthorizeAsync(caller, cancellationToken);
+        var clubs = await database.Clubs.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+        var names = await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == year).Select(x => new { x.PlayerId, x.Player.Name })
+            .ToDictionaryAsync(x => x.PlayerId, x => x.Name, cancellationToken);
+        var entries = new List<CachedLiveVote>(samples.Count);
+        foreach (var sample in samples)
+        {
+            ValidatePlayer(sample);
+            var code = ProviderClubCode(sample.RealTeam) ?? throw Invalid("Nome/codice club del provider non verificabile o discordante.");
+            entries.Add(new(sample.Key, names.GetValueOrDefault(sample.Key) ?? sample.Name.Trim(), code,
+                clubs.GetValueOrDefault(code) ?? FantacalcioClubCodes.CanonicalName(code, sample.RealTeam.Name), (int)sample.Role,
+                sample.IsActive, sample.Visible, FootballLiveDataMapping.Cached(sample.Vote)));
+        }
+        await liveData.PublishLiveVotesAsync(fetchedAt, new(year, day, entries.OrderBy(x => x.PlayerId, StringComparer.Ordinal).ToArray()), clubFilter, cancellationToken);
     }
     private async Task ChancesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller)
     {
+        var fetchedAt = clock.GetUtcNow();
+        var sources = new[] { "Fantagazzetta", "Gazzetta", "Injury" };
         var samples = new List<ChancedRealPlayer>();
-        foreach (var name in new[] { "Fantagazzetta", "Gazzetta", "Injury" })
+        foreach (var name in sources)
         {
             var parser = formations.Create(name) ?? throw new InvalidOperationException("Formation parser missing.");
             var values = await parser.GetPlayersAsync().WaitAsync(cancellationToken);
             if (values.Count == 0) throw Invalid("Una sorgente probabilità non ha restituito dati; si conserva lo snapshot precedente.");
             samples.AddRange(values);
         }
-        await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         await AuthorizeAsync(caller, cancellationToken);
-        var players = await database.PlayerSeasons.Include(x => x.Player).Include(x => x.Club).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
-        var existing = await database.FootballChances.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
-        foreach (var player in players.Where(x => x.ClubId != null))
+        var players = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
+            .Where(x => x.SeasonIndex == year && x.ClubId != null).OrderBy(x => x.PlayerId).ToArrayAsync(cancellationToken);
+        if (players.Length == 0) throw Invalid("Catalogo stagionale non disponibile; si conserva lo snapshot precedente.");
+        // Same priority as before: flags are OR-ed across sources, status and
+        // description come from the last source reporting the player (Injury last).
+        var found = samples.ToLookup(x => x.Key, StringComparer.Ordinal);
+        var entries = players.Select(player =>
         {
-            var found = samples.Where(x => x.Key == player.PlayerId).ToArray();
-            var row = existing.SingleOrDefault(x => x.PlayerId == player.PlayerId);
-            if (row is null) database.FootballChances.Add(row = new() { SeasonIndex = year, Day = day, PlayerId = player.PlayerId });
-            row.ClubId = player.ClubId!; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
-            row.Fantagazzetta = found.Any(x => x.Chance.Fantagazzetta); row.Gazzetta = found.Any(x => x.Chance.Gazzetta); row.Mediaset = found.Any(x => x.Chance.Mediaset); row.Sky = found.Any(x => x.Chance.Sky);
-            row.Status = (int)(found.LastOrDefault()?.Chance.Status ?? ChanceType.Normal); row.Description = found.LastOrDefault()?.Chance.Description;
-        }
-        await DatasetAsync("chancedrealplayerwrapper", year, day, cancellationToken);
-        await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+            var rows = found[player.PlayerId].ToArray();
+            var last = rows.LastOrDefault()?.Chance;
+            return new CachedChance(player.PlayerId, player.Player.Name, player.ClubId, player.Club!.Name, (int)player.Position, player.IsActive, player.IsVisible,
+                rows.Any(x => x.Chance.Fantagazzetta), rows.Any(x => x.Chance.Gazzetta), rows.Any(x => x.Chance.Mediaset), rows.Any(x => x.Chance.Sky),
+                (int)(last?.Status ?? ChanceType.Normal), last?.Description);
+        }).ToArray();
+        await liveData.PublishChancesAsync(fetchedAt, new(year, day, sources, entries), cancellationToken);
     }
     private async Task PlayerSeasonAsync(FootballPlayer person, FootballClub club, RealPlayer sample, int year, CancellationToken cancellationToken)
     {

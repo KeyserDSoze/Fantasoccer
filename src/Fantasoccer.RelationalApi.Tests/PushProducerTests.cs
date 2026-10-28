@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Groups;
+using Fantasoccer.Application.Core.Football;
 using Fantasoccer.Application.Core.Notifications;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.PostgreSql.Tests;
@@ -37,12 +38,15 @@ public sealed partial class WorkspaceApiTests
                 [new() { SeasonIndex = year, SerieADay = 33, HomeClub = club, AwayClub = other, KickoffUtc = DateTimeOffset.UtcNow.AddMinutes(-30) }] });
             database.FootballMatchdays.Add(new() { SeasonIndex = year, SerieADay = 34, Matches =
                 [new() { SeasonIndex = year, SerieADay = 34, HomeClub = club, AwayClub = other, KickoffUtc = DateTimeOffset.UtcNow.AddHours(3) }] });
-            database.FootballVotes.Add(new() { SeasonIndex = year, Day = 33, Source = FootballVoteSource.Live, Player = person, Club = club, PlayerRole = 3, VoteRole = 3, Goals = 1, Value = 7.5f });
             database.RosterSnapshots.Add(new() { GroupId = group.GroupId, BasketId = graph.Baskets[0].Id, SeasonIndex = year, TeamOriginYear = year, TeamId = team,
                 Kind = RosterKind.Matchday, Day = 33, OwnerUserId = account.Id, Name = "Push team", Players = [new() { Ordinal = 0, Player = person, Club = club, PlayerRole = 3, Status = 0, Position = 3 }] });
             database.PushDayCheckpoints.Add(new() { SeasonIndex = year, Day = 34, DeploymentReminder = true });
             await database.SaveChangesAsync(); player = person.Id;
         }
+        // Provisional votes live only in the shared cache, never in PostgreSQL.
+        var liveData = factory.Services.GetRequiredService<IFootballLiveDataStore>();
+        CachedLiveVote Live(int goals) => new(player, "Push producer", "ppc", "Push producer club", 3, true, true, new(3, 7.5f, false, goals, 0, 0, 0, 0, 0, 0, 0, false, false, false, false, false));
+        await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, 33, [Live(1)]), null);
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             await scope.ServiceProvider.GetRequiredService<MatchdayPushProducer>().RunAsync(year);
@@ -53,9 +57,9 @@ public sealed partial class WorkspaceApiTests
             Assert.Equal(1, await database.PushDeliveries.CountAsync(x => x.UserId == account.Id));
             var state = await database.PushDayCheckpoints.SingleAsync(x => x.SeasonIndex == year && x.Day == 33);
             Assert.Equal(1, state.MatchEventSequence); Assert.Equal(1, state.Votes.Single(x => x.PlayerId == player).Goals);
-            var vote = await database.FootballVotes.SingleAsync(x => x.SeasonIndex == year && x.Day == 33 && x.PlayerId == player && x.Source == FootballVoteSource.Live);
-            vote.Goals = 0; await database.SaveChangesAsync();
+            Assert.False(await database.FootballVotes.AnyAsync(x => x.SeasonIndex == year && x.Day == 33 && x.Source == FootballVoteSource.Live));
         }
+        await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow.AddSeconds(1), new(year, 33, [Live(0)]), null);
         await using (var scope = factory.Services.CreateAsyncScope()) await scope.ServiceProvider.GetRequiredService<MatchdayPushProducer>().RunAsync(year);
         await using var final = factory.Database.CreateContext();
         Assert.Equal(2, await final.PushDeliveries.CountAsync(x => x.UserId == account.Id));
