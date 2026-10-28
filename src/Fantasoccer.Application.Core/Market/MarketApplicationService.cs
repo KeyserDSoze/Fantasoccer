@@ -150,12 +150,17 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
     private async Task<(LeagueRules Rules, FantasyTeamSeason[] Teams, Guid Actor)> ContextAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken)
     {
         var season = await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
+        // No autonomous market for derived competitions: trades happen once, on the
+        // origin teams, and are immediately visible to every derived team.
+        if (season.League.Mode == LeagueMode.Derived)
+            throw new ApplicationFault(409, "derived_league_economy", "Le leghe derivate non hanno mercato: si opera sulla squadra originale.");
         if (year != FantacalcioTime.SeasonYearAt(clock.GetUtcNow().UtcDateTime) || season.IsArchived || season.League.IsArchived)
             throw Invalid("Il mercato è disponibile solo per la stagione corrente e per competizioni attive.");
         var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
         var actor = await database.Users.Where(x => x.Email == email && x.IsEnabled).Select(x => x.Id).SingleAsync(cancellationToken);
         var teams = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
-            .Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived && database.LeagueBasketSeasons.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.BasketId == x.BasketId)).AsSplitQuery().ToArrayAsync(cancellationToken);
+            .Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived && database.LeagueParticipations.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.TeamId == x.Id) &&
+                !database.TeamDerivations.Any(d => d.GroupId == group && d.TeamId == x.Id)).AsSplitQuery().ToArrayAsync(cancellationToken);
         var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
         return (rules, teams, actor);
     }

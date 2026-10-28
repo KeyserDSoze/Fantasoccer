@@ -51,6 +51,9 @@ internal sealed class FantasyMatchConfiguration : IEntityTypeConfiguration<Fanta
             .HasPrincipalKey(x => new { x.GroupId, x.BasketId, x.SeasonIndex, x.Id }).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<LeagueBasketSeason>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.HomeBasketId, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<LeagueBasketSeason>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.AwayBasketId, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);
+        // Only admitted participants can play a fantasy match of the league season.
+        builder.HasOne<LeagueParticipation>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.HomeTeamId }).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LeagueParticipation>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.AwayTeamId }).OnDelete(DeleteBehavior.Restrict);
         builder.OwnsOne(x => x.Result, Result);
     }
     internal static void Result<T>(OwnedNavigationBuilder<T, SavedFantasyResult> result) where T : class

@@ -119,7 +119,7 @@ public sealed partial class CoreMigrationTests
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
-        Assert.Equal(12, await database.FootballVotes.CountAsync()); Assert.Equal(1, await database.Players.CountAsync());
+        Assert.Equal(8, await database.FootballVotes.CountAsync()); Assert.Equal(1, await database.Players.CountAsync()); // live votes stay in the dump
         Assert.Equal(2, await database.PlayerSeasons.CountAsync());
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump); Assert.Equal(report.Documents, repeated.SkippedDocuments);
         var duplicate = _storage.Blobs.GetBlobContainerClient("official").GetBlobClient("duplicate-dataset");
@@ -127,7 +127,7 @@ public sealed partial class CoreMigrationTests
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var fault = await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database).ImportAsync(_dump));
         Assert.Equal("duplicate_football_dataset", fault.Message); Assert.Null(fault.VoteValidation);
-        Assert.Equal(12, await database.FootballVotes.CountAsync());
+        Assert.Equal(8, await database.FootballVotes.CountAsync());
     }
 
     [CoreFact]

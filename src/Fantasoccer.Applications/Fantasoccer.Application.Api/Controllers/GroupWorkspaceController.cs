@@ -60,7 +60,7 @@ public sealed class WorkspaceFaultFilter : IExceptionFilter
 {
     public void OnException(ExceptionContext context)
     {
-        if (context.Exception is not ApplicationFault fault) return;
+        if (context.Exception is not ApplicationFault fault && !Fantasoccer.Application.Core.Groups.DatabaseFaults.TryTranslate(context.Exception, out fault)) return;
         var problem = new ProblemDetails { Status = fault.Status, Title = fault.Code, Detail = fault.Message };
         problem.Extensions["code"] = fault.Code;
         context.Result = new ObjectResult(problem) { StatusCode = fault.Status };

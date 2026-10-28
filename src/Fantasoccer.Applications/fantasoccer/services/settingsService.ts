@@ -7,10 +7,14 @@ export const subscribeToUserSettings = (listener: (settings: UserSettings) => vo
   settingsListeners.add(listener); return () => settingsListeners.delete(listener)
 }
 export interface ChangeTeamNameResponse { messages: string[]; success: boolean }
-export interface CopyLogoParams { groupId: string; year: number; owner: string; basketId: string }
+export interface CopyLogoParams { groupId: string; year: number; owner: string; basketId: string; teamId?: string }
 export interface UploadLogoParams extends CopyLogoParams { image: File | Blob }
-export interface ChangeTeamNameParams { groupId: string; owner: string; newName: string; basketId: string; year?: number }
-const assetQuery = (params: CopyLogoParams) => new URLSearchParams({ groupId: params.groupId, basketId: params.basketId, year: String(params.year), owner: params.owner })
+export interface ChangeTeamNameParams { groupId: string; owner: string; newName: string; basketId: string; year?: number; teamId?: string }
+const assetQuery = (params: CopyLogoParams) => {
+  const query = new URLSearchParams({ groupId: params.groupId, basketId: params.basketId, year: String(params.year), owner: params.owner })
+  if (params.teamId) query.set('teamId', params.teamId)
+  return query
+}
 
 class SettingsService {
   getUserSettings(): Promise<UserSettings> { return apiRequest('/api/accounts/me/settings') }

@@ -26,7 +26,13 @@ public sealed record FinalVoteDto(float Value, bool Special);
 public sealed record LivePlayerDto(RosterPlayerDto Current, VoteDto? Vote, ChanceDto? Chance, FootballGameDto? RealGame, FinalVoteDto? FinalValue, int CurrentPosition);
 public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? SourceVersion, string Name, string Owner, string[] AdditionalOwners,
     LivePlayerDto[] Players, string? LastUpdate, int FormationChangesMaximum, int FormationChangesUsed, int FormationChangesRemaining,
-    FormationChangeDto[] FormationChangeHistory, string? LogoUrl, bool CanEdit);
+    FormationChangeDto[] FormationChangeHistory, string? LogoUrl, bool CanEdit)
+{
+    // Team owning roster and economy (differs only for a derived team).
+    public Guid AuthoritativeTeamId { get; init; }
+    public bool IsDerived => AuthoritativeTeamId != Guid.Empty && AuthoritativeTeamId != TeamId;
+    public string[] UnavailablePlayerIds { get; init; } = [];
+}
 public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int SerieADay, bool CanEdit, bool IsLiveFormationWindow,
     DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview)
 {
@@ -34,5 +40,7 @@ public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int Seri
 }
 public sealed record SaveGameFormationRequest(Guid TeamId, FormationPositionRequest[] Positions, int ExpectedVersion,
     int? SourceVersion = null, bool Live = false, bool AsAdmin = false);
+public sealed record CopyGameFormationRequest(Guid TeamId, Guid SourceLeagueId, Guid SourceTeamId, int ExpectedVersion, int? SourceVersion = null,
+    bool Live = false, bool AsAdmin = false);
 public sealed record OptimalGamePlayerDto(string PlayerId, string PlayerKey, string PlayerName, int Role, int Position, float Projection, float Confidence);
 public sealed record OptimalGameFormationDto(OptimalGamePlayerDto[] Players, string Module, float Score, float Confidence, string[] Warnings);

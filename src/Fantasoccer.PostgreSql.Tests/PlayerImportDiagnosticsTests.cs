@@ -104,6 +104,7 @@ public sealed partial class CoreMigrationTests
         await RefusePlayerDocumentAsync("auction", "private-auction", new AuctionWrapper { Id = "private-auction", LeagueKey = leagueKey,
             Creator = Email, Created = DateTime.UnixEpoch, LastShow = [], Actual = new() { Player = new() { Name = DiagnosticPlayerName, Role = (Role)99 }, Started = DateTime.UnixEpoch } }, "$.v.a.pl");
 
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = []; // one team per user and league
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Seller team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         foreach (var fromBuyer in new[] { true, false })

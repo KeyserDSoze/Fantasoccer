@@ -7,6 +7,7 @@ import { Calculator } from '@tamagui/lucide-icons-2';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
 import { useFieldZoom } from 'hooks/useFieldZoom';
 import { SoccerField } from 'components/lineup';
+import { CopyFormationDialog } from 'components/lineup/CopyFormationDialog';
 import { type GameWrapper } from 'types/game';
 import { type StatPlayer } from 'types/stat';
 import gameService from 'services/gameService';
@@ -599,6 +600,21 @@ export default function GameScreen() {
               {gameLoading ? (
                 <Text>Caricamento formazione partita...</Text>
               ) : gameWrapper ? (
+                <YStack gap="$3">
+                {gameWrapper.canEdit && routeGroupId && routeLeagueId && routeYear && routeGameId && (
+                  <XStack gap="$2" flexWrap="wrap" alignItems="center">
+                    <CopyFormationDialog gameWrapper={gameWrapper} asAdmin={asAdmin} preferredSide={asAdmin ? adminEditingTeam : null}
+                      context={{ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId, editMode: effectiveEditMode }}
+                      onCopied={() => void refreshGame()} />
+                  </XStack>
+                )}
+                {gameWrapper.teams.filter(team => team.canEdit && (team.unavailablePlayerIds?.length ?? 0) > 0).map(team => (
+                  <Card key={`unavailable-${team.teamId}`} padding="$3" backgroundColor="$orange2" borderColor="$orange8" borderWidth="$0.5">
+                    <Text color="$orange11">
+                      {team.name}: {team.unavailablePlayerIds!.length} giocatore/i della formazione salvata non sono più in rosa. Rivedi e salva la formazione.
+                    </Text>
+                  </Card>
+                ))}
                 <SoccerField
                   gameWrapper={gameWrapper}
                   groupId={routeGroupId ?? undefined}
@@ -694,6 +710,7 @@ export default function GameScreen() {
                   statPlayersMap={statPlayersMap}
                   adminEditingTeam={adminEditingTeam}
                 />
+                </YStack>
               ) : (
                 <Text>Nessun dato formazione disponibile</Text>
               )}

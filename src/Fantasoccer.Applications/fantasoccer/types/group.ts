@@ -27,11 +27,15 @@ export interface LeagueSetting {
   randomAuction: boolean; rankWithValuePoints: boolean; market: MarketType; liveFormationChanges: number
   allowLiveModuleChange: boolean; openingCompetition: OpeningCompetitionSettings; postponements: PostponementSettings
 }
-export interface AnnualLeague { year: number; type: LeagueType; settings: LeagueSetting }
-export interface League { id: string; name: string; isMain: boolean; type: LeagueType; years: AnnualLeague[]; basketsId: string[] }
-export interface AnnualTeam { teamId?: string; logoUrl?: string | null; name: string; owner: string; additionalOwners: string[] }
+export interface LeagueSource { sourceLeagueId: string; qualifiedTeams: number; stage?: string | null }
+export interface AnnualLeague { year: number; type: LeagueType; settings: LeagueSetting; sources?: LeagueSource[] | null; participantTeamIds?: string[] | null }
+// mode: 0 autonomous, 1 derived (participants qualified from source leagues).
+export interface League { id: string; name: string; isMain: boolean; type: LeagueType; years: AnnualLeague[]; basketsId: string[]; mode?: number }
+// originTeamId is set for a derived team: roster and owners come from that team.
+export interface AnnualTeam { teamId?: string; logoUrl?: string | null; name: string; owner: string; additionalOwners: string[]; originTeamId?: string | null }
 export interface YearlyBasket { year: number; teams: AnnualTeam[] }
-export interface Basket { id: string; name: string; years: YearlyBasket[] }
+// kind: 0 autonomous, 1 derived from originBasketId.
+export interface Basket { id: string; name: string; years: YearlyBasket[]; kind?: number; originBasketId?: string | null }
 export interface UserOfAGroup { username: string; email: string; role: IdentityRole }
 export interface Group { id: string; name: string; revision: number; leagues: League[]; users: UserOfAGroup[]; baskets: Basket[] }
 

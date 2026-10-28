@@ -8,8 +8,11 @@ internal sealed class GroupBasketConfiguration : IEntityTypeConfiguration<GroupB
 {
     public void Configure(EntityTypeBuilder<GroupBasket> builder)
     {
-        builder.ToTable("Baskets");
+        builder.ToTable("Baskets", table => table.HasCheckConstraint("CK_Baskets_Kind", "\"Kind\" IN (0,1)"));
         builder.HasKey(x => new { x.GroupId, x.BasketId });
+        // Target of the derivation FKs; also makes the kind immutable once referenced.
+        builder.HasAlternateKey(x => new { x.GroupId, x.BasketId, x.Kind });
+        builder.Property(x => x.Kind).HasDefaultValue(BasketKind.Autonomous).ValueGeneratedNever();
         builder.Property(x => x.BasketId).ValueGeneratedNever();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.HasOne(x => x.Group).WithMany(x => x.Baskets).HasForeignKey(x => x.GroupId)
@@ -34,8 +37,9 @@ internal sealed class GroupLeagueConfiguration : IEntityTypeConfiguration<GroupL
 {
     public void Configure(EntityTypeBuilder<GroupLeague> builder)
     {
-        builder.ToTable("Leagues");
+        builder.ToTable("Leagues", table => table.HasCheckConstraint("CK_Leagues_Mode", "\"Mode\" IN (0,1)"));
         builder.HasKey(x => new { x.GroupId, x.LeagueId });
+        builder.Property(x => x.Mode).HasDefaultValue(LeagueMode.Autonomous).ValueGeneratedNever();
         builder.Property(x => x.LeagueId).ValueGeneratedNever();
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.HasOne(x => x.Group).WithMany(x => x.Leagues).HasForeignKey(x => x.GroupId)

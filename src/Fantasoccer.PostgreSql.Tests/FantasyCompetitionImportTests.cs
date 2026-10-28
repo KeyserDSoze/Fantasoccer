@@ -12,6 +12,9 @@ public sealed partial class CoreMigrationTests
     [CoreFact]
     public async Task Fantasy_import_preserves_saved_calendar_and_current_rank_but_leaves_daily_copies_in_the_dump_only()
     {
+        // One user controls at most one team per league: the second owner is no
+        // longer also a co-owner of the first team in this fixture.
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = [];
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Second team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         var container = await ExtraContainerAsync("calendar");

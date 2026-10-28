@@ -287,6 +287,11 @@ export default function LiveScreen() {
           </Card>
         ) : (
           <YStack gap="$4">
+            {enhancedLiveGroup?.isStale && (
+              <Text color="$orange10" fontSize="$2">
+                Dati live in aggiornamento: stai vedendo la proiezione precedente.
+              </Text>
+            )}
             {isSelectorVisible && (
               <LeagueSelectorsWidget
                 leagues={leagueOptions}

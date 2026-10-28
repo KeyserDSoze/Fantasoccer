@@ -3,7 +3,8 @@ import { enhanceRank, type Rank, type EnhancedRank } from './rank'
 
 export interface LiveLeagueRound { key: string; day: CalendarDay }
 export interface LiveLeague { id: string; name: string; rounds: Record<string, CalendarDay>; rank: Rank | null; previewUnavailable?: boolean }
-export interface LiveGroup { name: string; year?: number; leagues: LiveLeague[] }
+// isStale: the shared projection is being rebuilt by another instance.
+export interface LiveGroup { name: string; year?: number; leagues: LiveLeague[]; serieADay?: number | null; generatedAtUtc?: string | null; isStale?: boolean }
 export interface EnhancedLiveLeague extends LiveLeague { roundKeys: string[]; roundsList: LiveLeagueRound[]; latestRoundKey: string | null; pendingGames: CalendarGame[]; enhancedRank: EnhancedRank | null }
 export interface EnhancedLiveGroup extends LiveGroup { leaguesWithRounds: EnhancedLiveLeague[]; totalPendingGames: number }
 export class LiveLeagueHelper {

@@ -51,6 +51,9 @@ public static class GroupServiceRegistration
         services.TryAddSingleton<Fantasoccer.Application.Core.Caching.SharedSnapshotCache>();
         services.TryAddSingleton<Fantasoccer.Application.Core.Football.IFootballLiveDataStore, Fantasoccer.Application.Core.Football.FootballLiveDataStore>();
         services.AddScoped<Fantasoccer.Application.Core.Teams.TeamRosterApplicationService>();
+        services.AddScoped<Fantasoccer.Application.Core.Teams.CompetitionTeamResolver>();
+        services.AddScoped<Fantasoccer.Application.Core.Competitions.LeagueLineupApplicationService>();
+        services.AddScoped<Fantasoccer.Application.Core.Competitions.CompetitionParticipationApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballIngestionApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.PlayerImagesApplicationService>();
@@ -80,6 +83,8 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Notifications.PushDispatcher>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.MarketPushProducer>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.MatchdayPushProducer>();
+        services.AddOptions<Fantasoccer.Application.Core.Notifications.PushRetentionOptions>();
+        services.AddScoped<Fantasoccer.Application.Core.Notifications.PushRetentionService>();
         services.AddScoped<Fantasoccer.Application.Core.Accounts.AccountApplicationService>();
         return services;
     }

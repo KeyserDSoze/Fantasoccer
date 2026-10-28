@@ -9,6 +9,9 @@ public sealed class PushDayCheckpoint
     public bool LiveChangesReminder { get; set; }
     public bool HasMatchEventVotes { get; set; }
     public long MatchEventSequence { get; set; }
+    // Set by retention: the day is concluded, transient baselines and receipts
+    // were removed, and producers must never emit events for it again.
+    public DateTimeOffset? ClosedAtUtc { get; set; }
     public ICollection<PushVoteBaseline> Votes { get; set; } = [];
     public ICollection<LegacyFormationPushReceipt> FormationReceipts { get; set; } = [];
 }
@@ -101,6 +104,8 @@ public sealed class PushFormationChangeReceipt
     public Guid TeamId { get; set; }
     public int SeasonIndex { get; set; }
     public int Day { get; set; }
+    // Empty for changes of the legacy shared daily formation.
+    public Guid LeagueId { get; set; }
     public int ChangeOrdinal { get; set; }
     public DateTimeOffset RecordedAtUtc { get; set; }
 }

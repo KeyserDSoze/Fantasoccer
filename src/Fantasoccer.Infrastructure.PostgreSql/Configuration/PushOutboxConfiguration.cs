@@ -74,7 +74,8 @@ internal sealed class PushFormationChangeReceiptConfiguration : IEntityTypeConfi
     public void Configure(EntityTypeBuilder<PushFormationChangeReceipt> builder)
     {
         builder.ToTable("PushFormationChangeReceipts");
-        builder.HasKey(x => new { x.GroupId, x.BasketId, x.SeasonIndex, x.TeamId, x.Day, x.ChangeOrdinal });
+        // Live changes are per competition lineup: the league is part of the receipt.
+        builder.HasKey(x => new { x.GroupId, x.BasketId, x.SeasonIndex, x.TeamId, x.Day, x.LeagueId, x.ChangeOrdinal });
         builder.Property(x => x.ChangeOrdinal).ValueGeneratedNever();
         builder.HasOne<FantasyTeamSeason>().WithMany().HasForeignKey(x => new { x.GroupId, x.BasketId, x.SeasonIndex, x.TeamId })
             .HasPrincipalKey(x => new { x.GroupId, x.BasketId, x.SeasonIndex, x.Id }).OnDelete(DeleteBehavior.Restrict);

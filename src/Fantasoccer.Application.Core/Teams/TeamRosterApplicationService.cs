@@ -21,6 +21,16 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
             throw Invalid("Contesto rosa non valido.");
         var competition = kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday ? leagueId : null;
         if ((kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday) && competition is null) throw Invalid("Specificare la competizione iniziale.");
+        if (kind is RosterKind.Season or RosterKind.Matchday)
+        {
+            // A derived team has no roster of its own: show the origin's (permanent carbon copy).
+            var canonical = owner.Trim().ToLowerInvariant();
+            var derivation = teamId is { } id
+                ? await database.TeamDerivations.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == groupId && x.TeamId == id, cancellationToken)
+                : await database.TeamDerivations.AsNoTracking().Where(x => x.GroupId == groupId && x.BasketId == basketId && x.SeasonIndex == year &&
+                    database.TeamOwnerships.Any(o => o.GroupId == groupId && o.TeamId == x.OriginTeamId && o.IsPrimary && o.Membership.User.Email == canonical)).SingleOrDefaultAsync(cancellationToken);
+            if (derivation is not null) { basketId = derivation.OriginBasketId; teamId = derivation.OriginTeamId; }
+        }
         var roster = await Query(groupId, basketId, year, owner, kind, day, competition, teamId).SingleOrDefaultAsync(cancellationToken);
         return roster is null ? null : await DtoAsync(roster, cancellationToken);
     }
@@ -35,6 +45,9 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
         var kind = (RosterKind)request.Kind;
         if (!Enum.IsDefined(kind) || request.Day is < 0 or > 38 || (kind is RosterKind.Season or RosterKind.OpeningSeason) != (request.Day == 0))
             throw Invalid("Contesto formazione non valido.");
+        // Daily formations are competition lineups (LeagueLineupApplicationService):
+        // the shared daily snapshot is the roster of the day, never a lineup to edit.
+        if (kind == RosterKind.Matchday) throw Invalid("Le formazioni giornaliere appartengono alla competizione: usare l'endpoint della lega.");
         var competition = kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday ? request.LeagueId : null;
         if ((kind is RosterKind.OpeningSeason or RosterKind.OpeningMatchday) && competition is null) throw Invalid("Specificare la competizione iniziale.");
         var canonical = request.Owner.Trim().ToLowerInvariant();

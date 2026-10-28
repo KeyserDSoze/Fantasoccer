@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Fantasoccer.Application.Core.Notifications;
 
 public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutboxApplicationService outbox, ITeamCalculator scoring,
-    Fantasoccer.Application.Core.Football.IFootballLiveDataStore liveData, TimeProvider clock)
+    Fantasoccer.Application.Core.Football.IFootballLiveDataStore liveData, PushRetentionService retention, TimeProvider clock)
 {
     public async Task RunAsync(int year, CancellationToken cancellationToken = default)
     {
@@ -21,28 +21,42 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
         var live = schedules.Where(x => now >= x.Start && now <= x.End.AddHours(10.25)).MaxBy(x => x.Day);
         var next = schedules.Where(x => now < x.Start).MinBy(x => x.Day);
         var last = schedules.Where(x => now >= x.End.AddMinutes(135) && now < x.End.AddHours(48)).MaxBy(x => x.Day);
+        // Preparing a new matchday is also the moment to drop the push details of
+        // concluded ones. It runs whether or not any reminder is sent.
+        if (next != null && next.Start - now <= TimeSpan.FromHours(8))
+        {
+            await retention.CleanupAsync(year, cancellationToken);
+            database.ChangeTracker.Clear();
+        }
         if (live == null && last == null && (next == null || next.Start - now > TimeSpan.FromHours(8))) return;
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
-        var links = await database.LeagueBasketSeasons.AsNoTracking().Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
+        var participations = await database.LeagueParticipations.AsNoTracking().Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
+        var origins = await database.TeamDerivations.AsNoTracking().Where(x => x.SeasonIndex == year).ToDictionaryAsync(x => x.TeamId, x => x.OriginTeamId, cancellationToken);
         var leagues = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).Where(x => x.SeasonIndex == year && !x.IsArchived && !x.League.IsArchived).ToArrayAsync(cancellationToken);
         var teams = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
             .Where(x => x.SeasonIndex == year && !x.IsArchived).AsSplitQuery().ToArrayAsync(cancellationToken);
+        var byId = teams.ToDictionary(x => x.Id);
         var preferences = await database.UserPushPreferences.AsNoTracking().AsSplitQuery().ToDictionaryAsync(x => x.UserId, cancellationToken);
         var rules = await database.LeagueRules.AsNoTracking().Where(x => x.SeasonIndex == year).AsSplitQuery().ToArrayAsync(cancellationToken);
         var matches = await database.FantasyMatches.AsNoTracking().Include(x => x.Matchday).Where(x => x.SeasonIndex == year && x.Result!.IsCancelled != true).ToArrayAsync(cancellationToken);
         var daily = await database.RosterSnapshots.AsNoTracking().Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
-            .Where(x => x.SeasonIndex == year && x.Kind == RosterKind.Matchday && (x.Day == (live == null ? -1 : live.Day) || x.Day == (last == null ? -1 : last.Day))).AsSplitQuery().ToArrayAsync(cancellationToken);
+            .Where(x => x.SeasonIndex == year && x.Kind == RosterKind.Matchday && x.CompetitionId == Guid.Empty &&
+                (x.Day == (live == null ? -1 : live.Day) || x.Day == (last == null ? -1 : last.Day))).AsSplitQuery().ToArrayAsync(cancellationToken);
+        var lineups = live == null ? [] : await database.LeagueLineups.AsNoTracking().Where(x => x.SeasonIndex == year && x.Day == live.Day).AsSplitQuery().ToArrayAsync(cancellationToken);
 
+        Guid Authoritative(Guid team) => origins.GetValueOrDefault(team, team);
+        // A derived participant notifies the owners of its origin team.
         async Task Queue(FantasyTeamSeason team, LeagueSeason league, int day, int kind, string key, string body, DateTimeOffset expiry)
         {
-            foreach (var owner in team.Owners.Where(x => x.Membership.Roles != GroupRole.None && x.Membership.User.IsEnabled))
+            if (!byId.TryGetValue(Authoritative(team.Id), out var owning)) return;
+            foreach (var owner in owning.Owners.Where(x => x.Membership.Roles != GroupRole.None && x.Membership.User.IsEnabled))
             {
                 if (!PushDeliveryAccess.IsEnabled(preferences.GetValueOrDefault(owner.UserId), kind)) continue;
                 await outbox.EnqueueAsync(new(key, team.GroupId, league.LeagueId, year, day, owner.UserId, kind, "FantaZone", body,
                     kind == 2 ? "/edit" : kind == 3 ? "/calendar" : "/live", expiry, team.Id, team.BasketId), cancellationToken);
             }
         }
-        bool Participates(FantasyTeamSeason team, LeagueSeason league) => links.Any(link => link.GroupId == team.GroupId && link.LeagueId == league.LeagueId && link.BasketId == team.BasketId);
+        bool Participates(FantasyTeamSeason team, LeagueSeason league) => participations.Any(x => x.GroupId == team.GroupId && x.LeagueId == league.LeagueId && x.TeamId == team.Id);
         async Task<PushDayCheckpoint> Checkpoint(int day)
         {
             var checkpoint = database.PushDayCheckpoints.Local.SingleOrDefault(x => x.SeasonIndex == year && x.Day == day)
@@ -54,7 +68,7 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
         if (next != null && next.Start - now <= TimeSpan.FromHours(8))
         {
             var checkpoint = await Checkpoint(next.Day);
-            if (!checkpoint.DeploymentReminder)
+            if (!checkpoint.DeploymentReminder && checkpoint.ClosedAtUtc is null)
             {
                 foreach (var league in leagues)
                     foreach (var team in teams.Where(team => Participates(team, league)))
@@ -62,9 +76,9 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
                 checkpoint.DeploymentReminder = true;
             }
         }
-        if (live != null)
+        if (live != null && await Checkpoint(live.Day) is { ClosedAtUtc: null } liveCheckpoint)
         {
-            var checkpoint = await Checkpoint(live.Day);
+            var checkpoint = liveCheckpoint;
             // Provisional votes come from the shared cache (one global snapshot).
             // Baselines/checkpoints stay in PostgreSQL to deduplicate notifications.
             var snapshot = await liveData.LiveVotesAsync(year, live.Day, cancellationToken);
@@ -80,19 +94,22 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
             {
                 checkpoint.MatchEventSequence++;
                 foreach (var (vote, text) in changes)
-                    foreach (var team in teams.Where(team => daily.Any(roster => roster.TeamId == team.Id && roster.Day == live.Day && roster.Players.Any(player => player.PlayerId == vote.PlayerId && player.Status == 0))))
+                    foreach (var owning in teams.Where(team => daily.Any(roster => roster.TeamId == team.Id && roster.Day == live.Day && roster.Players.Any(player => player.PlayerId == vote.PlayerId && player.Status == 0))))
                     {
-                        var teamLeagues = leagues.Where(league => Participates(team, league)).OrderByDescending(x => x.League.IsMain).ThenBy(x => x.LeagueId).ToArray();
-                        if (teamLeagues.FirstOrDefault() is { } ownLeague)
-                            await Queue(team, ownLeague, live.Day, 0, $"own:{checkpoint.MatchEventSequence}:{vote.PlayerId}:{team.Id}", $"[{ownLeague.League.Name}] {vote.Player.Name}: {text}", now.AddHours(48));
-                        foreach (var game in matches.Where(x => x.Matchday.SerieADay == live.Day && (x.HomeTeamId == team.Id || x.AwayTeamId == team.Id)))
-                        {
-                            var opponent = teams.SingleOrDefault(x => x.Id == (game.HomeTeamId == team.Id ? game.AwayTeamId : game.HomeTeamId));
-                            var league = teamLeagues.SingleOrDefault(x => x.LeagueId == game.LeagueId);
-                            if (opponent != null && league != null)
-                                await Queue(opponent, league, live.Day, 1, $"opponent:{checkpoint.MatchEventSequence}:{game.Id}:{vote.PlayerId}:{team.Id}",
-                                    $"[{league.League.Name}] {vote.Player.Name}: {text} ({team.Name})", now.AddHours(48));
-                        }
+                        // Every competition entry of this roster: the team itself and its derived teams.
+                        var entries = teams.Where(x => Authoritative(x.Id) == owning.Id).ToArray();
+                        var teamLeagues = leagues.SelectMany(league => entries.Where(entry => Participates(entry, league)).Select(entry => (League: league, Entry: entry)))
+                            .OrderByDescending(x => x.League.League.IsMain).ThenBy(x => x.League.LeagueId).ToArray();
+                        if (teamLeagues.FirstOrDefault() is { League: not null } own)
+                            await Queue(own.Entry, own.League, live.Day, 0, $"own:{checkpoint.MatchEventSequence}:{vote.PlayerId}:{owning.Id}", $"[{own.League.League.Name}] {vote.Player.Name}: {text}", now.AddHours(48));
+                        foreach (var (league, entry) in teamLeagues)
+                            foreach (var game in matches.Where(x => x.LeagueId == league.LeagueId && x.GroupId == league.GroupId && x.Matchday.SerieADay == live.Day && (x.HomeTeamId == entry.Id || x.AwayTeamId == entry.Id)))
+                            {
+                                var opponent = teams.SingleOrDefault(x => x.Id == (game.HomeTeamId == entry.Id ? game.AwayTeamId : game.HomeTeamId));
+                                if (opponent != null)
+                                    await Queue(opponent, league, live.Day, 1, $"opponent:{checkpoint.MatchEventSequence}:{game.Id}:{vote.PlayerId}:{entry.Id}",
+                                        $"[{league.League.Name}] {vote.Player.Name}: {text} ({entry.Name})", now.AddHours(48));
+                            }
                     }
             }
             if (votes.Length > 0 || snapshot is not null)
@@ -110,7 +127,9 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
                     var settings = rules.Single(x => x.GroupId == league.GroupId && x.LeagueId == league.LeagueId);
                     foreach (var team in teams.Where(team => Participates(team, league)))
                     {
-                        var used = daily.SingleOrDefault(x => x.TeamId == team.Id && x.Day == live.Day)?.FormationChanges ?? 0;
+                        // Live changes are counted per competition lineup.
+                        var used = lineups.SingleOrDefault(x => x.GroupId == team.GroupId && x.LeagueId == league.LeagueId && x.TeamId == team.Id)?.FormationChanges
+                            ?? daily.SingleOrDefault(x => x.TeamId == Authoritative(team.Id) && x.Day == live.Day)?.FormationChanges ?? 0;
                         var remaining = settings.LiveFormationChanges - used;
                         if (remaining <= 0) continue;
                         await Queue(team, league, live.Day, 5, $"live-reminder:{team.Id}", $"[{league.League.Name}] Ti restano {remaining} cambi formazione prima della scadenza live.", deadline);
@@ -118,11 +137,11 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
                 }
                 checkpoint.LiveChangesReminder = true;
             }
-            await FormationChangesAsync(year, live.Day, daily.Where(x => x.Day == live.Day).ToArray(), checkpoint, teams, leagues, rules, matches, Queue, cancellationToken);
+            await FormationChangesAsync(year, live.Day, daily.Where(x => x.Day == live.Day).ToArray(), lineups, checkpoint, teams, leagues, rules, matches, Authoritative, Queue, cancellationToken);
         }
-        if (last != null)
+        if (last != null && await Checkpoint(last.Day) is { ClosedAtUtc: null } endCheckpoint)
         {
-            var checkpoint = await Checkpoint(last.Day);
+            var checkpoint = endCheckpoint;
             var endedGames = matches.Where(x => x.Matchday.SerieADay == last.Day && leagues.Any(league => league.GroupId == x.GroupId && league.LeagueId == x.LeagueId)).ToArray();
             if (!checkpoint.EndDay && endedGames.Length > 0 && endedGames.All(x => x.Result is not null))
             {
@@ -142,47 +161,70 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
 
-    private async Task FormationChangesAsync(int year, int day, RosterSnapshot[] rosters, PushDayCheckpoint checkpoint, FantasyTeamSeason[] teams, LeagueSeason[] leagues,
-        LeagueRules[] rules, FantasyMatch[] matches, Func<FantasyTeamSeason, LeagueSeason, int, int, string, string, DateTimeOffset, Task> queue, CancellationToken cancellationToken)
+    private async Task FormationChangesAsync(int year, int day, RosterSnapshot[] rosters, LeagueLineup[] lineups, PushDayCheckpoint checkpoint, FantasyTeamSeason[] teams,
+        LeagueSeason[] leagues, LeagueRules[] rules, FantasyMatch[] matches, Func<Guid, Guid> authoritative,
+        Func<FantasyTeamSeason, LeagueSeason, int, int, string, string, DateTimeOffset, Task> queue, CancellationToken cancellationToken)
     {
-        foreach (var roster in rosters.Where(x => x.FormationHistory.Count > 0))
+        // Competition lineups: one notification for the competition where the change happened.
+        foreach (var lineup in lineups.Where(x => x.History.Count > 0))
+        {
+            var team = teams.SingleOrDefault(x => x.Id == lineup.TeamId);
+            var league = leagues.SingleOrDefault(x => x.GroupId == lineup.GroupId && x.LeagueId == lineup.LeagueId);
+            var roster = rosters.SingleOrDefault(x => x.GroupId == lineup.GroupId && x.TeamId == authoritative(lineup.TeamId));
+            if (team is null || league is null || roster is null) continue;
+            var states = LeagueLineupApplicationService.Overlay(roster.Players.Where(x => x.Status == 0), lineup).ToDictionary(x => x.PlayerId, CompetitionMapping.Domain);
+            var history = lineup.History.OrderBy(x => x.Ordinal).Select(x => (x.Ordinal, x.Author, Players: x.Players.OrderBy(p => p.Ordinal).Select(p => (p.PlayerName, p.FromPosition, p.ToPosition)).ToArray())).ToArray();
+            await NotifyChangesAsync(year, day, roster.GroupId, roster.BasketId, team, lineup.LeagueId, states, history, [league], rules, matches, _ => false, queue, cancellationToken);
+        }
+        // Legacy shared daily formations (imported days without competition lineups).
+        foreach (var roster in rosters.Where(x => x.FormationHistory.Count > 0 && !lineups.Any(lineup => authoritative(lineup.TeamId) == x.TeamId)))
         {
             var team = teams.SingleOrDefault(x => x.Id == roster.TeamId);
             if (team is null) continue;
             var states = roster.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, CompetitionMapping.Domain);
-            // History identifies display names in the source; refuse ambiguity
-            // rather than apply a historical move to an arbitrary active player.
-            void Position(string name, int position)
-            {
-                var candidates = states.Values.Where(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
-                if (candidates.Length == 1) candidates[0].Position = (FantaSoccerRole)position;
-            }
-            var history = roster.FormationHistory.OrderBy(x => x.Ordinal).ToArray();
-            foreach (var change in history.Reverse()) foreach (var player in change.Players) Position(player.PlayerName, player.FromPosition);
             var groups = await database.LegacyIdentityMaps.AsNoTracking().Where(x => x.Kind == "group" && x.TargetId == roster.GroupId).Select(x => x.LegacyKey).ToArrayAsync(cancellationToken);
             var baskets = await database.LegacyIdentityMaps.AsNoTracking().Where(x => x.Kind == "basket" && x.TargetId == roster.BasketId).Select(x => x.LegacyKey).ToArrayAsync(cancellationToken);
             var legacyBasket = baskets.SingleOrDefault() is { } basketKey ? JsonSerializer.Deserialize<string[]>(basketKey)?.LastOrDefault() : null;
             var ownerEmail = await database.Users.Where(x => x.Id == roster.OwnerUserId).Select(x => x.Email).SingleAsync(cancellationToken);
-            foreach (var change in history)
+            var history = roster.FormationHistory.OrderBy(x => x.Ordinal).Select(x => (x.Ordinal, x.Author, Players: x.Players.OrderBy(p => p.Ordinal).Select(p => (p.PlayerName, p.FromPosition, p.ToPosition)).ToArray())).ToArray();
+            var teamLeagues = leagues.Where(league => matches.Any(game => game.LeagueId == league.LeagueId && game.Matchday.SerieADay == day && (game.HomeTeamId == team.Id || game.AwayTeamId == team.Id))).ToArray();
+            await NotifyChangesAsync(year, day, roster.GroupId, roster.BasketId, team, Guid.Empty, states, history, teamLeagues, rules, matches,
+                ordinal => groups.Length == 1 && legacyBasket != null && checkpoint.FormationReceipts.Any(x => x.Receipt == $"{groups[0]}:{legacyBasket}:{ownerEmail}:{ordinal}"), queue, cancellationToken);
+        }
+    }
+
+    private async Task NotifyChangesAsync(int year, int day, Guid group, Guid basket, FantasyTeamSeason team, Guid receiptLeague, Dictionary<string, Player> states,
+        (int Ordinal, string Author, (string PlayerName, int FromPosition, int ToPosition)[] Players)[] history, LeagueSeason[] leagues, LeagueRules[] rules, FantasyMatch[] matches,
+        Func<int, bool> legacyReceipt, Func<FantasyTeamSeason, LeagueSeason, int, int, string, string, DateTimeOffset, Task> queue, CancellationToken cancellationToken)
+    {
+        // History identifies display names in the source; refuse ambiguity
+        // rather than apply a historical move to an arbitrary active player.
+        void Position(string name, int position)
+        {
+            var candidates = states.Values.Where(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (candidates.Length == 1) candidates[0].Position = (FantaSoccerRole)position;
+        }
+        foreach (var change in history.Reverse()) foreach (var player in change.Players) Position(player.PlayerName, player.FromPosition);
+        foreach (var change in history)
+        {
+            var seen = await database.PushFormationChangeReceipts.AnyAsync(x => x.GroupId == group && x.BasketId == team.BasketId && x.TeamId == team.Id && x.SeasonIndex == year &&
+                x.Day == day && x.LeagueId == receiptLeague && x.ChangeOrdinal == change.Ordinal, cancellationToken) || legacyReceipt(change.Ordinal);
+            var before = states.Values.Select(Clone).ToArray();
+            foreach (var player in change.Players) Position(player.PlayerName, player.ToPosition);
+            if (seen) continue;
+            foreach (var league in leagues.Where(league => matches.Any(game => game.LeagueId == league.LeagueId && game.GroupId == league.GroupId && game.Matchday.SerieADay == day && (game.HomeTeamId == team.Id || game.AwayTeamId == team.Id))))
             {
-                var seen = await database.PushFormationChangeReceipts.AnyAsync(x => x.GroupId == roster.GroupId && x.BasketId == roster.BasketId && x.TeamId == roster.TeamId && x.SeasonIndex == year && x.Day == day && x.ChangeOrdinal == change.Ordinal, cancellationToken);
-                seen |= groups.Length == 1 && legacyBasket != null && checkpoint.FormationReceipts.Any(x => x.Receipt == $"{groups[0]}:{legacyBasket}:{ownerEmail}:{change.Ordinal}");
-                var before = states.Values.Select(Clone).ToArray();
-                foreach (var player in change.Players) Position(player.PlayerName, player.ToPosition);
-                if (seen) continue;
-                foreach (var league in leagues.Where(league => matches.Any(game => game.LeagueId == league.LeagueId && game.Matchday.SerieADay == day && (game.HomeTeamId == team.Id || game.AwayTeamId == team.Id))))
-                {
-                    var row = rules.Single(x => x.GroupId == league.GroupId && x.LeagueId == league.LeagueId);
-                    var type = (LeagueType)(league.CompetitionType != 0 ? league.CompetitionType : league.League.CompetitionType != 0 ? league.League.CompetitionType : 1);
-                    if (row.Formation == (int)FormationType.Best || type == LeagueType.SuperLeague) continue;
-                    await scoring.BuildRequestAsync(year, day, type, LeagueRulesMapping.ToDomain(row), false, true, false);
-                    var oldPoints = scoring.CalculatePoint(before.Select(Clone)).Value; var newPoints = scoring.CalculatePoint(states.Values.Select(Clone)).Value;
-                    var names = string.Join(", ", change.Players.OrderBy(x => x.Ordinal).Select(x => $"{x.PlayerName} ({(FantaSoccerRole)x.FromPosition} → {(FantaSoccerRole)x.ToPosition})"));
-                    var text = $"[{league.League.Name}] {team.Name}: cambio live di {change.Author} — {names}. {oldPoints.ToString("0.#", CultureInfo.InvariantCulture)} → {newPoints.ToString("0.#", CultureInfo.InvariantCulture)} pt.";
-                    await queue(team, league, day, 6, $"formation:{team.Id}:{change.Ordinal}", text.Length > 4000 ? text[..4000] : text, clock.GetUtcNow().AddHours(48));
-                }
-                database.PushFormationChangeReceipts.Add(new() { GroupId = roster.GroupId, BasketId = roster.BasketId, TeamId = roster.TeamId, SeasonIndex = year, Day = day, ChangeOrdinal = change.Ordinal, RecordedAtUtc = clock.GetUtcNow() });
+                var row = rules.Single(x => x.GroupId == league.GroupId && x.LeagueId == league.LeagueId);
+                var type = (LeagueType)(league.CompetitionType != 0 ? league.CompetitionType : league.League.CompetitionType != 0 ? league.League.CompetitionType : 1);
+                if (row.Formation == (int)FormationType.Best || type == LeagueType.SuperLeague) continue;
+                await scoring.BuildRequestAsync(year, day, type, LeagueRulesMapping.ToDomain(row), false, true, false);
+                var oldPoints = scoring.CalculatePoint(before.Select(Clone)).Value; var newPoints = scoring.CalculatePoint(states.Values.Select(Clone)).Value;
+                var names = string.Join(", ", change.Players.Select(x => $"{x.PlayerName} ({(FantaSoccerRole)x.FromPosition} → {(FantaSoccerRole)x.ToPosition})"));
+                var text = $"[{league.League.Name}] {team.Name}: cambio live di {change.Author} — {names}. {oldPoints.ToString("0.#", CultureInfo.InvariantCulture)} → {newPoints.ToString("0.#", CultureInfo.InvariantCulture)} pt.";
+                await queue(team, league, day, 6, receiptLeague == Guid.Empty ? $"formation:{team.Id}:{change.Ordinal}" : $"formation:{team.Id}:{receiptLeague:N}:{change.Ordinal}", text.Length > 4000 ? text[..4000] : text, clock.GetUtcNow().AddHours(48));
             }
+            database.PushFormationChangeReceipts.Add(new() { GroupId = group, BasketId = team.BasketId, TeamId = team.Id, SeasonIndex = year, Day = day, LeagueId = receiptLeague,
+                ChangeOrdinal = change.Ordinal, RecordedAtUtc = clock.GetUtcNow() });
         }
     }
     private static FootballVote LiveRow(Fantasoccer.Application.Core.Football.CachedLiveVote row, int year, int day, HashSet<string> clubs) => new()

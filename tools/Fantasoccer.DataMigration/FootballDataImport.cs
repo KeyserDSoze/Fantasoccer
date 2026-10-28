@@ -27,6 +27,7 @@ public sealed partial class CoreDatasetImporter
             var variants = ClassifyPoliticalVotes(document, samples, key.Year, key.Day, postponed, inactive);
             var political = 0; var paired = 0; string? firstPolitical = null;
             var removed = 0; var removedWithCounterpart = 0; string? firstRemoved = null;
+            var liveRows = 0;
             var keptKeys = samples.Where((value, index) => value is not null && !inactive[index] && !IsUnnamedVote(value)).Select(x => x.Key).ToHashSet(StringComparer.Ordinal);
             // Root has already enforced a unique source/year/day document.
             // Retain original source ordinals, not SQL ordinals after skips.
@@ -81,13 +82,18 @@ public sealed partial class CoreDatasetImporter
                     continue;
                 }
                 if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
-                plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
+                // Identity and validation are unchanged, but provisional live votes are
+                // not PostgreSQL data anymore (shared cache only).
+                var target = source == FootballVoteSource.Live ? plan.LiveVotes : plan.Votes;
+                if (source == FootballVoteSource.Live) liveRows++;
+                target.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
                     ClubId = clubCode, PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
                     VoteRole = (int)vote.Role, Value = vote.Value, IsFinal = vote.IsFinal, Goals = vote.Goal, Penalties = vote.Penalty,
                     Assists = vote.Assist, StoppedPenalties = vote.StoppedPenalty, SufferedGoals = vote.SufferedGoal,
                     WrongedPenalties = vote.WrongedPenalty, OwnGoals = vote.OwnGoal, Status = (int)vote.Status, ManOfTheMatch = vote.ManOfTheMatch,
                     HasVote = vote.HasVote, IsOut = vote.IsOut, IsIn = vote.IsIn, Injured = vote.Injured });
             }
+            if (source == FootballVoteSource.Live) plan.OperationalSnapshots.Add(new(document.Container, key.Year, key.Day, liveRows, document.Sha256));
             if (missingClubs > 0) plan.MissingVoteClubSnapshots.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, missingClubs, firstMissingClub!));
             if (unnamed > 0) plan.SkippedUnnamedVotes.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
@@ -129,6 +135,7 @@ public sealed partial class CoreDatasetImporter
                 }
                 plan.Chances.Add(row);
             }
+            plan.OperationalSnapshots.Add(new(document.Container, key.Year, key.Day, players.Count - unusable, document.Sha256));
             if (unusable > 0) plan.SkippedUnusablePlayerRows.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, players.Count, unusable, firstUnusable!));
         }

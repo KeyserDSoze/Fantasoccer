@@ -19,7 +19,7 @@ public sealed class PushTransportTests
         var point = key.ExportParameters(false).Q;
         var device = new PushSubscriptionDto("https://fcm.googleapis.com/fcm/send/synthetic", Convert.ToBase64String(new byte[] { 4 }.Concat(point.X!).Concat(point.Y!).ToArray()), Convert.ToBase64String(new byte[16]));
         var payload = new PushPayload("Private title", "Private body", new("/live", "recipient@example.test"), null, null, "stable-tag", false);
-        foreach (var (status, expected) in new[] { (HttpStatusCode.Created, PushTransportOutcome.Delivered), (HttpStatusCode.Gone, PushTransportOutcome.Gone),
+        foreach (var (status, expected) in new[] { (HttpStatusCode.Created, PushTransportOutcome.ProviderAccepted), (HttpStatusCode.Gone, PushTransportOutcome.Gone),
             (HttpStatusCode.NotFound, PushTransportOutcome.Gone), (HttpStatusCode.Forbidden, PushTransportOutcome.Retry), (HttpStatusCode.ServiceUnavailable, PushTransportOutcome.Retry),
             (HttpStatusCode.TooManyRequests, PushTransportOutcome.Retry), (HttpStatusCode.Redirect, PushTransportOutcome.Retry), (HttpStatusCode.BadRequest, PushTransportOutcome.Rejected) })
         {

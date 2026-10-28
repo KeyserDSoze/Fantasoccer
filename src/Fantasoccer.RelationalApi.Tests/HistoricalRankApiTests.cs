@@ -158,6 +158,9 @@ public sealed partial class WorkspaceApiTests
             // label is shared by another annual team. Do not join by that label.
             database.TeamSeasons.Add(new() { Id = third, GroupId = fixture.Group, BasketId = fixture.Basket, SeasonIndex = fixture.Year,
                 Name = "Historical third", NormalizedName = "historical third" });
+            // Matches only involve explicitly admitted participants.
+            database.LeagueParticipations.Add(new() { GroupId = fixture.Group, LeagueId = fixture.League, SeasonIndex = fixture.Year, TeamId = third,
+                BasketId = fixture.Basket, Source = ParticipationSource.Manual, AdmittedAtUtc = DateTimeOffset.UtcNow });
             var stage = HistoryStage(fixture, "@", 0, (3, HistoryResult(2, 1)), (7, HistoryResult(0, 3)));
             var later = stage.Days.Last().Games.Single();
             later.HomeTeamId = third; later.HomeName = "Saved third"; later.HomeOwner = fixture.HomeOwner;

@@ -2,11 +2,12 @@ namespace Fantasoccer.Application.Core.Groups;
 
 public sealed record GameGroupDto(Guid Id, string Name, GameLeagueDto[] Leagues, GameGroupUserDto[] Users, GameBasketDto[] Baskets, int Revision = 1);
 public sealed record GameGroupUserDto(string Username, string Email, int Role);
-public sealed record GameBasketDto(Guid Id, string Name, GameBasketYearDto[] Years);
+public sealed record GameBasketDto(Guid Id, string Name, GameBasketYearDto[] Years, int Kind = 0, Guid? OriginBasketId = null);
 public sealed record GameBasketYearDto(int Year, GameAnnualTeamDto[] Teams);
-public sealed record GameAnnualTeamDto(string Name, string Owner, string[] AdditionalOwners, Guid? TeamId = null, string? LogoUrl = null);
-public sealed record GameLeagueDto(Guid Id, string Name, bool IsMain, int Type, GameAnnualLeagueDto[] Years, Guid[] BasketsId);
-public sealed record GameAnnualLeagueDto(int Year, int Type, LeagueSettingDto Settings);
+public sealed record GameAnnualTeamDto(string Name, string Owner, string[] AdditionalOwners, Guid? TeamId = null, string? LogoUrl = null, Guid? OriginTeamId = null);
+public sealed record GameLeagueDto(Guid Id, string Name, bool IsMain, int Type, GameAnnualLeagueDto[] Years, Guid[] BasketsId, int Mode = 0);
+// Sources: null keeps the stored derivations, [] clears them. Participants are read-only here.
+public sealed record GameAnnualLeagueDto(int Year, int Type, LeagueSettingDto Settings, LeagueSourceDto[]? Sources = null, Guid[]? ParticipantTeamIds = null);
 public sealed record VoteWeightDto(float Goal, float Penalty, float SufferedGoal, float StoppedPenalty, float WrongedPenalty,
     float OwnGoal, float Assist, float YellowCard, float RedCard, int Injury, int ManOfTheMatch);
 public sealed record LeagueRoundDto(string? Name, int Type, bool FromStart, int? FromRankingStartTeam, int? FromRankingEndTeam);

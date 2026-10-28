@@ -18,10 +18,9 @@ public sealed class MarketPushProducer(FantasoccerDbContext database, PushOutbox
             var league = await database.LeagueSeasons.Include(x => x.League).SingleAsync(x => x.GroupId == item.GroupId && x.LeagueId == item.LeagueId && x.SeasonIndex == item.SeasonIndex, cancellationToken);
             if (league.League.IsMain && !league.IsArchived && !league.League.IsArchived)
             {
-                var recipients = await database.TeamOwnerships.Where(x => x.GroupId == item.GroupId && x.SeasonIndex == item.SeasonIndex &&
-                    x.UserId != item.ActorUserId && x.Membership.Roles != GroupRole.None && x.Membership.User.IsEnabled &&
-                    (item.Kind != "created" || x.TeamId == trade.SellerTeamId) &&
-                    database.LeagueBasketSeasons.Any(link => link.GroupId == x.GroupId && link.LeagueId == item.LeagueId && link.SeasonIndex == x.SeasonIndex && link.BasketId == x.BasketId))
+                var recipients = await database.LeagueParticipantOwners.Where(x => x.GroupId == item.GroupId && x.LeagueId == item.LeagueId && x.SeasonIndex == item.SeasonIndex &&
+                    x.UserId != item.ActorUserId && (item.Kind != "created" || x.TeamId == trade.SellerTeamId) &&
+                    database.GroupMemberships.Any(m => m.GroupId == x.GroupId && m.UserId == x.UserId && m.Roles != GroupRole.None && m.User.IsEnabled))
                     .Select(x => x.UserId).Distinct().ToArrayAsync(cancellationToken);
                 foreach (var user in recipients)
                 {

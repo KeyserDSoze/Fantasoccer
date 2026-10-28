@@ -2,7 +2,15 @@ namespace Fantasoccer.Application.Core.Notifications;
 
 public sealed record PushPayloadData(string Uri, string RecipientEmail);
 public sealed record PushPayload(string Title, string Body, PushPayloadData Data, string? Icon, string? Badge, string Tag, bool RequireInteraction);
-public enum PushTransportOutcome { Delivered, Gone, Retry, Rejected }
+// ProviderAccepted = the Web Push service accepted the message (HTTP 201). It is
+// not a delivery/read confirmation from the device. Receipts written before the
+// rename stored "Delivered" with the same meaning (see PushOutcomes).
+public enum PushTransportOutcome { ProviderAccepted, Gone, Retry, Rejected }
+public static class PushOutcomes
+{
+    public static string Stored(PushTransportOutcome outcome) => outcome.ToString();
+    public static bool IsProviderAccepted(string? stored) => stored is "ProviderAccepted" or "Delivered";
+}
 public interface IPushDeliveryTransport
 {
     Task<PushTransportOutcome> SendAsync(PushSubscriptionDto device, PushPayload payload, int timeToLiveSeconds, CancellationToken cancellationToken);

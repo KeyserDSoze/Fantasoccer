@@ -43,7 +43,9 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
 
-        Assert.Equal(new[] { "chanceforward" }, await database.FootballChances.Where(x => x.SeasonIndex == 15 && x.Day == 3).Select(x => x.PlayerId).ToArrayAsync());
+        // Probable lineups are parsed and validated (cutover cache seed) but not stored in SQL.
+        Assert.Equal(new[] { "chanceforward" }, (await CoreDatasetImporter.AnalyzeAsync(_dump)).Plan.Chances.Where(x => x.SeasonIndex == 15 && x.Day == 3).Select(x => x.PlayerId).ToArray());
+        Assert.False(await database.FootballChances.AnyAsync());
         Assert.Equal(new[] { "statforward" }, await database.FootballPlayerStatistics.Where(x => x.SeasonIndex == 15).Select(x => x.PlayerId).ToArrayAsync());
         Assert.False(await database.Players.AnyAsync(x => x.Name == "" || x.Name == "----"));
         var skipped = report.SkippedUnusablePlayerRows!.OrderBy(x => x.Container).ToArray();

@@ -20,7 +20,7 @@ public sealed class WebPushDeliveryTransport(IHttpClientFactory clients, IOption
         {
             await client.SendNotificationAsync(subscription, JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
                 new Dictionary<string, object> { ["vapidDetails"] = new VapidDetails(settings.Subject, settings.PublicKey, settings.PrivateKey), ["TTL"] = Math.Clamp(timeToLiveSeconds, 1, 86400) }, cancellationToken);
-            return PushTransportOutcome.Delivered;
+            return PushTransportOutcome.ProviderAccepted;
         }
         catch (WebPushException error)
         {

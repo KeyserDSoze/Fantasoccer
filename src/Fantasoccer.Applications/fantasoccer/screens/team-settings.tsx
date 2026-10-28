@@ -30,6 +30,8 @@ import { useAuth } from 'providers/AuthProvider';
 import { useGroup } from 'hooks/useGroup';
 import { useTeamByComponents } from 'hooks/useTeam';
 import { useSettings } from 'hooks/useSettings';
+import { useMyTeams } from 'hooks/useMyTeams';
+import { TeamSelector } from 'components/team/TeamSelector';
 import {
   reloadTeamPlayerImages,
   type TeamPlayerImageRefreshSummary,
@@ -42,31 +44,19 @@ export default function TeamSettingsScreen() {
   const { user } = useAuth();
   const groupId = currentGroup?.id ?? null;
   const userEmail = user?.email?.toLowerCase() ?? null;
-  const currentYear = getActualFantacalcioYear();
+  const { selectedYear } = useApp();
+  const currentYear = selectedYear ?? getActualFantacalcioYear();
   const { group, loading: groupLoading } = useGroup(groupId);
-
-  const userTeamInfo = useMemo(() => {
-    if (!group || !userEmail) return null;
-
-    for (const basket of group.baskets) {
-      const yearData = basket.years?.find((year) => year.year === currentYear);
-      const team = yearData?.teams?.find(
-        (candidate) =>
-          candidate.owner.toLowerCase() === userEmail ||
-          candidate.additionalOwners?.some((owner) => owner.toLowerCase() === userEmail)
-      );
-      if (team) {
-        return {
-          basketId: basket.id,
-          teamName: team.name,
-          owner: team.owner,
-          year: currentYear,
-        };
-      }
-    }
-
-    return null;
-  }, [group, userEmail, currentYear]);
+  // Several teams per user and group: always act on the selected one.
+  const { teams: myTeams, selected, select } = useMyTeams(group, userEmail, currentYear, 'team-settings');
+  const userTeamInfo = useMemo(() => selected ? {
+    basketId: selected.basketId,
+    teamId: selected.teamId,
+    teamName: selected.name,
+    owner: selected.owner,
+    year: selected.year,
+    isDerived: selected.isDerived,
+  } : null, [selected]);
 
   const {
     team,
@@ -146,6 +136,7 @@ export default function TeamSettingsScreen() {
           year: userTeamInfo.year,
           owner: userTeamInfo.owner,
           basketId: userTeamInfo.basketId,
+          teamId: userTeamInfo.teamId,
           image: imageBlob,
         })
       ) {
@@ -167,6 +158,7 @@ export default function TeamSettingsScreen() {
       year: userTeamInfo.year,
       owner: userTeamInfo.owner,
       basketId: userTeamInfo.basketId,
+      teamId: userTeamInfo.teamId,
     });
     setShowCopyLogoModal(false);
     if (success) {
@@ -187,6 +179,8 @@ export default function TeamSettingsScreen() {
         owner: userTeamInfo.owner,
         newName: name,
         basketId: userTeamInfo.basketId,
+        year: userTeamInfo.year,
+        teamId: userTeamInfo.teamId,
       })
     ) {
       setUpdatedTeamName(name);
@@ -232,6 +226,12 @@ export default function TeamSettingsScreen() {
           <H3 color="$color12">Gestione squadra</H3>
           <Text color="$color10">Logo, nome e immagini dei giocatori della tua squadra.</Text>
         </YStack>
+        <TeamSelector teams={myTeams} value={userTeamInfo?.teamId ?? null} onChange={(teamId) => { select(teamId); setUpdatedTeamName(null); setNewTeamName(''); }} />
+        {userTeamInfo?.isDerived && (
+          <Paragraph size="$2" color="$color10">
+            Squadra derivata: rosa, crediti, asta e mercato appartengono alla squadra originale. Qui puoi gestire nome e logo usati in questa competizione.
+          </Paragraph>
+        )}
 
         {isLoading ? (
           <Card
@@ -297,6 +297,7 @@ export default function TeamSettingsScreen() {
                       groupId={groupId}
                       year={userTeamInfo.year}
                       ownerEmail={userTeamInfo.owner}
+                      teamId={userTeamInfo.teamId}
                       size={media.gtSm ? 120 : 96}
                       cacheBuster={logoCacheBuster}
                     />

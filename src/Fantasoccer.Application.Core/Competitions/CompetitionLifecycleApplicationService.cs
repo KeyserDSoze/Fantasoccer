@@ -15,7 +15,7 @@ public sealed record RecalculateCompetitionRequest(int Day, bool OnlyLastDay = f
 public sealed record RecalculationOutcome(bool Changed, bool AwaitingRecovery);
 
 public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext database, CompetitionApplicationService competitions,
-    IFactory<ILeagueCalculator> calculators, ITeamCalculator scoring, TimeProvider clock)
+    IFactory<ILeagueCalculator> calculators, ITeamCalculator scoring, CompetitionTeamResolver resolver, LeagueLineupApplicationService lineups, TimeProvider clock)
 {
     public async Task GenerateAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, GenerateCompetitionRequest request, CancellationToken cancellationToken = default)
     {
@@ -31,9 +31,10 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         if (existing is not null && (existing.Stages.SelectMany(x => x.Days).SelectMany(x => x.Games).Any(x => x.Result is { IsCancelled: false }) ||
             await database.PlayedMatchSnapshots.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken)))
             throw new ApplicationFault(409, "calendar_has_results", "Un calendario con risultati storici non può essere sostituito da questa operazione.");
+        // Explicit participants only (derived teams carry their origin's owners).
         var teams = (await TeamsAsync(group, league, year, cancellationToken)).Where(x => !x.IsArchived).ToArray();
-        var members = teams.Select(team => new AnnualTeam { Name = team.Name, Owner = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference,
-            AdditionalOwners = team.Owners.Where(x => !x.IsPrimary).Select(x => x.Membership.User.OwnerReference).ToList() }).ToList();
+        if (teams.Any(x => x.Primary is null)) throw new ApplicationFault(400, "invalid_competition_teams", "Ogni squadra partecipante deve avere un proprietario principale.");
+        var members = teams.Select(team => new AnnualTeam { Name = team.Name, Owner = team.OwnerReference, AdditionalOwners = team.AdditionalOwners.ToList() }).ToList();
         if (members.Count < 2 || members.Select(x => x.Owner).Distinct(StringComparer.OrdinalIgnoreCase).Count() != members.Count || members.Count % 2 != 0)
             throw new ApplicationFault(400, "invalid_competition_teams", "Servono almeno due squadre, in numero pari e con proprietari principali distinti.");
         if (type == LeagueType.Cup)
@@ -111,10 +112,11 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
             {
                 if (request.OnlyUnscored && game.Result != null) continue;
                 if (game.HomeTeamId is null || game.AwayTeamId is null) continue;
-                var home = await DailyAsync(group, year, day.SerieADay, game.HomeTeamId.Value, cancellationToken);
-                var away = await DailyAsync(group, year, day.SerieADay, game.AwayTeamId.Value, cancellationToken);
-                var homePoint = scoring.CalculatePoint(home.Players.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
-                var awayPoint = scoring.CalculatePoint(away.Players.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
+                // The competition's own lineup over the authoritative day roster.
+                var home = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.HomeTeamId.Value, cancellationToken);
+                var away = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.AwayTeamId.Value, cancellationToken);
+                var homePoint = scoring.CalculatePoint(home.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
+                var awayPoint = scoring.CalculatePoint(away.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
                 homePoint = new(homePoint.Value + settings.PointInHome, homePoint.DefensiveBonus, homePoint.GoodPeople, homePoint.OwnGoal);
                 var result = new GameResult { Home = homePoint, Away = awayPoint };
                 result.CalculateGoals(settings);
@@ -126,7 +128,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
                 saved.Result = CompetitionMapping.Saved(result);
                 saved.Players.Clear();
                 foreach (var (isHome, roster) in new[] { (true, home), (false, away) })
-                    foreach (var player in roster.Players)
+                    foreach (var player in roster)
                         saved.Players.Add(new() { IsHome = isHome, Ordinal = player.Ordinal, PlayerId = player.PlayerId, ClubId = player.ClubId,
                             PlayerRole = player.PlayerRole, IsActive = player.IsActive, IsVisible = player.IsVisible, Price = player.Price, Revenue = player.Revenue,
                             Status = player.Status, Position = player.Position });
@@ -144,7 +146,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         // Persist only the latest rank. Historical reads project the saved
         // calendar/results with the annual rules, without storing daily copies.
         await StoreRankAsync(group, league, year, rank, teams, cancellationToken);
-        var annualTeams = teams.Select(x => new AnnualTeam { Name = x.Name, Owner = x.Owners.Single(o => o.IsPrimary).Membership.User.OwnerReference, AdditionalOwners = [] }).ToList();
+        var annualTeams = teams.Where(x => x.Primary is not null).Select(x => new AnnualTeam { Name = x.Name, Owner = x.OwnerReference, AdditionalOwners = [] }).ToList();
         var expanded = calculator.AddDaysInLeague(year, new() { Year = year, Type = type, Settings = settings }, annualTeams, rank, domain);
         AppendCalendar(calendar, expanded, teams);
         calendar.Version++;
@@ -171,31 +173,12 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         => await competitions.AuthorizeManagerAsync(caller, group, league, year, cancellationToken);
     private Task<FantasyCalendar?> CalendarAsync(Guid group, Guid league, int year, CancellationToken cancellationToken) => database.FantasyCalendars
         .Include(x => x.Stages).ThenInclude(x => x.Days).ThenInclude(x => x.Games).Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
-    private Task<FantasyTeamSeason[]> TeamsAsync(Guid group, Guid league, int year, CancellationToken cancellationToken) => database.TeamSeasons.AsNoTracking()
-        .Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User).Where(x => x.GroupId == group && x.SeasonIndex == year &&
-            database.LeagueBasketSeasons.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.BasketId == x.BasketId)).AsSplitQuery().ToArrayAsync(cancellationToken);
+    private Task<ResolvedTeam[]> TeamsAsync(Guid group, Guid league, int year, CancellationToken cancellationToken) =>
+        resolver.ParticipantsAsync(group, league, year, includeArchived: true, cancellationToken);
     private ILeagueCalculator Calculator(LeagueType type) => calculators.Create(type.ToString()) ?? throw new ApplicationFault(409, "league_calculator_unavailable", "Calcolatore non disponibile.");
     private static LeagueType Type(LeagueSeason season) => (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1);
 
-    private async Task<RosterSnapshot> DailyAsync(Guid group, int year, int day, Guid teamId, CancellationToken cancellationToken)
-    {
-        var query = database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
-            .Include(x => x.AdditionalOwners).ThenInclude(x => x.User).Where(x => x.GroupId == group && x.SeasonIndex == year && x.TeamId == teamId).AsSplitQuery();
-        var daily = database.RosterSnapshots.Local.SingleOrDefault(x => x.GroupId == group && x.SeasonIndex == year && x.TeamId == teamId && x.Kind == RosterKind.Matchday && x.Day == day)
-            ?? await query.SingleOrDefaultAsync(x => x.Kind == RosterKind.Matchday && x.Day == day, cancellationToken);
-        if (daily is not null) return daily;
-        var source = await query.SingleOrDefaultAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken)
-            ?? throw new ApplicationFault(409, "roster_missing_for_recalculation", "Rosa server assente: ricalcolo annullato.");
-        daily = TeamRosterApplicationService.Copy(source, RosterKind.Matchday, day, null);
-        // Preserve the existing explicit-recalculation penalty for unsubmitted
-        // formations, never copy today's starting lineup into a historical day.
-        foreach (var player in daily.Players.Where(x => x.Status == 0)) player.Position = (int)FantaSoccerRole.Tribune;
-        daily.LastUpdateUtc = clock.GetUtcNow();
-        database.RosterSnapshots.Add(daily);
-        return daily;
-    }
-
-    private async Task StoreRankAsync(Guid group, Guid league, int year, Rank rank, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
+    private async Task StoreRankAsync(Guid group, Guid league, int year, Rank rank, ResolvedTeam[] teams, CancellationToken cancellationToken)
     {
         await database.FantasyStandingSnapshots.Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == 0).ExecuteDeleteAsync(cancellationToken);
         var snapshot = new FantasyStandingSnapshot { GroupId = group, LeagueId = league, SeasonIndex = year, SnapshotDay = 0, SerieADay = rank.SerieADay };
@@ -205,7 +188,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
             foreach (var row in rows)
             {
                 var metadata = Resolve(teams, row.Owner);
-                stage.Teams.Add(new() { Ordinal = stage.Teams.Count, BasketId = metadata.BasketId, TeamId = metadata.Id, Name = row.Name, Owner = row.Owner,
+                stage.Teams.Add(new() { Ordinal = stage.Teams.Count, BasketId = metadata.BasketId, TeamId = metadata.TeamId, Name = row.Name, Owner = row.Owner,
                     Points = row.Point, Victories = row.Victories, Draws = row.Draws, Defeats = row.Defeats, GoalsFor = row.Goal, GoalsAgainst = row.SufferedGoal,
                     ValuePoints = row.ValuePoint, SufferedValuePoints = row.SufferedValuePoint, Money = row.Money, PlusMoney = row.PlusMoney });
             }
@@ -213,12 +196,14 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         }
         database.FantasyStandingSnapshots.Add(snapshot);
     }
-    private static FantasyTeamSeason Resolve(FantasyTeamSeason[] teams, string owner)
+    // Within one league a user controls at most one participant (database rule),
+    // so the legacy owner-based calendar engine still resolves teams uniquely.
+    private static ResolvedTeam Resolve(ResolvedTeam[] teams, string owner)
     {
-        var matches = teams.Where(x => x.Owners.Any(o => o.IsPrimary && string.Equals(o.Membership.User.OwnerReference, owner, StringComparison.OrdinalIgnoreCase))).ToArray();
+        var matches = teams.Where(x => string.Equals(x.OwnerReference, owner, StringComparison.OrdinalIgnoreCase)).ToArray();
         return matches.Length == 1 ? matches[0] : throw new ApplicationFault(409, "ambiguous_competition_owner", "Il proprietario non identifica più una sola squadra annuale: riconciliare il calendario prima di ricalcolare.");
     }
-    private static void AppendCalendar(FantasyCalendar calendar, Calendar domain, FantasyTeamSeason[] teams)
+    private static void AppendCalendar(FantasyCalendar calendar, Calendar domain, ResolvedTeam[] teams)
     {
         var known = calendar.Stages.SelectMany(x => x.Days).SelectMany(x => x.Games).Select(x => x.Id).ToHashSet();
         foreach (var (name, days) in domain.Rounds)
@@ -238,8 +223,8 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
                     var id = Guid.TryParse(game.Id, out var parsed) ? parsed : Guid.NewGuid();
                     row.Games.Add(new() { GroupId = calendar.GroupId, LeagueId = calendar.LeagueId, SeasonIndex = calendar.SeasonIndex, Id = id,
                         Stage = name, DayOrdinal = row.Ordinal, Ordinal = row.Games.Count, Number = game.Number, HomeName = game.Home, AwayName = game.Away,
-                        HomeOwner = game.HomeOwner, AwayOwner = game.AwayOwner, HomeTeamId = home.Id, HomeBasketId = home.BasketId,
-                        AwayTeamId = away.Id, AwayBasketId = away.BasketId, Result = CompetitionMapping.Saved(game.Result) });
+                        HomeOwner = game.HomeOwner, AwayOwner = game.AwayOwner, HomeTeamId = home.TeamId, HomeBasketId = home.BasketId,
+                        AwayTeamId = away.TeamId, AwayBasketId = away.BasketId, Result = CompetitionMapping.Saved(game.Result) });
                     known.Add(id);
                 }
                 stage.Days.Add(row);

@@ -30,6 +30,11 @@ export interface LiveTeam {
   formationChangeHistory: LiveFormationChange[]
   logoUrl?: string | null
   canEdit: boolean
+  // Team owning roster and economy; differs from teamId only for a derived team.
+  authoritativeTeamId?: string
+  isDerived?: boolean
+  // Lineup entries whose player left the roster after saving (never auto-corrected).
+  unavailablePlayerIds?: string[]
 }
 export interface GameWrapper {
   teams: LiveTeam[]

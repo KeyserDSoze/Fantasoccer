@@ -10,6 +10,7 @@ import { serieAService } from 'services/serieAService'
 import type { CalendarGame } from 'types/calendar'
 import type { RootStackParamList } from 'navigation'
 import { formatSeasonFromYear } from 'utils/season'
+import { listMyTeams } from 'utils/myTeams'
 
 export default function EditTeamScreen() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp()
@@ -65,32 +66,28 @@ export default function EditTeamScreen() {
         return
       }
 
-       // 4. Trova la squadra dell'utente nella lega selezionata, includendo owner e co-owner.
-       const userEmail = user.email.toLowerCase()
-       const selectedLeague = currentGroup.leagues.find(league => league.id === targetLeagueId)
-       const leagueBasketIds = new Set(selectedLeague?.basketsId ?? [])
-       const userTeamOwners = currentGroup.baskets
-         .filter(basket => leagueBasketIds.has(basket.id))
-         .flatMap(basket => basket.years
-            .filter(year => year.year === targetYear)
-           .flatMap(year => year.teams))
-         .filter(team =>
-           team.owner.toLowerCase() === userEmail ||
-           team.additionalOwners?.some(owner => owner.toLowerCase() === userEmail) === true)
-         .map(team => team.owner.toLowerCase())
-       const allGames: CalendarGame[] = []
-      
+      // 4. The user's participant in THIS league (at most one per league by rule;
+      //    the same user may own other teams in other baskets/leagues of the group).
+      const userEmail = user.email.toLowerCase()
+      const selectedLeague = currentGroup.leagues.find(league => league.id === targetLeagueId)
+      const annual = selectedLeague?.years.find(year => year.year === targetYear)
+      const leagueBasketIds = new Set(selectedLeague?.basketsId ?? [])
+      const participants = annual?.participantTeamIds ?? currentGroup.baskets.filter(basket => leagueBasketIds.has(basket.id))
+        .flatMap(basket => basket.years.filter(year => year.year === targetYear).flatMap(year => year.teams.map(team => team.teamId!).filter(Boolean)))
+      const myTeams = listMyTeams(currentGroup, userEmail, targetYear, { teamIds: participants })
+      const myTeamIds = new Set(myTeams.map(team => team.teamId))
+      const myOwners = new Set(myTeams.map(team => team.owner.toLowerCase()))
+      const allGames: CalendarGame[] = []
+
       for (const roundDays of Object.values(calendar.rounds)) {
         for (const day of roundDays) {
-          if (day.serieADay !== targetSerieADay) 
+          if (day.serieADay !== targetSerieADay)
             continue;
           for (const game of day.games) {
-            if (
-              userTeamOwners.includes(game.homeOwner.toLowerCase()) ||
-              userTeamOwners.includes(game.awayOwner.toLowerCase())
-            ) {
-              allGames.push(game)
-            }
+            const byId = (game.homeTeamId && myTeamIds.has(game.homeTeamId)) || (game.awayTeamId && myTeamIds.has(game.awayTeamId))
+            const byOwner = !game.homeTeamId && !game.awayTeamId &&
+              (myOwners.has(game.homeOwner?.toLowerCase() ?? '') || myOwners.has(game.awayOwner?.toLowerCase() ?? ''))
+            if (byId || byOwner) allGames.push(game)
           }
         }
       }

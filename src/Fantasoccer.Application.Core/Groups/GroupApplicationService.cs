@@ -36,17 +36,27 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
             .Select(x => new GroupMemberDto(x.UserId, x.User.Email, x.User.DisplayName, (int)x.Roles)).ToArrayAsync(cancellationToken);
         var baskets = await database.Baskets.AsNoTracking().Include(x => x.Seasons)
             .Where(x => x.GroupId == groupId).OrderBy(x => x.Name).ToArrayAsync(cancellationToken);
+        var basketOrigins = await database.BasketDerivations.AsNoTracking().Where(x => x.GroupId == groupId).ToDictionaryAsync(x => x.BasketId, x => x.OriginBasketId, cancellationToken);
         var leagues = await database.Leagues.AsNoTracking().Include(x => x.Seasons).ThenInclude(x => x.Baskets)
             .Where(x => x.GroupId == groupId).OrderBy(x => x.Name).AsSplitQuery().ToArrayAsync(cancellationToken);
+        var sources = await database.LeagueDerivations.AsNoTracking().Where(x => x.GroupId == groupId).ToArrayAsync(cancellationToken);
+        var participations = await database.LeagueParticipations.AsNoTracking().Where(x => x.GroupId == groupId)
+            .Select(x => new { x.LeagueId, x.SeasonIndex, x.TeamId }).ToArrayAsync(cancellationToken);
         var teams = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
             .Where(x => x.GroupId == groupId).OrderBy(x => x.SeasonIndex).ThenBy(x => x.Name).AsSplitQuery().ToArrayAsync(cancellationToken);
+        var teamOrigins = await database.TeamDerivations.AsNoTracking().Where(x => x.GroupId == groupId).ToDictionaryAsync(x => x.TeamId, x => x.OriginTeamId, cancellationToken);
+        var byId = teams.ToDictionary(x => x.Id);
+        // A derived team shows its origin's owners: there are no divergent owners.
+        TeamOwnerDto[] Owners(FantasyTeamSeason team) => (teamOrigins.TryGetValue(team.Id, out var origin) && byId.TryGetValue(origin, out var source) ? source : team)
+            .Owners.OrderByDescending(o => o.IsPrimary).ThenBy(o => o.UserId).Select(o => new TeamOwnerDto(o.UserId, o.Membership.User.DisplayName, o.IsPrimary)).ToArray();
         return new(groupId, group.Name, members.Single(x => x.UserId == user.Id).Roles, members,
-            baskets.Select(x => new BasketDto(x.BasketId, x.Name, x.Seasons.Select(s => s.SeasonIndex).Order().ToArray())).ToArray(),
+            baskets.Select(x => new BasketDto(x.BasketId, x.Name, x.Seasons.Select(s => s.SeasonIndex).Order().ToArray(), (int)x.Kind,
+                basketOrigins.TryGetValue(x.BasketId, out var origin) ? origin : null)).ToArray(),
             leagues.Select(x => new LeagueDto(x.LeagueId, x.Name, x.IsMain,
-                x.Seasons.OrderBy(s => s.SeasonIndex).Select(s => new LeagueSeasonDto(s.SeasonIndex, s.Baskets.Select(b => b.BasketId).Order().ToArray())).ToArray())).ToArray(),
-            teams.Select(x => new TeamSummaryDto(x.Id, x.BasketId, x.SeasonIndex, x.Name,
-                x.Owners.OrderByDescending(o => o.IsPrimary).ThenBy(o => o.UserId)
-                    .Select(o => new TeamOwnerDto(o.UserId, o.Membership.User.DisplayName, o.IsPrimary)).ToArray())).ToArray());
+                x.Seasons.OrderBy(s => s.SeasonIndex).Select(s => new LeagueSeasonDto(s.SeasonIndex, s.Baskets.Select(b => b.BasketId).Order().ToArray(),
+                    sources.Where(d => d.LeagueId == x.LeagueId && d.SeasonIndex == s.SeasonIndex).OrderBy(d => d.Ordinal).Select(d => new LeagueSourceDto(d.SourceLeagueId, d.QualifiedTeams, d.Stage)).ToArray(),
+                    participations.Where(p => p.LeagueId == x.LeagueId && p.SeasonIndex == s.SeasonIndex).Select(p => p.TeamId).Order().ToArray())).ToArray(), (int)x.Mode)).ToArray(),
+            teams.Select(x => new TeamSummaryDto(x.Id, x.BasketId, x.SeasonIndex, x.Name, Owners(x), teamOrigins.TryGetValue(x.Id, out var origin) ? origin : null)).ToArray());
     }
 
     public async Task<GroupSummaryDto> CreateAsync(ClaimsPrincipal caller, CreateGroupRequest request, CancellationToken cancellationToken = default)
@@ -179,7 +189,9 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
         await using var transaction = await BeginWriteAsync(cancellationToken);
         await AuthorizeAsync(caller, groupId, manage: true);
         await SeasonAsync(request.SeasonIndex, cancellationToken);
-        var basket = new GroupBasket { GroupId = groupId, BasketId = Guid.NewGuid(), Name = name };
+        var basket = request.OriginBasketId is { } origin
+            ? await Competitions.CompetitionStructure.CreateDerivedBasketAsync(database, groupId, Guid.NewGuid(), name, request.SeasonIndex, origin, cancellationToken)
+            : new GroupBasket { GroupId = groupId, BasketId = Guid.NewGuid(), Name = name };
         database.BasketSeasons.Add(new() { Basket = basket, SeasonIndex = request.SeasonIndex });
         (await database.Groups.SingleAsync(x => x.Id == groupId, cancellationToken)).Revision++;
         await CommitAsync(transaction, cancellationToken);
@@ -191,25 +203,46 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
         var name = Name(request.Name);
         var basketIds = request.BasketIds?.Distinct().ToArray() ?? [];
         if (basketIds.Length == 0 || basketIds.Length > 50) throw Invalid("Selezionare almeno un basket.");
+        if (request.Mode is not (0 or 1)) throw Invalid("Modalità della lega non valida.");
+        var mode = (LeagueMode)request.Mode;
+        if (mode == LeagueMode.Autonomous && request.Sources is { Length: > 0 }) throw Invalid("Solo una lega derivata dichiara leghe di origine.");
         await using var transaction = await BeginWriteAsync(cancellationToken);
         await AuthorizeAsync(caller, groupId, manage: true);
         if (await database.BasketSeasons.CountAsync(x => x.GroupId == groupId && x.SeasonIndex == request.SeasonIndex &&
                 basketIds.Contains(x.BasketId), cancellationToken) != basketIds.Length)
             throw Invalid("Basket non appartenente al gruppo o alla stagione.");
-        var league = new GroupLeague { GroupId = groupId, LeagueId = Guid.NewGuid(), Name = name, CompetitionType = 1 };
+        await Competitions.CompetitionStructure.ValidateBasketKindsAsync(database, groupId, mode, basketIds, cancellationToken);
+        var actor = await AccountAsync(caller, cancellationToken);
+        var league = new GroupLeague { GroupId = groupId, LeagueId = Guid.NewGuid(), Name = name, CompetitionType = 1, Mode = mode };
         var season = new LeagueSeason { League = league, SeasonIndex = request.SeasonIndex, CompetitionType = 1,
             Rules = LeagueRulesMapping.Default(groupId, league.LeagueId, request.SeasonIndex) };
         foreach (var basket in basketIds) season.Baskets.Add(new() { GroupId = groupId, BasketId = basket, SeasonIndex = request.SeasonIndex });
         foreach (var basket in basketIds) league.BasketLinks.Add(new() { GroupId = groupId, BasketId = basket, LeagueId = league.LeagueId });
         database.LeagueSeasons.Add(season);
         (await database.Groups.SingleAsync(x => x.Id == groupId, cancellationToken)).Revision++;
-        await CommitAsync(transaction, cancellationToken);
+        await database.SaveChangesAsync(cancellationToken);
+        if (mode == LeagueMode.Derived)
+            await Competitions.CompetitionStructure.SetLeagueSourcesAsync(database, groupId, league.LeagueId, request.SeasonIndex, request.Sources ?? [], cancellationToken);
+        else await Competitions.CompetitionStructure.EnsureAutonomousEnrollmentAsync(database, groupId, actor.Id, DateTimeOffset.UtcNow, cancellationToken);
+        await DatabaseFaults.GuardAsync(() => CommitAsync(transaction, cancellationToken));
         return league.LeagueId;
     }
 
     public async Task<Guid> CreateTeamAsync(ClaimsPrincipal caller, Guid groupId, CreateTeamRequest request, CancellationToken cancellationToken = default)
     {
         var name = Name(request.Name);
+        if (request.OriginTeamId is { } origin)
+        {
+            // Derived team: roster, credits and owners come from the origin team.
+            if (request.OwnerUserId != Guid.Empty || request.AdditionalOwnerUserIds is { Length: > 0 })
+                throw Invalid("Una squadra derivata non ha proprietari propri: valgono quelli della squadra originale.");
+            await using var derivedTransaction = await BeginWriteAsync(cancellationToken);
+            await AuthorizeAsync(caller, groupId, manage: true);
+            var derived = await Competitions.CompetitionStructure.CreateDerivedTeamAsync(database, groupId, request.BasketId, request.SeasonIndex, origin, name, DateTimeOffset.UtcNow, cancellationToken);
+            (await database.Groups.SingleAsync(x => x.Id == groupId, cancellationToken)).Revision++;
+            await DatabaseFaults.GuardAsync(() => CommitAsync(derivedTransaction, cancellationToken));
+            return derived.Id;
+        }
         var owners = (request.AdditionalOwnerUserIds ?? []).Append(request.OwnerUserId).Distinct().ToArray();
         if (owners.Length > 20) throw Invalid("Troppi comproprietari.");
         await using var transaction = await BeginWriteAsync(cancellationToken);
@@ -217,6 +250,8 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
         if (!await database.BasketSeasons.AnyAsync(x => x.GroupId == groupId && x.BasketId == request.BasketId && x.SeasonIndex == request.SeasonIndex, cancellationToken) ||
             await database.GroupMemberships.CountAsync(x => x.GroupId == groupId && owners.Contains(x.UserId) && x.Roles != GroupRole.None && x.User.IsEnabled, cancellationToken) != owners.Length)
             throw Invalid("Basket o proprietari non validi per il gruppo.");
+        if (await database.Baskets.AnyAsync(x => x.GroupId == groupId && x.BasketId == request.BasketId && x.Kind == BasketKind.Derived, cancellationToken))
+            throw new ApplicationFault(400, "invalid_competition_structure", "In un basket derivato si collegano soltanto squadre originali (OriginTeamId).");
         if (await database.TeamSeasons.AnyAsync(x => x.GroupId == groupId && x.BasketId == request.BasketId && x.SeasonIndex == request.SeasonIndex && x.NormalizedName == name.ToLowerInvariant(), cancellationToken))
             throw new ApplicationFault(409, "duplicate_team_name", "Nome squadra già presente nel basket.");
         if (await database.TeamOwnerships.AnyAsync(x => x.GroupId == groupId && x.BasketId == request.BasketId &&
@@ -229,7 +264,14 @@ public sealed class GroupApplicationService(FantasoccerDbContext database, IAuth
             TeamId = team.Id, TeamOriginYear = request.SeasonIndex, Kind = RosterKind.Season, Day = 0, CompetitionId = Guid.Empty, Name = name, OwnerUserId = request.OwnerUserId, RankCreditGranted = 0,
             LastUpdateUtc = DateTimeOffset.UtcNow, AdditionalOwners = owners.Where(id => id != request.OwnerUserId).Select(id => new RosterOwner { UserId = id }).ToList() });
         (await database.Groups.SingleAsync(x => x.Id == groupId, cancellationToken)).Revision++;
-        await CommitAsync(transaction, cancellationToken);
+        await DatabaseFaults.GuardAsync(async () =>
+        {
+            await database.SaveChangesAsync(cancellationToken);
+            var actor = await AccountAsync(caller, cancellationToken);
+            // Owners are checked against every league the new team joins.
+            await Competitions.CompetitionStructure.EnsureAutonomousEnrollmentAsync(database, groupId, actor.Id, DateTimeOffset.UtcNow, cancellationToken);
+            await CommitAsync(transaction, cancellationToken);
+        });
         return team.Id;
     }
 

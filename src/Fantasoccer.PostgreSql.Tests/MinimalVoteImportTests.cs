@@ -33,9 +33,10 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(317, await database.Players.CountAsync()); Assert.Equal(317, await database.PlayerSeasons.CountAsync());
-        Assert.Equal(951, await database.FootballVotes.CountAsync()); Assert.Empty(await database.Clubs.ToArrayAsync()); Assert.Empty(await database.ClubSeasons.ToArrayAsync());
+        // Provisional live votes are cache data now: official and notification rows only.
+        Assert.Equal(634, await database.FootballVotes.CountAsync()); Assert.Empty(await database.Clubs.ToArrayAsync()); Assert.Empty(await database.ClubSeasons.ToArrayAsync());
         Assert.All(await database.PlayerSeasons.ToArrayAsync(), x => Assert.Null(x.ClubId));
-        foreach (var source in Enum.GetValues<FootballVoteSource>())
+        foreach (var source in Enum.GetValues<FootballVoteSource>().Where(x => x != FootballVoteSource.Live))
         {
             var votes = await database.FootballVotes.Where(x => x.Source == source).OrderBy(x => x.PlayerId).ToArrayAsync();
             Assert.Equal(317, votes.Length);
@@ -56,7 +57,7 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(317, report.UnresolvedAnnualPlayerClubs); Assert.False(report.FullMigrationComplete);
         Assert.DoesNotContain("Minimal keeper", JsonSerializer.Serialize(report));
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
-        Assert.Equal(repeated.Documents, repeated.SkippedDocuments); Assert.Equal(951, await database.FootballVotes.CountAsync());
+        Assert.Equal(repeated.Documents, repeated.SkippedDocuments); Assert.Equal(634, await database.FootballVotes.CountAsync());
         foreach (var (blob, json, etag) in originals)
         {
             Assert.Equal(etag, (await blob.GetPropertiesAsync()).Value.ETag);
@@ -67,7 +68,7 @@ public sealed partial class CoreMigrationTests
     [CoreFact]
     public async Task Same_year_season_rosters_can_complete_missing_annual_club_but_never_fill_the_historical_vote_club()
     {
-        var votes = await ExtraContainerAsync("live");
+        var votes = await ExtraContainerAsync("notification");
         await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Roster linked player", RealTeam = null!, Role = Role.Forward, IsActive = false, Vote = new() { Value = 6, HasVote = true } }] },
             new() { Year = 15, Day = 10 }))));
@@ -143,7 +144,7 @@ public sealed partial class CoreMigrationTests
         var catalogue = await ExtraContainerAsync("realplayerswrapper");
         await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new()
             { Players = [new() { Name = "Known annual player", Role = Role.GoalKeeper, RealTeam = new() { Name = "Genoa" }, IsActive = true }] }, 15))));
-        var votes = await ExtraContainerAsync("live");
+        var votes = await ExtraContainerAsync("notification");
         await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Known annual player", RealTeam = null!, Role = Role.GoalKeeper, IsActive = false, Vote = new() { Value = 6, HasVote = true } }] },
             new() { Year = 15, Day = 1 }))));

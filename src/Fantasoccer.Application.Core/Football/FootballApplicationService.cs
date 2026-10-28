@@ -46,6 +46,13 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
     public async Task<FootballCalendarDto?> CalendarAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
     {
         await AccessAsync(caller, year, cancellationToken);
+        return await CalendarCoreAsync(year, cancellationToken);
+    }
+
+    // Global read-only football data, used by group projections without a caller.
+    internal async Task<FootballCalendarDto?> CalendarCoreAsync(int year, CancellationToken cancellationToken)
+    {
+        if (year is < 1 or > 200) throw Invalid();
         var days = await database.FootballMatchdays.AsNoTracking().Include(x => x.Matches).ThenInclude(x => x.HomeClub)
             .Include(x => x.Matches).ThenInclude(x => x.AwayClub).Where(x => x.SeasonIndex == year).OrderBy(x => x.SerieADay).AsSplitQuery().ToArrayAsync(cancellationToken);
         if (days.Length == 0 && !await ExistsAsync("realcalendar", year, 0, cancellationToken)) return null;

@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Fantasoccer.Application.Core.Competitions;
 
 public sealed class GameApplicationService(FantasoccerDbContext database, CompetitionApplicationService competitions,
-    TeamRosterApplicationService rosters, FootballApplicationService football, ITeamCalculator calculator,
+    LeagueLineupApplicationService lineups, CompetitionTeamResolver teams, FootballApplicationService football, ITeamCalculator calculator,
     IFactory<ILeagueCalculator> leagues, IOptimalFormationService optimal, TimeProvider clock)
 {
     public async Task<GameDto> GetAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid matchId,
@@ -19,10 +19,20 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
     {
         var season = await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
         if (editMode is not ("view" or "formation" or "live")) throw new ApplicationFault(400, "invalid_game_mode", "Modalità partita non valida.");
+        var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
+        var viewer = await database.GroupMemberships.Where(x => x.GroupId == group && x.User.Email == email).Select(x => new { x.UserId, x.Roles }).SingleOrDefaultAsync(cancellationToken);
+        return await BuildAsync(season, matchId, editMode, viewer?.UserId, asAdmin && viewer is not null && viewer.Roles.HasFlag(GroupRole.SuperAdmin), cancellationToken);
+    }
+
+    // viewer == null builds the user-independent view shared by the Live projection:
+    // no CanEdit flags and no personal data.
+    internal async Task<GameDto> BuildAsync(LeagueSeason season, Guid matchId, string editMode, Guid? viewer, bool admin, CancellationToken cancellationToken)
+    {
+        var (group, league, year) = (season.GroupId, season.LeagueId, season.SeasonIndex);
         var match = await MatchAsync(group, league, year, matchId, cancellationToken);
         var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
         var settings = LeagueRulesMapping.ToDomain(rules);
-        var type = (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1);
+        var type = Type(season);
         var day = match.Matchday.SerieADay;
         await calculator.BuildRequestAsync(year, day, type, settings, true, true, true);
         var schedule = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null)
@@ -31,10 +41,9 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var before = schedule.Length > 0 && now < schedule.Min();
         var deadline = schedule.Length > 0 ? (DateTimeOffset?)schedule.Max().AddHours(4) : null;
         var liveWindow = schedule.Length > 0 && now >= schedule.Min() && now <= deadline;
-        var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
-        var admin = asAdmin && await database.GroupMemberships.AnyAsync(x => x.GroupId == group && x.User.Email == email && (x.Roles & GroupRole.SuperAdmin) != 0, cancellationToken);
-        var calendar = await football.CalendarAsync(caller, year, cancellationToken);
+        var calendar = await football.CalendarCoreAsync(year, cancellationToken);
         var footballDay = calendar?.Days.SingleOrDefault(x => x.SerieADay == day);
+        var sides = await teams.ResolveManyAsync(group, year, new[] { match.HomeTeamId, match.AwayTeamId }.OfType<Guid>().ToArray(), cancellationToken);
         var teamDtos = new List<LiveTeamDto>();
         var points = new List<Point>();
         var preview = false;
@@ -42,25 +51,21 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         foreach (var id in new[] { match.HomeTeamId, match.AwayTeamId })
         {
             if (id is null) continue;
-            var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
-                .SingleAsync(x => x.Id == id && x.GroupId == group && x.SeasonIndex == year, cancellationToken);
-            var owner = metadata.Owners.SingleOrDefault(x => x.IsPrimary)?.Membership.User.OwnerReference ?? (id == match.HomeTeamId ? match.HomeOwner : match.AwayOwner) ?? "";
-            var daily = await rosters.GetAsync(caller, group, metadata.BasketId, year, owner, RosterKind.Matchday, day, cancellationToken: cancellationToken, teamId: id);
-            var source = daily;
-            if (source is null && (before || liveWindow))
-                source = await rosters.GetAsync(caller, group, metadata.BasketId, year, owner, cancellationToken: cancellationToken, teamId: id);
+            var team = sides.Single(x => x.TeamId == id);
+            var view = await lineups.ReadAsync(group, league, year, team, day, before || liveWindow, cancellationToken);
+            var source = view?.Roster;
             var historicalFallback = false;
             if (source is null)
             {
-                source = await PlayedRosterAsync(match, metadata, day, id == match.HomeTeamId, cancellationToken);
+                source = await PlayedRosterAsync(match, team, day, id == match.HomeTeamId, cancellationToken);
                 historicalFallback = source != null;
             }
             if (source is null) throw new ApplicationFault(409, "historical_roster_unavailable", "Snapshot storico della formazione non disponibile; non viene sostituito con la rosa attuale.");
-            var formationRules = await rosters.RulesAsync(metadata, year, league, false, cancellationToken);
-            var remaining = Math.Max(0, formationRules.LiveFormationChanges - (daily?.FormationChanges ?? 0));
-            var owned = metadata.Owners.Any(x => x.Membership.User.Email == email);
-            var editable = !historicalFallback && !metadata.IsArchived && (owned || admin) && editMode != "view" &&
-                (admin || (editMode == "live" ? liveWindow && daily != null && remaining > 0 : before));
+            var remaining = Math.Max(0, rules.LiveFormationChanges - source.FormationChanges);
+            var owned = viewer is { } user && team.IsControlledBy(user);
+            var hasDayFormation = view is { IsDayRoster: true } || view?.Lineup is not null;
+            var editable = viewer is not null && !historicalFallback && !team.IsArchived && !season.IsArchived && (owned || admin) && editMode != "view" &&
+                (admin || (editMode == "live" ? liveWindow && hasDayFormation && remaining > 0 : before));
             var active = source.Players.Where(x => x.Status == 0).Select(x => (Wire: x, Domain: DomainPlayer(x))).ToArray();
             var wire = active.ToDictionary(x => x.Domain, x => x.Wire);
             var projection = leagues.Create((settings.Formation == FormationType.Best && editMode == "view" ? LeagueType.SuperLeague : type).ToString())
@@ -75,8 +80,9 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
                 footballDay?.Games.FirstOrDefault(game => string.Equals(game.Home.Name, x.Current.RealTeam.Name, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(game.Away.Name, x.Current.RealTeam.Name, StringComparison.OrdinalIgnoreCase)),
                 x.FinalValue is null ? null : new(x.FinalValue.Value, x.FinalValue.Special), (int)x.CurrentPosition)).ToArray();
-            teamDtos.Add(new(metadata.Id, metadata.BasketId, daily?.Version ?? 0, daily is null && !historicalFallback ? source.Version : null, source.Name, source.Owner, source.AdditionalOwners,
-                players, source.LastUpdate, formationRules.LiveFormationChanges, daily?.FormationChanges ?? 0, remaining, source.FormationChangeHistory, source.LogoUrl, editable));
+            teamDtos.Add(new LiveTeamDto(team.TeamId, team.BasketId, historicalFallback ? 0 : source.Version, historicalFallback ? null : source.SourceVersion,
+                source.Name, source.Owner, source.AdditionalOwners, players, source.LastUpdate, rules.LiveFormationChanges, source.FormationChanges, remaining,
+                source.FormationChangeHistory, source.LogoUrl, editable) { AuthoritativeTeamId = team.AuthoritativeTeamId, UnavailablePlayerIds = source.UnavailablePlayerIds });
         }
         // Saved results are authoritative. A preview is explicitly marked and is
         // never written back by a GET or used to replace imported history.
@@ -100,42 +106,55 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var match = await MatchAsync(group, league, year, matchId, cancellationToken);
         if (request.TeamId != match.HomeTeamId && request.TeamId != match.AwayTeamId)
             throw new ApplicationFault(400, "team_not_in_match", "La squadra non appartiene alla partita.");
-        var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
-            .SingleAsync(x => x.GroupId == group && x.Id == request.TeamId && x.SeasonIndex == year, cancellationToken);
-        var owner = metadata.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
-        return await rosters.SaveFormationAsync(caller, new(group, metadata.BasketId, year, owner, match.Matchday.SerieADay, league,
-            (int)RosterKind.Matchday, request.Positions, request.ExpectedVersion, request.Live, request.AsAdmin, metadata.Id, request.SourceVersion, matchId), cancellationToken);
+        // The lineup belongs to this competition only: other leagues are untouched.
+        return await lineups.SaveAsync(caller, new(group, league, year, match.Matchday.SerieADay, request.TeamId, request.Positions, request.ExpectedVersion,
+            request.SourceVersion, request.Live, request.AsAdmin, matchId), cancellationToken);
     }
 
-    public async Task<OptimalGameFormationDto> OptimalAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, int day, string owner, bool asAdmin,
-        CancellationToken cancellationToken = default)
+    public async Task<FormationSavedDto> CopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid matchId,
+        CopyGameFormationRequest request, CancellationToken cancellationToken = default)
+    {
+        await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
+        var match = await MatchAsync(group, league, year, matchId, cancellationToken);
+        if (request.TeamId != match.HomeTeamId && request.TeamId != match.AwayTeamId)
+            throw new ApplicationFault(400, "team_not_in_match", "La squadra non appartiene alla partita.");
+        return await lineups.CopyAsync(caller, group, league, year, new(match.Matchday.SerieADay, request.TeamId, request.SourceLeagueId, request.SourceTeamId,
+            request.ExpectedVersion, request.SourceVersion, request.Live, request.AsAdmin), cancellationToken);
+    }
+
+    public async Task<OptimalGameFormationDto> OptimalAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, int day, string? owner, bool asAdmin,
+        CancellationToken cancellationToken = default, Guid? teamId = null)
     {
         var season = await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
         if (day is < 1 or > 38) throw new ApplicationFault(400, "invalid_formation_day", "Giornata non valida.");
         var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
-        var canonical = owner.Trim().ToLowerInvariant();
-        var metadata = await database.TeamSeasons.AsNoTracking().Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User)
-            .Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived && x.Owners.Any(o => o.IsPrimary && o.Membership.User.Email == canonical) &&
-                database.LeagueBasketSeasons.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.BasketId == x.BasketId)).ToArrayAsync(cancellationToken);
-        if (metadata.Length != 1) throw new ApplicationFault(409, "ambiguous_formation_team", "Specificare una squadra univoca nella competizione.");
-        var team = metadata[0];
+        var participants = await teams.ParticipantsAsync(group, league, year, cancellationToken: cancellationToken);
+        // The selected team, never "the first team of the caller": in SuperAdmin
+        // mode the algorithm runs on the team being edited, not the admin's own.
+        var candidates = teamId is { } id ? participants.Where(x => x.TeamId == id).ToArray()
+            : participants.Where(x => string.Equals(x.OwnerReference, owner?.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (candidates.Length != 1) throw new ApplicationFault(409, "ambiguous_formation_team", "Specificare una squadra univoca nella competizione.");
+        var team = candidates[0];
         var admin = asAdmin && await database.GroupMemberships.AnyAsync(x => x.GroupId == group && x.User.Email == email && (x.Roles & GroupRole.SuperAdmin) != 0, cancellationToken);
-        if (!admin && !team.Owners.Any(x => x.Membership.User.Email == email)) throw new ApplicationFault(403, "formation_access_denied", "Non sei proprietario della squadra.");
-        var roster = await rosters.GetAsync(caller, group, team.BasketId, year, owner, RosterKind.Matchday, day, cancellationToken: cancellationToken, teamId: team.Id)
-            ?? await rosters.GetAsync(caller, group, team.BasketId, year, owner, cancellationToken: cancellationToken, teamId: team.Id)
-            ?? throw new ApplicationFault(404, "roster_not_found", "Rosa non trovata.");
-        var rules = await rosters.RulesAsync(team, year, league, false, cancellationToken);
+        if (!admin && !team.IsControlledBy(email)) throw new ApplicationFault(403, "formation_access_denied", "Non sei proprietario della squadra.");
+        var view = await lineups.ReadAsync(group, league, year, team, day, true, cancellationToken) ?? throw new ApplicationFault(404, "roster_not_found", "Rosa non trovata.");
+        var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
+        var roster = view.Roster;
         var domain = new Team { Name = roster.Name, Owner = roster.Owner, AdditionalOwners = roster.AdditionalOwners.ToList(), Players = roster.Players.Select(DomainPlayer).ToList() };
-        var result = await optimal.CalculateAsync(domain, year, day, (LeagueType)(season.CompetitionType == 0 ? 1 : season.CompetitionType), LeagueRulesMapping.ToDomain(rules), cancellationToken);
+        var result = await optimal.CalculateAsync(domain, year, day, Type(season), LeagueRulesMapping.ToDomain(rules), cancellationToken);
         var identities = roster.Players.Where(x => x.Status == 0).ToDictionary(x => KeyUtils.GetPlayerKey(x.Name), x => x.PlayerId);
         return new(result.Players.Select(x => new OptimalGamePlayerDto(identities[x.PlayerKey], x.PlayerKey, x.PlayerName, (int)x.Role, (int)x.Position, x.Projection, x.Confidence)).ToArray(),
             result.Module, result.Score, result.Confidence, result.Warnings.ToArray());
     }
+
+    internal static LeagueType Type(LeagueSeason season) =>
+        (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1);
+
     private async Task<FantasyMatch> MatchAsync(Guid group, Guid league, int year, Guid id, CancellationToken cancellationToken) =>
         await database.FantasyMatches.AsNoTracking().Include(x => x.Matchday).SingleOrDefaultAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.Id == id, cancellationToken)
             ?? throw new ApplicationFault(404, "match_not_found", "Partita non trovata nella competizione richiesta.");
 
-    private async Task<TeamRosterDto?> PlayedRosterAsync(FantasyMatch match, FantasyTeamSeason metadata, int day, bool home, CancellationToken cancellationToken)
+    private async Task<TeamRosterDto?> PlayedRosterAsync(FantasyMatch match, ResolvedTeam team, int day, bool home, CancellationToken cancellationToken)
     {
         var saved = await database.PlayedMatchSnapshots.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == match.GroupId && x.LeagueId == match.LeagueId &&
             x.SeasonIndex == match.SeasonIndex && x.MatchId == match.Id && x.Day == day, cancellationToken);
@@ -145,7 +164,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var clubIds = rows.Where(x => x.ClubId != null).Select(x => x.ClubId!).ToArray();
         var players = await database.Players.Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
         var clubs = await database.Clubs.Where(x => clubIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-        return new(metadata.Id, match.GroupId, metadata.BasketId, match.SeasonIndex, (int)RosterKind.Matchday, day, null,
+        return new(team.TeamId, match.GroupId, team.BasketId, match.SeasonIndex, (int)RosterKind.Matchday, day, null,
             home ? saved.HomeName : saved.AwayName, (home ? match.HomeOwner : match.AwayOwner) ?? "", [],
             rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, FootballClubDto.Of(x.ClubId is null ? null : clubs[x.ClubId]),
                 x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)

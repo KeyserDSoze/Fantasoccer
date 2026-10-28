@@ -22,6 +22,19 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         if (name == "formations") { await services.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year, cancellationToken); return new(1, 0); }
         if (name == "images") { await services.GetRequiredService<IPlayerImageRefresher>().DownloadMissingAsync(cancellationToken); return new(1, 0); }
         if (name == "market-expiry") return await ExpireMarketAsync(database, year, cancellationToken);
+        // Daily safety net: retention also runs when a new matchday is prepared, but
+        // must not depend on a reminder actually being sent.
+        if (name == "push-retention")
+        {
+            var cleaned = await services.GetRequiredService<Fantasoccer.Application.Core.Notifications.PushRetentionService>().CleanupAsync(year, cancellationToken);
+            return new(cleaned.Deliveries + cleaned.FormationReceipts + cleaned.NotificationVotes, 0);
+        }
+        if (name == "cache-cleanup")
+        {
+            // Logical expiry is enforced on every read; this removes the physical blobs.
+            var purged = await services.GetRequiredService<Fantasoccer.Caching.IDistributedCacheCoordinator>().PurgeExpiredAsync(TimeSpan.FromDays(1), 5000, cancellationToken);
+            return new(purged.Deleted, 0);
+        }
         if (name == "postponed-results") return await RecoverPostponedAsync(database, cancellationToken);
         if (name == "hall")
         {

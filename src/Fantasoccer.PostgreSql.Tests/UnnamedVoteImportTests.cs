@@ -55,9 +55,10 @@ public sealed partial class CoreMigrationTests
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(analysis.SkippedUnnamedVotes, report.SkippedUnnamedVotes);
         Assert.Equal(296, await database.Players.CountAsync()); Assert.Equal(592, await database.PlayerSeasons.CountAsync());
-        Assert.Equal(1776, await database.FootballVotes.CountAsync());
+        // Provisional live votes are cache data now: official and notification rows only.
+        Assert.Equal(1184, await database.FootballVotes.CountAsync());
         foreach (var year in new[] { 10, 12 })
-        foreach (var source in Enum.GetValues<FootballVoteSource>())
+        foreach (var source in Enum.GetValues<FootballVoteSource>().Where(x => x != FootballVoteSource.Live))
         {
             var saved = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Source == source).ToArrayAsync();
             Assert.Equal(296, saved.Length);
@@ -91,7 +92,7 @@ public sealed partial class CoreMigrationTests
             Assert.DoesNotContain(secret, formatted);
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments); Assert.Equal(report.SkippedUnnamedVotes, repeated.SkippedUnnamedVotes);
-        Assert.Equal(1776, await database.FootballVotes.CountAsync());
+        Assert.Equal(1184, await database.FootballVotes.CountAsync());
         foreach (var (blob, json, etag) in originals)
         {
             Assert.Equal(etag, (await blob.GetPropertiesAsync()).Value.ETag); Assert.Equal(json, (await blob.DownloadContentAsync()).Value.Content.ToString());
@@ -121,7 +122,7 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext(); var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Empty(await database.Players.ToArrayAsync()); Assert.Empty(await database.PlayerSeasons.ToArrayAsync());
         Assert.Empty(await database.Clubs.ToArrayAsync()); Assert.Empty(await database.FootballVotes.ToArrayAsync());
-        Assert.Equal(3, await database.FootballDatasets.CountAsync(x => x.Day == 1));
+        Assert.Equal(2, await database.FootballDatasets.CountAsync(x => x.Day == 1)); // no SQL root for the live snapshot
         var checkpoint = await database.PushDayCheckpoints.AsNoTracking().AsSplitQuery().SingleAsync();
         Assert.True(checkpoint.HasMatchEventVotes); Assert.Equal(7, checkpoint.MatchEventSequence); Assert.Empty(checkpoint.Votes);
         Assert.Equal(4, report.SkippedUnnamedVotes!.Length);
@@ -166,6 +167,9 @@ public sealed partial class CoreMigrationTests
     [CoreFact]
     public async Task Excluding_unnamed_votes_does_not_recalculate_imported_calendar_results_or_current_rank()
     {
+        // One user controls at most one team per league: the second owner is no
+        // longer also a co-owner of the first team in this fixture.
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = [];
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Second team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         var key = new LeagueKey { Group = "first", League = "league", Year = 15 };

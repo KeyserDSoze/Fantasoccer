@@ -918,6 +918,8 @@ export const SoccerField = memo(
           year,
           day: gameWrapper.serieADay,
           owner: teamToOptimize.owner,
+          // The selected team, also when a SuperAdmin edits another user's team.
+          teamId: teamToOptimize.teamId,
           asAdmin: isAdminMode,
         });
         if (!result?.players?.length) {

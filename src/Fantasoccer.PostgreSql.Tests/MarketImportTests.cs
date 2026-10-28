@@ -12,6 +12,7 @@ public sealed partial class CoreMigrationTests
     [CoreFact]
     public async Task Market_import_preserves_proposals_statuses_votes_prices_and_dates_without_executing_trades()
     {
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = []; // one team per user and league
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Other team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         var container = await ExtraContainerAsync("marketwrapper");

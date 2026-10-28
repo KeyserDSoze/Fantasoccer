@@ -63,12 +63,16 @@ public sealed class PushOutboxApplicationService(FantasoccerDbContext database, 
 
 internal static class PushDeliveryAccess
 {
+    // The recipient must still control a participant of that league season (as
+    // owner or co-owner, also through a derived team's origin).
     public static Task<bool> IsCurrentOwnerAsync(FantasoccerDbContext database, PushDelivery delivery, CancellationToken cancellationToken) =>
-        database.TeamSeasons.AnyAsync(team => team.GroupId == delivery.GroupId && team.SeasonIndex == delivery.SeasonIndex && !team.IsArchived &&
-            (delivery.TeamId == null || team.Id == delivery.TeamId && team.BasketId == delivery.BasketId) &&
-            team.Owners.Any(owner => owner.UserId == delivery.UserId && owner.Membership.Roles != GroupRole.None && owner.Membership.User.IsEnabled && owner.Membership.User.Email != null) &&
-            database.LeagueBasketSeasons.Any(link => link.GroupId == team.GroupId && link.LeagueId == delivery.LeagueId && link.SeasonIndex == team.SeasonIndex && link.BasketId == team.BasketId) &&
-            database.LeagueSeasons.Any(league => league.GroupId == team.GroupId && league.LeagueId == delivery.LeagueId && league.SeasonIndex == team.SeasonIndex && !league.IsArchived && !league.League.IsArchived), cancellationToken);
+        database.LeagueParticipantOwners.AnyAsync(owner => owner.GroupId == delivery.GroupId && owner.LeagueId == delivery.LeagueId &&
+            owner.SeasonIndex == delivery.SeasonIndex && owner.UserId == delivery.UserId && (delivery.TeamId == null || owner.TeamId == delivery.TeamId) &&
+            database.GroupMemberships.Any(member => member.GroupId == owner.GroupId && member.UserId == owner.UserId && member.Roles != GroupRole.None &&
+                member.User.IsEnabled && member.User.Email != null) &&
+            database.TeamSeasons.Any(team => team.GroupId == owner.GroupId && team.Id == owner.TeamId && !team.IsArchived) &&
+            database.LeagueSeasons.Any(league => league.GroupId == owner.GroupId && league.LeagueId == owner.LeagueId && league.SeasonIndex == owner.SeasonIndex &&
+                !league.IsArchived && !league.League.IsArchived), cancellationToken);
 
     public static bool IsEnabled(UserPushPreferences? settings, int kind) => kind switch
     {

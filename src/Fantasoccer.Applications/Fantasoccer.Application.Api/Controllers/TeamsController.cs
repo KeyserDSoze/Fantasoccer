@@ -9,7 +9,8 @@ namespace Fantasoccer.Application.Api.Controllers;
 [Authorize(Policy = "authenticated")]
 [Route("api/teams")]
 [ServiceFilter(typeof(WorkspaceFaultFilter))]
-public sealed class TeamsController(TeamRosterApplicationService teams, TeamCreditsApplicationService credits, TeamRosterAvailabilityService availability) : ControllerBase
+public sealed class TeamsController(TeamRosterApplicationService teams, TeamCreditsApplicationService credits, TeamRosterAvailabilityService availability,
+    Fantasoccer.Application.Core.Competitions.LeagueLineupApplicationService lineups) : ControllerBase
 {
     [HttpPost("availability/synchronize")]
     public async Task<IActionResult> Synchronize(SynchronizeRosterAvailabilityRequest request, CancellationToken cancellationToken)
@@ -22,5 +23,6 @@ public sealed class TeamsController(TeamRosterApplicationService teams, TeamCred
         [FromQuery] int kind, [FromQuery] int day, [FromQuery] Guid? leagueId, [FromQuery] Guid? teamId, CancellationToken cancellationToken)
         => teams.GetAsync(User, groupId, basketId, year, owner, (RosterKind)kind, day, leagueId, cancellationToken, teamId);
     [HttpPut("formation")]
-    public Task<FormationSavedDto> Save(SaveRosterFormationRequest request, CancellationToken cancellationToken) => teams.SaveFormationAsync(User, request, cancellationToken);
+    public Task<FormationSavedDto> Save(SaveRosterFormationRequest request, CancellationToken cancellationToken) => request.Kind == (int)RosterKind.Matchday
+        ? lineups.SaveRosterRequestAsync(User, request, cancellationToken) : teams.SaveFormationAsync(User, request, cancellationToken);
 }

@@ -24,7 +24,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     SkippedInactiveSubstituteDocument[]? SkippedInactiveSubstitutes = null, SkippedUnusablePlayerRowDocument[]? SkippedUnusablePlayerRows = null,
     ExcludedNamelessRosterEntry[]? ExcludedNamelessRosterEntries = null, MissingVoteClubDocument[]? MissingRosterClubSnapshots = null,
     SkippedRosterDocument[]? SkippedRosterDocuments = null, RealCalendarWithoutYearDocument[]? RealCalendarsWithoutYear = null,
-    ExcludedLegacyMarketDocument[]? ExcludedLegacyMarkets = null);
+    ExcludedLegacyMarketDocument[]? ExcludedLegacyMarkets = null, OperationalSnapshotDocument[]? OperationalSnapshotsNotImported = null,
+    int LeagueParticipations = 0);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -40,9 +41,12 @@ public sealed class CoreImportException(string code, string? field = null, strin
     public VoteValidationDetails? VoteValidation { get; } = voteValidation;
 }
 
+public sealed record OperationalSnapshotDocument(string Container, int SeasonIndex, int Day, int Rows, string DocumentSha256);
+
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 44;
+    private static readonly DateTimeOffset LegacyParticipationTime = new(2012, 8, 1, 0, 0, 0, TimeSpan.Zero);
+    public const int MappingVersion = 45;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -181,6 +185,13 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         await database.PlayerSeasons.Where(x => importedPlayers.Contains(x.PlayerId)).ExecuteDeleteAsync(cancellationToken);
         await database.Players.Where(x => importedPlayers.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
         await database.Clubs.Where(x => importedClubs.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
+        // Structures created by the new model (never by this importer) cannot exist
+        // before interactive writes; removing them keeps a re-import consistent.
+        await database.LeagueLineups.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
+        await database.LeagueParticipations.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
+        await database.LeagueDerivations.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
+        await database.TeamDerivations.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
+        await database.BasketDerivations.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
         await database.TeamOwnerships.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
         await database.TeamSeasons.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
         await database.LeagueBasketSeasons.Where(x => groupIds.Contains(x.GroupId)).ExecuteDeleteAsync(cancellationToken);
@@ -207,9 +218,9 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         database.PlayerSeasons.AddRange(plan.PlayerSeasons);
         database.FootballMatchdays.AddRange(plan.Matchdays);
         database.RosterSnapshots.AddRange(plan.Rosters);
-        database.FootballDatasets.AddRange(plan.Datasets);
+        database.FootballDatasets.AddRange(plan.Datasets.Where(x => x.Kind is not ("live" or "chancedrealplayerwrapper")));
         database.FootballVotes.AddRange(plan.Votes);
-        database.FootballChances.AddRange(plan.Chances);
+        // plan.Chances / plan.LiveVotes stay in memory (validation, cache seeding only).
         database.FootballPlayerStatistics.AddRange(plan.Statistics);
         database.FootballClubRanks.AddRange(plan.ClubRanks);
         database.FantasyCalendars.AddRange(plan.Calendars);
@@ -243,6 +254,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         database.LeagueSeasons.AddRange(plan.LeagueSeasons);
         database.LeagueRules.AddRange(plan.Rules);
         database.LeagueBasketSeasons.AddRange(plan.Participations);
+        database.LeagueParticipations.AddRange(plan.LeagueParticipations);
         database.GroupLeagueBaskets.AddRange(plan.LeagueBaskets);
         database.GroupMemberships.AddRange(plan.Memberships);
         database.TeamSeasons.AddRange(plan.Teams);
@@ -296,6 +308,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
               ? new[] { "Some legacy real calendars never stored their own year (0); every day carried the key's season, so the key was accepted by operator decision. The usual season checks still applied (a calendar of another season stays excluded). Review realCalendarsWithoutYear." } : Array.Empty<string>(),
           .. plan.ExcludedLegacyMarkets.Count > 0
               ? new[] { "Market documents saved with the long property names used from 6 October 2024 to 4 October 2025 (\"Markets\", \"Buyer\", ...) were not imported by operator decision: those leagues and seasons have no market book or trades in SQL. Original bytes remain in the verified dump. Review excludedLegacyMarkets." } : Array.Empty<string>(),
+          .. plan.OperationalSnapshots.Count > 0
+              ? new[] { "Provisional live votes and probable lineups (live, chancedrealplayerwrapper) are operational data of the shared distributed cache, not PostgreSQL history: they were verified and kept in the dump but not imported. Official votes are imported. Use seed-operational-cache for the current matchday at cutover; review operationalSnapshotsNotImported." } : Array.Empty<string>(),
           .. plan.DiscardedFutureScores.Count > 0
               ? new[] { "Scores on real games scheduled after the export started cannot be results; those games were imported without a result (to be played). Original bytes remain in the verified dump. Review discardedFutureScores." } : Array.Empty<string>(),
           .. plan.PlayerSeasons.Any(x => x.ClubId is null)
@@ -342,7 +356,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
            SkippedInactiveSubstitutes: plan.SkippedInactiveSubstitutes.ToArray(), SkippedUnusablePlayerRows: plan.SkippedUnusablePlayerRows.ToArray(),
            ExcludedNamelessRosterEntries: plan.ExcludedNamelessRosterEntries.ToArray(), MissingRosterClubSnapshots: plan.MissingRosterClubSnapshots.ToArray(),
            SkippedRosterDocuments: plan.SkippedRosterDocuments.ToArray(), RealCalendarsWithoutYear: plan.RealCalendarsWithoutYear.ToArray(),
-           ExcludedLegacyMarkets: plan.ExcludedLegacyMarkets.ToArray());
+           ExcludedLegacyMarkets: plan.ExcludedLegacyMarkets.ToArray(), OperationalSnapshotsNotImported: plan.OperationalSnapshots.ToArray(),
+           LeagueParticipations: plan.LeagueParticipations.Count);
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -477,6 +492,11 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                         // A league can have historical seasons without that basket's annual teams.
                         if (!basketSeasons.Contains((basketId, annual.Year))) continue;
                         plan.Participations.Add(new() { GroupId = groupId, LeagueId = leagueId, BasketId = basketId, SeasonIndex = annual.Year });
+                        // Legacy rule, made explicit and preserved as such: every team of
+                        // the linked basket year took part. No derivation is invented.
+                        foreach (var team in plan.Teams.Where(x => x.GroupId == groupId && x.BasketId == basketId && x.SeasonIndex == annual.Year))
+                            plan.LeagueParticipations.Add(new() { GroupId = groupId, LeagueId = leagueId, SeasonIndex = annual.Year, TeamId = team.Id,
+                                BasketId = basketId, Source = ParticipationSource.Legacy, AdmittedAtUtc = LegacyParticipationTime });
                     }
                 }
             }
@@ -556,6 +576,11 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                 LegacyLeagueId = state.LeagueId, Year = state.Year, WorkingEmail = state.MeOrLeaderEmail });
         }
         if (plan.Groups.Count == 0 && plan.Users.Count == 0) throw new CoreImportException("no_core_documents");
+        // Never reinterpret or silently drop a conflicting legacy participation:
+        // the one-team-per-league rule must be reconciled explicitly.
+        var conflict = plan.LeagueParticipations.Join(plan.Owners, p => (p.GroupId, p.TeamId), o => (o.GroupId, o.TeamId), (p, o) => (p.GroupId, p.LeagueId, p.SeasonIndex, o.UserId, p.TeamId))
+            .GroupBy(x => (x.GroupId, x.LeagueId, x.SeasonIndex, x.UserId)).FirstOrDefault(x => x.Select(y => y.TeamId).Distinct().Count() > 1);
+        if (conflict is not null) throw new CoreImportException("league_owner_conflict", "season:" + conflict.Key.SeasonIndex.ToString(System.Globalization.CultureInfo.InvariantCulture), "LeagueParticipations");
         return plan;
 
         Guid Map(string kind, string legacyKey)
@@ -731,6 +756,10 @@ public sealed class CorePlan
     public List<PushDayCheckpoint> PushCheckpoints { get; } = [];
     public List<LegacyPushActiveDay> PushActiveDays { get; } = [];
     public List<PushDelivery> PushDeliveries { get; } = [];
+    public List<LeagueParticipation> LeagueParticipations { get; } = [];
+    public List<FootballVote> LiveVotes { get; } = [];
+    // Provisional operational documents verified and kept in the dump, not in SQL.
+    public List<OperationalSnapshotDocument> OperationalSnapshots { get; } = [];
     public List<NewsEdition> News { get; } = [];
     public List<TeamAdvice> Advice { get; } = [];
     public List<ArchivedOperationalLog> Logs { get; } = [];

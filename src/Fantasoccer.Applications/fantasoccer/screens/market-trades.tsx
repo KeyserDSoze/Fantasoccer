@@ -149,6 +149,8 @@ export default function MarketTradesScreen() {
   const myOwner = useMemo(() => {
     return teams.find(team => isEmailForTeam(team, user?.email))?.owner ?? user?.email ?? ''
   }, [teams, user?.email, isEmailForTeam])
+  // A user controls at most one participant per league: operate explicitly with it.
+  const myTeamId = useMemo(() => teams.find(team => isEmailForTeam(team, user?.email))?.teamId ?? undefined, [teams, user?.email, isEmailForTeam])
 
   // Load data
   useEffect(() => {
@@ -175,18 +177,11 @@ export default function MarketTradesScreen() {
         return
       }
 
-      const basketId = league.basketsId[0]
-      const basket = currentGroup.baskets?.find((b: any) => b.id === basketId)
-      if (!basket) {
-        setError('Basket non trovato')
-        setMarkets([])
-        setTeams([])
-        setIsLoading(false)
-        return
-      }
-
-      const yearlyBasket = basket.years?.find((y: any) => y.year === selectedYear)
-      if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
+      // Every basket of the league (a league may use more than one).
+      const seasons = league.basketsId
+        .map((basketId: string) => ({ basketId, season: currentGroup.baskets?.find((b: any) => b.id === basketId)?.years?.find((y: any) => y.year === selectedYear) }))
+        .filter((entry: any) => entry.season?.teams?.length > 0)
+      if (seasons.length === 0) {
         setError('Nessuna squadra trovata per questo anno')
         setMarkets([])
         setTeams([])
@@ -195,13 +190,12 @@ export default function MarketTradesScreen() {
       }
 
       // Load teams
-      const owners = yearlyBasket.teams.map((t: any) => t.owner)
-      const fetchedTeams = await teamService.getTeamsByBasket(
+      const fetchedTeams = (await Promise.all(seasons.map((entry: any) => teamService.getTeamsByBasket(
         currentGroup.id,
         selectedYear,
-        basketId,
-        owners
-      )
+        entry.basketId,
+        entry.season.teams.map((t: any) => t.owner)
+      )))).flat()
       setTeams(fetchedTeams)
 
       // Load markets
@@ -263,7 +257,8 @@ export default function MarketTradesScreen() {
           selectedYear,
           selectedLeagueId,
           market.id,
-          market.version
+          market.version,
+          myTeamId
         )
       } else {
         success = await marketService.denyMarket(
@@ -271,7 +266,8 @@ export default function MarketTradesScreen() {
           selectedYear,
           selectedLeagueId,
           market.id,
-          market.version
+          market.version,
+          myTeamId
         )
       }
 
@@ -298,8 +294,8 @@ export default function MarketTradesScreen() {
     setError(null)
     try {
       const success = decision === 'accept'
-        ? await marketService.acceptMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version)
-        : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version)
+        ? await marketService.acceptMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version, myTeamId)
+        : await marketService.rejectMarket(currentGroup.id, selectedYear, selectedLeagueId, market.id, market.version, myTeamId)
       if (success) {
         await loadData()
         await marketActivity.refresh()

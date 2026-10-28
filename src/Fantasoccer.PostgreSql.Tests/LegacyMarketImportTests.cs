@@ -25,7 +25,7 @@ public sealed partial class CoreMigrationTests
         var hash = manifest.Containers.Single(x => x.Name == "marketwrapper").Blobs.Single().Sha256;
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
-        Assert.Equal(44, report.MappingVersion);
+        Assert.Equal(CoreDatasetImporter.MappingVersion, report.MappingVersion);
         var excluded = Assert.Single(report.ExcludedLegacyMarkets!);
         Assert.Equal((hash, 15, 1), (excluded.DocumentSha256, excluded.SeasonIndex, excluded.Entries));
         Assert.StartsWith("blobs/", excluded.ArchiveReference);

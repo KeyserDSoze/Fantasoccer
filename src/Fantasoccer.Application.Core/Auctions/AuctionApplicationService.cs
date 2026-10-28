@@ -18,6 +18,9 @@ public sealed partial class AuctionApplicationService(FantasoccerDbContext datab
         if (request.Type is < 0 or > 2 || request.Kind is < 0 or > 1) throw Invalid("Tipo di asta non valido.");
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         var season = await competitions.AuthorizeAsync(caller, request.GroupId, request.LeagueId, request.Year, cancellationToken);
+        // The auction is an economic act of autonomous competitions only: derived
+        // teams resolve the origin's roster and never buy players themselves.
+        if (season.League.Mode == LeagueMode.Derived) throw new ApplicationFault(409, "derived_league_economy", "Le leghe derivate non hanno asta: si usa quella della squadra originale.");
         var actor = await ActorAsync(caller, request.GroupId, cancellationToken);
         if (!IsAuctioneer(actor.Roles) || !season.League.IsMain || season.IsArchived || season.League.IsArchived || request.Year != FantacalcioTime.SeasonYearAt(clock.GetUtcNow().UtcDateTime)) throw Denied();
         var teams = await TeamsAsync(request.GroupId, request.LeagueId, request.Year, cancellationToken);
@@ -113,7 +116,8 @@ public sealed partial class AuctionApplicationService(FantasoccerDbContext datab
     }
     private Task<FantasyTeamSeason[]> TeamsAsync(Guid group, Guid league, int year, CancellationToken cancellationToken) => database.TeamSeasons.AsNoTracking()
         .Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User).Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived &&
-            database.LeagueBasketSeasons.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.BasketId == x.BasketId)).AsSplitQuery().ToArrayAsync(cancellationToken);
+            database.LeagueParticipations.Any(p => p.GroupId == group && p.LeagueId == league && p.SeasonIndex == year && p.TeamId == x.Id) &&
+            !database.TeamDerivations.Any(d => d.GroupId == group && d.TeamId == x.Id)).AsSplitQuery().ToArrayAsync(cancellationToken);
     private async Task<StatisticPlayerDto[]> CatalogueAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken)
     {
         var stats = (await football.StatisticsAsync(caller, year, cancellationToken))?.Players ?? [];

@@ -21,7 +21,8 @@ public sealed partial class CoreMigrationTests
         var migrator = database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261027182301_OptionalHistoricalVoteClubs");
         var group = await database.Groups.SingleAsync(x => x.Name == "first");
-        var league = await database.Leagues.SingleAsync(x => x.GroupId == group.Id && x.Name == "League");
+        // Old schema: project only columns that existed then.
+        var league = await database.Leagues.Where(x => x.GroupId == group.Id && x.Name == "League").Select(x => new { x.LeagueId }).SingleAsync();
         var team = await database.TeamSeasons.SingleAsync(x => x.GroupId == group.Id && x.SeasonIndex == 15);
         foreach (var day in new[] { 0, 3 })
             database.FantasyStandingSnapshots.Add(new() { GroupId = group.Id, LeagueId = league.LeagueId, SeasonIndex = 15, SnapshotDay = day, SerieADay = 3,

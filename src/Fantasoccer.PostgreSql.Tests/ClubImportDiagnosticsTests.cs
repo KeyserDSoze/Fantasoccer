@@ -127,6 +127,7 @@ public sealed partial class CoreMigrationTests
         var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump, options: new(ImportLegacyAuctions: false));
         Assert.Empty(plan.Auctions);
         await excluded.DeleteBlobAsync(DiagnosticClubBlob);
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = []; // one team per user and league
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Seller team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         foreach (var fromBuyer in new[] { true, false })

@@ -18,7 +18,12 @@ public sealed record FormationChangeDto(string? Date, string Author, FormationPl
 public sealed record TeamRosterDto(Guid TeamId, Guid GroupId, Guid BasketId, int SeasonIndex, int Kind, int Day,
     Guid? LeagueId, string Name, string Owner, string[] AdditionalOwners, RosterPlayerDto[] Players,
     int MoneyFromRank, int OpeningCompetitionPrize, string? LastUpdate, int FormationChanges, FormationChangeDto[] FormationChangeHistory, int Version, string? LogoUrl = null, int? SourceVersion = null,
-    int MarketBalanceAdjustment = 0, int? RankCreditGranted = null);
+    int MarketBalanceAdjustment = 0, int? RankCreditGranted = null)
+{
+    // Lineup entries whose player is no longer in the roster (sold after saving):
+    // reported, never silently corrected.
+    public string[] UnavailablePlayerIds { get; init; } = [];
+}
 public sealed record FormationPositionRequest(string PlayerId, int Position);
 public sealed record SaveRosterFormationRequest(Guid GroupId, Guid BasketId, int Year, string Owner, int Day,
     Guid? LeagueId, int Kind, FormationPositionRequest[] Positions, int ExpectedVersion, bool Live = false, bool AsAdmin = false, Guid? TeamId = null,

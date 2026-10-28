@@ -105,7 +105,7 @@ public sealed class PushDispatcher(FantasoccerDbContext database, IPushDeliveryT
         var row = await database.PushDeliveries.SingleAsync(x => x.Id == id, cancellationToken);
         if (row.LeaseId != lease) return;
         if (!row.Receipts.Any(x => x.EndpointHash == target.EndpointHash)) row.Receipts.Add(new() { Ordinal = row.Receipts.Select(x => x.Ordinal).DefaultIfEmpty(-1).Max() + 1,
-            EndpointHash = target.EndpointHash, BindingVersion = target.Version, Outcome = outcome.ToString(), RecordedAtUtc = clock.GetUtcNow() });
+            EndpointHash = target.EndpointHash, BindingVersion = target.Version, Outcome = PushOutcomes.Stored(outcome), RecordedAtUtc = clock.GetUtcNow() });
         if (outcome == PushTransportOutcome.Gone)
         {
             var binding = await database.PushDeviceBindings.SingleOrDefaultAsync(x => x.EndpointHash == target.EndpointHash && x.UserId == target.UserId && x.Version == target.Version, cancellationToken);

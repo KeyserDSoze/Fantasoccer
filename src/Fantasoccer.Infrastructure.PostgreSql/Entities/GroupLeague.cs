@@ -6,6 +6,7 @@ public sealed class GroupLeague
     public Guid LeagueId { get; set; }
     public required string Name { get; set; }
     public bool IsMain { get; set; }
+    public LeagueMode Mode { get; set; }
     public int CompetitionType { get; set; }
     public bool IsArchived { get; set; }
     public FantasyGroup Group { get; set; } = null!;

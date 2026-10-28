@@ -54,6 +54,7 @@ public sealed partial class CoreMigrationTests
     [CoreFact]
     public async Task Auction_import_requires_explicit_legacy_keys_and_preserves_order_current_statistics_timers_and_audit_without_live_presence()
     {
+        _first.Baskets[0].Years[0].Teams[0].AdditionalOwners = []; // one team per user and league
         _first.Baskets[0].Years[0].Teams.Add(new() { Name = "Other team", Owner = OtherEmail, AdditionalOwners = [] });
         await PutGroupAsync(_first);
         var players = await ExtraContainerAsync("realplayerswrapper");

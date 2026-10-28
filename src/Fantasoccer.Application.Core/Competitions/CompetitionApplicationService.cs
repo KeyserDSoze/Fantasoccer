@@ -23,6 +23,12 @@ public sealed partial class CompetitionApplicationService(FantasoccerDbContext d
     public async Task<FantasyCalendarDto?> CalendarAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken = default)
     {
         await AuthorizeAsync(caller, group, league, year, cancellationToken);
+        return await CalendarCoreAsync(group, league, year, cancellationToken);
+    }
+
+    // Callers have already authorized the group (group-scoped projections).
+    internal async Task<FantasyCalendarDto?> CalendarCoreAsync(Guid group, Guid league, int year, CancellationToken cancellationToken)
+    {
         var calendar = await database.FantasyCalendars.AsNoTracking().Include(x => x.Stages).ThenInclude(x => x.Days).ThenInclude(x => x.Games)
             .Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
         return calendar is null ? null : new(year, calendar.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,
@@ -45,6 +51,12 @@ public sealed partial class CompetitionApplicationService(FantasoccerDbContext d
         var season = await AuthorizeAsync(caller, group, league, year, cancellationToken);
         if (day is < 0 or > 38) throw new ApplicationFault(400, "invalid_rank_day", "Giornata non valida.");
         if (day > 0) return await HistoricalRankAsync(season, group, league, year, day, cancellationToken);
+        return await CurrentRankAsync(group, league, year, cancellationToken);
+    }
+
+    internal async Task<FantasyRankDto?> CurrentRankAsync(Guid group, Guid league, int year, CancellationToken cancellationToken)
+    {
+        const int day = 0;
         var snapshot = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == day)
             .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
         return snapshot is null ? null : new(snapshot.SerieADay, snapshot.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,

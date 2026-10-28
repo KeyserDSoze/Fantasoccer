@@ -74,6 +74,12 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<HallRankContribution> HallRankContributions => Set<HallRankContribution>();
     public DbSet<HallBaselineConfirmation> HallBaselineConfirmations => Set<HallBaselineConfirmation>();
     public DbSet<GroupCreationCode> GroupCreationCodes => Set<GroupCreationCode>();
+    public DbSet<BasketDerivation> BasketDerivations => Set<BasketDerivation>();
+    public DbSet<TeamDerivation> TeamDerivations => Set<TeamDerivation>();
+    public DbSet<LeagueDerivation> LeagueDerivations => Set<LeagueDerivation>();
+    public DbSet<LeagueParticipation> LeagueParticipations => Set<LeagueParticipation>();
+    public DbSet<LeagueParticipantOwner> LeagueParticipantOwners => Set<LeagueParticipantOwner>();
+    public DbSet<LeagueLineup> LeagueLineups => Set<LeagueLineup>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

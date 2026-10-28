@@ -41,26 +41,37 @@ public sealed partial class CoreMigrationTests
         await ImportAsync();
         await using var database = fixture.CreateContext();
         Assert.Single(await database.Players.ToArrayAsync());
-        Assert.Equal(3, await database.FootballVotes.CountAsync());
-        Assert.Equal(3, await database.FootballVotes.Select(x => x.Source).Distinct().CountAsync());
-        var storedChance = await database.FootballChances.SingleAsync();
-        Assert.Equal(6.5f, storedChance.LegacyLastGameVote);
-        Assert.Equal(3, storedChance.LegacyTrend);
+        // Official and legacy notification baselines are PostgreSQL data; provisional
+        // live votes and probable lineups are operational cache data, kept in the dump.
+        Assert.Equal(2, await database.FootballVotes.CountAsync());
+        Assert.False(await database.FootballVotes.AnyAsync(x => x.Source == FootballVoteSource.Live));
+        Assert.False(await database.FootballChances.AnyAsync());
+        Assert.False(await database.FootballDatasets.AnyAsync(x => x.Kind == "live" || x.Kind == "chancedrealplayerwrapper"));
+        var (_, plan) = await CoreDatasetImporter.AnalyzeAsync(_dump);
+        var parsedChance = Assert.Single(plan.Chances);
+        Assert.Equal(6.5f, parsedChance.LegacyLastGameVote);
+        Assert.Equal(3, parsedChance.LegacyTrend);
+        Assert.Single(plan.LiveVotes);
+        Assert.Equal(2, CoreDatasetImporter.Report((await CoreDatasetImporter.AnalyzeAsync(_dump)).Dataset, plan).OperationalSnapshotsNotImported!.Length);
+        // The cutover seed exposes exactly that matchday, ready for the shared cache.
+        var (seedChances, seedLive) = OperationalCacheSeed.Build(plan, 15, 3);
+        Assert.Equal("Doubtful", Assert.Single(seedChances!.Players).Description);
+        Assert.Equal(2, Assert.Single(seedLive!.Players).Vote.Goals);
         var storedStats = await database.FootballPlayerStatistics.SingleAsync();
         Assert.Equal(new[] { 2, 3 }, storedStats.Games.OrderBy(x => x.Ordinal).Select(x => x.Day));
         Assert.Equal("Strength", storedStats.DescriptionTop);
         Assert.Equal(4.5f, (await database.FootballClubRanks.SingleAsync()).Points);
         Assert.Equal("sam", (await database.Clubs.SingleAsync()).Id);
         Assert.Equal("sam", (await database.FootballClubRanks.SingleAsync()).ClubId);
-        Assert.Equal(storedChance.PlayerId, storedStats.PlayerId);
+        Assert.Equal(parsedChance.PlayerId, storedStats.PlayerId);
         var ids = await database.Players.Select(x => x.Id).ToArrayAsync();
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
-        await _storage.Blobs.GetBlobContainerClient("live").DeleteBlobAsync("sample");
+        await _storage.Blobs.GetBlobContainerClient("notification").DeleteBlobAsync("sample");
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await new CoreDatasetImporter(database).ImportAsync(_dump);
-        Assert.Equal(2, await database.FootballVotes.CountAsync());
+        Assert.Equal(1, await database.FootballVotes.CountAsync());
         Assert.Equal(ids, await database.Players.Select(x => x.Id).ToArrayAsync());
-        Assert.False(await database.FootballDatasets.AnyAsync(x => x.Kind == "live"));
+        Assert.False(await database.FootballDatasets.AnyAsync(x => x.Kind == "notification"));
     }
 }

@@ -5,6 +5,9 @@ COPY tools/Fantasoccer.DataMigration/ tools/Fantasoccer.DataMigration/
 COPY tools/Fantasoccer.LocalCertificates/ tools/Fantasoccer.LocalCertificates/
 COPY src/Fantasoccer.Infrastructure.PostgreSql/ src/Fantasoccer.Infrastructure.PostgreSql/
 COPY src/Fantasoccer.Domain/ src/Fantasoccer.Domain/
+# Cutover cache seeding reuses the application cache layer and the Blob provider.
+COPY src/Fantasoccer.Application.Core/ src/Fantasoccer.Application.Core/
+COPY src/Fantasoccer.Infrastructure.Storage/ src/Fantasoccer.Infrastructure.Storage/
 RUN dotnet publish tools/Fantasoccer.StorageMigration -c Release -o /storage /p:UseAppHost=false && \
     dotnet publish tools/Fantasoccer.DataMigration -c Release -o /database /p:UseAppHost=false && \
     dotnet publish tools/Fantasoccer.LocalCertificates -c Release -o /certificates-tool /p:UseAppHost=false

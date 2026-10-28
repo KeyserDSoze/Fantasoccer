@@ -47,7 +47,7 @@ public sealed partial class WorkspaceApiTests
             sent.Add((device.Endpoint, payload.Tag));
             Assert.Equal(account.Email, payload.Data.RecipientEmail);
             entered.TrySetResult(); await release.Task;
-            return device.Endpoint == first.Endpoint ? PushTransportOutcome.Delivered : PushTransportOutcome.Retry;
+            return device.Endpoint == first.Endpoint ? PushTransportOutcome.ProviderAccepted : PushTransportOutcome.Retry;
         });
         await using var dispatcherDatabase = factory.Database.CreateContext();
         var options = Options.Create(new PushTransportOptions { Enabled = true });
@@ -62,7 +62,7 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(1, (await run).Retried);
         Assert.Equal(2, sent.Count);
         clock.Advance(TimeSpan.FromMinutes(2));
-        transport.Callback = (device, payload) => { sent.Add((device.Endpoint, payload.Tag)); return Task.FromResult(PushTransportOutcome.Delivered); };
+        transport.Callback = (device, payload) => { sent.Add((device.Endpoint, payload.Tag)); return Task.FromResult(PushTransportOutcome.ProviderAccepted); };
         Assert.Equal(1, (await new PushDispatcher(dispatcherDatabase, transport, options, clock).DispatchAsync()).Completed);
         Assert.Equal(3, sent.Count);
         Assert.Equal(1, sent.Count(x => x.Endpoint == first.Endpoint));
