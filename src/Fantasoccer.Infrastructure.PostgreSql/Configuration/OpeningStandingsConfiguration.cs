@@ -9,6 +9,7 @@ internal sealed class OpeningStandingsConfiguration : IEntityTypeConfiguration<O
     public void Configure(EntityTypeBuilder<OpeningStandingSnapshot> builder)
     {
         builder.ToTable("OpeningStandingSnapshots");
+        builder.Property(x => x.IsComplete).HasDefaultValue(true).ValueGeneratedNever();
         builder.HasKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex });
         builder.Property(x => x.Version).IsConcurrencyToken();
         builder.HasOne<LeagueSeason>().WithOne().HasForeignKey<OpeningStandingSnapshot>(x => new { x.GroupId, x.LeagueId, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);

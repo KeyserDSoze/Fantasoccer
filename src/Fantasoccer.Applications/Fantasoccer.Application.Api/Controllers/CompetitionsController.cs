@@ -30,8 +30,8 @@ public sealed class CompetitionsController(CompetitionApplicationService competi
     public async Task<IActionResult> Generate(Guid groupId, Guid leagueId, int year, GenerateCompetitionRequest request, CancellationToken cancellationToken)
     { await lifecycle.GenerateAsync(User, groupId, leagueId, year, request, cancellationToken); return NoContent(); }
     [HttpPost("recalculate")]
-    public async Task<IActionResult> Recalculate(Guid groupId, Guid leagueId, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken)
-    { await lifecycle.RecalculateAsync(User, groupId, leagueId, year, request, cancellationToken); return NoContent(); }
+    public Task<RecalculationOutcome> Recalculate(Guid groupId, Guid leagueId, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken)
+        => lifecycle.RecalculateAsync(User, groupId, leagueId, year, request, cancellationToken);
     [HttpGet("calendar")]
     public Task<FantasyCalendarDto?> Calendar(Guid groupId, Guid leagueId, int year, CancellationToken cancellationToken) => competitions.CalendarAsync(User, groupId, leagueId, year, cancellationToken);
     [HttpGet("rank")]

@@ -358,6 +358,35 @@ export function LeagueSettingsEditor({
 
       <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
         <YStack gap="$3">
+          <Text fontSize="$4" fontWeight="700" color="$color12">Partite rinviate e recuperi</Text>
+          <ToggleChip
+            label={value.postponements.waitForRecovery ? 'Attendi tutti i recuperi' : 'Chiudi con voto politico'}
+            accent="green"
+            checked={value.postponements.waitForRecovery}
+            disabled={disabled}
+            onCheckedChange={checked => onChange({ ...value, postponements: { ...value.postponements, waitForRecovery: checked } })}
+          />
+          <Text fontSize="$2" color="$color10">
+            Il default chiude la giornata senza attendere le gare rinviate e applica il valore per ruolo anche nei ricalcoli dopo il recupero.
+            Attivando l&apos;attesa, i risultati restano provvisori fino alla conclusione di tutte le partite e alla disponibilità dei voti reali.
+            Il recupero non riapre la scadenza delle formazioni. Cambiare questa regola non modifica automaticamente risultati già salvati.
+          </Text>
+          <XStack gap="$3" flexWrap="wrap">
+            {([
+              ['goalkeeper', 'Portiere'], ['defender', 'Difensore'], ['midfielder', 'Centrocampista'], ['forward', 'Attaccante']
+            ] as const).map(([key, label]) => (
+              <NumericField key={`${resetKey}-political-${key}`} id={`${resetKey}-political-${key}`}
+                label={`Voto politico — ${label}`} value={value.postponements[key]} integer={false} min={0} max={10}
+                disabled={disabled} onValidityChange={handleValidityChange}
+                onChange={next => onChange({ ...value, postponements: { ...value.postponements, [key]: next } })} />
+            ))}
+          </XStack>
+          <Text fontSize="$2" color="$color10">Valori da 0 a 10, anche decimali. Sono voti secchi senza bonus/malus individuali o porta inviolata.</Text>
+        </YStack>
+      </Card>
+
+      <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
+        <YStack gap="$3">
           <Text fontSize="$4" fontWeight="700" color="$color12">Bonus ed economia</Text>
           <Text fontSize="$2" color="$color10">Bonus formazione e crediti maturati con i risultati.</Text>
           <Separator />

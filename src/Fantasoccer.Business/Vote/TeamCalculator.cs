@@ -143,18 +143,28 @@ namespace Fantasoccer.Business
         }
         private Vote? GetVote(Player player)
         {
+            var game = GetRealGame(player);
+            if (LeagueSetting?.Postponements is { WaitForRecovery: false } policy &&
+                (game?.WasPostponed == true || game?.Delayed == true))
+                return new() { Role = player.Role, Value = policy.ValueFor(player.Role), HasVote = true, IsFinal = true, IsPolitical = true };
+            // Only actual provider votes; political grades are never stored.
             var vote = Official?.Players?.Find(x => x.Key == player.Key)?.Vote;
             return vote ?? Live?.Players?.Find(x => x.Key == player.Key)?.Vote;
         }
         private RealGame? GetRealGame(Player player)
         {
-            if (player.RealTeam != null)
+            // Prefer a club attested in this day's vote over today's annual
+            // catalogue/formation fallback. Never rewrite a historical vote.
+            var club = Official?.Players?.Find(x => x.Key == player.Key)?.RealTeam
+                ?? Live?.Players?.Find(x => x.Key == player.Key)?.RealTeam
+                ?? player.RealTeam;
+            if (club != null)
             {
                 var game = RealDay?.Games?.Find(x =>
-                    x.Home?.Abbreviation == player.RealTeam.Abbreviation ||
-                    x.Away?.Abbreviation == player.RealTeam.Abbreviation ||
-                    string.Equals(x.Home?.Name, player.RealTeam.Name, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(x.Away?.Name, player.RealTeam.Name, StringComparison.OrdinalIgnoreCase));
+                    x.Home?.Abbreviation == club.Abbreviation ||
+                    x.Away?.Abbreviation == club.Abbreviation ||
+                    string.Equals(x.Home?.Name, club.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.Away?.Name, club.Name, StringComparison.OrdinalIgnoreCase));
                 return game;
             }
             return null;
@@ -165,6 +175,7 @@ namespace Fantasoccer.Business
             var vote = player.Vote;
             if (LeagueSetting == null || vote == null)
                 return VoteValue.Empty;
+            if (vote.IsPolitical) return new() { Value = vote.Value, Special = false };
             var voteLeagueSetting = LeagueSetting.Votes?.GetValueOrDefault(player.Current.Role)
                 ?? LeagueSetting.Votes?.GetValueOrDefault(Role.Undefined)
                 ?? LeagueSetting.Default.Votes[Role.Undefined];

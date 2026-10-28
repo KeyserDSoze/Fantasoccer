@@ -19,10 +19,11 @@ public sealed partial class CoreMigrationTests
         var legacy = Guid.NewGuid();
         await database.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO "Clubs" ("ClubCode","Name","Abbreviation","LegacyId") VALUES
-                ('juv','JUVE','JUV',{legacy}), ('cat','catania','CAT',NULL), ('xyz','Historical external club','XYZ',NULL)
+                ('juv','JUVE','JUV',{legacy}), ('cat','catania','CAT',NULL), ('xyz','Historical external club','XYZ',NULL);
+            INSERT INTO "FootballMatchdays" ("SeasonIndex","SerieADay") VALUES (15, 1);
+            INSERT INTO "FootballMatches" ("SeasonIndex","SerieADay","Ordinal","HomeClubCode","AwayClubCode","Delayed") VALUES (15, 1, 0, 'juv', 'cat', false);
             """);
-        database.FootballMatchdays.Add(new() { SeasonIndex = 15, SerieADay = 1, Matches =
-            [new() { SeasonIndex = 15, SerieADay = 1, Ordinal = 0, HomeClubId = "juv", AwayClubId = "cat" }] });
+        // Rows of tables changed by later migrations use that version's SQL schema.
         database.FootballClubRanks.AddRange(new() { SeasonIndex = 15, ClubId = "cat", Points = 3 }, new() { SeasonIndex = 16, ClubId = "juv", Points = 4 });
         database.FootballDatasets.Add(new() { Kind = "realteamwrapper", SeasonIndex = 16 }); // Old marker cannot reconstruct the old list.
         database.PlayerSeasons.AddRange(new() { Player = new() { Name = "Historical migration player" }, SeasonIndex = 16, ClubId = "cat", Position = PlayerPosition.Forward },

@@ -17,6 +17,7 @@ export interface CardTrainerSettings { maxCardsPerType: Record<number, number> }
 export interface LeagueTypeSettings { calendarType: LeagueCalendarType; rounds: LeagueRound[]; numbers: LeagueTypeNumberSettings; fromPreviousYear: FromPreviousYearSettings | null; cardTrainer: CardTrainerSettings }
 export interface OpeningCompetitionPrize { position: number; credits: number }
 export interface OpeningCompetitionSettings { enabled: boolean; serieADays: number; prizes: OpeningCompetitionPrize[] }
+export interface PostponementSettings { waitForRecovery: boolean; goalkeeper: number; defender: number; midfielder: number; forward: number }
 export interface LeagueSetting {
   votes: Partial<Record<Role, VoteLeagueSetting>>; formation: FormationType; typeSettings: LeagueTypeSettings | null
   startingMoney: number; delayedDay: number; cancelledDay: number; pointForFirstGoal: number; pointForNextGoal: number
@@ -24,7 +25,7 @@ export interface LeagueSetting {
   pointForDraw: number; pointForStrongDefense: number; pointForStrongDefense4: number; pointForStrongDefense5: number
   pointForGoodPeople: number; pointForCleanSheet: number; moneyForGoal: number; moneyForSufferedGoal: number
   randomAuction: boolean; rankWithValuePoints: boolean; market: MarketType; liveFormationChanges: number
-  allowLiveModuleChange: boolean; openingCompetition: OpeningCompetitionSettings
+  allowLiveModuleChange: boolean; openingCompetition: OpeningCompetitionSettings; postponements: PostponementSettings
 }
 export interface AnnualLeague { year: number; type: LeagueType; settings: LeagueSetting }
 export interface League { id: string; name: string; isMain: boolean; type: LeagueType; years: AnnualLeague[]; basketsId: string[] }
@@ -55,6 +56,7 @@ export const DefaultLeagueSetting: LeagueSetting = {
   pointForStrongDefense5: 6, moneyForGoal: 5, moneyForSufferedGoal: 3, pointForCleanSheet: 1, pointForGoodPeople: 2,
   randomAuction: false, rankWithValuePoints: false, market: MarketType.WithVote, liveFormationChanges: 0, allowLiveModuleChange: false,
   openingCompetition: { enabled: false, serieADays: 2, prizes: [{ position: 1, credits: 50 }, { position: 2, credits: 30 }, { position: 3, credits: 20 }] },
+  postponements: { waitForRecovery: false, goalkeeper: 6, defender: 6, midfielder: 6, forward: 6 },
 }
 export interface EnhancedGroup extends Group { activeUsers: UserOfAGroup[]; removedUsers: UserOfAGroup[]; adminUsers: UserOfAGroup[]; superAdminUsers: UserOfAGroup[]; readerUsers: UserOfAGroup[]; participants: UserOfAGroup[] }
 export const enhanceGroup = (group: Group): EnhancedGroup => ({ ...group, activeUsers: GroupHelper.getActiveUsers(group), removedUsers: GroupHelper.getRemovedUsers(group), adminUsers: GroupHelper.getAdminUsers(group), superAdminUsers: GroupHelper.getSuperAdminUsers(group), readerUsers: GroupHelper.getReaderUsers(group), participants: GroupHelper.getParticipants(group) })

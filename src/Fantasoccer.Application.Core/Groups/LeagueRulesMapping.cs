@@ -17,6 +17,8 @@ public static class LeagueRulesMapping
         PointForGoodPeople = row.PointForGoodPeople, PointForCleanSheet = row.PointForCleanSheet, MoneyForGoal = row.MoneyForGoal,
         MoneyForSufferedGoal = row.MoneyForSufferedGoal, RandomAuction = row.RandomAuction, RankWithValuePoints = row.RankWithValuePoints,
         Market = (MarketType)row.Market, LiveFormationChanges = row.LiveFormationChanges, AllowLiveModuleChange = row.AllowLiveModuleChange,
+        Postponements = new() { WaitForRecovery = row.WaitForPostponedMatches, Goalkeeper = row.PoliticalGoalkeeper,
+            Defender = row.PoliticalDefender, Midfielder = row.PoliticalMidfielder, Forward = row.PoliticalForward },
         OpeningCompetition = new() { Enabled = row.OpeningCompetitionEnabled, SerieADays = row.OpeningCompetitionSerieADays,
             Prizes = row.OpeningPrizes.OrderBy(x => x.Position).Select(x => new OpeningCompetitionPrize { Position = x.Position, Credits = x.Credits }).ToList() },
         Type = !row.HasTypeSettings ? null : new()
@@ -46,6 +48,7 @@ public static class LeagueRulesMapping
         PointForGoodPeople = row.PointForGoodPeople, PointForCleanSheet = row.PointForCleanSheet, MoneyForGoal = row.MoneyForGoal,
         MoneyForSufferedGoal = row.MoneyForSufferedGoal, RandomAuction = row.RandomAuction, RankWithValuePoints = row.RankWithValuePoints,
         Market = row.Market, LiveFormationChanges = row.LiveFormationChanges, AllowLiveModuleChange = row.AllowLiveModuleChange,
+        Postponements = new(row.WaitForPostponedMatches, row.PoliticalGoalkeeper, row.PoliticalDefender, row.PoliticalMidfielder, row.PoliticalForward),
         OpeningCompetition = new(row.OpeningCompetitionEnabled, row.OpeningCompetitionSerieADays,
             row.OpeningPrizes.OrderBy(x => x.Position).Select(x => new OpeningPrizeDto(x.Position, x.Credits)).ToArray()),
         TypeSettings = !row.HasTypeSettings ? null : new(row.CalendarType,
@@ -60,7 +63,9 @@ public static class LeagueRulesMapping
     {
         if (dto.Votes is null || !dto.Votes.ContainsKey(-1) || dto.StartingMoney < 25 || dto.PointForFirstGoal < 1 ||
             dto.PointForNextGoal < 1 || dto.DelayedDay is < 0 or > 37 || dto.CancelledDay is < 0 or > 38 || dto.LiveFormationChanges < 0 ||
-            dto.Formation is < 0 or > 1 || dto.Market is < 0 or > 2 || dto.OpeningCompetition is null ||
+            dto.Formation is < 0 or > 1 || dto.Market is < 0 or > 2 || dto.OpeningCompetition is null || dto.Postponements is null ||
+            !new[] { dto.Postponements.Goalkeeper, dto.Postponements.Defender, dto.Postponements.Midfielder, dto.Postponements.Forward }
+                .All(value => float.IsFinite(value) && value is >= 0 and <= 10) ||
             dto.Votes.Any(x => x.Key is < -1 or > 3 || !new[] { x.Value.Goal, x.Value.Penalty, x.Value.SufferedGoal, x.Value.StoppedPenalty,
                 x.Value.WrongedPenalty, x.Value.OwnGoal, x.Value.Assist, x.Value.YellowCard, x.Value.RedCard }.All(float.IsFinite)))
             throw new ApplicationFault(400, "invalid_league_settings", "Regolamento non valido.");
@@ -75,6 +80,8 @@ public static class LeagueRulesMapping
             PointForGoodPeople = dto.PointForGoodPeople, PointForCleanSheet = dto.PointForCleanSheet, MoneyForGoal = dto.MoneyForGoal,
             MoneyForSufferedGoal = dto.MoneyForSufferedGoal, RandomAuction = dto.RandomAuction, RankWithValuePoints = dto.RankWithValuePoints,
             Market = dto.Market, LiveFormationChanges = dto.LiveFormationChanges, AllowLiveModuleChange = dto.AllowLiveModuleChange,
+            WaitForPostponedMatches = dto.Postponements.WaitForRecovery, PoliticalGoalkeeper = dto.Postponements.Goalkeeper,
+            PoliticalDefender = dto.Postponements.Defender, PoliticalMidfielder = dto.Postponements.Midfielder, PoliticalForward = dto.Postponements.Forward,
             OpeningCompetitionEnabled = dto.OpeningCompetition.Enabled, OpeningCompetitionSerieADays = dto.OpeningCompetition.SerieADays,
             OpeningPrizes = dto.OpeningCompetition.Prizes.Select(x => new LeagueOpeningPrize { Position = x.Position, Credits = x.Credits }).ToArray(),
             Votes = dto.Votes.Select(x => new LeagueVoteWeight { PlayerRole = x.Key, Goal = x.Value.Goal, Penalty = x.Value.Penalty,

@@ -39,4 +39,23 @@ public sealed class LeagueSettingsTest
         Assert.Equal("Final", Assert.Single(restored.Type.Rounds).Name);
         Assert.Equal(18, restored.Type.Numbers.MaxPlayersInTeam);
     }
+
+    [Fact]
+    public void PostponementPolicyDefaultsToPoliticalSixesAndOlderSettingsKeepThatDefault()
+    {
+        var settings = LeagueSetting.Default;
+        Assert.False(settings.Postponements.WaitForRecovery);
+        Assert.All(new[] { Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward }, role => Assert.Equal(6, settings.Postponements.ValueFor(role)));
+        settings.Postponements = new PostponementSettings { WaitForRecovery = true, Goalkeeper = 7, Defender = 5.5f, Midfielder = 6.5f, Forward = 5 };
+
+        var restored = JsonSerializer.Deserialize<LeagueSetting>(JsonSerializer.Serialize(settings))!;
+        Assert.True(restored.Postponements.WaitForRecovery);
+        Assert.Equal(new[] { 7, 5.5f, 6.5f, 5 }, new[] { Role.GoalKeeper, Role.Defensor, Role.Midfielder, Role.Forward }.Select(restored.Postponements.ValueFor));
+
+        // Settings saved before this policy existed have no "pp" member.
+        var legacy = JsonSerializer.SerializeToNode(LeagueSetting.Default)!.AsObject();
+        legacy.Remove("pp");
+        var old = JsonSerializer.Deserialize<LeagueSetting>(legacy.ToJsonString())!;
+        Assert.False(old.Postponements.WaitForRecovery); Assert.Equal(6, old.Postponements.ValueFor(Role.Forward));
+    }
 }

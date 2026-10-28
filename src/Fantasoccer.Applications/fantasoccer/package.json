@@ -16,7 +16,7 @@
     "test:auth": "node --test tests/pkce.test.mjs tests/mcpConnections.test.mjs tests/mcpGuide.test.mjs",
     "test:version": "node --test tests/version.test.mjs",
     "test:workspace": "node --experimental-transform-types --test tests/workspaceApi.test.mjs tests/relationalSurface.test.mjs tests/groupCreation.test.mjs tests/groupMembers.test.mjs",
-    "test:game": "node --experimental-transform-types --test tests/gameFormation.test.mjs tests/minimalFootballVotes.test.mjs tests/historicalRank.test.mjs",
+    "test:game": "node --experimental-transform-types --test tests/gameFormation.test.mjs tests/minimalFootballVotes.test.mjs tests/historicalRank.test.mjs tests/postponedMatches.test.mjs",
     "test": "npm run test:group-admin && npm run test:market && npm run test:player-images && npm run test:push && npm run test:auth && npm run test:version && npm run test:workspace && npm run test:game",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
     "format:check": "prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",

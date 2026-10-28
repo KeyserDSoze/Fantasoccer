@@ -500,6 +500,9 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Ordinal")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("AwaitingPostponedMatches")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("FantasyTurn")
                         .HasColumnType("integer");
 
@@ -803,6 +806,9 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Ordinal")
                         .HasColumnType("integer");
 
+                    b.Property<bool?>("ActualOfficialVotesReady")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("AwayClubId")
                         .IsRequired()
                         .HasMaxLength(3)
@@ -824,11 +830,20 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int?>("HomeGoals")
                         .HasColumnType("integer");
 
+                    b.Property<bool?>("IsFinished")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset?>("KickoffUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("LegacyKickoffLocal")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTimeOffset?>("OriginalKickoffUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WasPostponed")
+                        .HasColumnType("boolean");
 
                     b.HasKey("SeasonIndex", "SerieADay", "Ordinal");
 
@@ -846,6 +861,9 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.Property<int>("SerieADay")
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("LastRecoveryCheckUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("SeasonIndex", "SerieADay");
 
@@ -1472,6 +1490,22 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("PointInHome")
                         .HasColumnType("integer");
 
+                    b.Property<float>("PoliticalDefender")
+                        .HasColumnType("real")
+                        .HasDefaultValue(6f);
+
+                    b.Property<float>("PoliticalForward")
+                        .HasColumnType("real")
+                        .HasDefaultValue(6f);
+
+                    b.Property<float>("PoliticalGoalkeeper")
+                        .HasColumnType("real")
+                        .HasDefaultValue(6f);
+
+                    b.Property<float>("PoliticalMidfielder")
+                        .HasColumnType("real")
+                        .HasDefaultValue(6f);
+
                     b.Property<int>("PreviousYearMaxTeamsPerLeague")
                         .HasColumnType("integer");
 
@@ -1487,9 +1521,15 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("StartingMoney")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("WaitForPostponedMatches")
+                        .HasColumnType("boolean");
+
                     b.HasKey("GroupId", "LeagueId", "SeasonIndex");
 
-                    b.ToTable("LeagueRules", (string)null);
+                    b.ToTable("LeagueRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LeagueRules_PoliticalVotes", "\"PoliticalGoalkeeper\" BETWEEN 0 AND 10 AND \"PoliticalDefender\" BETWEEN 0 AND 10 AND \"PoliticalMidfielder\" BETWEEN 0 AND 10 AND \"PoliticalForward\" BETWEEN 0 AND 10");
+                        });
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueSeason", b =>
@@ -1535,6 +1575,71 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.HasIndex("SourceId", "Kind", "TargetId");
 
                     b.ToTable("LegacyIdentityMaps", (string)null);
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LegacyPoliticalVoteEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ArchiveReference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DocumentSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("JsonPath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OriginalPayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlayerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("PlayerKey");
+
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("SourceOrdinal")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId");
+
+                    b.HasIndex("PlayerId", "SeasonIndex");
+
+                    b.HasIndex("SeasonIndex", "Day");
+
+                    b.HasIndex("SourceId", "DocumentSha256", "SourceOrdinal")
+                        .IsUnique();
+
+                    b.ToTable("LegacyPoliticalVoteEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_LegacyPoliticalVotes_Day", "\"Day\" BETWEEN 1 AND 38");
+                        });
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LegacyPushActiveDay", b =>
@@ -1767,6 +1872,10 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsComplete")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("SerieADays")
                         .HasColumnType("integer");
@@ -4836,6 +4945,22 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Navigation("League");
 
                     b.Navigation("Season");
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LegacyPoliticalVoteEntry", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.PlayerSeason", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId", "SeasonIndex")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Club");
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LegacyPushActiveDay", b =>

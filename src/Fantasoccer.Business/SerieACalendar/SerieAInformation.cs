@@ -55,6 +55,8 @@ namespace Fantasoccer.Business
                             Away = new RealTeam { Name = match.awayTeam.teamName.ToLower().ToUpperCaseFirst(), Abbreviation = match.awayTeam.shortTeamName?.ToLower() ?? string.Empty },
                             Date = FantacalcioTime.ToItalyNow(match.utcDate),
                             Delayed = string.Equals(match.status, "POSTPONED", StringComparison.OrdinalIgnoreCase),
+                            WasPostponed = string.Equals(match.status, "POSTPONED", StringComparison.OrdinalIgnoreCase),
+                            IsFinished = string.Equals(match.status, "FULL", StringComparison.OrdinalIgnoreCase),
                             HomeGoal = hasScore ? match.homeTeam.score : null,
                             AwayGoal = hasScore ? match.awayTeam.score : null
                         });

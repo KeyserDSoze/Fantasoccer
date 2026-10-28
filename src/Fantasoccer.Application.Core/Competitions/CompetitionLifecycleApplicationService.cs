@@ -12,6 +12,7 @@ namespace Fantasoccer.Application.Core.Competitions;
 
 public sealed record GenerateCompetitionRequest(int? ExpectedVersion = null, bool ReplaceExisting = false);
 public sealed record RecalculateCompetitionRequest(int Day, bool OnlyLastDay = false, bool PreciseDay = false, int? ExpectedVersion = null, bool OnlyUnscored = false);
+public sealed record RecalculationOutcome(bool Changed, bool AwaitingRecovery);
 
 public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext database, CompetitionApplicationService competitions,
     IFactory<ILeagueCalculator> calculators, ITeamCalculator scoring, TimeProvider clock)
@@ -59,13 +60,13 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public async Task RecalculateAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken = default)
-        => await RecalculateCoreAsync(caller, group, league, year, request, cancellationToken);
+    public Task<RecalculationOutcome> RecalculateAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken = default)
+        => RecalculateCoreAsync(caller, group, league, year, request, cancellationToken);
 
-    public Task RecalculateScheduledAsync(Guid group, Guid league, int year, int day, CancellationToken cancellationToken = default)
+    public Task<RecalculationOutcome> RecalculateScheduledAsync(Guid group, Guid league, int year, int day, CancellationToken cancellationToken = default)
         => RecalculateCoreAsync(null, group, league, year, new(day, PreciseDay: true, OnlyUnscored: true), cancellationToken);
 
-    private async Task RecalculateCoreAsync(ClaimsPrincipal? caller, Guid group, Guid league, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken)
+    private async Task<RecalculationOutcome> RecalculateCoreAsync(ClaimsPrincipal? caller, Guid group, Guid league, int year, RecalculateCompetitionRequest request, CancellationToken cancellationToken)
     {
         if (request.Day is < 1 or > 38) throw new ApplicationFault(400, "invalid_recalculation_day", "Giornata non valida.");
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
@@ -79,22 +80,32 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         var type = Type(season);
         var calculator = Calculator(type);
         var selectedDays = calendar.Stages.SelectMany(x => x.Days).Where(x => request.PreciseDay || request.OnlyLastDay ? x.SerieADay == request.Day : x.SerieADay <= request.Day).ToArray();
-        if (request.OnlyUnscored && selectedDays.All(day => day.Games.All(game => game.Result != null))) return;
+        if (request.OnlyUnscored && selectedDays.All(day => day.Games.All(game => game.Result != null))) return new(false, false);
+        var changed = false; var metadataChanged = false; var awaiting = false;
         foreach (var day in selectedDays)
         {
             if (request.OnlyUnscored && day.Games.All(x => x.Result != null)) continue;
             if (day.FantasyTurn <= settings.CancelledDay)
             {
                 foreach (var game in day.Games.Where(x => !request.OnlyUnscored || x.Result == null)) game.Result = new() { IsCancelled = true };
+                day.AwaitingPostponedMatches = false; changed = true;
                 continue;
             }
             var realGames = await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day.SerieADay).ToArrayAsync(cancellationToken);
-            var times = realGames.Where(x => !x.Delayed && x.KickoffUtc != null).Select(x => x.KickoffUtc!.Value).ToArray();
-            var clubs = realGames.SelectMany(x => new[] { x.HomeClubId, x.AwayClubId }).ToHashSet();
-            var votedClubs = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day.SerieADay && x.Source == FootballVoteSource.Official)
+            var votedClubs = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day.SerieADay && x.Source == FootballVoteSource.Official && x.IsFinal && x.HasVote)
                 .Select(x => x.ClubId).Distinct().ToArrayAsync(cancellationToken);
-            if (clubs.Count == 0 || !clubs.IsSubsetOf(votedClubs) || times.Length == 0 || clock.GetUtcNow() < times.Max().AddMinutes(135))
+            var ready = MatchdayReady(realGames, settings.Postponements.WaitForRecovery, votedClubs.ToHashSet(), clock.GetUtcNow());
+            if (!ready && settings.Postponements.WaitForRecovery && realGames.Any(x => x.WasPostponed || x.Delayed))
+            {
+                if (day.Games.All(x => x.Result is not null))
+                    throw new ApplicationFault(409, "postponed_recovery_not_finished", "I recuperi non sono ancora completi: il risultato già salvato non viene cancellato o sostituito.");
+                awaiting = true;
+                if (!day.AwaitingPostponedMatches) { day.AwaitingPostponedMatches = true; metadataChanged = true; }
+                continue;
+            }
+            if (!ready)
                 throw new ApplicationFault(409, "official_matchday_incomplete", "La giornata non è conclusa o mancano voti ufficiali per una squadra reale. Nessun risultato è stato modificato.");
+            if (day.AwaitingPostponedMatches) { day.AwaitingPostponedMatches = false; metadataChanged = true; }
             await scoring.BuildRequestAsync(year, day.SerieADay, type, settings, true, true, false);
             foreach (var game in day.Games)
             {
@@ -108,6 +119,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
                 var result = new GameResult { Home = homePoint, Away = awayPoint };
                 result.CalculateGoals(settings);
                 game.Result = CompetitionMapping.Saved(result);
+                changed = true;
                 var saved = await database.PlayedMatchSnapshots.SingleOrDefaultAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.MatchId == game.Id && x.Day == day.SerieADay, cancellationToken);
                 if (saved is null) database.PlayedMatchSnapshots.Add(saved = new() { GroupId = group, LeagueId = league, SeasonIndex = year, MatchId = game.Id, Day = day.SerieADay,
                     HomeName = game.HomeName, AwayName = game.AwayName });
@@ -119,6 +131,12 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
                             PlayerRole = player.PlayerRole, IsActive = player.IsActive, IsVisible = player.IsVisible, Price = player.Price, Revenue = player.Revenue,
                             Status = player.Status, Position = player.Position });
             }
+        }
+        if (!changed)
+        {
+            if (metadataChanged) { calendar.Version++; await database.SaveChangesAsync(cancellationToken); }
+            await transaction.CommitAsync(cancellationToken);
+            return new(metadataChanged, awaiting);
         }
         var domain = CompetitionMapping.Domain(calendar);
         var teams = await TeamsAsync(group, league, year, cancellationToken);
@@ -132,6 +150,21 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         calendar.Version++;
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        return new(true, awaiting);
+    }
+
+    internal static bool MatchdayReady(FootballMatch[] matches, bool wait, HashSet<string?> actualClubs, DateTimeOffset now)
+    {
+        if (matches.Length == 0) return false;
+        var required = matches.Where(x => wait || !x.WasPostponed && !x.Delayed).ToArray();
+        if (required.Length == 0)
+        {
+            var original = matches.Select(x => x.OriginalKickoffUtc ?? x.KickoffUtc).ToArray();
+            return original.All(x => x is not null) && now >= original.Max()!.Value.AddMinutes(135);
+        }
+        return required.All(game => !game.Delayed &&
+            (game.IsFinished == true || game.IsFinished is null && game.KickoffUtc is { } kickoff && now >= kickoff.AddMinutes(135)) &&
+            (game.ActualOfficialVotesReady ?? (actualClubs.Contains(game.HomeClubId) && actualClubs.Contains(game.AwayClubId))));
     }
 
     private async Task<LeagueSeason> ManageAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken)

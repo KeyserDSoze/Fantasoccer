@@ -11,8 +11,9 @@ public sealed partial class CoreDatasetImporter
 {
     private static void LoadFootballSamples(VerifiedJsonDataset dataset, CorePlan plan,
         Func<RealPlayer, int, bool, PlayerSource, PlayerSeason> player, Func<RealTeam?, ClubSource, string> club, Action<int> season,
-        Action<string, int, int> root, Func<string?, ClubSource, string> rankClub, Action<string, int, ClubMembershipSource> membership)
+        Action<string, int, int> root, Func<string?, ClubSource, string> rankClub, Action<string, int, ClubMembershipSource> membership, Func<string, string, Guid> map)
     {
+        var postponed = LegacyPostponedClubs(dataset);
         foreach (var document in dataset.Documents.Where(x => x.Container is "live" or "notification" or "official"))
         {
             var entity = document.Envelope.Deserialize<Entity<VotedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_votes_envelope");
@@ -22,10 +23,15 @@ public sealed partial class CoreDatasetImporter
             var missingClubs = 0; string? firstMissingClub = null;
             var unnamed = 0; var unnamedWithVote = 0; string? firstUnnamed = null;
             var samples = entity.Value?.Players ?? throw new CoreImportException("missing_vote_players");
+            var variants = ClassifyPoliticalVotes(document, samples, key.Year, key.Day, postponed);
+            var political = 0; var paired = 0; string? firstPolitical = null;
             // Root has already enforced a unique source/year/day document.
             // Retain original source ordinals, not SQL ordinals after skips.
             var votes = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var (value, index) in samples.Select((value, index) => (value, index)))
+            var identities = new Dictionary<string, int>(StringComparer.Ordinal);
+            // Actual evidence creates a missing annual row before a legacy
+            // substitute does. Source ordinals/JSON are never reordered in storage.
+            foreach (var (value, index) in samples.Select((value, index) => (value, index)).OrderBy(x => variants[x.index]))
             {
                 var origin = PlayerOrigin(document, $".p[{index}]");
                 if (IsUnnamedVote(value))
@@ -36,16 +42,33 @@ public sealed partial class CoreDatasetImporter
                 }
                 var identity = player(value, key.Year, false, origin);
                 var vote = value.Vote ?? throw new CoreImportException("missing_player_vote");
-                var duplicate = !votes.TryAdd(identity.PlayerId, index);
-                if (duplicate || !float.IsFinite(vote.Value))
+                var legacyPolitical = variants[index];
+                var duplicate = !legacyPolitical && !votes.TryAdd(identity.PlayerId, index);
+                var incompatible = identities.TryGetValue(identity.PlayerId, out var firstIndex) &&
+                    !SamePoliticalIdentity(value, samples[firstIndex], origin, PlayerOrigin(document, $".p[{firstIndex}]"));
+                if (duplicate || incompatible || !float.IsFinite(vote.Value))
                 {
                     var raw = Value(document.Envelope).GetProperty("p");
-                    var previous = duplicate ? votes[identity.PlayerId] : (int?)null;
+                    var previous = duplicate ? votes[identity.PlayerId] : incompatible ? firstIndex : (int?)null;
                     throw VoteFault("duplicate_or_invalid_vote", origin, key.Year, key.Day, value, raw[index],
                         previous is { } ordinal ? PlayerOrigin(document, $".p[{ordinal}]") : null,
                         previous is { } first ? samples[first] : null, previous is { } earlier ? raw[earlier] : null);
                 }
+                identities.TryAdd(identity.PlayerId, index);
                 var clubCode = VoteClub(value, origin, club);
+                if (legacyPolitical)
+                {
+                    political++; if (votes.ContainsKey(identity.PlayerId)) paired++;
+                    firstPolitical ??= origin.JsonPath;
+                    plan.LegacyPoliticalVoteEntries.Add(new()
+                    {
+                        Id = map("legacy-political-vote", Composite(document.Sha256, index.ToString(CultureInfo.InvariantCulture))),
+                        SourceId = dataset.Manifest.SourceId, DocumentSha256 = document.Sha256, ArchiveReference = DocumentArchiveReference(document),
+                        JsonPath = origin.JsonPath, SourceOrdinal = index, PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day,
+                        ClubId = clubCode, OriginalPayloadJson = Value(document.Envelope).GetProperty("p")[index].GetRawText()
+                    });
+                    continue;
+                }
                 if (clubCode is null) { missingClubs++; firstMissingClub ??= ClubOrigin(origin).JsonPath; }
                 plan.Votes.Add(new() { PlayerId = identity.PlayerId, SeasonIndex = key.Year, Day = key.Day, Source = source,
                     ClubId = clubCode, PlayerRole = (int)value.Role, IsActive = value.IsActive, IsVisible = value.Visible,
@@ -58,6 +81,7 @@ public sealed partial class CoreDatasetImporter
                 key.Year, key.Day, missingClubs, firstMissingClub!));
             if (unnamed > 0) plan.SkippedUnnamedVotes.Add(new(document.Sha256, document.Container, DocumentArchiveReference(document),
                 key.Year, key.Day, samples.Count, unnamed, unnamedWithVote, firstUnnamed!));
+            if (political > 0) plan.LegacyPoliticalVotes.Add(new(document.Sha256, DocumentArchiveReference(document), key.Year, key.Day, political, paired, firstPolitical!));
         }
         var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))

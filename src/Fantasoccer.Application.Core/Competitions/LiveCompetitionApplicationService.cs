@@ -20,7 +20,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         var name = await database.Groups.Where(x => x.Id == group).Select(x => x.Name).SingleAsync(cancellationToken);
         var calendar = await football.CalendarAsync(caller, year, cancellationToken);
         var now = clock.GetUtcNow();
-        var windows = (calendar?.Days ?? []).Select(x => new { x.SerieADay, Times = x.Games.Where(game => !game.Delayed && game.Date != null).Select(game => game.Date!.Value).ToArray() })
+        var windows = (calendar?.Days ?? []).Select(x => new { x.SerieADay, Times = x.Games.Where(game => !game.Delayed && !game.WasPostponed && game.Date != null).Select(game => game.Date!.Value).ToArray() })
             .Where(x => x.Times.Length > 0).ToArray();
         var selected = windows.Where(x => now >= x.Times.Min() && now <= x.Times.Max().AddHours(10.25)).MaxBy(x => x.SerieADay)?.SerieADay
             ?? windows.Where(x => now < x.Times.Min()).MinBy(x => x.SerieADay)?.SerieADay

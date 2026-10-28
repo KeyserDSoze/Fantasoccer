@@ -26,6 +26,7 @@ public sealed class FantasyMatchday
     public int Ordinal { get; set; }
     public int FantasyTurn { get; set; }
     public int SerieADay { get; set; }
+    public bool AwaitingPostponedMatches { get; set; }
     public ICollection<FantasyMatch> Games { get; set; } = [];
 }
 public sealed class FantasyMatch

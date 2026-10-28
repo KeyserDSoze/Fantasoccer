@@ -197,6 +197,8 @@ namespace Fantasoccer
         public bool AllowLiveModuleChange { get; set; }
         [JsonPropertyName("oc")]
         public OpeningCompetitionSettings OpeningCompetition { get; set; } = OpeningCompetitionSettings.Default;
+        [JsonPropertyName("pp")]
+        public PostponementSettings Postponements { get; set; } = new();
         public static LeagueSetting Default => new()
         {
             StartingMoney = 1000,

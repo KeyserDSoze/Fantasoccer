@@ -7,6 +7,9 @@ internal static class LegacyRulesMapping
     public static LeagueRules Convert(Guid groupId, Guid leagueId, int year, LeagueSetting settings, Func<string, Guid> sourceLeague)
     {
         if (settings is null || settings.Votes is null) throw new CoreImportException("missing_league_settings");
+        if (settings.Postponements is null || !new[] { settings.Postponements.Goalkeeper, settings.Postponements.Defender,
+                settings.Postponements.Midfielder, settings.Postponements.Forward }.All(x => float.IsFinite(x) && x is >= 0 and <= 10))
+            throw new CoreImportException("invalid_postponement_settings");
         var row = new LeagueRules
         {
             GroupId = groupId, LeagueId = leagueId, SeasonIndex = year,
@@ -20,6 +23,8 @@ internal static class LegacyRulesMapping
             MoneyForGoal = settings.MoneyForGoal, MoneyForSufferedGoal = settings.MoneyForSufferedGoal,
             RandomAuction = settings.RandomAuction, RankWithValuePoints = settings.RankWithValuePoints, Market = (int)settings.Market,
             LiveFormationChanges = settings.LiveFormationChanges, AllowLiveModuleChange = settings.AllowLiveModuleChange,
+            WaitForPostponedMatches = settings.Postponements.WaitForRecovery, PoliticalGoalkeeper = settings.Postponements.Goalkeeper,
+            PoliticalDefender = settings.Postponements.Defender, PoliticalMidfielder = settings.Postponements.Midfielder, PoliticalForward = settings.Postponements.Forward,
             Votes = settings.Votes.Select(x => new LeagueVoteWeight { PlayerRole = (int)x.Key, Goal = x.Value.Goal,
                 Penalty = x.Value.Penalty, SufferedGoal = x.Value.SufferedGoal, StoppedPenalty = x.Value.StoppedPenalty,
                 WrongedPenalty = x.Value.WrongedPenalty, OwnGoal = x.Value.OwnGoal, Assist = x.Value.Assist,

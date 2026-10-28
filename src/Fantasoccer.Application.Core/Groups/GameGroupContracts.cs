@@ -18,6 +18,7 @@ public sealed record LeagueTypeSettingsDto(int CalendarType, LeagueRoundDto[] Ro
     PreviousYearDto? FromPreviousYear, CardTrainerDto CardTrainer);
 public sealed record OpeningPrizeDto(int Position, int Credits);
 public sealed record OpeningSettingsDto(bool Enabled, int SerieADays, OpeningPrizeDto[] Prizes);
+public sealed record PostponementSettingsDto(bool WaitForRecovery = false, float Goalkeeper = 6, float Defender = 6, float Midfielder = 6, float Forward = 6);
 
 public sealed class LeagueSettingDto
 {
@@ -48,4 +49,5 @@ public sealed class LeagueSettingDto
     public int LiveFormationChanges { get; set; }
     public bool AllowLiveModuleChange { get; set; }
     public OpeningSettingsDto OpeningCompetition { get; set; } = new(false, 2, []);
+    public PostponementSettingsDto Postponements { get; set; } = new();
 }

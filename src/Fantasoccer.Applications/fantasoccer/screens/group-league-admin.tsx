@@ -441,7 +441,7 @@ export default function GroupLeagueAdminScreen() {
       )
 
       if (result) {
-        toast.show('✅ Ricalcolo completato con successo', { variant: 'success' })
+        toast.show(result.awaitingRecovery ? 'Alcune giornate restano in attesa dei recuperi' : '✅ Ricalcolo completato con successo', { variant: result.awaitingRecovery ? 'info' : 'success' })
       } else {
         toast.show('❌ Errore nel ricalcolo', { variant: 'error' })
       }
@@ -470,7 +470,7 @@ export default function GroupLeagueAdminScreen() {
       )
 
       if (result) {
-        toast.show('✅ Ultima giornata ricalcolata con successo', { variant: 'success' })
+        toast.show(result.awaitingRecovery ? 'La giornata resta in attesa dei recuperi' : '✅ Ultima giornata ricalcolata con successo', { variant: result.awaitingRecovery ? 'info' : 'success' })
       } else {
         toast.show('❌ Errore nel ricalcolo', { variant: 'error' })
       }
@@ -499,7 +499,7 @@ export default function GroupLeagueAdminScreen() {
       )
 
       if (result) {
-        toast.show(`✅ Giornata ${dayToRecalculate} ricalcolata con successo`, { variant: 'success' })
+        toast.show(result.awaitingRecovery ? 'La giornata resta in attesa dei recuperi' : `✅ Giornata ${dayToRecalculate} ricalcolata con successo`, { variant: result.awaitingRecovery ? 'info' : 'success' })
       } else {
         toast.show('❌ Errore nel ricalcolo', { variant: 'error' })
       }

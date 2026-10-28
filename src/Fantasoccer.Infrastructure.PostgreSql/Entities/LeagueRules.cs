@@ -29,6 +29,11 @@ public sealed class LeagueRules
     public int Market { get; set; }
     public int LiveFormationChanges { get; set; }
     public bool AllowLiveModuleChange { get; set; }
+    public bool WaitForPostponedMatches { get; set; }
+    public float PoliticalGoalkeeper { get; set; } = 6;
+    public float PoliticalDefender { get; set; } = 6;
+    public float PoliticalMidfielder { get; set; } = 6;
+    public float PoliticalForward { get; set; } = 6;
     public bool OpeningCompetitionEnabled { get; set; }
     public int OpeningCompetitionSerieADays { get; set; } = 2;
     public bool HasTypeSettings { get; set; }

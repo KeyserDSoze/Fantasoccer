@@ -15,7 +15,7 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
     {
         if (database.ChangeTracker.HasChanges()) throw new InvalidOperationException("Matchday push production requires a dedicated clean scope.");
         var now = clock.GetUtcNow();
-        var schedules = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && !x.Delayed && x.KickoffUtc != null).ToArrayAsync(cancellationToken))
+        var schedules = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && !x.Delayed && !x.WasPostponed && x.KickoffUtc != null).ToArrayAsync(cancellationToken))
             .GroupBy(x => x.SerieADay).Select(x => new { Day = x.Key, Start = x.Min(game => game.KickoffUtc!.Value), End = x.Max(game => game.KickoffUtc!.Value) }).ToArray();
         var live = schedules.Where(x => now >= x.Start && now <= x.End.AddHours(10.25)).MaxBy(x => x.Day);
         var next = schedules.Where(x => now < x.Start).MinBy(x => x.Day);

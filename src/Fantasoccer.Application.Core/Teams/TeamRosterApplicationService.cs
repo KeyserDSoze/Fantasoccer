@@ -54,8 +54,8 @@ public sealed class TeamRosterApplicationService(FantasoccerDbContext database, 
         var now = clock.GetUtcNow();
         if (request.Day > 0 && !admin)
         {
-            var kickoffs = await database.FootballMatches.Where(x => x.SeasonIndex == request.Year && x.SerieADay == request.Day && !x.Delayed && x.KickoffUtc != null)
-                .Select(x => x.KickoffUtc!.Value).ToArrayAsync(cancellationToken);
+            var kickoffs = await database.FootballMatches.Where(x => x.SeasonIndex == request.Year && x.SerieADay == request.Day && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null)
+                .Select(x => (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc)!.Value).ToArrayAsync(cancellationToken);
             if (kickoffs.Length == 0) throw new ApplicationFault(409, "matchday_schedule_unavailable", "Calendario della giornata non disponibile.");
             if (request.Live)
             {

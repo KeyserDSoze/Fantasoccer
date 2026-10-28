@@ -36,11 +36,15 @@ namespace Fantasoccer
         public bool IsIn { get; set; }
         [JsonPropertyName("j")]
         public bool Injured { get; set; }
+        // Calculation provenance only, never a provider event/flag. Political
+        // values are a flat league rule, not evidence of a clean sheet or bonus.
+        [JsonIgnore]
+        public bool IsPolitical { get; set; }
         public static Vote Default(Role role)
             => new() { Role = role };
         [JsonIgnore]
         public bool HasDoneSomething
-            => HasBonus || (Value > 0 && this.Role == Role.GoalKeeper);
+            => !IsPolitical && (HasBonus || (Value > 0 && this.Role == Role.GoalKeeper));
         [JsonIgnore]
         public bool HasBonus => HasPositiveBonus || HasNegativeBonus;
         [JsonIgnore]

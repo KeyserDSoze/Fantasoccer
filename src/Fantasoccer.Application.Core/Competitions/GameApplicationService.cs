@@ -25,8 +25,8 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var type = (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1);
         var day = match.Matchday.SerieADay;
         await calculator.BuildRequestAsync(year, day, type, settings, true, true, true);
-        var schedule = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && x.KickoffUtc != null)
-            .Select(x => x.KickoffUtc!.Value).ToArrayAsync(cancellationToken);
+        var schedule = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null)
+            .Select(x => (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc)!.Value).ToArrayAsync(cancellationToken);
         var now = clock.GetUtcNow();
         var before = schedule.Length > 0 && now < schedule.Min();
         var deadline = schedule.Length > 0 ? (DateTimeOffset?)schedule.Max().AddHours(4) : null;
@@ -89,7 +89,8 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
             preview = true;
         }
         return new(teamDtos.ToArray(), result, day, teamDtos.Any(x => x.CanEdit), liveWindow, deadline,
-            teamDtos.Where(x => x.CanEdit).Select(x => (int?)x.FormationChangesRemaining).FirstOrDefault(), preview);
+            teamDtos.Where(x => x.CanEdit).Select(x => (int?)x.FormationChangesRemaining).FirstOrDefault(), preview)
+            { AwaitingPostponedMatches = match.Matchday.AwaitingPostponedMatches };
     }
 
     public async Task<FormationSavedDto> SaveAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid matchId,
@@ -153,5 +154,5 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
     private static Player DomainPlayer(RosterPlayerDto row) => new() { Name = row.Name, RealTeam = new() { Name = row.Team.Name, Abbreviation = row.Team.Abbreviation },
         Role = (Role)row.Role, IsActive = row.IsActive, Visible = row.Visible, Price = row.Price, Revenue = row.Revenue, Status = (PlayerInTeamStatus)row.Status, Position = (FantaSoccerRole)row.Position };
     private static VoteDto Vote(Vote row) => new((int)row.Role, row.Value, row.IsFinal, row.Goal, row.Penalty, row.Assist, row.StoppedPenalty, row.SufferedGoal,
-        row.WrongedPenalty, row.OwnGoal, (int)row.Status, row.ManOfTheMatch, row.HasVote, row.IsOut, row.IsIn, row.Injured);
+        row.WrongedPenalty, row.OwnGoal, (int)row.Status, row.ManOfTheMatch, row.HasVote, row.IsOut, row.IsIn, row.Injured) { IsPolitical = row.IsPolitical };
 }

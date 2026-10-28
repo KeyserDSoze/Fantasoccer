@@ -27,7 +27,7 @@ public sealed partial class CompetitionApplicationService(FantasoccerDbContext d
             .Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
         return calendar is null ? null : new(year, calendar.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,
             x => x.Days.OrderBy(day => day.Ordinal).Select(day => new CalendarDayDto(day.SerieADay, day.FantasyTurn,
-                day.Games.OrderBy(game => game.Ordinal).Select(Game).ToArray())).ToArray()), calendar.Version);
+                day.Games.OrderBy(game => game.Ordinal).Select(Game).ToArray()) { AwaitingPostponedMatches = day.AwaitingPostponedMatches }).ToArray()), calendar.Version);
     }
 
     public async Task<LeagueSeason> AuthorizeManagerAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CancellationToken cancellationToken)

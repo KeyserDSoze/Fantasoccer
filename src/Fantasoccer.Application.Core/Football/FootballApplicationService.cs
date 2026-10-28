@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Groups;
 using Fantasoccer.Infrastructure.PostgreSql;
@@ -49,7 +50,8 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
             .Include(x => x.Matches).ThenInclude(x => x.AwayClub).Where(x => x.SeasonIndex == year).OrderBy(x => x.SerieADay).AsSplitQuery().ToArrayAsync(cancellationToken);
         if (days.Length == 0 && !await ExistsAsync("realcalendar", year, 0, cancellationToken)) return null;
         return new(year, days.Select(day => new FootballDayDto(year, day.SerieADay, day.Matches.OrderBy(x => x.Ordinal).Select(x =>
-            new FootballGameDto(x.Ordinal, FootballMapping.Club(x.HomeClub), FootballMapping.Club(x.AwayClub), x.KickoffUtc, x.HomeGoals, x.AwayGoals, x.Delayed)).ToArray())).ToArray());
+            new FootballGameDto(x.Ordinal, FootballMapping.Club(x.HomeClub), FootballMapping.Club(x.AwayClub), x.KickoffUtc, x.HomeGoals, x.AwayGoals, x.Delayed)
+            { WasPostponed = x.WasPostponed, IsFinished = x.IsFinished, OriginalDate = x.OriginalKickoffUtc }).ToArray())).ToArray());
     }
 
     public async Task<ClubDto[]> ClubsAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
@@ -85,8 +87,22 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync(source.ToString().ToLowerInvariant(), year, day, cancellationToken)) return null;
-        return new(rows.Select(x => new VotedPlayerDto(x.PlayerId, x.Player.Name, x.Club is null ? null : FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))
-            { SeasonIndex = year }).ToArray());
+        VotedPlayerDto Map(FootballVote x) => new(x.PlayerId, x.Player.Name, x.Club is null ? null : FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x)) { SeasonIndex = year };
+        var legacy = source == FootballVoteSource.Official
+            ? await database.LegacyPoliticalVoteEntries.AsNoTracking().Include(x => x.Club).Where(x => x.SeasonIndex == year && x.Day == day)
+                .OrderBy(x => x.SourceOrdinal).ToArrayAsync(cancellationToken) : [];
+        return new(rows.Select(Map).ToArray()) { LegacyPoliticalPlayers = legacy.Select(PoliticalTrace).ToArray() };
+    }
+
+    private static VotedPlayerDto PoliticalTrace(LegacyPoliticalVoteEntry row)
+    {
+        var player = JsonSerializer.Deserialize<VotedRealPlayer>(row.OriginalPayloadJson)
+            ?? throw new InvalidOperationException("Invalid preserved political vote payload.");
+        var vote = player.Vote;
+        return new(row.PlayerId, player.Name, row.Club is null ? null : FootballMapping.Club(row.Club), (int)player.Role, player.IsActive, player.Visible,
+            new((int)vote.Role, vote.Value, vote.IsFinal, vote.Goal, vote.Penalty, vote.Assist, vote.StoppedPenalty, vote.SufferedGoal,
+                vote.WrongedPenalty, vote.OwnGoal, (int)vote.Status, vote.ManOfTheMatch, vote.HasVote, vote.IsOut, vote.IsIn, vote.Injured) { IsPolitical = true })
+            { SeasonIndex = row.SeasonIndex };
     }
 
     public async Task<PlayersDto<ChancedPlayerDto>?> ChancesAsync(ClaimsPrincipal caller, int year, int day, CancellationToken cancellationToken = default)
@@ -130,6 +146,8 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var row = await database.FootballMatches.SingleOrDefaultAsync(x => x.SeasonIndex == year && x.SerieADay == day && x.Ordinal == ordinal, cancellationToken)
             ?? throw new ApplicationFault(404, "football_game_not_found", "Partita non trovata.");
         if (row.Delayed != request.ExpectedDelayed) throw new ApplicationFault(409, "football_game_changed", "Il calendario è cambiato. Ricaricare prima di salvare.");
+        if (request.Delayed && !row.WasPostponed) row.OriginalKickoffUtc ??= row.KickoffUtc;
+        row.WasPostponed |= row.Delayed || request.Delayed;
         row.Delayed = request.Delayed;
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

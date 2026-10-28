@@ -3,7 +3,7 @@ import { Role } from './group'
 
 export enum Behaviour { Nothing = 0, YellowCard = 1, RedCard = 2 }
 export interface RealTeam { clubId?: string; name: string; abbreviation: string }
-export interface RealGame { ordinal?: number; home: RealTeam; away: RealTeam; date: string | Date | null; homeGoals: number | null; awayGoals: number | null; delayed: boolean }
+export interface RealGame { ordinal?: number; home: RealTeam; away: RealTeam; date: string | Date | null; homeGoals: number | null; awayGoals: number | null; delayed: boolean; wasPostponed?: boolean; isFinished?: boolean | null; originalDate?: string | Date | null }
 export interface RealDay { year: number; serieADay: number; games: RealGame[] }
 export interface RealCalendar { year: number; days: RealDay[] }
 export interface RealRankedTeam { clubId?: string; name: string; points: number; victories: number; draws: number; defeats: number; goalsFor: number; goalsAgainst: number; goalDifference: number; played: number }
@@ -15,10 +15,10 @@ export interface EnhancedRealPlayersWrapper extends RealPlayersWrapper { activeP
 export interface Vote {
   role: Role; value: number; isFinal: boolean; goals: number; penalties: number; assists: number; stoppedPenalties: number; sufferedGoals: number
   wrongedPenalties: number; ownGoals: number; status: Behaviour; manOfTheMatch: boolean; hasVote: boolean; isOut: boolean; isIn: boolean
-  injured: boolean; hasPositiveBonus: boolean; hasNegativeBonus: boolean; hasDoneSomething: boolean
+  injured: boolean; hasPositiveBonus: boolean; hasNegativeBonus: boolean; hasDoneSomething: boolean; isPolitical?: boolean
 }
 export interface VotedRealPlayer extends Omit<RealPlayer, 'realTeam'> { realTeam: RealTeam | null; vote: Vote }
-export interface VotedRealPlayerWrapper { players: VotedRealPlayer[] }
+export interface VotedRealPlayerWrapper { players: VotedRealPlayer[]; legacyPoliticalPlayers?: VotedRealPlayer[] }
 export type VotedRealPlayerRoleBuckets = Partial<Record<Role, VotedRealPlayer[]>>
 export interface EnhancedVotedRealPlayerWrapper extends VotedRealPlayerWrapper {
   playersByRole: VotedRealPlayerRoleBuckets; playersWithVote: VotedRealPlayer[]; playersWithoutVote: VotedRealPlayer[]; totalPlayers: number; votedPlayersCount: number
@@ -54,8 +54,8 @@ export class RealCalendarHelper {
   private static readonly GAME_DURATION = 135 * 60 * 1000
   private static readonly LIVE_DURATION = (8 * 60 + 135) * 60 * 1000
   static getCurrentItalyTime() { return new Date() }
-  static isGamePlayed(game: RealGame) { return !!game.date && !game.delayed && Date.now() > new Date(game.date).getTime() }
-  private static times(day: RealDay) { return day.games.filter(game => !game.delayed && !!game.date).map(game => new Date(game.date!).getTime()) }
+  static isGamePlayed(game: RealGame) { return game.isFinished === true || game.isFinished == null && !!game.date && !game.delayed && Date.now() > new Date(game.date).getTime() }
+  private static times(day: RealDay) { return day.games.filter(game => !game.delayed && !game.wasPostponed && !!game.date).map(game => new Date(game.date!).getTime()) }
   static getLiveDay(calendar: RealCalendar): RealDay | null {
     const now = Date.now()
     return [...calendar.days].sort((a, b) => b.serieADay - a.serieADay).find(day => {
@@ -72,7 +72,7 @@ export class RealCalendarHelper {
     return calendar.days.find(value => value.serieADay === day) ?? null
   }
   static getLiveGames(calendar: RealCalendar): RealGame[] {
-    return this.getLiveDay(calendar)?.games.filter(game => !!game.date && !game.delayed && Date.now() >= new Date(game.date).getTime() && Date.now() <= new Date(game.date).getTime() + this.GAME_DURATION) ?? []
+    return calendar.days.flatMap(day => day.games.filter(game => !!game.date && !game.delayed && game.isFinished !== true && Date.now() >= new Date(game.date).getTime() && Date.now() <= new Date(game.date).getTime() + this.GAME_DURATION))
   }
   static isLive(calendar: RealCalendar) { return this.getLiveGames(calendar).length > 0 }
   static getLiveSerieADay(calendar: RealCalendar) { return this.getLiveDay(calendar)?.serieADay ?? 0 }

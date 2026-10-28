@@ -5,13 +5,13 @@ export interface Point { value: number; defensiveBonus: boolean; goodPeople: boo
 export interface GameResult { home: Point; away: Point; isCancelled: boolean; homeGoals: number; awayGoals: number }
 export interface EnhancedGameResult extends GameResult { hasValue: boolean; resultType: GameResultType }
 export interface CalendarGame { id: string; number: number; home: string; homeOwner: string; away: string; awayOwner: string; result: GameResult | null; homeTeamId?: string | null; awayTeamId?: string | null }
-export interface CalendarDay { serieADay: number; number: number; games: CalendarGame[] }
+export interface CalendarDay { serieADay: number; number: number; games: CalendarGame[]; awaitingPostponedMatches?: boolean; isClosed?: boolean }
 export type CalendarRounds = Record<string, CalendarDay[]>
 export interface Calendar { year: number; rounds: CalendarRounds; version?: number }
 export interface EnhancedCalendar extends Calendar { roundKeys: string[]; allDays: CalendarDay[]; allGames: CalendarGame[]; pendingGames: CalendarGame[] }
 
 export class GameResultHelper {
-  static hasValue(result: GameResult | null | undefined) { return !!result && ((result.home?.value ?? 0) > 0 || (result.away?.value ?? 0) > 0) }
+  static hasValue(result: GameResult | null | undefined) { return !!result && result.home != null && result.away != null }
   static getResultType(result: GameResult | null | undefined) {
     return !result || result.homeGoals === result.awayGoals ? GameResultType.Tie : result.homeGoals > result.awayGoals ? GameResultType.HomeWon : GameResultType.AwayWon
   }

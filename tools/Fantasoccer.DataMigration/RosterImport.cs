@@ -122,7 +122,7 @@ public sealed partial class CoreDatasetImporter
                 catalog.Count, catalog.Count - unnamed, unnamed, resolution is not null));
         }
 
-        LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root, RankClub, Membership);
+        LoadFootballSamples(dataset, plan, Player, Club, addSeason, Root, RankClub, Membership, map);
 
         var snapshots = new HashSet<(Guid Team, RosterKind Kind, int Day, Guid Competition)>();
         foreach (var document in dataset.Documents.Where(x => x.Container is "team" or "dailyteams" or "openingteams" or "openingdailyteams"))
@@ -228,13 +228,16 @@ public sealed partial class CoreDatasetImporter
                     Membership(away, calendar.Key, ClubMembershipSource.Calendar);
                     row.Matches.Add(new() { SeasonIndex = calendar.Key, SerieADay = day.SerieADay, Ordinal = ordinal,
                         HomeClubId = home, AwayClubId = away, HomeGoals = game.HomeGoal, AwayGoals = game.AwayGoal,
-                        Delayed = game.Delayed, LegacyKickoffLocal = game.Date is { } date ? Local(date) : null,
-                        KickoffUtc = game.Date is { } kickoff ? ToUtc(kickoff) : null });
+                         Delayed = game.Delayed, WasPostponed = game.WasPostponed || game.Delayed, IsFinished = game.IsFinished,
+                         OriginalKickoffUtc = game.OriginalDate is { } original ? ToUtc(original) : game.Date is { } scheduled ? ToUtc(scheduled) : null,
+                         LegacyKickoffLocal = game.Date is { } date ? Local(date) : null,
+                         KickoffUtc = game.Date is { } kickoff ? ToUtc(kickoff) : null });
                 }
                 plan.Matchdays.Add(row);
             }
         }
 
+        AttestImportedPostponements(plan);
         LoadFantasyCompetitions(dataset, plan, map, Player, Club);
         LoadAuctions(dataset, plan, options, map, Player, Club, addUser);
         LoadHallArchives(dataset, plan, map, Person, Club, addOwner, addSeason);

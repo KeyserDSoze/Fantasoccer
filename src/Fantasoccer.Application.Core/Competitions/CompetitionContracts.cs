@@ -7,7 +7,11 @@ public sealed record PointDto(float Value, bool DefensiveBonus, bool GoodPeople,
 public sealed record ResultDto(PointDto Home, PointDto Away, bool IsCancelled, int HomeGoals, int AwayGoals);
 public sealed record CalendarGameDto(Guid Id, int Number, string Home, string? HomeOwner, string Away, string? AwayOwner,
     ResultDto? Result, Guid? HomeTeamId, Guid? AwayTeamId);
-public sealed record CalendarDayDto(int SerieADay, int Number, CalendarGameDto[] Games);
+public sealed record CalendarDayDto(int SerieADay, int Number, CalendarGameDto[] Games)
+{
+    public bool AwaitingPostponedMatches { get; init; }
+    public bool IsClosed => Games.Length > 0 && Games.All(x => x.Result is not null);
+}
 public sealed record FantasyCalendarDto(int Year, Dictionary<string, CalendarDayDto[]> Rounds, int Version);
 public sealed record RankedTeamDto(Guid TeamId, Guid BasketId, string Name, string Owner, float Point, int Victories, int Draws, int Defeats,
     int Goal, int SufferedGoal, float ValuePoint, float SufferedValuePoint, int PlusMoney, int? Money)
@@ -24,7 +28,10 @@ public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? S
     LivePlayerDto[] Players, string? LastUpdate, int FormationChangesMaximum, int FormationChangesUsed, int FormationChangesRemaining,
     FormationChangeDto[] FormationChangeHistory, string? LogoUrl, bool CanEdit);
 public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int SerieADay, bool CanEdit, bool IsLiveFormationWindow,
-    DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview);
+    DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview)
+{
+    public bool AwaitingPostponedMatches { get; init; }
+}
 public sealed record SaveGameFormationRequest(Guid TeamId, FormationPositionRequest[] Positions, int ExpectedVersion,
     int? SourceVersion = null, bool Live = false, bool AsAdmin = false);
 public sealed record OptimalGamePlayerDto(string PlayerId, string PlayerKey, string PlayerName, int Role, int Position, float Projection, float Confidence);

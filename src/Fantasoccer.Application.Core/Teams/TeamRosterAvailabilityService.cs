@@ -29,8 +29,8 @@ public sealed class TeamRosterAvailabilityService(FantasoccerDbContext database,
     public async Task SynchronizeFutureAsync(Guid group, int year, Guid[] teamIds, CancellationToken cancellationToken)
     {
         if (database.Database.CurrentTransaction is null) throw new InvalidOperationException("Roster availability synchronization requires the caller's transaction.");
-        var days = await database.FootballMatches.Where(x => x.SeasonIndex == year && !x.Delayed && x.KickoffUtc != null).GroupBy(x => x.SerieADay)
-            .Where(x => x.Min(game => game.KickoffUtc) > clock.GetUtcNow()).Select(x => x.Key).ToArrayAsync(cancellationToken);
+        var days = await database.FootballMatches.Where(x => x.SeasonIndex == year && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null).GroupBy(x => x.SerieADay)
+            .Where(x => x.Min(game => game.WasPostponed ? game.OriginalKickoffUtc : game.KickoffUtc) > clock.GetUtcNow()).Select(x => x.Key).ToArrayAsync(cancellationToken);
         if (days.Length == 0) return;
         var current = await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
             .Where(x => x.GroupId == group && x.SeasonIndex == year && x.Kind == RosterKind.Season && teamIds.Contains(x.TeamId)).AsSplitQuery().ToArrayAsync(cancellationToken);

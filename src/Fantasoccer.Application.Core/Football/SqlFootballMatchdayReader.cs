@@ -12,7 +12,7 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
         var matches = await database.FootballMatches.AsNoTracking().Include(x => x.HomeClub).Include(x => x.AwayClub)
             .Where(x => x.SeasonIndex == year).OrderBy(x => x.SerieADay).ThenBy(x => x.Ordinal).ToArrayAsync(cancellationToken);
         var now = clock.GetUtcNow();
-        var schedules = matches.Where(x => !x.Delayed && x.KickoffUtc != null).GroupBy(x => x.SerieADay)
+        var schedules = matches.Where(x => !x.Delayed && !x.WasPostponed && x.KickoffUtc != null).GroupBy(x => x.SerieADay)
             .Select(x => new { Day = x.Key, Start = x.Min(game => game.KickoffUtc!.Value), End = x.Max(game => game.KickoffUtc!.Value) }).ToArray();
         var liveDay = schedules.Where(x => now >= x.Start && now <= x.End.AddHours(10.25)).MaxBy(x => x.Day)?.Day ?? 0;
         var lastDay = schedules.Where(x => now >= x.End.AddHours(2.25)).MaxBy(x => x.Day)?.Day ?? 0;
@@ -25,9 +25,13 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
             // The characterized scoring helpers compare Italian wall clocks.
             // Keep that convention only inside the engine; DTOs always carry UTC.
             Date = x.KickoffUtc is { } kickoff ? TimeZoneInfo.ConvertTime(kickoff, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome")).DateTime : null,
-            HomeGoal = x.HomeGoals, AwayGoal = x.AwayGoals, Delayed = x.Delayed
+            HomeGoal = x.HomeGoals, AwayGoal = x.AwayGoals, Delayed = x.Delayed, WasPostponed = x.WasPostponed,
+            IsFinished = x.IsFinished, OriginalDate = x.OriginalKickoffUtc is { } original
+                ? TimeZoneInfo.ConvertTime(original, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome")).DateTime : null
         }).ToList();
         VotedRealPlayerWrapper? live = null, official = null;
+        var recoveryLive = matches.Any(x => x.SerieADay == day && x.WasPostponed && !x.Delayed && x.IsFinished != true &&
+            x.KickoffUtc is { } recovery && now >= recovery && now <= recovery.AddHours(10.25));
         if (withVotes)
         {
             var votes = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
@@ -39,7 +43,9 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
                     RealTeam = x.Club is null ? null! : FootballMapping.DomainClub(x.Club), Role = (Role)x.PlayerRole, IsActive = x.IsActive, Visible = x.IsVisible,
                     Vote = FootballMapping.DomainVote(x) }).ToList() };
             }
-            if (day == liveDay || day == lastDay) live = Wrap(FootballVoteSource.Live);
+            // Final scoring never fills historical gaps with live votes. A
+            // recovery match keeps its own live window on the original day.
+            if (day == liveDay || day == lastDay || recoveryLive) live = Wrap(FootballVoteSource.Live);
             official = Wrap(FootballVoteSource.Official);
         }
         ChancedRealPlayerWrapper? chances = null;
@@ -52,7 +58,7 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, Tim
                 Chance = new() { Fantagazzetta = x.Fantagazzetta, Gazzetta = x.Gazzetta, Mediaset = x.Mediaset, Sky = x.Sky,
                     Status = (ChanceType)x.Status, Description = x.Description } }).ToList() };
         }
-        return new(day, day == liveDay, day == nextDay && selected != null && now < selected.Start,
+        return new(day, day == liveDay || recoveryLive, day == nextDay && selected != null && now < selected.Start,
             games.Count == 0 ? null : new() { Year = year, SerieADay = day, Games = games }, live, official, chances);
     }
 }

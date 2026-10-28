@@ -47,7 +47,12 @@ internal sealed class LeagueRulesConfiguration : IEntityTypeConfiguration<League
 {
     public void Configure(EntityTypeBuilder<LeagueRules> builder)
     {
-        builder.ToTable("LeagueRules");
+        builder.ToTable("LeagueRules", table => table.HasCheckConstraint("CK_LeagueRules_PoliticalVotes",
+            "\"PoliticalGoalkeeper\" BETWEEN 0 AND 10 AND \"PoliticalDefender\" BETWEEN 0 AND 10 AND \"PoliticalMidfielder\" BETWEEN 0 AND 10 AND \"PoliticalForward\" BETWEEN 0 AND 10"));
+        builder.Property(x => x.PoliticalGoalkeeper).HasDefaultValue(6f).ValueGeneratedNever();
+        builder.Property(x => x.PoliticalDefender).HasDefaultValue(6f).ValueGeneratedNever();
+        builder.Property(x => x.PoliticalMidfielder).HasDefaultValue(6f).ValueGeneratedNever();
+        builder.Property(x => x.PoliticalForward).HasDefaultValue(6f).ValueGeneratedNever();
         builder.HasKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex });
         builder.HasOne<LeagueSeason>().WithOne(x => x.Rules)
             .HasForeignKey<LeagueRules>(x => new { x.GroupId, x.LeagueId, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);

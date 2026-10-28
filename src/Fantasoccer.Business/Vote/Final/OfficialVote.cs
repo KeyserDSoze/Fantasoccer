@@ -17,13 +17,10 @@ namespace Fantasoccer.Business.IngestionData
         private static readonly Regex s_tdedRegex = new("</td>");
         private static readonly Regex s_spanClose = new("</span>");
         private readonly HttpClient _httpClient;
-        private readonly IFootballIngestionReader _context;
 
-        public OfficialVote(IHttpClientFactory httpClientFactory,
-            IFootballIngestionReader context)
+        public OfficialVote(IHttpClientFactory httpClientFactory)
         {
             _httpClient = httpClientFactory.CreateClient("base");
-            _context = context;
         }
         public async Task<List<VotedRealPlayer>> GetAsync(int year, int serieADay)
         {
@@ -111,48 +108,8 @@ namespace Fantasoccer.Business.IngestionData
                     }
                 }
             }
-            var serieACalendar = await _context.CalendarAsync(year).NoContext();
-            if (serieACalendar != null)
-            {
-                var day = serieACalendar.Days?.FirstOrDefault(x => x.SerieADay == serieADay);
-                var delayed = day?.Games?.Where(x => x.Delayed).ToList() ?? [];
-                if (delayed.Any())
-                {
-                    var allPlayers = await _context.PlayersAsync(year).NoContext();
-                    if (allPlayers?.Players != null)
-                    {
-                        foreach (var game in delayed)
-                        {
-                            Delayed(game.Home);
-                            Delayed(game.Away);
-                        }
-                         void Delayed(RealTeam team)
-                         {
-                             players.RemoveAll(x => string.Equals(x.RealTeam?.Name, team.Name, StringComparison.OrdinalIgnoreCase));
-                             foreach (var player in allPlayers.Players.Where(x =>
-                                 (!string.IsNullOrWhiteSpace(team.Abbreviation) && x.RealTeam?.Abbreviation == team.Abbreviation) ||
-                                string.Equals(x.RealTeam?.Name, team.Name, StringComparison.OrdinalIgnoreCase)))
-                            {
-                                players.Add(new()
-                                {
-                                     Name = player.Name,
-                                     RealTeam = player.RealTeam, Role = player.Role, IsActive = player.IsActive, Visible = player.Visible,
-                                    Vote = new Vote()
-                                    {
-                                        Role = player.Role,
-                                        HasVote = true,
-                                        Value = 6,
-                                        IsIn = false,
-                                        IsOut = false,
-                                        Status = Behaviour.Nothing,
-                                        IsFinal = true,
-                                    }
-                                });
-                            }
-                        }
-                    }
-                }
-            }
+            // Providers return actual evidence only. Political votes are a
+            // league-specific calculation policy, never a global replacement.
             return players;
         }
         private static string GetName(string name) => s_spanRegex.IsMatch(name) ? HttpUtility.HtmlDecode(s_spanRegex.Match(name).Value.Split('>')[1].Split('<')[0]) : string.Empty;

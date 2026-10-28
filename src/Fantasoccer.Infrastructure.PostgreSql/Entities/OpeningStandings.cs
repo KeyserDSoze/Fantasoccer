@@ -7,6 +7,7 @@ public sealed class OpeningStandingSnapshot
     public int SeasonIndex { get; set; }
     public int SerieADays { get; set; }
     public int Version { get; set; } = 1;
+    public bool IsComplete { get; set; } = true;
     public ICollection<OpeningStandingRow> Teams { get; set; } = [];
 }
 public sealed class OpeningStandingRow

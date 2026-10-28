@@ -40,5 +40,6 @@ export interface GameWrapper {
   liveFormationDeadline: string | null
   liveFormationChangesRemaining: number | null
   resultIsPreview: boolean
+  awaitingPostponedMatches?: boolean
 }
 export default GameWrapper

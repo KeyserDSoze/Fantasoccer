@@ -12,16 +12,20 @@ public record FootballPlayerDto(string PlayerId, string Name, ClubDto? RealTeam,
     public string PlayerKey => PlayerId;
     public string RoleLabel => ((Role)Role).AsString();
 }
-public sealed record PlayersDto<T>(T[] Players);
+public sealed record PlayersDto<T>(T[] Players)
+{
+    public T[] LegacyPoliticalPlayers { get; init; } = [];
+}
 public sealed record PlayerHistoryDto(string PlayerKey, string Name, int[] Years);
 public sealed record ClubHistoryDto(ClubDto Club, int[] Years);
 public sealed record ClubSeasonCatalogueDto(int SeasonIndex, ClubDto[] Teams, bool IsComplete);
 public sealed record VoteDto(int Role, float Value, bool IsFinal, int Goals, int Penalties, int Assists, int StoppedPenalties,
     int SufferedGoals, int WrongedPenalties, int OwnGoals, int Status, bool ManOfTheMatch, bool HasVote, bool IsOut, bool IsIn, bool Injured)
 {
+    public bool IsPolitical { get; init; }
     public bool HasPositiveBonus => Goals > 0 || Penalties > 0 || Assists > 0 || StoppedPenalties > 0;
     public bool HasNegativeBonus => OwnGoals > 0 || Status > 0 || WrongedPenalties > 0 || SufferedGoals > 0;
-    public bool HasDoneSomething => HasPositiveBonus || HasNegativeBonus || Value > 0 && Role == 0;
+    public bool HasDoneSomething => !IsPolitical && (HasPositiveBonus || HasNegativeBonus || Value > 0 && Role == 0);
 }
 public sealed record VotedPlayerDto(string PlayerId, string Name, ClubDto? RealTeam, int Role, bool IsActive, bool IsVisible, VoteDto Vote)
     : FootballPlayerDto(PlayerId, Name, RealTeam, Role, IsActive, IsVisible);
@@ -40,7 +44,12 @@ public sealed record StatisticPlayerDto(string PlayerId, string Name, ClubDto? R
     public float Average => WithVote > 0 ? Summatory / WithVote : 0;
     public float FantaAverage => WithVote > 0 ? FantaSummatory / WithVote : 0;
 }
-public sealed record FootballGameDto(int Ordinal, ClubDto Home, ClubDto Away, DateTimeOffset? Date, int? HomeGoals, int? AwayGoals, bool Delayed);
+public sealed record FootballGameDto(int Ordinal, ClubDto Home, ClubDto Away, DateTimeOffset? Date, int? HomeGoals, int? AwayGoals, bool Delayed)
+{
+    public bool WasPostponed { get; init; }
+    public bool? IsFinished { get; init; }
+    public DateTimeOffset? OriginalDate { get; init; }
+}
 public sealed record FootballDayDto(int Year, int SerieADay, FootballGameDto[] Games);
 public sealed record FootballCalendarDto(int Year, FootballDayDto[] Days);
 public sealed record ClubRankDto(string ClubId, string Name, float Points, int Victories, int Draws, int Defeats, int GoalsFor, int GoalsAgainst, int Played)

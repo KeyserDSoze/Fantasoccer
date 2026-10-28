@@ -1,5 +1,6 @@
 import { apiRequest } from './httpClient'
 import { competitionPath } from './gameService'
+export interface RecalculationOutcome { changed: boolean; awaitingRecovery: boolean }
 
 export class LeagueManagerService {
   async createCalendarAndRank(groupId: string, leagueId: string, year: number, expectedVersion?: number, replaceExisting = false) {
@@ -11,7 +12,7 @@ export class LeagueManagerService {
     await apiRequest(`${path}/randomize`, 'POST', { expectedVersion: version }); return true
   }
   async recalculate(groupId: string, leagueId: string, year: number, day: number, onlyLastDay = false, preciseDay = false) {
-    await apiRequest(`${competitionPath(groupId, leagueId, year)}/recalculate`, 'POST', { day, onlyLastDay, preciseDay }); return true
+    return await apiRequest<RecalculationOutcome>(`${competitionPath(groupId, leagueId, year)}/recalculate`, 'POST', { day, onlyLastDay, preciseDay })
   }
 }
 export const leagueManagerService = new LeagueManagerService()

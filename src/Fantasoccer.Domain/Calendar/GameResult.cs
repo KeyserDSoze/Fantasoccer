@@ -9,7 +9,7 @@ namespace Fantasoccer
         [JsonPropertyName("a")]
         public Point Away { get; set; }
         [JsonIgnore]
-        public bool HasValue => Home?.Value > 0 || Away?.Value > 0;
+        public bool HasValue => Home is not null && Away is not null;
         [JsonPropertyName("i")]
         public bool IsCancelled { get; set; }
         [JsonIgnore]

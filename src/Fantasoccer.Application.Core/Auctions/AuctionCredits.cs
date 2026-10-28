@@ -15,6 +15,8 @@ public sealed partial class AuctionApplicationService
             ? await database.OpeningStandingSnapshots.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == auction.GroupId && x.LeagueId == auction.LeagueId && x.SeasonIndex == auction.SeasonIndex, cancellationToken) : null;
         if (auction.Kind == 0 && rules.OpeningCompetitionEnabled && opening is null)
             throw new ApplicationFault(409, "opening_not_prepared", "Preparare la competizione iniziale prima di creare l'asta.");
+        if (opening is { IsComplete: false })
+            throw new ApplicationFault(409, "opening_waiting_for_recovery", "La competizione iniziale attende i recuperi: nessun premio provvisorio viene accreditato.");
         foreach (var team in teams)
         {
             var roster = await RosterAsync(auction, team.Id, cancellationToken);

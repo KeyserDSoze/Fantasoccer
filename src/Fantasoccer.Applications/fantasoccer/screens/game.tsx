@@ -201,11 +201,6 @@ export default function GameScreen() {
     if (!gameWrapper?.serieADay || !calendar) return;
 
     const checkLiveStatus = () => {
-      if (calendarIsLive) {
-        setIsLiveActive(true);
-        return;
-      }
-
       // Trova la giornata di Serie A corrispondente
       const targetDay = calendar.days?.find((day) => day.serieADay === gameWrapper.serieADay);
 
@@ -219,7 +214,7 @@ export default function GameScreen() {
       const TWO_HOURS_MS = 2 * 60 * 60 * 1000; // 2 ore in millisecondi
 
       const hasLiveGame = targetDay.games.some((game) => {
-        if (!game.date || game.delayed) return false;
+        if (!game.date || game.delayed || game.isFinished === true) return false;
         const gameStart = new Date(game.date).getTime();
         const gameEnd = gameStart + TWO_HOURS_MS;
         const nowTime = now.getTime();
@@ -299,8 +294,8 @@ export default function GameScreen() {
     if (!gameWrapper?.serieADay || !calendar) return false;
     const targetDay = calendar.days?.find((day) => day.serieADay === gameWrapper.serieADay);
     const gameDates = targetDay?.games
-      .filter((game) => !game.delayed && game.date)
-      .map((game) => new Date(game.date!).getTime()) ?? [];
+      .filter((game) => game.originalDate || game.date)
+      .map((game) => new Date(game.wasPostponed ? game.originalDate ?? game.date! : game.date!).getTime()) ?? [];
     if (gameDates.length === 0) return false;
     return Date.now() >= Math.max(...gameDates) + 135 * 60 * 1000;
   }, [gameWrapper?.serieADay, calendar]);
@@ -321,8 +316,8 @@ export default function GameScreen() {
         toast.show('Voti ufficiali non completi: ricalcolo non eseguito', { variant: 'error' });
         return;
       }
-      toast.show(`Giornata ${gameWrapper.serieADay} ricalcolata con successo`, {
-        variant: 'success',
+      toast.show(result.awaitingRecovery ? 'Giornata ancora in attesa dei recuperi e dei voti reali' : `Giornata ${gameWrapper.serieADay} ricalcolata con successo`, {
+        variant: result.awaitingRecovery ? 'info' : 'success',
       });
       await refreshGame();
     } catch (err) {
@@ -375,6 +370,9 @@ export default function GameScreen() {
               <Text>Nessuna partita disponibile</Text>
             ) : (
               <YStack gap="$2">
+                {gameWrapper.awaitingPostponedMatches && (
+                  <Text color="$orange11" fontWeight="600">Giornata in attesa dei recuperi: il risultato mostrato è provvisorio.</Text>
+                )}
                 {!playedScore && (
                   <XStack justifyContent="center" alignItems="center" gap="$5" padding="$3">
                     <YStack alignItems="center" gap="$2" flex={1}>

@@ -12,8 +12,8 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, Te
     public async Task PrepareNextAsync(int year, CancellationToken cancellationToken = default)
     {
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
-        var next = await database.FootballMatches.Where(x => x.SeasonIndex == year && !x.Delayed && x.KickoffUtc != null).GroupBy(x => x.SerieADay)
-            .Select(x => new { Day = x.Key, Start = x.Min(game => game.KickoffUtc) }).Where(x => x.Start > clock.GetUtcNow()).OrderBy(x => x.Start).FirstOrDefaultAsync(cancellationToken);
+        var next = await database.FootballMatches.Where(x => x.SeasonIndex == year && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null).GroupBy(x => x.SerieADay)
+            .Select(x => new { Day = x.Key, Start = x.Min(game => game.WasPostponed ? game.OriginalKickoffUtc : game.KickoffUtc) }).Where(x => x.Start > clock.GetUtcNow()).OrderBy(x => x.Start).FirstOrDefaultAsync(cancellationToken);
         if (next is null) return;
         var teams = await database.TeamSeasons.Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User).Where(x => x.SeasonIndex == year && !x.IsArchived)
             .AsSplitQuery().ToArrayAsync(cancellationToken);

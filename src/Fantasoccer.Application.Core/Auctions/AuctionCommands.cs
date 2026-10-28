@@ -153,12 +153,12 @@ public sealed partial class AuctionApplicationService
     private async Task FinalizeAsync(AuctionSession auction, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
     {
         if (auction.Actual?.WinningTeamId != null) throw Invalid("Assegnare o chiudere prima il lotto con offerta.");
-        var future = await database.FootballMatches.Where(x => x.SeasonIndex == auction.SeasonIndex && !x.Delayed && x.KickoffUtc != null)
-            .GroupBy(x => x.SerieADay).Select(x => new { Day = x.Key, Start = x.Min(game => game.KickoffUtc) }).Where(x => x.Start > clock.GetUtcNow())
+        var future = await database.FootballMatches.Where(x => x.SeasonIndex == auction.SeasonIndex && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null)
+            .GroupBy(x => x.SerieADay).Select(x => new { Day = x.Key, Start = x.Min(game => game.WasPostponed ? game.OriginalKickoffUtc : game.KickoffUtc) }).Where(x => x.Start > clock.GetUtcNow())
             .OrderBy(x => x.Start).FirstOrDefaultAsync(cancellationToken);
         if (future is not null)
         {
-            var started = await database.FootballMatches.AnyAsync(x => x.SeasonIndex == auction.SeasonIndex && x.SerieADay == future.Day && !x.Delayed && x.KickoffUtc <= clock.GetUtcNow(), cancellationToken);
+            var started = await database.FootballMatches.AnyAsync(x => x.SeasonIndex == auction.SeasonIndex && x.SerieADay == future.Day && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) <= clock.GetUtcNow(), cancellationToken);
             if (!started)
                 foreach (var team in teams)
                 {

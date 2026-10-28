@@ -4,6 +4,7 @@ public sealed class FootballMatchday
 {
     public int SeasonIndex { get; set; }
     public int SerieADay { get; set; }
+    public DateTimeOffset? LastRecoveryCheckUtc { get; set; }
     public ICollection<FootballMatch> Matches { get; set; } = [];
 }
 public sealed class FootballMatch
@@ -18,6 +19,10 @@ public sealed class FootballMatch
     public int? HomeGoals { get; set; }
     public int? AwayGoals { get; set; }
     public bool Delayed { get; set; }
+    public bool WasPostponed { get; set; }
+    public bool? IsFinished { get; set; }
+    public DateTimeOffset? OriginalKickoffUtc { get; set; }
+    public bool? ActualOfficialVotesReady { get; set; }
     public FootballClub HomeClub { get; set; } = null!;
     public FootballClub AwayClub { get; set; } = null!;
 }

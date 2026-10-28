@@ -144,7 +144,7 @@ public sealed class OfficialVoteTest : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AddsDefaultVotesForDelayedGames()
+    public async Task Does_not_create_global_political_votes_or_replace_actual_votes_for_delayed_games()
     {
         var year = FantacalcioTime.ActualYear;
         _handler.Content = string.Empty;
@@ -184,10 +184,7 @@ public sealed class OfficialVoteTest : IAsyncLifetime
 
         var players = await _officialVote.GetAsync(year, 1);
 
-        var player = Assert.Single(players);
-        Assert.Equal("Delayed player", player.Name);
-        Assert.Equal(6, player.Vote.Value);
-        Assert.False(player.Vote.IsIn);
+        Assert.Empty(players);
     }
 
     private const string ValidOfficialVotesHtml = """

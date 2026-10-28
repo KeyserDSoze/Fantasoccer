@@ -17,8 +17,14 @@ namespace Fantasoccer
         public int? AwayGoal { get; set; }
         [JsonPropertyName("e")]
         public bool Delayed { get; set; }
+        [JsonPropertyName("wp")]
+        public bool WasPostponed { get; set; }
+        [JsonPropertyName("f")]
+        public bool? IsFinished { get; set; }
+        [JsonPropertyName("od")]
+        public DateTime? OriginalDate { get; set; }
         [JsonIgnore]
-        public bool IsPlayed => !Delayed && Date.HasValue && FantacalcioTime.ItalyNow > Date.Value;
+        public bool IsPlayed => IsFinished == true || IsFinished is null && !Delayed && Date.HasValue && FantacalcioTime.ItalyNow > Date.Value;
     }
     public static class RealGameExtensions
     {
