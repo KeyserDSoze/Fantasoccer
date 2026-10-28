@@ -34,6 +34,7 @@ public sealed partial class CoreDatasetImporter
             var entity = document.Envelope.Deserialize<Entity<MarketWrapper, LeagueKey>>() ?? throw new CoreImportException("invalid_market_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var (group, league) = Scope(key);
+            if (LegacyMarketFormat(document, key.Year) is { } legacy) { plan.ExcludedLegacyMarkets.Add(legacy); continue; }
             if (plan.MarketBooks.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year)) throw new CoreImportException("market_book_collision");
             plan.MarketBooks.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = key.Year });
             var ids = new HashSet<string>(StringComparer.Ordinal);

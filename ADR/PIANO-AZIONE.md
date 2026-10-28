@@ -396,6 +396,8 @@ Per decisione del gestore (MappingVersion 42) l'import esclude da SQL una rosa i
 
 L'analisi successiva si è fermata su `calendar_season_mismatch`. La scansione `scripts/local/scan-real-calendars.ps1` ha mostrato che i calendari reali dal 2023/24 al 2026/27 hanno l'anno interno a 0 (mai salvato), mentre tutte le 38 giornate riportano la stagione della chiave; quelli fino al 2022/23 sono coerenti. Per decisione del gestore (MappingVersion 43) un anno interno 0 è accettato solo se tutte le giornate confermano la chiave, e il calendario passa poi alle regole già approvate: 2023/24 e 2025/26 restano esclusi perché contengono la stagione successiva, 2024/25 e 2026/27 vengono importati. I calendari così accettati sono dichiarati in `realCalendarsWithoutYear`; un anno interno diverso o giornate discordanti restano errori.
 
+L'analisi successiva si è fermata su `missing_market_trades`. La scansione `scripts/local/scan-competitions.ps1`, che ripete in sola lettura i controlli strutturali di mercati, competizioni, aste, albo, push, carte, news e consigli AI, ha trovato un solo tipo di problema: 8 mercati delle stagioni 2024/25 e 2025/26 salvati con i nomi lunghi del modello in uso dal 6 ottobre 2024 al 4 ottobre 2025 (`Markets`, `Buyer`, ...), mai convertiti quando il modello è passato ai nomi brevi. Il gestore ha scelto di escluderli (MappingVersion 44): niente libro mercato né scambi in SQL per quelle leghe e stagioni, dichiarati in `excludedLegacyMarkets` e `preservedArtifacts`, byte conservati nel dump. Un mercato senza alcun elenco resta un errore.
+
 ## Fase 1 — Inventario e caratterizzazione
 
 - [ ] Censire endpoint automatici, factory, policy, autorizzazioni, hook business e repository interni nella matrice descritta nell'ADR 0001.

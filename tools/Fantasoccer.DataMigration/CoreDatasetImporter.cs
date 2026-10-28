@@ -23,7 +23,8 @@ public sealed record CoreImportReport(int MappingVersion, int Documents, int Ski
     ExcludedRealCalendarDocument[]? ExcludedRealCalendars = null, DiscardedFutureScoreDocument[]? DiscardedFutureScores = null,
     SkippedInactiveSubstituteDocument[]? SkippedInactiveSubstitutes = null, SkippedUnusablePlayerRowDocument[]? SkippedUnusablePlayerRows = null,
     ExcludedNamelessRosterEntry[]? ExcludedNamelessRosterEntries = null, MissingVoteClubDocument[]? MissingRosterClubSnapshots = null,
-    SkippedRosterDocument[]? SkippedRosterDocuments = null, RealCalendarWithoutYearDocument[]? RealCalendarsWithoutYear = null);
+    SkippedRosterDocument[]? SkippedRosterDocuments = null, RealCalendarWithoutYearDocument[]? RealCalendarsWithoutYear = null,
+    ExcludedLegacyMarketDocument[]? ExcludedLegacyMarkets = null);
 
 public sealed class CoreImportException(string code, string? field = null, string? reader = null, string? documentSha256 = null,
     IdentityConflictDetails? identityConflict = null, PlayerValidationDetails? playerValidation = null,
@@ -41,7 +42,7 @@ public sealed class CoreImportException(string code, string? field = null, strin
 
 public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, CoreImportOptions? options = null)
 {
-    public const int MappingVersion = 43;
+    public const int MappingVersion = 44;
     private static readonly IReadOnlySet<string> LegacyAuctionContainers = new HashSet<string>(StringComparer.Ordinal) { "auction", "randomizedplayers" };
     public static readonly IReadOnlySet<string> Containers = new HashSet<string>(StringComparer.Ordinal)
         { "group", "appidentity", "settings", "team", "dailyteams", "openingteams", "openingdailyteams", "realplayerswrapper", "realteamwrapper", "realcalendar", "mcp-oauth",
@@ -293,6 +294,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
               ? new[] { "Real calendars whose dated games all belong to another season (saved under the previous season by the legacy job) were not imported: no matches, results, postponements or club memberships were taken from them. Those seasons have no real calendar in SQL; saved fantasy results are unchanged and recalculations of those days are refused. Original bytes remain in the verified dump. Review excludedRealCalendars." } : Array.Empty<string>(),
           .. plan.RealCalendarsWithoutYear.Count > 0
               ? new[] { "Some legacy real calendars never stored their own year (0); every day carried the key's season, so the key was accepted by operator decision. The usual season checks still applied (a calendar of another season stays excluded). Review realCalendarsWithoutYear." } : Array.Empty<string>(),
+          .. plan.ExcludedLegacyMarkets.Count > 0
+              ? new[] { "Market documents saved with the long property names used from 6 October 2024 to 4 October 2025 (\"Markets\", \"Buyer\", ...) were not imported by operator decision: those leagues and seasons have no market book or trades in SQL. Original bytes remain in the verified dump. Review excludedLegacyMarkets." } : Array.Empty<string>(),
           .. plan.DiscardedFutureScores.Count > 0
               ? new[] { "Scores on real games scheduled after the export started cannot be results; those games were imported without a result (to be played). Original bytes remain in the verified dump. Review discardedFutureScores." } : Array.Empty<string>(),
           .. plan.PlayerSeasons.Any(x => x.ClubId is null)
@@ -321,7 +324,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                    .Select(x => "table:logs: historical logs excluded from SQL; original rows preserved in verified dump"))
                .Concat(plan.ResolvedIdentityConflicts.Select(x => "appidentity: unselected duplicate " + x.OtherDocumentSha256 + " preserved in verified dump; selected " + x.PreferredDocumentSha256))
                .Concat(plan.ResolvedPlayerCatalogs.Select(x => "realplayerswrapper: " + x.UnresolvedEntries + " unnamed catalog entries preserved in SQL and verified dump; document " + x.DocumentSha256))
-               .Concat(plan.ExcludedRealCalendars.Select(x => "realcalendar: season " + x.SeasonIndex + " document " + x.DocumentSha256 + " contains another season's games; excluded from SQL, original bytes preserved in verified dump")).ToArray(),
+               .Concat(plan.ExcludedRealCalendars.Select(x => "realcalendar: season " + x.SeasonIndex + " document " + x.DocumentSha256 + " contains another season's games; excluded from SQL, original bytes preserved in verified dump"))
+               .Concat(plan.ExcludedLegacyMarkets.Select(x => "marketwrapper: season " + x.SeasonIndex + " document " + x.DocumentSha256 + " uses the 2024-2025 long-name format; excluded from SQL, original bytes preserved in verified dump")).ToArray(),
            ExcludedContainers: (plan.ImportLegacyAuctions ? Enumerable.Empty<string>() : LegacyAuctionContainers)
                .Concat(plan.ImportLegacyLogs ? [] : new[] { "table:logs" }).Append("dailyrank").Order().ToArray(),
           ReconciledIdentityDocuments: plan.ReconciledIdentityDocuments.ToArray(),
@@ -337,7 +341,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
            ExcludedRealCalendars: plan.ExcludedRealCalendars.ToArray(), DiscardedFutureScores: plan.DiscardedFutureScores.ToArray(),
            SkippedInactiveSubstitutes: plan.SkippedInactiveSubstitutes.ToArray(), SkippedUnusablePlayerRows: plan.SkippedUnusablePlayerRows.ToArray(),
            ExcludedNamelessRosterEntries: plan.ExcludedNamelessRosterEntries.ToArray(), MissingRosterClubSnapshots: plan.MissingRosterClubSnapshots.ToArray(),
-           SkippedRosterDocuments: plan.SkippedRosterDocuments.ToArray(), RealCalendarsWithoutYear: plan.RealCalendarsWithoutYear.ToArray());
+           SkippedRosterDocuments: plan.SkippedRosterDocuments.ToArray(), RealCalendarsWithoutYear: plan.RealCalendarsWithoutYear.ToArray(),
+           ExcludedLegacyMarkets: plan.ExcludedLegacyMarkets.ToArray());
 
     private static CorePlan BuildPlan(VerifiedJsonDataset dataset, CoreImportOptions options)
     {
@@ -676,6 +681,7 @@ public sealed class CorePlan
     public List<MissingVoteClubDocument> MissingRosterClubSnapshots { get; } = [];
     public List<SkippedRosterDocument> SkippedRosterDocuments { get; } = [];
     public List<RealCalendarWithoutYearDocument> RealCalendarsWithoutYear { get; } = [];
+    public List<ExcludedLegacyMarketDocument> ExcludedLegacyMarkets { get; } = [];
     public List<ExcludedRealCalendarDocument> ExcludedRealCalendars { get; } = [];
     public List<DiscardedFutureScoreDocument> DiscardedFutureScores { get; } = [];
     public int AmbiguousRosterClubRecoveries { get; set; }

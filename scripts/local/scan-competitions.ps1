@@ -68,12 +68,14 @@ function Scope($container, $key, $where, $referenceCode = 'missing_competition_r
 }
 
 # marketwrapper
-$books = Ordinal; $shapes = @{}
+$books = Ordinal; $shapes = @{}; $legacyMarkets = 0; $legacyEntries = 0
 foreach ($doc in Documents 'marketwrapper') {
     $checked['marketwrapper'] = 1 + [int]$checked['marketwrapper']
     $shape = if (-not $doc.HasValue -or $null -eq $doc.Value) { 'Value assente o nullo' } elseif (-not (Has $doc.Value 'm')) { "m assente (campi: $((@($doc.Value.PSObject.Properties.Name) -join ',')))" } elseif ($null -eq $doc.Value.m) { 'm nullo' } elseif ((Count $doc.Value.m) -eq 0) { 'm vuoto' } else { 'con scambi' }
     $shapes[$shape] = 1 + [int]$shapes[$shape]
     if (-not (Scope 'marketwrapper' $doc.Key $doc.File)) { continue }
+    # Operator decision: the 2024/25-2025/26 long-name format ("Markets") is not imported.
+    if ($null -ne $doc.Value -and -not (Has $doc.Value 'm') -and (Has $doc.Value 'Markets')) { $legacyMarkets++; $legacyEntries += Count $doc.Value.Markets; continue }
     $id = "$($doc.Key.g)|$($doc.Key.l)|$($doc.Key.y)"
     if ($books.ContainsKey($id)) { Problem 'marketwrapper' 'market_book_collision' $doc.Key.y $doc.File }
     $books[$id] = $true
@@ -88,6 +90,7 @@ foreach ($doc in Documents 'marketwrapper') {
     }
 }
 foreach ($shape in $shapes.Keys) { $notes.Add("marketwrapper: $($shapes[$shape]) documenti '$shape'") }
+if ($legacyMarkets) { $notes.Add("marketwrapper: $legacyMarkets documenti nel formato 2024-2025 ('Markets', $legacyEntries voci) esclusi dall'import per decisione del gestore (restano nel dump; vedi excludedLegacyMarkets)") }
 
 # randomizedplayers (only with IMPORT_LEGACY_AUCTIONS=true)
 $orders = Ordinal
