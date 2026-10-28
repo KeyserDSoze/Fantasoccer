@@ -37,7 +37,7 @@ function Problem([string]$name, [string]$abbr) {
         if ($verified -or $name -cmatch '^[A-Za-z]{3}$') { return $null }
         return 'nome non verificato senza sigla'
     }
-    if ($verified -and $variants[$abbr.ToLowerInvariant()] -ceq $verified) { return $null }
+    if ($verified -and ($variants[$abbr.ToLowerInvariant()] -ceq $verified -or $abbr -cnotmatch '^[A-Za-z]{3}$')) { return $null }
     if ($abbr -cnotmatch '^[A-Za-z]{3}$') { return 'sigla non di 3 lettere' }
     if ($verified -and $abbr.ToLowerInvariant() -cne $verified) { return 'sigla diversa dal nome verificato' }
     # Not refused by the import: an unlisted name carrying a known club's code

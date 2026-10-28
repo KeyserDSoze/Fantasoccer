@@ -24,16 +24,20 @@ namespace Fantasoccer
             var key = abbreviation;
             if (string.IsNullOrWhiteSpace(key))
                 key = known ? providerCode : name.Length == 3 ? name : null;
-            // A documented provider variant is valid only with the verified
-            // name of its club; it may not be a three-letter code itself.
-            else if (known && FantacalcioClubCodes.IsCodeVariant(providerCode, key))
+            // With a verified name the club is already certain: a documented
+            // provider variant, or a label that is not a three-letter code at
+            // all (for example "MONZ"), is not a conflict. A different valid
+            // three-letter code still is.
+            else if (known && (FantacalcioClubCodes.IsCodeVariant(providerCode, key) || !IsClubCode(key)))
                 return providerCode;
-            if (key is not { Length: 3 } || key.Any(c => !char.IsAsciiLetter(c)))
+            if (key is null || !IsClubCode(key))
                 throw new ArgumentException("A club requires a verified name or its three-letter provider abbreviation.");
             key = key.ToLowerInvariant();
             if (known && key != providerCode)
                 throw new ArgumentException("The explicit club code contradicts the verified provider name.");
             return key;
         }
+
+        private static bool IsClubCode(string value) => value.Length == 3 && value.All(char.IsAsciiLetter);
     }
 }

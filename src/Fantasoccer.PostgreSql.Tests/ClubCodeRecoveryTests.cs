@@ -243,16 +243,33 @@ public sealed partial class CoreMigrationTests
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         var original = await database.Clubs.AsNoTracking().SingleAsync();
         var checkpoints = await database.CoreImportCheckpoints.AsNoTracking().Select(x => x.Sha256).Order().ToArrayAsync();
-        foreach (var code in new[] { "NAP", "FIO!", "fi" })
+        foreach (var code in new[] { "NAP", "mil" })
         {
             await blob.UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(new { Key = 15, Value = new { t = new[] { new { n = "Fiorentina", a = code } } } })), overwrite: true);
             await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
             var fault = await Assert.ThrowsAsync<CoreImportException>(() => new CoreDatasetImporter(database).ImportAsync(_dump));
             Assert.Equal("invalid_club_code", fault.Message); Assert.Equal("$.Value.t[0]", fault.ClubValidation!.JsonPath);
-            if (code == "NAP") Assert.Contains("club_code_name_mismatch", fault.ClubValidation.Reasons);
+            Assert.Contains("club_code_name_mismatch", fault.ClubValidation.Reasons);
             Assert.DoesNotContain("Fiorentina", CoreImportDiagnostics.Format(fault));
             var saved = await database.Clubs.AsNoTracking().SingleAsync(); Assert.Equal("fio", saved.Id); Assert.Equal(original.LegacyId, saved.LegacyId);
             Assert.Equal(checkpoints, await database.CoreImportCheckpoints.AsNoTracking().Select(x => x.Sha256).Order().ToArrayAsync());
         }
+    }
+
+    [CoreFact]
+    public async Task Malformed_provider_codes_next_to_a_verified_name_resolve_to_the_verified_club_and_are_reported()
+    {
+        // "MONZ" is what the provider sends for Monza; "FIO!" and "fi" are not codes at all.
+        var container = await ExtraContainerAsync("realteamwrapper");
+        await container.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(new { Key = 15, Value = new { t = new[]
+            { new { n = "Fiorentina", a = "FIO!" }, new { n = "Monza", a = "MONZ" }, new { n = "AC Milan", a = "fi" }, new { n = "Napoli", a = "nap" } } } })));
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
+        Assert.Equal(new[] { ("fio", "Fiorentina"), ("mil", "Milan"), ("mon", "Monza"), ("nap", "Napoli") },
+            (await database.Clubs.OrderBy(x => x.Id).ToArrayAsync()).Select(x => (x.Id, x.Name)));
+        Assert.Equal(new[] { "$.Value.t[0]", "$.Value.t[1]", "$.Value.t[2]" },
+            report.ResolvedClubCodes!.Where(x => x.Container == "realteamwrapper").Select(x => x.JsonPath).Order());
+        Assert.DoesNotContain("MONZ", System.Text.Json.JsonSerializer.Serialize(report));
     }
 }

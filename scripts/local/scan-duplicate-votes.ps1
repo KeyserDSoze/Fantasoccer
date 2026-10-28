@@ -32,7 +32,7 @@ function ClubCode($team) {
     if ($null -eq $team -or [string]::IsNullOrEmpty([string]$team.n)) { return $null }
     $name = [string]$team.n; $abbr = [string]$team.a; $verified = $codes[$name.Trim()]
     if ([string]::IsNullOrWhiteSpace($abbr)) { if ($verified) { return $verified }; if ($name -cmatch '^[A-Za-z]{3}$') { return $name.ToLowerInvariant() }; return $null }
-    if ($verified -and $variants[$abbr.ToLowerInvariant()] -ceq $verified) { return $verified }
+    if ($verified -and ($variants[$abbr.ToLowerInvariant()] -ceq $verified -or $abbr -cnotmatch '^[A-Za-z]{3}$')) { return $verified }
     if ($abbr -cnotmatch '^[A-Za-z]{3}$') { return $null }
     if ($verified -and $abbr.ToLowerInvariant() -cne $verified) { return $null }
     return $abbr.ToLowerInvariant()

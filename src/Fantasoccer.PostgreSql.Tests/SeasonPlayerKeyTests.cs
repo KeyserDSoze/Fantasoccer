@@ -28,7 +28,10 @@ public sealed class SeasonPlayerKeyFormatTests
         Assert.Equal("nap", KeyUtils.GetClubKey("NAP", "Napoli"));
         Assert.Equal("nap", KeyUtils.GetClubKey(null, "NAP"));
         Assert.Equal("nap", KeyUtils.GetClubKey(null, "Napoli"));
-        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("N4P", "Napoli"));
+        // A label that is not a three-letter code cannot contradict a verified
+        // name; without one it is still refused.
+        Assert.Equal("nap", KeyUtils.GetClubKey("N4P", "Napoli"));
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("N4P", "Unknown fixture club"));
         var legacy = new RealTeam { Name = "Napoli" };
         Assert.Equal("nap", legacy.Abbreviation); // Existing display behavior is unchanged.
         Assert.Null(legacy.ExplicitAbbreviation); // But no provider code was supplied.
@@ -76,7 +79,7 @@ public sealed class SeasonPlayerKeyFormatTests
     [Fact]
     public void Documented_exact_club_aliases_share_canonical_keys_without_enabling_prefix_or_fuzzy_matching()
     {
-        Assert.Equal(4, FantacalcioClubCodes.Aliases.Count);
+        Assert.Equal(45, FantacalcioClubCodes.Aliases.Count);
         foreach (var (alias, canonical) in FantacalcioClubCodes.Aliases)
         {
             Assert.False(FantacalcioClubCodes.Names.ContainsKey(alias));
@@ -84,7 +87,8 @@ public sealed class SeasonPlayerKeyFormatTests
             Assert.Equal(code, KeyUtils.GetClubKey(null, alias));
             Assert.Equal(code, KeyUtils.GetClubKey(null, " " + alias.ToUpperInvariant() + " "));
             Assert.Equal(code, KeyUtils.GetClubKey(code.ToUpperInvariant(), alias));
-            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("NAP", alias));
+            Assert.Equal(canonical, FantacalcioClubCodes.CanonicalName(code, alias));
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(code == "nap" ? "MIL" : "NAP", alias));
         }
         Assert.Equal("juv", KeyUtils.GetClubKey(null, "Juve"));
         Assert.Equal("ver", KeyUtils.GetClubKey(null, "HELLAS VERONA"));
@@ -95,39 +99,38 @@ public sealed class SeasonPlayerKeyFormatTests
         Assert.Equal(("ven", "Venezia"), (KeyUtils.GetClubKey(null, "VENEZIA FC"), FantacalcioClubCodes.CanonicalName("ven", "Venezia FC")));
         Assert.Equal("com", KeyUtils.GetClubKey("com", "Como 1907"));
         Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("cag", "Como 1907"));
-        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé", "Hellas Verona Primavera", "Hellas Ver", "Como 1907 Women", "Venezia Mestre" })
+        foreach (var unknown in new[] { "Juve Next Gen", "Juve Women", "Juvent", "Juvé", "Hellas Verona Primavera", "Hellas Ver", "Como 1907 Women",
+            "Venezia Mestre", "Milan Futuro", "AC Milan Primavera", "SS Lazio", "Inter U23", "Bologna FC 1909 Women" })
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(null, unknown));
     }
 
     [Fact]
-    public void Provider_code_variants_resolve_only_together_with_the_verified_club_name()
+    public void Provider_code_variants_and_malformed_codes_never_override_a_verified_name()
     {
-        // The 2024/25 calendar used both "Hellas verona/hel" and "Hellas verona/ver";
-        // the 2026/27 provider calendar labels Monza "MONZ" in all 38 matchdays.
-        Assert.Equal(new[] { ("hel", "ver"), ("monz", "mon") }, FantacalcioClubCodes.CodeVariants.OrderBy(x => x.Key).Select(x => (x.Key, x.Value)));
+        // The 2024/25 calendar used both "Hellas verona/hel" and "Hellas verona/ver":
+        // "hel" looks like a valid code, so it needs an explicit, documented variant.
+        var variant = Assert.Single(FantacalcioClubCodes.CodeVariants);
+        Assert.Equal(("hel", "ver"), (variant.Key, variant.Value));
         foreach (var name in new[] { "Hellas verona", "HELLAS VERONA", "Verona" })
         {
             Assert.Equal("ver", KeyUtils.GetClubKey("hel", name));
             Assert.Equal("ver", KeyUtils.GetClubKey("HEL", name));
             Assert.Equal("ver", KeyUtils.GetClubKey("ver", name));
         }
-        foreach (var name in new[] { "Monza", "MONZA", " monza " })
-        {
-            Assert.Equal("mon", KeyUtils.GetClubKey("monz", name));
-            Assert.Equal("mon", KeyUtils.GetClubKey("MONZ", name));
-            Assert.Equal("mon", KeyUtils.GetClubKey("MON", name));
-        }
-        // A variant never moves another verified club, an unverified name keeps
-        // its own valid explicit code, and labels are never trimmed or cut.
+        // The 2026/27 provider labels Monza "MONZ": a label that is not a
+        // three-letter code is ignored when the name is verified.
+        foreach (var name in new[] { "Monza", "MONZA", " monza ", "AC Monza" })
+            foreach (var label in new[] { "monz", "MONZ", "MON", " monz", "monza", "mon z", "m0n" })
+                Assert.Equal("mon", KeyUtils.GetClubKey(label, name));
+        Assert.Equal("juv", KeyUtils.GetClubKey("JUVE", "Juventus"));
+        // A valid three-letter code that differs is still a conflict, the "hel"
+        // variant never moves another club, and an unverified name needs a code.
         foreach (var name in new[] { "Juventus", "Napoli", "Juve" })
-        {
             Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("hel", name));
-            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("monz", name));
-        }
+        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("mnz", "Monza"));
         Assert.Equal("hel", KeyUtils.GetClubKey("hel", "Unknown fixture club"));
-        Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey("monz", "Unknown fixture club"));
-        foreach (var label in new[] { " monz", "monz ", "mon z", "monza", "mnz" })
-            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(label, "Monza"));
+        foreach (var label in new[] { "monz", "m0n", "ab" })
+            Assert.Throws<ArgumentException>(() => KeyUtils.GetClubKey(label, "Unknown fixture club"));
     }
 
     [Theory]
