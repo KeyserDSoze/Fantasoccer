@@ -240,6 +240,14 @@ Per i controlli strutturali che l'import applica dopo i calendari reali (mercato
 
 Per ogni problema mostra il codice d'errore che darebbe l'import (per esempio `missing_market_trades`, `played_game_day_mismatch`, `missing_competition_season`), quante volte compare, gli anni, un esempio di posizione e un dettaglio strutturale; per i mercati riassume anche la forma dei documenti (scambi presenti, elenco vuoto, nullo o assente). Non mostra proprietari, nomi, giocatori o testi. Le identità di squadre, giocatori e club restano coperte dalle scansioni precedenti; aste e liste randomizzate contano solo con `IMPORT_LEGACY_AUCTIONS=true`.
 
+Quando l'analisi arriva alla fine ("Snapshot analyzed only"), il report JSON è troppo lungo per il terminale. Per salvarlo e riassumerlo prima di `-Apply`:
+
+```powershell
+.\scripts\local\review-core-analysis.ps1 -EnvFile .env.local -DumpName prova1
+```
+
+Esegue la stessa analisi in sola lettura (nessun `-Apply`, nessuna scrittura nel database), salva il report completo in `migration-data\prova1-analisi.json` (fuori da Git) e stampa i totali, gli avvisi (`pendingFields`), i contenitori non coperti o esclusi, gli artefatti conservati e, per ogni elenco del report, il numero di voci, i totali numerici (per esempio prezzi e ricavi esclusi) e la distribuzione per stagione, contenitore o motivo. Con `-ReportFile <file>` riassume un output già salvato. Anche il riepilogo viene copiato negli appunti.
+
 ### Job SQL ed editoriale opzionale
 
 Dopo l'import desiderato, `BACKGROUND_JOBS_ENABLED=true` abilita il worker SQL con stato, lease/fencing e ricevute in PostgreSQL. Le sorgenti di rete richiedono anche `EXTERNAL_HTTP_ENABLED=true`; non si riattiva il vecchio scheduler Blob. L'amministratore globale può vedere `/api/operations/jobs` ed eseguire un singolo job tramite `POST /api/operations/jobs/run` con `{ "name": "calendar", "year": 15 }` (anno stagionale corrente, non anno solare). Nomi: `calendar`, `catalogue`, `live`, `official`, `statistics`, `chances`, `formations`, `results`, `market-expiry`, `hall`, `images`.
