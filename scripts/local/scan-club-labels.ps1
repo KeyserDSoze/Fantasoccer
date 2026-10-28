@@ -48,6 +48,24 @@ function Problem([string]$name, [string]$abbr) {
 $found = [Collections.Generic.List[object]]::new()
 # Rosters and hall snapshots without any club are imported with a NULL club.
 $unrecordedAllowed = 'team', 'dailyteams', 'openingteams', 'openingdailyteams', 'halloffame'
+function PlayerKey($name) { ([string]$name).ToLowerInvariant() -replace '[^a-z]', '' }
+function Flag($value) { $value -eq $true }
+$playerFields = 'n', 't', 'r', 'a', 'vh', 'v'
+$voteFields = 'r', 'v', 'i', 'g', 'p', 'a', 's', 'd', 'w', 'o', 't', 'c', 'h', 'u', 'n', 'j'
+function InactiveSubstitute($sample) {
+    # Official 6 d'ufficio given to an inactive entry: excluded before clubs are read.
+    $vote = $sample.v
+    if ((Flag $sample.a) -or $null -eq $vote -or $vote -isnot [Management.Automation.PSCustomObject]) { return $false }
+    if (@($sample.PSObject.Properties.Name | Where-Object { $playerFields -cnotcontains $_ }).Count -gt 0) { return $false }
+    if (@($vote.PSObject.Properties.Name | Where-Object { $voteFields -cnotcontains $_ }).Count -gt 0) { return $false }
+    if ($null -eq $vote.PSObject.Properties['n'] -or $vote.n -ne $false -or [int]$vote.r -lt -1 -or [int]$vote.r -gt 3) { return $false }
+    if (-not (Flag $vote.h) -or -not (Flag $vote.i) -or [double]$vote.v -ne 6 -or (Flag $vote.u) -or (Flag $vote.c) -or (Flag $vote.j)) { return $false }
+    foreach ($field in 'g', 'p', 'a', 's', 'd', 'w', 'o', 't') { if ([int]$vote.$field -ne 0) { return $false } }
+    return $true
+}
+# Only entries whose club the import actually reads: entries without a usable
+# name are excluded, archived or refused for the name first.
+function Validated($container, $entry) { (PlayerKey $entry.n) -ne '' -and -not ($container -eq 'official' -and (InactiveSubstitute $entry)) }
 function Check($team, $container, $year, $file, $path) {
     if ($unrecordedAllowed -contains $container -and [string]::IsNullOrWhiteSpace([string]$team.n) -and [string]::IsNullOrWhiteSpace([string]$team.a)) { return }
     $reason = Problem $team.n $team.a
@@ -61,7 +79,7 @@ function Walk($node, $path, $container, $year, $file) {
     $player = $node.PSObject.Properties['n'] -and $node.PSObject.Properties['r']
     foreach ($property in $node.PSObject.Properties) {
         $value = $property.Value
-        if ($player -and $property.Name -ieq 't' -and $value -is [Management.Automation.PSCustomObject]) { Check $value $container $year $file "$path.$($property.Name)" }
+        if ($player -and $property.Name -ieq 't' -and $value -is [Management.Automation.PSCustomObject]) { if (Validated $container $node) { Check $value $container $year $file "$path.$($property.Name)" } }
         else { Walk $value "$path.$($property.Name)" $container $year $file }
     }
 }
@@ -98,7 +116,7 @@ foreach ($container in @('realcalendar', 'realrank') + $players + $generic) {
         }
         elseif ($players -contains $container) {
             $list = @($value.p)
-            for ($p = 0; $p -lt $list.Count; $p++) { if ($null -ne $list[$p] -and $null -ne $list[$p].t) { Check $list[$p].t $container $year $short "p[$p].t" } }
+            for ($p = 0; $p -lt $list.Count; $p++) { if ($null -ne $list[$p] -and $null -ne $list[$p].t -and (Validated $container $list[$p])) { Check $list[$p].t $container $year $short "p[$p].t" } }
         }
         else { Walk $value '' $container $year $short }
     }
