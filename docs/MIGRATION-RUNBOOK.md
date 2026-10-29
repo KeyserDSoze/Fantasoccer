@@ -300,6 +300,16 @@ Per vedere tutti i casi in una volta usa `.\scripts\local\scan-team-identities.p
 
 Dalla MappingVersion 42, per scelta del gestore, una rosa salvata in un basket dove il proprietario non ha la squadra quell'anno viene esclusa da SQL in due soli casi: se è **identica in ogni campo** all'unica rosa dello stesso tipo, giornata e lega salvata per lo stesso proprietario nel basket della sua unica squadra di quell'anno (nel dump reale: 82 rose stagionali 2014/15–2022/23 di un gruppo); oppure se il proprietario **non ha nessuna squadra** nel gruppo quell'anno e la rosa è **vuota**, cioè senza giocatori, soldi, premio d'apertura né cambi di formazione (nel dump reale: una rosa 2025/26). Controlla `skippedRosterDocuments`: per ogni rosa esclusa riporta SHA-256, archivio, stagione, giornata e motivo (`identical_copy_in_team_basket` con la rosa tenuta, oppure `empty_roster_without_team`). I byte restano nel dump. Copie diverse, rose orfane non vuote e proprietari con più squadre nello stesso anno restano errori; la scansione conta le rose escluse a parte e mostra solo quelle che bloccano.
 
+### Se compare `league_owner_conflict`
+
+Dalla MappingVersion 45 le partecipazioni legacy diventano esplicite (`LeagueParticipations`, provenienza `Legacy`): ogni squadra dei basket collegati a una lega in quella stagione vi partecipava. Nella stessa lega e stagione un utente non può essere proprietario o comproprietario di più squadre partecipanti (proprietario+proprietario, proprietario+comproprietario, comproprietario+comproprietario). L'analisi si ferma con `league_owner_conflict` e la stagione nel percorso, senza scegliere quale squadra o quale comproprietà tenere.
+
+La riconciliazione è una decisione del gestore sui dati sorgente (per esempio rimuovere la comproprietà superflua dal documento del gruppo) seguita da un nuovo export. La migration EF applicata a un database già popolato fa lo stesso controllo e si ferma con utente, lega, stagione e gruppo da riconciliare; non elimina righe. L'importer non crea basket, squadre o leghe derivate: nel modello legacy non esistono, si configurano dopo il cutover.
+
+### Probabili formazioni e voti Live provvisori
+
+`live` e `chancedrealplayerwrapper` sono ancora letti e validati (identità, club, duplicati), ma non sono importati in PostgreSQL: sono dati operativi della cache distribuita condivisa. Il report li elenca in `operationalSnapshotsNotImported` (contenitore, stagione, giornata, righe, SHA-256); i byte restano nel dump. I voti ufficiali e le baseline legacy `notification` sono importati come prima.
+
 ## 3. Importare esplicitamente la copia locale
 
 Prima leggi il report: `pendingContainers` sono dati sconosciuti/non coperti; `pendingFields` richiedono riconciliazione; `excludedContainers` sono esclusioni deliberate (aste/liste con `IMPORT_LEGACY_AUCTIONS=false`, `table:logs` con `IMPORT_LEGACY_LOGS=false`); `preservedArtifacts` sono file/archivi preservati senza inventare dati SQL. `fullMigrationComplete=false` non è un errore del comando, ma **non autorizza il cutover**.
@@ -339,6 +349,26 @@ Una copia acquisita mentre la sorgente riceve scritture è **esplorativa**. Ferm
 ```
 
 `-SourceQuiesced` registra la tua dichiarazione nel manifest: **non ferma Azure e non verifica da solo la quiescenza**. Va specificato di nuovo quando riprendi un export, non è ereditato automaticamente.
+
+## Cutover: cache distribuita e nuove regole
+
+Da eseguire nella finestra di manutenzione, **fuori dalle finestre Live** (nessuna giornata in corso né recuperi in giornata):
+
+1. Container della cache privato (`Cache:ContainerName`, default `fantazone-cache`) sullo stesso account dei file; `Cache:Namespace` uguale per tutte le istanze API dello stesso ambiente. Applicare la lifecycle policy di [`ops/azure`](../ops/azure/README.md) dopo aver verificato versioning/soft delete dell'account.
+2. Applicare la migration `MultiTeamCompetitionsAndOperationalCache`. Un `league_owner_conflict` blocca la migration: riconciliare come sopra, mai cancellare a mano le partecipazioni.
+3. Opzionale, solo per la giornata corrente: pubblicare in cache probabili formazioni e voti Live del dump finale.
+
+```bash
+FANTASOCCER_CACHE_STORAGE='<connection string dell account cache>' FANTASOCCER_CACHE_NAMESPACE='<namespace API>' \
+  dotnet Fantasoccer.DataMigration.dll seed-operational-cache --directory /dump --season <N> --day <D>
+```
+
+   La revisione pubblicata è l'inizio dell'export: un dato più recente già scritto dai job non viene sovrascritto (`SkippedNewerExists`).
+4. Avviare i job `chances` e `live` (o le chiamate manuali `POST /api/football/refresh`) e verificare `GET /api/football/{anno}/days/{giornata}/chances` e `.../votes/live`.
+5. Verificare che `push-retention` e `cache-cleanup` compaiano fra i job SQL e che la prima esecuzione non elimini delivery ancora pendenti o in lease.
+6. Controllare `GET /api/groups/{id}/live?year=...`: `isStale=false`, `generatedAtUtc` stabile fra due utenti dello stesso gruppo.
+
+La perdita della cache non è perdita di dati di gioco: le proiezioni dei gruppi vengono ricostruite da PostgreSQL e gli snapshot calcistici dal job successivo.
 
 ## 5. Reset di TUTTI i dati PostgreSQL locali (distruttivo)
 

@@ -32,7 +32,8 @@ L'obiettivo non è costruire una piattaforma enterprise: usare un database condi
 10. [0009 — Albo, carte e notifiche SQL](0009-albo-carte-e-notifiche-sql.md)
 11. [0010 — Ingestione SQL con sorgenti separate](0010-ingestione-sql-con-sorgenti-separate.md)
 12. [0011 — Chiusura operativa, job/editoriale/archivi](0011-chiusura-operativa-job-editoriale-e-archivi.md)
-13. [Matrice dei contratti e delle policy](MATRICE-CONTRATTI-E-POLICY.md)
+13. [0012 — Cache distribuita su Blob, competizioni multi-squadra e retention push](0012-cache-distribuita-e-competizioni-multi-squadra.md)
+14. [Matrice dei contratti e delle policy](MATRICE-CONTRATTI-E-POLICY.md)
 
 ## Decisioni confermate
 
@@ -45,7 +46,8 @@ L'obiettivo non è costruire una piattaforma enterprise: usare un database condi
 - Accesso multi-gruppo verificato per API, MCP, SignalR, job e file specifici di gruppo.
 - Migration dello schema allo startup API; importazione dei dati separata, esplicita e idempotente.
 - Finestra di manutenzione per il passaggio produttivo; niente dual-write.
-- Immagini e altri file rimangono su Azure Blob Storage.
+- Immagini e altri file rimangono su Azure Blob Storage; Blob Storage è anche il backend di `IDistributedCache` per proiezioni temporanee e ricostruibili (nessun Redis obbligatorio, ADR 0012).
+- Un utente può possedere più squadre nello stesso gruppo, ma controlla al massimo una squadra partecipante per lega e stagione (vincolo SQL).
 - Script per scaricare lo Storage attuale e provare la migrazione localmente.
 - Ambiente Docker con Azurite e PostgreSQL e test dell'importatore stesso.
 - MCP deve restare semplice: riusare autenticazione e configurazione quando ragionevole; non è obbligatorio preservare ogni contratto o collegamento esistente.

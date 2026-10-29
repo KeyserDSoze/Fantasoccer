@@ -8,14 +8,15 @@ Dai container legacy `appidentity`, `group`, `settings`, `team`, `dailyteams`, `
 
 - utenti con email canonica e ID stabile;
 - gruppi e membership autorevoli, con ruoli distinti per gruppo;
-- basket e leghe, stagioni e partecipazioni condivise;
+- basket e leghe (tutti autonomi: il legacy non dichiara derivazioni, che non vengono inventate), stagioni e partecipazioni condivise;
+- partecipazioni esplicite alle leghe (`LeagueParticipations`, provenienza `Legacy`) dalle squadre dei basket collegati, con rifiuto `league_owner_conflict` se un utente controllerebbe più squadre nella stessa lega e stagione;
 - anagrafiche delle squadre annuali e proprietà/comproprietà;
 - mapping delle identità legacy e checkpoint dei documenti.
 - profili, selezioni e preferenze; riferimenti storici non risolvibili conservati in `UnresolvedAccountSelections` per revisione;
 - regolamenti completi in tabelle relazionali, senza payload JSON di gioco;
 - rose, vendite/riacquisti, prezzi, ricavi, fondi, posizioni e storico dei cambi, separati per snapshot;
 - giocatori stagionali condivisi, club e calendario Serie A;
-- voti per sorgente/giornata, probabilità (inclusi trend/ultima partita storici), statistiche e gare, classifica reale con punti frazionari;
+- voti ufficiali e baseline legacy `notification` per giornata, statistiche e gare, classifica reale con punti frazionari; voti Live provvisori e probabilità (inclusi trend/ultima partita storici) sono validati ma restano nel dump (`operationalSnapshotsNotImported`): sono dati della cache distribuita, non storico SQL;
 - calendario fantasy con stage/turni/giornate distinti, risultati/snapshot partite e classifiche stagionali/giornaliere;
 - classifica iniziale con punteggi e premi originali, riferita alla squadra N-1 e alla competizione N;
 - ordine/visibilità dei giocatori per lega-stagione con riferimenti al catalogo condiviso;
@@ -148,6 +149,7 @@ Dopo export e verifica del dump (vedere `scripts/local/README.md`):
 - `analyze-core`: verifica l'archivio e valida il piano senza scrivere nel DB.
 - `import-core`: ferma API/frontend, applica lo schema e importa sul DB locale dedicato. Non riapre automaticamente il traffico.
 - `migrate`: continua ad applicare soltanto lo schema EF.
+- `seed-operational-cache --directory /dump --season N --day D` (CLI, immagine `database-tools`): pubblica nella cache Blob condivisa probabili formazioni e voti Live provvisori di **una** giornata del dump, per non perderli durante il cutover. Richiede `FANTASOCCER_CACHE_STORAGE` e `FANTASOCCER_CACHE_NAMESPACE` (uguale a `Cache:Namespace` dell'API), opzionale `FANTASOCCER_CACHE_CONTAINER`. Non scrive su PostgreSQL; la revisione è l'inizio dell'export, quindi non sovrascrive snapshot più recenti dei job.
 
 Il mount del dump per l'import è read-only. Conservare anche `.migration.lock`: i lettori acquisiscono una lease condivisa e l'export una lease esclusiva.
 La CLI rifiuta database remoti o diversi dal laboratorio `fantasoccer_local`. Nessuna credenziale o payload personale viene stampato nei messaggi d'errore.

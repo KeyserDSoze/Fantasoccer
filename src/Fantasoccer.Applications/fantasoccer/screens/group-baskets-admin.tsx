@@ -43,6 +43,8 @@ export default function GroupBasketsAdminScreen() {
 
   const [selectedBasketId, setSelectedBasketId] = useState<string | null>(null)
   const [newBasketName, setNewBasketName] = useState('')
+  // null: autonomous basket; otherwise the autonomous basket it derives from.
+  const [newBasketOrigin, setNewBasketOrigin] = useState<string | null>(null)
   const [newTeamName, setNewTeamName] = useState('')
   const [newTeamOwner, setNewTeamOwner] = useState<string | null>(null)
   const [coOwnerEmailByTeam, setCoOwnerEmailByTeam] = useState<Record<string, string>>({})
@@ -74,6 +76,13 @@ export default function GroupBasketsAdminScreen() {
     return yearlyBasket?.teams || []
   }, [yearlyBasket])
 
+  // A derived basket shares the rosters of its origin basket's teams (carbon copies):
+  // its teams are linked to an origin team and have no owners, credits or market of their own.
+  const isDerivedBasket = selectedBasket?.kind === 1
+  const originBasket = useMemo(() => currentGroup?.baskets.find(b => b.id === selectedBasket?.originBasketId) ?? null, [currentGroup, selectedBasket])
+  const linkableOriginTeams = useMemo(() => (originBasket?.years.find(y => y.year === currentYearIndex)?.teams ?? [])
+    .filter(team => !!team.teamId && !teams.some(t => t.originTeamId === team.teamId)), [originBasket, currentYearIndex, teams])
+
   // Initialize selected basket
   useEffect(() => {
     if (currentGroup && currentGroup.baskets && currentGroup.baskets.length > 0 && !selectedBasketId) {
@@ -102,6 +111,8 @@ export default function GroupBasketsAdminScreen() {
       const newBasket: Basket = {
         id: newBasketId,
         name: newBasketName.trim(),
+        kind: newBasketOrigin ? 1 : 0,
+        originBasketId: newBasketOrigin,
         years: [
           {
             year: currentYearIndex,
@@ -120,6 +131,7 @@ export default function GroupBasketsAdminScreen() {
       
       setSuccess(`Basket "${newBasketName}" creato con successo`)
       setNewBasketName('')
+      setNewBasketOrigin(null)
       setSelectedBasketId(newBasketId)
       
     } catch (err) {
@@ -127,7 +139,7 @@ export default function GroupBasketsAdminScreen() {
     } finally {
       setLoading(false)
     }
-  }, [currentGroup, newBasketName, currentYearIndex, applyGroupUpdate])
+  }, [currentGroup, newBasketName, newBasketOrigin, currentYearIndex, applyGroupUpdate])
 
   // Delete basket
   const deleteBasket = useCallback(async (basketId: string) => {
@@ -164,6 +176,35 @@ export default function GroupBasketsAdminScreen() {
       setLoading(false)
     }
   }, [currentGroup, applyGroupUpdate])
+
+  // Link an origin team to the derived basket (same season). Name defaults to the
+  // origin's; owners are always those of the origin team.
+  const linkOriginTeam = useCallback(async (origin: AnnualTeam) => {
+    if (!currentGroup || !selectedBasket || !origin.teamId) return
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const linked: AnnualTeam = { name: origin.name, owner: origin.owner, additionalOwners: origin.additionalOwners ?? [], originTeamId: origin.teamId }
+      const hasYear = selectedBasket.years.some(y => y.year === currentYearIndex)
+      const updatedBasket: Basket = {
+        ...selectedBasket,
+        years: hasYear
+          ? selectedBasket.years.map(y => y.year === currentYearIndex ? { ...y, teams: [...y.teams, linked] } : y)
+          : [...selectedBasket.years, { year: currentYearIndex, teams: [linked] }]
+      }
+      const savedGroup = await groupService.updateGroup(currentGroup.id, {
+        ...currentGroup,
+        baskets: (currentGroup.baskets || []).map(b => b.id === selectedBasket.id ? updatedBasket : b)
+      })
+      applyGroupUpdate(savedGroup)
+      setSuccess(`Squadra "${origin.name}" collegata al basket derivato`)
+    } catch (err) {
+      setError(`Errore nel collegamento della squadra: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentGroup, selectedBasket, currentYearIndex, applyGroupUpdate])
 
   // Add team to current year
   const addTeam = useCallback(async () => {
@@ -605,6 +646,11 @@ export default function GroupBasketsAdminScreen() {
                       <Text color={basket.id === selectedBasketId ? '$purple11' : '$color11'} fontWeight="600">
                         {basket.name}
                       </Text>
+                      {basket.kind === 1 && (
+                        <Text fontSize="$1" color="$orange10">
+                          derivato da {currentGroup.baskets.find(origin => origin.id === basket.originBasketId)?.name ?? '?'}
+                        </Text>
+                      )}
                       {basket.id === selectedBasketId && (
                         <Button
                           size="$1"
@@ -639,6 +685,21 @@ export default function GroupBasketsAdminScreen() {
                 onChangeText={setNewBasketName}
                 size="$3"
               />
+              <Text fontSize="$2" color="$color10">
+                Tipo: autonomo (rose, crediti, asta e mercato propri) oppure derivato da un basket autonomo (copia carbone delle sue rose).
+              </Text>
+              <XStack gap="$2" flexWrap="wrap">
+                <Button size="$2" variant="outlined" borderColor={newBasketOrigin === null ? '$purple8' : '$borderColor'}
+                  backgroundColor={newBasketOrigin === null ? '$purple2' : 'transparent'} onPress={() => setNewBasketOrigin(null)}>
+                  Autonomo
+                </Button>
+                {(currentGroup.baskets || []).filter(basket => (basket.kind ?? 0) === 0 && basket.years.some(y => y.year === currentYearIndex)).map(basket => (
+                  <Button key={basket.id} size="$2" variant="outlined" borderColor={newBasketOrigin === basket.id ? '$orange8' : '$borderColor'}
+                    backgroundColor={newBasketOrigin === basket.id ? '$orange2' : 'transparent'} onPress={() => setNewBasketOrigin(basket.id)}>
+                    {`Derivato da ${basket.name}`}
+                  </Button>
+                ))}
+              </XStack>
               <Button
                 size="$3"
                 backgroundColor="$purple9"
@@ -660,16 +721,18 @@ export default function GroupBasketsAdminScreen() {
                   Teams - {selectedBasket.name} ({formatSeasonFromYear(currentYearIndex)})
                 </H4>
                 
-                <Button
-                  size="$2"
-                  variant="outlined"
-                  borderColor="$blue8"
-                  onPress={copyFromPreviousYear}
-                  disabled={loading}
-                  icon={<Copy size="$0.75" />}
-                >
-                  Copia dall&apos;anno scorso
-                </Button>
+                {!isDerivedBasket && (
+                  <Button
+                    size="$2"
+                    variant="outlined"
+                    borderColor="$blue8"
+                    onPress={copyFromPreviousYear}
+                    disabled={loading}
+                    icon={<Copy size="$0.75" />}
+                  >
+                    Copia dall&apos;anno scorso
+                  </Button>
+                )}
               </XStack>
 
               {/* Teams List */}
@@ -699,6 +762,11 @@ export default function GroupBasketsAdminScreen() {
                                 Co-owners: {team.additionalOwners.join(', ')}
                               </Text>
                             )}
+                            {team.originTeamId && (
+                              <Text fontSize="$2" color="$orange10">
+                                Squadra derivata: rosa e proprietari di {originBasket?.years.find(y => y.year === currentYearIndex)?.teams.find(t => t.teamId === team.originTeamId)?.name ?? 'squadra originale'} ({originBasket?.name ?? 'basket di origine'})
+                              </Text>
+                            )}
                           </YStack>
 
                           <Button
@@ -714,6 +782,7 @@ export default function GroupBasketsAdminScreen() {
                           </Button>
                         </XStack>
 
+                        {!team.originTeamId && (<>
                         <Separator />
 
                         {/* Change Owner */}
@@ -787,13 +856,39 @@ export default function GroupBasketsAdminScreen() {
                             </Button>
                           </XStack>
                         </YStack>
+                        </>)}
                       </YStack>
                     </Card>
                   ))}
                 </YStack>
               )}
 
+              {/* Link origin teams (derived basket) */}
+              {isDerivedBasket && (
+                <YStack gap="$2">
+                  <Separator marginVertical="$3" />
+                  <H4 color="$color12">Collega squadre di {originBasket?.name ?? 'origine'}</H4>
+                  <Text fontSize="$2" color="$color10">
+                    Una squadra derivata usa sempre la rosa corrente della squadra originale; nella lega derivata ha formazioni e risultati propri.
+                    Le squadre possono anche arrivare dalla conferma delle qualificazioni della lega derivata.
+                  </Text>
+                  {linkableOriginTeams.length === 0 ? (
+                    <Text fontSize="$2" color="$color10">Nessuna squadra da collegare per il {formatSeasonFromYear(currentYearIndex)}.</Text>
+                  ) : (
+                    <XStack gap="$2" flexWrap="wrap">
+                      {linkableOriginTeams.map(team => (
+                        <Button key={team.teamId} size="$2" variant="outlined" borderColor="$orange8" disabled={loading}
+                          onPress={() => linkOriginTeam(team)} icon={<Plus size="$0.75" />}>
+                          {`${team.name} (${team.owner})`}
+                        </Button>
+                      ))}
+                    </XStack>
+                  )}
+                </YStack>
+              )}
+
               {/* Add Team */}
+              {!isDerivedBasket && (<>
               <Separator marginVertical="$3" />
               
               <YStack gap="$3">
@@ -845,6 +940,7 @@ export default function GroupBasketsAdminScreen() {
                   {loading ? 'Aggiunta...' : 'Aggiungi Team'}
                 </Button>
               </YStack>
+              </>)}
             </Card>
           )}
         </YStack>

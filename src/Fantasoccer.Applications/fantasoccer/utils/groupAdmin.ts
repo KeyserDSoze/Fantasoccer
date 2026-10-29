@@ -43,8 +43,11 @@ export const copyMissingTeams = (
   existingTeams: AnnualTeam[]
 ): AnnualTeam[] =>
   sourceTeams
+    // Derived teams are season-specific links to an origin team: never copied.
+    .filter(sourceTeam => !sourceTeam.originTeamId)
     .filter(sourceTeam => !existingTeams.some(team => team.owner === sourceTeam.owner))
-    .map(team => ({
+    .map(({ teamId: _teamId, originTeamId: _originTeamId, ...team }) => ({
+      // A new season gets new team identities on the server.
       ...team,
       additionalOwners: [...(team.additionalOwners || [])]
     }))

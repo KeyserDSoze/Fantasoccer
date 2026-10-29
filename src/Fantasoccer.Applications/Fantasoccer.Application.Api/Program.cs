@@ -48,6 +48,8 @@ if (postgresEnabled)
     healthChecks.AddCheck<PostgreSqlReadinessCheck>("postgresql", tags: ["ready"]);
     builder.Services.AddGroupApplication();
     builder.Services.Configure<Fantasoccer.Application.Core.Caching.SharedCacheOptions>(builder.Configuration.GetSection("Cache:Shared"));
+    // Safety window after a concluded matchday before its push details are removed.
+    builder.Services.Configure<Fantasoccer.Application.Core.Notifications.PushRetentionOptions>(builder.Configuration.GetSection("PushRetention"));
     if (isInMemory) Fantasoccer.Infrastructure.Caching.DistributedCacheServiceCollectionExtensions.AddInMemoryCoordinatedDistributedCache(builder.Services);
     else Fantasoccer.Infrastructure.Caching.DistributedCacheServiceCollectionExtensions.AddAzureBlobDistributedCache(builder.Services, options =>
     {

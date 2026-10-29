@@ -149,6 +149,14 @@ test('copies only missing teams and clones co-owner arrays', () => {
   assert.deepEqual(source[1].additionalOwners, ['three@example.com'])
 })
 
+test('copying teams to a new season drops season identities and never copies derived links', () => {
+  const copied = copyMissingTeams([
+    { teamId: 'old-id', name: 'Autonomous', owner: 'one@example.com', additionalOwners: [] },
+    { teamId: 'derived-id', name: 'Copy', owner: 'two@example.com', additionalOwners: [], originTeamId: 'origin-id' }
+  ], [])
+  assert.deepEqual(copied, [{ name: 'Autonomous', owner: 'one@example.com', additionalOwners: [] }])
+})
+
 test('clones descriptive DTOs without a compact shadow object', () => {
   const descriptive = {
     ...settings,

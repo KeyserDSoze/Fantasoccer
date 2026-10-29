@@ -1,0 +1,20 @@
+{
+  "rules": [
+    {
+      "enabled": true,
+      "name": "fantazone-cache-expired-documents",
+      "type": "Lifecycle",
+      "definition": {
+        "filters": {
+          "blobTypes": [ "blockBlob" ],
+          "prefixMatch": [ "fantazone-cache/" ]
+        },
+        "actions": {
+          "baseBlob": { "delete": { "daysAfterModificationGreaterThan": 30 } },
+          "snapshot": { "delete": { "daysAfterCreationGreaterThan": 1 } },
+          "version": { "delete": { "daysAfterCreationGreaterThan": 1 } }
+        }
+      }
+    }
+  ]
+}

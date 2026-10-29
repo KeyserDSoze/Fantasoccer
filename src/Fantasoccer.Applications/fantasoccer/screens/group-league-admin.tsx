@@ -7,11 +7,12 @@ import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueSettingsEditor } from 'components/LeagueSettingsEditor'
 import { ToggleChip } from 'components/ToggleChip'
+import { LeagueParticipantsPanel } from 'components/league/LeagueParticipantsPanel'
 import { useApp } from 'providers/AppProvider'
 import { groupService } from 'services/groupService'
 import { leagueManagerService } from 'services/leagueManagerService'
 import { calendarService } from 'services/calendarService'
-import type { League, LeagueSetting, AnnualLeague } from 'types/group'
+import type { League, LeagueSetting, AnnualLeague, LeagueSource } from 'types/group'
 import type { Calendar } from 'types/calendar'
 import { DefaultLeagueSetting, LeagueType } from 'types/group'
 import { Package, Calculator, Shuffle, RefreshCw, Save, Trash2, ChevronDown, Copy } from '@tamagui/lucide-icons-2'
@@ -38,6 +39,8 @@ export default function GroupLeagueAdminScreen() {
 
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null)
   const [newLeagueName, setNewLeagueName] = useState('')
+  // Derived leagues admit teams qualified from source leagues (never the legacy IsMain flag).
+  const [newLeagueDerived, setNewLeagueDerived] = useState(false)
   const [dayToRecalculate, setDayToRecalculate] = useState(38)
   const [pendingLeagueChanges, setPendingLeagueChanges] = useState<Partial<League> | null>(null)
   const [calendarOwners, setCalendarOwners] = useState<string[] | null>(null)
@@ -104,9 +107,12 @@ export default function GroupLeagueAdminScreen() {
   const hasPendingChanges = pendingLeagueChanges?.id === selectedLeagueId
   const effectiveLeagueType = selectedYearlyLeague?.type || selectedLeague?.type || LeagueType.Null
   const associatedBaskets = currentGroup?.baskets.filter(basket => selectedLeague?.basketsId.includes(basket.id)) || []
+  const isDerivedLeague = (selectedLeague?.mode ?? 0) === 1
+  // Explicit participants when known (derived leagues never enrol whole baskets).
+  const participantIds = selectedYearlyLeague?.participantTeamIds ?? null
   const currentYearTeams = associatedBaskets.flatMap(basket => (
     basket.years.find(year => year.year === currentYearIndex)?.teams || []
-  ))
+  )).filter(team => !participantIds || (!!team.teamId && participantIds.includes(team.teamId)))
   const hasDuplicateOwners = new Set(currentYearTeams.map(team => team.owner)).size !== currentYearTeams.length
   const minimumCalendarTeams = effectiveLeagueType === LeagueType.Cup ? 16 : 2
   const canRunOperations = isYearPersisted && !hasPendingChanges && effectiveLeagueType !== LeagueType.Null
@@ -272,6 +278,7 @@ export default function GroupLeagueAdminScreen() {
         name: newLeagueName.trim(),
         isMain: false,
         type: LeagueType.League,
+        mode: newLeagueDerived ? 1 : 0,
         years: [{
           year: currentYearIndex,
           type: LeagueType.League,
@@ -290,6 +297,7 @@ export default function GroupLeagueAdminScreen() {
       
       toast.show(`✅ Lega "${newLeagueName}" creata con successo`, { variant: 'success' })
       setNewLeagueName('')
+      setNewLeagueDerived(false)
       setSelectedLeagueId(newLeagueId)
       
     } catch (err) {
@@ -297,7 +305,7 @@ export default function GroupLeagueAdminScreen() {
     } finally {
       setLoading('create', false)
     }
-  }, [currentGroup, newLeagueName, currentYearIndex, applyGroupUpdate, toast])
+  }, [currentGroup, newLeagueName, newLeagueDerived, currentYearIndex, applyGroupUpdate, toast])
 
   // Delete league
   const deleteLeague = useCallback(async (leagueId: string) => {
@@ -580,6 +588,15 @@ export default function GroupLeagueAdminScreen() {
                     onChangeText={setNewLeagueName}
                     disabled={isAnyLoading}
                   />
+                  <XStack>
+                    <ToggleChip
+                      label={newLeagueDerived ? 'Lega derivata (squadre qualificate da altre leghe)' : 'Lega autonoma'}
+                      accent="orange"
+                      checked={newLeagueDerived}
+                      disabled={isAnyLoading}
+                      onCheckedChange={setNewLeagueDerived}
+                    />
+                  </XStack>
                   <Button
                     icon={isLoading('create') ? Spinner : Package}
                     onPress={createLeague}
@@ -659,6 +676,15 @@ export default function GroupLeagueAdminScreen() {
                         </XStack>
 
                         <XStack gap="$3" alignItems="center">
+                          <Label width={180}>Modalità</Label>
+                          <Text flex={1} color="$color11">
+                            {isDerivedLeague
+                              ? 'Derivata: usa basket derivati e ammette squadre qualificate (nessun mercato o asta propri)'
+                              : 'Autonoma: gestisce partecipanti, mercato e aste propri'}
+                          </Text>
+                        </XStack>
+
+                        <XStack gap="$3" alignItems="center">
                           <Label width={180}>Tipo Lega (Default)</Label>
                           <YStack flex={1}>
                             <Select 
@@ -694,7 +720,7 @@ export default function GroupLeagueAdminScreen() {
                         <YStack gap="$2">
                           <Label>Basket Associati</Label>
                           <XStack gap="$2" flexWrap="wrap">
-                            {currentGroup.baskets.map(basket => {
+                            {currentGroup.baskets.filter(basket => (basket.kind ?? 0) === (selectedLeague.mode ?? 0)).map(basket => {
                               const isAssociated = selectedLeague.basketsId.includes(basket.id)
                               return (
                                 <Button
@@ -711,7 +737,7 @@ export default function GroupLeagueAdminScreen() {
                                   )}
                                   disabled={isAnyLoading}
                                 >
-                                  {basket.name}
+                                  {basket.kind === 1 ? `${basket.name} (derivato)` : basket.name}
                                 </Button>
                               )
                             })}
@@ -755,6 +781,55 @@ export default function GroupLeagueAdminScreen() {
                         <Text fontSize="$2" color="$color10">
                           La copia include tipo annuale, punteggi, bonus, crediti, modificatori voto e configurazioni avanzate.
                         </Text>
+
+                        {isDerivedLeague && selectedYearlyLeague && (
+                          <YStack gap="$2">
+                            <Label>Leghe di origine ({formatSeasonFromYear(currentYearIndex)})</Label>
+                            <Text fontSize="$2" color="$color10">
+                              Stesso gruppo e stessa stagione; per ognuna indica quante squadre si qualificano dalla classifica.
+                            </Text>
+                            {currentGroup.leagues.filter(league => league.id !== selectedLeague.id).map(league => {
+                              const sources: LeagueSource[] = selectedYearlyLeague.sources ?? []
+                              const source = sources.find(item => item.sourceLeagueId === league.id)
+                              const setSources = (next: LeagueSource[]) => updateAnnualLeague({ ...selectedYearlyLeague, sources: next })
+                              return (
+                                <XStack key={league.id} gap="$2" alignItems="center" flexWrap="wrap">
+                                  <ToggleChip
+                                    label={league.name}
+                                    accent="blue"
+                                    checked={!!source}
+                                    disabled={isAnyLoading}
+                                    onCheckedChange={checked => setSources(checked
+                                      ? [...sources, { sourceLeagueId: league.id, qualifiedTeams: 4 }]
+                                      : sources.filter(item => item.sourceLeagueId !== league.id))}
+                                  />
+                                  {source && (
+                                    <Input
+                                      width={90}
+                                      keyboardType="numeric"
+                                      value={String(source.qualifiedTeams)}
+                                      disabled={isAnyLoading}
+                                      onChangeText={value => {
+                                        const qualified = Math.min(64, Math.max(1, Number.parseInt(value, 10) || 1))
+                                        setSources(sources.map(item => item.sourceLeagueId === league.id ? { ...item, qualifiedTeams: qualified } : item))
+                                      }}
+                                    />
+                                  )}
+                                </XStack>
+                              )
+                            })}
+                          </YStack>
+                        )}
+
+                        {isYearPersisted && !hasPendingChanges && (
+                          <LeagueParticipantsPanel
+                            groupId={currentGroup.id}
+                            leagueId={selectedLeague.id}
+                            year={currentYearIndex}
+                            derived={isDerivedLeague}
+                            onChanged={() => { void groupService.getGroup(currentGroup.id).then(applyGroupUpdate) }}
+                          />
+                        )}
                         
                         <XStack gap="$3" alignItems="center">
                           <Label width={180}>Tipo Lega Anno</Label>

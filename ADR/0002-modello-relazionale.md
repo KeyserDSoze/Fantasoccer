@@ -93,7 +93,7 @@ Gli indici vanno progettati sui filtri reali di gruppo/stagione e sulle join; no
 Oltre a gruppi, utenti e squadre includere tutti i repository/factory registrati:
 
 - calendari, classifiche reali, giocatori e club reali;
-- voti `live`, `notification`, `official`, probabilità, statistiche e giocatori randomizzati;
+- voti `notification`, `official`, statistiche e giocatori randomizzati; voti `live` provvisori e probabilità sono snapshot globali nella cache distribuita (ADR 0012), non righe SQL;
 - calendari fantasy, classifiche stagionali/giornaliere, partite giocate e Hall of Fame;
 - squadre stagionali, giornaliere, iniziali e iniziali giornaliere, classifiche iniziali;
 - mercato, aste, carte, news, dati AI e stato live;

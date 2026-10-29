@@ -387,6 +387,49 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         Assert.Equal(0, standing.SerieADay);
     }
 
+    [PostgreSqlFact]
+    public async Task Whole_group_editor_round_trips_derived_baskets_teams_and_sources_and_keeps_kinds_immutable()
+    {
+        var world = await WorldAsync(45, peachOwnsFunghi: true);
+        var (admin, group, year) = (world.Admin, world.Group, world.Year);
+        var path = $"/api/groups/{group}";
+        var graph = (await admin.GetFromJsonAsync<GameGroupDto>(path))!;
+        // The frontend editor adds a derived basket linked to an origin team, then PUTs the whole graph.
+        var derived = Guid.NewGuid();
+        var saved = await Read<GameGroupDto>(await admin.PutAsJsonAsync(path, graph with { Baskets = [.. graph.Baskets,
+            new GameBasketDto(derived, "Serie A Cup", [new GameBasketYearDto(year, [new GameAnnualTeamDto("Koopa Cup", "", [], OriginTeamId: world.Koopa)])], 1, world.SerieA)] }));
+        var basket = saved.Baskets.Single(x => x.Id == derived);
+        Assert.Equal((1, world.SerieA), (basket.Kind, basket.OriginBasketId));
+        var copy = Assert.Single(basket.Years.Single().Teams);
+        Assert.Equal(world.Koopa, copy.OriginTeamId);
+        Assert.Equal(world.Luigi.Account.Email, copy.Owner); // owners always projected from the origin
+        // A derived league with its source declared through the same editor: nobody is enrolled.
+        var cup = Guid.NewGuid();
+        var annual = saved.Leagues.Single(x => x.Id == world.LeagueSA).Years.Single() with { Sources = [new(world.LeagueSA, 2)], ParticipantTeamIds = null };
+        saved = await Read<GameGroupDto>(await admin.PutAsJsonAsync(path, saved with { Leagues = [.. saved.Leagues, new GameLeagueDto(cup, "Cup", false, 1, [annual], [derived], 1)] }));
+        var league = saved.Leagues.Single(x => x.Id == cup);
+        Assert.Equal(1, league.Mode);
+        Assert.Equal(world.LeagueSA, Assert.Single(league.Years.Single().Sources!).SourceLeagueId);
+        Assert.Empty(league.Years.Single().ParticipantTeamIds!);
+        // Saving the projection back unchanged is a no-op round trip.
+        saved = await Read<GameGroupDto>(await admin.PutAsJsonAsync(path, saved));
+        Assert.Equal(world.Koopa, saved.Baskets.Single(x => x.Id == derived).Years.Single().Teams.Single().OriginTeamId);
+        // Kind, origin and mode never change after creation; an autonomous league cannot use a derived basket.
+        await AssertFaultAsync(await admin.PutAsJsonAsync(path, saved with { Baskets = saved.Baskets.Select(x => x.Id == derived ? x with { Kind = 0, OriginBasketId = null } : x).ToArray() }),
+            HttpStatusCode.BadRequest, "invalid_group");
+        await AssertFaultAsync(await admin.PutAsJsonAsync(path, saved with { Leagues = saved.Leagues.Select(x => x.Id == cup ? x with { Mode = 0 } : x).ToArray() }),
+            HttpStatusCode.BadRequest, "invalid_group");
+        await AssertFaultAsync(await admin.PutAsJsonAsync(path, saved with { Leagues = saved.Leagues.Select(x => x.Id == world.LeagueSA ? x with { BasketsId = [world.SerieA, derived] } : x).ToArray() }),
+            HttpStatusCode.BadRequest, "invalid_competition_structure");
+        // Derived teams never get owners from the editor.
+        var forged = saved with { Baskets = saved.Baskets.Select(x => x.Id != derived ? x : x with { Years = x.Years.Select(y => y with
+            { Teams = y.Teams.Select(t => t with { AdditionalOwners = [world.Toad.Account.Email] }).ToArray() }).ToArray() }).ToArray() };
+        (await admin.PutAsJsonAsync(path, forged)).EnsureSuccessStatusCode();
+        await using var database = factory.Database.CreateContext();
+        var derivedTeam = await database.TeamDerivations.Where(x => x.GroupId == group && x.OriginTeamId == world.Koopa).Select(x => x.TeamId).SingleAsync();
+        Assert.False(await database.TeamOwnerships.AnyAsync(x => x.TeamId == derivedTeam));
+    }
+
     private async Task<World> WorldAsync(int year, bool peachOwnsFunghi)
     {
         var admin = await factory.AccountAsync(globalAdmin: true);

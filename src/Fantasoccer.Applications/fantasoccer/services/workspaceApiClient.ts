@@ -1,4 +1,4 @@
-import type { WorkspaceAccount, WorkspaceGroup, WorkspaceDetails, SetWorkspaceMember, UpdateWorkspaceMember, CreateWorkspaceTeam, WorkspaceMemberLookup } from '../contracts/workspace'
+import type { WorkspaceAccount, WorkspaceGroup, WorkspaceDetails, SetWorkspaceMember, UpdateWorkspaceMember, CreateWorkspaceTeam, WorkspaceMemberLookup, WorkspaceLeagueSource } from '../contracts/workspace'
 
 export class WorkspaceApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); this.name = 'WorkspaceApiError' }
@@ -39,8 +39,8 @@ export function createWorkspaceApi(options: {
     setMember: (id: string, member: SetWorkspaceMember) => request<void>(group(id) + '/members', 'PUT', member),
     updateMember: (id: string, userId: string, member: UpdateWorkspaceMember) => request<void>(group(id) + `/members/${encodeURIComponent(userId)}`, 'PATCH', member),
     lookupMember: (id: string, email: string, signal?: AbortSignal) => request<WorkspaceMemberLookup>(group(id) + `/members/lookup?email=${encodeURIComponent(email.trim())}`, 'GET', undefined, signal),
-    createBasket: (id: string, name: string, seasonIndex: number) => request<{ basketId: string }>(group(id) + '/baskets', 'POST', { name, seasonIndex }),
-    createLeague: (id: string, name: string, seasonIndex: number, basketIds: string[]) => request<{ leagueId: string }>(group(id) + '/leagues', 'POST', { name, seasonIndex, basketIds }),
+    createBasket: (id: string, name: string, seasonIndex: number, originBasketId?: string) => request<{ basketId: string }>(group(id) + '/baskets', 'POST', { name, seasonIndex, originBasketId }),
+    createLeague: (id: string, name: string, seasonIndex: number, basketIds: string[], mode = 0, sources?: WorkspaceLeagueSource[]) => request<{ leagueId: string }>(group(id) + '/leagues', 'POST', { name, seasonIndex, basketIds, mode, sources }),
     createTeam: (id: string, team: CreateWorkspaceTeam) => request<{ teamId: string }>(group(id) + '/teams', 'POST', team),
   }
 }
