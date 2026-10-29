@@ -13,6 +13,7 @@ locals {
     identity      = "id-${var.environment_name}-api"
     postgres      = "psql-${var.environment_name}-${local.suffix}"
     openai        = "oai-${var.environment_name}-${local.suffix}"
+    registry      = "cr${var.environment_name}${local.suffix}"
     plan          = "asp-${var.environment_name}"
     api           = var.api_app_name != "" ? var.api_app_name : "app-${var.environment_name}-api-${local.suffix}"
   }

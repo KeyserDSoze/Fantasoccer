@@ -50,10 +50,22 @@ variable "app_service_sku" {
   default     = "B1"
 }
 
-variable "dotnet_version" {
-  description = ".NET runtime of the API."
+variable "container_registry_sku" {
+  description = "Azure Container Registry SKU."
   type        = string
-  default     = "10.0"
+  default     = "Basic"
+}
+
+variable "api_image_repository" {
+  description = "Repository of the API image in the registry."
+  type        = string
+  default     = "fantasoccer-api"
+}
+
+variable "api_image_tag" {
+  description = "Image tag used when the App Service is created (the workflow passes the commit SHA, already pushed). Later deployments change the tag outside Terraform."
+  type        = string
+  default     = "initial"
 }
 
 variable "background_jobs_enabled" {
@@ -173,15 +185,15 @@ variable "openai_deployment_name" {
 }
 
 variable "openai_model_name" {
-  description = "Model of the deployment. gpt-4o (current production) is deprecated for new deployments."
+  description = "Model of the deployment (gpt-4o of the current production is deprecated for new deployments)."
   type        = string
-  default     = "gpt-5.4-mini"
+  default     = "gpt-6-luna"
 }
 
 variable "openai_model_version" {
   description = "Model version (check with az cognitiveservices model list --location <region>)."
   type        = string
-  default     = "2026-03-17"
+  default     = "2026-09-22"
 }
 
 variable "openai_sku_name" {

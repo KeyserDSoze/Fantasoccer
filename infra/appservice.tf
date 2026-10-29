@@ -20,6 +20,8 @@ locals {
   # Every secret is a Key Vault reference; plain values are configuration only.
   app_settings = merge({
     ASPNETCORE_ENVIRONMENT               = "Production"
+    WEBSITES_PORT                        = "8080"
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE  = "false"
     PostgreSql__Enabled                  = "true"
     Integrations__Infrastructure         = "Storage"
     ConnectionStrings__PostgreSql        = local.secret_references["postgres-connection-string"]
@@ -34,7 +36,10 @@ locals {
     BackgroundJobs__Enabled              = tostring(var.background_jobs_enabled)
     Push__Enabled                        = "false"
     Mcp__Enabled                         = "false"
-    OpenAi__Enabled                      = tostring(var.openai_enabled)
+    # The container file system is not persistent: Data Protection keys (bearer
+    # tokens) live in the private mcp-keys container and survive restarts.
+    Mcp__DataProtectionBlobName = "${var.environment_name}/data-protection-keys.xml"
+    OpenAi__Enabled             = tostring(var.openai_enabled)
     }, var.openai_enabled ? {
     OpenAi__Endpoint  = azurerm_cognitive_account.openai[0].endpoint
     OpenAi__ApiKey    = local.secret_references["openai-api-key"]
@@ -62,17 +67,21 @@ resource "azurerm_linux_web_app" "api" {
   }
 
   site_config {
-    always_on                         = true
-    websockets_enabled                = true
-    http2_enabled                     = true
-    minimum_tls_version               = "1.2"
-    scm_minimum_tls_version           = "1.2"
-    ftps_state                        = "Disabled"
-    health_check_path                 = "/health/live"
-    health_check_eviction_time_in_min = 10
+    always_on                                     = true
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.api.client_id
+    websockets_enabled                            = true
+    http2_enabled                                 = true
+    minimum_tls_version                           = "1.2"
+    scm_minimum_tls_version                       = "1.2"
+    ftps_state                                    = "Disabled"
+    health_check_path                             = "/health/live"
+    health_check_eviction_time_in_min             = 10
 
+    # Image of ops/local/api.Dockerfile pushed by the workflow before this resource is created.
     application_stack {
-      dotnet_version = var.dotnet_version
+      docker_image_name   = "${var.api_image_repository}:${var.api_image_tag}"
+      docker_registry_url = "https://${azurerm_container_registry.api.login_server}"
     }
   }
 
@@ -80,5 +89,10 @@ resource "azurerm_linux_web_app" "api" {
 
   tags = merge(local.tags, { component = "api" })
 
-  depends_on = [azurerm_key_vault_access_policy.api]
+  lifecycle {
+    # Deployments set the image tag (scripts/deploy-api-image.sh); Terraform only creates the first one.
+    ignore_changes = [site_config[0].application_stack[0].docker_image_name]
+  }
+
+  depends_on = [azurerm_key_vault_access_policy.api, azurerm_role_assignment.api_acr_pull]
 }

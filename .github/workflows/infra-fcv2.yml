@@ -2,6 +2,8 @@ name: Infrastructure fcv2
 
 # Terraform for the new "fcv2" environment (infra/). Validation and plan run
 # automatically; apply only by manual dispatch with an explicit confirmation.
+# Apply order: container registry -> API image pushed -> rest of the
+# environment (the App Service starts from that image) -> image deployed.
 on:
   pull_request:
     paths:
@@ -79,6 +81,7 @@ jobs:
       TF_VAR_microsoft_client_secret: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
       TF_VAR_encryption_key: ${{ secrets.ENCRYPTION_KEY }}
       TF_VAR_encryption_iv: ${{ secrets.ENCRYPTION_IV }}
+      TF_VAR_api_image_tag: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
@@ -129,6 +132,7 @@ jobs:
       TF_VAR_microsoft_client_secret: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
       TF_VAR_encryption_key: ${{ secrets.ENCRYPTION_KEY }}
       TF_VAR_encryption_iv: ${{ secrets.ENCRYPTION_IV }}
+      TF_VAR_api_image_tag: ${{ github.sha }}
     steps:
       - name: Confirmation
         env:
@@ -158,10 +162,18 @@ jobs:
         run: scripts/state-backend.sh ensure
       - name: Init
         run: terraform init -backend-config=backend.hcl
+      - name: Container registry first
+        run: >-
+          terraform apply -auto-approve -lock-timeout=5m -var-file="$TF_VAR_FILE"
+          -target=azurerm_container_registry.api
+      - name: Build and push the API image
+        run: scripts/push-api-image.sh "$GITHUB_SHA"
       - name: Plan
         run: terraform plan -lock-timeout=5m -var-file="$TF_VAR_FILE" -out=tfplan
       - name: Apply
         run: terraform apply -lock-timeout=5m tfplan
+      - name: Deploy the API image
+        run: scripts/deploy-api-image.sh "$GITHUB_SHA"
       - name: Outputs
         run: |
           {

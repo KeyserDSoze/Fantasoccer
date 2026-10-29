@@ -10,6 +10,10 @@ output "api_url" {
   value = "https://${azurerm_linux_web_app.api.default_hostname}"
 }
 
+output "container_registry_login_server" {
+  value = azurerm_container_registry.api.login_server
+}
+
 output "postgres_fqdn" {
   value = azurerm_postgresql_flexible_server.main.fqdn
 }

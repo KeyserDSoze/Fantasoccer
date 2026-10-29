@@ -58,6 +58,13 @@ mock_provider "azurerm" {
     defaults = {
       id           = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/fcv2/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mock"
       principal_id = "55555555-5555-5555-5555-555555555555"
+      client_id    = "66666666-6666-6666-6666-666666666666"
+    }
+  }
+  mock_resource "azurerm_container_registry" {
+    defaults = {
+      id           = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/fcv2/providers/Microsoft.ContainerRegistry/registries/mock"
+      login_server = "mock.azurecr.io"
     }
   }
   mock_resource "azurerm_cognitive_account" {
@@ -75,6 +82,7 @@ mock_provider "azurerm" {
 }
 
 variables {
+  api_image_tag           = "0123456789abcdef"
   microsoft_client_secret = "test-client-secret"
   encryption_key          = "test-encryption-key"
   encryption_iv           = "test-encryption-iv"
@@ -129,8 +137,27 @@ run "default_environment" {
     error_message = "Only Azure services reach PostgreSQL by default."
   }
   assert {
-    condition     = azurerm_linux_web_app.api.site_config[0].application_stack[0].dotnet_version == "10.0" && azurerm_linux_web_app.api.site_config[0].websockets_enabled
-    error_message = ".NET 10 with WebSockets for SignalR."
+    condition = (azurerm_linux_web_app.api.site_config[0].application_stack[0].docker_image_name == "fantasoccer-api:0123456789abcdef" &&
+      azurerm_linux_web_app.api.site_config[0].application_stack[0].docker_registry_url == "https://mock.azurecr.io" &&
+      azurerm_linux_web_app.api.site_config[0].container_registry_use_managed_identity &&
+      azurerm_linux_web_app.api.site_config[0].container_registry_managed_identity_client_id == "66666666-6666-6666-6666-666666666666" &&
+    azurerm_linux_web_app.api.app_settings["WEBSITES_PORT"] == "8080" && azurerm_linux_web_app.api.site_config[0].websockets_enabled)
+    error_message = "The API runs the pushed image from the private registry with its managed identity, port 8080 and WebSockets."
+  }
+  assert {
+    condition = (azurerm_container_registry.api.admin_enabled == false && azurerm_container_registry.api.anonymous_pull_enabled == false &&
+      azurerm_role_assignment.api_acr_pull.role_definition_name == "AcrPull" &&
+      azurerm_role_assignment.api_acr_pull.scope == azurerm_container_registry.api.id &&
+    azurerm_role_assignment.api_acr_pull.principal_id == "55555555-5555-5555-5555-555555555555")
+    error_message = "No registry password: only the API identity can pull, with AcrPull on this registry."
+  }
+  assert {
+    condition     = azurerm_linux_web_app.api.app_settings["Mcp__DataProtectionBlobName"] == "fcv2/data-protection-keys.xml"
+    error_message = "Data Protection keys must survive container restarts (private blob)."
+  }
+  assert {
+    condition     = azurerm_cognitive_deployment.editorial[0].model[0].name == "gpt-6-luna" && azurerm_cognitive_deployment.editorial[0].model[0].version == "2026-09-22"
+    error_message = "Editorial generation uses gpt-6-luna."
   }
 }
 
