@@ -377,6 +377,76 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task Always_copy_propagates_every_save_of_the_main_lineup_to_the_other_competitions_of_the_same_team()
+    {
+        var world = await WorldAsync(47, peachOwnsFunghi: false);
+        var (admin, group, year) = (world.Admin, world.Group, world.Year);
+        var path = $"/api/workspace/groups/{group}";
+        var champSA = (await Read<BasketCreatedDto>(await admin.PostAsJsonAsync(path + "/baskets", new CreateBasketRequest("SA Cup", year, world.SerieA)))).BasketId;
+        var champPL = (await Read<BasketCreatedDto>(await admin.PostAsJsonAsync(path + "/baskets", new CreateBasketRequest("PL Cup", year, world.Premier)))).BasketId;
+        var champions = (await Read<LeagueCreatedDto>(await admin.PostAsJsonAsync(path + "/leagues",
+            new CreateLeagueRequest("Champions", year, [champSA, champPL], 1, [new(world.LeagueSA, 2), new(world.LeaguePL, 2)])))).LeagueId;
+        var confirmed = await Read<LeagueParticipantsDto>(await admin.PostAsJsonAsync($"/api/competitions/{group}/{champions}/{year}/qualification/confirm",
+            new ConfirmQualificationRequest([new(world.LeagueSA, world.Koopa), new(world.LeaguePL, world.Funghi)])));
+        var copyKoopa = confirmed.Participants.Single(x => x.AuthoritativeTeamId == world.Koopa).TeamId;
+        var copyFunghi = confirmed.Participants.Single(x => x.AuthoritativeTeamId == world.Funghi).TeamId;
+        var koopaPlayers = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length); await RosterAsync(group, world.Funghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
+        var gameSA = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        var gameCL = await GameAsync(group, champions, year, (copyKoopa, champSA, world.Luigi.Account.Email), (copyFunghi, champPL, world.Toad.Account.Email));
+        var luigi = world.Luigi.Client;
+        string Game(Guid league, Guid game) => $"/api/competitions/{group}/{league}/{year}/games/{game}";
+        string AutoCopy(Guid league) => $"/api/competitions/{group}/{league}/{year}/lineups/auto-copy";
+        async Task<LiveTeamDto> Team(Guid league, Guid game, Guid team) =>
+            (await Read<GameDto>(await luigi.GetAsync(Game(league, game) + "?editMode=formation"))).Teams.Single(x => x.TeamId == team);
+        FormationPositionRequest[] Swap(LiveTeamDto team, int a, int b)
+        {
+            var map = team.Players.ToDictionary(x => x.Current.PlayerId, x => x.Current.Position);
+            (map[koopaPlayers[a]], map[koopaPlayers[b]]) = (map[koopaPlayers[b]], map[koopaPlayers[a]]);
+            return map.Select(x => new FormationPositionRequest(x.Key, x.Value)).ToArray();
+        }
+        int Position(LiveTeamDto team, int index) => team.Players.Single(x => x.Current.PlayerId == koopaPlayers[index]).Current.Position;
+
+        // Off by default; only an owner of that exact team can switch it on.
+        var setting = await Read<LineupAutoCopyDto>(await luigi.GetAsync(AutoCopy(world.LeagueSA) + $"?teamId={world.Koopa}"));
+        Assert.False(setting.Enabled); Assert.Equal(champions, Assert.Single(setting.Targets).LeagueId);
+        Assert.Equal(HttpStatusCode.Forbidden, (await world.Mario.Client.PutAsJsonAsync(AutoCopy(world.LeagueSA), new SetLineupAutoCopyRequest(world.Koopa, true))).StatusCode);
+        var serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var before = await Team(champions, gameCL, copyKoopa);
+        (await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, Swap(serieA, 1, 11), 0, serieA.SourceVersion))).EnsureSuccessStatusCode();
+        Assert.Equal(Position(before, 1), Position(await Team(champions, gameCL, copyKoopa), 1));
+
+        // Switched on: the next save of the main lineup reaches the Champions copy of the same team.
+        Assert.True((await Read<LineupAutoCopyDto>(await luigi.PutAsJsonAsync(AutoCopy(world.LeagueSA), new SetLineupAutoCopyRequest(world.Koopa, true)))).Enabled);
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var saved = await Read<FormationSavedDto>(await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, Swap(serieA, 1, 11), serieA.Version)));
+        Assert.Contains("Copiata in 1 altra competizione", saved.Message);
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var champion = await Team(champions, gameCL, copyKoopa);
+        foreach (var index in Enumerable.Range(0, Roles.Length)) Assert.Equal(Position(serieA, index), Position(champion, index));
+        Assert.Equal(1, champion.Version);
+        // Saving in the Champions never writes back to the main lineup.
+        (await luigi.PutAsJsonAsync(Game(champions, gameCL) + "/formation", new SaveGameFormationRequest(copyKoopa, Swap(champion, 1, 11), champion.Version))).EnsureSuccessStatusCode();
+        Assert.Equal(Position(serieA, 1), Position(await Team(world.LeagueSA, gameSA, world.Koopa), 1));
+
+        // After kickoff the main save is refused as usual, so nothing is propagated.
+        await using (var database = factory.Database.CreateContext())
+        {
+            (await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1)).KickoffUtc = DateTimeOffset.UtcNow.AddMinutes(-30);
+            await database.SaveChangesAsync();
+        }
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var closed = await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, Swap(serieA, 2, 3), serieA.Version));
+        await AssertFaultAsync(closed, HttpStatusCode.Conflict, "formation_deadline_passed");
+
+        // Switched off again.
+        Assert.False((await Read<LineupAutoCopyDto>(await luigi.PutAsJsonAsync(AutoCopy(world.LeagueSA), new SetLineupAutoCopyRequest(world.Koopa, false)))).Enabled);
+        await using (var database = factory.Database.CreateContext())
+            Assert.False(await database.LeagueLineupAutoCopies.AnyAsync(x => x.TeamId == world.Koopa));
+    }
+
+    [PostgreSqlFact]
     public async Task Live_projection_is_shared_by_members_rebuilt_only_on_source_changes_isolated_per_group_and_recovered_after_cache_loss()
     {
         var world = await WorldAsync(44, peachOwnsFunghi: true);

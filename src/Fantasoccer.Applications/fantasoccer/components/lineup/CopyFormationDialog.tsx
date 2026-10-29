@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Copy } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
-import { Button, Dialog, Paragraph, Spinner, Text, XStack, YStack } from 'tamagui'
-import gameService, { type GameContext, type LineupCopySource } from '../../services/gameService'
+import { Button, Dialog, Paragraph, Spinner, Switch, Text, XStack, YStack } from 'tamagui'
+import gameService, { type GameContext, type LineupAutoCopy, type LineupCopySource } from '../../services/gameService'
 import type { GameWrapper, LiveTeam } from '../../types/game'
 
 interface CopyFormationDialogProps {
@@ -24,6 +24,8 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
   const [copying, setCopying] = useState(false)
   const [sources, setSources] = useState<LineupCopySource[]>([])
   const [checked, setChecked] = useState(false)
+  const [autoCopy, setAutoCopy] = useState<LineupAutoCopy | null>(null)
+  const [savingAuto, setSavingAuto] = useState(false)
   const [selected, setSelected] = useState<LineupCopySource | null>(null)
   const editable = gameWrapper.teams.filter(team => team.canEdit)
   const target: LiveTeam | undefined = preferredSide === 'home' ? gameWrapper.teams[0] : preferredSide === 'away' ? gameWrapper.teams[1] : editable.length === 1 ? editable[0] : undefined
@@ -33,6 +35,8 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     setLoading(true); setSelected(null)
     try {
       setSources(await gameService.getCopySources({ groupId: context.groupId, leagueId: context.leagueId, year: context.year, day: gameWrapper.serieADay, teamId: target.teamId }))
+      // Only the team's own owner can set it (not a SuperAdmin acting for someone else).
+      setAutoCopy(asAdmin ? null : await gameService.getAutoCopy({ groupId: context.groupId, leagueId: context.leagueId, year: context.year, teamId: target.teamId }).catch(() => null))
     } catch (error: any) {
       toast.show(error?.message ?? 'Impossibile caricare le formazioni', { variant: 'error' })
       setSources([])
@@ -44,6 +48,17 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     setChecked(false); setSources([])
     if (target && context.editMode !== 'view') void load()
   }, [load, context.editMode])
+
+  const toggleAutoCopy = useCallback(async (enabled: boolean) => {
+    if (!target) return
+    setSavingAuto(true)
+    try {
+      setAutoCopy(await gameService.setAutoCopy({ groupId: context.groupId, leagueId: context.leagueId, year: context.year }, target.teamId, enabled))
+      toast.show(enabled ? 'Da ora ogni formazione salvata qui viene copiata anche nelle altre competizioni.' : 'Copia automatica disattivata.', { variant: 'success' })
+    } catch (error: any) {
+      toast.show(error?.message ?? 'Impossibile cambiare l\'impostazione', { variant: 'error' })
+    } finally { setSavingAuto(false) }
+  }, [context.groupId, context.leagueId, context.year, target?.teamId])
 
   const copy = useCallback(async () => {
     if (!target || !selected) return
@@ -85,6 +100,19 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
                 </Button>
               ))}
             </YStack>
+          )}
+          {autoCopy && (
+            <XStack gap="$3" alignItems="center" justifyContent="space-between" paddingVertical="$2" borderTopWidth={1} borderColor="$borderColor">
+              <YStack flex={1}>
+                <Text fontWeight="600">Usa questa come formazione principale</Text>
+                <Text fontSize="$2" color="$color10">
+                  Ogni volta che salvi la formazione qui, viene copiata anche in: {autoCopy.targets.map(x => x.leagueName).join(', ')}. Le modifiche fatte nelle altre competizioni non tornano qui.
+                </Text>
+              </YStack>
+              <Switch size="$3" checked={autoCopy.enabled} disabled={savingAuto} onCheckedChange={value => void toggleAutoCopy(value)}>
+                <Switch.Thumb />
+              </Switch>
+            </XStack>
           )}
           <XStack gap="$2" justifyContent="flex-end">
             <Dialog.Close asChild><Button size="$3">Annulla</Button></Dialog.Close>

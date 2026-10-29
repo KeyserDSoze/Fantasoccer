@@ -95,6 +95,17 @@ internal sealed class LeagueParticipantOwnerConfiguration : IEntityTypeConfigura
     }
 }
 
+internal sealed class LeagueLineupAutoCopyConfiguration : IEntityTypeConfiguration<LeagueLineupAutoCopy>
+{
+    public void Configure(EntityTypeBuilder<LeagueLineupAutoCopy> builder)
+    {
+        builder.ToTable("LeagueLineupAutoCopies");
+        builder.HasKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.TeamId });
+        builder.HasOne<LeagueParticipation>().WithMany().HasForeignKey(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.TeamId }).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<GroupMembership>().WithMany().HasForeignKey(x => new { x.GroupId, x.EnabledByUserId }).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 internal sealed class LeagueLineupConfiguration : IEntityTypeConfiguration<LeagueLineup>
 {
     private static readonly string[] Scope = ["GroupId", "LeagueId", "SeasonIndex", "TeamId", "Day"];

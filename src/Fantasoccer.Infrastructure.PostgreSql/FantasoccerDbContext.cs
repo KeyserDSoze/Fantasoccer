@@ -78,6 +78,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<TeamDerivation> TeamDerivations => Set<TeamDerivation>();
     public DbSet<LeagueDerivation> LeagueDerivations => Set<LeagueDerivation>();
     public DbSet<LeagueParticipation> LeagueParticipations => Set<LeagueParticipation>();
+    public DbSet<LeagueLineupAutoCopy> LeagueLineupAutoCopies => Set<LeagueLineupAutoCopy>();
     public DbSet<LeagueParticipantOwner> LeagueParticipantOwners => Set<LeagueParticipantOwner>();
     public DbSet<LeagueLineup> LeagueLineups => Set<LeagueLineup>();
 
