@@ -32,30 +32,18 @@ Il workflow manuale [`Deploy API fcv2`](../.github/workflows/deploy-api-fcv2.yml
 
 L'ambiente `production` oggi non ha revisori obbligatori. La conferma testuale è l'unico controllo: valuta di aggiungere *Required reviewers* all'ambiente.
 
-### Prerequisito: permessi dell'app registration
+### Permessi
 
-Secondo `.github/deployment.md`, oggi il service principal ha solo `Website Contributor` sull'App Service `apifc`. Un Owner della sottoscrizione deve concedere **una sola volta** due ruoli.
+`AZURE_CREDENTIALS` è l'app registration già usata per il deploy dell'applicazione attuale (autenticazione con client secret). Ha il ruolo **Owner** sulla sottoscrizione, quindi può fare tutto senza concessioni aggiuntive:
+- creare i resource group e le risorse;
+- registrare i resource provider;
+- pubblicare immagini nel registry;
+- assegnare `AcrPull` all'identità dell'API.
 
-1. `Contributor`, per creare risorse, registrare i resource provider e pubblicare immagini nel registry:
+Prima di creare qualsiasi risorsa l'apply verifica questo requisito (`scripts/check-permissions.sh`): basta Owner, oppure Contributor più un ruolo che consenta di assegnare ruoli. Il plan riporta lo stesso controllo come avviso.
 
-   ```bash
-   az role assignment create --assignee <clientId di AZURE_CREDENTIALS> --role Contributor \
-     --scope /subscriptions/c46eb61c-c951-471f-aa59-bf20aacf4d75
-   ```
-
-2. `Role Based Access Control Administrator`, **limitato al solo ruolo `AcrPull`**. Serve perché Terraform assegna `AcrPull` all'identità dell'API; con la condizione il principal non può assegnare nessun altro ruolo:
-
-   ```bash
-   az role assignment create --assignee <clientId di AZURE_CREDENTIALS> \
-     --role "Role Based Access Control Administrator" \
-     --scope /subscriptions/c46eb61c-c951-471f-aa59-bf20aacf4d75 \
-     --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {7f951dda-4ed3-4680-a7ca-43fe172d538d}))"
-   ```
-
-   (`7f951dda-4ed3-4680-a7ca-43fe172d538d` è l'ID del ruolo predefinito `AcrPull`.)
-
-Per il resto non servono altre assegnazioni di ruolo:
-- Key Vault usa le *access policy*;
+Terraform crea una sola assegnazione di ruolo: `AcrPull` sul registry. Per il resto non servono altre assegnazioni:
+- Key Vault usa le *access policy*, efficaci subito;
 - lo stato Terraform è letto con la chiave dello storage account;
 - l'API usa la connection string dello storage.
 

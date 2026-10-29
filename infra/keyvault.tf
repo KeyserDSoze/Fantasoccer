@@ -13,8 +13,8 @@ resource "azurerm_key_vault" "main" {
   location            = azurerm_resource_group.main.location
   tenant_id           = data.azurerm_client_config.current.tenant_id
   sku_name            = "standard"
-  # Access policies instead of Azure RBAC: the only role the deployment
-  # principal ever assigns is AcrPull on the registry (see README).
+  # Access policies: effective immediately, so the first apply can write the
+  # secrets without waiting for an RBAC role assignment to propagate.
   rbac_authorization_enabled    = false
   soft_delete_retention_days    = 7
   purge_protection_enabled      = false

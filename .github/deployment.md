@@ -34,7 +34,7 @@ Create these **Secrets** in the same environment:
 
 For the current targets, set `API_APP_NAME=apifc`, `API_RESOURCE_GROUP=fc`, and `FRONTEND_API_URL=https://apifc.azurewebsites.net`.
 
-The Entra service principal needs `Website Contributor` on the API App Service (or its resource group).
+The Entra service principal needs at least `Website Contributor` on the API App Service (or its resource group) for this workflow; it is currently Owner of the subscription, which the Terraform workflow for `fcv2` relies on.
 
 ## GitHub Pages
 
@@ -48,4 +48,4 @@ Rotate every credential that was previously committed to the repository, includi
 
 The `fcv2` resource group (Container Registry, container App Service, PostgreSQL Flexible Server, Storage with the private cache container, Key Vault, Log Analytics/Application Insights, Azure OpenAI `gpt-6-luna`) is defined in [`infra/`](../infra/README.md) and created by the `Infrastructure fcv2` workflow: plan runs automatically, apply only via `workflow_dispatch` with `action=apply` and `confirm=fcv2`. The apply creates the registry, builds and pushes the API image, creates the rest of the environment and deploys the image. `Deploy API fcv2` later builds, pushes and deploys new images without changing the Terraform-managed settings.
 
-Both workflows reuse `AZURE_CREDENTIALS`, `MICROSOFT_CLIENT_SECRET`, `ENCRYPTION_KEY` and `ENCRYPTION_IV` from the `production` environment. The service principal needs `Contributor` on the subscription plus `Role Based Access Control Administrator` constrained to the `AcrPull` role (today it only has `Website Contributor` on `apifc`); see `infra/README.md` for the exact commands. The existing `fc`/`apifc` deployment is unchanged.
+Both workflows reuse `AZURE_CREDENTIALS`, `MICROSOFT_CLIENT_SECRET`, `ENCRYPTION_KEY` and `ENCRYPTION_IV` from the `production` environment. They authenticate with the same client secret as today: the app registration is Owner of the subscription, which covers creating the resource groups, registering resource providers, pushing images and assigning `AcrPull` to the API identity. The apply checks these permissions before creating anything. The existing `fc`/`apifc` deployment is unchanged.

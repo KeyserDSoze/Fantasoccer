@@ -95,6 +95,8 @@ jobs:
       - uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Permissions (Owner expected)
+        run: scripts/check-permissions.sh warn
       - name: State backend (read only)
         id: state
         run: scripts/state-backend.sh check
@@ -156,6 +158,8 @@ jobs:
       - uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Permissions (Owner required)
+        run: scripts/check-permissions.sh require
       - name: Resource providers
         run: scripts/register-providers.sh
       - name: State backend (create if missing)
