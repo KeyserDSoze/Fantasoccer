@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Copy } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
 import { Button, Dialog, Paragraph, Spinner, Text, XStack, YStack } from 'tamagui'
@@ -23,6 +23,7 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
   const [loading, setLoading] = useState(false)
   const [copying, setCopying] = useState(false)
   const [sources, setSources] = useState<LineupCopySource[]>([])
+  const [checked, setChecked] = useState(false)
   const [selected, setSelected] = useState<LineupCopySource | null>(null)
   const editable = gameWrapper.teams.filter(team => team.canEdit)
   const target: LiveTeam | undefined = preferredSide === 'home' ? gameWrapper.teams[0] : preferredSide === 'away' ? gameWrapper.teams[1] : editable.length === 1 ? editable[0] : undefined
@@ -35,8 +36,14 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     } catch (error: any) {
       toast.show(error?.message ?? 'Impossibile caricare le formazioni', { variant: 'error' })
       setSources([])
-    } finally { setLoading(false) }
+    } finally { setLoading(false); setChecked(true) }
   }, [context.groupId, context.leagueId, context.year, gameWrapper.serieADay, target?.teamId])
+
+  // The button exists only when another competition shares this roster.
+  useEffect(() => {
+    setChecked(false); setSources([])
+    if (target && context.editMode !== 'view') void load()
+  }, [load, context.editMode])
 
   const copy = useCallback(async () => {
     if (!target || !selected) return
@@ -50,7 +57,7 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     } finally { setCopying(false) }
   }, [context, target, selected, asAdmin, onCopied])
 
-  if (!target || context.editMode === 'view') return null
+  if (!target || context.editMode === 'view' || (checked && sources.length === 0 && !open)) return null
   return (
     <Dialog modal open={open} onOpenChange={value => { setOpen(value); if (value) void load() }}>
       <Dialog.Trigger asChild>
