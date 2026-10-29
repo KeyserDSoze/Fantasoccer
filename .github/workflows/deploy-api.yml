@@ -1,105 +1,21 @@
 name: Deploy API
 
+# Legacy API (App Service apifc, Azure Storage repositories). The PostgreSQL
+# version on main is deployed to apifcv2 by deploy-api-fcv2.yml and must never
+# reach apifc. This workflow exists on main only so that it can be started
+# manually: choose the "rollback-main" branch in "Use workflow from" and GitHub
+# runs that branch's own copy of this file, i.e. the original legacy pipeline.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/**'
-      - 'src/Fantasoccer.Business/**'
-      - 'src/Fantasoccer.Business.BackgroundJobs/**'
-      - 'src/Fantasoccer.Domain/**'
-      - 'src/Fantasoccer.Infrastructure.Storage/**'
-      - 'src/Fantasoccer.Tests/**'
-      - 'Fantasoccer.sln'
-      - '**/*.csproj'
-      - 'ops/prod/api/**'
-      - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: deploy-api-production
-  cancel-in-progress: true
-
-env:
-  DOTNET_VERSION: '10.x'
-  API_PROJECT: 'src/Fantasoccer.Applications/Fantasoccer.Application.Api/Fantasoccer.Application.Api.csproj'
-  TEST_PROJECT: 'src/Fantasoccer.Tests/Fantasoccer.Tests.csproj'
-
 jobs:
-  deploy:
+  legacy-only-from-rollback-branch:
     runs-on: ubuntu-latest
-    environment: production
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Restore dependencies
-        run: dotnet restore "${{ env.API_PROJECT }}"
-
-      - name: Build API
-        run: dotnet build "${{ env.API_PROJECT }}" --configuration Release --no-restore
-
-      - name: API, rules and OAuth regression tests
-        run: >-
-          dotnet test "${{ env.TEST_PROJECT }}"
-          --configuration Release
-          --filter "FullyQualifiedName~Tests.Api|FullyQualifiedName~Tests.Rules|FullyQualifiedName~AuctionHubServiceTest"
-          --verbosity minimal
-
-      - name: Deployment configuration tests
-        run: python3 -m unittest discover -s ops/prod/api -p 'test_*.py'
-
-      - name: External parser smoke tests
-        id: external_parser_smoke
-        continue-on-error: true
-        env:
-          RUN_EXTERNAL_PARSER_TESTS: 'true'
-        run: >-
-          dotnet test "${{ env.TEST_PROJECT }}"
-          --configuration Release
-          --filter "Category=External"
-          --verbosity quiet
-
-      - name: Warn when external parser smoke tests fail
-        if: steps.external_parser_smoke.outcome == 'failure'
-        run: echo "::warning title=External parser smoke tests failed::Sky or Mediaset changed their public response. Deployment continues; inspect the failed smoke-test step."
-
-      - name: Publish API
-        run: dotnet publish "${{ env.API_PROJECT }}" --configuration Release --no-restore --output ./publish
-
-      - name: Azure login with client secret
-        uses: azure/login@v3
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure App Service settings
-        env:
-          API_RESOURCE_GROUP: ${{ vars.API_RESOURCE_GROUP }}
-          API_APP_NAME: ${{ vars.API_APP_NAME }}
-          API_STORAGE_CONNECTION_STRING: ${{ secrets.API_STORAGE_CONNECTION_STRING }}
-          API_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.API_APPINSIGHTS_CONNECTION_STRING }}
-          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          ENCRYPTION_IV: ${{ secrets.ENCRYPTION_IV }}
-          MCP_ENABLED: ${{ vars.MCP_ENABLED }}
-          MCP_ISSUER: ${{ vars.MCP_ISSUER }}
-          MCP_FRONTEND_URL: ${{ vars.MCP_FRONTEND_URL }}
-          MCP_CERTIFICATE_PFX_BASE64: ${{ secrets.MCP_CERTIFICATE_PFX_BASE64 }}
-          MCP_CERTIFICATE_PASSWORD: ${{ secrets.MCP_CERTIFICATE_PASSWORD }}
-          MCP_KEY_RING_REVIEWED: ${{ vars.MCP_KEY_RING_REVIEWED }}
-          MCP_DATA_PROTECTION_KEY_PATH: ${{ vars.MCP_DATA_PROTECTION_KEY_PATH }}
-          MCP_DATA_PROTECTION_BLOB_NAME: ${{ vars.MCP_DATA_PROTECTION_BLOB_NAME }}
-        run: python3 ops/prod/api/configure_appsettings.py
-
-      - name: Deploy API to App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.API_APP_NAME }}
-          package: ./publish
+      - name: Refuse to deploy the PostgreSQL version to the legacy API
+        run: |
+          echo "::error::The legacy API (apifc) is deployed only from the rollback-main branch. The current API is deployed by 'Deploy API fcv2'."
+          exit 1

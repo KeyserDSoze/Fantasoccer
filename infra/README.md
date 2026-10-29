@@ -6,7 +6,7 @@ Crea da zero, in un nuovo resource group `fcv2`, l'ambiente applicativo su Postg
 | --- | --- | --- |
 | Gruppo | `azurerm_resource_group` `fcv2` | Regione `swedencentral`, modificabile solo prima del primo apply |
 | Immagini API | Azure Container Registry `Basic` | Utente admin e pull anonimo disattivati. Push da GitHub con il service principal; pull dell'App Service con identità gestita e ruolo `AcrPull`, senza password |
-| API | App Service plan Linux `B1`, Web App container | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
+| API | App Service plan Linux `B1`, Web App container `apifcv2` (https://apifcv2.azurewebsites.net) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
 | Database | PostgreSQL Flexible Server 17 `B_Standard_B1ms`, database `fantasoccer` | 32 GB con crescita automatica, backup 14 giorni, password generata, connessione `SSL Mode=VerifyFull`, `prevent_destroy` |
 | File e cache | Storage account StorageV2 | Contenitori pubblici in sola lettura dei blob: `images`, `logos`, `cardimages`. Privati: `fantazone-cache`, `mcp-keys`. Soft delete 7 giorni, nessun versioning, lifecycle della cache (ADR 0012) |
 | Segreti | Key Vault + identità gestita assegnata all'API | Tutti i segreti dell'API sono riferimenti Key Vault: nessun valore in chiaro nelle impostazioni |
@@ -60,13 +60,32 @@ Lo stato sta nello storage account `fcv2tf<hash>`, nel resource group separato `
 
 ## Dopo il primo apply
 
-1. **Login Microsoft:** aggiungere all'app registration del social login (`95de3061-…`) l'URL di redirect del nuovo host (output `api_url`). Terraform non gestisce Microsoft Entra ID.
+1. **Login Microsoft:** nessuna modifica. Il redirect del login torna al frontend (`https://fanta.zone`, già in `RedirectDomains` e nell'app registration), non all'host dell'API. CORS consente già `fanta.zone`.
 2. **Migrazione dei dati:**
    - aggiungere temporaneamente l'IP dell'operatore in `postgres_admin_ip_ranges` (`environments/fcv2.tfvars`) e fare apply;
    - importare seguendo [`docs/MIGRATION-RUNBOOK.md`](../docs/MIGRATION-RUNBOOK.md) e ripristinare i file nel nuovo storage;
    - togliere l'IP. Finché l'import non è concluso tenere `background_jobs_enabled = false`: la prima scrittura dell'applicazione chiude la finestra di reimportazione. L'API si avvia comunque e applica le migration EF Core sul database vuoto.
 3. **Opzionale:** MCP, Web Push (chiavi VAPID) e amministratori globali diversi da quelli di `appsettings.json`, tramite `extra_app_settings` o nuovi secret nel Key Vault. Oggi `Mcp__Enabled` e `Push__Enabled` sono `false`.
-4. **Frontend:** quando `fcv2` diventa produzione, aggiornare `FRONTEND_API_URL` e le variabili `API_APP_NAME` e `API_RESOURCE_GROUP`.
+
+## Passaggio in produzione e rollback
+
+Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `rollback-main` è una copia esatta di `main` prima del passaggio (commit `9ee2c0a`), protetta da cancellazione e force push e autorizzata a pubblicare su GitHub Pages.
+
+**Prima del merge** di `refactor/postgresql-multi-group` su `main`:
+1. apply dell'infrastruttura (l'API su `apifcv2` nasce con l'immagine del branch);
+2. migrazione dei dati e verifica di `https://apifcv2.azurewebsites.net/health/ready`;
+3. `background_jobs_enabled = true` e apply, quando l'import è concluso.
+
+**Al merge su `main`** partono automaticamente:
+- `Relational Migration Tests`. Se riesce, `Deploy API fcv2` pubblica su `apifcv2` l'immagine dello stesso commit: i test bloccano il deploy, come nella pipeline precedente.
+- `Deploy GitHub Pages`. Attende fino a 15 minuti che `apifcv2` risponda a `/health/ready`, poi pubblica il nuovo frontend con `EXPO_PUBLIC_API_URL = https://apifcv2.azurewebsites.net` (sovrascrivibile con la variabile di repository `FCV2_API_URL`). Se l'API non è pronta il sito pubblicato non cambia.
+- Il vecchio `Deploy API` su `main` non distribuisce più nulla: `apifc` resta com'è, come rete di sicurezza.
+
+**Rollback:**
+1. *Actions → Deploy GitHub Pages → Run workflow*, scegliendo il branch **`rollback-main`**. GitHub usa la copia del workflow di quel branch: ricostruisce il frontend precedente con `FRONTEND_API_URL`. Le variabili `FRONTEND_API_URL`, `API_APP_NAME` e `API_RESOURCE_GROUP` devono restare sui valori legacy (`https://apifc.azurewebsites.net`, `apifc`, `fc`).
+2. L'API legacy `apifc` non è mai stata toccata. Solo se serve ridistribuirla: *Actions → Deploy API → Run workflow* su `rollback-main`.
+3. I dati scritti nella nuova versione dopo il passaggio restano in PostgreSQL ma **non** esistono nello storage legacy: non c'è doppia scrittura.
+4. Finché `main` contiene la nuova versione, un push su `main` che tocca il frontend ripubblicherebbe il nuovo sito. Dopo un rollback non pushare su `main` (o fare il revert del merge) finché il problema non è risolto.
 
 ## Scelte e limiti
 

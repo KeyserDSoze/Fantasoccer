@@ -167,6 +167,7 @@ run "without_openai_and_with_operator_access" {
   variables {
     openai_enabled          = false
     background_jobs_enabled = true
+    api_app_name            = "apifcv2"
     postgres_admin_ip_ranges = [
       { name = "migration-operator", start_ip = "203.0.113.10", end_ip = "203.0.113.10" },
     ]
@@ -179,6 +180,10 @@ run "without_openai_and_with_operator_access" {
   assert {
     condition     = azurerm_linux_web_app.api.app_settings["OpenAi__Enabled"] == "false" && azurerm_linux_web_app.api.app_settings["BackgroundJobs__Enabled"] == "true"
     error_message = "Toggles are forwarded to the API."
+  }
+  assert {
+    condition     = azurerm_linux_web_app.api.name == "apifcv2"
+    error_message = "The API keeps the fixed public name apifcv2.azurewebsites.net."
   }
   assert {
     condition     = azurerm_postgresql_flexible_server_firewall_rule.operators["migration-operator"].start_ip_address == "203.0.113.10"

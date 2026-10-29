@@ -1,5 +1,11 @@
 name: Deploy GitHub Pages
 
+# Frontend of the PostgreSQL version, served by GitHub Pages (fanta.zone) and
+# calling the fcv2 API. The site is replaced only when that API is ready.
+#
+# Rollback: run this workflow choosing the "rollback-main" branch. GitHub then
+# uses that branch's own copy of this file, which builds the previous frontend
+# against FRONTEND_API_URL (the legacy apifc API). Keep FRONTEND_API_URL on apifc.
 on:
   push:
     branches: [main]
@@ -17,8 +23,28 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  API_URL: ${{ vars.FCV2_API_URL || 'https://apifcv2.azurewebsites.net' }}
+
 jobs:
+  api:
+    name: fcv2 API ready
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the API (a merge may be deploying it right now)
+        run: |
+          for attempt in $(seq 1 45); do
+            if curl --silent --fail --max-time 10 "$API_URL/health/ready" > /dev/null; then
+              echo "API ready: $API_URL"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::$API_URL/health/ready did not answer within 15 minutes: the published site is left untouched."
+          exit 1
+
   build:
+    needs: api
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -53,7 +79,7 @@ jobs:
           CI: "1"
           EXPO_NO_TELEMETRY: "1"
           EXPO_NONINTERACTIVE: "1"
-          EXPO_PUBLIC_API_URL: ${{ vars.FRONTEND_API_URL }}
+          EXPO_PUBLIC_API_URL: ${{ env.API_URL }}
 
       - name: Prepare GitHub Pages artifact
         run: |

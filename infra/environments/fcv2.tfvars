@@ -2,7 +2,9 @@
 # GitHub "production" environment (see README).
 environment_name    = "fcv2"
 resource_group_name = "fcv2"
-location            = "swedencentral"
+# https://apifcv2.azurewebsites.net (fcv2.azurewebsites.net belongs to a third party).
+api_app_name = "apifcv2"
+location     = "swedencentral"
 
 app_service_sku         = "B1"
 container_registry_sku  = "Basic"

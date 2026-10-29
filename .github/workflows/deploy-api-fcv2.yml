@@ -1,9 +1,16 @@
 name: Deploy API fcv2
 
 # Builds the API container, pushes it to the fcv2 Container Registry and points
-# the App Service to it. Settings (Key Vault references) and the managed
-# identity pull belong to Terraform (infra-fcv2.yml): this workflow never changes them.
+# the App Service (apifcv2) to it. Settings (Key Vault references) and the
+# managed identity pull belong to Terraform (infra-fcv2.yml): never changed here.
+#
+# On main it runs automatically after "Relational Migration Tests" succeeded
+# for the same commit (tests gate the deploy, as in the legacy pipeline).
 on:
+  workflow_run:
+    workflows: ['Relational Migration Tests']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm:
@@ -24,10 +31,17 @@ env:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     environment: production
+    env:
+      # The tested commit for automatic runs, the selected branch for manual ones.
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Confirmation
+        if: github.event_name == 'workflow_dispatch'
         env:
           CONFIRM: ${{ inputs.confirm }}
         run: |
@@ -36,10 +50,12 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
       - uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Build and push the API image
-        run: infra/scripts/push-api-image.sh "$GITHUB_SHA"
+        run: infra/scripts/push-api-image.sh "$COMMIT"
       - name: Deploy the image and check liveness
-        run: infra/scripts/deploy-api-image.sh "$GITHUB_SHA"
+        run: infra/scripts/deploy-api-image.sh "$COMMIT"
