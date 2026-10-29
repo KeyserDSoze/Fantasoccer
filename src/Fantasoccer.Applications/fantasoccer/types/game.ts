@@ -35,6 +35,8 @@ export interface LiveTeam {
   isDerived?: boolean
   // Lineup entries whose player left the roster after saving (never auto-corrected).
   unavailablePlayerIds?: string[]
+  // Day whose lineup is proposed (not saved yet) because this day has none.
+  proposedFromDay?: number | null
 }
 export interface GameWrapper {
   teams: LiveTeam[]

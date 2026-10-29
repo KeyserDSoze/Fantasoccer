@@ -52,7 +52,8 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         {
             if (id is null) continue;
             var team = sides.Single(x => x.TeamId == id);
-            var view = await lineups.ReadAsync(group, league, year, team, day, before || liveWindow, cancellationToken);
+            var controlled = viewer is { } person && (team.IsControlledBy(person) || admin);
+            var view = await lineups.ReadAsync(group, league, year, team, day, before || liveWindow, cancellationToken, proposePrevious: before && editMode != "view" && controlled);
             var source = view?.Roster;
             var historicalFallback = false;
             if (source is null)
@@ -82,7 +83,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
                 x.FinalValue is null ? null : new(x.FinalValue.Value, x.FinalValue.Special), (int)x.CurrentPosition)).ToArray();
             teamDtos.Add(new LiveTeamDto(team.TeamId, team.BasketId, historicalFallback ? 0 : source.Version, historicalFallback ? null : source.SourceVersion,
                 source.Name, source.Owner, source.AdditionalOwners, players, source.LastUpdate, rules.LiveFormationChanges, source.FormationChanges, remaining,
-                source.FormationChangeHistory, source.LogoUrl, editable) { AuthoritativeTeamId = team.AuthoritativeTeamId, UnavailablePlayerIds = source.UnavailablePlayerIds });
+                source.FormationChangeHistory, source.LogoUrl, editable) { AuthoritativeTeamId = team.AuthoritativeTeamId, UnavailablePlayerIds = source.UnavailablePlayerIds, ProposedFromDay = source.ProposedFromDay });
         }
         // Saved results are authoritative. A preview is explicitly marked and is
         // never written back by a GET or used to replace imported history.

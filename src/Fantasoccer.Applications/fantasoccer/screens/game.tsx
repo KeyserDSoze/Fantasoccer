@@ -608,6 +608,27 @@ export default function GameScreen() {
                       onCopied={() => void refreshGame()} />
                   </XStack>
                 )}
+                {gameWrapper.teams.filter(team => team.canEdit && team.proposedFromDay != null).map(team => (
+                  <Card key={`proposal-${team.teamId}`} padding="$3" backgroundColor="$blue2" borderColor="$blue8" borderWidth="$0.5">
+                    <YStack gap="$2">
+                      <Text color="$blue11">
+                        {team.name}: per questa giornata non hai ancora una formazione. Ti proponiamo quella della giornata {team.proposedFromDay}: salvala per confermarla o modificala prima.
+                      </Text>
+                      <Button size="$3" theme="blue" alignSelf="flex-start"
+                        onPress={async () => {
+                          try {
+                            await gameService.saveTeam({ groupId: routeGroupId!, leagueId: routeLeagueId!, year: parseInt(routeYear!), gameId: routeGameId!, editMode: effectiveEditMode }, team, asAdmin)
+                            toast.show('Formazione salvata.', { variant: 'success' })
+                            await refreshGame()
+                          } catch (error: any) {
+                            toast.show(error?.message ?? 'Salvataggio non riuscito', { variant: 'error' })
+                          }
+                        }}>
+                        Conferma la formazione proposta
+                      </Button>
+                    </YStack>
+                  </Card>
+                ))}
                 {gameWrapper.teams.filter(team => team.canEdit && (team.unavailablePlayerIds?.length ?? 0) > 0).map(team => (
                   <Card key={`unavailable-${team.teamId}`} padding="$3" backgroundColor="$orange2" borderColor="$orange8" borderWidth="$0.5">
                     <Text color="$orange11">

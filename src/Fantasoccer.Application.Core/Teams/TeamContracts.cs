@@ -23,6 +23,8 @@ public sealed record TeamRosterDto(Guid TeamId, Guid GroupId, Guid BasketId, int
     // Lineup entries whose player is no longer in the roster (sold after saving):
     // reported, never silently corrected.
     public string[] UnavailablePlayerIds { get; init; } = [];
+    // Day whose lineup is proposed (not saved) because this day has none yet.
+    public int? ProposedFromDay { get; init; }
 }
 public sealed record FormationPositionRequest(string PlayerId, int Position);
 public sealed record SaveRosterFormationRequest(Guid GroupId, Guid BasketId, int Year, string Owner, int Day,

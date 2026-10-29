@@ -25,7 +25,7 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
 {
     private const int Tribune = (int)FantaSoccerRole.Tribune;
 
-    internal async Task<FormationView?> ReadAsync(Guid group, Guid league, int year, ResolvedTeam team, int day, bool allowCurrentRoster, CancellationToken cancellationToken)
+    internal async Task<FormationView?> ReadAsync(Guid group, Guid league, int year, ResolvedTeam team, int day, bool allowCurrentRoster, CancellationToken cancellationToken, bool proposePrevious = false)
     {
         var source = await Rosters(group, year, team.AuthoritativeTeamId).AsNoTracking()
             .SingleOrDefaultAsync(x => x.Kind == RosterKind.Matchday && x.Day == day && x.CompetitionId == Guid.Empty, cancellationToken);
@@ -34,7 +34,14 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             source = await Rosters(group, year, team.AuthoritativeTeamId).AsNoTracking().SingleOrDefaultAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken);
         if (source is null) return null;
         var lineup = await Lineups(group, league, year, team.TeamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
-        return View(group, league, year, day, team, source, isDay, lineup);
+        // A day without a lineup of its own (and without starters in the shared roster)
+        // proposes the last lineup of this team in this competition. Nothing is stored:
+        // the proposal becomes the lineup of the day only when the user saves it.
+        LeagueLineup? proposal = null;
+        if (proposePrevious && lineup is null && !source.Players.Any(x => x.Status == 0 && x.Position != Tribune))
+            proposal = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == team.TeamId && x.Day < day)
+                .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
+        return View(group, league, year, day, team, source, isDay, lineup, proposal);
     }
 
     public async Task<FormationSavedDto> SaveAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken = default)
@@ -230,9 +237,9 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return () => new(true, "Formazione salvata.", View(command.GroupId, command.LeagueId, command.Year, command.Day, resolved, roster, true, saved).Roster);
     }
 
-    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup)
+    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup, LeagueLineup? proposal = null)
     {
-        var players = Overlay(source.Players, lineup);
+        var players = Overlay(source.Players, lineup ?? proposal);
         var active = source.Players.Where(x => x.Status == 0).Select(x => x.PlayerId).ToHashSet(StringComparer.Ordinal);
         var unavailable = lineup?.Players.Where(x => !active.Contains(x.PlayerId)).Select(x => x.PlayerId).Order().ToArray() ?? [];
         var history = lineup is not null
@@ -245,7 +252,7 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
                 x.Price, x.Revenue, x.Status, x.Position) { SeasonIndex = year }).ToArray(),
             source.MoneyFromRank, source.OpeningCompetitionPrize, (lineup?.LastUpdateUtc ?? source.LastUpdateUtc)?.ToString("O") ?? source.LegacyLastUpdateLocal?.ToString("s"),
             lineup?.FormationChanges ?? (isDay ? source.FormationChanges : 0), history, lineup?.Version ?? 0, AssetLinks.Logo(assets.Value, team.Logo),
-            lineup is null ? source.Version : null, source.MarketBalanceAdjustment, source.RankCreditGranted) { UnavailablePlayerIds = unavailable };
+            lineup is null ? source.Version : null, source.MarketBalanceAdjustment, source.RankCreditGranted) { UnavailablePlayerIds = unavailable, ProposedFromDay = proposal?.Day };
         return new(team, roster, lineup, source, isDay, unavailable);
     }
 

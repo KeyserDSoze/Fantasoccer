@@ -32,6 +32,7 @@ public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? S
     public Guid AuthoritativeTeamId { get; init; }
     public bool IsDerived => AuthoritativeTeamId != Guid.Empty && AuthoritativeTeamId != TeamId;
     public string[] UnavailablePlayerIds { get; init; } = [];
+    public int? ProposedFromDay { get; init; }
 }
 public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int SerieADay, bool CanEdit, bool IsLiveFormationWindow,
     DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview)

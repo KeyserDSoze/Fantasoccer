@@ -326,6 +326,57 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task A_day_without_a_lineup_proposes_the_previous_one_to_its_owner_until_it_is_saved()
+    {
+        var world = await WorldAsync(46, peachOwnsFunghi: false);
+        var (group, year) = (world.Group, world.Year);
+        var koopaPlayers = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
+        await MatchdayAsync(year, 2, DateTimeOffset.UtcNow.AddDays(8));
+        var games = await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 1, 2);
+        // The shared season roster has everybody in the stands, as for a roster never arranged.
+        await using (var database = factory.Database.CreateContext())
+        {
+            var roster = await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season);
+            foreach (var player in roster.Players.Where(x => x.Status == 0)) player.Position = 11;
+            roster.Version++; await database.SaveChangesAsync();
+        }
+        string Game(Guid game) => $"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}";
+        async Task<LiveTeamDto> Team(Guid? game = null, HttpClient? client = null, string mode = "formation") =>
+            (await Read<GameDto>(await (client ?? world.Luigi.Client).GetAsync(Game(game!.Value) + "?editMode=" + mode))).Teams.Single(x => x.TeamId == world.Koopa);
+        var luigi = world.Luigi.Client;
+
+        // Day 1 has nothing to propose yet. Luigi arranges and saves it.
+        var first = await Team(game: games[0]);
+        Assert.Null(first.ProposedFromDay);
+        var arranged = first.Players.ToDictionary(x => x.Current.PlayerId, x => x.Current.Position);
+        for (var index = 0; index < Roles.Length; index++) arranged[koopaPlayers[index]] = index == 11 ? 5 : Roles[index];
+        arranged[koopaPlayers[1]] = 5; arranged[koopaPlayers[11]] = 1;
+        var positions = arranged.Select(x => new FormationPositionRequest(x.Key, x.Value)).ToArray();
+        (await luigi.PutAsJsonAsync(Game(games[0]) + "/formation", new SaveGameFormationRequest(world.Koopa, positions, 0, first.SourceVersion))).EnsureSuccessStatusCode();
+
+        // Day 2: the previous lineup is proposed, nothing is stored.
+        var second = await Team(game: games[1]);
+        Assert.Equal(1, second.ProposedFromDay); Assert.Equal(0, second.Version);
+        Assert.Equal(5, second.Players.Single(x => x.Current.PlayerId == koopaPlayers[1]).Current.Position);
+        Assert.Equal(1, second.Players.Single(x => x.Current.PlayerId == koopaPlayers[11]).Current.Position);
+        await using (var database = factory.Database.CreateContext())
+            Assert.False(await database.LeagueLineups.AnyAsync(x => x.LeagueId == world.LeagueSA && x.TeamId == world.Koopa && x.Day == 2));
+        // Neither the opponent nor the read-only view receives it.
+        Assert.Null((await Team(game: games[1], client: world.Mario.Client)).ProposedFromDay);
+        Assert.Null((await Team(game: games[1], mode: "view")).ProposedFromDay);
+
+        // Confirming it saves the day's own lineup.
+        var confirmed = second.Players.Select(x => new FormationPositionRequest(x.Current.PlayerId, x.Current.Position)).ToArray();
+        var saved = await Read<FormationSavedDto>(await luigi.PutAsJsonAsync(Game(games[1]) + "/formation", new SaveGameFormationRequest(world.Koopa, confirmed, 0, second.SourceVersion)));
+        Assert.Equal(1, saved.Team.Version);
+        var after = await Team(game: games[1]);
+        Assert.Null(after.ProposedFromDay); Assert.Equal(1, after.Version);
+        Assert.Equal(1, after.Players.Single(x => x.Current.PlayerId == koopaPlayers[11]).Current.Position);
+    }
+
+    [PostgreSqlFact]
     public async Task Live_projection_is_shared_by_members_rebuilt_only_on_source_changes_isolated_per_group_and_recovered_after_cache_loss()
     {
         var world = await WorldAsync(44, peachOwnsFunghi: true);
@@ -499,6 +550,19 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
                         AwayTeamId = away.Team, AwayBasketId = away.Basket, HomeName = "Home", AwayName = "Away", HomeOwner = home.Owner, AwayOwner = away.Owner }] }] }] });
         await database.SaveChangesAsync();
         return id;
+    }
+
+    private async Task<Guid[]> GameDaysAsync(Guid group, Guid league, int year, (Guid Team, Guid Basket, string Owner) home, (Guid Team, Guid Basket, string Owner) away, params int[] days)
+    {
+        await using var database = factory.Database.CreateContext();
+        var ids = days.Select(_ => Guid.NewGuid()).ToArray();
+        database.FantasyCalendars.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = year, Stages =
+            [new() { Stage = "@", GroupId = group, LeagueId = league, SeasonIndex = year, Days = days.Select((day, index) => new FantasyMatchday
+                { Stage = "@", GroupId = group, LeagueId = league, SeasonIndex = year, Ordinal = index, FantasyTurn = 5 + index, SerieADay = day, Games =
+                    [new() { GroupId = group, LeagueId = league, SeasonIndex = year, Id = ids[index], Stage = "@", DayOrdinal = index, HomeTeamId = home.Team, HomeBasketId = home.Basket,
+                        AwayTeamId = away.Team, AwayBasketId = away.Basket, HomeName = "Home", AwayName = "Away", HomeOwner = home.Owner, AwayOwner = away.Owner }] }).ToList() }] });
+        await database.SaveChangesAsync();
+        return ids;
     }
 
     private async Task StandingAsync(Guid group, Guid league, int year, params (Guid Team, Guid Basket)[] order)
