@@ -308,3 +308,17 @@ DUMP_NAME=prova1 RESUME=true bash scripts/local/local.sh export
 ```
 
 Il solo comando `init` Bash usa Python 3 per generare chiavi; su Windows PowerShell usa le API crittografiche .NET già disponibili.
+
+### Reset e import in un solo comando
+
+Se il database locale ha già scritture applicative l'import è rifiutato (`interactive_writes_already_started`). Con `-ResetFirst` (o `RESET_FIRST=true`) `sync-storage` esegue, solo dopo che verifica e analisi del dump sono riuscite, il reset con backup `pg_dump` e subito dopo l'import:
+
+```powershell
+.\scripts\local\sync-storage.ps1 -EnvFile .env -DumpName azure-prova1 -UseExistingDump -Apply -ResetFirst -ConfirmDatabase fantasoccer_local
+```
+
+```bash
+DUMP_NAME=azure-prova1 USE_EXISTING_DUMP=true APPLY=true RESET_FIRST=true CONFIRM_DATABASE=fantasoccer_local bash scripts/local/sync-storage.sh .env
+```
+
+Richiede `-Apply` e la conferma esplicita; i dati locali attuali restano solo nel backup in `migration-data/postgres-backups/`.
