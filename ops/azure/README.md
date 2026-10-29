@@ -12,4 +12,6 @@ Il container `fantazone-cache` (configurabile con `Cache:ContainerName`) contien
 az storage account management-policy create --account-name <account> --resource-group <rg> --policy @ops/azure/cache-lifecycle-policy.json
 ```
 
+Nell'ambiente `fcv2` la stessa regola è creata da Terraform (`infra/storage.tf`), insieme al container privato.
+
 Ambienti che condividono l'account usano namespace diversi (`Cache:Namespace`, default: nome dell'ambiente): i percorsi sono `fantazone-cache/{namespace}/...`, quindi la regola copre tutti gli ambienti.

@@ -43,3 +43,9 @@ Configure `Settings > Pages > Build and deployment > Source` to use **GitHub Act
 The client secret should have an explicit expiration and be rotated. An infinite-duration secret is deliberately not recommended because it creates a permanent deployment credential.
 
 Rotate every credential that was previously committed to the repository, including storage, OAuth, OpenAI, encryption, App Insights, and Static Web App credentials. Removing a value from Git history does not revoke it.
+
+## New PostgreSQL environment `fcv2` (Terraform)
+
+The `fcv2` resource group (App Service, PostgreSQL Flexible Server, Storage with the private cache container, Key Vault, Log Analytics/Application Insights, Azure OpenAI) is defined in [`infra/`](../infra/README.md) and created by the `Infrastructure fcv2` workflow: plan runs automatically, apply only via `workflow_dispatch` with `action=apply` and `confirm=fcv2`. `Deploy API fcv2` publishes the API there without changing the Terraform-managed settings.
+
+Both workflows reuse `AZURE_CREDENTIALS`, `MICROSOFT_CLIENT_SECRET`, `ENCRYPTION_KEY` and `ENCRYPTION_IV` from the `production` environment. The service principal needs `Contributor` on the subscription (today it only has `Website Contributor` on `apifc`); no role assignment rights are required. The existing `fc`/`apifc` deployment is unchanged.

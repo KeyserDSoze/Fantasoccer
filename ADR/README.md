@@ -34,6 +34,7 @@ L'obiettivo non è costruire una piattaforma enterprise: usare un database condi
 12. [0011 — Chiusura operativa, job/editoriale/archivi](0011-chiusura-operativa-job-editoriale-e-archivi.md)
 13. [0012 — Cache distribuita su Blob, competizioni multi-squadra e retention push](0012-cache-distribuita-e-competizioni-multi-squadra.md)
 14. [Matrice dei contratti e delle policy](MATRICE-CONTRATTI-E-POLICY.md)
+15. [Infrastruttura Terraform dell'ambiente `fcv2`](../infra/README.md)
 
 ## Decisioni confermate
 
