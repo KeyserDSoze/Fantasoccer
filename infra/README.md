@@ -62,7 +62,7 @@ Lo stato sta nello storage account `fcv2tf<hash>`, nel resource group separato `
 
 1. **Login Microsoft:** nessuna modifica. Il redirect del login torna al frontend (`https://fanta.zone`, già in `RedirectDomains` e nell'app registration), non all'host dell'API. CORS consente già `fanta.zone`.
 2. **Migrazione dei dati:**
-   - aggiungere temporaneamente l'IP dell'operatore in `postgres_admin_ip_ranges` (`environments/fcv2.tfvars`) e fare apply;
+   - (per ora il firewall è aperto a tutti: `0.0.0.0`-`255.255.255.255` in `postgres_admin_ip_ranges`, da restringere poi) aggiungere l IP dell operatore in `postgres_admin_ip_ranges` (`environments/fcv2.tfvars`) e fare apply;
    - importare seguendo [`docs/MIGRATION-RUNBOOK.md`](../docs/MIGRATION-RUNBOOK.md) e ripristinare i file nel nuovo storage;
    - togliere l'IP. Finché l'import non è concluso tenere `background_jobs_enabled = false`: la prima scrittura dell'applicazione chiude la finestra di reimportazione. L'API si avvia comunque e applica le migration EF Core sul database vuoto.
 3. **Opzionale:** MCP, Web Push (chiavi VAPID) e amministratori globali diversi da quelli di `appsettings.json`, tramite `extra_app_settings` o nuovi secret nel Key Vault. Oggi `Mcp__Enabled` e `Push__Enabled` sono `false`.

@@ -13,7 +13,11 @@ background_jobs_enabled = false
 postgres_sku                   = "B_Standard_B1ms"
 postgres_storage_mb            = 32768
 postgres_backup_retention_days = 14
-postgres_admin_ip_ranges       = []
+# Temporarily open to everyone (friends-only environment); to be closed later.
+# Authentication and TLS stay mandatory.
+postgres_admin_ip_ranges = [
+  { name = "open-to-all", start_ip = "0.0.0.0", end_ip = "255.255.255.255" },
+]
 
 openai_enabled       = true
 openai_location      = "swedencentral"
