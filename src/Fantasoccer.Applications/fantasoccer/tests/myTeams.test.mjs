@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { listMyTeams } from '../utils/myTeams.ts'
+import { leagueBasketTeams, listMyTeams } from '../utils/myTeams.ts'
 
 const group = {
   id: 'group', name: 'Amici', revision: 1, leagues: [], users: [],
@@ -29,4 +29,15 @@ test('derived teams can be excluded and a league restricts the candidates to its
   assert.deepEqual(listMyTeams(group, 'mario@example.test', 15, { teamIds: ['draghi-cl', 'koopa-cl'] }).map(team => team.teamId), ['draghi-cl'])
   assert.deepEqual(listMyTeams(group, 'peach@example.test', 15), [])
   assert.deepEqual(listMyTeams(null, 'mario@example.test', 15), [])
+})
+
+test('league teams cover every linked basket and only explicit participants', () => {
+  const withLeagues = { ...group, leagues: [
+    { id: 'serie', name: 'Serie A', isMain: true, type: 1, basketsId: ['serie-a'], years: [{ year: 15, type: 1, settings: {}, participantTeamIds: ['draghi', 'koopa'] }] },
+    { id: 'cl', name: 'Champions', isMain: false, type: 1, mode: 1, basketsId: ['champions', 'premier'], years: [{ year: 15, type: 1, settings: {}, participantTeamIds: ['draghi-cl'] }] },
+  ] }
+  assert.deepEqual(leagueBasketTeams(withLeagues, 'serie', 15).flatMap(entry => entry.teams.map(team => team.teamId)), ['draghi', 'koopa'])
+  // Linked basket without admitted teams is skipped; nothing is enrolled implicitly.
+  assert.deepEqual(leagueBasketTeams(withLeagues, 'cl', 15).map(entry => entry.basketId), ['champions'])
+  assert.deepEqual(leagueBasketTeams(withLeagues, 'missing', 15), [])
 })

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { leagueBasketTeams } from 'utils/myTeams'
 import {
   AlertTriangle,
   BarChart3,
@@ -249,28 +250,20 @@ export default function PlayersScreen() {
         return
       }
 
-      const basketId = league.basketsId[0]
-      const basket = currentGroup.baskets?.find(b => b.id === basketId)
-      if (!basket) {
+      // Every basket of the league (derived leagues combine several), explicit participants only.
+      const seasons = leagueBasketTeams(currentGroup, localLeagueId, localYear)
+      if (seasons.length === 0) {
         setTeams([])
         setIsLoadingTeams(false)
         return
       }
 
-      const yearlyBasket = basket.years?.find(y => y.year === localYear)
-      if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
-        setTeams([])
-        setIsLoadingTeams(false)
-        return
-      }
-
-      const owners = yearlyBasket.teams.map(t => t.owner)
-      const fetchedTeams = await teamService.getTeamsByBasket(
+      const fetchedTeams = (await Promise.all(seasons.map(entry => teamService.getTeamsByBasket(
         currentGroup.id,
         localYear,
-        basketId,
-        owners
-      )
+        entry.basketId,
+        entry.teams.map(t => t.owner)
+      )))).flat()
 
       setTeams(fetchedTeams)
     } catch (err: any) {

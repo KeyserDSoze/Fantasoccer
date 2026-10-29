@@ -31,3 +31,18 @@ export function listMyTeams(group: Group | null | undefined, email: string | nul
 
 const isOwner = (team: AnnualTeam, email: string) =>
   [team.owner, ...(team.additionalOwners ?? [])].some(value => value?.toLowerCase() === email.toLowerCase())
+
+// Teams of a league season grouped by basket: every basket linked to the league
+// (a derived league usually combines several), restricted to the explicit
+// participants when the server provides them.
+export function leagueBasketTeams(group: Group | null | undefined, leagueId: string | null | undefined, year: number | null | undefined): { basketId: string; teams: AnnualTeam[] }[] {
+  const league = group?.leagues.find(item => item.id === leagueId)
+  if (!group || !league || year == null) return []
+  const participants = league.years.find(item => item.year === year)?.participantTeamIds
+  const allowed = participants ? new Set(participants) : null
+  return league.basketsId.map(basketId => ({
+    basketId,
+    teams: (group.baskets.find(basket => basket.id === basketId)?.years.find(item => item.year === year)?.teams ?? [])
+      .filter(team => !allowed || (!!team.teamId && allowed.has(team.teamId))),
+  })).filter(entry => entry.teams.length > 0)
+}

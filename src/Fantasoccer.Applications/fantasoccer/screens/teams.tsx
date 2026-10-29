@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { leagueBasketTeams } from 'utils/myTeams'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { YStack, XStack, Text, H3, Separator, Card, Spinner, Button } from 'tamagui'
@@ -58,43 +59,28 @@ export default function TeamsScreen() {
         return
       }
 
-      // Prendi il primo basketId della lega (o potresti avere logica per selezionare il basket corretto)
-      const basketId = league.basketsId[0]
-      
-      // Trova il basket nel gruppo
-      const basket = currentGroup.baskets?.find(b => b.id === basketId)
-      if (!basket) {
-        setError('Basket non trovato')
-        setTeams([])
-        setIsLoading(false)
-        return
-      }
-
-      // Trova l'anno nel basket
-      const yearlyBasket = basket.years?.find(y => y.year === localYear)
-      if (!yearlyBasket || !yearlyBasket.teams || yearlyBasket.teams.length === 0) {
+      // Every basket of the league (derived leagues combine several), explicit participants only.
+      const seasons = leagueBasketTeams(currentGroup, localLeagueId, localYear)
+      if (seasons.length === 0) {
         setError('Nessuna squadra trovata per questo anno')
         setTeams([])
         setIsLoading(false)
         return
       }
 
-      // Estrai gli owner (email) dai team
-      const owners = yearlyBasket.teams.map(t => t.owner)
-
       // Get league settings for moneyFromRank calculation
       const annualLeague = league.years?.find((y: any) => y.year === localYear)
       const settings = annualLeague?.settings
 
       // Recupera tutti i team enhanced usando il teamService
-      const fetchedTeams = await teamService.getEnhancedTeamsByBasket(
+      const fetchedTeams = (await Promise.all(seasons.map(entry => teamService.getEnhancedTeamsByBasket(
         currentGroup.id,
         localYear,
-        basketId,
-        owners,
+        entry.basketId,
+        entry.teams.map(t => t.owner),
         localLeagueId,
         settings
-      )
+      )))).flat()
 
       setTeams(fetchedTeams)
     } catch (err: any) {
