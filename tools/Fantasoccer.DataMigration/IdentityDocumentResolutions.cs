@@ -64,7 +64,7 @@ public sealed partial class CoreDatasetImporter
     private sealed record IdentitySelection(IdentityCandidate[] Selected, (IdentityCandidate Preferred, IdentityCandidate Other)[] Resolved);
 
     private static IdentitySelection SelectIdentityCandidates(IReadOnlyList<IdentityCandidate> candidates,
-        IReadOnlyList<IdentityDocumentResolution>? configuredRules)
+        IReadOnlyList<IdentityDocumentResolution>? configuredRules, IReadOnlyDictionary<string, long>? sizes = null)
     {
         var rules = IdentityResolutionConfiguration.Normalize(configuredRules);
         var byEmail = candidates.GroupBy(x => x.Email, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.ToArray(), StringComparer.Ordinal);
@@ -118,6 +118,13 @@ public sealed partial class CoreDatasetImporter
         {
             if (group.Length == 1) { selected.Add(group[0]); continue; }
             if (resolvedByEmail.TryGetValue(group[0].Email, out var resolution)) { selected.Add(resolution.Preferred); continue; }
+            // Operator policy: of exactly two copies of one email the larger document wins. A tie, a missing
+            // size or a third copy stays a collision; explicit approvals above always take precedence.
+            if (sizes is not null && group.Length == 2 && sizes.TryGetValue(group[0].Document.BlobName, out var first) && sizes.TryGetValue(group[1].Document.BlobName, out var second) && first != second)
+            {
+                var (winner, loser) = first > second ? (group[0], group[1]) : (group[1], group[0]);
+                resolvedByEmail.Add(winner.Email, (winner, loser)); selected.Add(winner); continue;
+            }
             throw new CoreImportException("identity_collision", documentSha256: group[1].Document.Sha256,
                 identityConflict: CompareIdentityDocuments(group[1].Document, group[1].Account, group[0].Document, group[0].Account, group[0].Email));
         }

@@ -189,6 +189,27 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
+    public async Task Largest_document_policy_picks_the_bigger_of_two_copies_and_refuses_a_third_copy_and_the_default()
+    {
+        var container = _storage.Blobs.GetBlobContainerClient("appidentity");
+        var original = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var bigger = new AppIdentity { Email = Email, Username = "The bigger profile", Groups = original.Groups.ToList() };
+        await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", bigger);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        // Off by default: still a collision.
+        Assert.Equal("identity_collision", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump))).Message);
+        var options = new CoreImportOptions(IdentityPreferLargestDocument: true);
+        await using var database = fixture.CreateContext();
+        var report = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Single(report.ResolvedIdentityConflicts!);
+        Assert.StartsWith("The bigger profile", (await database.Users.AsNoTracking().SingleAsync(x => x.Email == Email)).DisplayName);
+        // A third copy of the same email is never guessed.
+        await WriteIdentityEnvelopeAsync("legacy0002", "legacy0002", bigger);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        Assert.Equal("identity_collision", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump, options: options))).Message);
+    }
+
+    [CoreFact]
     public async Task Approved_identity_resolution_does_not_reopen_import_after_application_writes()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");

@@ -273,6 +273,20 @@ IDENTITY_RESOLUTIONS_JSON='[{"email":"amico@example.com"},{"email":"altro@exampl
 - Un'email non può comparire due volte, e non si mescola con gli SHA-256 nello stesso oggetto. Le due forme possono convivere nello stesso array.
 - Rispetto agli SHA-256 non c'è più la protezione "se il profilo cambia l'approvazione decade": approva per email solo persone di cui hai già confrontato le copie.
 
+#### Politica "vince il documento più grande"
+
+Se per le copie duplicate della stessa email sai che il documento con più byte è sempre quello giusto, puoi attivare una politica per tutte, senza elencarle:
+
+```dotenv
+IDENTITY_PREFER_LARGEST_DOCUMENT=true
+```
+
+- Vale solo per esattamente **due** copie della stessa email e solo se le dimensioni sono diverse (la dimensione è quella del Blob nel manifest del dump). Con tre copie o dimensioni uguali resta `identity_collision`.
+- Le approvazioni esplicite (checksum o email) hanno la precedenza.
+- Non unisce ruoli o selezioni: vale il profilo del documento più grande, l'altro resta archiviato nel dump; le coppie applicate compaiono in `resolvedIdentityConflicts`.
+- Non scavalca `membership_conflict` né gli altri controlli sui gruppi.
+- È disattivata per default e passata solo ai tool di analisi/import.
+
 #### Due lookup email diversi solo per maiuscole
 
 Se entrambe le copie hanno nome Blob email e differiscono soltanto per maiuscole/minuscole, la regola precedente resta rifiutata per default. Dopo confronto dei profili e approvazione del gestore, **solo l'oggetto di quella coppia** può aggiungere `"allowEmailLookupAlias":true`:

@@ -382,7 +382,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
                 throw new CoreImportException(fault.Message, fault.Field, fault.Reader, document.Sha256, fault.IdentityConflict);
             }
         }
-        var identitySelection = SelectIdentityCandidates(identityCandidates, options.IdentityResolutions);
+        var identitySizes = dataset.Manifest.Containers.Where(x => x.Name == "appidentity").SelectMany(x => x.Blobs).ToDictionary(x => x.Name, x => x.Length, StringComparer.Ordinal);
+        var identitySelection = SelectIdentityCandidates(identityCandidates, options.IdentityResolutions, options.IdentityPreferLargestDocument ? identitySizes : null);
         foreach (var candidate in identitySelection.Selected) accounts.Add(candidate.Email, candidate.Account);
         foreach (var candidate in identitySelection.Selected)
         {

@@ -21,10 +21,13 @@ try
         throw new InvalidOperationException("FANTASOCCER_IMPORT_LEGACY_LOGS must be true or false.");
     if (!bool.TryParse(Environment.GetEnvironmentVariable("FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS") ?? "false", out var importLegacyNamedOwners))
         throw new InvalidOperationException("FANTASOCCER_IMPORT_LEGACY_NAMED_OWNERS must be true or false.");
+    if (!bool.TryParse(Environment.GetEnvironmentVariable("FANTASOCCER_IDENTITY_PREFER_LARGEST_DOCUMENT") ?? "false", out var preferLargestIdentity))
+        throw new InvalidOperationException("FANTASOCCER_IDENTITY_PREFER_LARGEST_DOCUMENT must be true or false.");
     var importOptions = new CoreImportOptions(Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_KEY"),
         Environment.GetEnvironmentVariable("FANTASOCCER_LEGACY_ENCRYPTION_IV"), importLegacyAuctions, importLegacyLogs,
         IdentityResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_IDENTITY_RESOLUTIONS_JSON")), importLegacyNamedOwners,
-        PlayerCatalogResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON")));
+        PlayerCatalogResolutionConfiguration.Parse(Environment.GetEnvironmentVariable("FANTASOCCER_PLAYER_CATALOG_RESOLUTIONS_JSON")),
+        preferLargestIdentity);
     if (args[0] == "analyze-core")
     {
         var (dataset, plan) = await CoreDatasetImporter.AnalyzeAsync(args[2], options: importOptions);
