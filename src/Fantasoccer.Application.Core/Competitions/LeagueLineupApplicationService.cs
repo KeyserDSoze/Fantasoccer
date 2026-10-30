@@ -37,13 +37,9 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             source = await Rosters(group, year, team.AuthoritativeTeamId).AsNoTracking().SingleOrDefaultAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken);
         if (source is null) return null;
         var lineup = await Lineups(group, league, year, team.TeamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
-        // A day without a lineup of its own (and without starters in the shared roster)
-        // proposes the last lineup of this team in this competition. Nothing is stored:
-        // the proposal becomes the lineup of the day only when the user saves it.
-        LeagueLineup? proposal = null;
-        if (proposePrevious && lineup is null && !source.Players.Any(x => x.Status == 0 && x.Position != Tribune))
-            proposal = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == team.TeamId && x.Day < day)
-                .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
+        // A day without a lineup of its own shows the last formation ever made by this team
+        // (nothing stored: it becomes the lineup of the day when saved or prepared by the job).
+        var proposal = proposePrevious && lineup is null ? await PreviousFormationAsync(group, league, year, team, day, cancellationToken) : null;
         return View(group, league, year, day, team, source, isDay, lineup, proposal);
     }
 
@@ -209,10 +205,10 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         var daily = await DayRosterAsync(group, year, day, team.AuthoritativeTeamId, cancellationToken);
         var lineup = await Lineups(group, league, year, teamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
         // Safety net: a day with no lineup of its own and nobody in the lineup scores with the
-        // last lineup of this team in this competition (what the owner was shown), not with a penalty.
-        if (lineup is null && !daily.Players.Any(x => x.Status == 0 && x.Position != Tribune))
-            lineup = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == teamId && x.Day < day)
-                .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
+        // last formation of this team (what the owner was shown), not with a penalty.
+        if (lineup is null && !daily.Players.Any(x => x.Status == 0 && x.Position != Tribune) &&
+            await PreviousFormationAsync(group, league, year, team, day, cancellationToken) is { } previous)
+            return Overlay(daily.Players, previous.Positions);
         return Overlay(daily.Players, lineup);
     }
 
@@ -232,9 +228,30 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return daily;
     }
 
-    internal static RosterPlayer[] Overlay(IEnumerable<RosterPlayer> players, LeagueLineup? lineup)
+    internal sealed record PreviousFormation(int Day, Dictionary<string, int> Positions);
+
+    // The most recent formation of the team before a day: the last lineup of this competition,
+    // else the last imported matchday roster that had starters. Walks back as far as needed;
+    // null when nothing was ever arranged.
+    internal async Task<PreviousFormation?> PreviousFormationAsync(Guid group, Guid league, int year, ResolvedTeam team, int day, CancellationToken cancellationToken)
     {
-        var positions = lineup?.Players.ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
+        var lineup = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == team.TeamId && x.Day < day)
+            .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
+        if (lineup is not null) return new(lineup.Day, lineup.Players.ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal));
+        // Imported history has no competition lineups: use the latest shared matchday roster that had starters.
+        var rosters = await database.RosterSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.SeasonIndex == year && x.TeamId == team.AuthoritativeTeamId &&
+                x.Kind == RosterKind.Matchday && x.CompetitionId == Guid.Empty && x.Day < day)
+            .OrderByDescending(x => x.Day).Select(x => new { x.Day, Players = x.Players.Where(p => p.Status == 0).Select(p => new { p.PlayerId, p.Position }).ToList() })
+            .ToListAsync(cancellationToken);
+        var legacy = rosters.FirstOrDefault(x => x.Players.Any(p => p.Position != Tribune));
+        return legacy is null ? null : new(legacy.Day, legacy.Players.ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal));
+    }
+
+    internal static RosterPlayer[] Overlay(IEnumerable<RosterPlayer> players, LeagueLineup? lineup) =>
+        Overlay(players, lineup?.Players.ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal));
+
+    internal static RosterPlayer[] Overlay(IEnumerable<RosterPlayer> players, Dictionary<string, int>? positions)
+    {
         return players.OrderBy(x => x.Ordinal).Select(x => new RosterPlayer { Ordinal = x.Ordinal, PlayerId = x.PlayerId, Player = x.Player, ClubId = x.ClubId, Club = x.Club,
             PlayerRole = x.PlayerRole, IsActive = x.IsActive, IsVisible = x.IsVisible, Price = x.Price, Revenue = x.Revenue, Status = x.Status,
             // A lineup never silently gains a new player: anyone bought after it was saved sits in the stands.
@@ -336,9 +353,9 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return () => new(true, "Formazione salvata.", View(command.GroupId, command.LeagueId, command.Year, command.Day, resolved, roster, true, saved).Roster);
     }
 
-    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup, LeagueLineup? proposal = null)
+    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup, PreviousFormation? proposal = null)
     {
-        var players = Overlay(source.Players, lineup ?? proposal);
+        var players = proposal is not null && lineup is null ? Overlay(source.Players, proposal.Positions) : Overlay(source.Players, lineup);
         var active = source.Players.Where(x => x.Status == 0).Select(x => x.PlayerId).ToHashSet(StringComparer.Ordinal);
         var unavailable = lineup?.Players.Where(x => !active.Contains(x.PlayerId)).Select(x => x.PlayerId).Order().ToArray() ?? [];
         var history = lineup is not null

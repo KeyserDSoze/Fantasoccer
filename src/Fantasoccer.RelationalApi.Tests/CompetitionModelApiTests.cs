@@ -334,7 +334,8 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         await RosterAsync(group, world.Draghi, year, Roles.Length);
         await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
         await MatchdayAsync(year, 2, DateTimeOffset.UtcNow.AddDays(8));
-        var games = await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 1, 2);
+        await MatchdayAsync(year, 3, DateTimeOffset.UtcNow.AddDays(15));
+        var games = await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 1, 2, 3);
         // The shared season roster has everybody in the stands, as for a roster never arranged.
         await using (var database = factory.Database.CreateContext())
         {
@@ -363,6 +364,10 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         Assert.Equal(1, second.Players.Single(x => x.Current.PlayerId == koopaPlayers[11]).Current.Position);
         await using (var database = factory.Database.CreateContext())
             Assert.False(await database.LeagueLineups.AnyAsync(x => x.LeagueId == world.LeagueSA && x.TeamId == world.Koopa && x.Day == 2));
+        // Walks back over days without a formation: day 3 shows the lineup of day 1.
+        var third = await Team(game: games[2]);
+        Assert.Equal(1, third.ProposedFromDay);
+        Assert.Equal(1, third.Players.Single(x => x.Current.PlayerId == koopaPlayers[11]).Current.Position);
         // Neither the opponent nor the read-only view receives it.
         Assert.Null((await Team(game: games[1], client: world.Mario.Client)).ProposedFromDay);
         Assert.Null((await Team(game: games[1], mode: "view")).ProposedFromDay);
