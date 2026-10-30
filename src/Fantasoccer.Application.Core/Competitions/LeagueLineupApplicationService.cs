@@ -340,11 +340,14 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         if (database.Entry(lineup).State != EntityState.Added && rewritten) { lineup.Version++; lineup.LastUpdateUtc = now; lineup.UpdatedByUserId = actor.UserId; }
         if (rewritten)
         {
-            if (command.Live && changed.Length > 0) lineup.FormationChanges++;
-            if (changed.Length > 0)
+            // Only live changes are traced (they consume the match's live changes); pre-match saves are not.
+            if (command.Live && changed.Length > 0)
+            {
+                lineup.FormationChanges++;
                 lineup.History.Add(new() { Ordinal = lineup.History.Count, Author = actor.DisplayName, DateUtc = now,
                     Players = changed.Select((player, index) => new LeagueLineupChangePlayer { Ordinal = index, PlayerName = player.Player.Name,
                         FromPosition = current[player.PlayerId], ToPosition = positions[player.PlayerId] }).ToList() });
+            }
             lineup.Players.Clear();
             if (database.Entry(lineup).State != EntityState.Added) await database.SaveChangesAsync(cancellationToken);
             foreach (var player in active) lineup.Players.Add(new() { PlayerId = player.PlayerId, Position = positions[player.PlayerId] });

@@ -282,8 +282,8 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         (await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa,
             Positions(serieA, (2, 1), (3, 5)), serieA.Version, Live: true))).EnsureSuccessStatusCode();
         serieA = await Team(world.LeagueSA, gameSA, world.Koopa, "live");
-        // History keeps every change of this competition's lineup (two pre-match saves and the live swap).
-        Assert.Equal(1, serieA.FormationChangesUsed); Assert.Equal(3, serieA.FormationChangeHistory.Length);
+        // Only the live swap is traced; the pre-match saves are not.
+        Assert.Equal(1, serieA.FormationChangesUsed); Assert.Single(serieA.FormationChangeHistory);
         await AssertFaultAsync(await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa,
             Positions(serieA, (3, 1), (4, 5)), serieA.Version, Live: true)), HttpStatusCode.Conflict, "live_changes_exhausted");
         champion = await Team(champions, gameCL, copyKoopa, "live");
