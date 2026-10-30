@@ -110,11 +110,11 @@ run "default_environment" {
     error_message = "No secret value may appear in plain App Service settings."
   }
   assert {
-    condition = (azurerm_linux_web_app.api.app_settings["PostgreSql__Enabled"] == "true" &&
+    condition = (!contains(keys(azurerm_linux_web_app.api.app_settings), "PostgreSql__Enabled") &&
       azurerm_linux_web_app.api.app_settings["BackgroundJobs__Enabled"] == "false" &&
       azurerm_linux_web_app.api.app_settings["Cache__ContainerName"] == "fantazone-cache" &&
     azurerm_linux_web_app.api.app_settings["Assets__PublicBlobBaseUrl"] == "https://mock.blob.core.windows.net")
-    error_message = "PostgreSQL mode, cache container, public assets and disabled jobs until the import."
+    error_message = "No retired backend selector; cache container, public assets and jobs disabled until the import."
   }
   assert {
     condition = (azurerm_storage_container.main["images"].container_access_type == "blob" &&

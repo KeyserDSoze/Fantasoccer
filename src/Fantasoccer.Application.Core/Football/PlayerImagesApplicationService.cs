@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Fantasoccer.Application.Core.Groups;
 using Fantasoccer.Business.Services;
+using Fantasoccer.Business;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fantasoccer.Application.Core.Football;
 
@@ -14,7 +16,8 @@ public sealed record RefreshedPlayerImageDto(string PlayerId, string PlayerKey, 
 public sealed record PlayerImageFailureDto(string PlayerId, string PlayerKey, string PlayerName, string? Error);
 public sealed record TeamImagesRefreshedDto(int Total, int SucceededCount, int FailedCount, RefreshedPlayerImageDto[] Succeeded, PlayerImageFailureDto[] Failed);
 
-public sealed class PlayerImagesApplicationService(FantasoccerDbContext database, IAuthorizationService authorization, IPlayerImageRefresher images)
+public sealed class PlayerImagesApplicationService(FantasoccerDbContext database, IAuthorizationService authorization, IPlayerImageRefresher images,
+    ILogger<PlayerImagesApplicationService> logger)
 {
     public async Task<RefreshedPlayerImageDto> RefreshAsync(ClaimsPrincipal caller, RefreshPlayerImageRequest request, CancellationToken cancellationToken = default)
     {
@@ -27,9 +30,14 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
         {
             if (!await images.ReloadAsync(Domain(player), timeout.Token)) throw new ApplicationFault(404, "official_image_unavailable", "Nessuna foto ufficiale disponibile. L'immagine attuale non è stata modificata.");
         }
+        catch (ExternalHttpDisabledException) { throw ExternalFetchingDisabled(); }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { throw new ApplicationFault(504, "image_source_timeout", "La fonte immagini non ha risposto entro il limite."); }
         catch (Exception error) when (error is HttpRequestException or System.Text.Json.JsonException or InvalidDataException)
-        { throw new ApplicationFault(502, "image_source_unavailable", "La fonte immagini non è disponibile o ha restituito dati non validi."); }
+        {
+            // Never log provider bodies, signed Blob URLs, player data or connection strings.
+            logger.LogWarning("Player image source failed ({FailureType}, HTTP {SourceStatus}).", error.GetType().Name, (error as HttpRequestException)?.StatusCode);
+            throw new ApplicationFault(502, "image_source_unavailable", "La fonte immagini non è disponibile o ha restituito dati non validi.");
+        }
         return new(player.PlayerId, player.PlayerId, player.Player.Name, Guid.NewGuid().ToString("N"));
     }
     public async Task<TeamImagesRefreshedDto> RefreshTeamAsync(ClaimsPrincipal caller, RefreshTeamImagesRequest request, CancellationToken cancellationToken = default)
@@ -45,8 +53,13 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
             .Where(x => x.GroupId == request.GroupId && x.TeamId == request.TeamId && x.SeasonIndex == request.Year && x.Kind == RosterKind.Season).AsSplitQuery().SingleOrDefaultAsync(cancellationToken)
             ?? throw new ApplicationFault(404, "roster_not_found", "Rosa non trovata.");
         var active = roster.Players.Where(x => x.Status == 0).DistinctBy(x => x.PlayerId).ToArray();
-        var result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.PlayerRole,
-            RealTeam = FootballMapping.DomainClubOrEmpty(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
+        IReadOnlyList<PlayerImageReloadResult> result;
+        try
+        {
+            result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.PlayerRole,
+                RealTeam = FootballMapping.DomainClubOrEmpty(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
+        }
+        catch (ExternalHttpDisabledException) { throw ExternalFetchingDisabled(); }
         // The image service returns the legacy name-only image alias for the
         // exact samples we sent. Map it back without changing the domain key.
         string Identity(string imageAlias) => active.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == imageAlias).PlayerId;
@@ -60,4 +73,6 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
     }
     private static RealPlayer Domain(PlayerSeason row) => new() { Name = row.Player.Name, Role = (Role)row.Position,
         RealTeam = row.Club == null ? null! : FootballMapping.DomainClub(row.Club), IsActive = row.IsActive, Visible = row.IsVisible };
+    private static ApplicationFault ExternalFetchingDisabled() => new(503, "external_http_disabled",
+        "Le chiamate alle fonti esterne sono disabilitate in questo ambiente. Per aggiornare le immagini abilita ExternalHttp:Enabled (EXTERNAL_HTTP_ENABLED=true nel file .env locale) e riavvia l'API.");
 }

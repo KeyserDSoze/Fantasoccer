@@ -274,6 +274,24 @@ I client dati esterni sono bloccati e il sender push non consegna né marca come
 Non abilitare job o invii su copie reali: possono aggiornare stato o contattare persone vere. Queste guardie coprono i client noti, non sono un firewall generale.
 OAuth MCP copiato non implica collegamenti validi localmente: issuer, certificati e chiavi differiscono.
 
+### Refresh delle foto giocatori
+
+Anche il refresh manuale (`POST /api/player-images/refresh` e `refresh-team`) contatta la fonte pubblica della Serie A. Con il default locale `EXTERNAL_HTTP_ENABLED=false` è intenzionalmente bloccato: l'API risponde `503 external_http_disabled`, non un generico errore della fonte. Questo controllo non viene aggirato cliccando «Aggiorna immagine».
+
+Per provare il refresh, nel **file env privato realmente usato per avviare l'app** impostare `EXTERNAL_HTTP_ENABLED=true`. Si possono lasciare `BACKGROUND_JOBS_ENABLED=false`, `PUSH_ENABLED=false` e `AI_ENABLED=false`: abilitare la lettura delle fonti non avvia automaticamente job o invii. Ricreare il servizio perché recepisca la configurazione; per HTTPS, ad esempio:
+
+```powershell
+.\scripts\local\local.ps1 up-https -EnvFile .env.local
+```
+
+Sostituire `.env.local` con il proprio file. Non modificare `.env.test` e non stampare/condividere tutte le variabili d'ambiente. Per verificare soltanto l'opzione nel container avviato:
+
+```powershell
+docker compose --env-file .env.local -f compose.yml -f compose.https.yml exec api printenv ExternalHttp__Enabled
+```
+
+Un autentico errore HTTP/JSON/immagine della fonte resta `502 image_source_unavailable`; il superamento del limite di 45 secondi è `504 image_source_timeout`. Il catalogo immagini viene letto in gruppi di massimo quattro pagine parallele e la stagione precedente viene consultata solo quando quella corrente non copre le foto richieste. Se il catalogo fallisce, le foto esistenti non vengono sovrascritte.
+
 ## 5. Test automatici isolati
 
 ```powershell

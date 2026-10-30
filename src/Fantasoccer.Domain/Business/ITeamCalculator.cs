@@ -8,6 +8,7 @@
         VotedRealPlayerWrapper? Live { get; }
         VotedRealPlayerWrapper? Official { get; }
         ChancedRealPlayerWrapper? Chance { get; }
+        bool ChancesAreStale { get; }
         RealDay? RealDay { get; }
         LeagueSetting? LeagueSetting { get; }
         LeagueType LeagueType { get; }

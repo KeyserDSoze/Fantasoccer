@@ -35,7 +35,8 @@ namespace Fantasoccer.Business
                 .Where(x => x.Status == PlayerInTeamStatus.Active)
                 .ToList();
             var enrichedPlayers = _teamCalculator.Enrich(activePlayers).ToList();
-            var hasProbableLineupData = enrichedPlayers.Any(x =>
+            var useChances = !_teamCalculator.ChancesAreStale;
+            var hasProbableLineupData = useChances && enrichedPlayers.Any(x =>
                 x.Chance != null && (x.Chance.Fantagazzetta || x.Chance.Gazzetta));
             var statistics = await _statistics.ReadAsync(year, cancellationToken);
             var stats = statistics.Players;
@@ -45,32 +46,35 @@ namespace Fantasoccer.Business
                 .GroupBy(x => x.Current.Key, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                 x => x.Key,
-                x => ToProjection(x.First(), stats, rank, hasProbableLineupData),
+                x => ToProjection(x.First(), stats, rank, hasProbableLineupData, useChances),
                 StringComparer.OrdinalIgnoreCase);
 
-            return _engine.Calculate(new OptimalFormationInput
+            var result = _engine.Calculate(new OptimalFormationInput
             {
                 Players = activePlayers,
                 Projections = projections
             });
+            return useChances ? result : result with { Warnings = result.Warnings.Concat([
+                "Probabili formazioni non aggiornate: suggerimento basato su statistiche e voti disponibili."]).ToArray() };
         }
 
         private static OptimalPlayerProjection ToProjection(
             EnrichedPlayer player,
             IReadOnlyList<StatPlayer> stats,
             IReadOnlyList<RealRankedTeam> rank,
-            bool hasProbableLineupData)
+            bool hasProbableLineupData, bool useChances)
         {
             var stat = stats.FirstOrDefault(x => string.Equals(x.Key, player.Current.Key, StringComparison.OrdinalIgnoreCase));
             var vote = player.Vote?.Value ?? 0;
-            var availability = player.Chance?.Status switch
+            var chance = useChances ? player.Chance : null;
+            var availability = chance?.Status switch
             {
                 ChanceType.Injury or ChanceType.Disqualified => 0,
                 ChanceType.Maybe => 0.5f,
                 _ => 1
             };
-            if (hasProbableLineupData && player.Chance != null &&
-                !player.Chance.Fantagazzetta && !player.Chance.Gazzetta)
+            if (hasProbableLineupData && chance != null &&
+                !chance.Fantagazzetta && !chance.Gazzetta)
                 availability = 0;
             var average = stat?.Average ?? 0;
             var fantaAverage = stat?.FantaAverage ?? 0;
@@ -83,7 +87,7 @@ namespace Fantasoccer.Business
                 .Average() ?? 0;
             var expectedVote = vote > 0 ? vote : (fantaAverage > 0 ? fantaAverage : average > 0 ? average : 5.5f);
             var matchup = CalculateMatchup(player, rank);
-            var confidence = stat != null && player.Chance != null && player.Vote != null ? 1f : stat != null || player.Vote != null ? 0.65f : 0.25f;
+            var confidence = stat != null && chance != null && player.Vote != null ? 1f : stat != null || player.Vote != null ? 0.65f : 0.25f;
             var finalValue = player.FinalValue?.Value ?? 0;
             return new OptimalPlayerProjection(
                 Average: average > 0 ? average : expectedVote,

@@ -20,3 +20,10 @@
 I test dei servizi eliminati sono rimossi, non mantenuti su un backend fantasma. Restano i test di regole e parser, ora registrati senza repository. OAuth/MCP e lo storage diretto delle foto sono verificati nella suite relazionale; i modelli di migrazione con fixture e integrazione PostgreSQL/Azurite. Dockerfile, compose e CI includono la DLL di modelli solo nelle immagini di migrazione/test.
 
 Questa pulizia non certifica il dump reale: analisi, riconciliazione e prova integrale su target sacrificabile rimangono condizioni del runbook prima di qualunque cutover. La misura del carico Live SQL/Blob rimane una verifica operativa separata, non deducibile da una build verde.
+
+## Verifiche successive alla review di `9e27aa8`
+
+- Il test Terraform offline ora verifica l'assenza del selettore ritirato `PostgreSql__Enabled` anziché indicizzarlo. `fmt`, `validate` e i tre scenari mocked non richiedono modifiche Azure.
+- Ripristinato il workflow giornaliero/manuale `external-parser-smoke.yml`, ma sui provider effettivamente attivi (Fantagazzetta, Gazzetta, Injury) e sul download di una foto ufficiale, non sui parser Sky/Mediaset eliminati. I test sono opt-in (`RUN_EXTERNAL_PARSER_TESTS=true`), separati dalla CI deterministica e non scrivono su storage reale: la foto viene ricevuta solo in memoria.
+- Il blocco HTTP esterno locale è un errore distinto, riconoscibile dal refresh foto (`external_http_disabled`). La lettura del catalogo immagini è a parallelismo limitato e consulta la stagione precedente solo se serve; la prova reale rispetta il budget di 45 secondi dell'endpoint. Vedere `scripts/local/README.md` per l'abilitazione esplicita, senza avviare job o push.
+- Live dei recuperi, sostituzioni dei partecipanti a conteggio invariato e fallback dell'AIgoritmo su statistiche quando le probabilità sono vecchie hanno test dedicati PostgreSQL/API. La finestra di consultazione delle probabilità rimane di 30 giorni.

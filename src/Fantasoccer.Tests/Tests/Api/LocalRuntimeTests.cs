@@ -22,7 +22,7 @@ public sealed class LocalSafetyTests
         await using var services = builder.Services.BuildServiceProvider();
         var clients = services.GetRequiredService<IHttpClientFactory>();
         foreach (var name in new[] { "base", "player-images", "seriea", "all-players" })
-            await Assert.ThrowsAsync<HttpRequestException>(() => clients.CreateClient(name).GetAsync("https://must-not-be-called.invalid"));
+            await Assert.ThrowsAsync<Fantasoccer.Business.ExternalHttpDisabledException>(() => clients.CreateClient(name).GetAsync("https://must-not-be-called.invalid"));
     }
 
     [Fact]

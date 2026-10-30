@@ -117,6 +117,8 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         var now = clock.GetUtcNow();
         var kickoffs = matches.Where(x => x.KickoffUtc != null).Select(x => x.KickoffUtc!.Value).ToArray();
         Add(kickoffs.Length == 0 ? "none" : now < kickoffs.Min() ? "before" : now <= kickoffs.Max().AddHours(4) ? "live" : "after");
+        // The original day may have ended months ago. Its recovery has an independent scoring window.
+        Add(matches.Any(x => FootballLiveTiming.IsRecoveryLive(x.WasPostponed, x.Delayed, x.IsFinished, x.KickoffUtc, now)));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())));
     }
 
@@ -162,6 +164,12 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
     {
         var calendar = await football.CalendarCoreAsync(year, cancellationToken);
         var now = clock.GetUtcNow();
+        // A recovery retains its original Serie A day. Do not lose it to the next regular matchday or
+        // to the tail of a regular live window: select the most recently started active recovery first.
+        var recovery = (calendar?.Days ?? []).SelectMany(day => day.Games.Select(game => new { day.SerieADay, Game = game }))
+            .Where(x => FootballLiveTiming.IsRecoveryLive(x.Game.WasPostponed, x.Game.Delayed, x.Game.IsFinished, x.Game.Date, now))
+            .OrderByDescending(x => x.Game.Date).ThenByDescending(x => x.SerieADay).FirstOrDefault();
+        if (recovery is not null) return new(recovery.SerieADay, recovery.Game.Date);
         var windows = (calendar?.Days ?? []).Select(x => new { x.SerieADay, Times = x.Games.Where(game => !game.Delayed && !game.WasPostponed && game.Date != null).Select(game => game.Date!.Value).ToArray() })
             .Where(x => x.Times.Length > 0).ToArray();
         var live = windows.Where(x => now >= x.Times.Min() && now <= x.Times.Max().AddHours(10.25)).MaxBy(x => x.SerieADay);

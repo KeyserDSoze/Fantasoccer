@@ -18,6 +18,7 @@ namespace Fantasoccer.Business
         public VotedRealPlayerWrapper? Live { get; private set; }
         public VotedRealPlayerWrapper? Official { get; private set; }
         public ChancedRealPlayerWrapper? Chance { get; private set; }
+        public bool ChancesAreStale { get; private set; }
         public RealDay? RealDay { get; private set; }
         public LeagueSetting? LeagueSetting { get; private set; }
         public bool IsEditable { get; private set; }
@@ -34,6 +35,7 @@ namespace Fantasoccer.Business
             Live = null;
             Official = null;
             Chance = null;
+            ChancesAreStale = false;
             if (withVote || withChance || withRealGame || day == 0)
             {
                 var input = await _matchday.ReadAsync(year, day, withVote, withChance);
@@ -44,6 +46,7 @@ namespace Fantasoccer.Business
                 Live = input.Live;
                 Official = input.Official;
                 Chance = input.Chances;
+                ChancesAreStale = input.ChancesAreStale;
             }
             else
             {

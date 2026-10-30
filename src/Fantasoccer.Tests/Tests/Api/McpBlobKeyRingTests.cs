@@ -23,7 +23,9 @@ public sealed class McpBlobKeyRingTests
         var connection = Environment.GetEnvironmentVariable("FANTASOCCER_TEST_STORAGE")!;
         if (!connection.Contains("AccountName=migrationtest;", StringComparison.Ordinal) || !connection.Contains("127.0.0.1", StringComparison.Ordinal) && !connection.Contains("azurite", StringComparison.Ordinal))
             throw new InvalidOperationException("Only the dedicated local emulator is allowed.");
-        var container = new BlobContainerClient(connection, "mcp-keys");
+        // A private container owned by this test only: leaving even an empty mcp-keys behind pollutes the
+        // export/restore suite, which enumerates the whole dedicated Azurite account on its next run.
+        var container = new BlobContainerClient(connection, "keyring-test-" + Guid.NewGuid().ToString("N"));
         await container.CreateIfNotExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
         var blob = container.GetBlobClient("test-keyring-" + Guid.NewGuid().ToString("N") + ".xml");
         using var rsa = RSA.Create(2048);
@@ -48,6 +50,6 @@ public sealed class McpBlobKeyRingTests
             Assert.Contains("encryptedSecret", xml);
             Assert.DoesNotContain("<masterKey", xml);
         }
-        finally { await blob.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken); }
+        finally { await container.DeleteIfExistsAsync(cancellationToken: TestContext.Current.CancellationToken); }
     }
 }

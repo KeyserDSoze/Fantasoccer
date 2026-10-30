@@ -17,6 +17,7 @@ public sealed class PlayerImageService(
     private const string CompetitionId = "serie-a::Football_Competition::ec93b94f74294dc98ab5bcfd67fc0d88";
     private static readonly Uri MediaBaseUri = new("https://media-sdp.legaseriea.it/");
     private const int MaximumImageBytes = 10 * 1024 * 1024;
+    private const int CataloguePageConcurrency = 4;
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("player-images");
 
     public async Task DownloadMissingAsync(CancellationToken cancellationToken)
@@ -24,7 +25,7 @@ public sealed class PlayerImageService(
         var year = FantacalcioTime.ActualYear;
         var players = (await realPlayers.PlayersAsync(year).WaitAsync(cancellationToken))?.Players;
         if (players == null || players.Count == 0) return;
-        var sourcePlayers = await GetSourcePlayersAsync(year, cancellationToken);
+        var sourcePlayers = await GetSourcePlayersAsync(year, cancellationToken, players);
         foreach (var player in players)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -46,7 +47,7 @@ public sealed class PlayerImageService(
     public async Task<bool> ReloadAsync(RealPlayer player, CancellationToken cancellationToken)
     {
         // Always reread the current catalog, even when the blob already exists.
-        var sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken);
+        var sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken, [player]);
         var path = FindImagePath(player, sourcePlayers);
         if (path == null) return false;
         await UploadAsync(player, path, cancellationToken);
@@ -60,8 +61,9 @@ public sealed class PlayerImageService(
         List<SdpPlayer> sourcePlayers;
         try
         {
-            sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken);
+            sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken, players);
         }
+        catch (ExternalHttpDisabledException) { throw; }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -160,13 +162,16 @@ public sealed class PlayerImageService(
         await images.UploadAsync(ImageKey(player), imageData, contentType, "public, max-age=300", cancellationToken);
     }
 
-    private async Task<List<SdpPlayer>> GetSourcePlayersAsync(int year, CancellationToken cancellationToken)
+    private async Task<List<SdpPlayer>> GetSourcePlayersAsync(int year, CancellationToken cancellationToken, IReadOnlyCollection<RealPlayer> requested)
     {
         var seasons = await _httpClient.GetFromJsonAsync<SeasonsResponse>(
             $"competitions/{CompetitionId}/seasons?locale=it-IT", cancellationToken);
         var currentSeason = seasons?.Seasons?.FirstOrDefault(x => x.SeasonName == FantacalcioTime.LabelYear(year));
         if (currentSeason == null) return [];
         var players = await GetPlayersAsync(currentSeason.SeasonId, cancellationToken);
+        // Prefer the current catalogue. Do not fetch a whole additional season when every requested photo is
+        // already available; the previous season is a fallback, not a prerequisite for each manual refresh.
+        if (requested.Count > 0 && requested.All(player => FindImagePath(player, players) != null)) return players;
         var previousSeason = seasons?.Seasons?.FirstOrDefault(x => x.SeasonName == FantacalcioTime.LabelYear(year - 1));
         if (previousSeason != null)
             players.AddRange(await GetPlayersAsync(previousSeason.SeasonId, cancellationToken));
@@ -175,13 +180,20 @@ public sealed class PlayerImageService(
 
     private async Task<List<SdpPlayer>> GetPlayersAsync(string seasonId, CancellationToken cancellationToken)
     {
-        List<SdpPlayer> players = [];
-        for (var page = 1; page <= 100; page++)
+        Task<PlayersResponse?> PageAsync(int page) => _httpClient.GetFromJsonAsync<PlayersResponse>(
+            $"seasons/{Uri.EscapeDataString(seasonId)}/stats/players?category=General&page={page}&locale=it-IT", cancellationToken);
+        var first = await PageAsync(1);
+        List<SdpPlayer> players = first?.Players?.ToList() ?? [];
+        if (first?.Pagination is not { IsLastPage: false } pagination) return players;
+        // A season currently has dozens of pages. Fetch bounded batches rather than serially exceeding the
+        // refresh endpoint's 45-second deadline. Keep page/season ordering, including current-before-previous.
+        // Any failed page aborts the catalogue before a single image can be overwritten.
+        var lastPage = Math.Clamp(pagination.TotalPages, 1, 100);
+        for (var page = 2; page <= lastPage; page += CataloguePageConcurrency)
         {
-            var response = await _httpClient.GetFromJsonAsync<PlayersResponse>(
-                $"seasons/{Uri.EscapeDataString(seasonId)}/stats/players?category=General&page={page}&locale=it-IT", cancellationToken);
-            if (response?.Players != null) players.AddRange(response.Players);
-            if (response?.Pagination == null || response.Pagination.IsLastPage || page >= response.Pagination.TotalPages) break;
+            var batch = await Task.WhenAll(Enumerable.Range(page, Math.Min(CataloguePageConcurrency, lastPage - page + 1)).Select(PageAsync));
+            foreach (var response in batch)
+                if (response?.Players != null) players.AddRange(response.Players);
         }
         return players;
     }

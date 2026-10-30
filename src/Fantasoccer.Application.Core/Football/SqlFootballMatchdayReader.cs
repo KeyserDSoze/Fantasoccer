@@ -33,8 +33,7 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, IFo
                 ? TimeZoneInfo.ConvertTime(original, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome")).DateTime : null
         }).ToList();
         VotedRealPlayerWrapper? live = null, official = null;
-        var recoveryLive = matches.Any(x => x.SerieADay == day && x.WasPostponed && !x.Delayed && x.IsFinished != true &&
-            x.KickoffUtc is { } recovery && now >= recovery && now <= recovery.AddHours(10.25));
+        var recoveryLive = matches.Any(x => x.SerieADay == day && FootballLiveTiming.IsRecoveryLive(x.WasPostponed, x.Delayed, x.IsFinished, x.KickoffUtc, now));
         if (withVotes)
         {
             var votes = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
@@ -51,12 +50,17 @@ public sealed class SqlFootballMatchdayReader(FantasoccerDbContext database, IFo
             }
         }
         ChancedRealPlayerWrapper? chances = null;
+        var chancesAreStale = false;
         if (withChances)
         {
             var snapshot = await liveData.ChancesAsync(year, day, cancellationToken);
-            if (snapshot is { Payload.Players.Length: > 0 }) chances = FootballLiveDataMapping.Wrapper(snapshot.Payload);
+            if (snapshot is { Payload.Players.Length: > 0 })
+            {
+                chances = FootballLiveDataMapping.Wrapper(snapshot.Payload);
+                chancesAreStale = !snapshot.IsFreshAt(now);
+            }
         }
         return new(day, day == liveDay || recoveryLive, day == nextDay && selected != null && now < selected.Start,
-            games.Count == 0 ? null : new() { Year = year, SerieADay = day, Games = games }, live, official, chances);
+            games.Count == 0 ? null : new() { Year = year, SerieADay = day, Games = games }, live, official, chances) { ChancesAreStale = chancesAreStale };
     }
 }

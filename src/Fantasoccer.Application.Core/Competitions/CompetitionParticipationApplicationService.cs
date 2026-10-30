@@ -50,6 +50,7 @@ public sealed class CompetitionParticipationApplicationService(FantasoccerDbCont
         if (await database.LeagueParticipations.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == team.Id, cancellationToken)) return;
         database.LeagueParticipations.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = year, TeamId = team.Id, BasketId = team.BasketId,
             Source = ParticipationSource.Manual, AdmittedAtUtc = clock.GetUtcNow(), AdmittedByUserId = actor });
+        (await database.Groups.SingleAsync(x => x.Id == group, cancellationToken)).Revision++;
         await DatabaseFaults.GuardAsync(() => database.SaveChangesAsync(cancellationToken));
         await transaction.CommitAsync(cancellationToken);
     }
@@ -65,6 +66,7 @@ public sealed class CompetitionParticipationApplicationService(FantasoccerDbCont
             await database.LeagueLineups.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == teamId, cancellationToken))
             throw new ApplicationFault(409, "participant_in_use", "La squadra ha già partite o formazioni nella competizione: la partecipazione resta stabile.");
         database.LeagueParticipations.Remove(row);
+        (await database.Groups.SingleAsync(x => x.Id == group, cancellationToken)).Revision++;
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }

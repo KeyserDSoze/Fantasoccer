@@ -62,7 +62,7 @@ public sealed class PlayerImageServiceTests
         }
     }
 
-    private static (ServiceProvider Services, IPlayerImageRefresher Refresher, Photos Store) Setup(RealPlayer player, Source source)
+    private static (ServiceProvider Services, IPlayerImageRefresher Refresher, Photos Store) Setup(RealPlayer player, HttpMessageHandler source)
     {
         var services = new ServiceCollection();
         services.AddFantasoccerSqlDataProviders();
@@ -95,6 +95,7 @@ public sealed class PlayerImageServiceTests
         Assert.True(await setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
         Assert.Equal(source.Bytes, setup.Store.Files[key]);
         Assert.Equal(2, source.Calls.Count(x => x.Host == "media-sdp.legaseriea.it"));
+        Assert.DoesNotContain(source.Calls, x => x.AbsolutePath.Contains("/previous/"));
     }
 
     [Theory]
@@ -113,7 +114,7 @@ public sealed class PlayerImageServiceTests
     public async Task Adjacent_roles_are_allowed_but_goalkeepers_are_kept_separate(Role role, int officialRole, bool expected)
     {
         var player = Player("Role Match Player", role);
-        var setup = Setup(player, new("Role Match Player", officialRole)); await using var services = setup.Services;
+        var setup = Setup(player, new Source("Role Match Player", officialRole)); await using var services = setup.Services;
         Assert.Equal(expected, await setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
     }
 
@@ -139,7 +140,7 @@ public sealed class PlayerImageServiceTests
     public async Task Invalid_source_content_preserves_the_existing_photo(string mime)
     {
         var player = Player("Mario Rossi", Role.Defensor);
-        var setup = Setup(player, new(player.Name, 2) { ContentType = mime }); await using var services = setup.Services;
+        var setup = Setup(player, new Source(player.Name, 2) { ContentType = mime }); await using var services = setup.Services;
         var key = $"players/{player.Key}.jpg";
         setup.Store.Files[key] = [9];
         await Assert.ThrowsAsync<InvalidDataException>(() => setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
@@ -155,5 +156,56 @@ public sealed class PlayerImageServiceTests
         await Assert.ThrowsAsync<InvalidDataException>(() => setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
         Assert.DoesNotContain(source.Calls, x => x.Host == "127.0.0.1");
         Assert.Empty(setup.Store.Files);
+    }
+
+    [Fact]
+    public async Task Catalogue_pages_are_loaded_with_bounded_parallelism_and_a_failed_page_preserves_the_old_photo()
+    {
+        var player = Player("Paged Photo Player", Role.Defensor);
+        var source = new PagedSource(player.Name);
+        var setup = Setup(player, source); await using var services = setup.Services;
+        Assert.True(await setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
+        Assert.InRange(source.MaximumConcurrent, 2, 4);
+        Assert.Equal(9, source.PagesRead);
+        Assert.True(setup.Store.Files.ContainsKey($"players/{player.Key}.jpg"));
+        setup.Store.Files[$"players/{player.Key}.jpg"] = [9];
+        source.FailPage = 3;
+        await Assert.ThrowsAsync<HttpRequestException>(() => setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 9 }, setup.Store.Files[$"players/{player.Key}.jpg"]);
+    }
+
+    private sealed class PagedSource(string name) : HttpMessageHandler
+    {
+        private readonly object _gate = new();
+        private int _active;
+        public int MaximumConcurrent { get; private set; }
+        public int PagesRead { get; private set; }
+        public int? FailPage { get; set; }
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return new(HttpStatusCode.OK) { Content = JsonContent.Create(new
+            {
+                seasons = new[] { new { seasonId = "current", seasonName = FantacalcioTime.LabelYear(FantacalcioTime.ActualYear) } }
+            }) };
+            if (request.RequestUri.Host == "media-sdp.legaseriea.it")
+            {
+                var image = new ByteArrayContent([1, 2, 3]); image.Headers.ContentType = new("image/webp");
+                return new(HttpStatusCode.OK) { Content = image };
+            }
+            var page = int.Parse(request.RequestUri.Query.TrimStart('?').Split('&').Single(x => x.StartsWith("page=")).Split('=')[1]);
+            lock (_gate) { PagesRead++; _active++; MaximumConcurrent = Math.Max(MaximumConcurrent, _active); }
+            try
+            {
+                await Task.Delay(20, cancellationToken);
+                if (page == FailPage) return new(HttpStatusCode.ServiceUnavailable);
+                return new(HttpStatusCode.OK) { Content = JsonContent.Create(new
+                {
+                    pagination = new { totalPages = 9, currentPage = page, isLastPage = page == 9 },
+                    players = page == 9 ? new[] { new { displayName = name, shortName = name, role = 2,
+                        team = new { officialName = "Milan" }, imagery = new { playerImage_home_middle = "playerImages/photo.webp" } } } : []
+                }) };
+            }
+            finally { lock (_gate) _active--; }
+        }
     }
 }
