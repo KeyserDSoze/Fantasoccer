@@ -11,7 +11,7 @@ using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.PostgreSql.Tests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Rystem.Authentication.Social;
+using Fantasoccer.Authentication;
 using Xunit;
 
 namespace Fantasoccer.RelationalApi.Tests;

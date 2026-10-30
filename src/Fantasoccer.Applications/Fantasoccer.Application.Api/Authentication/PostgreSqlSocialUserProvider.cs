@@ -2,7 +2,7 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Fantasoccer.Application.Core.Accounts;
 using Microsoft.IdentityModel.Tokens;
-using Rystem.Authentication.Social;
+using Fantasoccer.Authentication;
 
 namespace Fantasoccer.Application.Api.Authentication;
 

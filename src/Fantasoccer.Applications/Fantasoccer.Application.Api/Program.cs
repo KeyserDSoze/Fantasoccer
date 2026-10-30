@@ -115,7 +115,7 @@ if (postgresEnabled)
         login.Microsoft.ClientId = builder.Configuration["SocialLogin:Microsoft:ClientId"];
         login.Microsoft.ClientSecret = builder.Configuration["SocialLogin:Microsoft:ClientSecret"];
         login.Microsoft.AddUris(builder.Configuration["SocialLogin:Microsoft:RedirectDomains"]!.Split(','));
-    }, lifetime => { lifetime.BearerTokenExpiration = TimeSpan.FromHours(24); lifetime.RefreshTokenExpiration = TimeSpan.FromDays(100); });
+    }, lifetime => { lifetime.BearerTokenExpiration = TimeSpan.FromHours(24); lifetime.RefreshTokenExpiration = TimeSpan.FromDays(365); });
     builder.Services.AddSingleton<IOAuthDocumentStorage, Fantasoccer.Application.Api.Mcp.Storage.PostgreSqlOAuthDocumentStorage>();
     builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
     builder.Services.PostConfigure<Microsoft.AspNetCore.Authentication.BearerToken.BearerTokenOptions>(Microsoft.AspNetCore.Authentication.BearerToken.BearerTokenDefaults.AuthenticationScheme, options =>
@@ -219,7 +219,7 @@ if (app.Services.GetRequiredService<McpOptions>().Enabled)
 {
     app.UseMiddleware<McpOriginBoundaryMiddleware>();
 }
-app.UseSocialLoginEndpoints();
+app.MapSocialLogin();
 app.MapControllers();
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).AllowAnonymous();

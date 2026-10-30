@@ -96,7 +96,7 @@ namespace Fantasoccer.Business
             x =>
             {
                 x.BearerTokenExpiration = TimeSpan.FromHours(24);
-                x.RefreshTokenExpiration = TimeSpan.FromDays(100);
+                x.RefreshTokenExpiration = TimeSpan.FromDays(365);
             });
             services.AddSingleton<AuctionHubService>();
             services.AddSingleton<EncryptionService>();

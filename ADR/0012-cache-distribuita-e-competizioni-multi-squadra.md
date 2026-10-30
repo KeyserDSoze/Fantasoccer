@@ -84,6 +84,14 @@ Outbox, ricevute, lease, retry e deduplicazione restano su PostgreSQL. `PushRete
 - Migration EF Core senza `EnsureCreated`, ID preservati. Il backfill rende esplicita la regola legacy (ogni squadra dei basket collegati partecipava) con `Source = Legacy`; fallisce con `league_owner_conflict` e le coordinate da riconciliare se i dati esistenti violano il vincolo.
 - Importer (MappingVersion 45): partecipazioni legacy esplicite, rifiuto `league_owner_conflict` alla fine dell'analisi, nessuna derivazione inventata, nessuna proprietà attribuita. Voti Live e probabili formazioni restano verificati nel dump e riportati in `operationalSnapshotsNotImported`; solo la giornata del cutover può essere pubblicata in cache con `seed-operational-cache` (revisione = inizio export, quindi mai sopra dati più recenti del provider).
 
+
+### 7. Login social interno (senza Rystem.Authentication.Social)
+
+- Il flusso non cambia: il frontend invia il codice Entra ID (PKCE) a `/api/Authentication/Social/Token?provider=2`, l'API verifica l'identità, usa l'email normalizzata per trovare (o creare) l'account e **rilascia il proprio bearer token** (24 ore) e il **refresh token (365 giorni)**. Il refresh passa da `provider=0` con lo stesso endpoint e solo dall'origine del frontend che l'ha ottenuto. `/api/Authentication/Social/User` e i formati di risposta restano identici.
+- L'implementazione è in `Fantasoccer.Business/Authorization/Social` (contratti in `Fantasoccer.Domain/Identity/SocialContracts.cs`): `SocialLoginBuilder` (client id e origini consentite), un `ISocialCodeExchanger` per provider (Microsoft, refresh) e gli endpoint. Il pacchetto Rystem.Authentication.Social è stato rimosso; le altre librerie Rystem restano.
+- L'ID token Microsoft ora è verificato nella firma (chiavi dei metadati, in cache), nella scadenza, nell'emittente (tenant dei consumer) e nel destinatario (il nostro client id); prima emittente e destinatario erano controllati solo più avanti dal provider utente.
+- Per aggiungere Google: registrare un `ISocialCodeExchanger` con chiave `ProviderType.Google` che restituisca un `TokenResponse` con l'email verificata e le impostazioni in `SocialLoginBuilder.Google`; il provider utente e l'emissione dei token non cambiano.
+
 ## Diagramma ER (nuove relazioni)
 
 ```mermaid

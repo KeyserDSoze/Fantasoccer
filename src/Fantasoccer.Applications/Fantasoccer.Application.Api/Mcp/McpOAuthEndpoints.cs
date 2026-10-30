@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
 using RepositoryFramework;
-using Rystem.Authentication.Social;
+using Fantasoccer.Authentication;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace Fantasoccer.Application.Api.Mcp;

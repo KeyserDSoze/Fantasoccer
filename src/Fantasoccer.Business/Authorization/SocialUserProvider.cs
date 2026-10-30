@@ -1,6 +1,6 @@
 ﻿using System.Security.Claims;
 using RepositoryFramework;
-using Rystem.Authentication.Social;
+using Fantasoccer.Authentication;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Fantasoccer.Business.Authorization

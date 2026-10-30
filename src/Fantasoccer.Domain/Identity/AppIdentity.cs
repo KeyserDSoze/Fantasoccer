@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Serialization;
-using Rystem.Authentication.Social;
+using Fantasoccer.Authentication;
 
 namespace Fantasoccer
 {
