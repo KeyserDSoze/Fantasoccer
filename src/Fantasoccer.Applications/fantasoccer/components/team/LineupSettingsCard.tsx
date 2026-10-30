@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Shuffle } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
-import { Card, H3, Separator, Spinner, Switch, Text, XStack, YStack } from 'tamagui'
+import { Card, H3, Label, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
+import { ToggleChip } from '../ToggleChip'
 import gameService, { type TeamLineupSettings } from '../../services/gameService'
 
 interface LineupSettingsCardProps {
@@ -44,19 +45,21 @@ export function LineupSettingsCard({ groupId, year, teamId }: LineupSettingsCard
           <H3 color="$color12">Formazioni</H3>
         </XStack>
         <Separator />
-        <XStack gap="$3" alignItems="center" justifyContent="space-between">
-          <YStack flex={1} gap="$1">
-            <Text fontWeight="600">Formazione diversa per ogni competizione</Text>
-            <Text fontSize="$2" color="$color10">
-              {settings.separateLineups
-                ? 'Attivo: ogni competizione ha la sua formazione. Nella schermata della partita trovi il cambio di competizione e "Copia formazione".'
-                : `Disattivo: la formazione è la stessa in tutte le competizioni di questa squadra${settings.competitions > 1 ? ` (${settings.competitions})` : ''} e ogni salvataggio viene copiato nelle altre.`}
-            </Text>
-          </YStack>
-          <Switch size="$3" checked={settings.separateLineups} disabled={saving} onCheckedChange={value => void toggle(value)}>
-            <Switch.Thumb />
-          </Switch>
-        </XStack>
+        <YStack gap="$2">
+          <Label>Formazione diversa per ogni competizione</Label>
+          <ToggleChip
+            label={settings.separateLineups ? 'Attivo' : 'Disattivo'}
+            accent="green"
+            checked={settings.separateLineups}
+            disabled={saving}
+            onCheckedChange={checked => void toggle(checked)}
+          />
+          <Text fontSize="$2" color="$color10">
+            {settings.separateLineups
+              ? 'Ogni competizione ha la sua formazione. Nella schermata della partita trovi il cambio di competizione e "Copia formazione".'
+              : `La formazione è la stessa in tutte le competizioni di questa squadra${settings.competitions > 1 ? ` (${settings.competitions})` : ''} e ogni salvataggio viene copiato nelle altre.`}
+          </Text>
+        </YStack>
         {saving && <Spinner />}
       </YStack>
     </Card>
