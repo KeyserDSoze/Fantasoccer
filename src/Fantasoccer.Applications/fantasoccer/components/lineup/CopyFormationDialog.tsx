@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Copy } from '@tamagui/lucide-icons-2'
+import { ArrowLeftRight, Copy } from '@tamagui/lucide-icons-2'
 import { useToastController } from '@tamagui/toast'
-import { Button, Dialog, Paragraph, Spinner, Switch, Text, XStack, YStack } from 'tamagui'
-import gameService, { type GameContext, type LineupAutoCopy, type LineupCopySource } from '../../services/gameService'
+import { Button, Dialog, Paragraph, Spinner, Text, XStack, YStack } from 'tamagui'
+import gameService, { type GameContext, type LineupCopySource } from '../../services/gameService'
 import type { GameWrapper, LiveTeam } from '../../types/game'
 
 interface CopyFormationDialogProps {
@@ -12,20 +12,21 @@ interface CopyFormationDialogProps {
   // In SuperAdmin mode the side being edited; otherwise the caller's editable team.
   preferredSide?: 'home' | 'away' | null
   onCopied: () => void
+  // Opens the same day of another competition of the same team.
+  onSwitchCompetition: (source: LineupCopySource) => void
 }
 
-// Copies the lineup of the same roster from another competition of the same day.
-// It is a one-off transfer: later edits of either lineup stay independent, and the
+// Shown only when the owner chose separate lineups (team settings): by default the lineup is shared
+// and copied automatically. Switches to another competition of the same team, or copies the lineup of
+// the same roster from it for the same day. The copy is a one-off transfer: later edits of either lineup stay independent, and the
 // server re-validates the target (rules, roles, bench, deadline, version, live).
-export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSide, onCopied }: CopyFormationDialogProps) {
+export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSide, onCopied, onSwitchCompetition }: CopyFormationDialogProps) {
   const toast = useToastController()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [copying, setCopying] = useState(false)
   const [sources, setSources] = useState<LineupCopySource[]>([])
   const [checked, setChecked] = useState(false)
-  const [autoCopy, setAutoCopy] = useState<LineupAutoCopy | null>(null)
-  const [savingAuto, setSavingAuto] = useState(false)
   const [selected, setSelected] = useState<LineupCopySource | null>(null)
   const editable = gameWrapper.teams.filter(team => team.canEdit)
   const target: LiveTeam | undefined = preferredSide === 'home' ? gameWrapper.teams[0] : preferredSide === 'away' ? gameWrapper.teams[1] : editable.length === 1 ? editable[0] : undefined
@@ -35,8 +36,6 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     setLoading(true); setSelected(null)
     try {
       setSources(await gameService.getCopySources({ groupId: context.groupId, leagueId: context.leagueId, year: context.year, day: gameWrapper.serieADay, teamId: target.teamId }))
-      // Only the team's own owner can set it (not a SuperAdmin acting for someone else).
-      setAutoCopy(asAdmin ? null : await gameService.getAutoCopy({ groupId: context.groupId, leagueId: context.leagueId, year: context.year, teamId: target.teamId }).catch(() => null))
     } catch (error: any) {
       toast.show(error?.message ?? 'Impossibile caricare le formazioni', { variant: 'error' })
       setSources([])
@@ -46,19 +45,8 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
   // The button exists only when another competition shares this roster.
   useEffect(() => {
     setChecked(false); setSources([])
-    if (target && context.editMode !== 'view') void load()
-  }, [load, context.editMode])
-
-  const toggleAutoCopy = useCallback(async (enabled: boolean) => {
-    if (!target) return
-    setSavingAuto(true)
-    try {
-      setAutoCopy(await gameService.setAutoCopy({ groupId: context.groupId, leagueId: context.leagueId, year: context.year }, target.teamId, enabled))
-      toast.show(enabled ? 'Da ora ogni formazione salvata qui viene copiata anche nelle altre competizioni.' : 'Copia automatica disattivata.', { variant: 'success' })
-    } catch (error: any) {
-      toast.show(error?.message ?? 'Impossibile cambiare l\'impostazione', { variant: 'error' })
-    } finally { setSavingAuto(false) }
-  }, [context.groupId, context.leagueId, context.year, target?.teamId])
+    if (target?.separateLineups && context.editMode !== 'view') void load()
+  }, [load, context.editMode, target?.separateLineups])
 
   const copy = useCallback(async () => {
     if (!target || !selected) return
@@ -72,8 +60,15 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
     } finally { setCopying(false) }
   }, [context, target, selected, asAdmin, onCopied])
 
-  if (!target || context.editMode === 'view' || (checked && sources.length === 0 && !open)) return null
+  if (!target || !target.separateLineups || context.editMode === 'view' || (checked && sources.length === 0 && !open)) return null
+  const switchable = sources.filter(source => source.gameId)
   return (
+    <>
+    {switchable.map(source => (
+      <Button key={`switch:${source.leagueId}`} size="$3" icon={ArrowLeftRight} variant="outlined" borderColor="$purple8" onPress={() => onSwitchCompetition(source)}>
+        {source.leagueName}
+      </Button>
+    ))}
     <Dialog modal open={open} onOpenChange={value => { setOpen(value); if (value) void load() }}>
       <Dialog.Trigger asChild>
         <Button size="$3" icon={Copy} variant="outlined" borderColor="$blue8">Copia formazione</Button>
@@ -101,19 +96,6 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
               ))}
             </YStack>
           )}
-          {autoCopy && (
-            <XStack gap="$3" alignItems="center" justifyContent="space-between" paddingVertical="$2" borderTopWidth={1} borderColor="$borderColor">
-              <YStack flex={1}>
-                <Text fontWeight="600">Usa questa come formazione principale</Text>
-                <Text fontSize="$2" color="$color10">
-                  Ogni volta che salvi la formazione qui, viene copiata anche in: {autoCopy.targets.map(x => x.leagueName).join(', ')}. Le modifiche fatte nelle altre competizioni non tornano qui.
-                </Text>
-              </YStack>
-              <Switch size="$3" checked={autoCopy.enabled} disabled={savingAuto} onCheckedChange={value => void toggleAutoCopy(value)}>
-                <Switch.Thumb />
-              </Switch>
-            </XStack>
-          )}
           <XStack gap="$2" justifyContent="flex-end">
             <Dialog.Close asChild><Button size="$3">Annulla</Button></Dialog.Close>
             <Button size="$3" theme="blue" disabled={!selected || copying} onPress={copy} icon={copying ? <Spinner size="small" /> : undefined}>Copia</Button>
@@ -121,6 +103,7 @@ export function CopyFormationDialog({ gameWrapper, context, asAdmin, preferredSi
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog>
+    </>
   )
 }
 

@@ -33,6 +33,8 @@ public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? S
     public bool IsDerived => AuthoritativeTeamId != Guid.Empty && AuthoritativeTeamId != TeamId;
     public string[] UnavailablePlayerIds { get; init; } = [];
     public int? ProposedFromDay { get; init; }
+    // The owner chose a different lineup per competition (only reported to the controlling viewer).
+    public bool SeparateLineups { get; init; }
 }
 public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int SerieADay, bool CanEdit, bool IsLiveFormationWindow,
     DateTimeOffset? LiveFormationDeadline, int? LiveFormationChangesRemaining, bool ResultIsPreview)

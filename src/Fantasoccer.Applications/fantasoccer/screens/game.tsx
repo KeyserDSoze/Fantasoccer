@@ -605,7 +605,9 @@ export default function GameScreen() {
                   <XStack gap="$2" flexWrap="wrap" alignItems="center">
                     <CopyFormationDialog gameWrapper={gameWrapper} asAdmin={asAdmin} preferredSide={asAdmin ? adminEditingTeam : null}
                       context={{ groupId: routeGroupId, leagueId: routeLeagueId, year: parseInt(routeYear), gameId: routeGameId, editMode: effectiveEditMode }}
-                      onCopied={() => void refreshGame()} />
+                      onCopied={() => void refreshGame()}
+                      onSwitchCompetition={source => source.gameId && (navigation as any).navigate('Game', {
+                        groupId: routeGroupId, leagueId: source.leagueId, year: routeYear, gameId: source.gameId, editMode: effectiveEditMode })} />
                   </XStack>
                 )}
                 {gameWrapper.teams.filter(team => team.canEdit && (team.unavailablePlayerIds?.length ?? 0) > 0).map(team => (

@@ -14,10 +14,10 @@ public sealed record SaveLineupCommand(Guid GroupId, Guid LeagueId, int Year, in
     int? SourceVersion = null, bool Live = false, bool AsAdmin = false, Guid? MatchId = null);
 public sealed record CopyLineupRequest(int Day, Guid TeamId, Guid SourceLeagueId, Guid SourceTeamId, int ExpectedVersion, int? SourceVersion = null,
     bool Live = false, bool AsAdmin = false);
-public sealed record LineupAutoCopyTargetDto(Guid LeagueId, string LeagueName, Guid TeamId);
-public sealed record LineupAutoCopyDto(bool Enabled, LineupAutoCopyTargetDto[] Targets);
-public sealed record SetLineupAutoCopyRequest(Guid TeamId, bool Enabled);
-public sealed record LineupCopySourceDto(Guid LeagueId, string LeagueName, Guid TeamId, string TeamName, bool HasLineup, int Version, DateTimeOffset? LastUpdateUtc);
+public sealed record TeamLineupSettingsDto(bool SeparateLineups, int Competitions);
+public sealed record SetTeamLineupSettingsRequest(Guid GroupId, int Year, Guid TeamId, bool SeparateLineups);
+// GameId: the match of that competition on the requested day (to switch competition), when it has one.
+public sealed record LineupCopySourceDto(Guid LeagueId, string LeagueName, Guid TeamId, string TeamName, bool HasLineup, int Version, DateTimeOffset? LastUpdateUtc, Guid? GameId = null);
 
 // Effective formation of a participant in one competition and day: the
 // authoritative team's roster of the day with the competition lineup applied.
@@ -96,16 +96,13 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return result() with { Message = "Formazione copiata." };
     }
 
-    // "Always copy": when this participant is marked as the main lineup of its team,
-    // every pre-match save is copied to the other competitions of the same team.
-    // Each target is an independent copy that goes through all the save validations:
-    // a refusal (deadline, rules) is reported and never undoes the main save.
+    // Shared lineups (the default): every pre-match save is copied to the other competitions of the
+    // same team unless its owner chose separate lineups. Each target is an independent copy that goes
+    // through all the save validations: a refusal (deadline, rules) is reported and never undoes the save.
     private async Task<FormationSavedDto> PropagateAsync(ClaimsPrincipal caller, SaveLineupCommand command, FormationSavedDto saved, CancellationToken cancellationToken)
     {
-        if (!await database.LeagueLineupAutoCopies.AsNoTracking().AnyAsync(x => x.GroupId == command.GroupId && x.LeagueId == command.LeagueId &&
-                x.SeasonIndex == command.Year && x.TeamId == command.TeamId, cancellationToken)) return saved;
         var team = await teams.ResolveAsync(command.GroupId, command.Year, command.TeamId, cancellationToken);
-        if (team is null) return saved;
+        if (team is null || await SeparateLineupsAsync(command.GroupId, command.Year, team.AuthoritativeTeamId, cancellationToken)) return saved;
         var targets = await SiblingsAsync(command.GroupId, command.LeagueId, command.Year, command.TeamId, team.AuthoritativeTeamId, cancellationToken);
         var copied = 0; var warnings = new List<string>();
         foreach (var target in targets)
@@ -143,41 +140,44 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             .OrderBy(x => x.Name).Select(x => (x.LeagueId, x.Name, x.TeamId)).ToArray();
     }
 
-    public async Task<LineupAutoCopyDto> AutoCopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid teamId, CancellationToken cancellationToken = default)
+    internal Task<bool> SeparateLineupsAsync(Guid group, int year, Guid authoritativeTeam, CancellationToken cancellationToken) =>
+        database.TeamLineupSettings.AsNoTracking().AnyAsync(x => x.GroupId == group && x.SeasonIndex == year && x.TeamId == authoritativeTeam && x.SeparateLineups, cancellationToken);
+
+    public async Task<TeamLineupSettingsDto> SettingsAsync(ClaimsPrincipal caller, Guid group, int year, Guid teamId, CancellationToken cancellationToken = default)
     {
-        var team = await ControlledTeamAsync(caller, group, league, year, teamId, cancellationToken);
-        var enabled = await database.LeagueLineupAutoCopies.AsNoTracking().AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == teamId, cancellationToken);
-        var targets = await SiblingsAsync(group, league, year, teamId, team.AuthoritativeTeamId, cancellationToken);
-        return new(enabled, targets.Select(x => new LineupAutoCopyTargetDto(x.LeagueId, x.LeagueName, x.TeamId)).ToArray());
+        var (team, _) = await ControlledTeamAsync(caller, group, year, teamId, cancellationToken);
+        return new(await SeparateLineupsAsync(group, year, team.AuthoritativeTeamId, cancellationToken), await CompetitionsOfAsync(group, year, team.AuthoritativeTeamId, cancellationToken));
     }
 
-    public async Task<LineupAutoCopyDto> SetAutoCopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, SetLineupAutoCopyRequest request, CancellationToken cancellationToken = default)
+    public async Task<TeamLineupSettingsDto> SetSettingsAsync(ClaimsPrincipal caller, SetTeamLineupSettingsRequest request, CancellationToken cancellationToken = default)
     {
-        var team = await ControlledTeamAsync(caller, group, league, year, request.TeamId, cancellationToken);
+        var (team, actor) = await ControlledTeamAsync(caller, request.GroupId, request.Year, request.TeamId, cancellationToken);
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
-        var existing = await database.LeagueLineupAutoCopies.SingleOrDefaultAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == request.TeamId, cancellationToken);
-        if (request.Enabled && existing is null)
-        {
-            var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
-            var actor = await database.GroupMemberships.Where(x => x.GroupId == group && x.User.Email == email).Select(x => x.UserId).SingleAsync(cancellationToken);
-            database.LeagueLineupAutoCopies.Add(new() { GroupId = group, LeagueId = league, SeasonIndex = year, TeamId = request.TeamId, EnabledAtUtc = clock.GetUtcNow(), EnabledByUserId = actor });
-        }
-        else if (!request.Enabled && existing is not null) database.LeagueLineupAutoCopies.Remove(existing);
+        var existing = await database.TeamLineupSettings.SingleOrDefaultAsync(x => x.GroupId == request.GroupId && x.SeasonIndex == request.Year && x.TeamId == team.AuthoritativeTeamId, cancellationToken);
+        if (existing is null) database.TeamLineupSettings.Add(new() { GroupId = request.GroupId, SeasonIndex = request.Year, TeamId = team.AuthoritativeTeamId,
+            SeparateLineups = request.SeparateLineups, UpdatedAtUtc = clock.GetUtcNow(), UpdatedByUserId = actor });
+        else { existing.SeparateLineups = request.SeparateLineups; existing.UpdatedAtUtc = clock.GetUtcNow(); existing.UpdatedByUserId = actor; }
         await DatabaseFaults.GuardAsync(() => database.SaveChangesAsync(cancellationToken));
         await transaction.CommitAsync(cancellationToken);
-        var targets = await SiblingsAsync(group, league, year, request.TeamId, team.AuthoritativeTeamId, cancellationToken);
-        return new(request.Enabled, targets.Select(x => new LineupAutoCopyTargetDto(x.LeagueId, x.LeagueName, x.TeamId)).ToArray());
+        return new(request.SeparateLineups, await CompetitionsOfAsync(request.GroupId, request.Year, team.AuthoritativeTeamId, cancellationToken));
     }
 
-    private async Task<ResolvedTeam> ControlledTeamAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid teamId, CancellationToken cancellationToken)
+    // Competitions (including the first one) where this authoritative team plays.
+    private async Task<int> CompetitionsOfAsync(Guid group, int year, Guid authoritative, CancellationToken cancellationToken)
     {
-        var season = await competitions.AuthorizeAsync(caller, group, league, year, cancellationToken);
+        var participations = await database.LeagueParticipations.AsNoTracking().Where(x => x.GroupId == group && x.SeasonIndex == year)
+            .Join(database.Leagues.Where(x => !x.IsArchived), x => new { x.GroupId, x.LeagueId }, l => new { l.GroupId, l.LeagueId }, (x, l) => x.TeamId).ToArrayAsync(cancellationToken);
+        return (await teams.ResolveManyAsync(group, year, participations, cancellationToken)).Count(x => x.AuthoritativeTeamId == authoritative && !x.IsArchived);
+    }
+
+    private async Task<(ResolvedTeam Team, Guid Actor)> ControlledTeamAsync(ClaimsPrincipal caller, Guid group, int year, Guid teamId, CancellationToken cancellationToken)
+    {
         var email = caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant();
-        var actor = await database.GroupMemberships.Where(x => x.GroupId == group && x.User.Email == email && x.User.IsEnabled).Select(x => x.UserId).SingleAsync(cancellationToken);
+        var actor = await database.GroupMemberships.Where(x => x.GroupId == group && x.User.Email == email && x.User.IsEnabled).Select(x => x.UserId).SingleOrDefaultAsync(cancellationToken);
+        if (actor == Guid.Empty) throw Denied();
         var team = await teams.ResolveAsync(group, year, teamId, cancellationToken) ?? throw new ApplicationFault(404, "team_not_found", "Squadra non trovata.");
-        await RequireParticipationAsync(group, league, year, team.TeamId, cancellationToken);
-        if (team.IsArchived || season.IsArchived || !team.IsControlledBy(actor)) throw Denied();
-        return team;
+        if (team.IsArchived || !team.IsControlledBy(actor)) throw Denied();
+        return (team, actor);
     }
 
     public async Task<LineupCopySourceDto[]> CopySourcesAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, int day, Guid teamId, CancellationToken cancellationToken = default)
@@ -192,13 +192,15 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         foreach (var candidate in candidates.Where(x => resolved.TryGetValue(x.TeamId, out var team) && team.AuthoritativeTeamId == target.AuthoritativeTeamId))
         {
             var lineup = await Lineups(group, candidate.LeagueId, year, candidate.TeamId, day).AsNoTracking().Select(x => new { x.Version, x.LastUpdateUtc }).SingleOrDefaultAsync(cancellationToken);
-            result.Add(new(candidate.LeagueId, candidate.Name, candidate.TeamId, resolved[candidate.TeamId].Name, lineup is not null, lineup?.Version ?? 0, lineup?.LastUpdateUtc));
+            var game = await database.FantasyMatches.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == candidate.LeagueId && x.SeasonIndex == year && x.Matchday.SerieADay == day &&
+                (x.HomeTeamId == candidate.TeamId || x.AwayTeamId == candidate.TeamId)).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
+            result.Add(new(candidate.LeagueId, candidate.Name, candidate.TeamId, resolved[candidate.TeamId].Name, lineup is not null, lineup?.Version ?? 0, lineup?.LastUpdateUtc, game));
         }
         return result.OrderBy(x => x.LeagueName).ToArray();
     }
 
-    // Players used to compute a result: the day roster (penalised if never and no earlier lineup exists
-    // submitted, as before) with the competition lineup applied.
+    // Players used to compute a result: the day roster (penalised if never submitted and no earlier
+    // formation exists) with the competition lineup applied.
     internal async Task<RosterPlayer[]> ScoringPlayersAsync(Guid group, Guid league, int year, int day, Guid teamId, CancellationToken cancellationToken)
     {
         var team = await teams.ResolveAsync(group, year, teamId, cancellationToken) ?? throw new ApplicationFault(409, "roster_missing_for_recalculation", "Squadra assente: ricalcolo annullato.");

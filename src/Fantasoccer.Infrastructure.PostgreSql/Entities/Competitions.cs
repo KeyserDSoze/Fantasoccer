@@ -77,17 +77,17 @@ public sealed class LeagueParticipantOwner
     public Guid TeamId { get; set; }
 }
 
-// The participant is the "main" lineup of its team: every pre-match save is
-// copied to the other competitions where the same authoritative team plays.
-// The row's existence is the setting.
-public sealed class LeagueLineupAutoCopy
+// By default the lineup of a team is shared: a save in any competition is copied to the
+// other competitions of the same authoritative team. A row with SeparateLineups = true
+// lets the owner arrange a different lineup in each competition.
+public sealed class TeamLineupSetting
 {
     public Guid GroupId { get; set; }
-    public Guid LeagueId { get; set; }
     public int SeasonIndex { get; set; }
     public Guid TeamId { get; set; }
-    public DateTimeOffset EnabledAtUtc { get; set; }
-    public Guid? EnabledByUserId { get; set; }
+    public bool SeparateLineups { get; set; }
+    public DateTimeOffset UpdatedAtUtc { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
 }
 
 // Competition-specific lineup: positions only. The roster (players, prices,

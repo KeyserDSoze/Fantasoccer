@@ -52,12 +52,6 @@ public sealed class CompetitionsController(CompetitionApplicationService competi
     [HttpGet("lineups/copy-sources")]
     public Task<LineupCopySourceDto[]> CopySources(Guid groupId, Guid leagueId, int year, [FromQuery] int day, [FromQuery] Guid teamId, CancellationToken cancellationToken)
         => lineups.CopySourcesAsync(User, groupId, leagueId, year, day, teamId, cancellationToken);
-    [HttpGet("lineups/auto-copy")]
-    public Task<LineupAutoCopyDto> AutoCopy(Guid groupId, Guid leagueId, int year, [FromQuery] Guid teamId, CancellationToken cancellationToken)
-        => lineups.AutoCopyAsync(User, groupId, leagueId, year, teamId, cancellationToken);
-    [HttpPut("lineups/auto-copy")]
-    public Task<LineupAutoCopyDto> SetAutoCopy(Guid groupId, Guid leagueId, int year, SetLineupAutoCopyRequest request, CancellationToken cancellationToken)
-        => lineups.SetAutoCopyAsync(User, groupId, leagueId, year, request, cancellationToken);
     [HttpPost("lineups/copy")]
     public Task<FormationSavedDto> CopyLineup(Guid groupId, Guid leagueId, int year, CopyLineupRequest request, CancellationToken cancellationToken)
         => lineups.CopyAsync(User, groupId, leagueId, year, request, cancellationToken);

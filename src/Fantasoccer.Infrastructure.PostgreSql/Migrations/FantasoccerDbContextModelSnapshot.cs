@@ -1481,33 +1481,6 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueLineupAutoCopy", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("LeagueId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("SeasonIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TeamId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("EnabledAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("EnabledByUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("GroupId", "LeagueId", "SeasonIndex", "TeamId");
-
-                    b.HasIndex("GroupId", "EnabledByUserId");
-
-                    b.ToTable("LeagueLineupAutoCopies", (string)null);
-                });
-
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueParticipantOwner", b =>
                 {
                     b.Property<Guid>("GroupId")
@@ -2842,6 +2815,33 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         {
                             t.HasCheckConstraint("CK_TeamDerivations_Distinct", "\"TeamId\" <> \"OriginTeamId\"");
                         });
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.TeamLineupSetting", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("SeparateLineups")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("GroupId", "SeasonIndex", "TeamId");
+
+                    b.HasIndex("GroupId", "UpdatedByUserId");
+
+                    b.ToTable("TeamLineupSettings", (string)null);
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.TeamOwnership", b =>
@@ -5116,20 +5116,6 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Players");
                 });
 
-            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueLineupAutoCopy", b =>
-                {
-                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupMembership", null)
-                        .WithMany()
-                        .HasForeignKey("GroupId", "EnabledByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueParticipation", null)
-                        .WithMany()
-                        .HasForeignKey("GroupId", "LeagueId", "SeasonIndex", "TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.LeagueParticipantOwner", b =>
                 {
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupMembership", null)
@@ -7339,6 +7325,14 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .HasPrincipalKey("GroupId", "BasketId", "SeasonIndex", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.TeamLineupSetting", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupMembership", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId", "UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.TeamOwnership", b =>

@@ -32,6 +32,7 @@ import { useTeamByComponents } from 'hooks/useTeam';
 import { useSettings } from 'hooks/useSettings';
 import { useMyTeams } from 'hooks/useMyTeams';
 import { TeamSelector } from 'components/team/TeamSelector';
+import { LineupSettingsCard } from 'components/team/LineupSettingsCard';
 import {
   reloadTeamPlayerImages,
   type TeamPlayerImageRefreshSummary,
@@ -399,6 +400,10 @@ export default function TeamSettingsScreen() {
                 </YStack>
               </YStack>
             </Card>
+
+            {groupId && userTeamInfo && (
+              <LineupSettingsCard groupId={groupId} year={userTeamInfo.year} teamId={userTeamInfo.teamId} />
+            )}
 
             <Card
               padding="$4"

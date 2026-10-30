@@ -6,8 +6,8 @@ import { formationRequest } from './gameFormation'
 export interface OptimalFormationPlayer { playerId: string; playerKey: string; playerName: string; role: number; position: number; projection: number; confidence: number }
 export interface OptimalFormationResult { players: OptimalFormationPlayer[]; module: string; score: number; confidence: number; warnings: string[] }
 export type GameEditMode = 'formation' | 'live' | 'view'
-export interface LineupCopySource { leagueId: string; leagueName: string; teamId: string; teamName: string; hasLineup: boolean; version: number; lastUpdateUtc: string | null }
-export interface LineupAutoCopy { enabled: boolean; targets: { leagueId: string; leagueName: string; teamId: string }[] }
+export interface LineupCopySource { leagueId: string; leagueName: string; teamId: string; teamName: string; hasLineup: boolean; version: number; lastUpdateUtc: string | null; gameId?: string | null }
+export interface TeamLineupSettings { separateLineups: boolean; competitions: number }
 export interface GameContext { groupId: string; leagueId: string; year: number; gameId: string; editMode: GameEditMode }
 export const competitionPath = (group: string, league: string, year: number) => `/api/competitions/${encodeURIComponent(group)}/${encodeURIComponent(league)}/${year}`
 const gamePath = (context: Omit<GameContext, 'editMode'>) => `${competitionPath(context.groupId, context.leagueId, context.year)}/games/${encodeURIComponent(context.gameId)}`
@@ -28,12 +28,12 @@ export const gameService = {
   getCopySources(params: { groupId: string; leagueId: string; year: number; day: number; teamId: string }) {
     return apiRequest<LineupCopySource[]>(`${competitionPath(params.groupId, params.leagueId, params.year)}/lineups/copy-sources?${new URLSearchParams({ day: String(params.day), teamId: params.teamId })}`)
   },
-  // "Always copy": this participant is the main lineup of its team and every save is copied to the same team elsewhere.
-  getAutoCopy(params: { groupId: string; leagueId: string; year: number; teamId: string }) {
-    return apiRequest<LineupAutoCopy>(`${competitionPath(params.groupId, params.leagueId, params.year)}/lineups/auto-copy?${new URLSearchParams({ teamId: params.teamId })}`)
+  // Lineups are shared between the competitions of a team unless its owner chooses separate ones.
+  getLineupSettings(params: { groupId: string; year: number; teamId: string }) {
+    return apiRequest<TeamLineupSettings>(`/api/teams/lineup-settings?${new URLSearchParams({ groupId: params.groupId, year: String(params.year), teamId: params.teamId })}`)
   },
-  setAutoCopy(params: { groupId: string; leagueId: string; year: number }, teamId: string, enabled: boolean) {
-    return apiRequest<LineupAutoCopy>(`${competitionPath(params.groupId, params.leagueId, params.year)}/lineups/auto-copy`, 'PUT', { teamId, enabled })
+  setLineupSettings(params: { groupId: string; year: number; teamId: string }, separateLineups: boolean) {
+    return apiRequest<TeamLineupSettings>('/api/teams/lineup-settings', 'PUT', { groupId: params.groupId, year: params.year, teamId: params.teamId, separateLineups })
   },
   // One-off copy; the target lineup goes through every save validation.
   copyFormation(context: GameContext, target: LiveTeam, source: { leagueId: string; teamId: string }, asAdmin = false) {

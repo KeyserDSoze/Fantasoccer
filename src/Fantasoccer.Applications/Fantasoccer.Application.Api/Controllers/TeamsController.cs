@@ -22,6 +22,13 @@ public sealed class TeamsController(TeamRosterApplicationService teams, TeamCred
     public Task<TeamRosterDto?> Get([FromQuery] Guid groupId, [FromQuery] Guid basketId, [FromQuery] int year, [FromQuery] string owner,
         [FromQuery] int kind, [FromQuery] int day, [FromQuery] Guid? leagueId, [FromQuery] Guid? teamId, CancellationToken cancellationToken)
         => teams.GetAsync(User, groupId, basketId, year, owner, (RosterKind)kind, day, leagueId, cancellationToken, teamId);
+    // Shared lineups across the competitions of a team (default) or one lineup per competition.
+    [HttpGet("lineup-settings")]
+    public Task<Fantasoccer.Application.Core.Competitions.TeamLineupSettingsDto> LineupSettings([FromQuery] Guid groupId, [FromQuery] int year, [FromQuery] Guid teamId, CancellationToken cancellationToken)
+        => lineups.SettingsAsync(User, groupId, year, teamId, cancellationToken);
+    [HttpPut("lineup-settings")]
+    public Task<Fantasoccer.Application.Core.Competitions.TeamLineupSettingsDto> SetLineupSettings(Fantasoccer.Application.Core.Competitions.SetTeamLineupSettingsRequest request, CancellationToken cancellationToken)
+        => lineups.SetSettingsAsync(User, request, cancellationToken);
     [HttpPut("formation")]
     public Task<FormationSavedDto> Save(SaveRosterFormationRequest request, CancellationToken cancellationToken) => request.Kind == (int)RosterKind.Matchday
         ? lineups.SaveRosterRequestAsync(User, request, cancellationToken) : teams.SaveFormationAsync(User, request, cancellationToken);

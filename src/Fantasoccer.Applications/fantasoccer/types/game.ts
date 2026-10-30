@@ -37,6 +37,8 @@ export interface LiveTeam {
   unavailablePlayerIds?: string[]
   // Day whose lineup is proposed (not saved yet) because this day has none.
   proposedFromDay?: number | null
+  // The owner chose a different lineup per competition (team settings).
+  separateLineups?: boolean
 }
 export interface GameWrapper {
   teams: LiveTeam[]
