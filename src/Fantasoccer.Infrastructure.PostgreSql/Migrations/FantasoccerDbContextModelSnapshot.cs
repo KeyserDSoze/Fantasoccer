@@ -832,6 +832,27 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDayRevision", b =>
+                {
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("OfficialRevision")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L);
+
+                    b.HasKey("SeasonIndex", "Day");
+
+                    b.ToTable("FootballDayRevisions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FootballDayRevisions_Day", "\"Day\" BETWEEN 1 AND 38");
+                        });
+                });
+
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballMatch", b =>
                 {
                     b.Property<int>("SeasonIndex")
@@ -4102,6 +4123,15 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .WithMany()
                         .HasForeignKey("SeasonIndex")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDayRevision", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonIndex")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

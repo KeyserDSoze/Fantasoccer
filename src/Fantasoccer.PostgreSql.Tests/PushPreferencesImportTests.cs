@@ -4,7 +4,7 @@ using Fantasoccer.Business;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using WebPush;
 using Xunit;
 
@@ -26,7 +26,7 @@ public sealed partial class CoreMigrationTests
         var valid = PushDevice("migration");
         var settings = new PushNotificationSettings { MatchEvents = false, MarketEvents = true,
             Subscriptions = [valid, valid, new("https://127.0.0.1/private", "bad", "bad")] };
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PushNotificationSettings, string>.Default(settings, Email))));
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PushNotificationSettings, string>.Default(settings, Email))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();
@@ -55,7 +55,7 @@ public sealed partial class CoreMigrationTests
         var container = await ExtraContainerAsync("pushnotification");
         var device = PushDevice("collision");
         foreach (var email in new[] { Email, OtherEmail })
-            await container.GetBlobClient(email).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PushNotificationSettings, string>.Default(new() { Subscriptions = [device] }, email))));
+            await container.GetBlobClient(email).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PushNotificationSettings, string>.Default(new() { Subscriptions = [device] }, email))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var error = await Assert.ThrowsAsync<CoreImportException>(() => ImportAsync());
         Assert.Equal("push_endpoint_owner_collision", error.Message);

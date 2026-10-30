@@ -51,7 +51,7 @@ public sealed class OAuthStore<T>(IOAuthDocumentStorage storage) :
 
     public ValueTask CreateAsync(T entity, CancellationToken cancellationToken) => SaveAsync(entity, true, false, cancellationToken);
     public ValueTask UpdateAsync(T entity, CancellationToken cancellationToken) => SaveAsync(entity, false, false, cancellationToken);
-    // A versioned tombstone avoids delete/recreate (ABA) and listing/deletion races in Rystem.
+    // A versioned tombstone avoids delete/recreate (ABA) and listing/deletion races.
     public ValueTask DeleteAsync(T entity, CancellationToken cancellationToken) => SaveAsync(entity, false, true, cancellationToken);
     public ValueTask<T> InstantiateAsync(CancellationToken cancellationToken) { cancellationToken.ThrowIfCancellationRequested(); return ValueTask.FromResult(new T()); }
 

@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -69,12 +69,12 @@ public sealed partial class CoreMigrationTests
     public async Task Same_year_season_rosters_can_complete_missing_annual_club_but_never_fill_the_historical_vote_club()
     {
         var votes = await ExtraContainerAsync("notification");
-        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Roster linked player", RealTeam = null!, Role = Role.Forward, IsActive = false, Vote = new() { Value = 6, HasVote = true } }] },
             new() { Year = 15, Day = 10 }))));
         var teams = await ExtraContainerAsync("team");
         foreach (var group in new[] { "first", "second" })
-            await teams.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+            await teams.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(new()
                 { Name = "Historical roster", Owner = Email, MoneyFromRank = 17, Players = [new() { Name = "Roster linked player", Role = Role.Forward,
                     RealTeam = new() { Name = "Genoa", Abbreviation = "GEN" }, Price = 41, Revenue = 58, Status = PlayerInTeamStatus.Sold, Position = FantaSoccerRole.Tribune }] },
                 new() { Group = group, BasketId = "same-local-basket", Year = 15, Email = Email }))));
@@ -96,12 +96,12 @@ public sealed partial class CoreMigrationTests
     public async Task Competing_season_roster_clubs_leave_annual_club_unknown_instead_of_selecting_the_first_or_current_team()
     {
         var votes = await ExtraContainerAsync("official");
-        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Ambiguous club player", RealTeam = null!, Role = Role.Forward, Vote = new() { Value = 7, HasVote = true } }] },
             new() { Year = 15, Day = 2 }))));
         var teams = await ExtraContainerAsync("team");
         foreach (var (group, club) in new[] { ("first", "Genoa"), ("second", "Inter") })
-            await teams.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+            await teams.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(new()
                 { Name = "Historical roster", Owner = Email, Players = [new() { Name = "Ambiguous club player", Role = Role.Forward,
                     RealTeam = new() { Name = club }, Price = 35, Position = FantaSoccerRole.Forward }] },
                 new() { Group = group, BasketId = "same-local-basket", Year = 15, Email = Email }))));
@@ -119,16 +119,16 @@ public sealed partial class CoreMigrationTests
         _first.Leagues[0].Years.Add(new() { Year = 16, Settings = LeagueSetting.Default }); await PutGroupAsync(_first);
         var votes = await ExtraContainerAsync("live");
         foreach (var year in new[] { 15, 16 })
-            await votes.GetBlobClient(year.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+            await votes.GetBlobClient(year.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
                 { Players = [new() { Name = "Nonseason fixture player", RealTeam = null!, Role = Role.Forward, Vote = new() { Value = 6, HasVote = true } }] },
                 new() { Year = year, Day = 2 }))));
         var team = new Team { Name = "Nonseason historical roster", Owner = Email, Players = [new() { Name = "Nonseason fixture player", Role = Role.Forward,
             RealTeam = new() { Name = "Genoa" }, Price = 38, Position = FantaSoccerRole.Forward }] };
         var daily = await ExtraContainerAsync("dailyteams");
-        await daily.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamDayKey>.Default(team,
+        await daily.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamDayKey>.Default(team,
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email, Day = 2 }))));
         var opening = await ExtraContainerAsync("openingdailyteams");
-        await opening.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, OpeningTeamDayKey>.Default(team,
+        await opening.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, OpeningTeamDayKey>.Default(team,
             new() { Group = "first", BasketId = "same-local-basket", Year = 16, Email = Email, Day = 2, League = "league" }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await using var database = fixture.CreateContext(); var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
@@ -142,10 +142,10 @@ public sealed partial class CoreMigrationTests
     public async Task A_known_annual_club_is_not_erased_by_minimal_votes_and_other_missing_club_contexts_stay_strict()
     {
         var catalogue = await ExtraContainerAsync("realplayerswrapper");
-        await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new()
+        await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(new()
             { Players = [new() { Name = "Known annual player", Role = Role.GoalKeeper, RealTeam = new() { Name = "Genoa" }, IsActive = true }] }, 15))));
         var votes = await ExtraContainerAsync("notification");
-        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Known annual player", RealTeam = null!, Role = Role.GoalKeeper, IsActive = false, Vote = new() { Value = 6, HasVote = true } }] },
             new() { Year = 15, Day = 1 }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);

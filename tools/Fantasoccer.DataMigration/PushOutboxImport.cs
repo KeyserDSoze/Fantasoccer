@@ -3,7 +3,7 @@ using System.Text.Json;
 using Fantasoccer.Business;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -16,7 +16,7 @@ public sealed partial class CoreDatasetImporter
         var keys = new HashSet<(int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "pushnotificationsent"))
         {
-            var entity = document.Envelope.Deserialize<Entity<PushNotificationSent, YearDayKey>>(json) ?? throw new CoreImportException("invalid_push_outbox");
+            var entity = document.Envelope.Deserialize<LegacyEntity<PushNotificationSent, YearDayKey>>(json) ?? throw new CoreImportException("invalid_push_outbox");
             var key = entity.Key ?? throw new CoreImportException("missing_push_outbox_key");
             var value = entity.Value ?? throw new CoreImportException("missing_push_outbox");
             if (!keys.Add((key.Year, key.Day)) || key.Day is < 0 or > 38 || key.Year < 0 || (key.Year == 0 && key.Day != 0)) throw new CoreImportException("invalid_push_outbox_scope");

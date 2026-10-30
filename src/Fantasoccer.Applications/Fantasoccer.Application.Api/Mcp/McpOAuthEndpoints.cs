@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.WebUtilities;
 using OpenIddict.Abstractions;
 using OpenIddict.Server.AspNetCore;
-using RepositoryFramework;
 using Fantasoccer.Authentication;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 

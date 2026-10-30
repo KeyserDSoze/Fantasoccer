@@ -4,7 +4,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Domain;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -43,7 +43,7 @@ public sealed partial class CoreMigrationTests
         // change the mapping/checkpoint behavior for valid documents.
         var container = _storage.Blobs.GetBlobContainerClient("realplayerswrapper");
         await container.GetBlobClient("valid-roles").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-            Entity<RealPlayersWrapper, int>.Default(new() { Players = [DiagnosticPlayer(-1, "Undefined player"), DiagnosticPlayer(3, "Forward player")] }, 15))));
+            LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [DiagnosticPlayer(-1, "Undefined player"), DiagnosticPlayer(3, "Forward player")] }, 15))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);
@@ -70,7 +70,7 @@ public sealed partial class CoreMigrationTests
 
         var catalog = await ExtraContainerAsync("realplayerswrapper");
         await catalog.GetBlobClient("valid-catalog-copy").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-            Entity<RealPlayersWrapper, int>.Default(new() { Players = [DiagnosticPlayer(3)] }, 15))));
+            LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [DiagnosticPlayer(3)] }, 15))));
         foreach (var container in new[] { "team", "dailyteams", "openingteams", "openingdailyteams" })
         {
             object key = container switch
@@ -116,7 +116,7 @@ public sealed partial class CoreMigrationTests
         await RefusePlayerDocumentAsync("randomizedplayers", leagueKey, new RealPlayersWrapper { Players = [DiagnosticPlayer()] }, "$.v.p[0]");
 
         var calendars = await ExtraContainerAsync("calendar");
-        await calendars.GetBlobClient("calendar").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(
+        await calendars.GetBlobClient("calendar").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Calendar, LeagueKey>.Default(
             new() { Year = 15, Rounds = new() { ["private-stage"] = [new() { Number = 1, SerieADay = 2,
                 Games = [new() { Id = "private-match", Home = "Home", HomeOwner = Email, Away = "Away", AwayOwner = OtherEmail }] }] } }, leagueKey))));
         foreach (var home in new[] { true, false })

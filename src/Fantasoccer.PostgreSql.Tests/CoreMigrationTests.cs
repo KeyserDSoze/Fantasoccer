@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -89,7 +89,7 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
     {
         await PutAccountAsync(Email, IdentityRole.Admin, IdentityRole.Participant, new() { GroupId = "first", LeagueId = "league", Year = 15, MeOrLeaderEmail = OtherEmail });
         var settingsContainer = await ExtraContainerAsync("settings");
-        await settingsContainer.GetBlobClient(Email).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Settings, string>.Default(
+        await settingsContainer.GetBlobClient(Email).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Settings, string>.Default(
             new() { AiPrompt = "Private preferences", AutoOptimalFormation = true, LiveWidgetEnabled = false }, Email))));
         _first.Leagues[0].Years[0].Settings.Type = new()
         {
@@ -125,7 +125,7 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
         var club = new RealTeam { Name = "Club", Abbreviation = "clb" };
         var player = new RealPlayer { Name = "Shared player", RealTeam = club, Role = Role.Forward, IsActive = true, Visible = true };
         var players = await ExtraContainerAsync("realplayerswrapper");
-        await players.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new() { Players = [player] }, 15))));
+        await players.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [player] }, 15))));
         var season = await ExtraContainerAsync("team");
         var daily = await ExtraContainerAsync("dailyteams");
         var opening = await ExtraContainerAsync("openingteams");
@@ -135,12 +135,12 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
                 new() { Name = player.Name, RealTeam = club, Role = Role.Forward, IsActive = true, Visible = true,
                     Status = PlayerInTeamStatus.Active, Price = price, Position = FantaSoccerRole.Forward }] };
         foreach (var group in new[] { "first", "second" })
-            await season.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(TeamData(30),
+            await season.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(TeamData(30),
                 new() { Group = group, BasketId = "same-local-basket", Year = 15, Email = Email }))));
-        await daily.GetBlobClient("first-day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamDayKey>.Default(TeamData(20),
+        await daily.GetBlobClient("first-day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamDayKey>.Default(TeamData(20),
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Day = 3, Email = Email }))));
         foreach (var league in new[] { "league", "cup" })
-            await opening.GetBlobClient(league).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, OpeningTeamKey>.Default(TeamData(40),
+            await opening.GetBlobClient(league).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, OpeningTeamKey>.Default(TeamData(40),
                 new() { Group = "first", League = league, BasketId = "same-local-basket", Year = 15, Email = Email }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
@@ -165,7 +165,7 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
     {
         var container = await ExtraContainerAsync("mcp-oauth");
         var doc = new OAuthDocument { Id = "application-test", Kind = "application", Version = "source-version", Payload = "{\"clientId\":\"fixture-client\"}" };
-        await container.GetBlobClient(doc.Id).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<OAuthDocument, string>.Default(doc, doc.Id))));
+        await container.GetBlobClient(doc.Id).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<OAuthDocument, string>.Default(doc, doc.Id))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();
@@ -184,7 +184,7 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
         var date = new DateTime(2026, 10, 25, 20, 45, 0, DateTimeKind.Utc); // Legacy ItalyNow retained a UTC Kind on local wall time.
         var calendar = new RealCalendar { Year = 15, Days = [new() { Year = 15, SerieADay = 1, Games =
             [new() { Home = new() { Name = "Home" }, Away = new() { Name = "Away" }, Date = date }] }] };
-        await container.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealCalendar, int>.Default(calendar, 15))));
+        await container.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealCalendar, int>.Default(calendar, 15))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();
@@ -384,13 +384,13 @@ public sealed partial class CoreMigrationTests(PostgreSqlFixture fixture) : ICla
         Assert.Equal(status, (await Assert.ThrowsAsync<ApplicationFault>(() => action(scope.ServiceProvider.GetRequiredService<GroupApplicationService>()))).Status);
     }
     private async Task PutGroupAsync(Group group) => await _storage.Blobs.GetBlobContainerClient("group").GetBlobClient(group.Id)
-        .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Group, string>.Default(group, group.Id))), overwrite: true);
+        .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Group, string>.Default(group, group.Id))), overwrite: true);
     private async Task PutAccountAsync(string email, IdentityRole firstRole, IdentityRole secondRole, AppIdentityState? state = null)
     {
         var account = new AppIdentity { Email = email, Username = email == Email ? "Friend" : "Other", State = state ?? new(), Groups =
             [new() { Id = "first", Name = "first", Role = firstRole }, new() { Id = "second", Name = "second", Role = secondRole }] };
         await _storage.Blobs.GetBlobContainerClient("appidentity").GetBlobClient(email)
-            .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<AppIdentity, string>.Default(account, email))), overwrite: true);
+            .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<AppIdentity, string>.Default(account, email))), overwrite: true);
     }
     private static Group LegacyGroup(string id, IdentityRole role) => new()
     {

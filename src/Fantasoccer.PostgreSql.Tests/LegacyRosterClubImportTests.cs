@@ -5,7 +5,7 @@ using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -20,13 +20,13 @@ public sealed partial class CoreMigrationTests
     {
         await PutRosterWithRawEntryAsync(EmptyClubRosterEntry);
         var daily = new Team { Name = "Team", Owner = Email, AdditionalOwners = [OtherEmail], Players = [] };
-        var dailyEnvelope = JsonNode.Parse(JsonSerializer.Serialize(Entity<Team, TeamDayKey>.Default(daily,
+        var dailyEnvelope = JsonNode.Parse(JsonSerializer.Serialize(LegacyEntity<Team, TeamDayKey>.Default(daily,
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Day = 3, Email = Email })))!;
         dailyEnvelope["v"]!["p"]!.AsArray().Add(JsonNode.Parse(EmptyClubRosterEntry));
         await (await ExtraContainerAsync("dailyteams")).GetBlobClient("first-day").UploadAsync(BinaryData.FromString(dailyEnvelope.ToJsonString()));
         var hallPlayer = new Player { Name = "Old forward", RealTeam = new() { Name = "" }, Role = Role.Forward, Price = 12, Position = FantaSoccerRole.Forward, IsActive = true };
         await (await ExtraContainerAsync("halloffame")).GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-            Entity<HallOfFame, GeneralLeagueKey>.Default(new() { RecordPlayer = new() { Player = hallPlayer, Points = 18.5f } }, new() { Group = "first", League = "league" }))));
+            LegacyEntity<HallOfFame, GeneralLeagueKey>.Default(new() { RecordPlayer = new() { Player = hallPlayer, Points = 18.5f } }, new() { Group = "first", League = "league" }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await using var database = fixture.CreateContext();
         var report = await new CoreDatasetImporter(database).ImportAsync(_dump);

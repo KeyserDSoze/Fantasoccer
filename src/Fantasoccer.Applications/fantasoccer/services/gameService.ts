@@ -28,7 +28,7 @@ export const gameService = {
   getCopySources(params: { groupId: string; leagueId: string; year: number; day: number; teamId: string }) {
     return apiRequest<LineupCopySource[]>(`${competitionPath(params.groupId, params.leagueId, params.year)}/lineups/copy-sources?${new URLSearchParams({ day: String(params.day), teamId: params.teamId })}`)
   },
-  // Lineups are shared between the competitions of a team unless its owner chooses separate ones.
+  // Pre-match saves attempt an automatic copy to the other competitions unless the owner chooses separate lineups.
   getLineupSettings(params: { groupId: string; year: number; teamId: string }) {
     return apiRequest<TeamLineupSettings>(`/api/teams/lineup-settings?${new URLSearchParams({ groupId: params.groupId, year: String(params.year), teamId: params.teamId })}`)
   },

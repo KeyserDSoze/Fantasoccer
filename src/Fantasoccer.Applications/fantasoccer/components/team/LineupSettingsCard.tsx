@@ -11,8 +11,8 @@ interface LineupSettingsCardProps {
   teamId: string
 }
 
-// By default the lineup of a team is the same in every competition it plays: a save in any of
-// them is copied to the others. With "different lineup per competition" the owner arranges each
+// By default each pre-match save attempts to copy the lineup to the other competitions, respecting
+// their rules/deadlines. With "different lineup per competition" the owner arranges each
 // competition on its own and the game screen shows the competition switch and the copy button.
 export function LineupSettingsCard({ groupId, year, teamId }: LineupSettingsCardProps) {
   const toast = useToastController()
@@ -30,7 +30,7 @@ export function LineupSettingsCard({ groupId, year, teamId }: LineupSettingsCard
     setSaving(true)
     try {
       setSettings(await gameService.setLineupSettings({ groupId, year, teamId }, separate))
-      toast.show(separate ? 'Ora puoi fare una formazione diversa per ogni competizione.' : 'La formazione sarà la stessa in tutte le competizioni.', { variant: 'success' })
+      toast.show(separate ? 'Ora puoi fare una formazione diversa per ogni competizione.' : 'Copia automatica attiva dai prossimi salvataggi prepartita.', { variant: 'success' })
     } catch (error: any) {
       toast.show(error?.message ?? 'Impossibile salvare l\'impostazione', { variant: 'error' })
     } finally { setSaving(false) }
@@ -57,7 +57,7 @@ export function LineupSettingsCard({ groupId, year, teamId }: LineupSettingsCard
           <Text fontSize="$2" color="$color10">
             {settings.separateLineups
               ? 'Ogni competizione ha la sua formazione. Nella schermata della partita trovi il cambio di competizione e "Copia formazione".'
-              : `La formazione è la stessa in tutte le competizioni di questa squadra${settings.competitions > 1 ? ` (${settings.competitions})` : ''} e ogni salvataggio viene copiato nelle altre.`}
+              : `Ogni salvataggio prepartita tenta di copiare la formazione nelle altre competizioni${settings.competitions > 1 ? ` (${settings.competitions} in totale)` : ''}, rispettando regole e scadenze. Le copie rifiutate sono segnalate al salvataggio. I cambi live restano separati; attivare questa modalità non riallinea le formazioni già salvate.`}
           </Text>
         </YStack>
         {saving && <Spinner />}

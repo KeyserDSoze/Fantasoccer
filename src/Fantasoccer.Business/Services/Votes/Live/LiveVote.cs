@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
 using ProtoBuf;
-using RepositoryFramework;
 
 namespace Fantasoccer.Business.IngestionData
 {

@@ -3,7 +3,7 @@ using System.Text.Json;
 using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -15,7 +15,7 @@ public sealed partial class CoreDatasetImporter
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         foreach (var document in dataset.Documents.Where(x => x.Container == "news"))
         {
-            var entity = document.Envelope.Deserialize<Entity<NewsWrapper, YearDayGroup>>(options) ?? throw new CoreImportException("invalid_news_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<NewsWrapper, YearDayGroup>>(options) ?? throw new CoreImportException("invalid_news_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_news_key"); var value = entity.Value ?? throw new CoreImportException("missing_news");
             season(key.Year);
             if (key.Day is < 1 or > 38 || value.Year != key.Year || value.Day != key.Day || (!string.IsNullOrEmpty(value.Group) && value.Group != key.Group)) throw new CoreImportException("news_scope_mismatch");
@@ -35,7 +35,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "teamwithai"))
         {
-            var entity = document.Envelope.Deserialize<Entity<TeamWithAi, TeamDayKey>>(options) ?? throw new CoreImportException("invalid_advice_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<TeamWithAi, TeamDayKey>>(options) ?? throw new CoreImportException("invalid_advice_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_advice_key"); season(key.Year);
             if (key.Day is < 1 or > 38) throw new CoreImportException("invalid_advice_day");
             var group = Existing("group", key.Group); var basket = Existing("basket", Composite(key.Group, key.BasketId));

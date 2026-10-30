@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using RepositoryFramework;
 using Xunit;
 
 namespace Fantasoccer.RelationalApi.Tests;

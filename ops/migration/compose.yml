@@ -52,9 +52,9 @@ services:
       - ../../src/Fantasoccer.Application.Core:/source/Fantasoccer.Application.Core:ro
       - ../../src/Fantasoccer.RelationalApi.Tests:/source/Fantasoccer.RelationalApi.Tests:ro
       - ../../src/Fantasoccer.Business:/source/Fantasoccer.Business:ro
-      - ../../src/Fantasoccer.Business.BackgroundJobs:/source/Fantasoccer.Business.BackgroundJobs:ro
+      - ../../src/Fantasoccer.Tests:/source/Fantasoccer.Tests:ro
       - ../../src/Fantasoccer.Infrastructure.Storage:/source/Fantasoccer.Infrastructure.Storage:ro
-      - ../../src/Fantasoccer.Infrastructure.InMemory:/source/Fantasoccer.Infrastructure.InMemory:ro
+      - ../../tools/Fantasoccer.LegacyModels:/source-tools/Fantasoccer.LegacyModels:ro
       - ../../src/Fantasoccer.Applications/Fantasoccer.Application.Api:/source/Fantasoccer.Applications/Fantasoccer.Application.Api:ro
     tmpfs:
       - /workspace:exec
@@ -64,10 +64,11 @@ services:
       - |
         set -o pipefail
         mkdir -p src tools
-        tar -C /source --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.Infrastructure.PostgreSql Fantasoccer.PostgreSql.Tests Fantasoccer.Domain Fantasoccer.Application.Core Fantasoccer.RelationalApi.Tests Fantasoccer.Business Fantasoccer.Business.BackgroundJobs Fantasoccer.Infrastructure.Storage Fantasoccer.Infrastructure.InMemory Fantasoccer.Applications | tar -C src -xf -
-        tar -C /source-tools --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.StorageMigration Fantasoccer.DataMigration | tar -C tools -xf -
+        tar -C /source --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.Infrastructure.PostgreSql Fantasoccer.PostgreSql.Tests Fantasoccer.Domain Fantasoccer.Application.Core Fantasoccer.RelationalApi.Tests Fantasoccer.Business Fantasoccer.Tests Fantasoccer.Infrastructure.Storage Fantasoccer.Applications | tar -C src -xf -
+        tar -C /source-tools --exclude='*/bin' --exclude='*/obj' -cf - Fantasoccer.StorageMigration Fantasoccer.DataMigration Fantasoccer.LegacyModels | tar -C tools -xf -
         dotnet test src/Fantasoccer.PostgreSql.Tests/Fantasoccer.PostgreSql.Tests.csproj --nologo
         dotnet test src/Fantasoccer.RelationalApi.Tests/Fantasoccer.RelationalApi.Tests.csproj --nologo
+        dotnet test src/Fantasoccer.Tests/Fantasoccer.Tests.csproj --nologo
     depends_on:
       postgres:
         condition: service_healthy

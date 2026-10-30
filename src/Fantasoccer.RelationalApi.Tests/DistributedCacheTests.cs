@@ -145,7 +145,7 @@ public sealed class DistributedCacheTests : IAsyncLifetime
     {
         var (_, coordinator) = Provider("blob", "prod");
         var store = Shared(coordinator);
-        var data = new FootballLiveDataStore(store);
+        var data = new FootballLiveDataStore(store, _clock);
         await data.PublishChancesAsync(_clock.GetUtcNow(), new(15, 8, ["Fantagazzetta"],
             [new("rossi", "Rossi", "mil", "Milan", 3, true, true, true, false, false, false, 1, "Infortunio muscolare")]));
         var container = Container();
@@ -201,7 +201,7 @@ public sealed class DistributedCacheTests : IAsyncLifetime
     public async Task Publication_is_monotonic_idempotent_and_merges_recovery_scopes(string kind)
     {
         var (_, coordinator) = Provider(kind);
-        var data = new FootballLiveDataStore(Shared(coordinator));
+        var data = new FootballLiveDataStore(Shared(coordinator), _clock);
         var newer = _clock.GetUtcNow();
         var older = newer.AddMinutes(-1);
         CachedLiveVote Vote(string id, string club, float value) => new(id, id, club, club, 1, true, true, new(1, value, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false));
@@ -216,6 +216,90 @@ public sealed class DistributedCacheTests : IAsyncLifetime
         Assert.Equal(8, stored.Single(x => x.PlayerId == "b").Vote.Value);
         await Assert.ThrowsAsync<ArgumentException>(() => data.PublishLiveVotesAsync(newer.AddMinutes(2), new(15, 8, []), null));
         Assert.Equal(2, (await data.LiveVotesAsync(15, 8))!.Payload.Players.Length);
+    }
+
+    [Theory, InlineData("memory"), InlineData("blob")]
+    public async Task Identical_snapshots_are_not_rewritten_but_reconfirmed_on_a_heartbeat_and_changed_content_is_published(string kind)
+    {
+        var (_, coordinator) = Provider(kind);
+        var data = new FootballLiveDataStore(Shared(coordinator), _clock);
+        CachedLiveVote Vote(string id, string club, float value) => new(id, id, club, club, 1, true, true, new(1, value, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false));
+        var key = CacheKeys.FootballLiveVotes(15, 8);
+        var t0 = _clock.GetUtcNow();
+        Assert.Equal(CachePublishOutcome.Published, await data.PublishLiveVotesAsync(t0, new(15, 8, [Vote("a", "mil", 6), Vote("b", "int", 6)]), null));
+        var written = (await coordinator.GetEntryAsync(key))!;
+        var fingerprint = (await data.LiveVotesAsync(15, 8))!.SourceFingerprint;
+        Assert.False(string.IsNullOrEmpty(fingerprint));
+
+        // The job runs every minute: the same votes fetched later must not touch the document.
+        foreach (var minute in new[] { 1, 2, 4 })
+            Assert.Equal(CachePublishOutcome.Unchanged, await data.PublishLiveVotesAsync(t0.AddMinutes(minute), new(15, 8, [Vote("a", "mil", 6), Vote("b", "int", 6)]), null));
+        Assert.Equal(written.ETag, (await coordinator.GetEntryAsync(key))!.ETag);
+
+        // After the heartbeat the same content is re-confirmed: freshness moves, the content identity does not.
+        Assert.Equal(CachePublishOutcome.Published, await data.PublishLiveVotesAsync(t0.AddMinutes(6), new(15, 8, [Vote("a", "mil", 6), Vote("b", "int", 6)]), null));
+        var confirmed = (await data.LiveVotesAsync(15, 8))!;
+        Assert.Equal(fingerprint, confirmed.SourceFingerprint);
+        Assert.Equal(t0.AddMinutes(6), confirmed.GeneratedAtUtc);
+        Assert.NotEqual(written.ETag, (await coordinator.GetEntryAsync(key))!.ETag);
+
+        // Any change is published at once, whatever the heartbeat says.
+        Assert.Equal(CachePublishOutcome.Published, await data.PublishLiveVotesAsync(t0.AddMinutes(7), new(15, 8, [Vote("a", "mil", 6), Vote("b", "int", 7)]), null));
+        Assert.NotEqual(fingerprint, (await data.LiveVotesAsync(15, 8))!.SourceFingerprint);
+
+        // A recovery refresh that changes nothing in the stored content leaves the document alone too.
+        var before = (await coordinator.GetEntryAsync(key))!.ETag;
+        Assert.Equal(CachePublishOutcome.Unchanged, await data.PublishLiveVotesAsync(t0.AddMinutes(8), new(15, 8, [Vote("b", "int", 7)]), new HashSet<string> { "int" }));
+        Assert.Equal(before, (await coordinator.GetEntryAsync(key))!.ETag);
+    }
+
+    [Theory, InlineData("memory"), InlineData("blob")]
+    public async Task Snapshot_freshness_is_explicit_and_probable_lineups_that_were_never_confirmed_for_days_are_missing(string kind)
+    {
+        var (_, coordinator) = Provider(kind);
+        var data = new FootballLiveDataStore(Shared(coordinator), _clock);
+        var t0 = _clock.GetUtcNow();
+        await data.PublishChancesAsync(t0, new(15, 8, ["Fantagazzetta"], [new("rossi", "Rossi", "mil", "Milan", 3, true, true, true, false, false, false, 1, null)]));
+        await data.PublishLiveVotesAsync(t0, new(15, 8, [new("a", "a", "mil", "Milan", 1, true, true, new(1, 6, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false))]), null);
+
+        var chances = (await data.ChancesAsync(15, 8))!;
+        Assert.True(chances.IsFreshAt(t0.AddHours(11)));
+        Assert.False(chances.IsFreshAt(t0.AddHours(13)));
+        var votes = (await data.LiveVotesAsync(15, 8))!;
+        Assert.True(votes.IsFreshAt(t0.AddMinutes(9)));
+        Assert.False(votes.IsFreshAt(t0.AddMinutes(11)));
+
+        // Not updated, but still the last known data: usable and flagged by the callers.
+        _clock.Advance(TimeSpan.FromHours(13));
+        Assert.NotNull(await data.ChancesAsync(15, 8));
+        Assert.NotNull(await data.LiveVotesAsync(15, 8));
+        // A past matchday is no longer refreshed, yet keeps its last known lineups for 30 days.
+        _clock.Advance(TimeSpan.FromDays(29));
+        Assert.NotNull(await data.ChancesAsync(15, 8));
+        // Probable lineups nobody confirmed for more than 30 days are treated as missing even though the
+        // document still exists: the physical retention must outlive the usable window.
+        _clock.Advance(TimeSpan.FromDays(1));
+        Assert.NotNull(await coordinator.GetEntryAsync(CacheKeys.FootballChances(15, 8)));
+        Assert.Null(await data.ChancesAsync(15, 8));
+    }
+
+    [Theory, InlineData("memory"), InlineData("blob")]
+    public async Task Purge_reaches_expired_entries_whatever_precedes_them_and_limits_only_the_deletions(string kind)
+    {
+        var (cache, coordinator) = Provider(kind);
+        // Valid entries sort first: a scan capped at the first N blobs would never get past them.
+        for (var index = 0; index < 6; index++)
+            await cache.SetAsync($"tests:a{index}", [1], new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(10) });
+        for (var index = 0; index < 3; index++)
+            await cache.SetAsync($"tests:z{index}", [2], new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) });
+        _clock.Advance(TimeSpan.FromDays(3));
+        var first = await coordinator.PurgeExpiredAsync(TimeSpan.FromDays(1), 2);
+        Assert.Equal(2, first.Deleted);
+        var second = await coordinator.PurgeExpiredAsync(TimeSpan.FromDays(1), 2);
+        Assert.Equal(1, second.Deleted);
+        Assert.Equal(0, (await coordinator.PurgeExpiredAsync(TimeSpan.FromDays(1), 2)).Deleted);
+        for (var index = 0; index < 6; index++) Assert.NotNull(await cache.GetAsync($"tests:a{index}"));
+        Assert.Equal(0, (await coordinator.PurgeExpiredAsync(TimeSpan.FromDays(1), 0)).Deleted);
     }
 
     [Theory, InlineData("memory"), InlineData("blob")]

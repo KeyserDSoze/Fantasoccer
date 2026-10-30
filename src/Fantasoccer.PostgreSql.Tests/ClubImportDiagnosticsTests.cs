@@ -6,7 +6,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Domain;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -58,7 +58,7 @@ public sealed partial class CoreMigrationTests
     {
         var catalog = await ExtraContainerAsync("realplayerswrapper");
         await catalog.GetBlobClient("verified-catalog").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-            Entity<RealPlayersWrapper, int>.Default(new() { Players = [ClubDiagnosticPlayer(false)] }, 15))));
+            LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [ClubDiagnosticPlayer(false)] }, 15))));
         foreach (var container in new[] { "live", "official", "notification", "chancedrealplayerwrapper", "statplayerswrapper" })
         {
             object value = container switch
@@ -137,7 +137,7 @@ public sealed partial class CoreMigrationTests
                 BuyerPlayers = fromBuyer ? [ClubDiagnosticPlayer()] : [], SellerPlayers = fromBuyer ? [] : [ClubDiagnosticPlayer()]
             }] }, fromBuyer ? "$.v.m[0].bp[0].t" : "$.v.m[0].sp[0].t");
         var calendars = await ExtraContainerAsync("calendar");
-        await calendars.GetBlobClient("calendar").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(
+        await calendars.GetBlobClient("calendar").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Calendar, LeagueKey>.Default(
             new() { Year = 15, Rounds = new() { ["private-stage"] = [new() { Number = 1, SerieADay = 2,
                 Games = [new() { Id = "private-match", Home = "Home", HomeOwner = Email, Away = "Away", AwayOwner = OtherEmail }] }] } }, leagueKey))));
         foreach (var home in new[] { true, false })

@@ -4,7 +4,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -24,7 +24,7 @@ public sealed partial class CoreMigrationTests
             WinningPlayers = [new() { Player = player, Wins = new() { ["@"] = [1, 2, 2], ["Finals"] = [3] } }],
             WinningTeams = [new() { Owner = retired, Team = "Retired name", Wins = new() { ["@"] = [1, 2], ["Finals"] = [3] } }],
             Ranks = [new() { Owner = retired, Name = "Retired name", Point = 1000.5f, Money = 300, PlusMoney = 20, Goal = 50 }] };
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<HallOfFame, GeneralLeagueKey>.Default(archive, new() { Group = "first", League = "league" }))));
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<HallOfFame, GeneralLeagueKey>.Default(archive, new() { Group = "first", League = "league" }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();

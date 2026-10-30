@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -30,7 +30,6 @@ public sealed class WorkspaceApiFactory : WebApplicationFactory<Program>, IAsync
         using var context = Database.CreateContext();
         builder.UseEnvironment("Testing");
         builder.UseSetting("Integrations:Infrastructure", "InMemory");
-        builder.UseSetting("PostgreSql:Enabled", "true");
         builder.UseSetting("ConnectionStrings:PostgreSql", context.Database.GetConnectionString());
         builder.UseSetting("Mcp:Enabled", "false");
         builder.UseSetting("Telemetry:Provider", "None");
@@ -92,11 +91,9 @@ public sealed partial class WorkspaceApiTests(WorkspaceApiFactory factory) : ICl
     }
 
     [PostgreSqlFact]
-    public async Task PostgreSQL_runtime_does_not_register_or_expose_legacy_data_repositories_and_MCP_tokens_stay_resource_bound()
+    public async Task Legacy_document_endpoints_do_not_exist_and_MCP_tokens_stay_resource_bound()
     {
         using var client = await factory.AccountAsync(globalAdmin: true);
-        Assert.Null(factory.Services.GetService<RepositoryFramework.IRepository<Group, string>>());
-        Assert.Null(factory.Services.GetService<RepositoryFramework.IRepository<AppIdentity, string>>());
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/Group/Get?key=legacy-group")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/Game/Get?groupId=legacy-group")).StatusCode);
         client.DefaultRequestHeaders.Add("X-Workspace-Mcp", "true");

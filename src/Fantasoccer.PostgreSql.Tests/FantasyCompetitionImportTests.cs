@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -23,16 +23,16 @@ public sealed partial class CoreMigrationTests
         var calendar = new Calendar { Year = 15, Rounds = new() { ["Final stage"] = [new() { Number = 7, SerieADay = 12,
             Games = [new() { Id = "legacy-match", Number = 2, Home = "Historical name", HomeOwner = Email,
                 Away = "Second team", AwayOwner = OtherEmail, Result = result }] }], ["Empty stage"] = [] } };
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(calendar, key))));
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Calendar, LeagueKey>.Default(calendar, key))));
         var ranks = await ExtraContainerAsync("rank");
         Rank Rank(float points) => new() { SerieADay = 12, RankedTeams = new() { ["Final stage"] =
             [new() { Name = "Historical name", Owner = Email, Point = points, Money = 123, PlusMoney = 8, ValuePoint = 711.5f }], ["Empty stage"] = [] } };
-        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(Rank(20.5f), key))));
+        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(Rank(20.5f), key))));
         var daily = await ExtraContainerAsync("dailyrank");
-        await daily.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, YearDayLeague>.Default(Rank(3),
+        await daily.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, YearDayLeague>.Default(Rank(3),
             new() { Group = key.Group, League = key.League, Year = key.Year, Day = 12 }))));
         var played = await ExtraContainerAsync("playedgame");
-        await played.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PlayedGame, GameKey>.Default(
+        await played.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PlayedGame, GameKey>.Default(
             new() { Id = "legacy-match", Home = "Saved home", Away = "Saved away", Result = result,
                 HomePlayers = [new() { Name = "Saved player", Role = Role.Forward, RealTeam = new() { Name = "Club" }, Price = 35, Position = FantaSoccerRole.Forward }], AwayPlayers = [] },
             new() { Group = key.Group, League = key.League, Year = key.Year, Day = 12, GameId = "legacy-match" }))));
@@ -62,7 +62,7 @@ public sealed partial class CoreMigrationTests
         Assert.Contains(repeated.PreservedArtifacts!, x => x.StartsWith("dailyrank:", StringComparison.Ordinal));
         await played.DeleteBlobAsync("sample");
         calendar.Rounds["Final stage"][0].Games[0].Result!.HomeGoal = 5;
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(calendar, key))), overwrite: true);
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Calendar, LeagueKey>.Default(calendar, key))), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(id, (await database.FantasyMatches.SingleAsync()).Id);

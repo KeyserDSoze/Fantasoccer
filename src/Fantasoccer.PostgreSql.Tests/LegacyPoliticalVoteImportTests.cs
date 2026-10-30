@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -20,7 +20,7 @@ public sealed partial class CoreMigrationTests
             Games = day.Select(x => new RealGame { Home = new() { Name = x.Home }, Away = new() { Name = x.Away }, Delayed = x.Delayed,
                 Date = new DateTime(2022, 3, 1, 15, 0, 0), HomeGoal = x.Delayed ? null : 1, AwayGoal = x.Delayed ? null : 0 }).ToList() }).ToList() };
         var container = _extraContainers.Contains("realcalendar") ? _storage.Blobs.GetBlobContainerClient("realcalendar") : await ExtraContainerAsync("realcalendar");
-        await container.GetBlobClient(year.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealCalendar, int>.Default(calendar, year))), overwrite: true);
+        await container.GetBlobClient(year.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealCalendar, int>.Default(calendar, year))), overwrite: true);
     }
 
     [CoreFact]

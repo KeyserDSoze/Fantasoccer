@@ -1,6 +1,6 @@
-namespace Fantasoccer;
+﻿namespace Fantasoccer;
 
-// Private infrastructure documents. Never expose these through RepositoryFramework APIs.
+// Private infrastructure documents. Never expose these through an API.
 public sealed class OAuthDocument
 {
     public string Id { get; set; } = "";

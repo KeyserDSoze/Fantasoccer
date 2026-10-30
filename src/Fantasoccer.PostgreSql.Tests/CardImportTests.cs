@@ -3,7 +3,7 @@ using Fantasoccer.Application.Core.Cards;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -23,7 +23,7 @@ public sealed partial class CoreMigrationTests
                 Condition = new() { Minimum = new(), Maximum = new() { Goal = 3, WithoutVote = 0, Injured = 1 } } },
             EnemyCondition = new() { RolesInvolved = [] } };
         foreach (var library in new[] { "default", "unclassified-private-library" })
-            await container.GetBlobClient(library).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<CardWrapper, string>.Default(new() { Cards = [card] }, library))));
+            await container.GetBlobClient(library).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<CardWrapper, string>.Default(new() { Cards = [card] }, library))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();

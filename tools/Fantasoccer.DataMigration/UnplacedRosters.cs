@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -25,22 +25,22 @@ public sealed partial class CoreDatasetImporter
         switch (document.Container)
         {
             case "team":
-                var season = document.Envelope.Deserialize<Entity<Team, TeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
+                var season = document.Envelope.Deserialize<LegacyEntity<Team, TeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
                 var key = season.Key ?? throw new CoreImportException("missing_roster_key");
                 return new(document, key.Group, key.BasketId, key.Email, key.Year, 0, null,
                     season.Value ?? throw new CoreImportException("missing_roster"), RosterKind.Season);
             case "dailyteams":
-                var daily = document.Envelope.Deserialize<Entity<Team, TeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
+                var daily = document.Envelope.Deserialize<LegacyEntity<Team, TeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
                 var dayKey = daily.Key ?? throw new CoreImportException("missing_roster_key");
                 return new(document, dayKey.Group, dayKey.BasketId, dayKey.Email, dayKey.Year, dayKey.Day, null,
                     daily.Value ?? throw new CoreImportException("missing_roster"), RosterKind.Matchday);
             case "openingteams":
-                var opening = document.Envelope.Deserialize<Entity<Team, OpeningTeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
+                var opening = document.Envelope.Deserialize<LegacyEntity<Team, OpeningTeamKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
                 var openingKey = opening.Key ?? throw new CoreImportException("missing_roster_key");
                 return new(document, openingKey.Group, openingKey.BasketId, openingKey.Email, openingKey.Year, 0, openingKey.League,
                     opening.Value ?? throw new CoreImportException("missing_roster"), RosterKind.OpeningSeason);
             default:
-                var openingDay = document.Envelope.Deserialize<Entity<Team, OpeningTeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
+                var openingDay = document.Envelope.Deserialize<LegacyEntity<Team, OpeningTeamDayKey>>() ?? throw new CoreImportException("invalid_roster_envelope");
                 var openingDayKey = openingDay.Key ?? throw new CoreImportException("missing_roster_key");
                 return new(document, openingDayKey.Group, openingDayKey.BasketId, openingDayKey.Email, openingDayKey.Year, openingDayKey.Day, openingDayKey.League,
                     openingDay.Value ?? throw new CoreImportException("missing_roster"), RosterKind.OpeningMatchday);

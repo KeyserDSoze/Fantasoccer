@@ -13,7 +13,7 @@ public sealed class SerieACalendarTest : IDisposable
     public SerieACalendarTest()
     {
         var services = new ServiceCollection();
-        services.AddSharedBusiness();
+        services.AddFantasoccerSqlDataProviders();
         services.AddSingleton<TestSerieACalendarHandler>();
         services.AddHttpClient("seriea-gazzetta-calendar", client => client.BaseAddress = new Uri("https://calendar.test/"))
             .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestSerieACalendarHandler>());

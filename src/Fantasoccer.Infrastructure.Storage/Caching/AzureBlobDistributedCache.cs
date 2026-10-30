@@ -107,14 +107,15 @@ public sealed class AzureBlobDistributedCache : IDistributedCache, IDistributedC
         return new BlobLease(key, lease, renewal, _logger);
     }
 
-    public async Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumItems, CancellationToken cancellationToken = default)
+    public async Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumDeletions, CancellationToken cancellationToken = default)
     {
         await EnsureContainerAsync(true, cancellationToken);
         var now = _clock.GetUtcNow();
         var scanned = 0; var deleted = 0;
+        if (maximumDeletions <= 0) return new(0, 0);
         await foreach (var item in _container.GetBlobsAsync(BlobTraits.Metadata, BlobStates.None, CacheBlobNaming.NamespacePrefix(_options.Namespace), cancellationToken))
         {
-            if (scanned++ >= maximumItems) break;
+            scanned++;
             var modified = item.Properties.LastModified ?? now;
             bool remove;
             if (CacheBlobNaming.IsLockBlob(item.Name))
@@ -132,8 +133,9 @@ public sealed class AzureBlobDistributedCache : IDistributedCache, IDistributedC
                 deleted++;
             }
             catch (RequestFailedException ex) when (ex.Status is 404 or 409 or 412) { }
+            if (deleted >= maximumDeletions) break;
         }
-        return new(Math.Min(scanned, maximumItems), deleted);
+        return new(scanned, deleted);
     }
 
     private async ValueTask<DistributedCacheEntry?> GetCoreAsync(string key, bool async, CancellationToken cancellationToken)

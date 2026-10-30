@@ -30,6 +30,8 @@ public interface IDistributedCacheCoordinator
     // always expire on their own, so a crashed holder never leaves a permanent lock.
     Task<IDistributedCacheLease?> TryAcquireLeaseAsync(string key, TimeSpan duration, CancellationToken cancellationToken = default);
 
-    // Deletes entries whose logical expiration passed more than `grace` ago.
-    Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumItems, CancellationToken cancellationToken = default);
+    // Deletes entries whose logical expiration passed more than `grace` ago, at most
+    // `maximumDeletions` per call. Valid entries do not stop the scan, so an expired
+    // entry is reached however many valid ones precede it.
+    Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumDeletions, CancellationToken cancellationToken = default);
 }

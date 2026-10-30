@@ -3,7 +3,7 @@ using System.Text.Json;
 using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -16,7 +16,7 @@ public sealed partial class CoreDatasetImporter
         var postponed = LegacyPostponedClubs(dataset);
         foreach (var document in dataset.Documents.Where(x => x.Container is "live" or "notification" or "official"))
         {
-            var entity = document.Envelope.Deserialize<Entity<VotedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_votes_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<VotedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_votes_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_votes_key");
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var source = document.Container == "live" ? FootballVoteSource.Live : document.Container == "official" ? FootballVoteSource.Official : FootballVoteSource.Notification;
@@ -105,7 +105,7 @@ public sealed partial class CoreDatasetImporter
         var chances = new HashSet<(string, int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "chancedrealplayerwrapper"))
         {
-            var entity = document.Envelope.Deserialize<Entity<ChancedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_chance_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<ChancedRealPlayerWrapper, YearDayKey>>() ?? throw new CoreImportException("invalid_chance_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_chance_key");
             CheckDay(key); season(key.Year); root(document.Container, key.Year, key.Day);
             var original = Value(document.Envelope).GetProperty("p");
@@ -142,7 +142,7 @@ public sealed partial class CoreDatasetImporter
         var statistics = new HashSet<(string, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "statplayerswrapper"))
         {
-            var entity = document.Envelope.Deserialize<Entity<StatPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_statistics_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<StatPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_statistics_envelope");
             season(entity.Key); root(document.Container, entity.Key, 0);
             var players = entity.Value?.Players ?? throw new CoreImportException("missing_statistics_players");
             var unusable = 0; string? firstUnusable = null;
@@ -174,7 +174,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realrank"))
         {
-            var entity = document.Envelope.Deserialize<Entity<RealRank, int>>() ?? throw new CoreImportException("invalid_real_rank_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<RealRank, int>>() ?? throw new CoreImportException("invalid_real_rank_envelope");
             season(entity.Key); root(document.Container, entity.Key, 0);
             var clubs = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (value, ordinal) in (entity.Value?.Teams ?? throw new CoreImportException("missing_real_rank")).Select((item, ordinal) => (item, ordinal)))

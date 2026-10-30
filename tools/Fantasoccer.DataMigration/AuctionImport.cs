@@ -4,7 +4,7 @@ using System.Text.Json;
 using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -18,7 +18,7 @@ public sealed partial class CoreDatasetImporter
             ?? throw new CoreImportException("missing_auction_reference");
         foreach (var document in dataset.Documents.Where(x => x.Container == "auction"))
         {
-            var entity = document.Envelope.Deserialize<Entity<AuctionWrapper, string>>() ?? throw new CoreImportException("invalid_auction_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<AuctionWrapper, string>>() ?? throw new CoreImportException("invalid_auction_envelope");
             var source = entity.Value ?? throw new CoreImportException("missing_auction");
             if (source.Id != entity.Key || string.IsNullOrWhiteSpace(source.Id) || plan.Auctions.Any(x => x.Id == map("auction", source.Id)))
                 throw new CoreImportException("auction_collision");

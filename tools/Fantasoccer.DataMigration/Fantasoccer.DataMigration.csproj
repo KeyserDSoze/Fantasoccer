@@ -9,6 +9,7 @@
     <ProjectReference Include="../../src/Fantasoccer.Infrastructure.PostgreSql/Fantasoccer.Infrastructure.PostgreSql.csproj" />
     <ProjectReference Include="../../src/Fantasoccer.Domain/Fantasoccer.Domain.csproj" />
     <ProjectReference Include="../Fantasoccer.StorageMigration/Fantasoccer.StorageMigration.csproj" />
+    <ProjectReference Include="../Fantasoccer.LegacyModels/Fantasoccer.LegacyModels.csproj" />
     <ProjectReference Include="../../src/Fantasoccer.Application.Core/Fantasoccer.Application.Core.csproj" />
     <ProjectReference Include="../../src/Fantasoccer.Infrastructure.Storage/Fantasoccer.Infrastructure.Storage.csproj" />
   </ItemGroup>

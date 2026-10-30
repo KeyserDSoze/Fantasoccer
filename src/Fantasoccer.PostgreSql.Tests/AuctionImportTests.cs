@@ -4,7 +4,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Domain;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -22,9 +22,9 @@ public sealed partial class CoreMigrationTests
         var club = new RealTeam { Name = "Retained club" };
         var player = new RealPlayer { Name = "Retained player", RealTeam = club, Role = Role.Forward, IsActive = true };
         var catalogue = await ExtraContainerAsync("realplayerswrapper");
-        await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new() { Players = [player] }, 15))));
+        await catalogue.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [player] }, 15))));
         var teams = await ExtraContainerAsync("team");
-        await teams.GetBlobClient("roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+        await teams.GetBlobClient("roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(new()
         {
             Name = "Team", Owner = Email, AdditionalOwners = [OtherEmail], MoneyFromRank = 17, OpeningCompetitionPrize = 9,
             Players = [new() { Name = player.Name, RealTeam = club, Role = Role.Forward, IsActive = true, Price = 37, Position = FantaSoccerRole.Forward }]
@@ -60,7 +60,7 @@ public sealed partial class CoreMigrationTests
         var players = await ExtraContainerAsync("realplayerswrapper");
         var first = new RealPlayer { Name = "Auction forward", RealTeam = new() { Name = "Auction club" }, Role = Role.Forward, IsActive = true };
         var second = new RealPlayer { Name = "Auction defender", RealTeam = first.RealTeam, Role = Role.Defensor, IsActive = true };
-        await players.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new() { Players = [first, second] }, 15))));
+        await players.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(new() { Players = [first, second] }, 15))));
         using var aes = Aes.Create();
         aes.GenerateKey(); aes.GenerateIV();
         string Encrypt(string key)
@@ -82,7 +82,7 @@ public sealed partial class CoreMigrationTests
                 Started = started, StartingTime = started.AddSeconds(5), Owner = Email, Price = 30, Substituted = second.Key },
             Winnings = [new() { PlayerKey = second.Key, Owner = OtherEmail, Price = 40 }],
             Participants = [new() { Name = "Historical participant", Owner = Email, AdditionalOwners = [OtherEmail] }] };
-        await container.GetBlobClient(auction.Id).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<AuctionWrapper, string>.Default(auction, auction.Id))));
+        await container.GetBlobClient(auction.Id).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<AuctionWrapper, string>.Default(auction, auction.Id))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var missing = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
         Assert.Equal("legacy_auction_encryption_required", missing.Message);

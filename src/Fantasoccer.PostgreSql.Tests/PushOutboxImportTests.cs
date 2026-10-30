@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -21,8 +21,8 @@ public sealed partial class CoreMigrationTests
             PendingNotifications = [new() { Id = "legacy-delivery", Email = Email, Kind = PushNotificationKind.MatchEvents, Attempts = 4,
                 NextAttemptAt = expires.AddMinutes(-5), ExpiresAt = expires, CompletedEndpoints = ["https://fcm.googleapis.com/fcm/send/completed"], Notification = new()
                 { Title = "Saved title", Body = "Saved body", Tag = "saved-stable-tag", RequireInteraction = true, Data = new() { Uri = "https://fanta.zone/live", RecipientEmail = Email } } }] };
-        await container.GetBlobClient("day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PushNotificationSent, YearDayKey>.Default(checkpoint, new() { Year = 15, Day = 3 }))));
-        await container.GetBlobClient("index").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PushNotificationSent, YearDayKey>.Default(new()
+        await container.GetBlobClient("day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PushNotificationSent, YearDayKey>.Default(checkpoint, new() { Year = 15, Day = 3 }))));
+        await container.GetBlobClient("index").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PushNotificationSent, YearDayKey>.Default(new()
             { ActiveOutboxDays = [new() { Year = 15, Day = 3 }, new() { Year = 15, Day = 0 }] }, new() { Year = 0, Day = 0 }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
@@ -44,7 +44,7 @@ public sealed partial class CoreMigrationTests
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
         checkpoint.PendingNotifications[0].Attempts = 5;
-        await container.GetBlobClient("day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<PushNotificationSent, YearDayKey>.Default(checkpoint, new() { Year = 15, Day = 3 }))), overwrite: true);
+        await container.GetBlobClient("day").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<PushNotificationSent, YearDayKey>.Default(checkpoint, new() { Year = 15, Day = 3 }))), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(id, (await database.PushDeliveries.SingleAsync()).Id);

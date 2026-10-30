@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -25,7 +25,7 @@ public sealed partial class CoreMigrationTests
             SellerAccepted = false, Approvers = [Email], Deniers = [], CreationTime = created },
             new() { Id = "completed-trade", Buyer = Email, Seller = OtherEmail, BuyerPlayers = [Player("Buyer player", 30)], SellerPlayers = [Player("Seller player", 70)],
                 Approvers = [Email, OtherEmail], Deniers = [], SellerAccepted = true, Status = MarketStatus.Approved, CreationTime = created }] };
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<MarketWrapper, LeagueKey>.Default(wrapper, key))));
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<MarketWrapper, LeagueKey>.Default(wrapper, key))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();
         await using var database = fixture.CreateContext();
@@ -45,7 +45,7 @@ public sealed partial class CoreMigrationTests
         var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
         wrapper.Markets.RemoveAt(1);
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<MarketWrapper, LeagueKey>.Default(wrapper, key))), overwrite: true);
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<MarketWrapper, LeagueKey>.Default(wrapper, key))), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         Assert.Equal(ids[0], (await database.MarketTrades.SingleAsync()).Id);

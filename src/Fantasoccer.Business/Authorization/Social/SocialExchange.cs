@@ -67,8 +67,8 @@ internal sealed class MicrosoftCodeExchanger(IHttpClientFactory clients, SocialL
     public const string TokenEndpoint = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
     public const string MetadataAddress = "https://login.microsoftonline.com/consumers/v2.0/.well-known/openid-configuration";
     public const string Issuer = "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0";
-    // Used when the frontend does not send its own PKCE code_verifier (historical default of the login flow).
-    private const string DefaultCodeVerifier = "19cfc47c216dacba8ca23eeee817603e2ba34fe0976378662ba31688ed302fa9";
+    // RFC 7636: the client generates a fresh verifier per login. There is deliberately no server-side default:
+    // a public constant would make the code challenge worthless for any client that forgot to send its own.
 
     private sealed class ProviderTokens
     {
@@ -83,6 +83,9 @@ internal sealed class MicrosoftCodeExchanger(IHttpClientFactory clients, SocialL
         if (!settings.IsActive) return SocialExchangeResult.Rejected;
         var origin = settings.CheckDomain(request.Domain);
         if (origin is null) return SocialExchangeResult.Failure("Invalid domain");
+        var verifier = request.Parameter("code_verifier");
+        if (verifier is null || verifier.Length is < 43 or > 128 || verifier.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('-' or '.' or '_' or '~')))
+            return SocialExchangeResult.Failure("A PKCE code_verifier is required.");
         var client = clients.CreateClient(HttpClientName);
         client.DefaultRequestHeaders.Add("Origin", origin);
         using var content = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -90,7 +93,7 @@ internal sealed class MicrosoftCodeExchanger(IHttpClientFactory clients, SocialL
             ["code"] = code,
             ["client_id"] = settings.ClientId!,
             ["redirect_uri"] = request.RedirectUri,
-            ["code_verifier"] = request.Parameter("code_verifier") ?? DefaultCodeVerifier,
+            ["code_verifier"] = verifier,
             ["grant_type"] = "authorization_code",
             ["scope"] = "profile openid email"
         });

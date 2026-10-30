@@ -16,7 +16,7 @@ interface CopyFormationDialogProps {
   onSwitchCompetition: (source: LineupCopySource) => void
 }
 
-// Shown only when the owner chose separate lineups (team settings): by default the lineup is shared
+// Shown only when the owner chose separate lineups: by default pre-match saves attempt an automatic copy.
 // and copied automatically. Switches to another competition of the same team, or copies the lineup of
 // the same roster from it for the same day. The copy is a one-off transfer: later edits of either lineup stay independent, and the
 // server re-validates the target (rules, roles, bench, deadline, version, live).

@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using RepositoryFramework;
 
 namespace Fantasoccer.Application.Api.Mcp;
 
@@ -44,7 +43,7 @@ public sealed class McpModelCatalog(McpEndpointCatalog catalog)
                 type = McpJsonContracts.TypeName(property.PropertyType),
                 description = McpJsonContracts.PropertyDescription(property),
                 readOnly = property.Set == null,
-                required = property.IsRequired || (property.Set != null && typeof(IDefaultKey).IsAssignableFrom(type)),
+                required = property.IsRequired,
                 models = ReferencedTypes(property.PropertyType).Where(t => _models.Value.ContainsKey(McpJsonContracts.ModelId(t)))
                     .Select(McpJsonContracts.ModelId).Distinct().ToArray()
             }).ToArray() : null,
@@ -67,9 +66,8 @@ public sealed class McpModelCatalog(McpEndpointCatalog catalog)
 
     private static bool IsModel(Type type) => type != typeof(object) && type != typeof(JsonElement) &&
         !type.IsPrimitive && !type.IsInterface &&
-        (type.Assembly == typeof(Group).Assembly ||
-         type.Namespace == "Fantasoccer.Application.Api.Controllers" || type.Namespace == typeof(FantasoccerSeason).Namespace ||
-         type.Namespace?.StartsWith("RepositoryFramework", StringComparison.Ordinal) == true) &&
+        (type.Assembly == typeof(FantacalcioTime).Assembly || type.Assembly == typeof(Fantasoccer.Application.Core.Accounts.AccountApplicationService).Assembly ||
+         type.Namespace == "Fantasoccer.Application.Api.Controllers" || type.Namespace == typeof(FantasoccerSeason).Namespace) &&
         type.Namespace?.Contains(".Storage", StringComparison.Ordinal) != true;
 
     private static IReadOnlyDictionary<string, Type> Build(McpEndpointCatalog catalog)
@@ -89,11 +87,6 @@ public sealed class McpModelCatalog(McpEndpointCatalog catalog)
         {
             foreach (var parameter in operation.Api.ParameterDescriptions.Where(x => x.Source != BindingSource.Services)) Visit(parameter.Type);
             foreach (var response in operation.Api.SupportedResponseTypes.Where(x => x.Type != null)) Visit(response.Type!);
-            if (operation.Repository is { } repository)
-            {
-                Visit(repository.ModelType);
-                Visit(repository.KeyType);
-            }
         }
         return types;
     }

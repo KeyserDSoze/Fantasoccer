@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -31,7 +31,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "marketwrapper"))
         {
-            var entity = document.Envelope.Deserialize<Entity<MarketWrapper, LeagueKey>>() ?? throw new CoreImportException("invalid_market_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<MarketWrapper, LeagueKey>>() ?? throw new CoreImportException("invalid_market_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var (group, league) = Scope(key);
             if (LegacyMarketFormat(document, key.Year) is { } legacy) { plan.ExcludedLegacyMarkets.Add(legacy); continue; }
@@ -71,7 +71,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "randomizedplayers"))
         {
-            var entity = document.Envelope.Deserialize<Entity<RealPlayersWrapper, LeagueKey>>() ?? throw new CoreImportException("invalid_randomized_players");
+            var entity = document.Envelope.Deserialize<LegacyEntity<RealPlayersWrapper, LeagueKey>>() ?? throw new CoreImportException("invalid_randomized_players");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var (group, league) = Scope(key);
             if (plan.PlayerOrders.Any(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == key.Year)) throw new CoreImportException("player_order_collision");
@@ -89,7 +89,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "calendar"))
         {
-            var entity = document.Envelope.Deserialize<Entity<Calendar, LeagueKey>>() ?? throw new CoreImportException("invalid_fantasy_calendar");
+            var entity = document.Envelope.Deserialize<LegacyEntity<Calendar, LeagueKey>>() ?? throw new CoreImportException("invalid_fantasy_calendar");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var (group, league) = Scope(key);
             var value = entity.Value ?? throw new CoreImportException("missing_fantasy_calendar");
@@ -125,7 +125,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "rank"))
         {
-            var entity = document.Envelope.Deserialize<Entity<Rank, LeagueKey>>() ?? throw new CoreImportException("invalid_rank");
+            var entity = document.Envelope.Deserialize<LegacyEntity<Rank, LeagueKey>>() ?? throw new CoreImportException("invalid_rank");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var value = entity.Value ?? throw new CoreImportException("missing_rank");
             var (group, league) = Scope(key);
@@ -152,7 +152,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "openingstandings"))
         {
-            var entity = document.Envelope.Deserialize<Entity<OpeningCompetitionStandings, OpeningCompetitionKey>>() ?? throw new CoreImportException("invalid_opening_standings");
+            var entity = document.Envelope.Deserialize<LegacyEntity<OpeningCompetitionStandings, OpeningCompetitionKey>>() ?? throw new CoreImportException("invalid_opening_standings");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var value = entity.Value ?? throw new CoreImportException("missing_opening_standings");
             var (group, league) = Scope(new() { Group = key.Group, League = key.League, Year = key.Year });
@@ -173,7 +173,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "playedgame"))
         {
-            var entity = document.Envelope.Deserialize<Entity<PlayedGame, GameKey>>() ?? throw new CoreImportException("invalid_played_game");
+            var entity = document.Envelope.Deserialize<LegacyEntity<PlayedGame, GameKey>>() ?? throw new CoreImportException("invalid_played_game");
             var key = entity.Key ?? throw new CoreImportException("missing_competition_key");
             var (group, league) = Scope(new() { Group = key.Group, League = key.League, Year = key.Year });
             var value = entity.Value ?? throw new CoreImportException("missing_played_game");

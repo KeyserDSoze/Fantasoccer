@@ -43,7 +43,6 @@ services:
       ConnectionStrings__Storage: *local-storage
       ConnectionStrings__PostgreSql: *postgres-connection
       ConnectionStrings__AppInsights: ""
-      PostgreSql__Enabled: "true"
       Telemetry__Provider: OpenTelemetry
       OTEL_SERVICE_NAME: fantasoccer-api
       OTEL_EXPORTER_OTLP_ENDPOINT: http://dashboard:18889

@@ -75,22 +75,15 @@ const key = getPlayerKey("Gianluca Scamacca") // "gianlucascamacca"
 
 ## 📁 File: utils/pkceHelper.ts
 
-**Purpose:** PKCE (Proof Key for Code Exchange) helper for cross-platform Microsoft OAuth with fixed code verifier for backend compatibility.
+**Purpose:** PKCE (Proof Key for Code Exchange) helper for cross-platform Microsoft OAuth with a random verifier per login. See `docs/MCP.md` and the current `utils/pkceHelper.ts`; never reintroduce a fixed verifier.
 
 ### Classes
 - **PKCEHelper**: Static class for PKCE operations
 
 ### Functions
 
-#### `PKCEHelper.getCodeVerifier(): string`
-Gets the fixed code verifier (used during token exchange).
-- **Returns:** Fixed 64-character hex string
-- **Value:** `"19cfc47c216dacba8ca23eeee817603e2ba34fe0976378662ba31688ed302fa9"`
-
-#### `PKCEHelper.getCodeChallenge(): Promise<string>`
-Generates code challenge from the fixed code verifier using SHA256 and base64url encoding (RFC 7636).
-- **Returns:** Promise resolving to base64url-encoded SHA256 hash
-- **Throws:** Error if Web Crypto API not available
+#### `PKCEHelper.consumeTransaction(state): Promise<string>`
+Returns and deletes the random verifier saved for this login only, after validating state and the ten-minute lifetime. Missing or expired transactions are rejected; there is no fallback. `buildAuthorizeUrl` generates the verifier with cryptographic randomness and hashes it with S256.
 
 #### `PKCEHelper.buildAuthorizeUrl(config): Promise<string>`
 Generates Microsoft OAuth authorize URL with PKCE.
@@ -101,29 +94,25 @@ Generates Microsoft OAuth authorize URL with PKCE.
   - `scopes?`: Array of permission scopes (default: openid profile email)
   - `state?`: State parameter (auto-generated if not provided)
 - **Returns:** Complete OAuth authorize URL with PKCE parameters
-- **Logs:** Detailed OAuth configuration for debugging
 
 #### `PKCEHelper.isSupported(): boolean`
 Validates that the environment supports PKCE.
 - **Returns:** True if crypto APIs are available
-
-#### `PKCEHelper.getInfo(): object`
-Gets PKCE implementation info for debugging.
-- **Returns:** Object with codeVerifier, length, support flags, crypto availability
 
 ### Exported Aliases
 - `pkceHelper`: Alias for PKCEHelper class
 
 ### Usage Example
 ```typescript
-const verifier = PKCEHelper.getCodeVerifier()
-const challenge = await PKCEHelper.getCodeChallenge()
 const authUrl = await PKCEHelper.buildAuthorizeUrl({
   clientId: 'your-client-id',
-  authority: 'https://login.microsoftonline.com/common',
+  authority: 'https://login.microsoftonline.com/consumers',
   redirectUri: 'myapp://auth',
-  scopes: ['User.Read']
+  scopes: ['openid', 'profile', 'email']
 })
+// On callback: consumeTransaction validates state, deletes the transaction and returns its verifier.
+const verifier = await PKCEHelper.consumeTransaction(callbackState)
+await authService.exchangeToken(authorizationCode, verifier)
 ```
 
 ---
@@ -417,7 +406,7 @@ PKCE implementation ensures secure OAuth flow:
 |------|-----------|---------|------------|-----------|
 | **idTokenDecoder.ts** | 4 static methods | IDTokenDecoder | IDTokenClaims | - |
 | **keyUtils.ts** | 1 function | - | - | - |
-| **pkceHelper.ts** | 6 static methods | PKCEHelper | - | 1 (FIXED_CODE_VERIFIER) |
+| **pkceHelper.ts** | Transaction-scoped PKCE | PKCEHelper | - | No fixed verifier |
 | **playerImage.ts** | 4 functions | - | - | 2 |
 | **teamLogo.ts** | 6 functions | - | TeamLogoProps | - |
 | **teamValidation.ts** | 8 functions | - | - | - |

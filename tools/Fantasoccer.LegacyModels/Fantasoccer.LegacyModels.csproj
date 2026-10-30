@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- The documents of the retired Blob/Table storage backend, exactly as the legacy application wrote them. Only the
+         one-off migration (tools/Fantasoccer.DataMigration) and its tests read them: the running application never does. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Fantasoccer</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../src/Fantasoccer.Domain/Fantasoccer.Domain.csproj" />
+    </ItemGroup>
+
+</Project>

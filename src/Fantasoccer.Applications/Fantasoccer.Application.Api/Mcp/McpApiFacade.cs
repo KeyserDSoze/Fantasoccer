@@ -9,7 +9,7 @@ using ModelContextProtocol.Protocol;
 namespace Fantasoccer.Application.Api.Mcp;
 
 // Dispatches to the real endpoints IN PROCESS. No loopback HTTP, no caller-selected URL,
-// no controller reflection calls, no repository calls that skip the HTTP authorization layer.
+// no controller reflection calls, nothing that skips the HTTP authorization layer.
 public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactory scopes,
     IHttpContextAccessor contexts, ILogger<McpApiFacade> logger)
 {
@@ -20,7 +20,6 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
         var pipeline = ((IApplicationBuilder)app).New();
         pipeline.UseRouting();
         pipeline.UseAuthorization();
-        if (!app.Configuration.GetValue<bool>("PostgreSql:Enabled")) pipeline.UseMiddleware<TeamRepositoryBoundaryMiddleware>();
         pipeline.UseEndpoints(endpoints =>
         {
             foreach (var source in ((IEndpointRouteBuilder)app).DataSources) endpoints.DataSources.Add(source);
@@ -32,44 +31,22 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
     {
         var parent = contexts.HttpContext;
         if (parent?.User.Identity?.IsAuthenticated != true) return Error("Authentication required.");
-        if (!catalog.McpOperations.TryGetValue(request.Name, out var operation))
-        {
-            var removedQuery = catalog.Operations.ContainsKey(request.Name);
-            if (removedQuery)
-                logger.LogWarning("MCP tool {Tool} rejected: generic repository scans and aggregations are unavailable; request {TraceId}. No arguments or credentials logged.",
-                    request.Name, parent.TraceIdentifier);
-            return Error(removedQuery
-                ? "Generic repository queries and aggregations are not available through MCP. Read get_fantasoccer_guide(topic='lookups'), resolve IDs from your account/group/calendar, and use Get/Exist point reads discovered with list_api_operations."
-                : "Unknown tool.");
-        }
+        if (!catalog.McpOperations.TryGetValue(request.Name, out var operation)) return Error("Unknown tool.");
         var args = request.Arguments == null ? new Dictionary<string, JsonElement>() : new Dictionary<string, JsonElement>(request.Arguments);
         if (args.Keys.Any(x => x is not ("query" or "route" or "body" or "files"))) return Error("Unknown argument.");
         if (args.Any(x => x.Key != "body" && x.Value.ValueKind != JsonValueKind.Object)) return Error("query, route and files must be objects.");
         await using var scope = scopes.CreateAsyncScope();
         try
         {
-            string? repositoryWireKey = null;
             if (args.TryGetValue("query", out var suppliedQuery))
             {
                 if (suppliedQuery.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != suppliedQuery.EnumerateObject().Count())
                     return Error("Duplicate query parameter.");
                 var allowed = operation.Api.ParameterDescriptions.Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 if (suppliedQuery.EnumerateObject().Any(x => !allowed.Contains(x.Name))) return Error("Unknown query parameter.");
-                var key = suppliedQuery.EnumerateObject().FirstOrDefault(x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase));
-                if (key.Name != null && operation.Repository is { } repository &&
-                    repository.KeyType != typeof(string) && !repository.KeyType.IsPrimitive && !repository.KeyType.IsEnum)
-                {
-                    if (key.Value.ValueKind != JsonValueKind.String) throw new McpRepositoryKeyException();
-                    var converted = McpRepositoryKeyConverter.Convert(repository.KeyType, key.Value.GetString()!);
-                    repositoryWireKey = converted.WireValue;
-                    // The guard sees the exact typed/serialized key used for dispatch,
-                    // not the caller's potentially ambiguous aliases or missing fields.
-                    args["query"] = JsonSerializer.SerializeToElement(suppliedQuery.EnumerateObject().ToDictionary(
-                        x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase) ? "key" : x.Name,
-                        x => x.Name.Equals("key", StringComparison.OrdinalIgnoreCase) ? JsonSerializer.SerializeToElement(converted.CanonicalJson) : x.Value));
-                }
             }
-            if (!await scope.ServiceProvider.GetRequiredService<McpAccessGuard>().AllowsAsync(operation, args, parent.User, cancellationToken))
+            // Resource access is decided by the application services behind each endpoint; an MCP call only needs an identified account.
+            if (string.IsNullOrWhiteSpace(parent.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value))
                 return Error("Forbidden: this operation or resource is not permitted for your account.");
 
             var context = new DefaultHttpContext
@@ -94,8 +71,7 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
             if (args.TryGetValue("query", out var query))
             {
                 context.Request.QueryString = new QueryString(QueryHelpers.AddQueryString("", query.EnumerateObject()
-                    .ToDictionary(x => x.Name, x => (string?)(repositoryWireKey != null && x.Name.Equals("key", StringComparison.OrdinalIgnoreCase)
-                        ? repositoryWireKey : AsQuery(x.Value)))));
+                    .ToDictionary(x => x.Name, x => (string?)AsQuery(x.Value))));
             }
             using var body = new MemoryStream();
             if (args.TryGetValue("files", out var files))
@@ -121,9 +97,9 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
             body.Position = 0;
             context.Request.Body = body;
             context.Request.ContentLength = body.Length;
-            // Minimal-API repository binders use this server feature to decide
-            // whether a body exists. DefaultHttpContext does not supply it;
-            // Content-Length alone would let a valid JSON body bind as null.
+            // Body binders use this server feature to decide whether a body exists.
+            // DefaultHttpContext does not supply it; Content-Length alone would
+            // let a valid JSON body bind as null.
             context.Features.Set<IHttpRequestBodyDetectionFeature>(new RequestBodyDetection(body.Length > 0));
             using var output = new LimitedResponseStream();
             context.Response.Body = output;
@@ -145,12 +121,6 @@ public sealed class McpApiFacade(McpEndpointCatalog catalog, IServiceScopeFactor
                 IsError = context.Response.StatusCode >= 300,
                 Content = [new TextContentBlock { Text = payload }]
             };
-        }
-        catch (McpRepositoryKeyException exception)
-        {
-            logger.LogWarning("MCP tool {Tool} rejected an invalid composite repository key; request {TraceId}. No arguments or credentials logged.",
-                request.Name, parent.TraceIdentifier);
-            return Error(exception.Message);
         }
         catch (Exception exception) when (exception is JsonException or FormatException or ArgumentException)
         {

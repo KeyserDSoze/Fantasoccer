@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -12,7 +12,7 @@ public sealed partial class CoreDatasetImporter
         var images = dataset.Manifest.Containers.Where(x => x.Name == "cardimages").SelectMany(x => x.Blobs).Select(x => x.Name).ToHashSet(StringComparer.Ordinal);
         foreach (var document in dataset.Documents.Where(x => x.Container == "cards"))
         {
-            var entity = document.Envelope.Deserialize<Entity<CardWrapper, string>>() ?? throw new CoreImportException("invalid_cards_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<CardWrapper, string>>() ?? throw new CoreImportException("invalid_cards_envelope");
             var key = entity.Key;
             if (string.IsNullOrWhiteSpace(key) || plan.CardLibraries.Any(x => x.Name == key)) throw new CoreImportException("card_library_collision");
             map("card-library", key); plan.CardLibraries.Add(new() { Name = key });

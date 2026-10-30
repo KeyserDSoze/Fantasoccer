@@ -19,6 +19,11 @@ public sealed record LiveGroupDto(string Name, int Year, LiveLeagueDto[] Leagues
     public DateTimeOffset? GeneratedAtUtc { get; init; }
     // True while another instance rebuilds a projection whose sources changed.
     public bool IsStale { get; init; }
+    // When the shared provisional votes of the day were last confirmed by the live
+    // job, and whether they are overdue while the matchday is being played. The
+    // projection above was built from the last votes available either way.
+    public DateTimeOffset? LiveVotesUpdatedAtUtc { get; init; }
+    public bool LiveVotesStale { get; init; }
 }
 
 // Shared projection stored in the distributed cache: user-independent (no
@@ -38,18 +43,24 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
     public async Task<LiveGroupDto> GetAsync(ClaimsPrincipal caller, Guid group, int year, CancellationToken cancellationToken = default)
     {
         await AuthorizeAsync(caller, group);
-        var day = await SelectedDayAsync(year, cancellationToken);
-        var read = await SnapshotAsync(group, year, day ?? 0, cancellationToken);
+        var selection = await SelectedDayAsync(year, cancellationToken);
+        var read = await SnapshotAsync(group, year, selection.Day ?? 0, cancellationToken);
         var snapshot = read.Envelope.Payload;
+        var votes = await liveData.LiveVotesAsync(year, selection.Day ?? 0, cancellationToken);
+        var now = clock.GetUtcNow();
+        // Overdue only while the matchday is being played: afterwards no job runs and
+        // the last confirmation is simply the final provisional state.
+        var votesOverdue = selection.LiveSince is { } since && (votes is null ? now - since > FootballLiveDataStore.LiveVotesFreshFor : !votes.IsFreshAt(now));
         return new(snapshot.Name, snapshot.Year, snapshot.Leagues.Select(x => new LiveLeagueDto(x.Id, x.Name, x.Rounds, x.Rank, x.PreviewUnavailable)).ToArray())
-            { SerieADay = day, GeneratedAtUtc = read.Envelope.GeneratedAtUtc, IsStale = read.IsStale };
+            { SerieADay = selection.Day, GeneratedAtUtc = read.Envelope.GeneratedAtUtc, IsStale = read.IsStale,
+              LiveVotesUpdatedAtUtc = votes?.GeneratedAtUtc, LiveVotesStale = votesOverdue };
     }
 
     // View-mode game of the current live day, served from the shared projection.
     public async Task<GameDto?> TryGetGameAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid gameId, CancellationToken cancellationToken = default)
     {
         await AuthorizeAsync(caller, group);
-        var day = await SelectedDayAsync(year, cancellationToken);
+        var day = (await SelectedDayAsync(year, cancellationToken)).Day;
         if (day is null || !await database.FantasyMatches.AnyAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.Id == gameId &&
                 x.Matchday.SerieADay == day, cancellationToken)) return null;
         var read = await SnapshotAsync(group, year, day.Value, cancellationToken);
@@ -91,13 +102,17 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
             .OrderBy(x => x.Kind).ToArrayAsync(cancellationToken);
         foreach (var roster in rosters) Add($"{roster.Kind}:{roster.Count}:{roster.Versions}:{roster.Last?.UtcTicks}");
         var matches = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day).OrderBy(x => x.Ordinal)
-            .Select(x => new { x.Ordinal, x.HomeGoals, x.AwayGoals, x.IsFinished, x.Delayed, x.KickoffUtc }).ToArrayAsync(cancellationToken);
-        foreach (var match in matches) Add($"{match.Ordinal}:{match.HomeGoals}:{match.AwayGoals}:{match.IsFinished}:{match.Delayed}:{match.KickoffUtc?.UtcTicks}");
-        var official = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == FootballVoteSource.Official)
-            .GroupBy(_ => 1).Select(x => new { Count = x.Count(), Sum = x.Sum(v => v.Value + v.Goals + v.Assists + v.Status) }).SingleOrDefaultAsync(cancellationToken);
-        Add(official?.Count); Add(official?.Sum);
-        Add((await liveData.LiveVotesAsync(year, day, cancellationToken))?.SourceRevision);
-        Add((await liveData.ChancesAsync(year, day, cancellationToken))?.SourceRevision);
+            .Select(x => new { x.Ordinal, x.HomeGoals, x.AwayGoals, x.IsFinished, x.Delayed, x.WasPostponed, x.KickoffUtc, x.OriginalKickoffUtc }).ToArrayAsync(cancellationToken);
+        foreach (var match in matches)
+            Add($"{match.Ordinal}:{match.HomeGoals}:{match.AwayGoals}:{match.IsFinished}:{match.Delayed}:{match.WasPostponed}:{match.KickoffUtc?.UtcTicks}:{match.OriginalKickoffUtc?.UtcTicks}");
+        // Official votes: a monotonic counter bumped by the database on any insert,
+        // update or delete of an official vote of the day (every field counts: sums
+        // of a few columns would miss compensating or unrelated changes).
+        Add(await database.FootballDayRevisions.Where(x => x.SeasonIndex == year && x.Day == day).Select(x => (long?)x.OfficialRevision).SingleOrDefaultAsync(cancellationToken));
+        // Shared snapshots: their content hash, not their publication time. A snapshot
+        // that was only re-confirmed with the same content must not rebuild every group.
+        Add((await liveData.LiveVotesAsync(year, day, cancellationToken))?.SourceFingerprint);
+        Add((await liveData.ChancesAsync(year, day, cancellationToken))?.SourceFingerprint);
         // Before kickoff / live window / after: changes the roster used and the preview.
         var now = clock.GetUtcNow();
         var kickoffs = matches.Where(x => x.KickoffUtc != null).Select(x => x.KickoffUtc!.Value).ToArray();
@@ -139,15 +154,19 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         return new(group, name, year, day, result.ToArray());
     }
 
-    private async Task<int?> SelectedDayAsync(int year, CancellationToken cancellationToken)
+    // LiveSince is set only while the selected matchday is being played (the same
+    // window the live job runs in): first kickoff until 10 h 15 after the last one.
+    private sealed record DaySelection(int? Day, DateTimeOffset? LiveSince);
+
+    private async Task<DaySelection> SelectedDayAsync(int year, CancellationToken cancellationToken)
     {
         var calendar = await football.CalendarCoreAsync(year, cancellationToken);
         var now = clock.GetUtcNow();
         var windows = (calendar?.Days ?? []).Select(x => new { x.SerieADay, Times = x.Games.Where(game => !game.Delayed && !game.WasPostponed && game.Date != null).Select(game => game.Date!.Value).ToArray() })
             .Where(x => x.Times.Length > 0).ToArray();
-        return windows.Where(x => now >= x.Times.Min() && now <= x.Times.Max().AddHours(10.25)).MaxBy(x => x.SerieADay)?.SerieADay
-            ?? windows.Where(x => now < x.Times.Min()).MinBy(x => x.SerieADay)?.SerieADay
-            ?? windows.MaxBy(x => x.SerieADay)?.SerieADay;
+        var live = windows.Where(x => now >= x.Times.Min() && now <= x.Times.Max().AddHours(10.25)).MaxBy(x => x.SerieADay);
+        if (live is not null) return new(live.SerieADay, live.Times.Min());
+        return new(windows.Where(x => now < x.Times.Min()).MinBy(x => x.SerieADay)?.SerieADay ?? windows.MaxBy(x => x.SerieADay)?.SerieADay, null);
     }
 
     private async Task AuthorizeAsync(ClaimsPrincipal caller, Guid group)

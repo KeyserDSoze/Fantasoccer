@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Operations;
@@ -97,7 +97,6 @@ public sealed partial class WorkspaceApiTests
         {
             using var health = scheduled.CreateClient(); (await health.GetAsync("/health/ready")).EnsureSuccessStatusCode();
             Assert.Contains(scheduled.Services.GetServices<IHostedService>(), service => service is SqlJobsWorker);
-            Assert.Null(scheduled.Services.GetService<RepositoryFramework.IRepository<Group, string>>());
         }
         var previous = Guid.NewGuid(); var year = FantacalcioTime.ActualYear;
         await using (var database = factory.Database.CreateContext())

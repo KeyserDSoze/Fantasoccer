@@ -1,0 +1,101 @@
+﻿using System.Text.Json.Serialization;
+
+namespace Fantasoccer.Domain
+{
+    public enum AuctionType
+    {
+        Normal,
+        RandomByLetter,
+        RandomList
+    }
+    public enum AuctionKind
+    {
+        Starting,
+        Repairing
+    }
+    public enum AuctionStatus
+    {
+        NotStarted,
+        Paused,
+        InProgress,
+        Finished
+    }
+    public sealed class PlayerForAuction
+    {
+        [JsonPropertyName("k")]
+        public required string EncryptedKey { get; set; }
+        [JsonPropertyName("i")]
+        public required bool IsShowed { get; set; }
+    }
+    public sealed class AuctionWrapper
+    {
+        [JsonPropertyName("i")]
+        public required string Id { get; set; }
+        [JsonPropertyName("l")]
+        public required LeagueKey LeagueKey { get; set; }
+        [JsonPropertyName("c")]
+        public required string Creator { get; set; }
+        [JsonPropertyName("t")]
+        public required DateTime Created { get; set; }
+        [JsonPropertyName("tp")]
+        public AuctionType Type { get; set; }
+        [JsonPropertyName("knd")]
+        public AuctionKind Kind { get; set; }
+        [JsonPropertyName("a")]
+        public ActualAuction? Actual { get; set; }
+        [JsonPropertyName("w")]
+        public List<AuctionWin> Winnings { get; set; } = [];
+        [JsonPropertyName("s")]
+        public AuctionStatus Status { get; set; }
+        [JsonPropertyName("p")]
+        public Dictionary<Role, List<PlayerForAuction>> ListOfPlayers { get; set; } = [];
+        /// <summary>
+        /// Here we put the connected participants use to inform who can bid
+        /// </summary>
+        [JsonPropertyName("pr")]
+        public List<AnnualTeam> Participants { get; set; } = [];
+        /// <summary>
+        /// Last player shown to the participants
+        /// </summary>
+        [JsonPropertyName("ls")]
+        public required Dictionary<Role, string?> LastShow { get; set; }
+        [JsonPropertyName("sec")]
+        public int SecondsPerAuction { get; set; } = 10;
+        /// <summary>
+        /// Current role being auctioned (for synchronization across all users)
+        /// </summary>
+        [JsonPropertyName("cr")]
+        public Role CurrentRole { get; set; } = Role.GoalKeeper;
+    }
+    public sealed class ActualAuction
+    {
+        [JsonPropertyName("pl")]
+        public required StatPlayer Player { get; set; }
+        [JsonPropertyName("s")]
+        public required DateTime Started { get; set; }
+        /// <summary>
+        /// Here the email of the owner is used as identifier who gets the player
+        /// </summary>
+        [JsonPropertyName("o")]
+        public string? Owner { get; set; }
+        [JsonPropertyName("sb")]
+        public string? Substituted { get; set; }
+        [JsonPropertyName("p")]
+        public int Price { get; set; }
+        [JsonPropertyName("t")]
+        public DateTime? StartingTime { get; set; }
+    }
+    public sealed class AuctionWin
+    {
+        [JsonPropertyName("k")]
+        public required string PlayerKey { get; set; }
+        /// <summary>
+        /// Here the email of the owner is used as identifier who gets the player
+        /// </summary>
+        [JsonPropertyName("o")]
+        public string? Owner { get; set; }
+        [JsonPropertyName("p")]
+        public int Price { get; set; }
+
+    }
+}

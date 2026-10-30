@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -15,7 +15,7 @@ public sealed partial class CoreMigrationTests
         _first.Baskets[0].Years.Add(new() { Year = 14, Teams = [new() { Name = "Previous team", Owner = Email, AdditionalOwners = [] }] });
         await PutGroupAsync(_first);
         var container = await ExtraContainerAsync("openingstandings");
-        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<OpeningCompetitionStandings, OpeningCompetitionKey>.Default(
+        await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<OpeningCompetitionStandings, OpeningCompetitionKey>.Default(
             new() { Group = "first", League = "league", Year = 15, SerieADays = 2, Teams =
                 [new() { Owner = Email, Name = "Saved opening name", Score = 154.75f, Prize = 75, Position = 1 }] },
             new() { Group = "first", League = "league", Year = 15 }))));

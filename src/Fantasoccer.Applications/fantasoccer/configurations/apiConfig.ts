@@ -1,34 +1,12 @@
 // Central API configuration for Fantasoccer
-export interface ApiEndpoints {
-  // Authentication
-  tokenExchange: string
-  userInfo: string
-}
-
 export interface ApiConfig {
   baseUrl: string
-  endpoints: ApiEndpoints
 }
 
-// Configuration for different environments
+// Configuration for different environments. EXPO_PUBLIC_API_URL (set by the deploy pipeline) overrides the host.
 export const API_CONFIGS = {
-  development: {
-    baseUrl: 'https://localhost:7223',
-    // baseUrl: 'https://apifc.azurewebsites.net',
-    endpoints: {
-      // Authentication endpoints
-      tokenExchange: '/api/Authentication/Social/Token',
-      userInfo: '/api/Authentication/Social/User',
-    },
-  },
-  production: {
-    baseUrl: 'https://apifc.azurewebsites.net',
-    endpoints: {
-      // Authentication endpoints
-      tokenExchange: '/api/Authentication/Social/Token',
-      userInfo: '/api/Authentication/Social/User'
-    },
-  },
+  development: { baseUrl: 'https://localhost:7223' },
+  production: { baseUrl: 'https://apifcv2.azurewebsites.net' },
 } as const
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '')
@@ -98,15 +76,5 @@ export class ApiError extends Error {
   ) {
     super(message)
     this.name = 'ApiError'
-  }
-}
-
-// Environment info for debugging
-export const getApiInfo = () => {
-  const config = getApiConfig()
-  return {
-    environment: getEnvironment(),
-    baseUrl: config.baseUrl,
-    endpoints: Object.keys(config.endpoints),
   }
 }

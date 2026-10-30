@@ -13,6 +13,17 @@ internal sealed class FootballDatasetConfiguration : IEntityTypeConfiguration<Fo
         builder.HasOne<Season>().WithMany().HasForeignKey(x => x.SeasonIndex).OnDelete(DeleteBehavior.Restrict);
     }
 }
+internal sealed class FootballDayRevisionConfiguration : IEntityTypeConfiguration<FootballDayRevision>
+{
+    public void Configure(EntityTypeBuilder<FootballDayRevision> builder)
+    {
+        builder.ToTable("FootballDayRevisions", table => table.HasCheckConstraint("CK_FootballDayRevisions_Day", "\"Day\" BETWEEN 1 AND 38"));
+        builder.HasKey(x => new { x.SeasonIndex, x.Day });
+        builder.Property(x => x.OfficialRevision).HasDefaultValue(0L);
+        // Derived data: it follows its season instead of blocking its removal.
+        builder.HasOne<Season>().WithMany().HasForeignKey(x => x.SeasonIndex).OnDelete(DeleteBehavior.Cascade);
+    }
+}
 internal sealed class FootballVoteConfiguration : IEntityTypeConfiguration<FootballVote>
 {
     public void Configure(EntityTypeBuilder<FootballVote> builder)

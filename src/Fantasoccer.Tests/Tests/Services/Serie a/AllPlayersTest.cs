@@ -1,43 +1,36 @@
 ﻿using System.Net;
 using Fantasoccer.Business.IngestionData;
-using RepositoryFramework;
+using Fantasoccer.Business;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Fantasoccer.Tests.Tests.Services;
 
-[Collection("InMemoryRepository")]
-public sealed class AllPlayersTest : IAsyncLifetime
+public sealed class AllPlayersTest : IDisposable
 {
     private readonly IAllPlayers _allPlayers;
     private readonly TestAllPlayersHandler _handler;
-    private readonly IRepository<RealTeamWrapper, int> _teams;
-    private RealTeamWrapper? _snapshot;
+    private readonly ServiceProvider _services;
 
-    public AllPlayersTest(IAllPlayers allPlayers, TestAllPlayersHandler handler, IRepository<RealTeamWrapper, int> teams)
+    public AllPlayersTest()
     {
-        _allPlayers = allPlayers;
-        _handler = handler;
-        _teams = teams;
+        var services = new ServiceCollection();
+        services.AddFantasoccerSqlDataProviders();
+        services.AddSingleton<IFootballIngestionReader, TestIngestionReader>();
+        services.AddSingleton<TestAllPlayersHandler>();
+        services.AddHttpClient("all-players").ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestAllPlayersHandler>());
+        _services = services.BuildServiceProvider();
+        _allPlayers = _services.GetRequiredService<IAllPlayers>();
+        _handler = _services.GetRequiredService<TestAllPlayersHandler>();
     }
 
-    public async ValueTask InitializeAsync()
+    private sealed class TestIngestionReader : IFootballIngestionReader
     {
-        var year = FantacalcioTime.ActualYear;
-        _snapshot = await _teams.GetAsync(year);
-        await _teams.DeleteAsync(year);
-        await _teams.InsertAsync(year, new RealTeamWrapper
-        {
-            Teams = [new RealTeam { Name = "Roma" }, new RealTeam { Name = "Milan" }]
-        });
-        _handler.Responses = 0;
+        public Task<RealCalendar?> CalendarAsync(int year) => Task.FromResult<RealCalendar?>(null);
+        public Task<RealPlayersWrapper?> PlayersAsync(int year) => Task.FromResult<RealPlayersWrapper?>(null);
+        public Task<RealTeamWrapper?> ClubsAsync(int year) => Task.FromResult<RealTeamWrapper?>(new() { Teams = [new() { Name = "Roma" }, new() { Name = "Milan" }] });
     }
 
-    public async ValueTask DisposeAsync()
-    {
-        var year = FantacalcioTime.ActualYear;
-        await _teams.DeleteAsync(year);
-        if (_snapshot != null)
-            await _teams.InsertAsync(year, _snapshot);
-    }
+    public void Dispose() => _services.Dispose();
 
     [Fact]
     public async Task ParsesPlayersGroupsByTeamAndSkipsOutOfGamePlayers()

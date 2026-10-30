@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -159,14 +159,14 @@ public sealed partial class CoreMigrationTests
         var clubs = await ExtraContainerAsync("realteamwrapper"); var source = clubs.GetBlobClient("alias-catalogue");
         await source.UploadAsync(BinaryData.FromString("{\"Key\":15,\"Value\":{\"t\":[{\"n\":\"Juve\",\"a\":null},{\"n\":\"Juventus\",\"a\":null}]}}"));
         var catalogues = await ExtraContainerAsync("realplayerswrapper");
-        await catalogues.GetBlobClient("14").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(new()
+        await catalogues.GetBlobClient("14").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(new()
             { Players = [new() { Name = "Alias fixture player", Role = Role.Forward, RealTeam = new() { Name = "Juventus", Abbreviation = "JUV" } }] }, 14))));
         var votes = await ExtraContainerAsync("official");
-        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
+        await votes.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new()
             { Players = [new() { Name = "Alias fixture player", Role = Role.Forward, RealTeam = new() { Name = "Juventus", Abbreviation = "" },
                 Vote = new() { Value = 7, HasVote = true, IsFinal = true } }] }, new() { Year = 15, Day = 2 }))));
         var rosters = await ExtraContainerAsync("team");
-        await rosters.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(new()
+        await rosters.GetBlobClient("source").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(new()
             { Name = "Alias fixture roster", Owner = Email, Players = [new() { Name = "Alias fixture player", Role = Role.Forward,
                 RealTeam = new() { Name = "Juve", Abbreviation = "" }, Price = 41, Revenue = 58, Status = PlayerInTeamStatus.Sold, Position = FantaSoccerRole.Tribune }] },
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email }))));

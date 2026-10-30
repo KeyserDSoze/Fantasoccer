@@ -4,21 +4,18 @@ import { tokenStorageService } from './tokenStorageService'
 import { apiRequest } from './httpClient'
 
 export interface TokenExchangeResponse { tokenType: string; accessToken: string; expiresIn: number; refreshToken: string }
-export interface PKCEOptions { isPKCE?: boolean; codeVerifier?: string; redirectPath?: string }
 
 export class AuthService {
-  async exchangeToken(code: string, options: PKCEOptions = {}): Promise<TokenExchangeResponse> {
-    const url = buildApiUrl('/api/Authentication/Social/Token', { code, provider: '2', redirectPath: options.redirectPath ?? '/' })
-    const pkce = options.isPKCE && options.codeVerifier
-    const response = await fetch(url, {
-      method: pkce ? 'POST' : 'GET',
-      headers: pkce ? { ...getCommonHeaders(), 'Content-Type': 'application/json' } : getCommonHeaders(),
-      body: pkce ? JSON.stringify({ code_verifier: options.codeVerifier }) : undefined,
+  // Authorization-code (PKCE) exchange: the verifier of this very login is always sent in the body.
+  async exchangeToken(code: string, codeVerifier: string, redirectPath = '/'): Promise<TokenExchangeResponse> {
+    const response = await fetch(buildApiUrl('/api/Authentication/Social/Token', { code, provider: '2', redirectPath }), {
+      method: 'POST',
+      headers: { ...getCommonHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code_verifier: codeVerifier }),
     })
     if (!response.ok) throw new ApiError(`Token exchange failed: ${response.status}`, response.status)
     return response.json()
   }
-  exchangeTokenWithPKCE(code: string, verifier: string) { return this.exchangeToken(code, { isPKCE: true, codeVerifier: verifier, redirectPath: '/' }) }
   async refreshToken(refreshToken: string): Promise<TokenExchangeResponse> {
     const response = await fetch(buildApiUrl('/api/Authentication/Social/Token', { code: refreshToken, provider: '0' }), { headers: getCommonHeaders() })
     if (!response.ok) throw new ApiError('REFRESH_FAILED', response.status)

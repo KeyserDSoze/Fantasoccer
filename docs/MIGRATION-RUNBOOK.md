@@ -381,8 +381,8 @@ Una copia acquisita mentre la sorgente riceve scritture è **esplorativa**. Ferm
 
 Da eseguire nella finestra di manutenzione, **fuori dalle finestre Live** (nessuna giornata in corso né recuperi in giornata):
 
-1. Container della cache privato (`Cache:ContainerName`, default `fantazone-cache`) sullo stesso account dei file; `Cache:Namespace` uguale per tutte le istanze API dello stesso ambiente. Applicare la lifecycle policy di [`ops/azure`](../ops/azure/README.md) dopo aver verificato versioning/soft delete dell'account.
-2. Applicare la migration `MultiTeamCompetitionsAndOperationalCache`. Un `league_owner_conflict` blocca la migration: riconciliare come sopra, mai cancellare a mano le partecipazioni.
+1. Container della cache privato (`Cache:ContainerName`, default `fantazone-cache`) sullo stesso account dei file; `Cache:Namespace` uguale per tutte le istanze API dello stesso ambiente. Applicare la lifecycle policy di [`ops/azure`](../ops/azure/README.md) dopo aver verificato versioning/soft delete dell'account (il soft delete a livello di account trattiene per tutto il periodo anche le copie create dalle sovrascritture della cache: vedere lo stesso README).
+2. Applicare le migration (`MultiTeamCompetitionsAndOperationalCache` e `OfficialVoteRevisions`: quest'ultima crea il contatore di revisione dei voti ufficiali con i suoi trigger e lo inizializza a 1 per le giornate che hanno già voti ufficiali). Un `league_owner_conflict` blocca la prima: riconciliare come sopra, mai cancellare a mano le partecipazioni.
 3. Opzionale, solo per la giornata corrente: pubblicare in cache probabili formazioni e voti Live del dump finale.
 
 ```bash

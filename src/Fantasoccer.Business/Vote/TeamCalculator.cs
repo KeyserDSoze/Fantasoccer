@@ -1,21 +1,17 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using RepositoryFramework;
 
 namespace Fantasoccer.Business
 {
     internal sealed class TeamCalculator : ITeamCalculator
     {
         private readonly IFootballMatchdayReader _matchday;
-        private readonly IVotePlayerGenerator? _votePlayerGenerator;
         private readonly IFactory<ILeagueCalculator> _leagueCalculator;
 
         public TeamCalculator(
               IFootballMatchdayReader matchday,
-              IFactory<ILeagueCalculator> leagueCalculator,
-              IVotePlayerGenerator? votePlayerGenerator = null)
+              IFactory<ILeagueCalculator> leagueCalculator)
         {
             _matchday = matchday;
-            _votePlayerGenerator = votePlayerGenerator;
             _leagueCalculator = leagueCalculator;
         }
         public bool IsLive { get; private set; }
@@ -203,8 +199,5 @@ namespace Fantasoccer.Business
                 Special = special
             };
         }
-        public ValueTask<bool> RecalculateDayAsync(int serieADay)
-            => _votePlayerGenerator?.GenerateAndSaveAsync(FantacalcioTime.ActualYear, serieADay, true)
-                ?? throw new NotSupportedException("Vote ingestion must be invoked through the active backend's ingestion service.");
     }
 }

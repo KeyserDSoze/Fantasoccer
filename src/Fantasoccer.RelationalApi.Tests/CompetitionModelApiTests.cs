@@ -413,7 +413,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         }
         int Position(LiveTeamDto team, int index) => team.Players.Single(x => x.Current.PlayerId == koopaPlayers[index]).Current.Position;
 
-        // Shared by default: one lineup for the same team in every competition.
+        // Automatic pre-match copy by default; each competition still owns its lineup.
         string Settings() => $"/api/teams/lineup-settings";
         var setting = await Read<TeamLineupSettingsDto>(await luigi.GetAsync(Settings() + $"?groupId={group}&year={year}&teamId={world.Koopa}"));
         Assert.False(setting.SeparateLineups); Assert.Equal(2, setting.Competitions);
@@ -445,6 +445,8 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
 
         // Back to shared: the next save propagates again.
         Assert.False((await Read<TeamLineupSettingsDto>(await luigi.PutAsJsonAsync(Settings(), new SetTeamLineupSettingsRequest(group, year, world.Koopa, false)))).SeparateLineups);
+        // Enabling automatic copy is not a retroactive overwrite of divergent formations.
+        Assert.Equal(beforeChampion, Position(await Team(champions, gameCL, copyKoopa), 1));
         serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
         var again = await Read<FormationSavedDto>(await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, Swap(serieA, 1, 11), serieA.Version)));
         Assert.Contains("Copiata in 1", again.Message);
@@ -563,6 +565,98 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         var standing = await database.FantasyStandingSnapshots.AsSplitQuery().SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA);
         Assert.Equal(new[] { world.Koopa, world.Draghi }, standing.Stages.Single().Teams.OrderBy(x => x.Ordinal).Select(x => x.TeamId));
         Assert.Equal(0, standing.SerieADay);
+    }
+
+    [PostgreSqlFact]
+    public async Task Live_projection_is_rebuilt_by_any_official_vote_change_and_not_by_a_snapshot_that_was_only_reconfirmed()
+    {
+        var world = await WorldAsync(49, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        var koopaPlayers = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
+        await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
+        var livePath = $"/api/groups/{group}/live?year={year}";
+        async Task<LiveGroupDto> ReadAsync() => await Read<LiveGroupDto>(await world.Luigi.Client.GetAsync(livePath));
+        var first = await ReadAsync();
+        Assert.Equal(first.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
+        Assert.False(first.LiveVotesStale); // the matchday has not started: nothing is overdue
+
+        // Two official votes are published.
+        await using var database = factory.Database.CreateContext();
+        FootballVote Official(string player, float value) => new() { PlayerId = player, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official, ClubId = "cmp",
+            PlayerRole = 1, IsActive = true, IsVisible = true, VoteRole = 1, Value = value, IsFinal = true, HasVote = true };
+        database.FootballVotes.AddRange(Official(koopaPlayers[1], 6), Official(koopaPlayers[2], 6));
+        await database.SaveChangesAsync();
+        var inserted = await ReadAsync();
+        Assert.True(inserted.GeneratedAtUtc > first.GeneratedAtUtc);
+        Assert.Equal(inserted.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
+
+        // A correction that moves the points of two players in opposite directions: the sum of the votes is the same.
+        var votes = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == 1 && x.Source == FootballVoteSource.Official).ToArrayAsync();
+        votes.Single(x => x.PlayerId == koopaPlayers[1]).Value = 7; votes.Single(x => x.PlayerId == koopaPlayers[2]).Value = 5;
+        await database.SaveChangesAsync();
+        var compensated = await ReadAsync();
+        Assert.True(compensated.GeneratedAtUtc > inserted.GeneratedAtUtc);
+
+        // A field nobody summed before: goals conceded.
+        votes.Single(x => x.PlayerId == koopaPlayers[1]).SufferedGoals = 2;
+        await database.SaveChangesAsync();
+        var conceded = await ReadAsync();
+        Assert.True(conceded.GeneratedAtUtc > compensated.GeneratedAtUtc);
+        Assert.Equal(conceded.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
+
+        // The same save with nothing changed writes nothing and rebuilds nothing.
+        await database.SaveChangesAsync();
+        Assert.Equal(conceded.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
+
+        // Shared provisional votes: only a change of content rebuilds every group, a later confirmation of the same votes does not.
+        var liveData = factory.Services.GetRequiredService<IFootballLiveDataStore>();
+        var scorer = new CachedLiveVote(koopaPlayers[9], "Scorer", "cmp", "Competition club", 3, true, true, new(3, 7, false, 1, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false));
+        await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, 1, [scorer]), null);
+        var withLive = await ReadAsync();
+        Assert.True(withLive.GeneratedAtUtc > conceded.GeneratedAtUtc);
+        Assert.Equal(CachePublishOutcome.Unchanged, await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow.AddMinutes(1), new(year, 1, [scorer]), null));
+        Assert.Equal(CachePublishOutcome.Published, await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow.AddMinutes(6), new(year, 1, [scorer]), null));
+        Assert.Equal(withLive.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
+        await liveData.PublishLiveVotesAsync(DateTimeOffset.UtcNow.AddMinutes(7), new(year, 1, [scorer with { Vote = scorer.Vote with { Goals = 2 } }]), null);
+        Assert.True((await ReadAsync()).GeneratedAtUtc > withLive.GeneratedAtUtc);
+    }
+
+    [PostgreSqlFact]
+    public async Task Live_reports_provisional_votes_that_are_overdue_only_while_the_matchday_is_being_played()
+    {
+        var world = await WorldAsync(50, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        var koopaPlayers = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddMinutes(-40));
+        await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
+        var livePath = $"/api/groups/{group}/live?year={year}";
+        async Task<LiveGroupDto> ReadAsync() => await Read<LiveGroupDto>(await world.Luigi.Client.GetAsync(livePath));
+
+        // Forty minutes into the matchday and the live job never published anything.
+        var none = await ReadAsync();
+        Assert.Equal(1, none.SerieADay); Assert.True(none.LiveVotesStale); Assert.Null(none.LiveVotesUpdatedAtUtc);
+
+        var liveData = factory.Services.GetRequiredService<IFootballLiveDataStore>();
+        CachedLiveVote Vote(float value) => new(koopaPlayers[9], "Scorer", "cmp", "Competition club", 3, true, true, new(3, value, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false));
+        var late = DateTimeOffset.UtcNow.AddMinutes(-15);
+        await liveData.PublishLiveVotesAsync(late, new(year, 1, [Vote(6)]), null);
+        var overdue = await ReadAsync();
+        Assert.True(overdue.LiveVotesStale); Assert.Equal(late, overdue.LiveVotesUpdatedAtUtc);
+
+        var now = DateTimeOffset.UtcNow;
+        await liveData.PublishLiveVotesAsync(now, new(year, 1, [Vote(7)]), null);
+        var current = await ReadAsync();
+        Assert.False(current.LiveVotesStale); Assert.Equal(now, current.LiveVotesUpdatedAtUtc);
+
+        // The same snapshot read through the football API carries its own age.
+        using var reader = await factory.AccountAsync();
+        var votes = await Read<PlayersDto<VotedPlayerDto>>(await reader.GetAsync($"/api/football/{year}/days/1/votes/live"));
+        Assert.Equal(now, votes.UpdatedAtUtc); Assert.False(votes.IsStale);
     }
 
     [PostgreSqlFact]

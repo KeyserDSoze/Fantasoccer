@@ -10,8 +10,8 @@ public sealed class McpBlobFactAttribute : FactAttribute
 {
     public McpBlobFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FANTASOCCER_TEST_OAUTH_BLOB")))
-            Skip = "Set FANTASOCCER_TEST_OAUTH_BLOB to a dedicated Azurite/test account to verify shared Blob keys.";
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FANTASOCCER_TEST_STORAGE")))
+            Skip = "Set FANTASOCCER_TEST_STORAGE to the dedicated local Azurite account to verify shared Blob keys.";
     }
 }
 
@@ -20,7 +20,9 @@ public sealed class McpBlobKeyRingTests
     [McpBlobFact]
     public async Task Independent_instances_share_encrypted_Blob_keys_and_survive_provider_restart()
     {
-        var connection = Environment.GetEnvironmentVariable("FANTASOCCER_TEST_OAUTH_BLOB")!;
+        var connection = Environment.GetEnvironmentVariable("FANTASOCCER_TEST_STORAGE")!;
+        if (!connection.Contains("AccountName=migrationtest;", StringComparison.Ordinal) || !connection.Contains("127.0.0.1", StringComparison.Ordinal) && !connection.Contains("azurite", StringComparison.Ordinal))
+            throw new InvalidOperationException("Only the dedicated local emulator is allowed.");
         var container = new BlobContainerClient(connection, "mcp-keys");
         await container.CreateIfNotExistsAsync(cancellationToken: TestContext.Current.CancellationToken);
         var blob = container.GetBlobClient("test-keyring-" + Guid.NewGuid().ToString("N") + ".xml");

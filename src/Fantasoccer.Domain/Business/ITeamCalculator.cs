@@ -20,6 +20,5 @@
         IEnumerable<EnrichedPlayer> Enrich(IEnumerable<Player> players);
         VoteValue FinalValue(Player player);
         VoteValue FinalValue(EnrichedPlayer player);
-        ValueTask<bool> RecalculateDayAsync(int serieADay);
     }
 }

@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -19,7 +19,7 @@ public sealed partial class CoreMigrationTests
             new RealPlayer { Name = "First in alphabet", Role = Role.Defensor, RealTeam = new() { Name = "Club" }, Visible = true, IsActive = true }
         };
         foreach (var group in new[] { "first", "second" })
-            await container.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, LeagueKey>.Default(
+            await container.GetBlobClient(group).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, LeagueKey>.Default(
                 new() { Players = players.ToList() }, new() { Group = group, League = "league", Year = 15 }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();

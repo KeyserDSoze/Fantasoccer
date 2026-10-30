@@ -239,11 +239,6 @@ namespace Fantasoccer
         Forward,
         Special
     }
-    public sealed class CardWrapper
-    {
-        [JsonPropertyName("c")]
-        public List<Card> Cards { get; set; } = [];
-    }
     public sealed class Card
     {
         [JsonPropertyName("id")]

@@ -7,7 +7,7 @@ using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -371,7 +371,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
         {
             try
             {
-                var envelope = document.Envelope.Deserialize<Entity<AppIdentity, string>>();
+                var envelope = document.Envelope.Deserialize<LegacyEntity<AppIdentity, string>>();
                 var account = envelope?.Value ?? throw new CoreImportException("invalid_legacy_envelope");
                 var email = Email(account.Email);
                 var reconciled = ValidateIdentityKey(document, envelope!.Key, email);
@@ -620,8 +620,8 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
 
     private static (string Key, T Value) Read<T>(LegacyJsonDocument document) where T : class
     {
-        // Use the actual Rystem Entity converter, including k/v and historical Key/Value envelopes.
-        var entity = document.Envelope.Deserialize<Entity<T, string>>();
+        // Use the legacy envelope converter, including k/v and historical Key/Value envelopes.
+        var entity = document.Envelope.Deserialize<LegacyEntity<T, string>>();
         if (entity?.Key is not { Length: > 0 } key || entity.Value is null) throw new CoreImportException("invalid_legacy_envelope");
         return (key, entity.Value);
     }

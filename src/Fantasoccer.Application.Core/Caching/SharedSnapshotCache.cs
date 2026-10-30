@@ -24,12 +24,26 @@ public static class CacheKeys
 
 // Application envelope stored as the Blob content. SourceRevision orders
 // publications (a newer one is never replaced by an older one); the fingerprint
-// identifies the exact source data a projection was computed from.
+// identifies the exact source data a projection was computed from. For snapshots
+// that mirror an external source it is a hash of the payload, so "same content"
+// is recognised without comparing documents.
+// GeneratedAtUtc is the last time the content was produced or re-confirmed;
+// FreshUntilUtc is how long that confirmation is considered current.
 public sealed record CacheEnvelope<T>(int SchemaVersion, string Kind, DateTimeOffset GeneratedAtUtc, DateTimeOffset FreshUntilUtc,
-    long SourceRevision, string? SourceFingerprint, T Payload);
+    long SourceRevision, string? SourceFingerprint, T Payload)
+{
+    public bool IsFreshAt(DateTimeOffset now) => now <= FreshUntilUtc;
+}
 
 public sealed record CacheRead<T>(CacheEnvelope<T> Envelope, bool IsStale);
 public enum CachePublishOutcome { Published, Unchanged, SkippedNewerExists, Conflict }
+
+public static class CacheContent
+{
+    // Stable identity of a payload: the same content always hashes the same.
+    public static string Fingerprint<T>(T payload) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(payload, SharedSnapshotCache.Json)));
+}
 
 public sealed class SharedCacheOptions
 {
@@ -51,8 +65,13 @@ public sealed class SharedSnapshotCache(IDistributedCacheCoordinator store, IMem
         return await ReadDistributedAsync<T>(key, kind, schemaVersion, cancellationToken);
     }
 
+    // Every Blob overwrite leaves a soft-deleted copy behind when the account has
+    // soft delete enabled, so an identical document is never rewritten: with
+    // `confirmEvery` set, the same fingerprint is only republished once the stored
+    // one was last confirmed that long ago (the heartbeat that keeps its freshness
+    // honest). Without it only the exact same revision and fingerprint is skipped.
     public async Task<CachePublishOutcome> PublishAsync<T>(string key, CacheEnvelope<T> envelope, TimeSpan timeToLive,
-        Func<CacheEnvelope<T>, CacheEnvelope<T>, CacheEnvelope<T>?>? merge = null, CancellationToken cancellationToken = default)
+        Func<CacheEnvelope<T>, CacheEnvelope<T>, CacheEnvelope<T>?>? merge = null, TimeSpan? confirmEvery = null, CancellationToken cancellationToken = default)
     {
         for (var attempt = 0; attempt < Math.Max(1, options.Value.PublishAttempts); attempt++)
         {
@@ -70,7 +89,9 @@ public sealed class SharedSnapshotCache(IDistributedCacheCoordinator store, IMem
                     if (merged is null) return CachePublishOutcome.Unchanged;
                     next = merged;
                 }
-                else if (current.SourceRevision == envelope.SourceRevision && current.SourceFingerprint == envelope.SourceFingerprint)
+                if (current.SourceFingerprint == next.SourceFingerprint &&
+                    (merge is null && current.SourceRevision == next.SourceRevision ||
+                     next.SourceFingerprint is not null && confirmEvery is { } interval && next.GeneratedAtUtc - current.GeneratedAtUtc < interval))
                     return CachePublishOutcome.Unchanged;
             }
             var bytes = JsonSerializer.SerializeToUtf8Bytes(next, Json);
@@ -112,7 +133,7 @@ public sealed class SharedSnapshotCache(IDistributedCacheCoordinator store, IMem
                 var built = await regenerate(linked.Token);
                 if (!lease.LeaseLost.IsCancellationRequested)
                 {
-                    try { await PublishAsync(key, built, timeToLive, null, cancellationToken); }
+                    try { await PublishAsync(key, built, timeToLive, cancellationToken: cancellationToken); }
                     catch (Exception exception) when (exception is not OperationCanceledException)
                     { logger.LogWarning("Regenerated {CacheKind} could not be published; it is returned uncached.", kind); }
                 }

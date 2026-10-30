@@ -10,7 +10,7 @@
           "prefixMatch": [ "fantazone-cache/" ]
         },
         "actions": {
-          "baseBlob": { "delete": { "daysAfterModificationGreaterThan": 30 } },
+          "baseBlob": { "delete": { "daysAfterModificationGreaterThan": 45 } },
           "snapshot": { "delete": { "daysAfterCreationGreaterThan": 1 } },
           "version": { "delete": { "daysAfterCreationGreaterThan": 1 } }
         }

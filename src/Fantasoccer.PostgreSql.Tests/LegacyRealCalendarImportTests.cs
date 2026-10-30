@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -13,7 +13,7 @@ public sealed partial class CoreMigrationTests
     private async Task PutLegacyDocumentAsync<T>(string containerName, int key, T value)
     {
         var container = _extraContainers.Contains(containerName) ? _storage.Blobs.GetBlobContainerClient(containerName) : await ExtraContainerAsync(containerName);
-        await container.GetBlobClient(key.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<T, int>.Default(value, key))), overwrite: true);
+        await container.GetBlobClient(key.ToString()).UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<T, int>.Default(value, key))), overwrite: true);
     }
 
     private static RealGame CalendarGame(string home, string? homeCode, string away, string? awayCode, DateTime date, int? homeGoals = null, int? awayGoals = null, bool delayed = false)

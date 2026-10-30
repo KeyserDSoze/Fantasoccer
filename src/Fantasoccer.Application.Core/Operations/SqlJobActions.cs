@@ -31,7 +31,8 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         }
         if (name == "cache-cleanup")
         {
-            // Logical expiry is enforced on every read; this removes the physical blobs.
+            // Logical expiry is enforced on every read; this removes the physical blobs
+            // (at most 5000 per run, but the whole namespace is always examined).
             var purged = await services.GetRequiredService<Fantasoccer.Caching.IDistributedCacheCoordinator>().PurgeExpiredAsync(TimeSpan.FromDays(1), 5000, cancellationToken);
             return new(purged.Deleted, 0);
         }

@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -45,7 +45,7 @@ public sealed partial class CoreMigrationTests
             Role = Role.Forward, Price = 53, Revenue = 70, Status = PlayerInTeamStatus.Sold, Position = FantaSoccerRole.Tribune }] };
         foreach (var group in new[] { "first", "second" })
         {
-            var json = JsonNode.Parse(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(source,
+            var json = JsonNode.Parse(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(source,
                 new() { Group = group, BasketId = "same-local-basket", Year = 15, Email = Email })))!;
             json["v"]!["p"]![0]!["PlayerKey"] = "rosteronly";
             await container.GetBlobClient(group).UploadAsync(BinaryData.FromString(json.ToJsonString()));
@@ -72,12 +72,12 @@ public sealed partial class CoreMigrationTests
     public async Task A_known_explicit_roster_key_can_link_history_across_years_but_a_key_name_conflict_never_creates_a_new_identity()
     {
         var catalogues = await ExtraContainerAsync("realplayerswrapper");
-        await catalogues.GetBlobClient("14").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealPlayersWrapper, int>.Default(
+        await catalogues.GetBlobClient("14").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealPlayersWrapper, int>.Default(
             new() { Players = [new() { Name = "Known player", RealTeam = new() { Name = "Recovery club", Abbreviation = "rec" }, Role = Role.Forward }] }, 14))));
         var container = await ExtraContainerAsync("team");
         var team = new Team { Name = "Historical roster", Owner = Email, Players = [new() { Name = "", RealTeam = new() { Name = "Recovery club", Abbreviation = "rec" },
             Role = Role.Forward, Price = 41, Position = FantaSoccerRole.Forward }] };
-        var json = JsonNode.Parse(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(team,
+        var json = JsonNode.Parse(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(team,
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email })))!;
         json["v"]!["p"]![0]!["Key"] = "knownplayer";
         var blob = container.GetBlobClient("first"); await blob.UploadAsync(BinaryData.FromString(json.ToJsonString()));

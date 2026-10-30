@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Fantasoccer.DataMigration;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -15,7 +15,7 @@ public sealed partial class CoreMigrationTests
         var rosters = await ExtraContainerAsync("team");
         Team Roster(string owner) => new() { Name = "Team", Owner = owner, AdditionalOwners = [], Players = [] };
         async Task PutRosterAsync(string owner) => await rosters.GetBlobClient("roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-            Entity<Team, TeamKey>.Default(Roster(owner), new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = owner }))), overwrite: true);
+            LegacyEntity<Team, TeamKey>.Default(Roster(owner), new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = owner }))), overwrite: true);
         await PutRosterAsync(OtherEmail);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var roster = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
@@ -27,7 +27,7 @@ public sealed partial class CoreMigrationTests
 
         await PutRosterAsync(Email);
         var ranks = await ExtraContainerAsync("rank");
-        await ranks.GetBlobClient("rank").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(
+        await ranks.GetBlobClient("rank").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(
             new() { SerieADay = 5, RankedTeams = new() { ["Stage"] = [new() { Name = "Team", Owner = Email, Point = 7 }, new() { Name = "Co-owner", Owner = OtherEmail, Point = 3 }] } },
             new() { Group = "first", League = "league", Year = 15 }))));
         manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);

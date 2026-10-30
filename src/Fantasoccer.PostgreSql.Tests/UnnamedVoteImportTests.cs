@@ -5,7 +5,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -174,7 +174,7 @@ public sealed partial class CoreMigrationTests
         await PutGroupAsync(_first);
         var key = new LeagueKey { Group = "first", League = "league", Year = 15 };
         var calendar = await ExtraContainerAsync("calendar");
-        await calendar.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Calendar, LeagueKey>.Default(new()
+        await calendar.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Calendar, LeagueKey>.Default(new()
         {
             Year = 15, Rounds = new() { ["Historical stage"] = [new() { Number = 7, SerieADay = 1, Games = [new()
             {
@@ -185,9 +185,9 @@ public sealed partial class CoreMigrationTests
         Rank SavedRank(float points) => new() { SerieADay = 1, RankedTeams = new() { ["Historical stage"] =
             [new() { Name = "Saved home", Owner = Email, Point = points, ValuePoint = 711.5f, Money = 123, PlusMoney = 8 }] } };
         var rank = await ExtraContainerAsync("rank");
-        await rank.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(SavedRank(20.5f), key))));
+        await rank.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(SavedRank(20.5f), key))));
         var daily = await ExtraContainerAsync("dailyrank");
-        await daily.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, YearDayLeague>.Default(SavedRank(3),
+        await daily.GetBlobClient("saved").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, YearDayLeague>.Default(SavedRank(3),
             new() { Group = key.Group, League = key.League, Year = key.Year, Day = 1 }))));
         var official = await ExtraContainerAsync("official");
         await official.GetBlobClient("unnamed").UploadAsync(BinaryData.FromString(LegacyVoteFixtureEnvelope("official", 15,

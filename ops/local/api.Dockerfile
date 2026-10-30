@@ -2,18 +2,14 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS build
 WORKDIR /source
 COPY src/Fantasoccer.Domain/*.csproj src/Fantasoccer.Domain/
 COPY src/Fantasoccer.Business/*.csproj src/Fantasoccer.Business/
-COPY src/Fantasoccer.Business.BackgroundJobs/*.csproj src/Fantasoccer.Business.BackgroundJobs/
 COPY src/Fantasoccer.Infrastructure.Storage/*.csproj src/Fantasoccer.Infrastructure.Storage/
-COPY src/Fantasoccer.Infrastructure.InMemory/*.csproj src/Fantasoccer.Infrastructure.InMemory/
 COPY src/Fantasoccer.Infrastructure.PostgreSql/*.csproj src/Fantasoccer.Infrastructure.PostgreSql/
 COPY src/Fantasoccer.Application.Core/*.csproj src/Fantasoccer.Application.Core/
 COPY src/Fantasoccer.Applications/Fantasoccer.Application.Api/*.csproj src/Fantasoccer.Applications/Fantasoccer.Application.Api/
 RUN dotnet restore src/Fantasoccer.Applications/Fantasoccer.Application.Api/Fantasoccer.Application.Api.csproj
 COPY src/Fantasoccer.Domain/ src/Fantasoccer.Domain/
 COPY src/Fantasoccer.Business/ src/Fantasoccer.Business/
-COPY src/Fantasoccer.Business.BackgroundJobs/ src/Fantasoccer.Business.BackgroundJobs/
 COPY src/Fantasoccer.Infrastructure.Storage/ src/Fantasoccer.Infrastructure.Storage/
-COPY src/Fantasoccer.Infrastructure.InMemory/ src/Fantasoccer.Infrastructure.InMemory/
 COPY src/Fantasoccer.Infrastructure.PostgreSql/ src/Fantasoccer.Infrastructure.PostgreSql/
 COPY src/Fantasoccer.Application.Core/ src/Fantasoccer.Application.Core/
 COPY src/Fantasoccer.Applications/Fantasoccer.Application.Api/ src/Fantasoccer.Applications/Fantasoccer.Application.Api/

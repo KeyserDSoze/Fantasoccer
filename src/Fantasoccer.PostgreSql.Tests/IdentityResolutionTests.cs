@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -48,7 +48,7 @@ public sealed partial class CoreMigrationTests
         var emptyAlias = new AppIdentity { Email = Email.ToUpperInvariant(), Username = Email.ToUpperInvariant(), State = new(), Groups = [] };
         await WriteIdentityEnvelopeAsync(Email, Email, preferred);
         await WriteIdentityEnvelopeAsync(Email.ToUpperInvariant(), Email.ToUpperInvariant(), emptyAlias);
-        var otherProfile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(OtherEmail).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var otherProfile = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(OtherEmail).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", otherProfile);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var technical = Resolutions(manifest, OtherEmail, "legacy0001")[0];
@@ -87,7 +87,7 @@ public sealed partial class CoreMigrationTests
     public async Task Email_alias_opt_in_is_not_a_generic_override_for_technical_IDs_or_space_normalization()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var profile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var profile = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", profile);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var technical = Resolutions(manifest, Email, "legacy0001", allowEmailLookupAlias: true);
@@ -110,7 +110,7 @@ public sealed partial class CoreMigrationTests
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         var originalId = (await database.Users.AsNoTracking().SingleAsync(x => x.Email == Email)).Id;
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var preferred = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var preferred = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         var alias = new AppIdentity { Email = Email, Username = preferred.Username,
             State = new() { GroupId = "second", LeagueId = "league", Year = 15 },
             Groups = preferred.Groups.Select(group => new GroupForIdentity { Id = group.Id, Name = group.Name, Role = IdentityRole.SuperAdmin | IdentityRole.Reader }).ToList() };
@@ -160,7 +160,7 @@ public sealed partial class CoreMigrationTests
     public async Task Email_resolution_survives_profile_changes_and_a_vanished_duplicate_but_still_refuses_ambiguous_copies()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var preferred = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var preferred = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         var alias = new AppIdentity { Email = Email, Username = preferred.Username, Groups = preferred.Groups.ToList() };
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", alias);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
@@ -192,7 +192,7 @@ public sealed partial class CoreMigrationTests
     public async Task Largest_document_policy_picks_the_bigger_of_two_copies_and_refuses_a_third_copy_and_the_default()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var original = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var original = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         var bigger = new AppIdentity { Email = Email, Username = "The bigger profile", Groups = original.Groups.ToList() };
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", bigger);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
@@ -213,7 +213,7 @@ public sealed partial class CoreMigrationTests
     public async Task Approved_identity_resolution_does_not_reopen_import_after_application_writes()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var profile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var profile = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", profile);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var options = new CoreImportOptions(IdentityResolutions: Resolutions(manifest, Email, "legacy0001"));
@@ -233,7 +233,7 @@ public sealed partial class CoreMigrationTests
     public async Task Identity_resolution_refuses_reversed_missing_unrelated_and_third_document_choices()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var profile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var profile = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", profile);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var rule = Resolutions(manifest, Email, "legacy0001")[0];
@@ -259,7 +259,7 @@ public sealed partial class CoreMigrationTests
     public async Task Identity_resolution_never_bypasses_authoritative_group_membership_checks()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var correct = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var correct = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", correct);
         var selected = new AppIdentity { Email = Email, Username = correct.Username, State = correct.State,
             Groups = correct.Groups.Select(group => new GroupForIdentity { Id = group.Id, Name = group.Name, Role = IdentityRole.Reader }).ToList() };
@@ -275,7 +275,7 @@ public sealed partial class CoreMigrationTests
     public async Task Identity_resolution_requires_unique_content_hashes_and_cannot_choose_between_email_lookup_aliases()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var profile = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var profile = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", profile);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var rule = Resolutions(manifest, Email, "legacy0001")[0];

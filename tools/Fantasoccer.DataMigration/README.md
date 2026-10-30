@@ -29,7 +29,7 @@ Dai container legacy `appidentity`, `group`, `settings`, `team`, `dailyteams`, `
 - news con contenuto/date originali e suggerimenti privati legati al proprietario identificato dalla chiave sorgente, non al proprietario corrente indovinato;
 - log storici, **solo con opt-in `IMPORT_LEGACY_LOGS=true`**, come archivio SQL privato con PK/RowKey, ETag, proprietà tipizzate e timestamp originali (tick esatti separati dall'istante indicizzato).
 
-I documenti sono letti dal dump verificato, usando il **converter reale Rystem `Entity<T,TKey>`**: envelope attuale `k/v` e storico `Key/Value`.
+I documenti sono letti dal dump verificato tramite `LegacyEntity<T,TKey>` della DLL [Fantasoccer.LegacyModels](../Fantasoccer.LegacyModels/README.md): envelope `k/v` e storico `Key/Value`, con gli stessi alias e la stessa precedenza dei formati sorgente. Non occorre più un pacchetto RepositoryFramework per leggerli; la DLL dei modelli di migrazione non è referenziata dall'API.
 Le abbreviazioni restano nel lettore legacy, non nei nuovi DTO applicativi.
 
 ### Identità con chiavi legacy distinte dall'email

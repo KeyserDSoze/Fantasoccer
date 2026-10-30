@@ -2,6 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS build
 WORKDIR /source
 COPY tools/Fantasoccer.StorageMigration/ tools/Fantasoccer.StorageMigration/
 COPY tools/Fantasoccer.DataMigration/ tools/Fantasoccer.DataMigration/
+COPY tools/Fantasoccer.LegacyModels/ tools/Fantasoccer.LegacyModels/
 COPY tools/Fantasoccer.LocalCertificates/ tools/Fantasoccer.LocalCertificates/
 COPY src/Fantasoccer.Infrastructure.PostgreSql/ src/Fantasoccer.Infrastructure.PostgreSql/
 COPY src/Fantasoccer.Domain/ src/Fantasoccer.Domain/
@@ -17,8 +18,7 @@ WORKDIR /app
 COPY --from=build /storage/ ./
 ENTRYPOINT ["dotnet", "Fantasoccer.StorageMigration.dll"]
 
-# Legacy domain models reference Rystem's social authentication contracts, which
-# require the ASP.NET shared framework even though this executable is a CLI.
+# The cache-seeding command reuses Application.Core, which needs the ASP.NET shared framework.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.9 AS database-tools
 WORKDIR /app
 COPY --from=build /database/ ./

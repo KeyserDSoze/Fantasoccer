@@ -6,7 +6,7 @@ Sono disponibili schema EF Core, migration e test PostgreSQL/Docker: vedere [lab
 È disponibile anche l'[export Blob/Table con verifica e ripristino locale](../tools/Fantasoccer.StorageMigration/README.md), non un backup completo di tutti i servizi Azure.
 L'[import relazionale](../tools/Fantasoccer.DataMigration/README.md) copre i domini censiti, inclusi mercato/aste, albo/carte, news/suggerimenti, notifiche/outbox, log e OAuth, con conservazione esplicita dei file/archivi.
 Il runtime SQL comprende servizi applicativi e orchestrazione job; non espone percorsi dati Blob alternativi. Il cutover resta subordinato alla riconciliazione del dump reale, alle chiavi/configurazioni originali e all'accettazione UI/login.
-SQL è il default dell'applicazione; connection string e amministratori globali vanno configurati esplicitamente. Il vecchio backend resta selezionato esplicitamente solo per caratterizzazione/regressione, non come ripiego automatico se manca PostgreSQL.
+SQL è l'unico backend dell'applicazione; connection string e amministratori globali vanno configurati esplicitamente. Il backend legacy è stato eliminato, non resta nemmeno come modalità di test. Solo l'importatore mantiene i formati del dump nella DLL dedicata `Fantasoccer.LegacyModels` (ADR 0013).
 Il [laboratorio applicativo Docker Desktop](../scripts/local/README.md) include frontend, API PostgreSQL con schema applicato allo startup, Azurite per i file e telemetria locale OpenTelemetry/Aspire.
 La scrittura di questi ADR non autorizza download di dati reali, modifiche Azure o il passaggio in produzione.
 
@@ -35,6 +35,7 @@ L'obiettivo non è costruire una piattaforma enterprise: usare un database condi
 13. [0012 — Cache distribuita su Blob, competizioni multi-squadra e retention push](0012-cache-distribuita-e-competizioni-multi-squadra.md)
 14. [Matrice dei contratti e delle policy](MATRICE-CONTRATTI-E-POLICY.md)
 15. [Infrastruttura Terraform dell'ambiente `fcv2`](../infra/README.md)
+16. [0013 — Rimozione del backend legacy e riduzione delle dipendenze Rystem](0013-rimozione-backend-legacy.md)
 
 ## Decisioni confermate
 

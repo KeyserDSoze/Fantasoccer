@@ -5,7 +5,7 @@ using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -20,7 +20,7 @@ public sealed partial class CoreMigrationTests
         var team = new Team { Name = "Team", Owner = Email, AdditionalOwners = [OtherEmail], Players = [new() { Name = "Roster forward",
             RealTeam = new() { Name = "Club", Abbreviation = "clb" }, Role = Role.Forward, IsActive = true, Visible = true,
             Status = PlayerInTeamStatus.Active, Price = 30, Position = FantaSoccerRole.Forward }] };
-        var envelope = JsonNode.Parse(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(team,
+        var envelope = JsonNode.Parse(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(team,
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email })))!;
         envelope["v"]!["p"]!.AsArray().Add(JsonNode.Parse(rawEntry));
         var container = _extraContainers.Contains("team") ? _storage.Blobs.GetBlobContainerClient("team") : await ExtraContainerAsync("team");
@@ -33,10 +33,10 @@ public sealed partial class CoreMigrationTests
         var club = new RealTeam { Name = "Club", Abbreviation = "clb" };
         ChancedRealPlayer Chance(string name) => new() { Name = name, RealTeam = club, Role = Role.Forward, IsActive = true, Visible = true, Chance = new() { Gazzetta = true } };
         var chances = await ExtraContainerAsync("chancedrealplayerwrapper");
-        await chances.GetBlobClient("lineups").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<ChancedRealPlayerWrapper, YearDayKey>.Default(
+        await chances.GetBlobClient("lineups").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<ChancedRealPlayerWrapper, YearDayKey>.Default(
             new() { Players = [Chance("Chance forward"), Chance("----"), Chance("")] }, new() { Year = 15, Day = 3 }))));
         var statistics = await ExtraContainerAsync("statplayerswrapper");
-        await statistics.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<StatPlayersWrapper, int>.Default(
+        await statistics.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<StatPlayersWrapper, int>.Default(
             new() { Players = [new() { Name = "", RealTeam = club, Role = Role.Forward }, new() { Name = "Stat forward", RealTeam = club, Role = Role.Forward, Summatory = 6.5f }] }, 15))));
         await PutRosterWithRawEntryAsync(NamelessSoldRosterEntry);
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);

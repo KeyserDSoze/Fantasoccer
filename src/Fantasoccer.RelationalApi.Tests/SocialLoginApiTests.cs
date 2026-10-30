@@ -60,6 +60,7 @@ public sealed partial class WorkspaceApiTests
             services.AddHttpClient("MicrosoftAuthenticationClient").ConfigurePrimaryHttpMessageHandler(() => microsoft);
         }));
         using var client = app.CreateClient();
+        const string Verifier = "K7gNU3sdo-OL0wNhqoVWhr3g6s1xYv72ol_pe_Unols"; // 43 characters, as the frontend generates
         HttpRequestMessage Token(string query, string? origin = "http://localhost:3000", HttpContent? body = null)
         {
             var request = new HttpRequestMessage(body is null ? HttpMethod.Get : HttpMethod.Post, "/api/Authentication/Social/Token?" + query) { Content = body };
@@ -68,7 +69,7 @@ public sealed partial class WorkspaceApiTests
         }
 
         // Authorization code (PKCE) -> our own bearer and refresh tokens, account created from the normalized email.
-        var response = await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", body: JsonContent.Create(new { code_verifier = "my-verifier" })));
+        var response = await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", body: JsonContent.Create(new { code_verifier = Verifier })));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var tokens = (await response.Content.ReadFromJsonAsync<JsonElement>());
         Assert.Equal("Bearer", tokens.GetProperty("tokenType").GetString());
@@ -77,7 +78,7 @@ public sealed partial class WorkspaceApiTests
         Assert.False(string.IsNullOrEmpty(tokens.GetProperty("accessToken").GetString()));
         var call = Assert.Single(microsoft.Calls);
         Assert.Equal("http://localhost:3000/", call.Origin);
-        Assert.Equal("the-code", call.Form["code"]); Assert.Equal("my-verifier", call.Form["code_verifier"]);
+        Assert.Equal("the-code", call.Form["code"]); Assert.Equal(Verifier, call.Form["code_verifier"]);
         Assert.Equal(clientId, call.Form["client_id"]); Assert.Equal("http://localhost:3000/", call.Form["redirect_uri"]);
         await using (var database = factory.Database.CreateContext())
         {
@@ -104,11 +105,17 @@ public sealed partial class WorkspaceApiTests
                      IdToken(expires: DateTime.UtcNow.AddHours(-1)) })
         {
             current = bad;
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/"))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", body: JsonContent.Create(new { code_verifier = Verifier })))).StatusCode);
         }
         // Origins not configured, unsupported providers and missing codes are refused.
         current = IdToken();
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", origin: "https://evil.example"))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", origin: "https://evil.example", body: JsonContent.Create(new { code_verifier = Verifier })))).StatusCode);
+        // PKCE is mandatory: no verifier (or one that is not RFC 7636) is refused before Microsoft is ever called.
+        var callsBefore = microsoft.Calls.Count;
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/"))).StatusCode);
+        foreach (var bad in new[] { "", "short", new string('a', 129), "contains spaces and is long enough to pass the length check", "19cfc47c216dacba8ca23eeee817603e2ba34fe0976378662ba31688ed302fa9".Replace('f', '!') })
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(Token("provider=2&code=the-code&redirectPath=/", body: JsonContent.Create(new { code_verifier = bad })))).StatusCode);
+        Assert.Equal(callsBefore, microsoft.Calls.Count);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Token("provider=1&code=the-code&redirectPath=/"))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Token("provider=2&code=&redirectPath=/"))).StatusCode);
     }

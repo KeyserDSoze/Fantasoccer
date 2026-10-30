@@ -1,28 +1,20 @@
 using System.Net;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
-using Fantasoccer.InMemory;
 using Microsoft.Extensions.DependencyInjection;
-using RepositoryFramework;
 
 namespace Fantasoccer.Tests.Tests.Services;
 
-[Collection("InMemoryRepository")]
 public sealed class OfficialVoteTest : IAsyncLifetime
 {
     private readonly ServiceProvider _services;
     private readonly IOfficialVote _officialVote;
     private readonly TestOfficialVoteHandler _handler;
-    private readonly IRepository<RealCalendar, int> _calendars;
-    private readonly IRepository<RealPlayersWrapper, int> _players;
-    private RealCalendar? _calendarSnapshot;
-    private RealPlayersWrapper? _playersSnapshot;
 
     public OfficialVoteTest()
     {
         var services = new ServiceCollection();
-        services.AddInMemoryInfrastructures();
-        services.AddSharedBusiness();
+        services.AddFantasoccerSqlDataProviders();
         services.AddSingleton<TestOfficialVoteHandler>();
         services.AddHttpClient("base")
             .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestOfficialVoteHandler>());
@@ -30,31 +22,18 @@ public sealed class OfficialVoteTest : IAsyncLifetime
         _services = services.BuildServiceProvider();
         _officialVote = _services.GetRequiredService<IOfficialVote>();
         _handler = _services.GetRequiredService<TestOfficialVoteHandler>();
-        _calendars = _services.GetRequiredService<IRepository<RealCalendar, int>>();
-        _players = _services.GetRequiredService<IRepository<RealPlayersWrapper, int>>();
     }
 
-    public async ValueTask InitializeAsync()
+    public ValueTask InitializeAsync()
     {
-        var year = FantacalcioTime.ActualYear;
-        _calendarSnapshot = await _calendars.GetAsync(year);
-        _playersSnapshot = await _players.GetAsync(year);
-        await _calendars.DeleteAsync(year);
-        await _players.DeleteAsync(year);
         _handler.Content = string.Empty;
         _handler.StatusCode = HttpStatusCode.OK;
+        return ValueTask.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()
     {
-        var year = FantacalcioTime.ActualYear;
-        await _calendars.DeleteAsync(year);
-        await _players.DeleteAsync(year);
-        if (_calendarSnapshot != null)
-            await _calendars.InsertAsync(year, _calendarSnapshot);
-        if (_playersSnapshot != null)
-            await _players.InsertAsync(year, _playersSnapshot);
-
+        await _services.DisposeAsync();
     }
 
     [Fact]
@@ -132,11 +111,6 @@ public sealed class OfficialVoteTest : IAsyncLifetime
     {
         var year = FantacalcioTime.ActualYear;
         _handler.Content = ValidOfficialVotesHtml;
-        await _calendars.InsertAsync(year, new RealCalendar
-        {
-            Year = year,
-            Days = []
-        }, TestContext.Current.CancellationToken);
 
         var players = await _officialVote.GetAsync(year, 1);
 
@@ -148,39 +122,6 @@ public sealed class OfficialVoteTest : IAsyncLifetime
     {
         var year = FantacalcioTime.ActualYear;
         _handler.Content = string.Empty;
-        await _players.InsertAsync(year, new RealPlayersWrapper
-        {
-            Players =
-            [
-                new RealPlayer
-                {
-                    Name = "Delayed player",
-                    RealTeam = new RealTeam { Name = "Roma" },
-                    Role = Role.Midfielder,
-                    IsActive = true
-                }
-            ]
-        }, TestContext.Current.CancellationToken);
-        await _calendars.InsertAsync(year, new RealCalendar
-        {
-            Year = year,
-            Days =
-            [
-                new RealDay
-                {
-                    SerieADay = 1,
-                    Games =
-                    [
-                        new RealGame
-                        {
-                            Home = new RealTeam { Name = "Roma" },
-                            Away = new RealTeam { Name = "Milan" },
-                            Delayed = true
-                        }
-                    ]
-                }
-            ]
-        }, TestContext.Current.CancellationToken);
 
         var players = await _officialVote.GetAsync(year, 1);
 

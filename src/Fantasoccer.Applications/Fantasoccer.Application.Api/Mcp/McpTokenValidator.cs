@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using OpenIddict.Abstractions;
-using RepositoryFramework;
 using Fantasoccer.Authentication;
 
 namespace Fantasoccer.Application.Api.Mcp;

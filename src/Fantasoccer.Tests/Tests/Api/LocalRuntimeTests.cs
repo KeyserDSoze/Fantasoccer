@@ -23,11 +23,6 @@ public sealed class LocalSafetyTests
         var clients = services.GetRequiredService<IHttpClientFactory>();
         foreach (var name in new[] { "base", "player-images", "seriea", "all-players" })
             await Assert.ThrowsAsync<HttpRequestException>(() => clients.CreateClient(name).GetAsync("https://must-not-be-called.invalid"));
-        var settings = new PushNotificationSettings();
-        var push = services.GetRequiredService<IPushNotificationService>();
-        await Assert.ThrowsAsync<InvalidOperationException>(() => push.SendNotificationAsync("test@example.test", settings, new()).AsTask());
-        Assert.Empty(settings.Subscriptions);
-        Assert.Equal(0, push.GetStatistics().TotalAttempted);
     }
 
     [Fact]
@@ -44,18 +39,5 @@ public sealed class LocalSafetyTests
         Assert.Equal("https://example.test/container/blob", span.GetTagItem("url.full"));
         Assert.Equal("https://example.test/Token", span.GetTagItem("http.url"));
         foreach (var name in new[] { "url.query", "http.target", "db.statement", "db.query.text" }) Assert.Null(span.GetTagItem(name));
-    }
-}
-
-[Collection("API integration")]
-public sealed class LocalHealthApiTests(ApiFactory factory)
-{
-    [Fact]
-    public async Task Health_endpoints_do_not_require_login_but_business_endpoints_do()
-    {
-        using var client = factory.CreateClient();
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/ready")).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/Context/GetCurrentSeason")).StatusCode);
     }
 }

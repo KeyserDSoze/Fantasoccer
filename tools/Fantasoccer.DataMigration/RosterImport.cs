@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -100,7 +100,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realteamwrapper"))
         {
-            var entity = document.Envelope.Deserialize<Entity<RealTeamWrapper, int>>() ?? throw new CoreImportException("invalid_club_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<RealTeamWrapper, int>>() ?? throw new CoreImportException("invalid_club_envelope");
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
             foreach (var (club, index) in (entity.Value?.Teams ?? throw new CoreImportException("missing_clubs")).Select((club, index) => (club, index)))
@@ -109,7 +109,7 @@ public sealed partial class CoreDatasetImporter
         }
         foreach (var document in dataset.Documents.Where(x => x.Container == "realplayerswrapper"))
         {
-            var entity = document.Envelope.Deserialize<Entity<RealPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_players_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<RealPlayersWrapper, int>>() ?? throw new CoreImportException("invalid_players_envelope");
             addSeason(entity.Key);
             Root(document.Container, entity.Key, 0);
             var catalog = entity.Value?.Players ?? throw new CoreImportException("missing_players");
@@ -213,7 +213,7 @@ public sealed partial class CoreDatasetImporter
         var matchdays = new HashSet<(int, int)>();
         foreach (var document in dataset.Documents.Where(x => x.Container == "realcalendar"))
         {
-            var calendar = document.Envelope.Deserialize<Entity<RealCalendar, int>>() ?? throw new CoreImportException("invalid_calendar_envelope");
+            var calendar = document.Envelope.Deserialize<LegacyEntity<RealCalendar, int>>() ?? throw new CoreImportException("invalid_calendar_envelope");
             var value = calendar.Value ?? throw new CoreImportException("missing_calendar");
             if (value.Year != calendar.Key)
             {

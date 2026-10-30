@@ -4,7 +4,7 @@ using Fantasoccer.Domain;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -22,7 +22,7 @@ public sealed partial class CoreMigrationTests
         {
             var container = await ExtraContainerAsync(source);
             await container.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(
-                Entity<VotedRealPlayerWrapper, YearDayKey>.Default(new() { Players = [vote] }, key))));
+                LegacyEntity<VotedRealPlayerWrapper, YearDayKey>.Default(new() { Players = [vote] }, key))));
         }
         var chance = await ExtraContainerAsync("chancedrealplayerwrapper");
         await chance.GetBlobClient("sample").UploadAsync(BinaryData.FromString("""
@@ -30,12 +30,12 @@ public sealed partial class CoreMigrationTests
             "c":{"f":true,"g":false,"m":true,"s":false,"t":4,"d":"Doubtful","r":3,"l":{"d":2,"v":6.5,"p":1}}}]}}
             """));
         var statistics = await ExtraContainerAsync("statplayerswrapper");
-        await statistics.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<StatPlayersWrapper, int>.Default(new()
+        await statistics.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<StatPlayersWrapper, int>.Default(new()
         { Players = [new() { Name = vote.Name, RealTeam = club, Role = Role.Forward, Summatory = 13.5f, FantaSummatory = 19.5f,
             WithVote = 2, AllGames = [new() { SerieADay = 2, Vote = 6, Positiveness = -1 }, new() { SerieADay = 3, Vote = 7.5f, Positiveness = 1 }],
             Description = new() { Top = "Strength", Down = "Weakness" } }] }, 15))));
         var rank = await ExtraContainerAsync("realrank");
-        await rank.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<RealRank, int>.Default(new()
+        await rank.GetBlobClient("15").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<RealRank, int>.Default(new()
         { Teams = [new() { Name = club.Name, Point = 4.5f, Victories = 1, Draws = 1, Played = 2, Goal = 3, SufferedGoal = 1 }] }, 15))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();

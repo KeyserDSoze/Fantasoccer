@@ -2,7 +2,7 @@ using System.Text.Json;
 using Fantasoccer.Business;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -13,7 +13,7 @@ public sealed partial class CoreDatasetImporter
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         foreach (var document in dataset.Documents.Where(x => x.Container == "pushnotification"))
         {
-            var entity = document.Envelope.Deserialize<Entity<PushNotificationSettings, string>>(options) ?? throw new CoreImportException("invalid_push_preferences");
+            var entity = document.Envelope.Deserialize<LegacyEntity<PushNotificationSettings, string>>(options) ?? throw new CoreImportException("invalid_push_preferences");
             var email = Email(entity.Key);
             var user = addUser(email, email);
             var source = entity.Value ?? throw new CoreImportException("missing_push_preferences");

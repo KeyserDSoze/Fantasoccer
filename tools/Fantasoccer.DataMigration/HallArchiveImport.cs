@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -16,7 +16,7 @@ public sealed partial class CoreDatasetImporter
         foreach (var document in dataset.Documents.Where(x => x.Container == "halloffame"))
         {
             missingClubs = 0; firstMissingClub = null;
-            var entity = document.Envelope.Deserialize<Entity<HallOfFame, GeneralLeagueKey>>() ?? throw new CoreImportException("invalid_hall_envelope");
+            var entity = document.Envelope.Deserialize<LegacyEntity<HallOfFame, GeneralLeagueKey>>() ?? throw new CoreImportException("invalid_hall_envelope");
             var key = entity.Key ?? throw new CoreImportException("missing_hall_key");
             var value = entity.Value ?? throw new CoreImportException("missing_hall_archive");
             var group = Existing("group", key.Group); var league = Existing("league", Composite(key.Group, key.League));

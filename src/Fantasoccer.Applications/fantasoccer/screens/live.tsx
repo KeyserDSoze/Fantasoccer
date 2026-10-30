@@ -12,6 +12,7 @@ import { useApp } from 'providers/AppProvider'
 import { useLiveGroup } from 'hooks/useLiveGroup'
 import { useGroupLeagues } from 'hooks/useGroup'
 import { enhanceRankWithTeamPositions } from 'types/rank'
+import { LiveGroupHelper } from 'types/liveGroup'
 import type { EnhancedRankedTeam } from 'types/rank'
 import type { CalendarDay } from 'types/calendar'
 import type { NavigationProp, RootStackParamList } from 'navigation'
@@ -86,6 +87,7 @@ export default function LiveScreen() {
   })
 
   const liveLeagues = useMemo(() => enhancedLiveGroup?.leaguesWithRounds ?? [], [enhancedLiveGroup])
+  const votesDelayNotice = useMemo(() => LiveGroupHelper.getVotesDelayNotice(enhancedLiveGroup), [enhancedLiveGroup])
 
   // Extract the latest year from the group's baskets
   const liveYear = useMemo(() => {
@@ -290,6 +292,11 @@ export default function LiveScreen() {
             {enhancedLiveGroup?.isStale && (
               <Text color="$orange10" fontSize="$2">
                 Dati live in aggiornamento: stai vedendo la proiezione precedente.
+              </Text>
+            )}
+            {votesDelayNotice && (
+              <Text color="$orange10" fontSize="$2">
+                {votesDelayNotice}
               </Text>
             )}
             {isSelectorVisible && (

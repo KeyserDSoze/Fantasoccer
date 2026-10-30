@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Fantasoccer.StorageMigration;
 using Xunit;
 
@@ -156,7 +156,7 @@ public sealed partial class CoreMigrationTests
         await new CoreDatasetImporter(database, options).ImportAsync(_dump);
         var original = await database.UnresolvedPlayerCatalogEntries.AsNoTracking().SingleAsync();
         var rosters = await ExtraContainerAsync("team");
-        await rosters.GetBlobClient("unnamed-roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(
+        await rosters.GetBlobClient("unnamed-roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(
             new() { Name = "Roster", Owner = Email, Players = [new() { Name = "", Role = Role.Forward, RealTeam = new() { Name = "Fixture club" } }] },
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Email = Email }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);

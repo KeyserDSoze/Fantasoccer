@@ -108,4 +108,47 @@ public sealed class PushRetentionApiTests(WorkspaceApiFactory factory) : IClassF
     }
 
     private sealed record FantasoccerDbContextHolder(Fantasoccer.Infrastructure.PostgreSql.FantasoccerDbContext Database);
+
+    [PostgreSqlFact]
+    public async Task Retention_also_closes_what_an_earlier_season_still_holds_without_touching_what_can_still_be_delivered()
+    {
+        var year = FantacalcioTime.ActualYear; var previous = year - 1;
+        using var owner = await factory.AccountAsync(globalAdmin: true);
+        var account = (await owner.GetFromJsonAsync<AccountIdentityDto>("/api/accounts/me"))!;
+        var now = DateTimeOffset.UtcNow;
+        PushDelivery Delivery(int day, PushDeliveryStatus status, DateTimeOffset expires, DateTimeOffset? completed, DateTimeOffset? lease = null) => new()
+        {
+            Id = Guid.NewGuid(), DeduplicationKey = Guid.NewGuid().ToString("N"), SeasonIndex = previous, Day = day, UserId = account.Id,
+            Kind = 3, Title = "FantaZone", Body = "body", Uri = "/live", Status = status, ExpiresAtUtc = expires, CompletedAtUtc = completed,
+            LeaseId = lease is null ? null : Guid.NewGuid(), LeaseUntilUtc = lease, NextAttemptAtUtc = now
+        };
+        PushDelivery sent, abandoned, deliverable, leased;
+        await using (var database = factory.Database.CreateContext())
+        {
+            if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == previous)) database.Seasons.Add(new() { SeasonIndex = previous, StartYear = previous + 2011 });
+            var club = new FootballClub { Name = "Previous season club", Abbreviation = "psc" };
+            var person = new FootballPlayer { Name = "Previous season player " + Guid.NewGuid().ToString("N") };
+            database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = previous, NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = PlayerPosition.Forward });
+            // A day of the last season that was never closed: its baseline would live forever.
+            database.PushDayCheckpoints.Add(new() { SeasonIndex = previous, Day = 37, EndDay = true, Votes = [new() { Ordinal = 0, PlayerId = person.Id, Goals = 1 }] });
+            sent = Delivery(37, PushDeliveryStatus.Completed, now.AddDays(-90), now.AddDays(-91));
+            abandoned = Delivery(36, PushDeliveryStatus.Pending, now.AddDays(-90), null);
+            deliverable = Delivery(37, PushDeliveryStatus.Pending, now.AddHours(1), null);
+            leased = Delivery(37, PushDeliveryStatus.Pending, now.AddDays(-90), null, now.AddMinutes(5));
+            database.PushDeliveries.AddRange(sent, abandoned, deliverable, leased);
+            await database.SaveChangesAsync();
+        }
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<PushRetentionService>().CleanupAsync(year);
+        await using (var database = factory.Database.CreateContext())
+        {
+            var remaining = await database.PushDeliveries.Where(x => x.UserId == account.Id && x.SeasonIndex == previous).Select(x => x.Id).ToArrayAsync();
+            Assert.Equal(new[] { deliverable.Id, leased.Id }.Order(), remaining.Order());
+            var closed = await database.PushDayCheckpoints.AsSplitQuery().SingleAsync(x => x.SeasonIndex == previous && x.Day == 37);
+            Assert.NotNull(closed.ClosedAtUtc); Assert.Empty(closed.Votes);
+            // Days that only had deliveries do not get a checkpoint made up for a season nobody produces for.
+            Assert.False(await database.PushDayCheckpoints.AnyAsync(x => x.SeasonIndex == previous && x.Day == 36));
+        }
+    }
 }

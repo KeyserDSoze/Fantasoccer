@@ -1,7 +1,6 @@
 using System.Net;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
-using Fantasoccer.InMemory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ProtoBuf;
@@ -25,8 +24,7 @@ public sealed class LiveVoteParserTest : IDisposable
             })
             .Build();
         var services = new ServiceCollection();
-        services.AddInMemoryInfrastructures();
-        services.AddFantasoccerBusiness(configuration);
+        services.AddFantasoccerSqlDataProviders();
         services.AddSingleton<TestLiveVoteHttpHandler>();
         services.AddHttpClient("base")
             .ConfigurePrimaryHttpMessageHandler(x => x.GetRequiredService<TestLiveVoteHttpHandler>());

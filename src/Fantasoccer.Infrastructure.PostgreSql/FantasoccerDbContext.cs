@@ -38,6 +38,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
     public DbSet<FootballDataset> FootballDatasets => Set<FootballDataset>();
     public DbSet<FootballVote> FootballVotes => Set<FootballVote>();
+    public DbSet<FootballDayRevision> FootballDayRevisions => Set<FootballDayRevision>();
     public DbSet<LegacyPoliticalVoteEntry> LegacyPoliticalVoteEntries => Set<LegacyPoliticalVoteEntry>();
     public DbSet<FootballChance> FootballChances => Set<FootballChance>();
     public DbSet<FootballPlayerStatistic> FootballPlayerStatistics => Set<FootballPlayerStatistic>();

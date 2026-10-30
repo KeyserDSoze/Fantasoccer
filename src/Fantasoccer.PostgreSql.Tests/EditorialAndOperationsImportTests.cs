@@ -4,7 +4,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Domain;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -17,15 +17,15 @@ public sealed partial class CoreMigrationTests
         var ranks = await ExtraContainerAsync("rank"); var hall = await ExtraContainerAsync("halloffame");
         var row = new RankedTeam { Name = "Team", Owner = Email, Point = 7.25f, Goal = 2, Money = 10, ValuePoint = 99.5f };
         var rank = new Rank { SerieADay = 3, RankedTeams = new() { ["@"] = [row] } };
-        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(rank, new() { Group = "first", League = "league", Year = 15 }))));
+        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(rank, new() { Group = "first", League = "league", Year = 15 }))));
         var archive = new HallOfFame { Ranks = [row], WinningPlayers = [], WinningTeams = [] };
-        await hall.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<HallOfFame, GeneralLeagueKey>.Default(archive, new() { Group = "first", League = "league" }))));
+        await hall.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<HallOfFame, GeneralLeagueKey>.Default(archive, new() { Group = "first", League = "league" }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await ImportAsync();
         await using var database = fixture.CreateContext();
         Assert.True((await database.HallArchives.SingleAsync()).ContributionsInitialized);
         Assert.Equal(7.25f, (await database.HallRankContributions.SingleAsync()).Points);
         rank.RankedTeams["@"][0] = new() { Name = "Team", Owner = Email, Point = 10, Goal = 2, Money = 10, ValuePoint = 99.5f };
-        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(rank, new() { Group = "first", League = "league", Year = 15 }))), overwrite: true);
+        await ranks.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(rank, new() { Group = "first", League = "league", Year = 15 }))), overwrite: true);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true); await new CoreDatasetImporter(database).ImportAsync(_dump);
         var preserved = await database.HallArchives.SingleAsync();
         Assert.False(preserved.ContributionsInitialized); Assert.Equal(7.25f, preserved.Ranks.Single().Points);
@@ -60,8 +60,8 @@ public sealed partial class CoreMigrationTests
         var published = new DateTime(2026, 10, 1, 12, 30, 0, DateTimeKind.Utc);
         var edition = new NewsWrapper { Year = 15, Day = 4, News = [new() { League = "League", Title = "Original title", Content = "<p>Historical content &amp; facts</p>", Date = published, Image = "https://example.test/image.png" },
             new() { League = "Unresolved historical label", Title = "Standalone article", Content = "Original standalone content", Date = published }] };
-        await news.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<NewsWrapper, YearDayGroup>.Default(edition, new() { Group = "first", Year = 15, Day = 4 }))));
-        await advice.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<TeamWithAi, TeamDayKey>.Default(new() { Message = "Private saved advice" },
+        await news.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<NewsWrapper, YearDayGroup>.Default(edition, new() { Group = "first", Year = 15, Day = 4 }))));
+        await advice.GetBlobClient("sample").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<TeamWithAi, TeamDayKey>.Default(new() { Message = "Private saved advice" },
             new() { Group = "first", BasketId = "same-local-basket", Year = 15, Day = 4, Email = Email }))));
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         await ImportAsync();

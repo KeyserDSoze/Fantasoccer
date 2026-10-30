@@ -4,9 +4,6 @@ using System.Net.Http.Json;
 using System.Threading.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.DependencyInjection;
-using RepositoryFramework;
-using Rystem.Content;
 
 namespace Fantasoccer.Business.Services;
 
@@ -14,15 +11,13 @@ namespace Fantasoccer.Business.Services;
 public sealed class PlayerImageService(
     IHttpClientFactory httpClientFactory,
     IFootballIngestionReader realPlayers,
-    IFactory<IContentRepository> contentFactory,
+    IPlayerImageStore images,
     ILock imageLock) : IPlayerImageRefresher
 {
     private const string CompetitionId = "serie-a::Football_Competition::ec93b94f74294dc98ab5bcfd67fc0d88";
     private static readonly Uri MediaBaseUri = new("https://media-sdp.legaseriea.it/");
     private const int MaximumImageBytes = 10 * 1024 * 1024;
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("player-images");
-    private readonly IContentRepository _images = contentFactory.Create("images")
-        ?? throw new InvalidOperationException("Images repository is not configured.");
 
     public async Task DownloadMissingAsync(CancellationToken cancellationToken)
     {
@@ -33,7 +28,7 @@ public sealed class PlayerImageService(
         foreach (var player in players)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (await _images.ExistAsync(ImageKey(player), cancellationToken)) continue;
+            if (await images.ExistsAsync(ImageKey(player), cancellationToken)) continue;
             var path = FindImagePath(player, sourcePlayers);
             if (path == null) continue;
             try
@@ -162,10 +157,7 @@ public sealed class PlayerImageService(
                 throw new InvalidDataException("The source returned an untyped file that is not a supported image.");
         }
 
-        await _images.UploadAsync(ImageKey(player), imageData, new ContentRepositoryOptions
-        {
-            HttpHeaders = new ContentRepositoryHttpHeaders { ContentType = contentType, CacheControl = "public, max-age=300" }
-        }, true, cancellationToken);
+        await images.UploadAsync(ImageKey(player), imageData, contentType, "public, max-age=300", cancellationToken);
     }
 
     private async Task<List<SdpPlayer>> GetSourcePlayersAsync(int year, CancellationToken cancellationToken)

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -30,15 +30,15 @@ public sealed partial class CoreMigrationTests
         _first.Leagues[0].Years.Add(new() { Year = 14, Settings = LeagueSetting.Default });
         await PutGroupAsync(_first); await PutGroupAsync(_second);
         var rosters = await ExtraContainerAsync("team");
-        await rosters.GetBlobClient("old-roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Team, TeamKey>.Default(
+        await rosters.GetBlobClient("old-roster").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Team, TeamKey>.Default(
             new() { Name = "Saved old team", Owner = label, AdditionalOwners = [], Players = [], MoneyFromRank = 19 },
             new() { Group = "first", BasketId = "same-local-basket", Year = 14, Email = label }))));
         var ranks = await ExtraContainerAsync("rank");
-        await ranks.GetBlobClient("old-rank").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<Rank, LeagueKey>.Default(
+        await ranks.GetBlobClient("old-rank").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<Rank, LeagueKey>.Default(
             new() { SerieADay = 5, RankedTeams = new() { ["Historical"] = [new() { Name = "Saved old team", Owner = label, Point = 7 }] } },
             new() { Group = "first", League = "league", Year = 14 }))));
         var halls = await ExtraContainerAsync("halloffame");
-        await halls.GetBlobClient("old-hall").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(Entity<HallOfFame, GeneralLeagueKey>.Default(
+        await halls.GetBlobClient("old-hall").UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(LegacyEntity<HallOfFame, GeneralLeagueKey>.Default(
             new() { Ranks = [new() { Owner = label, Name = "Saved old team", Point = 10 }] }, new() { Group = "first", League = "league" }))));
         var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var refusal = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));

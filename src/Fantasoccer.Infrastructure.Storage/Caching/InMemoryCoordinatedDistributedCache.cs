@@ -53,16 +53,17 @@ public sealed class InMemoryCoordinatedDistributedCache(TimeProvider clock) : ID
         return Task.FromResult<IDistributedCacheLease?>(new Lease(this, key, owner));
     }
 
-    public Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumItems, CancellationToken cancellationToken = default)
+    public Task<DistributedCachePurgeResult> PurgeExpiredAsync(TimeSpan grace, int maximumDeletions, CancellationToken cancellationToken = default)
     {
         var now = clock.GetUtcNow(); var scanned = 0; var deleted = 0;
-        foreach (var (key, item) in _items.ToArray())
+        foreach (var (key, item) in _items.OrderBy(x => x.Key, StringComparer.Ordinal).ToArray())
         {
-            if (scanned++ >= maximumItems) break;
+            if (deleted >= maximumDeletions) break;
+            scanned++;
             if (item.Expiration.ExpiresAtUtc is { } expires && expires + grace < now &&
                 ((ICollection<KeyValuePair<string, Item>>)_items).Remove(new(key, item))) deleted++;
         }
-        return Task.FromResult(new DistributedCachePurgeResult(Math.Min(scanned, maximumItems), deleted));
+        return Task.FromResult(new DistributedCachePurgeResult(scanned, deleted));
     }
 
     public int Count => _items.Count;

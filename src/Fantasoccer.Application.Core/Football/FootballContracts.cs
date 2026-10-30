@@ -15,6 +15,13 @@ public record FootballPlayerDto(string PlayerId, string Name, ClubDto? RealTeam,
 public sealed record PlayersDto<T>(T[] Players)
 {
     public T[] LegacyPoliticalPlayers { get; init; } = [];
+    // Only for shared operational snapshots (provisional votes, probable lineups):
+    // when the content was last confirmed by its job, and whether that confirmation
+    // is older than the snapshot's freshness window. Omitted for SQL-backed data.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public DateTimeOffset? UpdatedAtUtc { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsStale { get; init; }
 }
 public sealed record PlayerHistoryDto(string PlayerKey, string Name, int[] Years);
 public sealed record ClubHistoryDto(ClubDto Club, int[] Years);

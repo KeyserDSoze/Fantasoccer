@@ -1,5 +1,5 @@
 using Fantasoccer.StorageMigration;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 
 namespace Fantasoccer.DataMigration;
 
@@ -20,7 +20,7 @@ public sealed partial class CoreDatasetImporter
     // changes on 10 August: in July the next season could overwrite the
     // previous one. A calendar whose dated games all belong to another season
     // is preserved only in the dump. A mixed calendar is refused for review.
-    private static ExcludedRealCalendarDocument? OtherSeasonCalendar(LegacyJsonDocument document, Entity<RealCalendar, int> calendar)
+    private static ExcludedRealCalendarDocument? OtherSeasonCalendar(LegacyJsonDocument document, LegacyEntity<RealCalendar, int> calendar)
     {
         var days = calendar.Value?.Days ?? [];
         var dates = days.SelectMany(x => x.Games ?? []).Where(x => x.Date is not null).Select(x => Local(x.Date!.Value)).ToArray();

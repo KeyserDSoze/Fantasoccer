@@ -7,6 +7,17 @@ public sealed class FootballDataset
     public int Day { get; set; }
 }
 
+// Monotonic change counter of the official votes of one season/day. It is bumped
+// by database triggers on FootballVotes (any writer: ingestion, importer, raw
+// SQL), so a cached projection can tell "same votes" from "any vote changed"
+// without scanning the rows.
+public sealed class FootballDayRevision
+{
+    public int SeasonIndex { get; set; }
+    public int Day { get; set; }
+    public long OfficialRevision { get; set; }
+}
+
 public enum FootballVoteSource { Live = 0, Notification = 1, Official = 2 }
 public sealed class FootballVote
 {

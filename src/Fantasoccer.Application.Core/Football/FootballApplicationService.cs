@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Football;
 
-public sealed class FootballApplicationService(FantasoccerDbContext database, AccountApplicationService accounts, IFootballLiveDataStore liveData)
+public sealed class FootballApplicationService(FantasoccerDbContext database, AccountApplicationService accounts, IFootballLiveDataStore liveData, TimeProvider clock)
 {
     public async Task<int[]> YearsAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
     {
@@ -97,7 +97,8 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
             var snapshot = await liveData.LiveVotesAsync(year, day, cancellationToken);
             return snapshot is null ? null : new(snapshot.Payload.Players.OrderBy(x => x.PlayerRole).ThenBy(x => x.Name).Select(x =>
                 new VotedPlayerDto(x.PlayerId, x.Name, FootballLiveDataMapping.ClubDto(x.ClubId, x.ClubName), x.PlayerRole, x.IsActive, x.IsVisible,
-                    FootballLiveDataMapping.Dto(x.Vote)) { SeasonIndex = year }).ToArray());
+                    FootballLiveDataMapping.Dto(x.Vote)) { SeasonIndex = year }).ToArray())
+                { UpdatedAtUtc = snapshot.GeneratedAtUtc, IsStale = !snapshot.IsFreshAt(clock.GetUtcNow()) };
         }
         var rows = await database.FootballVotes.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).OrderBy(x => x.PlayerRole).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
@@ -129,7 +130,8 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         if (snapshot is null) return null;
         return new(snapshot.Payload.Players.OrderBy(x => x.Role).ThenBy(x => x.Name).Select(x => new ChancedPlayerDto(x.PlayerId, x.Name,
             FootballLiveDataMapping.ClubDto(x.ClubId, x.ClubName), x.Role, x.IsActive, x.IsVisible,
-            new ChanceDto(x.Fantagazzetta, x.Gazzetta, x.Mediaset, x.Sky, x.Status, x.Description)) { SeasonIndex = year }).ToArray());
+            new ChanceDto(x.Fantagazzetta, x.Gazzetta, x.Mediaset, x.Sky, x.Status, x.Description)) { SeasonIndex = year }).ToArray())
+            { UpdatedAtUtc = snapshot.GeneratedAtUtc, IsStale = !snapshot.IsFreshAt(clock.GetUtcNow()) };
     }
 
     public async Task<PlayersDto<StatisticPlayerDto>?> StatisticsAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)

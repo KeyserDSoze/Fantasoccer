@@ -3,7 +3,7 @@ using Fantasoccer.DataMigration;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Fantasoccer.StorageMigration;
 using Microsoft.EntityFrameworkCore;
-using RepositoryFramework;
+using Fantasoccer.LegacyModels;
 using Xunit;
 
 namespace Fantasoccer.PostgreSql.Tests;
@@ -14,7 +14,7 @@ public sealed partial class CoreMigrationTests
     public async Task Identity_uses_the_verified_Blob_lookup_email_when_embedded_key_is_opaque_missing_or_empty_and_preserves_account_roles()
     {
         var blob = _storage.Blobs.GetBlobContainerClient("appidentity").GetBlobClient(Email);
-        var original = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!;
+        var original = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!;
         var account = original.Value!;
         account.Email = Email.ToUpperInvariant();
         await using var database = fixture.CreateContext();
@@ -25,7 +25,7 @@ public sealed partial class CoreMigrationTests
             var sourceEtag = (await blob.GetPropertiesAsync()).Value.ETag;
             // This is precisely the old point reader's behavior: open by email
             // and deserialize Value, independently of the embedded Key.
-            var legacyValue = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value;
+            var legacyValue = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value;
             Assert.Equal(account.Email, legacyValue!.Email);
             var manifest = await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
             var sourceHash = manifest.Containers.Single(x => x.Name == "appidentity").Blobs.Single(x => x.Name == Email).Sha256;
@@ -44,7 +44,7 @@ public sealed partial class CoreMigrationTests
             Assert.Contains(sourceHash, audit.LegacyKey);
             if (!string.IsNullOrEmpty(key)) Assert.DoesNotContain(key, audit.LegacyKey + JsonSerializer.Serialize(report));
             Assert.Equal(sourceEtag, (await blob.GetPropertiesAsync()).Value.ETag);
-            Assert.Equal(key, JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Key);
+            Assert.Equal(key, JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Key);
             var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
             Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
             Assert.Equal(sourceHash, Assert.Single(repeated.ReconciledIdentityDocuments!));
@@ -55,7 +55,7 @@ public sealed partial class CoreMigrationTests
     public async Task Matching_opaque_storage_IDs_import_the_valid_profile_email_without_changing_user_ID_roles_or_authentication_bindings()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var account = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var account = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await using var database = fixture.CreateContext();
         await new CoreDatasetImporter(database).ImportAsync(_dump);
         var initial = await database.Users.AsNoTracking().SingleAsync(x => x.Email == Email);
@@ -86,7 +86,7 @@ public sealed partial class CoreMigrationTests
             Assert.Equal(hash, reference[1]);
             Assert.DoesNotContain(technicalId, audit.LegacyKey + JsonSerializer.Serialize(report));
             Assert.Equal(etag, (await sourceBlob.GetPropertiesAsync()).Value.ETag);
-            Assert.Equal(technicalId, JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await sourceBlob.DownloadContentAsync()).Value.Content.ToString())!.Key);
+            Assert.Equal(technicalId, JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await sourceBlob.DownloadContentAsync()).Value.Content.ToString())!.Key);
             var repeated = await new CoreDatasetImporter(database).ImportAsync(_dump);
             Assert.Equal(repeated.Documents, repeated.SkippedDocuments);
             previousLookup = technicalId;
@@ -120,7 +120,7 @@ public sealed partial class CoreMigrationTests
     public async Task Different_matching_opaque_IDs_cannot_silently_merge_accounts_with_the_same_profile_email()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var account = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var account = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await container.DeleteBlobAsync(Email);
         await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", account);
         await WriteIdentityEnvelopeAsync("legacy0002", "legacy0002", account);
@@ -156,7 +156,7 @@ public sealed partial class CoreMigrationTests
     public async Task Valid_but_conflicting_identity_keys_and_conflicting_Blob_lookup_names_are_never_reassigned_to_the_profile_email()
     {
         var blob = _storage.Blobs.GetBlobContainerClient("appidentity").GetBlobClient(Email);
-        var account = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var account = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync(Email, OtherEmail, account);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var keyConflict = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
@@ -179,7 +179,7 @@ public sealed partial class CoreMigrationTests
     public async Task Duplicate_identity_diagnostics_compare_fields_without_leaking_names_selections_memberships_or_opaque_keys()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");
-        var original = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var original = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
         foreach (var changeRoles in new[] { false, true })
         {
             var copy = new AppIdentity
@@ -211,7 +211,7 @@ public sealed partial class CoreMigrationTests
     public async Task Matching_lookup_fallback_never_silently_merges_duplicate_identity_documents()
     {
         var blob = _storage.Blobs.GetBlobContainerClient("appidentity").GetBlobClient(Email);
-        var account = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var account = JsonSerializer.Deserialize<LegacyEntity<AppIdentity, string>>((await blob.DownloadContentAsync()).Value.Content.ToString())!.Value!;
         await WriteIdentityEnvelopeAsync(Email.ToUpperInvariant(), "another-opaque-key", account);
         await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
         var fault = await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump));
@@ -221,5 +221,5 @@ public sealed partial class CoreMigrationTests
 
     private async Task WriteIdentityEnvelopeAsync(string blobName, string? key, AppIdentity account)
         => await _storage.Blobs.GetBlobContainerClient("appidentity").GetBlobClient(blobName)
-            .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(new Entity<AppIdentity, string>(account, key))), overwrite: true);
+            .UploadAsync(BinaryData.FromString(JsonSerializer.Serialize(new LegacyEntity<AppIdentity, string>(account, key))), overwrite: true);
 }

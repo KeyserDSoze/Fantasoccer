@@ -241,11 +241,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         try {
           // Exchange authorization code for backend token using PKCE
-          const tokenResponse = await authService.exchangeToken(authCode, {
-            isPKCE: true,
-            codeVerifier,
-            redirectPath: '/',
-          })
+          const tokenResponse = await authService.exchangeToken(authCode, codeVerifier)
           
           // Get user info using the new accessToken
           const userInfo = await authService.getUserInfo(tokenResponse.accessToken, tokenResponse.refreshToken)

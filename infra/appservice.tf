@@ -22,7 +22,6 @@ locals {
     ASPNETCORE_ENVIRONMENT               = "Production"
     WEBSITES_PORT                        = "8080"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE  = "false"
-    PostgreSql__Enabled                  = "true"
     Integrations__Infrastructure         = "Storage"
     ConnectionStrings__PostgreSql        = local.secret_references["postgres-connection-string"]
     ConnectionStrings__Storage           = local.secret_references["storage-connection-string"]
