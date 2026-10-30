@@ -201,13 +201,18 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return result.OrderBy(x => x.LeagueName).ToArray();
     }
 
-    // Players used to compute a result: the day roster (penalised if never
+    // Players used to compute a result: the day roster (penalised if never and no earlier lineup exists
     // submitted, as before) with the competition lineup applied.
     internal async Task<RosterPlayer[]> ScoringPlayersAsync(Guid group, Guid league, int year, int day, Guid teamId, CancellationToken cancellationToken)
     {
         var team = await teams.ResolveAsync(group, year, teamId, cancellationToken) ?? throw new ApplicationFault(409, "roster_missing_for_recalculation", "Squadra assente: ricalcolo annullato.");
         var daily = await DayRosterAsync(group, year, day, team.AuthoritativeTeamId, cancellationToken);
         var lineup = await Lineups(group, league, year, teamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+        // Safety net: a day with no lineup of its own and nobody in the lineup scores with the
+        // last lineup of this team in this competition (what the owner was shown), not with a penalty.
+        if (lineup is null && !daily.Players.Any(x => x.Status == 0 && x.Position != Tribune))
+            lineup = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.TeamId == teamId && x.Day < day)
+                .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
         return Overlay(daily.Players, lineup);
     }
 

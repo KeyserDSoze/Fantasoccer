@@ -447,6 +447,47 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task A_day_scored_without_a_lineup_uses_the_previous_one_instead_of_the_penalty()
+    {
+        var world = await WorldAsync(48, peachOwnsFunghi: false);
+        var (admin, group, year) = (world.Admin, world.Group, world.Year);
+        var koopaPlayers = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
+        await MatchdayAsync(year, 2, DateTimeOffset.UtcNow.AddDays(8));
+        var games = await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 1, 2);
+        await using (var database = factory.Database.CreateContext())
+        {
+            var roster = await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season);
+            foreach (var player in roster.Players.Where(x => x.Status == 0)) player.Position = 11;
+            roster.Version++; await database.SaveChangesAsync();
+        }
+        string Game(Guid game) => $"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}";
+        var luigi = world.Luigi.Client;
+        var first = (await Read<GameDto>(await luigi.GetAsync(Game(games[0]) + "?editMode=formation"))).Teams.Single(x => x.TeamId == world.Koopa);
+        var arranged = first.Players.ToDictionary(x => x.Current.PlayerId, x => x.Current.Position);
+        for (var index = 0; index < Roles.Length; index++) arranged[koopaPlayers[index]] = index == 11 ? 5 : Roles[index];
+        arranged[koopaPlayers[1]] = 5; arranged[koopaPlayers[11]] = 1;
+        (await luigi.PutAsJsonAsync(Game(games[0]) + "/formation", new SaveGameFormationRequest(world.Koopa,
+            arranged.Select(x => new FormationPositionRequest(x.Key, x.Value)).ToArray(), 0, first.SourceVersion))).EnsureSuccessStatusCode();
+
+        // Day 2 is played without any lineup of its own.
+        await using (var database = factory.Database.CreateContext())
+        {
+            foreach (var match in await database.FootballMatches.Where(x => x.SeasonIndex == year).ToArrayAsync())
+            { match.KickoffUtc = DateTimeOffset.UtcNow.AddHours(-5 - match.SerieADay); match.IsFinished = true; match.ActualOfficialVotesReady = true; match.HomeGoals = 1; match.AwayGoals = 0; }
+            await database.SaveChangesAsync();
+        }
+        (await admin.PostAsJsonAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/recalculate", new RecalculateCompetitionRequest(2))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            var played = await database.PlayedMatchSnapshots.SingleAsync(x => x.LeagueId == world.LeagueSA && x.MatchId == games[1]);
+            int Played(int index) => played.Players.Single(x => x.IsHome && x.PlayerId == koopaPlayers[index]).Position;
+            Assert.Equal(5, Played(1)); Assert.Equal(1, Played(11)); Assert.Equal(Roles[2], Played(2));
+        }
+    }
+
+    [PostgreSqlFact]
     public async Task Live_projection_is_shared_by_members_rebuilt_only_on_source_changes_isolated_per_group_and_recovered_after_cache_loss()
     {
         var world = await WorldAsync(44, peachOwnsFunghi: true);
