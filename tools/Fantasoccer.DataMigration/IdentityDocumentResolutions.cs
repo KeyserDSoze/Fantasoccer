@@ -5,8 +5,11 @@ using Fantasoccer.StorageMigration;
 
 namespace Fantasoccer.DataMigration;
 
-public sealed record IdentityDocumentResolution(string PreferredDocumentSha256, string OtherDocumentSha256,
-    bool AllowEmailLookupAlias = false);
+// Either pinned to the exact documents (two SHA-256) or approved for one email: the email
+// form survives later profile changes (a login rewrites the document) but never merges data
+// and still needs exactly two copies of that email, one of them being the email lookup.
+public sealed record IdentityDocumentResolution(string? PreferredDocumentSha256 = null, string? OtherDocumentSha256 = null,
+    bool AllowEmailLookupAlias = false, string? Email = null);
 public sealed record AppliedIdentityResolution(string PreferredDocumentSha256, string OtherDocumentSha256,
     string PreferredArchiveReference, string OtherArchiveReference, bool EmailLookupAlias = false);
 
@@ -32,9 +35,19 @@ public static class IdentityResolutionConfiguration
         var used = new HashSet<string>(StringComparer.Ordinal);
         foreach (var rule in rules)
         {
-            if (rule is null || !Hash(rule.PreferredDocumentSha256) || !Hash(rule.OtherDocumentSha256)) throw Invalid();
-            var preferred = rule.PreferredDocumentSha256.ToLowerInvariant();
-            var other = rule.OtherDocumentSha256.ToLowerInvariant();
+            if (rule is null) throw Invalid();
+            if (rule.Email is not null)
+            {
+                if (rule.PreferredDocumentSha256 is not null || rule.OtherDocumentSha256 is not null) throw Invalid();
+                string canonical;
+                canonical = CoreDatasetImporter.CanonicalEmail(rule.Email);
+                if (!used.Add("email:" + canonical)) throw Invalid();
+                result.Add(new(null, null, rule.AllowEmailLookupAlias, canonical));
+                continue;
+            }
+            if (!Hash(rule.PreferredDocumentSha256) || !Hash(rule.OtherDocumentSha256)) throw Invalid();
+            var preferred = rule.PreferredDocumentSha256!.ToLowerInvariant();
+            var other = rule.OtherDocumentSha256!.ToLowerInvariant();
             if (!used.Add(preferred) || !used.Add(other)) throw Invalid();
             result.Add(new(preferred, other, rule.AllowEmailLookupAlias));
         }
@@ -57,10 +70,26 @@ public sealed partial class CoreDatasetImporter
         var byEmail = candidates.GroupBy(x => x.Email, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.ToArray(), StringComparer.Ordinal);
         var byHash = candidates.GroupBy(x => x.Document.Sha256, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.ToArray(), StringComparer.Ordinal);
         var resolvedByEmail = new Dictionary<string, (IdentityCandidate Preferred, IdentityCandidate Other)>(StringComparer.Ordinal);
+        // Approvals given by email become the same pair of documents as a pinned approval, chosen from the
+        // current dump: the copy named like the email is preferred. A duplicate that no longer exists is ignored.
+        var pinned = new List<IdentityDocumentResolution>();
         foreach (var rule in rules)
         {
-            if (!byHash.TryGetValue(rule.PreferredDocumentSha256, out var preferredMatches) ||
-                !byHash.TryGetValue(rule.OtherDocumentSha256, out var otherMatches))
+            if (rule.Email is null) { pinned.Add(rule); continue; }
+            if (!byEmail.TryGetValue(rule.Email, out var copies) || copies.Length == 1) continue;
+            if (copies.Length != 2) throw new CoreImportException("identity_resolution_ambiguous");
+            var lookups = copies.Where(IsEmailLookup).ToArray();
+            var preferred = rule.AllowEmailLookupAlias
+                ? copies.SingleOrDefault(x => string.Equals(x.Document.BlobName, rule.Email, StringComparison.Ordinal))
+                : lookups.Length == 1 ? lookups[0] : null;
+            if (preferred is null) throw new CoreImportException(rule.AllowEmailLookupAlias ? "identity_resolution_email_alias_required" : "identity_resolution_lookup_required");
+            var other = copies.Single(x => !ReferenceEquals(x, preferred));
+            pinned.Add(new(preferred.Document.Sha256, other.Document.Sha256, rule.AllowEmailLookupAlias));
+        }
+        foreach (var rule in pinned)
+        {
+            if (!byHash.TryGetValue(rule.PreferredDocumentSha256!, out var preferredMatches) ||
+                !byHash.TryGetValue(rule.OtherDocumentSha256!, out var otherMatches))
                 throw new CoreImportException("identity_resolution_document_not_found");
             if (preferredMatches.Length != 1 || otherMatches.Length != 1)
                 throw new CoreImportException("identity_resolution_ambiguous");

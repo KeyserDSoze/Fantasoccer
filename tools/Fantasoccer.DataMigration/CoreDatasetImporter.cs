@@ -631,6 +631,7 @@ public sealed partial class CoreDatasetImporter(FantasoccerDbContext database, C
             throw new CoreImportException("invalid_email", field, Path.GetFileName(readerFile) + ":" + readerLine);
         return email;
     }
+    internal static string CanonicalEmail(string value) => TryEmail(value, out var email) ? email : throw new CoreImportException("invalid_identity_resolution_config");
     private static bool TryEmail(string? value, out string email)
     {
         email = value?.Trim().ToLowerInvariant() ?? "";

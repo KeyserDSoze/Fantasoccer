@@ -157,6 +157,38 @@ public sealed partial class CoreMigrationTests
     }
 
     [CoreFact]
+    public async Task Email_resolution_survives_profile_changes_and_a_vanished_duplicate_but_still_refuses_ambiguous_copies()
+    {
+        var container = _storage.Blobs.GetBlobContainerClient("appidentity");
+        var preferred = JsonSerializer.Deserialize<Entity<AppIdentity, string>>((await container.GetBlobClient(Email).DownloadContentAsync()).Value.Content.ToString())!.Value!;
+        var alias = new AppIdentity { Email = Email, Username = preferred.Username, Groups = preferred.Groups.ToList() };
+        await WriteIdentityEnvelopeAsync("legacy0001", "legacy0001", alias);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var rule = new[] { new IdentityDocumentResolution(Email: " " + Email.ToUpperInvariant() + " ") };
+        var options = new CoreImportOptions(IdentityResolutions: IdentityResolutionConfiguration.Normalize(rule));
+        await using var database = fixture.CreateContext();
+        var first = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        Assert.Single(first.ResolvedIdentityConflicts!);
+        // A login rewrites the profile: the checksum changes, the approval by email still applies.
+        preferred.Username = "Changed after approval";
+        await WriteIdentityEnvelopeAsync(Email, Email, preferred);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        var second = await new CoreDatasetImporter(database, options).ImportAsync(_dump);
+        var applied = Assert.Single(second.ResolvedIdentityConflicts!);
+        Assert.NotEqual(first.ResolvedIdentityConflicts![0].PreferredDocumentSha256, applied.PreferredDocumentSha256);
+        Assert.Equal("Changed after approval", (await database.Users.AsNoTracking().SingleAsync(x => x.Email == Email)).DisplayName);
+        // Without the approval the duplicate is still a collision; a third copy is never absorbed.
+        Assert.Equal("identity_collision", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump))).Message);
+        await WriteIdentityEnvelopeAsync("legacy0002", "legacy0002", alias);
+        await new StorageExporter(_storage).ExportAsync(_dump, resume: true);
+        Assert.Equal("identity_resolution_ambiguous", (await Assert.ThrowsAsync<CoreImportException>(() => CoreDatasetImporter.AnalyzeAsync(_dump, options: options))).Message);
+        // An email approval cannot mix with pinned hashes and must be a valid email.
+        Assert.Throws<CoreImportException>(() => IdentityResolutionConfiguration.Normalize([new(new string('a', 64), null, false, Email)]));
+        Assert.Throws<CoreImportException>(() => IdentityResolutionConfiguration.Parse("[{\"email\":\"not-an-email\"}]"));
+        Assert.Throws<CoreImportException>(() => IdentityResolutionConfiguration.Normalize([new(Email: Email), new(Email: Email.ToUpperInvariant())]));
+    }
+
+    [CoreFact]
     public async Task Approved_identity_resolution_does_not_reopen_import_after_application_writes()
     {
         var container = _storage.Blobs.GetBlobContainerClient("appidentity");

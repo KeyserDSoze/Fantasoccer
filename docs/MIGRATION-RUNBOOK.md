@@ -260,6 +260,19 @@ Questa variabile è passata **solo ai tool di analisi/import**, non all'API o al
 
 La scelta è ammessa soltanto se i due documenti esistono, sono identificati univocamente dal contenuto, hanno la stessa email valida e sono **le sole due copie** di quell'email; la copia preferita deve essere un lookup email, l'altra un alias non-email. I metadati delle identità vengono validati prima della scelta e i normali controlli di membership/cache dei gruppi restano attivi. Una risoluzione non può scavalcare `membership_conflict`.
 
+#### Approvazione per email (non si rompe a ogni nuovo export)
+
+La scelta vincolata ai checksum diventa obsoleta appena un documento cambia, per esempio dopo un login che riscrive il profilo, e l'import si ferma con `identity_resolution_document_not_found`. Per le coppie già riviste puoi approvare **l'email** invece degli SHA-256:
+
+```dotenv
+IDENTITY_RESOLUTIONS_JSON='[{"email":"amico@example.com"},{"email":"altro@example.com","allowEmailLookupAlias":true}]'
+```
+
+- Si sceglie la copia il cui nome Blob è l'email (con `allowEmailLookupAlias`, quella scritta tutta minuscola); l'altra resta archiviata e non viene unita.
+- Restano i controlli: devono esistere esattamente due copie di quell'email. Con tre copie l'import si ferma (`identity_resolution_ambiguous`). Se il duplicato non esiste più, la regola viene ignorata.
+- Un'email non può comparire due volte, e non si mescola con gli SHA-256 nello stesso oggetto. Le due forme possono convivere nello stesso array.
+- Rispetto agli SHA-256 non c'è più la protezione "se il profilo cambia l'approvazione decade": approva per email solo persone di cui hai già confrontato le copie.
+
 #### Due lookup email diversi solo per maiuscole
 
 Se entrambe le copie hanno nome Blob email e differiscono soltanto per maiuscole/minuscole, la regola precedente resta rifiutata per default. Dopo confronto dei profili e approvazione del gestore, **solo l'oggetto di quella coppia** può aggiungere `"allowEmailLookupAlias":true`:
