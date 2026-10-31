@@ -4,12 +4,19 @@ using Fantasoccer.Business;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Data.Common;
 
 namespace Fantasoccer.Application.Core.Teams;
 
 public sealed class FormationAutomationService(FantasoccerDbContext database, IOptimalFormationService optimal,
-    CompetitionTeamResolver resolver, TimeProvider clock)
+    CompetitionTeamResolver resolver, TimeProvider clock, ILogger<FormationAutomationService> logger)
 {
+    // One team or one competition entry that cannot be prepared must not leave every other team without its roster or
+    // lineup: this job is the only thing that creates them before the deadline. A database error aborts the whole
+    // transaction, a canceled job or a lost lease must stop everything, so those are never isolated.
+    private static bool Isolatable(Exception error) => error is not (OperationCanceledException or SqlJobLeaseLostException or DbException or DbUpdateException);
+
     public async Task PrepareNextAsync(int year, CancellationToken cancellationToken = default)
     {
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
@@ -22,22 +29,30 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
                 !database.TeamDerivations.Any(d => d.GroupId == x.GroupId && d.TeamId == x.Id)).AsSplitQuery().ToArrayAsync(cancellationToken);
         foreach (var team in teams)
         {
-            if (await database.RosterSnapshots.AnyAsync(x => x.GroupId == team.GroupId && x.SeasonIndex == year && x.TeamId == team.Id && x.Kind == RosterKind.Matchday && x.Day == next.Day, cancellationToken)) continue;
-            var source = await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
-                .Include(x => x.AdditionalOwners).ThenInclude(x => x.User).Where(x => x.GroupId == team.GroupId && x.TeamId == team.Id && x.SeasonIndex == year && x.Kind == RosterKind.Season).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
-            if (source is null || team.Owners.SingleOrDefault(x => x.IsPrimary) is not { } primary) continue;
-            var snapshot = TeamRosterApplicationService.Copy(source, RosterKind.Matchday, next.Day, null);
-            var previous = await database.RosterSnapshots.AsNoTracking().Where(x => x.GroupId == team.GroupId && x.TeamId == team.Id && x.SeasonIndex == year && x.Kind == RosterKind.Matchday && x.Day < next.Day)
-                .OrderByDescending(x => x.Day).AsSplitQuery().FirstOrDefaultAsync(cancellationToken);
-            var previousPositions = previous?.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position);
-            foreach (var player in snapshot.Players.Where(x => x.Status == 0))
-                if (previousPositions?.TryGetValue(player.PlayerId, out var position) == true) player.Position = position;
-            snapshot.OwnerUserId = primary.UserId; snapshot.Name = team.Name;
-            snapshot.AdditionalOwners = team.Owners.Where(x => !x.IsPrimary).Select(x => new RosterOwner { UserId = x.UserId, User = x.Membership.User }).ToArray();
-            // Never reset an existing day's live counter/history. This branch
-            // creates only a missing future day from server-owned roster entries.
-            snapshot.FormationChanges = 0; snapshot.FormationHistory.Clear(); snapshot.LastUpdateUtc = clock.GetUtcNow();
-            database.RosterSnapshots.Add(snapshot);
+            try
+            {
+                if (await database.RosterSnapshots.AnyAsync(x => x.GroupId == team.GroupId && x.SeasonIndex == year && x.TeamId == team.Id && x.Kind == RosterKind.Matchday && x.Day == next.Day, cancellationToken)) continue;
+                var source = await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club)
+                    .Include(x => x.AdditionalOwners).ThenInclude(x => x.User).Where(x => x.GroupId == team.GroupId && x.TeamId == team.Id && x.SeasonIndex == year && x.Kind == RosterKind.Season).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
+                if (source is null || team.Owners.SingleOrDefault(x => x.IsPrimary) is not { } primary) continue;
+                var snapshot = TeamRosterApplicationService.Copy(source, RosterKind.Matchday, next.Day, null);
+                var previous = await database.RosterSnapshots.AsNoTracking().Where(x => x.GroupId == team.GroupId && x.TeamId == team.Id && x.SeasonIndex == year && x.Kind == RosterKind.Matchday && x.Day < next.Day)
+                    .OrderByDescending(x => x.Day).AsSplitQuery().FirstOrDefaultAsync(cancellationToken);
+                var previousPositions = previous?.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position);
+                foreach (var player in snapshot.Players.Where(x => x.Status == 0))
+                    if (previousPositions?.TryGetValue(player.PlayerId, out var position) == true) player.Position = position;
+                snapshot.OwnerUserId = primary.UserId; snapshot.Name = team.Name;
+                snapshot.AdditionalOwners = team.Owners.Where(x => !x.IsPrimary).Select(x => new RosterOwner { UserId = x.UserId, User = x.Membership.User }).ToArray();
+                // Never reset an existing day's live counter/history. This branch
+                // creates only a missing future day from server-owned roster entries.
+                snapshot.FormationChanges = 0; snapshot.FormationHistory.Clear(); snapshot.LastUpdateUtc = clock.GetUtcNow();
+                database.RosterSnapshots.Add(snapshot);
+            }
+            catch (Exception error) when (Isolatable(error))
+            {
+                logger.LogError("Roster of day {Day} could not be prepared for team {TeamId} ({FailureType}); the other teams are still prepared. No exception message or payload logged.",
+                    next.Day, team.Id, error.GetType().Name);
+            }
         }
         await database.SaveChangesAsync(cancellationToken);
         // 2) One lineup per competition with a match that day. Each continues its
@@ -49,31 +64,48 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
             .Where(x => x.Team is not null).Select(x => (x.GroupId, x.LeagueId, Team: x.Team!.Value)).Distinct().ToArray();
         foreach (var entry in entries)
         {
-            if (await database.LeagueLineups.AnyAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year && x.TeamId == entry.Team && x.Day == next.Day, cancellationToken)) continue;
-            var team = await resolver.ResolveAsync(entry.GroupId, year, entry.Team, cancellationToken);
-            if (team is null || team.IsArchived) continue;
-            var daily = await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club).AsNoTracking()
-                .Where(x => x.GroupId == entry.GroupId && x.SeasonIndex == year && x.TeamId == team.AuthoritativeTeamId && x.Kind == RosterKind.Matchday && x.Day == next.Day && x.CompetitionId == Guid.Empty)
-                .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
-            if (daily is null) continue;
-            var previous = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year && x.TeamId == entry.Team && x.Day < next.Day)
-                .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
-            var positions = LeagueLineupApplicationService.Overlay(daily.Players.Where(x => x.Status == 0), previous)
-                .ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
-            var preferences = team.Primary is { } owner ? await database.AccountPreferences.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == owner.UserId, cancellationToken) : null;
-            if (preferences?.AutoOptimalFormation == true)
+            try
             {
-                var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year, cancellationToken);
-                var league = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).SingleAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year, cancellationToken);
-                var domain = new Team { Name = team.Name, Owner = team.OwnerReference, AdditionalOwners = [],
-                    Players = daily.Players.Select(player => { var domainPlayer = CompetitionMapping.Domain(player); if (player.Status == 0) domainPlayer.Position = (FantaSoccerRole)positions[player.PlayerId]; return domainPlayer; }).ToList() };
-                var proposal = await optimal.CalculateAsync(domain, year, next.Day, GameApplicationService.Type(league), LeagueRulesMapping.ToDomain(rules), cancellationToken);
-                var proposed = proposal.Players.ToDictionary(x => x.PlayerKey, x => (int)x.Position);
-                foreach (var player in daily.Players.Where(x => x.Status == 0))
-                    if (proposed.TryGetValue(KeyUtils.GetPlayerKey(player.Player.Name), out var position)) positions[player.PlayerId] = position;
+                if (await database.LeagueLineups.AnyAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year && x.TeamId == entry.Team && x.Day == next.Day, cancellationToken)) continue;
+                var team = await resolver.ResolveAsync(entry.GroupId, year, entry.Team, cancellationToken);
+                if (team is null || team.IsArchived) continue;
+                var daily = await database.RosterSnapshots.Include(x => x.Players).ThenInclude(x => x.Player).Include(x => x.Players).ThenInclude(x => x.Club).AsNoTracking()
+                    .Where(x => x.GroupId == entry.GroupId && x.SeasonIndex == year && x.TeamId == team.AuthoritativeTeamId && x.Kind == RosterKind.Matchday && x.Day == next.Day && x.CompetitionId == Guid.Empty)
+                    .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
+                if (daily is null) continue;
+                var previous = await database.LeagueLineups.AsNoTracking().Where(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year && x.TeamId == entry.Team && x.Day < next.Day)
+                    .OrderByDescending(x => x.Day).FirstOrDefaultAsync(cancellationToken);
+                var positions = LeagueLineupApplicationService.Overlay(daily.Players.Where(x => x.Status == 0), previous)
+                    .ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
+                var preferences = team.Primary is { } owner ? await database.AccountPreferences.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == owner.UserId, cancellationToken) : null;
+                if (preferences?.AutoOptimalFormation == true)
+                {
+                    try
+                    {
+                        var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year, cancellationToken);
+                        var league = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).SingleAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year, cancellationToken);
+                        var domain = new Team { Name = team.Name, Owner = team.OwnerReference, AdditionalOwners = [],
+                            Players = daily.Players.Select(player => { var domainPlayer = CompetitionMapping.Domain(player); if (player.Status == 0) domainPlayer.Position = (FantaSoccerRole)positions[player.PlayerId]; return domainPlayer; }).ToList() };
+                        var proposal = await optimal.CalculateAsync(domain, year, next.Day, GameApplicationService.Type(league), LeagueRulesMapping.ToDomain(rules), cancellationToken);
+                        var proposed = proposal.Players.ToDictionary(x => x.PlayerKey, x => (int)x.Position);
+                        foreach (var player in daily.Players.Where(x => x.Status == 0))
+                            if (proposed.TryGetValue(KeyUtils.GetPlayerKey(player.Player.Name), out var position)) positions[player.PlayerId] = position;
+                    }
+                    catch (Exception error) when (Isolatable(error))
+                    {
+                        // The optional suggestion is never a reason to leave a lineup missing: keep the previous formation.
+                        logger.LogWarning("Automatic optimal formation unavailable for team {TeamId} in league {LeagueId} day {Day} ({FailureType}); the previous formation is kept. No exception message or payload logged.",
+                            entry.Team, entry.LeagueId, next.Day, error.GetType().Name);
+                    }
+                }
+                database.LeagueLineups.Add(new() { GroupId = entry.GroupId, LeagueId = entry.LeagueId, SeasonIndex = year, TeamId = entry.Team, Day = next.Day,
+                    LastUpdateUtc = clock.GetUtcNow(), Players = positions.Select(x => new LeagueLineupPlayer { PlayerId = x.Key, Position = x.Value }).ToList() });
             }
-            database.LeagueLineups.Add(new() { GroupId = entry.GroupId, LeagueId = entry.LeagueId, SeasonIndex = year, TeamId = entry.Team, Day = next.Day,
-                LastUpdateUtc = clock.GetUtcNow(), Players = positions.Select(x => new LeagueLineupPlayer { PlayerId = x.Key, Position = x.Value }).ToList() });
+            catch (Exception error) when (Isolatable(error))
+            {
+                logger.LogError("Lineup of day {Day} could not be prepared for team {TeamId} in league {LeagueId} ({FailureType}); the other entries are still prepared. No exception message or payload logged.",
+                    next.Day, entry.Team, entry.LeagueId, error.GetType().Name);
+            }
         }
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }

@@ -910,6 +910,39 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         await AssertOnlyTheHealthyLeagueWasScoredAsync(world, serieA, premier, broken, "job_item_failed");
     }
 
+    private sealed class FailingOptimalFormation : Fantasoccer.Business.IOptimalFormationService
+    {
+        public ValueTask<Fantasoccer.Business.OptimalFormationResult> CalculateAsync(Team team, int year, int day, LeagueType leagueType, LeagueSetting leagueSetting,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException("synthetic failure of the optional suggestion");
+    }
+
+    [PostgreSqlFact]
+    public async Task A_failing_automatic_optimal_formation_keeps_the_previous_formation_and_never_blocks_the_lineups_of_other_teams()
+    {
+        var world = await WorldAsync(58, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        await RosterAsync(group, world.Koopa, year, Roles.Length); await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 2, DateTimeOffset.UtcNow.AddDays(3));
+        await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 2);
+        await using (var database = factory.Database.CreateContext())
+        {
+            var preferences = await database.AccountPreferences.SingleOrDefaultAsync(x => x.UserId == world.Luigi.Account.Id);
+            if (preferences is null) database.AccountPreferences.Add(new() { UserId = world.Luigi.Account.Id, AutoOptimalFormation = true });
+            else preferences.AutoOptimalFormation = true;
+            await database.SaveChangesAsync();
+        }
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddScoped<Fantasoccer.Business.IOptimalFormationService, FailingOptimalFormation>()));
+        await using (var scope = app.Services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year);
+        await using var final = factory.Database.CreateContext();
+        foreach (var team in new[] { world.Koopa, world.Draghi })
+        {
+            Assert.True(await final.RosterSnapshots.AnyAsync(x => x.GroupId == group && x.TeamId == team && x.Kind == RosterKind.Matchday && x.Day == 2), "day roster");
+            var lineup = await final.LeagueLineups.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.TeamId == team && x.Day == 2);
+            Assert.Equal(Roles.Length, lineup.Players.Count);
+        }
+    }
+
     [PostgreSqlFact]
     public async Task A_sale_and_repurchase_after_preparation_update_only_future_ownership_and_leave_one_active_copy()
     {
