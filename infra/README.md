@@ -10,7 +10,7 @@ Crea da zero, in un nuovo resource group `fcv2`, l'ambiente applicativo su Postg
 | Database | PostgreSQL Flexible Server 17 `B_Standard_B1ms`, database `fantasoccer` | 32 GB con crescita automatica, backup 14 giorni, password generata, connessione `SSL Mode=VerifyFull`, `prevent_destroy` |
 | File e cache | Storage account StorageV2 | Contenitori pubblici in sola lettura dei blob: `images`, `logos`, `cardimages`. Privati: `fantazone-cache`, `mcp-keys`. Soft delete 7 giorni, nessun versioning, lifecycle della cache (ADR 0012) |
 | Segreti | Key Vault + identità gestita assegnata all'API | Tutti i segreti dell'API sono riferimenti Key Vault: nessun valore in chiaro nelle impostazioni |
-| Monitoraggio | Log Analytics (30 giorni, 1 GB/giorno), Application Insights, diagnostica di API e PostgreSQL | |
+| Monitoraggio | Log Analytics (30 giorni, 1 GB/giorno), Application Insights, diagnostica di API (console, applicazione e metriche) e PostgreSQL | I log HTTP di App Service non sono raccolti: conservano la query string, che nel rinnovo del login contiene il refresh token. Le richieste restano in Application Insights, che la elimina. Il pool di connessioni dell'API è limitato a 15 (B1ms: 35 connessioni utente, container vecchio e nuovo attivi insieme durante un deploy) |
 | AI | Azure OpenAI, deployment `editorial` | Modello `gpt-6-luna` `2026-09-22` (GlobalStandard). Sostituisce `gpt-4o`, deprecato per i nuovi deployment |
 
 Il file system di un container non è persistente. Per questo le chiavi Data Protection dell'API, da cui dipendono i token di accesso, sono salvate nel blob privato `mcp-keys/fcv2/data-protection-keys.xml` (impostazione `Mcp__DataProtectionBlobName`, già supportata dall'API). Restano valide dopo riavvii e nuovi deploy.

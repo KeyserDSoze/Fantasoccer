@@ -26,7 +26,9 @@ resource "azurerm_monitor_diagnostic_setting" "api" {
 
   enabled_log { category = "AppServiceConsoleLogs" }
   enabled_log { category = "AppServiceAppLogs" }
-  enabled_log { category = "AppServiceHTTPLogs" }
+  # AppServiceHTTPLogs is deliberately not collected: it stores CsUriQuery, and the
+  # login refresh request carries the refresh token in its query string. Requests
+  # remain visible in Application Insights, which strips query strings.
   enabled_metric { category = "AllMetrics" }
 }
 

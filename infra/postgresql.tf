@@ -69,6 +69,8 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "operators" {
 
 locals {
   # TLS with certificate and host name verification (Azure uses public CAs).
+  # B1ms allows 35 user connections and a deployment briefly runs the old and the
+  # new container side by side: two pools of 15 leave room for the operator.
   postgres_connection_string = join(";", [
     "Host=${azurerm_postgresql_flexible_server.main.fqdn}",
     "Port=5432",
@@ -76,5 +78,6 @@ locals {
     "Username=${var.postgres_admin_login}",
     "Password=${random_password.postgres.result}",
     "SSL Mode=VerifyFull",
+    "Maximum Pool Size=15",
   ])
 }

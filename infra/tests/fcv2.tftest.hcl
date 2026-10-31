@@ -129,6 +129,14 @@ run "default_environment" {
     error_message = "PostgreSQL connections must verify the server certificate."
   }
   assert {
+    condition     = nonsensitive(strcontains(azurerm_key_vault_secret.generated["postgres-connection-string"].value, "Maximum Pool Size=15"))
+    error_message = "The connection pool must stay below the 35 user connections of a B1ms server."
+  }
+  assert {
+    condition     = !contains([for log in azurerm_monitor_diagnostic_setting.api.enabled_log : log.category], "AppServiceHTTPLogs")
+    error_message = "HTTP logs keep query strings and must not be sent to Log Analytics."
+  }
+  assert {
     condition     = azurerm_key_vault.main.rbac_authorization_enabled == false && azurerm_key_vault_access_policy.api.secret_permissions == tolist(["Get", "List"])
     error_message = "The API identity only reads secrets."
   }
