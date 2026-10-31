@@ -7,7 +7,7 @@ api_app_name = "apifcv2"
 # Sweden Central refuses PostgreSQL B1ms (and B2s) for this subscription with SkuNotAvailable, although list-skus shows it
 # as available (31/10/2026). Italy North, West Europe, North Europe and Germany West Central accept it; Italy North is the
 # closest to the players and keeps the App Service next to the database. Azure OpenAI stays in Sweden Central.
-location     = "italynorth"
+location = "italynorth"
 
 app_service_sku         = "B1"
 container_registry_sku  = "Basic"
