@@ -26,3 +26,6 @@ openai_enabled       = true
 openai_location      = "swedencentral"
 openai_model_name    = "gpt-6-luna"
 openai_model_version = "2026-09-22"
+
+# 2: the Microsoft client secret was replaced on 31/10/2026 (the previous one was committed to the public history).
+app_secrets_version = 2
