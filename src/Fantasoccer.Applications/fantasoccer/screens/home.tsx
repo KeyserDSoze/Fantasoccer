@@ -10,6 +10,7 @@ import { SerieALiveWidget } from 'components/seriea/SerieALiveWidget';
 import { HomeLeagueMatchWidget } from 'components/home/HomeLeagueMatchWidget';
 import { useApp } from 'providers/AppProvider';
 import { GroupCreationContent } from '../components/groups/GroupCreationContent';
+import { MCP_ENTRY_POINTS } from '../configurations/features';
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -58,9 +59,11 @@ function WelcomeContent() {
   return (
     <YStack gap="$4" width="100%">
       <GroupCreationContent showForm={false} />
-      <Button variant="outlined" size="$3" alignSelf="center" onPress={() => navigation.navigate('McpGuide')}>
-        Come usare Fantasoccer su ChatGPT
-      </Button>
+      {MCP_ENTRY_POINTS ? (
+        <Button variant="outlined" size="$3" alignSelf="center" onPress={() => navigation.navigate('McpGuide')}>
+          Come usare Fantasoccer su ChatGPT
+        </Button>
+      ) : null}
     </YStack>
   );
 }

@@ -47,6 +47,7 @@ import type { RootStackParamList } from 'navigation'
 import { APP_VERSION } from 'config/version'
 import { formatSeasonFromYear } from 'utils/season'
 import { useMainLeagueMarketActivity } from 'providers/MarketActivityProvider'
+import { MCP_ENTRY_POINTS } from '../../configurations/features'
 
 interface NavigationBarProps {
   onNavigate?: (path: string) => void
@@ -118,7 +119,7 @@ const navigationItems: NavigationSection[] = [
       { type: 'route', route: 'CreateGroup', label: 'Crea un nuovo gruppo', icon: Users, description: 'Scopri Fantasoccer e attiva un altro gruppo con un codice' },
       { type: 'route', route: 'Rules', label: 'Regolamento', icon: BookOpen, description: 'Regole e impostazioni della lega' },
       { type: 'route', route: 'Info', label: 'Guida', icon: HelpCircle, description: 'Guida al sito' },
-      { type: 'route', route: 'McpGuide', label: 'MCP e ChatGPT', icon: Sparkles, description: 'Collega un assistente AI a Fantasoccer' },
+      ...(MCP_ENTRY_POINTS ? [{ type: 'route' as const, route: 'McpGuide' as const, label: 'MCP e ChatGPT', icon: Sparkles, description: 'Collega un assistente AI a Fantasoccer' }] : []),
       { type: 'route', route: 'Settings', label: 'Impostazioni', icon: Settings, description: 'Impostazioni utente' },
       { type: 'route', route: 'PushNotification', label: 'Notifiche Push', icon: Bell, description: 'Gestisci le notifiche push' },
       { type: 'route', route: 'PatchNotes', label: 'Patch Notes', icon: FileText, description: 'Novità e aggiornamenti dell\'app' },

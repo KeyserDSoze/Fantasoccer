@@ -74,7 +74,8 @@ Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `rollback-main` è una
 **Prima del merge** di `refactor/postgresql-multi-group` su `main`:
 1. apply dell'infrastruttura (l'API su `apifcv2` nasce con l'immagine del branch);
 2. migrazione dei dati e verifica di `https://apifcv2.azurewebsites.net/health/ready`;
-3. `background_jobs_enabled = true` e apply, quando l'import è concluso.
+3. `background_jobs_enabled = true` e apply, quando l'import è concluso;
+4. variabile del repository `FCV2_BLOB_URL` con l'output `public_blob_base_url` (`https://<storage>.blob.core.windows.net`): il frontend legge da lì le foto dei giocatori e la pubblicazione del sito fallisce se manca, per non ripiegare sullo storage legacy.
 
 **Al merge su `main`** partono automaticamente:
 - `Relational Migration Tests`. Se riesce, `Deploy API fcv2` pubblica su `apifcv2` l'immagine dello stesso commit: i test bloccano il deploy, come nella pipeline precedente.

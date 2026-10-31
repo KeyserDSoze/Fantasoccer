@@ -77,7 +77,7 @@ test('platform menu is independent of memberships and the group owner role never
     'config/version': { APP_VERSION: 'fixture' },
     'utils/season': { formatSeasonFromYear: () => '' },
     'providers/MarketActivityProvider': { useMainLeagueMarketActivity: () => ({ activeMarketCount: 0 }) },
-  })
+  }, { process: { env: {} } })
   let html = renderToStaticMarkup(React.createElement(NavigationBar))
   assert.doesNotMatch(html, /Classifica della tua lega|Utenti, gruppi e codici/)
   globalAdmin = true

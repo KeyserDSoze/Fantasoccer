@@ -146,6 +146,7 @@ Per l'app Expo dev-client, scegli la porta esplicitamente con `npm start -- --po
 # Fiducia esplicita del certificato PUBBLICO, nel proprio account Windows:
 Import-Certificate -FilePath .\local-certificates\localhost.cer -CertStoreLocation Cert:\CurrentUser\Root
 # Impostare MCP_ENABLED=true nel proprio .env solo dopo l'import desiderato.
+# Con MCP_ENABLED=true anche il frontend mostra la guida e i collegamenti MCP (EXPO_PUBLIC_MCP_ENABLED); altrimenti restano nascosti.
 .\scripts\local\local.ps1 up-https
 ```
 
