@@ -850,6 +850,158 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         }
     }
 
+    [PostgreSqlFact]
+    public async Task The_match_view_brings_in_the_first_bench_player_of_the_role_that_has_a_vote_for_a_starter_without_one()
+    {
+        var world = await WorldAsync(61, peachOwnsFunghi: false);
+        var (group, year) = (world.Group, world.Year);
+        var koopa = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddHours(-3));
+        var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await using (var database = factory.Database.CreateContext())
+        {
+            // The first starting defender played no minutes; everyone else has a vote, the bench defender included.
+            foreach (var player in await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToArrayAsync())
+            {
+                var voted = player.PlayerId != koopa[1];
+                database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official,
+                    PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = voted ? 7 : 0, HasVote = voted, IsFinal = false, IsActive = true, IsVisible = true });
+            }
+            await database.SaveChangesAsync();
+        }
+        async Task<(int Starter, int Bench, int? ProjectedStarter, int? ProjectedBench)> PositionsAsync(string mode)
+        {
+            var view = await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode={mode}"));
+            var team = view.Teams.Single(x => x.TeamId == world.Koopa);
+            var (starter, bench) = (team.Players.Single(x => x.Current.PlayerId == koopa[1]), team.Players.Single(x => x.Current.PlayerId == koopa[11]));
+            return (starter.CurrentPosition, bench.CurrentPosition, starter.ProjectedPosition, bench.ProjectedPosition);
+        }
+        // Read-only: the bench defender plays in place of the starter without a vote.
+        Assert.Equal((5, 1, 5, 1), await PositionsAsync("view"));
+        // Editing modes (the live one included) keep the saved lineup in CurrentPosition, which the client sends back when it saves,
+        // and still tell where the automatic substitutions put everyone.
+        Assert.Equal((1, 5, 5, 1), await PositionsAsync("formation"));
+        Assert.Equal((1, 5, 5, 1), await PositionsAsync("live"));
+    }
+
+    [PostgreSqlFact]
+    public async Task The_match_view_brings_in_the_bench_player_also_when_the_votes_are_provisional_live_votes()
+    {
+        var world = await WorldAsync(62, peachOwnsFunghi: false);
+        var (group, year) = (world.Group, world.Year);
+        var koopa = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddHours(-3));
+        var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            await using var database = factory.Database.CreateContext();
+            var players = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync();
+            // The first starting defender has no vote at all yet (his match is still to be played); everyone else has a provisional one.
+            var entries = players.Where(x => x.PlayerId != koopa[1]).Select(x => new CachedLiveVote(x.PlayerId, x.Player.Name, "cmp", "Competition club", (int)x.Position, true, true,
+                new CachedVote((int)x.Position, 7, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false))).OrderBy(x => x.PlayerId, StringComparer.Ordinal).ToArray();
+            await scope.ServiceProvider.GetRequiredService<IFootballLiveDataStore>().PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, 1, entries), null);
+        }
+        async Task<(LivePlayerDto Starter, LivePlayerDto Bench)> PlayersAsync(string mode)
+        {
+            var view = await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode={mode}"));
+            var team = view.Teams.Single(x => x.TeamId == world.Koopa);
+            return (team.Players.Single(x => x.Current.PlayerId == koopa[1]), team.Players.Single(x => x.Current.PlayerId == koopa[11]));
+        }
+        var (starter, bench) = await PlayersAsync("view");
+        Assert.Null(starter.Vote); Assert.True(bench.Vote!.HasVote);
+        Assert.Equal((5, 1), (starter.CurrentPosition, bench.CurrentPosition));
+        Assert.Equal((5, 1), (starter.ProjectedPosition, bench.ProjectedPosition));
+        // The live editing mode keeps the saved lineup in CurrentPosition and carries the substitution apart.
+        (starter, bench) = await PlayersAsync("live");
+        Assert.Equal((1, 5), (starter.CurrentPosition, bench.CurrentPosition));
+        Assert.Equal((5, 1), (starter.ProjectedPosition, bench.ProjectedPosition));
+    }
+
+    // The world of the substitution tests: Koopa's first starting defender has no vote, every other player (his bench defender
+    // included) has a final official vote of 7, and the day is under way.
+    private async Task<(World World, string[] Koopa, Guid Game)> SubstitutionWorldAsync(int year, bool bestFormation)
+    {
+        var world = await WorldAsync(year, peachOwnsFunghi: false);
+        var group = world.Group;
+        var koopa = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddHours(-3));
+        var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await using var database = factory.Database.CreateContext();
+        if (bestFormation) (await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).Formation = 1;
+        foreach (var player in await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToArrayAsync())
+        {
+            var voted = player.PlayerId != koopa[1];
+            database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official,
+                PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = voted ? 7 : 0, HasVote = voted, IsFinal = true, IsActive = true, IsVisible = true });
+        }
+        await database.SaveChangesAsync();
+        return (world, koopa, game);
+    }
+
+    [PostgreSqlFact]
+    public async Task The_score_counts_an_automatic_substitute_exactly_as_if_the_owner_had_fielded_him()
+    {
+        var (world, koopa, game) = await SubstitutionWorldAsync(63, bestFormation: false);
+        var (group, year) = (world.Group, world.Year);
+        async Task<float> HomeScoreAsync()
+        {
+            var view = await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode=formation"));
+            Assert.True(view.ResultIsPreview);
+            return view.Game.Result!.Home.Value;
+        }
+        async Task SetAsync(int starter, int bench, bool benchHasVote)
+        {
+            await using var database = factory.Database.CreateContext();
+            var roster = await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Matchday && x.Day == 1);
+            roster.Players.Single(x => x.PlayerId == koopa[1]).Position = starter; roster.Players.Single(x => x.PlayerId == koopa[11]).Position = bench;
+            var vote = await database.FootballVotes.SingleAsync(x => x.PlayerId == koopa[11] && x.SeasonIndex == year && x.Day == 1);
+            (vote.HasVote, vote.Value) = (benchHasVote, benchHasVote ? 7 : 0);
+            await database.SaveChangesAsync();
+        }
+        // Saved lineup: the starter without a vote on the field, the bench defender with a vote on the bench.
+        var automatic = await HomeScoreAsync();
+        // The same lineup the owner would have saved himself: the bench defender on the field, the other one on the bench.
+        await SetAsync(5, 1, benchHasVote: true);
+        Assert.Equal(automatic, await HomeScoreAsync());
+        // Without the bench defender's vote nobody can come in: the score is lower by what he brought.
+        await SetAsync(1, 5, benchHasVote: false);
+        Assert.True(await HomeScoreAsync() < automatic);
+    }
+
+    [PostgreSqlFact]
+    public async Task A_best_formation_league_keeps_its_saved_lineup_in_the_editing_modes_and_its_score_in_every_mode()
+    {
+        var (world, koopa, game) = await SubstitutionWorldAsync(64, bestFormation: true);
+        var (group, year) = (world.Group, world.Year);
+        Dictionary<string, int> saved;
+        await using (var database = factory.Database.CreateContext())
+            saved = (await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Matchday && x.Day == 1))
+                .Players.ToDictionary(x => x.PlayerId, x => x.Position);
+        async Task<GameDto> ReadAsync(string mode) =>
+            await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode={mode}"));
+        var view = await ReadAsync("view");
+        var score = view.Game.Result!.Home.Value;
+        // The read-only view shows the best formation, as it always did.
+        Assert.All(view.Teams.Single(x => x.TeamId == world.Koopa).Players, x => Assert.Equal(x.CurrentPosition, x.ProjectedPosition));
+        foreach (var mode in new[] { "formation", "live" })
+        {
+            var edit = await ReadAsync(mode);
+            // The editing modes never rebuild the lineup from the votes: what is saved is what is shown, and what a save would send.
+            Assert.All(edit.Teams.Single(x => x.TeamId == world.Koopa).Players, x =>
+            {
+                Assert.Equal(saved[x.Current.PlayerId], x.CurrentPosition);
+                Assert.Equal(saved[x.Current.PlayerId], x.ProjectedPosition);
+            });
+            Assert.Equal(score, edit.Game.Result!.Home.Value);
+        }
+    }
+
     // Two leagues of one group, each with a finished and fully voted match on the same Serie A day. The league the
     // scheduled job meets first (database order) is returned as the one the caller will break.
     private async Task<(World World, Guid SerieAMatch, Guid PremierMatch, Guid Broken)> TwoLeaguesWithAFinishedDayAsync(int year)

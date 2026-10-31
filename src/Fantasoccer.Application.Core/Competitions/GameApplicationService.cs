@@ -64,9 +64,24 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
                 (admin || (editMode == "live" ? liveWindow && hasDayFormation && remaining > 0 : before));
             var active = source.Players.Where(x => x.Status == 0).Select(x => (Wire: x, Domain: DomainPlayer(x))).ToArray();
             var wire = active.ToDictionary(x => x.Domain, x => x.Wire);
-            var projection = leagues.Create((settings.Formation == FormationType.Best && editMode == "view" ? LeagueType.SuperLeague : type).ToString())
+            // The same calculator the score uses: the best-formation one when the league is a SuperLeague or asks for the best formation.
+            var projectionType = settings.Formation == FormationType.Best ? LeagueType.SuperLeague : type;
+            var projection = leagues.Create(projectionType.ToString())
                 ?? throw new ApplicationFault(409, "league_calculator_unavailable", "Calcolatore non disponibile per questa competizione.");
             var enriched = calculator.Enrich(active.Select(x => x.Domain)).ToArray();
+            // Where each player stands once the automatic substitutions are applied (a starter without a vote, or still to play, is
+            // replaced by the first bench player of his role who has one). It is computed on its own copies and never replaces
+            // CurrentPosition: that is the saved lineup, which clients send back when they save. The best-formation calculator
+            // rebuilds the whole lineup from the votes, even when there are none: it is the read-only view's job, never the editing
+            // modes', where it would scramble the saved lineup.
+            var projected = new Dictionary<RosterPlayerDto, int>();
+            if (editMode == "view" || projectionType != LeagueType.SuperLeague)
+            {
+                var copies = active.Select(x => (x.Wire, Domain: DomainPlayer(x.Wire))).ToArray();
+                var wireOf = copies.ToDictionary(x => x.Domain, x => x.Wire);
+                foreach (var shown in projection.GetRightFormation(calculator.Enrich(copies.Select(x => x.Domain))))
+                    projected[wireOf[shown.Current]] = (int)shown.CurrentPosition;
+            }
             if (editMode == "view") enriched = projection.GetRightFormation(enriched).ToArray();
             var point = calculator.CalculatePoint(active.Select(x => DomainPlayer(x.Wire)));
             if (id == match.HomeTeamId) point = new(point.Value + settings.PointInHome, point.DefensiveBonus, point.GoodPeople, point.OwnGoal);
@@ -75,7 +90,8 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
                 x.Chance is null ? null : new(x.Chance.Fantagazzetta, x.Chance.Gazzetta, x.Chance.Mediaset, x.Chance.Sky, (int)x.Chance.Status, x.Chance.Description),
                 footballDay?.Games.FirstOrDefault(game => string.Equals(game.Home.Name, x.Current.RealTeam.Name, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(game.Away.Name, x.Current.RealTeam.Name, StringComparison.OrdinalIgnoreCase)),
-                x.FinalValue is null ? null : new(x.FinalValue.Value, x.FinalValue.Special), (int)x.CurrentPosition)).ToArray();
+                x.FinalValue is null ? null : new(x.FinalValue.Value, x.FinalValue.Special), (int)x.CurrentPosition)
+                { ProjectedPosition = projected.TryGetValue(wire[x.Current], out var substituted) ? substituted : (int)x.CurrentPosition }).ToArray();
             teamDtos.Add(new LiveTeamDto(team.TeamId, team.BasketId, historicalFallback ? 0 : source.Version, historicalFallback ? null : source.SourceVersion,
                 source.Name, source.Owner, source.AdditionalOwners, players, source.LastUpdate, rules.LiveFormationChanges, source.FormationChanges, remaining,
                 source.FormationChangeHistory, source.LogoUrl, editable) { AuthoritativeTeamId = team.AuthoritativeTeamId, UnavailablePlayerIds = source.UnavailablePlayerIds, ProposedFromDay = source.ProposedFromDay,

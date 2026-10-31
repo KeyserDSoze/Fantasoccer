@@ -22,6 +22,7 @@ import {
 import gameService, { type GameEditMode } from '../../services/gameService';
 import { getPlayerKey } from '../../utils/keyUtils';
 import { reloadPlayerImage } from '../../services/playerImageService';
+import { displayedPlayers, savedPlayer } from '../../services/gameFormation';
 
 // SVG field background as a React component with responsive orientation
 interface SoccerFieldSVGProps {
@@ -324,19 +325,22 @@ export const SoccerField = memo(
     const home = localTeams.home ?? initialHome;
     const away = localTeams.away ?? initialAway;
     // Removed debug log
-    const homeStarters: LivePlayer[] = (home?.players ?? []).filter(
+    // The pitch shows the automatic substitutions; every action below goes back to the saved player (savedPlayer).
+    const homeShown = displayedPlayers(home?.players ?? [], hasLocalChanges);
+    const awayShown = displayedPlayers(away?.players ?? [], hasLocalChanges);
+    const homeStarters: LivePlayer[] = homeShown.filter(
       (p) =>
         p.currentPosition >= FantaSoccerRole.GoalKeeper &&
         p.currentPosition <= FantaSoccerRole.Forward
     );
-    const awayStarters: LivePlayer[] = (away?.players ?? []).filter(
+    const awayStarters: LivePlayer[] = awayShown.filter(
       (p) =>
         p.currentPosition >= FantaSoccerRole.GoalKeeper &&
         p.currentPosition <= FantaSoccerRole.Forward
     );
 
     // Panchine - giocatori backup (riserve) ordinati per currentPosition
-    const homeBench: LivePlayer[] = (home?.players ?? [])
+    const homeBench: LivePlayer[] = homeShown
       .filter(
         (p) =>
           p.currentPosition >= FantaSoccerRole.BackupGoalKeeper &&
@@ -344,7 +348,7 @@ export const SoccerField = memo(
       )
       .sort((a, b) => a.currentPosition - b.currentPosition);
 
-    const awayBench: LivePlayer[] = (away?.players ?? [])
+    const awayBench: LivePlayer[] = awayShown
       .filter(
         (p) =>
           p.currentPosition >= FantaSoccerRole.BackupGoalKeeper &&
@@ -353,10 +357,10 @@ export const SoccerField = memo(
       .sort((a, b) => a.currentPosition - b.currentPosition);
 
     // Tribuna - giocatori non utilizzati
-    const homeTribuneRaw: LivePlayer[] = (home?.players ?? []).filter(
+    const homeTribuneRaw: LivePlayer[] = homeShown.filter(
       (p) => p.currentPosition === FantaSoccerRole.Tribune
     );
-    const awayTribuneRaw: LivePlayer[] = (away?.players ?? []).filter(
+    const awayTribuneRaw: LivePlayer[] = awayShown.filter(
       (p) => p.currentPosition === FantaSoccerRole.Tribune
     );
 
@@ -444,7 +448,7 @@ export const SoccerField = memo(
       event?.stopPropagation?.();
       const contextEvent = event?.nativeEvent ?? event;
       setQuickMenu({
-        player,
+        player: savedPlayer(player),
         teamIndex,
         anchor: {
           x: contextEvent?.clientX ?? contextEvent?.pageX ?? 0,
@@ -463,7 +467,7 @@ export const SoccerField = memo(
       event?.stopPropagation?.();
       const touchEvent = event?.nativeEvent ?? event;
       setQuickMenu({
-        player,
+        player: savedPlayer(player),
         teamIndex,
         anchor: {
           x: touchEvent?.clientX ?? touchEvent?.pageX ?? 0,
@@ -703,7 +707,8 @@ export const SoccerField = memo(
       keyboardSelection.player.current.name === player.current.name;
 
     // Funzione per gestire click su un giocatore
-    const handlePlayerClick = (player: LivePlayer, teamIndex: number) => {
+    const handlePlayerClick = (shownPlayer: LivePlayer, teamIndex: number) => {
+      const player = savedPlayer(shownPlayer);
       const isMyTeam = teamIndex === 0 ? homeIsMyTeam : awayIsMyTeam;
 
       if (isLiveEdit && hasLocalChanges && isMyTeam) {

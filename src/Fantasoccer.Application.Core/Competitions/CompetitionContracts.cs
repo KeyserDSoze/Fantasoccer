@@ -23,7 +23,11 @@ public sealed record FantasyRankDto(int SerieADay, Dictionary<string, RankedTeam
     public bool IsReconstructed { get; init; }
 }
 public sealed record FinalVoteDto(float Value, bool Special);
-public sealed record LivePlayerDto(RosterPlayerDto Current, VoteDto? Vote, ChanceDto? Chance, FootballGameDto? RealGame, FinalVoteDto? FinalValue, int CurrentPosition);
+public sealed record LivePlayerDto(RosterPlayerDto Current, VoteDto? Vote, ChanceDto? Chance, FootballGameDto? RealGame, FinalVoteDto? FinalValue, int CurrentPosition)
+{
+    // Position after the automatic substitutions. CurrentPosition stays the lineup as saved in the editing modes.
+    public int? ProjectedPosition { get; init; }
+}
 public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? SourceVersion, string Name, string Owner, string[] AdditionalOwners,
     LivePlayerDto[] Players, string? LastUpdate, int FormationChangesMaximum, int FormationChangesUsed, int FormationChangesRemaining,
     FormationChangeDto[] FormationChangeHistory, string? LogoUrl, bool CanEdit)

@@ -11,6 +11,9 @@ export interface LivePlayer {
   realGame?: RealGame | null
   finalValue?: VoteValue | null
   currentPosition: FantaSoccerRole
+  // Where the automatic substitutions put the player (a bench player of the role with a vote replaces a starter without one).
+  // currentPosition stays the lineup as saved, which is what a save sends back.
+  projectedPosition?: FantaSoccerRole | null
 }
 export interface LiveFormationPlayerChange { name: string; fromPosition: FantaSoccerRole; toPosition: FantaSoccerRole }
 export interface LiveFormationChange { date: string | null; author: string; players: LiveFormationPlayerChange[] }

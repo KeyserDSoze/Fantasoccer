@@ -1,4 +1,4 @@
-import type { LiveTeam } from '../types/game'
+import type { LivePlayer, LiveTeam } from '../types/game'
 
 export function formationRequest(team: LiveTeam, live = false, asAdmin = false) {
   if (!team.teamId || !Number.isInteger(team.version) || team.version < 0) throw new Error('Ricaricare la formazione dal server.')
@@ -11,3 +11,21 @@ export function formationRequest(team: LiveTeam, live = false, asAdmin = false) 
     positions: active.map(player => ({ playerId: player.current.playerId!, position: player.currentPosition })),
   }
 }
+
+// A displayed copy knows the saved player it stands for, so every action works on the saved lineup.
+const savedOf = new WeakMap<object, LivePlayer>()
+
+// Players as the pitch shows them: the automatic substitutions applied. Never use these to build a save or a live change.
+// While the owner has unsaved edits the saved positions are shown, because the edits are expressed on them.
+export function displayedPlayers(players: LivePlayer[], hasUnsavedEdits = false): LivePlayer[] {
+  if (hasUnsavedEdits) return players
+  return players.map(player => {
+    const shown = player.projectedPosition
+    if (shown == null || shown === player.currentPosition) return player
+    const copy = { ...player, currentPosition: shown }
+    savedOf.set(copy, player)
+    return copy
+  })
+}
+
+export const savedPlayer = (player: LivePlayer): LivePlayer => savedOf.get(player) ?? player
