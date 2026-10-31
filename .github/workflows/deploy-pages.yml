@@ -25,6 +25,9 @@ concurrency:
 
 env:
   API_URL: ${{ vars.FCV2_API_URL || 'https://apifcv2.azurewebsites.net' }}
+  # Public Blob endpoint of the fcv2 storage account. The name is deterministic (infra/main.tf: st + environment + the first six
+  # hex digits of sha256("<subscription>/fcv2")); the repository variable only overrides it, e.g. after a name_suffix change.
+  BLOB_URL: ${{ vars.FCV2_BLOB_URL || 'https://stfcv2f71915.blob.core.windows.net' }}
 
 jobs:
   api:
@@ -57,15 +60,9 @@ jobs:
       # of this environment. Without it the bundle would fall back to the legacy storage
       # account and photos refreshed through the API would never show up.
       - name: Public file storage of the fcv2 environment
-        env:
-          BLOB_URL: ${{ vars.FCV2_BLOB_URL }}
         run: |
-          if [ -z "$BLOB_URL" ]; then
-            echo "::error::Set the repository variable FCV2_BLOB_URL (terraform output public_blob_base_url): the published site would read player photos from the legacy storage."
-            exit 1
-          fi
-          if ! printf '%s' "$BLOB_URL" | grep -Eq '^https://[a-z0-9]+\.blob\.core\.windows\.net/?$'; then
-            echo "::error::FCV2_BLOB_URL must be the https blob endpoint of the storage account (https://<account>.blob.core.windows.net)."
+          if ! printf '%s' "$BLOB_URL" | grep -Eq '^https://stfcv2[a-z0-9]*\.blob\.core\.windows\.net/?$'; then
+            echo "::error::The blob endpoint must be the fcv2 storage account, https://stfcv2<suffix>.blob.core.windows.net (repository variable FCV2_BLOB_URL): any other account, the legacy one included, would serve the wrong player photos."
             exit 1
           fi
 
@@ -96,7 +93,7 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
           EXPO_NONINTERACTIVE: "1"
           EXPO_PUBLIC_API_URL: ${{ env.API_URL }}
-          EXPO_PUBLIC_BLOB_URL: ${{ vars.FCV2_BLOB_URL }}
+          EXPO_PUBLIC_BLOB_URL: ${{ env.BLOB_URL }}
 
       - name: Prepare GitHub Pages artifact
         run: |
