@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Fantasoccer.Application.Api.Operations;
 using Xunit;
@@ -38,7 +39,8 @@ public sealed partial class WorkspaceApiTests
         });
         await using var scope = factory.Services.CreateAsyncScope(); await using var database = factory.Database.CreateContext();
         var caller = new ClaimsPrincipal(new ClaimsIdentity([new(ClaimTypes.Email, email), new(ClaimTypes.Role, "super_admin")], "test"));
-        var service = new SqlJobApplicationService(database, scope.ServiceProvider.GetRequiredService<OperationsApplicationService>(), actions, TimeProvider.System);
+        var service = new SqlJobApplicationService(database, scope.ServiceProvider.GetRequiredService<OperationsApplicationService>(), actions, TimeProvider.System,
+            scope.ServiceProvider.GetRequiredService<ILogger<SqlJobApplicationService>>());
         var result = (await service.RunAsync(caller, new("statistics", year)))!;
         Assert.Equal("LeaseLost", result.Status);
         await using var cleanup = factory.Database.CreateContext();
@@ -124,7 +126,8 @@ public sealed partial class WorkspaceApiTests
         var actions = new StubSqlJobs(token => { cancellation.Cancel(); return Task.FromCanceled<SqlJobWorkResult>(token); });
         await using var scope = factory.Services.CreateAsyncScope(); await using var database = factory.Database.CreateContext();
         var caller = new ClaimsPrincipal(new ClaimsIdentity([new(ClaimTypes.Email, email), new(ClaimTypes.Role, "super_admin")], "test"));
-        var service = new SqlJobApplicationService(database, scope.ServiceProvider.GetRequiredService<OperationsApplicationService>(), actions, TimeProvider.System);
+        var service = new SqlJobApplicationService(database, scope.ServiceProvider.GetRequiredService<OperationsApplicationService>(), actions, TimeProvider.System,
+            scope.ServiceProvider.GetRequiredService<ILogger<SqlJobApplicationService>>());
         var result = (await service.RunAsync(caller, new("chances", FantacalcioTime.ActualYear), cancellation.Token))!;
         Assert.Equal("Canceled", result.Status); Assert.Equal("job_canceled", result.Code);
         await using var final = factory.Database.CreateContext();

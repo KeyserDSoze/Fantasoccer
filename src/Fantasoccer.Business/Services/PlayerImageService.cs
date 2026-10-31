@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Threading.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Business.Services;
 
@@ -12,13 +13,14 @@ public sealed class PlayerImageService(
     IHttpClientFactory httpClientFactory,
     IFootballIngestionReader realPlayers,
     IPlayerImageStore images,
-    ILock imageLock) : IPlayerImageRefresher
+    ILock imageLock, IOptions<PlayerImageRefreshOptions>? options = null) : IPlayerImageRefresher
 {
     private const string CompetitionId = "serie-a::Football_Competition::ec93b94f74294dc98ab5bcfd67fc0d88";
     private static readonly Uri MediaBaseUri = new("https://media-sdp.legaseriea.it/");
     private const int MaximumImageBytes = 10 * 1024 * 1024;
     private const int CataloguePageConcurrency = 4;
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("player-images");
+    private readonly PlayerImageRefreshOptions _options = options?.Value ?? new();
 
     public async Task DownloadMissingAsync(CancellationToken cancellationToken)
     {
@@ -58,75 +60,61 @@ public sealed class PlayerImageService(
         IReadOnlyCollection<RealPlayer> players,
         CancellationToken cancellationToken)
     {
+        var targets = players.DistinctBy(Identity, StringComparer.Ordinal).ToArray();
+        if (targets.Length == 0) return [];
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(_options.BatchTimeout);
+        PlayerImageReloadResult Failure(RealPlayer player, string error) => new(Identity(player), Identity(player), player.Name, false, error);
+        const string Expired = "Tempo complessivo di aggiornamento esaurito. Riprova per le immagini non completate.";
         List<SdpPlayer> sourcePlayers;
         try
         {
-            sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, cancellationToken, players);
+            sourcePlayers = await GetSourcePlayersAsync(FantacalcioTime.ActualYear, budget.Token, targets);
         }
         catch (ExternalHttpDisabledException) { throw; }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (OperationCanceledException) { return targets.Select(player => Failure(player, Expired)).ToArray(); }
         catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            return players.Select(player => new PlayerImageReloadResult(
-                player.Key,
-                player.Name,
-                false,
-                "Catalogo immagini non disponibile.")).ToArray();
+            return targets.Select(player => Failure(player, "Catalogo immagini non disponibile.")).ToArray();
         }
-
-        List<PlayerImageReloadResult> results = [];
-        foreach (var player in players.DistinctBy(x => x.Key))
+        var results = new PlayerImageReloadResult[targets.Length];
+        var next = -1;
+        async Task DownloadAsync()
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var completed = false;
-            var succeeded = false;
-            string? error = null;
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(45));
-
-            await imageLock.ExecuteAsync(async () =>
+            int index;
+            while ((index = Interlocked.Increment(ref next)) < targets.Length)
             {
-                try
+                cancellationToken.ThrowIfCancellationRequested();
+                var player = targets[index];
+                if (budget.IsCancellationRequested) { results[index] = Failure(player, Expired); continue; }
+                var completed = false; var succeeded = false; string? error = null;
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(budget.Token);
+                timeout.CancelAfter(_options.ImageTimeout);
+                await imageLock.ExecuteAsync(async () =>
                 {
-                    var path = FindImagePath(player, sourcePlayers);
-                    if (path == null)
+                    try
                     {
-                        error = "Nessuna foto ufficiale disponibile.";
-                        return;
+                        var path = FindImagePath(player, sourcePlayers);
+                        if (path == null) { error = "Nessuna foto ufficiale disponibile."; return; }
+                        await UploadAsync(player, path, timeout.Token);
+                        succeeded = true;
                     }
-
-                    await UploadAsync(player, path, timeout.Token);
-                    succeeded = true;
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
-                    error = "Aggiornamento scaduto per timeout.";
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception)
-                {
-                    error = "Fonte immagini non disponibile o immagine non valida.";
-                }
-                finally
-                {
-                    completed = true;
-                }
-            }, $"player-image:{player.Key}");
-
-            if (!completed) error = "Aggiornamento già in corso.";
-            results.Add(new PlayerImageReloadResult(player.Key, player.Name, succeeded, error));
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                    catch (OperationCanceledException) { error = budget.IsCancellationRequested ? Expired : "Aggiornamento scaduto per timeout."; }
+                    catch (Exception) { error = "Fonte immagini non disponibile o immagine non valida."; }
+                    finally { completed = true; }
+                }, $"player-image:{Identity(player)}");
+                if (!completed) error = "Aggiornamento già in corso.";
+                results[index] = new(Identity(player), Identity(player), player.Name, succeeded, error);
+            }
         }
-
+        await Task.WhenAll(Enumerable.Range(0, Math.Min(_options.ParallelDownloads, targets.Length)).Select(_ => DownloadAsync()));
         return results;
     }
 
-    private static string ImageKey(RealPlayer player) => $"players/{player.Key}.jpg";
+    private static string Identity(RealPlayer player) => string.IsNullOrWhiteSpace(player.PlayerId) ? player.Key : player.PlayerId;
+    private static string ImageKey(RealPlayer player) => $"players/{Identity(player)}.jpg";
 
     private async Task UploadAsync(RealPlayer player, string path, CancellationToken cancellationToken)
     {
@@ -183,17 +171,25 @@ public sealed class PlayerImageService(
         Task<PlayersResponse?> PageAsync(int page) => _httpClient.GetFromJsonAsync<PlayersResponse>(
             $"seasons/{Uri.EscapeDataString(seasonId)}/stats/players?category=General&page={page}&locale=it-IT", cancellationToken);
         var first = await PageAsync(1);
-        List<SdpPlayer> players = first?.Players?.ToList() ?? [];
-        if (first?.Pagination is not { IsLastPage: false } pagination) return players;
+        if (first?.Players is null || first.Pagination is not { TotalPages: >= 1 and <= 100, CurrentPage: 1 } pagination ||
+            pagination.IsLastPage != (pagination.TotalPages == 1)) throw new InvalidDataException("Invalid or incomplete image catalogue page.");
+        List<SdpPlayer> players = first.Players.ToList();
+        if (pagination.IsLastPage) return players;
         // A season currently has dozens of pages. Fetch bounded batches rather than serially exceeding the
         // refresh endpoint's 45-second deadline. Keep page/season ordering, including current-before-previous.
         // Any failed page aborts the catalogue before a single image can be overwritten.
-        var lastPage = Math.Clamp(pagination.TotalPages, 1, 100);
+        var lastPage = pagination.TotalPages;
         for (var page = 2; page <= lastPage; page += CataloguePageConcurrency)
         {
             var batch = await Task.WhenAll(Enumerable.Range(page, Math.Min(CataloguePageConcurrency, lastPage - page + 1)).Select(PageAsync));
-            foreach (var response in batch)
-                if (response?.Players != null) players.AddRange(response.Players);
+            for (var index = 0; index < batch.Length; index++)
+            {
+                var response = batch[index]; var expectedPage = page + index;
+                if (response?.Players is null || response.Pagination is not { } state || state.TotalPages != lastPage ||
+                    state.CurrentPage != expectedPage || state.IsLastPage != (expectedPage == lastPage))
+                    throw new InvalidDataException("Invalid or incomplete image catalogue page.");
+                players.AddRange(response.Players);
+            }
         }
         return players;
     }
@@ -347,6 +343,7 @@ public sealed class PlayerImageService(
     private sealed class Pagination
     {
         public int TotalPages { get; set; }
+        public int CurrentPage { get; set; }
         public bool IsLastPage { get; set; }
     }
     private sealed class SdpPlayer

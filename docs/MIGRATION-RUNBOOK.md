@@ -379,6 +379,20 @@ Una copia acquisita mentre la sorgente riceve scritture è **esplorativa**. Ferm
 
 ## Cutover: cache distribuita e nuove regole
 
+### Attivazione controllata dei worker, solo dopo l'accettazione dell'import
+
+1. Conservare report e riconciliazioni dell'import finale e approvazione del gestore; non abilitare writer per aggirare `pendingFields` o dati sconosciuti. La prima scrittura applicativa/job/OAuth blocca le successive reimportazioni sullo stesso target.
+2. Avviare con job e push ancora disabilitati e verificare `/health/ready`, schema aggiornato (inclusa `OperationalJobCursor`), account e ambiti di gruppo. Le impostazioni di repository `background_jobs_enabled=false` e `Push__Enabled=false` sono intenzionali in questa fase.
+3. Verificare calendario, catalogo, voti e snapshot giornalieri attestati. Se un giorno passato non ha rosa né snapshot della partita, `historical_roster_unavailable` richiede riconciliazione: non completarlo con la rosa attuale. Il futuro va preparato **prima** del calcio d'inizio.
+4. Dopo l'approvazione finale, abilitare HTTP esterno e `BackgroundJobs:Enabled` (`BACKGROUND_JOBS_ENABLED` nel Compose locale; `background_jobs_enabled` in Terraform). Eseguire/verificare da amministratore `GET /api/operations/jobs`; eventuali avvii manuali passano da `POST /api/operations/jobs/run` con nome job e indice stagione corrente. Non basta vedere il processo API avviato: controllare ricevuta, stato, codice e prossima esecuzione. Verificare almeno calendario/catalogo, preparazione formazioni, ingestione e risultati nella rispettiva finestra oraria.
+5. Controllare i codici parziali: `historical_roster_unavailable`, `hall_baseline_reconciliation_required` e `hall_batch_pending` non sono risultati di gioco validati automaticamente. L'albo riprende i batch dal cursore persistente; se resta lavoro viene ripianificato dopo un minuto.
+6. Attivare le push separatamente, soltanto dopo configurazione VAPID e verifica destinatari/connessioni importate. In Terraform `Push__Enabled` è ancora fissato a `false`: la modifica produttiva deve essere esplicita e approvata. Verificare worker, outbox, lease/retry e ricevute senza confondere accettazione del provider con lettura del messaggio.
+7. Confermare i log sanitizzati dei worker (tipo errore e run/tentativo), monitorare SQL/Blob e mantenere il piano di rollback. I test sintetici non sostituiscono la misura del Live con utenti concorrenti.
+
+Gli smoke test esterni schedulati di GitHub Actions girano sul **branch predefinito**. Prima del merge del refactoring eseguirli manualmente selezionando il branch corretto, oppure localmente con `RUN_EXTERNAL_PARSER_TESTS=true`; la presenza del workflow nel branch non avvia da sola il cron di quel branch.
+
+### Operazioni nella finestra di manutenzione
+
 Da eseguire nella finestra di manutenzione, **fuori dalle finestre Live** (nessuna giornata in corso né recuperi in giornata):
 
 1. Container della cache privato (`Cache:ContainerName`, default `fantazone-cache`) sullo stesso account dei file; `Cache:Namespace` uguale per tutte le istanze API dello stesso ambiente. Applicare la lifecycle policy di [`ops/azure`](../ops/azure/README.md) dopo aver verificato versioning/soft delete dell'account (il soft delete a livello di account trattiene per tutto il periodo anche le copie create dalle sovrascritture della cache: vedere lo stesso README).

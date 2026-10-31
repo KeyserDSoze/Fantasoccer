@@ -16,5 +16,8 @@ namespace Fantasoccer
         public bool Visible { get; set; } = true;
         [JsonIgnore]
         public string Key => KeyUtils.GetPlayerKey(Name);
+        // Runtime identity from PostgreSQL; never changes the legacy JSON or the name-based scoring key.
+        [JsonIgnore]
+        public string? PlayerId { get; set; }
     }
 }

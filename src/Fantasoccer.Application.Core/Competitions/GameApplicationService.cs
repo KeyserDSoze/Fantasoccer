@@ -53,14 +53,9 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
             if (id is null) continue;
             var team = sides.Single(x => x.TeamId == id);
             var controlled = viewer is { } person && (team.IsControlledBy(person) || admin);
-            var view = await lineups.ReadAsync(group, league, year, team, day, before || liveWindow, cancellationToken, proposePrevious: before && editMode != "view" && controlled);
+            var view = await lineups.ReadAsync(group, league, year, team, day, before || liveWindow, cancellationToken, match.Id);
             var source = view?.Roster;
-            var historicalFallback = false;
-            if (source is null)
-            {
-                source = await PlayedRosterAsync(match, team, day, id == match.HomeTeamId, cancellationToken);
-                historicalFallback = source != null;
-            }
+            var historicalFallback = view?.HistoricalFallback == true;
             if (source is null) throw new ApplicationFault(409, "historical_roster_unavailable", "Snapshot storico della formazione non disponibile; non viene sostituito con la rosa attuale.");
             var remaining = Math.Max(0, rules.LiveFormationChanges - source.FormationChanges);
             var owned = viewer is { } user && team.IsControlledBy(user);
@@ -156,22 +151,6 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         await database.FantasyMatches.AsNoTracking().Include(x => x.Matchday).SingleOrDefaultAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.Id == id, cancellationToken)
             ?? throw new ApplicationFault(404, "match_not_found", "Partita non trovata nella competizione richiesta.");
 
-    private async Task<TeamRosterDto?> PlayedRosterAsync(FantasyMatch match, ResolvedTeam team, int day, bool home, CancellationToken cancellationToken)
-    {
-        var saved = await database.PlayedMatchSnapshots.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == match.GroupId && x.LeagueId == match.LeagueId &&
-            x.SeasonIndex == match.SeasonIndex && x.MatchId == match.Id && x.Day == day, cancellationToken);
-        if (saved is null) return null;
-        var rows = saved.Players.Where(x => x.IsHome == home).OrderBy(x => x.Ordinal).ToArray();
-        var playerIds = rows.Select(x => x.PlayerId).ToArray();
-        var clubIds = rows.Where(x => x.ClubId != null).Select(x => x.ClubId!).ToArray();
-        var players = await database.Players.Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-        var clubs = await database.Clubs.Where(x => clubIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
-        return new(team.TeamId, match.GroupId, team.BasketId, match.SeasonIndex, (int)RosterKind.Matchday, day, null,
-            home ? saved.HomeName : saved.AwayName, (home ? match.HomeOwner : match.AwayOwner) ?? "", [],
-            rows.Select(x => new RosterPlayerDto(x.PlayerId, x.Ordinal, players[x.PlayerId].Name, FootballClubDto.Of(x.ClubId is null ? null : clubs[x.ClubId]),
-                x.PlayerRole, x.IsActive, x.IsVisible, x.Price, x.Revenue, x.Status, x.Position)
-                { SeasonIndex = match.SeasonIndex }).ToArray(), 0, 0, null, 0, [], 0);
-    }
     private static Player DomainPlayer(RosterPlayerDto row) => new() { Name = row.Name, RealTeam = new() { Name = row.Team.Name, Abbreviation = row.Team.Abbreviation },
         Role = (Role)row.Role, IsActive = row.IsActive, Visible = row.Visible, Price = row.Price, Revenue = row.Revenue, Status = (PlayerInTeamStatus)row.Status, Position = (FantaSoccerRole)row.Position };
     private static VoteDto Vote(Vote row) => new((int)row.Role, row.Value, row.IsFinal, row.Goal, row.Penalty, row.Assist, row.StoppedPenalty, row.SufferedGoal,

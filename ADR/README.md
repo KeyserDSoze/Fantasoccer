@@ -36,6 +36,7 @@ L'obiettivo non è costruire una piattaforma enterprise: usare un database condi
 14. [Matrice dei contratti e delle policy](MATRICE-CONTRATTI-E-POLICY.md)
 15. [Infrastruttura Terraform dell'ambiente `fcv2`](../infra/README.md)
 16. [0013 — Rimozione del backend legacy e riduzione delle dipendenze Rystem](0013-rimozione-backend-legacy.md)
+17. [0014 — Storico attestato, formazione effettiva e refresh immagini limitato](0014-storico-formazioni-e-refresh-immagini.md)
 
 ## Decisioni confermate
 

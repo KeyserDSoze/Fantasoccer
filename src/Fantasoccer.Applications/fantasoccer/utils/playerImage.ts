@@ -22,13 +22,17 @@ export const buildPlayerImageKeyFromName = (name?: string | null): string => {
 
 export const getPlayerImageUrlFromName = (
   name?: string | null,
-  revision?: string
-): { src: string; fallback: string } => {
-  const key = buildPlayerImageKeyFromName(name);
+  revision?: string,
+  playerId?: string | null
+): { src: string; fallback: string; placeholder: string } => {
+  const alias = buildPlayerImageKeyFromName(name);
+  const key = playerId || alias;
   const imageRevision = revision ?? getPlayerImageRevision(key);
   return {
     src: buildImageUrl(key) + (imageRevision ? `?v=${encodeURIComponent(imageRevision)}` : ''),
-    fallback: buildImageUrl(DEFAULT_PLAYER_IMAGE_KEY),
+    // Old dumps/files used the name alias; new refreshes use the authoritative player ID.
+    fallback: buildImageUrl(key === alias ? DEFAULT_PLAYER_IMAGE_KEY : alias),
+    placeholder: buildImageUrl(DEFAULT_PLAYER_IMAGE_KEY),
   };
 };
 

@@ -109,7 +109,7 @@ export function PlayerCard({
   isKeyboardSelected = false,
   statPlayersMap,
 }: PlayerCardProps) {
-  const [failedImageUri, setFailedImageUri] = useState<string | null>(null);
+  const [failedImageUris, setFailedImageUris] = useState<Set<string>>(new Set());
   const [isBlinking, setIsBlinking] = useState(false);
 
   const current = (player as any).current ?? (player as any);
@@ -121,7 +121,8 @@ export function PlayerCard({
   const name = current?.name ?? 'Giocatore';
   const teamName = current?.team?.name ?? '';
   const playerKey = getPlayerKey(name); // Genera chiave normalizzata dal nome
-  const imageRevision = usePlayerImageRevision(playerKey);
+  const imageKey = current?.playerId ?? current?.key ?? playerKey;
+  const imageRevision = usePlayerImageRevision(imageKey);
 
   // Lookup StatPlayer per calcoli trend/positiveness
   const statPlayer = useMemo(() => {
@@ -136,11 +137,11 @@ export function PlayerCard({
     return calculatePlayerStats(statPlayer);
   }, [statPlayer]);
 
-  const { src, fallback } = useMemo(
-    () => getPlayerImageUrlFromName(current?.name, imageRevision),
-    [current?.name, imageRevision]
+  const { src, fallback, placeholder } = useMemo(
+    () => getPlayerImageUrlFromName(current?.name, imageRevision, imageKey),
+    [current?.name, imageRevision, imageKey]
   );
-  const imageUri = failedImageUri === src ? fallback : src;
+  const imageUri = [src, fallback, placeholder].find(uri => !failedImageUris.has(uri)) ?? placeholder;
 
   const voteLabel = vote
     ? typeof vote.value === 'number'
@@ -481,7 +482,7 @@ export function PlayerCard({
           width={cardWidth}
           height={cardHeight}
           objectFit="cover"
-          onError={() => setFailedImageUri(src)}
+          onError={() => setFailedImageUris(current => current.has(imageUri) ? current : new Set(current).add(imageUri))}
           position="absolute"
           top={0}
           left={0}

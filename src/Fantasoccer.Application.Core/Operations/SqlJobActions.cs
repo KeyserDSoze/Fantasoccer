@@ -8,10 +8,11 @@ using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Application.Core.Operations;
 
-public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider clock) : ISqlJobActions
+public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider clock, IOptions<JobMaintenanceOptions> options) : ISqlJobActions
 {
     public async Task<SqlJobWorkResult> ExecuteAsync(string name, int year, CancellationToken cancellationToken)
     {
@@ -37,19 +38,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             return new(purged.Deleted, 0);
         }
         if (name == "postponed-results") return await RecoverPostponedAsync(database, cancellationToken);
-        if (name == "hall")
-        {
-            var leagues = await database.Leagues.AsNoTracking().Where(x => !x.IsArchived).Select(x => new { x.GroupId, x.LeagueId }).Take(1000).ToArrayAsync(cancellationToken);
-            var processed = 0; var skipped = 0;
-            foreach (var league in leagues)
-            {
-                // A refusal must not leave tracked deltas for the next league.
-                await using var child = scopes.CreateAsyncScope();
-                try { await child.ServiceProvider.GetRequiredService<HallRefreshApplicationService>().RefreshScheduledAsync(league.GroupId, league.LeagueId, cancellationToken); processed++; }
-                catch (ApplicationFault fault) when (fault.Code == "hall_baseline_reconciliation_required") { skipped++; }
-            }
-            return new(processed, skipped, skipped > 0 ? "hall_baseline_reconciliation_required" : null);
-        }
+        if (name == "hall") return await RefreshHallBatchAsync(database, year, cancellationToken);
         var now = clock.GetUtcNow();
         var days = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && !x.Delayed && !x.WasPostponed && x.KickoffUtc != null).ToArrayAsync(cancellationToken))
             .GroupBy(x => x.SerieADay).Select(x => new { Day = x.Key, Start = x.Min(game => game.KickoffUtc!.Value), End = x.Max(game => game.KickoffUtc!.Value) }).ToArray();
@@ -61,7 +50,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
                 .GroupBy(x => x.SerieADay).Where(x => now >= x.Max(game => game.OriginalKickoffUtc ?? game.KickoffUtc)!.Value.AddMinutes(135)).Select(x => x.Key).ToArray();
             var pending = await database.FantasyMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.Result == null && ended.Contains(x.Matchday.SerieADay))
                 .Select(x => new { x.GroupId, x.LeagueId, Day = x.Matchday.SerieADay }).Distinct().Take(1000).ToArrayAsync(cancellationToken);
-            var processed = 0; var skipped = 0;
+            var processed = 0; var skipped = 0; string? code = null;
             foreach (var item in pending)
             {
                 await using var child = scopes.CreateAsyncScope();
@@ -70,9 +59,10 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
                     var result = await child.ServiceProvider.GetRequiredService<CompetitionLifecycleApplicationService>().RecalculateScheduledAsync(item.GroupId, item.LeagueId, year, item.Day, cancellationToken);
                     if (result.AwaitingRecovery) skipped++; else processed++;
                 }
-                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found") { skipped++; }
+                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found" or "historical_roster_unavailable")
+                { skipped++; if (fault.Code == "historical_roster_unavailable") code = "historical_roster_unavailable"; }
             }
-            return new(processed, skipped, skipped > 0 ? "results_waiting_for_official_data" : null);
+            return new(processed, skipped, skipped > 0 ? code ?? "results_waiting_for_official_data" : null);
         }
         var ingestion = services.GetRequiredService<FootballIngestionApplicationService>();
         int? day = name switch { "live" => live?.Day, "official" => last?.Day, "chances" => (live ?? next)?.Day, _ => null };
@@ -139,12 +129,53 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
                     var result = await child.ServiceProvider.GetRequiredService<CompetitionLifecycleApplicationService>().RecalculateScheduledAsync(item.GroupId, item.LeagueId, item.SeasonIndex, item.Day, cancellationToken);
                     if (result.AwaitingRecovery) skipped++; else if (result.Changed) processed++;
                 }
-                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found" or "opening_competition_unavailable" or "roster_missing_for_recalculation") { skipped++; code ??= fault.Code; }
+                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found" or "opening_competition_unavailable" or "roster_missing_for_recalculation" or "historical_roster_unavailable") { skipped++; code ??= fault.Code; }
             }
         }
         return new(processed, skipped, skipped > 0 ? code ?? "postponed_matchdays_pending" : null);
     }
     private sealed record RecoveryScope(Guid GroupId, Guid LeagueId, int SeasonIndex, int Day, bool Opening, DateTimeOffset? LastCheck);
+
+    private async Task<SqlJobWorkResult> RefreshHallBatchAsync(FantasoccerDbContext database, int year, CancellationToken cancellationToken)
+    {
+        var cursor = await database.SqlJobStates.AsNoTracking().SingleOrDefaultAsync(x => x.Name == "hall" && x.SeasonIndex == year, cancellationToken);
+        var active = database.Leagues.AsNoTracking().Where(x => !x.IsArchived);
+        var pending = active;
+        if (cursor?.CursorGroupId is { } group && cursor.CursorLeagueId is { } league)
+            pending = pending.Where(x => x.GroupId.CompareTo(group) > 0 || x.GroupId == group && x.LeagueId.CompareTo(league) > 0);
+        var limit = options.Value.HallBatchSize;
+        var rows = await pending.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
+        if (rows.Length == 0 && cursor?.CursorGroupId is not null)
+            rows = await active.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
+        var processed = 0; var skipped = 0;
+        foreach (var row in rows.Take(limit))
+        {
+            // Persist progress even when this league needs reconciliation or a worker is interrupted. The next
+            // run visits later keys, and a completed sweep wraps so failed/new leagues are revisited as well.
+            await StoreHallCursorAsync(year, row.GroupId, row.LeagueId, cancellationToken);
+            await using var child = scopes.CreateAsyncScope();
+            try { await child.ServiceProvider.GetRequiredService<HallRefreshApplicationService>().RefreshScheduledAsync(row.GroupId, row.LeagueId, cancellationToken); processed++; }
+            catch (ApplicationFault fault) when (fault.Code == "hall_baseline_reconciliation_required") { skipped++; }
+        }
+        var more = rows.Length > limit;
+        if (!more) await StoreHallCursorAsync(year, null, null, cancellationToken);
+        return new(processed, skipped, more ? "hall_batch_pending" : skipped > 0 ? "hall_baseline_reconciliation_required" : null) { HasMore = more };
+    }
+
+    private async Task StoreHallCursorAsync(int year, Guid? group, Guid? league, CancellationToken cancellationToken)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FantasoccerDbContext>();
+        await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(context, cancellationToken);
+        var state = await context.SqlJobStates.SingleOrDefaultAsync(x => x.Name == "hall" && x.SeasonIndex == year, cancellationToken);
+        if (state is null)
+        {
+            if (!await context.Seasons.AnyAsync(x => x.SeasonIndex == year, cancellationToken)) context.Seasons.Add(new() { SeasonIndex = year, StartYear = year + 2011 });
+            context.SqlJobStates.Add(state = new() { Name = "hall", SeasonIndex = year, NextRunAtUtc = clock.GetUtcNow() });
+        }
+        state.CursorGroupId = group; state.CursorLeagueId = league;
+        await context.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+    }
     private async Task<SqlJobWorkResult> ExpireMarketAsync(FantasoccerDbContext database, int year, CancellationToken cancellationToken)
     {
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);

@@ -90,6 +90,7 @@ public sealed partial class WorkspaceApiTests
         var optimal = await owner.GetAsync($"/api/competitions/{group.GroupId}/{league}/18/optimal-formation?day=1&owner={Uri.EscapeDataString(first.Email)}");
         optimal.EnsureSuccessStatusCode();
         Assert.All((await optimal.Content.ReadFromJsonAsync<OptimalGameFormationDto>())!.Players, player => Assert.False(string.IsNullOrWhiteSpace(player.PlayerId)));
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group.GroupId, 18, 1);
         await using (var database = factory.Database.CreateContext())
         {
             var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == 18 && x.SerieADay == 1);

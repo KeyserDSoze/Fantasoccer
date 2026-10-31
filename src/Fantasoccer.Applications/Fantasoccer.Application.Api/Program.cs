@@ -41,6 +41,7 @@ builder.Services.AddFantasoccerPostgreSql(builder.Configuration.GetConnectionStr
     ?? throw new InvalidOperationException("The application requires ConnectionStrings:PostgreSql."));
 healthChecks.AddCheck<PostgreSqlReadinessCheck>("postgresql", tags: ["ready"]);
 builder.Services.AddGroupApplication();
+builder.Services.Configure<Fantasoccer.Application.Core.Operations.JobMaintenanceOptions>(builder.Configuration.GetSection("JobMaintenance"));
 builder.Services.Configure<Fantasoccer.Application.Core.Caching.SharedCacheOptions>(builder.Configuration.GetSection("Cache:Shared"));
 // Safety window after a concluded matchday before its push details are removed.
 builder.Services.Configure<Fantasoccer.Application.Core.Notifications.PushRetentionOptions>(builder.Configuration.GetSection("PushRetention"));
@@ -100,6 +101,7 @@ else
 }
 builder.Services.AddFantasoccerRuleEngines();
 builder.Services.AddFantasoccerSqlDataProviders();
+builder.Services.Configure<Fantasoccer.Business.Services.PlayerImageRefreshOptions>(builder.Configuration.GetSection("PlayerImages"));
 builder.Services.AddSocialLogin<PostgreSqlSocialUserProvider>(login =>
 {
     login.Microsoft.ClientId = builder.Configuration["SocialLogin:Microsoft:ClientId"];

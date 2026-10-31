@@ -292,6 +292,8 @@ docker compose --env-file .env.local -f compose.yml -f compose.https.yml exec ap
 
 Un autentico errore HTTP/JSON/immagine della fonte resta `502 image_source_unavailable`; il superamento del limite di 45 secondi è `504 image_source_timeout`. Il catalogo immagini viene letto in gruppi di massimo quattro pagine parallele e la stagione precedente viene consultata solo quando quella corrente non copre le foto richieste. Se il catalogo fallisce, le foto esistenti non vengono sovrascritte.
 
+Il refresh dell'intera rosa ha un budget complessivo di 60 secondi (catalogo incluso), massimo quattro download contemporanei e 15 secondi per immagine. I risultati contengono sempre gli ID dei successi e dei fallimenti da riprovare; non viene mantenuta una richiesta aperta per 45 secondi moltiplicati per ogni giocatore. I nuovi file/revisioni usano l'ID autorevole, con fallback di visualizzazione ai vecchi file basati sul nome. Dettagli e parametri opzionali `PlayerImages` in [ADR 0014](../../ADR/0014-storico-formazioni-e-refresh-immagini.md).
+
 ## 5. Test automatici isolati
 
 ```powershell

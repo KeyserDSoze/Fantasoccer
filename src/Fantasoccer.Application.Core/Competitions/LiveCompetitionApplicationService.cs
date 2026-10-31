@@ -93,11 +93,12 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         foreach (var calendar in await database.FantasyCalendars.Where(x => x.GroupId == group && x.SeasonIndex == year).OrderBy(x => x.LeagueId)
                      .Select(x => new { x.LeagueId, x.Version }).ToArrayAsync(cancellationToken)) Add($"{calendar.LeagueId:N}:{calendar.Version}");
         Add(await database.LeagueParticipations.CountAsync(x => x.GroupId == group && x.SeasonIndex == year, cancellationToken));
-        var lineups = await database.LeagueLineups.Where(x => x.GroupId == group && x.SeasonIndex == year && x.Day == day)
+        // Earlier formations can be the effective fallback for a day with no submission of its own.
+        var lineups = await database.LeagueLineups.Where(x => x.GroupId == group && x.SeasonIndex == year && x.Day <= day)
             .GroupBy(_ => 1).Select(x => new { Count = x.Count(), Versions = x.Sum(l => l.Version), Last = x.Max(l => l.LastUpdateUtc) }).SingleOrDefaultAsync(cancellationToken);
         Add(lineups?.Count); Add(lineups?.Versions); Add(lineups?.Last.UtcTicks);
         var rosters = await database.RosterSnapshots.Where(x => x.GroupId == group && x.SeasonIndex == year && x.CompetitionId == Guid.Empty &&
-                (x.Kind == RosterKind.Season || x.Kind == RosterKind.Matchday && x.Day == day))
+                (x.Kind == RosterKind.Season || x.Kind == RosterKind.Matchday && x.Day <= day))
             .GroupBy(x => x.Kind).Select(x => new { Kind = x.Key, Count = x.Count(), Versions = x.Sum(r => r.Version), Last = x.Max(r => r.LastUpdateUtc) })
             .OrderBy(x => x.Kind).ToArrayAsync(cancellationToken);
         foreach (var roster in rosters) Add($"{roster.Kind}:{roster.Count}:{roster.Versions}:{roster.Last?.UtcTicks}");

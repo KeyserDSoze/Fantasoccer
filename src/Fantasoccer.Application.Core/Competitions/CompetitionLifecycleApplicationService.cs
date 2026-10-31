@@ -113,8 +113,8 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
                 if (request.OnlyUnscored && game.Result != null) continue;
                 if (game.HomeTeamId is null || game.AwayTeamId is null) continue;
                 // The competition's own lineup over the authoritative day roster.
-                var home = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.HomeTeamId.Value, cancellationToken);
-                var away = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.AwayTeamId.Value, cancellationToken);
+                var home = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.HomeTeamId.Value, game.Id, cancellationToken);
+                var away = await lineups.ScoringPlayersAsync(group, league, year, day.SerieADay, game.AwayTeamId.Value, game.Id, cancellationToken);
                 var homePoint = scoring.CalculatePoint(home.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
                 var awayPoint = scoring.CalculatePoint(away.Where(x => x.Status == 0).Select(CompetitionMapping.Domain));
                 homePoint = new(homePoint.Value + settings.PointInHome, homePoint.DefensiveBonus, homePoint.GoodPeople, homePoint.OwnGoal);

@@ -57,6 +57,8 @@ La vista di sola lettura di una partita della giornata Live (`GET .../games/{id}
 
 Un recupero attivo (`WasPostponed=true`, non rinviato, non finito, nella propria finestra dal nuovo calcio d'inizio a +10 h 15) seleziona la giornata Serie A originale. Se più recuperi sono attivi, viene scelto quello iniziato più recentemente; la priorità è sui normali intervalli di fine giornata. Reader e selettore Live condividono la stessa condizione. Non si riaprono le scadenze delle formazioni originali e non si sovrascrivono risultati salvati. Anche ammissioni/ritiri manuali dei partecipanti incrementano la revisione del gruppo nella stessa transazione: sostituzioni a conteggio invariato invalidano la proiezione.
 
+Per il fallback delle formazioni vale [ADR 0014](0014-storico-formazioni-e-refresh-immagini.md): solo rose storiche attestate, formazione effettiva condivisa tra anteprima e ricalcolo, niente ricostruzione retroattiva dalla rosa corrente. Le versioni delle formazioni precedenti partecipano all'invalidazione del Live.
+
 ### 4. Basket e leghe autonomi/derivati
 
 - `Baskets.Kind` (0 autonomo, 1 derivato) con chiave alternativa `(GroupId, BasketId, Kind)`. `BasketDerivations` collega un basket derivato a **un** basket di origine: le colonne costanti `DerivedKind = 1` e `OriginKind = 0` partecipano alle FK composite, quindi il database rifiuta un'origine derivata (niente catene, quindi niente cicli) e il cambio di tipo di un basket collegato.

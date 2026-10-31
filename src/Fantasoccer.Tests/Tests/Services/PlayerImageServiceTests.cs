@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Collections.Concurrent;
 using Fantasoccer.Business;
 using Fantasoccer.Business.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,7 @@ public sealed class PlayerImageServiceTests
 {
     private sealed class Photos : IPlayerImageStore
     {
-        public Dictionary<string, byte[]> Files { get; } = [];
+        public ConcurrentDictionary<string, byte[]> Files { get; } = new();
         public Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) => Task.FromResult(Files.ContainsKey(name));
         public Task UploadAsync(string name, byte[] image, string contentType, string cacheControl, CancellationToken cancellationToken)
         { Files[name] = image.ToArray(); return Task.CompletedTask; }
@@ -62,10 +63,12 @@ public sealed class PlayerImageServiceTests
         }
     }
 
-    private static (ServiceProvider Services, IPlayerImageRefresher Refresher, Photos Store) Setup(RealPlayer player, HttpMessageHandler source)
+    private static (ServiceProvider Services, IPlayerImageRefresher Refresher, Photos Store) Setup(RealPlayer player, HttpMessageHandler source,
+        Action<PlayerImageRefreshOptions>? configure = null)
     {
         var services = new ServiceCollection();
         services.AddFantasoccerSqlDataProviders();
+        if (configure is not null) services.Configure(configure);
         services.AddLock();
         services.AddSingleton<IFootballIngestionReader>(new Catalogue(player));
         var photos = new Photos();
@@ -172,6 +175,9 @@ public sealed class PlayerImageServiceTests
         source.FailPage = 3;
         await Assert.ThrowsAsync<HttpRequestException>(() => setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
         Assert.Equal(new byte[] { 9 }, setup.Store.Files[$"players/{player.Key}.jpg"]);
+        source.FailPage = null; source.IncompletePage = 3;
+        await Assert.ThrowsAsync<InvalidDataException>(() => setup.Refresher.ReloadAsync(player, TestContext.Current.CancellationToken));
+        Assert.Equal(new byte[] { 9 }, setup.Store.Files[$"players/{player.Key}.jpg"]);
     }
 
     private sealed class PagedSource(string name) : HttpMessageHandler
@@ -181,6 +187,7 @@ public sealed class PlayerImageServiceTests
         public int MaximumConcurrent { get; private set; }
         public int PagesRead { get; private set; }
         public int? FailPage { get; set; }
+        public int? IncompletePage { get; set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.RequestUri!.AbsolutePath.Contains("/competitions/")) return new(HttpStatusCode.OK) { Content = JsonContent.Create(new
@@ -198,6 +205,8 @@ public sealed class PlayerImageServiceTests
             {
                 await Task.Delay(20, cancellationToken);
                 if (page == FailPage) return new(HttpStatusCode.ServiceUnavailable);
+                if (page == IncompletePage) return new(HttpStatusCode.OK) { Content = JsonContent.Create(new
+                { pagination = new { totalPages = 9, currentPage = page, isLastPage = page == 9 }, players = (object?)null }) };
                 return new(HttpStatusCode.OK) { Content = JsonContent.Create(new
                 {
                     pagination = new { totalPages = 9, currentPage = page, isLastPage = page == 9 },
@@ -206,6 +215,50 @@ public sealed class PlayerImageServiceTests
                 }) };
             }
             finally { lock (_gate) _active--; }
+        }
+    }
+
+    [Fact]
+    public async Task Distinct_authoritative_players_with_the_same_name_get_distinct_files_and_complete_results()
+    {
+        var first = Player("Same Photo Player", Role.Defensor); first.PlayerId = "samephotofirst";
+        var second = Player("Same Photo Player", Role.Defensor); second.PlayerId = "samephotosecond";
+        var setup = Setup(first, new Source(first.Name, 2)); await using var services = setup.Services;
+        var result = await setup.Refresher.ReloadManyAsync([first, second], TestContext.Current.CancellationToken);
+        Assert.Equal(new[] { first.PlayerId, second.PlayerId }, result.Select(x => x.PlayerId));
+        Assert.All(result, x => Assert.True(x.Succeeded));
+        Assert.True(setup.Store.Files.ContainsKey("players/samephotofirst.jpg"));
+        Assert.True(setup.Store.Files.ContainsKey("players/samephotosecond.jpg"));
+        Assert.False(setup.Store.Files.ContainsKey($"players/{first.Key}.jpg"));
+    }
+
+    [Fact]
+    public async Task Whole_team_refresh_has_one_overall_budget_and_returns_successes_and_unfinished_IDs_for_retry()
+    {
+        var players = Enumerable.Range(0, 25).Select(index => { var p = Player("Budget Photo Player", Role.Defensor); p.PlayerId = "budgetphoto" + (char)('a' + index); return p; }).ToArray();
+        var setup = Setup(players[0], new BudgetSource(players[0].Name), options =>
+        { options.BatchTimeout = TimeSpan.FromSeconds(1); options.ImageTimeout = TimeSpan.FromSeconds(1); options.ParallelDownloads = 1; });
+        await using var services = setup.Services;
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        var result = await setup.Refresher.ReloadManyAsync(players, TestContext.Current.CancellationToken);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5));
+        Assert.Equal(25, result.Count);
+        Assert.Single(result, x => x.Succeeded);
+        Assert.Equal(24, result.Count(x => !x.Succeeded));
+        Assert.All(result.Where(x => !x.Succeeded), x => Assert.Contains("Riprova", x.Error));
+        Assert.Equal(players.Select(x => x.PlayerId), result.Select(x => x.PlayerId));
+    }
+
+    private sealed class BudgetSource(string name) : HttpMessageHandler
+    {
+        private readonly Source _catalogue = new(name, 2);
+        private int _images;
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.Host == "media-sdp.legaseriea.it" && Interlocked.Increment(ref _images) > 1)
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            using var inner = new HttpMessageInvoker(_catalogue, disposeHandler: false);
+            return await inner.SendAsync(request, cancellationToken);
         }
     }
 }

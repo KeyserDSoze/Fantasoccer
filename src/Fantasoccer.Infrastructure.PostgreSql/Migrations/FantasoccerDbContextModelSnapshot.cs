@@ -2718,6 +2718,12 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("SeasonIndex")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("CursorGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CursorLeagueId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("LastCompletedAtUtc")
                         .HasColumnType("timestamp with time zone");
 

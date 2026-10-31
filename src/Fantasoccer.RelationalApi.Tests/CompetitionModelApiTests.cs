@@ -272,6 +272,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         Assert.All(optimal.Players, x => Assert.Contains(x.PlayerId, koopaPlayers));
 
         // Live: league rules differ (1 change in Serie A, none in the Champions).
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
         await using (var database = factory.Database.CreateContext())
         {
             (await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).LiveFormationChanges = 1;
@@ -370,9 +371,9 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         var third = await Team(game: games[2]);
         Assert.Equal(1, third.ProposedFromDay);
         Assert.Equal(1, third.Players.Single(x => x.Current.PlayerId == koopaPlayers[11]).Current.Position);
-        // Neither the opponent nor the read-only view receives it.
-        Assert.Null((await Team(game: games[1], client: world.Mario.Client)).ProposedFromDay);
-        Assert.Null((await Team(game: games[1], mode: "view")).ProposedFromDay);
+        // The effective formation is visible to both players and read-only previews, without a write.
+        Assert.Equal(1, (await Team(game: games[1], client: world.Mario.Client)).ProposedFromDay);
+        Assert.Equal(1, (await Team(game: games[1], mode: "view")).ProposedFromDay);
 
         // Confirming it saves the day's own lineup.
         var confirmed = second.Players.Select(x => new FormationPositionRequest(x.Current.PlayerId, x.Current.Position)).ToArray();
@@ -455,6 +456,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
             Assert.Single(await database.TeamLineupSettings.Where(x => x.TeamId == world.Koopa).ToArrayAsync());
 
         // After kickoff the save is refused as usual, so nothing is propagated.
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
         await using (var database = factory.Database.CreateContext())
         {
             (await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1)).KickoffUtc = DateTimeOffset.UtcNow.AddMinutes(-30);
@@ -490,19 +492,29 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         (await luigi.PutAsJsonAsync(Game(games[0]) + "/formation", new SaveGameFormationRequest(world.Koopa,
             arranged.Select(x => new FormationPositionRequest(x.Key, x.Value)).ToArray(), 0, first.SourceVersion))).EnsureSuccessStatusCode();
 
-        // Day 2 is played without any lineup of its own.
+        // Day 2 has attested ownership but no lineup of its own. The job did not submit one.
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 2);
         await using (var database = factory.Database.CreateContext())
         {
             foreach (var match in await database.FootballMatches.Where(x => x.SeasonIndex == year).ToArrayAsync())
             { match.KickoffUtc = DateTimeOffset.UtcNow.AddHours(-5 - match.SerieADay); match.IsFinished = true; match.ActualOfficialVotesReady = true; match.HomeGoals = 1; match.AwayGoals = 0; }
+            foreach (var player in await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToArrayAsync())
+                database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 2, Source = FootballVoteSource.Official,
+                    PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = 6, HasVote = true, IsFinal = true, IsActive = true, IsVisible = true });
             await database.SaveChangesAsync();
         }
-        (await admin.PostAsJsonAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/recalculate", new RecalculateCompetitionRequest(2))).EnsureSuccessStatusCode();
+        var preview = await Read<GameDto>(await luigi.GetAsync(Game(games[1])));
+        Assert.True(preview.ResultIsPreview);
+        Assert.Equal(5, preview.Teams.Single(x => x.TeamId == world.Koopa).Players.Single(x => x.Current.PlayerId == koopaPlayers[1]).Current.Position);
+        (await admin.PostAsJsonAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/recalculate", new RecalculateCompetitionRequest(2, PreciseDay: true))).EnsureSuccessStatusCode();
         await using (var database = factory.Database.CreateContext())
         {
             var played = await database.PlayedMatchSnapshots.SingleAsync(x => x.LeagueId == world.LeagueSA && x.MatchId == games[1]);
             int Played(int index) => played.Players.Single(x => x.IsHome && x.PlayerId == koopaPlayers[index]).Position;
             Assert.Equal(5, Played(1)); Assert.Equal(1, Played(11)); Assert.Equal(Roles[2], Played(2));
+            Assert.Equal(preview.Game.Result!.Home.Value, played.Result!.Home!.Value);
+            Assert.Equal(preview.Game.Result.Away.Value, played.Result.Away!.Value);
         }
     }
 
@@ -778,6 +790,133 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         // Admitting an existing participant is a no-op, not another revision or rebuild.
         (await world.Admin.PostAsJsonAsync(participantsPath, new AdmitParticipantRequest(extra))).EnsureSuccessStatusCode();
         Assert.Equal(after.GeneratedAtUtc, (await Read<LiveGroupDto>(await world.Admin.GetAsync($"/api/groups/{group}/live?year={year}"))).GeneratedAtUtc);
+    }
+
+    [PostgreSqlFact]
+    public async Task Missing_historical_ownership_is_never_invented_and_an_attested_played_roster_survives_later_sales()
+    {
+        var world = await WorldAsync(53, peachOwnsFunghi: true);
+        var (admin, group, year) = (world.Admin, world.Group, world.Year);
+        var ids = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(-20));
+        var matchId = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        var path = $"/api/competitions/{group}/{world.LeagueSA}/{year}";
+        await using (var database = factory.Database.CreateContext())
+        {
+            var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year);
+            match.IsFinished = true; match.ActualOfficialVotesReady = true;
+            var current = await database.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season);
+            current.Players.Single(x => x.PlayerId == ids[9]).Status = 3;
+            current.Players.Single(x => x.PlayerId == ids[9]).Price = 909;
+            await database.SaveChangesAsync();
+        }
+        await AssertFaultAsync(await admin.PostAsJsonAsync(path + "/recalculate", new RecalculateCompetitionRequest(1, PreciseDay: true)), HttpStatusCode.Conflict, "historical_roster_unavailable");
+        await AssertFaultAsync(await admin.GetAsync(path + $"/games/{matchId}"), HttpStatusCode.Conflict, "historical_roster_unavailable");
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var result = await scope.ServiceProvider.GetRequiredService<Fantasoccer.Application.Core.Operations.ISqlJobActions>().ExecuteAsync("results", year, CancellationToken.None);
+            Assert.Equal(0, result.Processed); Assert.Equal(1, result.Skipped); Assert.Equal("historical_roster_unavailable", result.Code);
+        }
+        await using (var database = factory.Database.CreateContext())
+        {
+            Assert.False(await database.RosterSnapshots.AnyAsync(x => x.GroupId == group && x.Kind == RosterKind.Matchday));
+            Assert.Null((await database.FantasyMatches.SingleAsync(x => x.Id == matchId)).Result);
+            var recorded = new PlayedMatchSnapshot { GroupId = group, LeagueId = world.LeagueSA, SeasonIndex = year, MatchId = matchId, Day = 1,
+                HomeName = "Historic home", AwayName = "Historic away" };
+            foreach (var roster in await database.RosterSnapshots.Where(x => x.GroupId == group && x.Kind == RosterKind.Season && (x.TeamId == world.Koopa || x.TeamId == world.Draghi)).ToArrayAsync())
+                foreach (var player in roster.Players)
+                {
+                    // Recorded at the match: the now-sold player was active and cost 99, not today's 909.
+                    recorded.Players.Add(new() { IsHome = roster.TeamId == world.Koopa, Ordinal = player.Ordinal, PlayerId = player.PlayerId, ClubId = player.ClubId,
+                        PlayerRole = player.PlayerRole, Status = 0, Position = player.Position, Price = player.PlayerId == ids[9] ? 99 : player.Price, IsActive = true, IsVisible = true });
+                    database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official,
+                        PlayerRole = player.PlayerRole, VoteRole = player.PlayerRole, Value = 6, HasVote = true, IsFinal = true, IsActive = true });
+                }
+            database.PlayedMatchSnapshots.Add(recorded);
+            await database.SaveChangesAsync();
+        }
+        var view = await Read<GameDto>(await admin.GetAsync(path + $"/games/{matchId}"));
+        var oldPlayer = view.Teams.Single(x => x.TeamId == world.Koopa).Players.Single(x => x.Current.PlayerId == ids[9]);
+        Assert.Equal(99, oldPlayer.Current.Price); Assert.Equal(0, oldPlayer.Current.Status); Assert.False(view.CanEdit);
+        (await admin.PostAsJsonAsync(path + "/recalculate", new RecalculateCompetitionRequest(1, PreciseDay: true))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            Assert.False(await database.RosterSnapshots.AnyAsync(x => x.GroupId == group && x.Kind == RosterKind.Matchday));
+            var recorded = await database.PlayedMatchSnapshots.SingleAsync(x => x.MatchId == matchId);
+            Assert.Equal(99, recorded.Players.Single(x => x.IsHome && x.PlayerId == ids[9]).Price);
+            Assert.Equal(0, recorded.Players.Single(x => x.IsHome && x.PlayerId == ids[9]).Status);
+            Assert.Equal(3, (await database.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season)).Players.Single(x => x.PlayerId == ids[9]).Status);
+        }
+    }
+
+    [PostgreSqlFact]
+    public async Task A_sale_and_repurchase_after_preparation_update_only_future_ownership_and_leave_one_active_copy()
+    {
+        var world = await WorldAsync(54, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        var ids = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(-4));
+        await MatchdayAsync(year, 2, DateTimeOffset.UtcNow.AddDays(4));
+        await GameDaysAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email), 1, 2);
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await using (var scope = factory.Services.CreateAsyncScope()) await scope.ServiceProvider.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year);
+        await using (var database = factory.Database.CreateContext())
+        {
+            await using var transaction = await Fantasoccer.Infrastructure.PostgreSql.CoreMigrationLock.BeginInteractiveWriteAsync(database, CancellationToken.None);
+            var roster = await database.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season);
+            var outgoing = roster.Players.Single(x => x.PlayerId == ids[9] && x.Status == 0);
+            outgoing.Status = 3; outgoing.Revenue = 12; roster.Version++;
+            await database.SaveChangesAsync();
+            await new TeamRosterAvailabilityService(database, TimeProvider.System).SynchronizeFutureAsync(group, year, [world.Koopa], CancellationToken.None);
+            await database.SaveChangesAsync(); await transaction.CommitAsync();
+        }
+        await using (var database = factory.Database.CreateContext())
+        {
+            var next = await database.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Matchday && x.Day == 2);
+            Assert.DoesNotContain(next.Players, x => x.PlayerId == ids[9] && x.Status == 0);
+            await using var transaction = await Fantasoccer.Infrastructure.PostgreSql.CoreMigrationLock.BeginInteractiveWriteAsync(database, CancellationToken.None);
+            var roster = await database.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Season);
+            var sold = roster.Players.Single(x => x.PlayerId == ids[9]);
+            roster.Players.Add(new() { Ordinal = roster.Players.Max(x => x.Ordinal) + 1, PlayerId = sold.PlayerId, ClubId = sold.ClubId, PlayerRole = sold.PlayerRole,
+                Status = 0, Position = 11, Price = 31, IsActive = true, IsVisible = true }); roster.Version++;
+            await database.SaveChangesAsync();
+            await new TeamRosterAvailabilityService(database, TimeProvider.System).SynchronizeFutureAsync(group, year, [world.Koopa], CancellationToken.None);
+            await database.SaveChangesAsync(); await transaction.CommitAsync();
+        }
+        await using var final = factory.Database.CreateContext();
+        var future = await final.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Matchday && x.Day == 2);
+        Assert.Equal(31, Assert.Single(future.Players, x => x.PlayerId == ids[9] && x.Status == 0).Price);
+        Assert.Equal(future.Players.Count(x => x.Status == 0), future.Players.Where(x => x.Status == 0).Select(x => x.PlayerId).Distinct().Count());
+        var past = await final.RosterSnapshots.SingleAsync(x => x.GroupId == group && x.TeamId == world.Koopa && x.Kind == RosterKind.Matchday && x.Day == 1);
+        Assert.Equal(19, Assert.Single(past.Players, x => x.PlayerId == ids[9]).Price); Assert.Equal(0, past.Players.Single(x => x.PlayerId == ids[9]).Status);
+    }
+
+    [PostgreSqlFact]
+    public async Task Qualification_limits_are_a_manager_review_suggestion_not_an_automatic_top_N_admission_rule()
+    {
+        var world = await WorldAsync(55, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        var path = $"/api/workspace/groups/{group}";
+        var basket = (await Read<BasketCreatedDto>(await world.Admin.PostAsJsonAsync(path + "/baskets", new CreateBasketRequest("Manual qualifiers", year, world.SerieA)))).BasketId;
+        var league = (await Read<LeagueCreatedDto>(await world.Admin.PostAsJsonAsync(path + "/leagues",
+            new CreateLeagueRequest("Manual qualification test", year, [basket], 1, [new(world.LeagueSA, 1)])))).LeagueId;
+        await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
+        var competition = $"/api/competitions/{group}/{league}/{year}";
+        var preview = await Read<QualificationPreviewDto>(await world.Admin.GetAsync(competition + "/qualification"));
+        Assert.False(preview.Candidates.Single(x => x.OriginTeamId == world.Draghi).Qualified);
+        var manual = await Read<LeagueParticipantsDto>(await world.Admin.PostAsJsonAsync(competition + "/qualification/confirm",
+            new ConfirmQualificationRequest([new(world.LeagueSA, world.Draghi)])));
+        Assert.Equal(2, Assert.Single(manual.Participants).QualificationRank);
+        // A manager may also explicitly select a real source participant before its standing is available.
+        await using (var database = factory.Database.CreateContext())
+            await database.FantasyStandingSnapshots.Where(x => x.GroupId == group && x.LeagueId == world.LeagueSA).ExecuteDeleteAsync();
+        manual = await Read<LeagueParticipantsDto>(await world.Admin.PostAsJsonAsync(competition + "/qualification/confirm",
+            new ConfirmQualificationRequest([new(world.LeagueSA, world.Koopa)])));
+        Assert.Null(manual.Participants.Single(x => x.AuthoritativeTeamId == world.Koopa).QualificationRank);
+        await AssertFaultAsync(await world.Luigi.Client.PostAsJsonAsync(competition + "/qualification/confirm",
+            new ConfirmQualificationRequest([new(world.LeagueSA, world.Koopa)])), HttpStatusCode.Forbidden, "competition_manager_required");
     }
 
     private async Task<World> WorldAsync(int year, bool peachOwnsFunghi)

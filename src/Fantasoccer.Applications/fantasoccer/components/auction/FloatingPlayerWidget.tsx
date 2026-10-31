@@ -27,16 +27,17 @@ export function FloatingPlayerWidget({
   onIncrementBid,
   disabled = false
 }: FloatingPlayerWidgetProps) {
-  const [failedImageUri, setFailedImageUri] = useState<string | null>(null)
-  const imageRevision = usePlayerImageRevision(getPlayerKey(currentPlayer?.name ?? ''))
+  const [failedImageUris, setFailedImageUris] = useState<Set<string>>(new Set())
+  const imageKey = currentPlayer?.playerId ?? getPlayerKey(currentPlayer?.name ?? '')
+  const imageRevision = usePlayerImageRevision(imageKey)
 
   if (!currentPlayer) return null
 
   const winningTeam = teams.find(t => t.value.owner === currentBidder)
   
   // Usa la stessa logica di PlayerCard per le immagini
-  const { src, fallback } = getPlayerImageUrlFromName(currentPlayer.name, imageRevision)
-  const playerImageUrl = failedImageUri === src ? fallback : src
+  const { src, fallback, placeholder } = getPlayerImageUrlFromName(currentPlayer.name, imageRevision, imageKey)
+  const playerImageUrl = [src, fallback, placeholder].find(uri => !failedImageUris.has(uri)) ?? placeholder
 
   return (
     <YStack
@@ -97,7 +98,7 @@ export function FloatingPlayerWidget({
             width={110}
             height={110}
             objectFit="cover"
-            onError={() => setFailedImageUri(src)}
+            onError={() => setFailedImageUris(current => current.has(playerImageUrl) ? current : new Set(current).add(playerImageUrl))}
           />
         </Circle>
 

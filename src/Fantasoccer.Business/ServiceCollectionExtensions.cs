@@ -32,6 +32,10 @@ namespace Fantasoccer.Business
         // The external football sources (Serie A, Fantagazzetta, Gazzetta, official votes, player photos).
         public static IServiceCollection AddFantasoccerSqlDataProviders(this IServiceCollection services)
         {
+            services.AddOptions<PlayerImageRefreshOptions>()
+                .Validate(x => x.BatchTimeout > TimeSpan.Zero && x.BatchTimeout <= TimeSpan.FromMinutes(2) &&
+                    x.ImageTimeout > TimeSpan.Zero && x.ImageTimeout <= x.BatchTimeout && x.ParallelDownloads is >= 1 and <= 4,
+                    "Player images require a bounded batch budget (up to two minutes), per-image timeout and one to four downloads.");
             services.AddTransient<Services.IPlayerImageRefresher, PlayerImageService>();
             services.AddHttpClient("player-images", client =>
             {

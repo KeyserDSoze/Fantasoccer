@@ -21,26 +21,39 @@ public sealed record LineupCopySourceDto(Guid LeagueId, string LeagueName, Guid 
 
 // Effective formation of a participant in one competition and day: the
 // authoritative team's roster of the day with the competition lineup applied.
-internal sealed record FormationView(ResolvedTeam Team, TeamRosterDto Roster, LeagueLineup? Lineup, RosterSnapshot Source, bool IsDayRoster, string[] UnavailablePlayerIds);
+internal sealed record FormationView(ResolvedTeam Team, TeamRosterDto Roster, LeagueLineup? Lineup, RosterSnapshot Source, bool IsDayRoster,
+    string[] UnavailablePlayerIds, RosterPlayer[] Players, bool HistoricalFallback);
 
 public sealed class LeagueLineupApplicationService(FantasoccerDbContext database, CompetitionApplicationService competitions, CompetitionTeamResolver teams,
     ITeamChecker checker, IOptions<AssetLinkOptions> assets, TimeProvider clock)
 {
     private const int Tribune = (int)FantaSoccerRole.Tribune;
 
-    internal async Task<FormationView?> ReadAsync(Guid group, Guid league, int year, ResolvedTeam team, int day, bool allowCurrentRoster, CancellationToken cancellationToken, bool proposePrevious = false)
+    internal async Task<FormationView?> ReadAsync(Guid group, Guid league, int year, ResolvedTeam team, int day, bool allowCurrentRoster,
+        CancellationToken cancellationToken, Guid? matchId = null)
     {
         var source = await Rosters(group, year, team.AuthoritativeTeamId).AsNoTracking()
             .SingleOrDefaultAsync(x => x.Kind == RosterKind.Matchday && x.Day == day && x.CompetitionId == Guid.Empty, cancellationToken);
         var isDay = source is not null;
-        if (source is null && allowCurrentRoster)
+        var historical = false;
+        if (source is null && matchId is { } played)
+        {
+            source = await PlayedRosterAsync(group, league, year, day, team, played, cancellationToken);
+            historical = source is not null;
+        }
+        // The current roster attests only an upcoming day. A late recalculation or a recovery must never
+        // invent past ownership, even if an old lineup happens to contain some of today's players.
+        if (source is null && allowCurrentRoster && await CanUseCurrentRosterAsync(year, day, cancellationToken))
             source = await Rosters(group, year, team.AuthoritativeTeamId).AsNoTracking().SingleOrDefaultAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken);
         if (source is null) return null;
         var lineup = await Lineups(group, league, year, team.TeamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
         // A day without a lineup of its own shows the last formation ever made by this team
         // (nothing stored: it becomes the lineup of the day when saved or prepared by the job).
-        var proposal = proposePrevious && lineup is null ? await PreviousFormationAsync(group, league, year, team, day, cancellationToken) : null;
-        return View(group, league, year, day, team, source, isDay, lineup, proposal);
+        // One effective formation for preview, editing and final scoring. A real day's nonempty imported
+        // formation wins; otherwise the last submitted formation is overlaid on this attested roster only.
+        var proposal = lineup is null && (source.Kind == RosterKind.Season || !source.Players.Any(x => x.Status == 0 && x.Position != Tribune))
+            ? await PreviousFormationAsync(group, league, year, team, day, cancellationToken) : null;
+        return View(group, league, year, day, team, source, isDay, lineup, proposal, historical);
     }
 
     public async Task<FormationSavedDto> SaveAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken = default)
@@ -201,33 +214,42 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
 
     // Players used to compute a result: the day roster (penalised if never submitted and no earlier
     // formation exists) with the competition lineup applied.
-    internal async Task<RosterPlayer[]> ScoringPlayersAsync(Guid group, Guid league, int year, int day, Guid teamId, CancellationToken cancellationToken)
+    internal async Task<RosterPlayer[]> ScoringPlayersAsync(Guid group, Guid league, int year, int day, Guid teamId, Guid matchId, CancellationToken cancellationToken)
     {
         var team = await teams.ResolveAsync(group, year, teamId, cancellationToken) ?? throw new ApplicationFault(409, "roster_missing_for_recalculation", "Squadra assente: ricalcolo annullato.");
-        var daily = await DayRosterAsync(group, year, day, team.AuthoritativeTeamId, cancellationToken);
-        var lineup = await Lineups(group, league, year, teamId, day).AsNoTracking().SingleOrDefaultAsync(cancellationToken);
-        // Safety net: a day with no lineup of its own and nobody in the lineup scores with the
-        // last formation of this team (what the owner was shown), not with a penalty.
-        if (lineup is null && !daily.Players.Any(x => x.Status == 0 && x.Position != Tribune) &&
-            await PreviousFormationAsync(group, league, year, team, day, cancellationToken) is { } previous)
-            return Overlay(daily.Players, previous.Positions);
-        return Overlay(daily.Players, lineup);
+        var view = await ReadAsync(group, league, year, team, day, true, cancellationToken, matchId)
+            ?? throw HistoricalUnavailable();
+        return view.Players;
     }
 
-    internal async Task<RosterSnapshot> DayRosterAsync(Guid group, int year, int day, Guid authoritativeTeam, CancellationToken cancellationToken)
+    private async Task<bool> CanUseCurrentRosterAsync(int year, int day, CancellationToken cancellationToken)
     {
-        var daily = database.RosterSnapshots.Local.SingleOrDefault(x => x.GroupId == group && x.SeasonIndex == year && x.TeamId == authoritativeTeam && x.Kind == RosterKind.Matchday && x.Day == day && x.CompetitionId == Guid.Empty)
-            ?? await Rosters(group, year, authoritativeTeam).SingleOrDefaultAsync(x => x.Kind == RosterKind.Matchday && x.Day == day && x.CompetitionId == Guid.Empty, cancellationToken);
-        if (daily is not null) return daily;
-        var source = await Rosters(group, year, authoritativeTeam).SingleOrDefaultAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken)
-            ?? throw new ApplicationFault(409, "roster_missing_for_recalculation", "Rosa server assente: ricalcolo annullato.");
-        daily = TeamRosterApplicationService.Copy(source, RosterKind.Matchday, day, null);
-        // Preserve the existing explicit-recalculation penalty for unsubmitted
-        // formations, never copy today's starting lineup into a historical day.
-        foreach (var player in daily.Players.Where(x => x.Status == 0)) player.Position = Tribune;
-        daily.LastUpdateUtc = clock.GetUtcNow();
-        database.RosterSnapshots.Add(daily);
-        return daily;
+        // A recovery keeps the original deadline. Unknown schedules are not evidence of future ownership.
+        var start = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day)
+            .Select(x => x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc).MinAsync(cancellationToken);
+        return start is { } kickoff && clock.GetUtcNow() < kickoff;
+    }
+
+    private async Task<RosterSnapshot?> PlayedRosterAsync(Guid group, Guid league, int year, int day, ResolvedTeam team, Guid matchId, CancellationToken cancellationToken)
+    {
+        var match = await database.FantasyMatches.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.Id == matchId &&
+            x.Matchday.SerieADay == day && (x.HomeTeamId == team.TeamId || x.AwayTeamId == team.TeamId))
+            .Select(x => new { Home = x.HomeTeamId == team.TeamId }).SingleOrDefaultAsync(cancellationToken);
+        if (match is null) return null;
+        var saved = await database.PlayedMatchSnapshots.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == group && x.LeagueId == league &&
+            x.SeasonIndex == year && x.MatchId == matchId && x.Day == day, cancellationToken);
+        if (saved is null) return null;
+        var rows = saved.Players.Where(x => x.IsHome == match.Home).OrderBy(x => x.Ordinal).ToArray();
+        if (rows.Length == 0) return null;
+        var playerIds = rows.Select(x => x.PlayerId).ToArray(); var clubIds = rows.Select(x => x.ClubId).OfType<string>().ToArray();
+        var players = await database.Players.AsNoTracking().Where(x => playerIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+        var clubs = await database.Clubs.AsNoTracking().Where(x => clubIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, cancellationToken);
+        // Transient view of a recorded match, never added to RosterSnapshots and never completed with today's squad.
+        return new() { GroupId = group, BasketId = team.AuthoritativeBasketId, SeasonIndex = year, TeamId = team.AuthoritativeTeamId,
+            Kind = RosterKind.Matchday, Day = day, CompetitionId = Guid.Empty, Name = match.Home ? saved.HomeName : saved.AwayName, Version = 0,
+            Players = rows.Select(x => new RosterPlayer { Ordinal = x.Ordinal, PlayerId = x.PlayerId, Player = players[x.PlayerId], ClubId = x.ClubId,
+                Club = x.ClubId is null ? null : clubs[x.ClubId], PlayerRole = x.PlayerRole, IsActive = x.IsActive, IsVisible = x.IsVisible,
+                Price = x.Price, Revenue = x.Revenue, Status = x.Status, Position = x.Position }).ToArray() };
     }
 
     internal sealed record PreviousFormation(int Day, Dictionary<string, int> Positions);
@@ -310,6 +332,7 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             // Freeze the authoritative roster of the day (shared by every competition
             // of that team); positions there remain only the legacy default.
             var season0 = await Rosters(command.GroupId, command.Year, team.AuthoritativeTeamId).SingleAsync(x => x.Kind == RosterKind.Season && x.Day == 0, cancellationToken);
+            if (!await CanUseCurrentRosterAsync(command.Year, command.Day, cancellationToken)) throw HistoricalUnavailable();
             daily = TeamRosterApplicationService.Copy(season0, RosterKind.Matchday, command.Day, null);
             daily.FormationChanges = 0; daily.FormationHistory.Clear(); daily.LastUpdateUtc = now;
             database.RosterSnapshots.Add(daily);
@@ -358,7 +381,8 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return () => new(true, "Formazione salvata.", View(command.GroupId, command.LeagueId, command.Year, command.Day, resolved, roster, true, saved).Roster);
     }
 
-    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup, PreviousFormation? proposal = null)
+    private FormationView View(Guid group, Guid league, int year, int day, ResolvedTeam team, RosterSnapshot source, bool isDay, LeagueLineup? lineup,
+        PreviousFormation? proposal = null, bool historical = false)
     {
         var players = proposal is not null && lineup is null ? Overlay(source.Players, proposal.Positions) : Overlay(source.Players, lineup);
         var active = source.Players.Where(x => x.Status == 0).Select(x => x.PlayerId).ToHashSet(StringComparer.Ordinal);
@@ -374,7 +398,7 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             source.MoneyFromRank, source.OpeningCompetitionPrize, (lineup?.LastUpdateUtc ?? source.LastUpdateUtc)?.ToString("O") ?? source.LegacyLastUpdateLocal?.ToString("s"),
             lineup?.FormationChanges ?? (isDay ? source.FormationChanges : 0), history, lineup?.Version ?? 0, AssetLinks.Logo(assets.Value, team.Logo),
             lineup is null ? source.Version : null, source.MarketBalanceAdjustment, source.RankCreditGranted) { UnavailablePlayerIds = unavailable, ProposedFromDay = proposal?.Day };
-        return new(team, roster, lineup, source, isDay, unavailable);
+        return new(team, roster, lineup, source, isDay, unavailable, players, historical);
     }
 
     private async Task RequireParticipationAsync(Guid group, Guid league, int year, Guid team, CancellationToken cancellationToken)
@@ -392,4 +416,6 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
     private static ApplicationFault Denied() => new(403, "team_access_denied", "Accesso alla squadra non consentito.");
     private static ApplicationFault Invalid(string message) => new(400, "invalid_formation", message);
     private static ApplicationFault Changed() => new(409, "roster_changed", "La rosa o la formazione è cambiata. Ricaricare prima di salvare.");
+    private static ApplicationFault HistoricalUnavailable() => new(409, "historical_roster_unavailable",
+        "Rosa storica non attestata per questa giornata. La rosa attuale non può essere usata per ricostruire giocatori, proprietà o prezzi del passato.");
 }

@@ -31,13 +31,14 @@ public sealed partial class WorkspaceApiTests
         var created = await owner.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(graph.Baskets[0].Id, year, "Image team", account.Id, []));
         created.EnsureSuccessStatusCode(); var team = (await created.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
         var ids = new List<string>();
+        var sharedName = "Image HTTP " + Guid.NewGuid().ToString("N");
         await using (var database = factory.Database.CreateContext())
         {
             var club = new FootballClub { Name = "Image HTTP club", Abbreviation = "ihc" }; database.Clubs.Add(club);
             var roster = await database.RosterSnapshots.SingleAsync(x => x.TeamId == team && x.Kind == RosterKind.Season);
             for (var i = 0; i < 2; i++)
             {
-                var player = new FootballPlayer { Id = i == 0 ? "recordedimagea" : "recordedimageb", Name = "Image HTTP " + Guid.NewGuid().ToString("N") }; database.Players.Add(player);
+                var player = new FootballPlayer { Id = i == 0 ? "recordedimagea" : "recordedimageb", Name = sharedName }; database.Players.Add(player);
                 database.PlayerSeasons.Add(new() { Player = player, Club = club, SeasonIndex = year, Position = PlayerPosition.Forward });
                 roster.Players.Add(new() { Ordinal = i, Player = player, Club = club, PlayerRole = 3 });
                 await database.SaveChangesAsync(); ids.Add(player.Id);
@@ -70,7 +71,7 @@ public sealed partial class WorkspaceApiTests
         public int BatchCalls { get; private set; }
         public Task<bool> ReloadAsync(RealPlayer player, CancellationToken cancellationToken) { SingleCalls++; return Task.FromResult(true); }
         public Task<IReadOnlyList<PlayerImageReloadResult>> ReloadManyAsync(IReadOnlyCollection<RealPlayer> players, CancellationToken cancellationToken)
-        { BatchCalls++; return Task.FromResult<IReadOnlyList<PlayerImageReloadResult>>(players.Select((x, index) => new PlayerImageReloadResult(x.Key, x.Name, index == 0, index == 0 ? null : "Synthetic provider unavailable")).ToArray()); }
+        { BatchCalls++; return Task.FromResult<IReadOnlyList<PlayerImageReloadResult>>(players.Select((x, index) => new PlayerImageReloadResult(x.PlayerId!, x.PlayerId!, x.Name, index == 0, index == 0 ? null : "Synthetic provider unavailable")).ToArray()); }
         public Task DownloadMissingAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 

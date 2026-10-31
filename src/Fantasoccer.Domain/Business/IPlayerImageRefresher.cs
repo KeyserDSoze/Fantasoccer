@@ -6,4 +6,4 @@ public interface IPlayerImageRefresher
     Task<IReadOnlyList<PlayerImageReloadResult>> ReloadManyAsync(IReadOnlyCollection<RealPlayer> players, CancellationToken cancellationToken);
     Task DownloadMissingAsync(CancellationToken cancellationToken);
 }
-public sealed record PlayerImageReloadResult(string PlayerKey, string PlayerName, bool Succeeded, string? Error);
+public sealed record PlayerImageReloadResult(string PlayerId, string PlayerKey, string PlayerName, bool Succeeded, string? Error);

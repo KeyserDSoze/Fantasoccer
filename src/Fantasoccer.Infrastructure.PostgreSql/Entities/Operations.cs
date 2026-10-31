@@ -31,6 +31,9 @@ public sealed class SqlJobState
     public DateTimeOffset? LastStartedAtUtc { get; set; }
     public DateTimeOffset? LastCompletedAtUtc { get; set; }
     public string? LastStatus { get; set; }
+    // Durable keyset progress of a bounded maintenance sweep (currently hall); never a reference to mutable league rows.
+    public Guid? CursorGroupId { get; set; }
+    public Guid? CursorLeagueId { get; set; }
 }
 public sealed class SqlJobRun
 {

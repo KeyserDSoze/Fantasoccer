@@ -77,6 +77,8 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Operations.OperationsApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Operations.SqlJobApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Operations.ISqlJobActions, Fantasoccer.Application.Core.Operations.SqlJobActions>();
+        services.AddOptions<Fantasoccer.Application.Core.Operations.JobMaintenanceOptions>()
+            .Validate(x => x.HallBatchSize is >= 1 and <= 1000, "Hall batches must contain between one and 1000 leagues.");
         services.AddScoped<Fantasoccer.Application.Core.Cards.CardApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.NotificationSettingsApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.PushOutboxApplicationService>();

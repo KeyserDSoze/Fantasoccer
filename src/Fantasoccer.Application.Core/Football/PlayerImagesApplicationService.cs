@@ -56,22 +56,19 @@ public sealed class PlayerImagesApplicationService(FantasoccerDbContext database
         IReadOnlyList<PlayerImageReloadResult> result;
         try
         {
-            result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.PlayerRole,
+            result = await images.ReloadManyAsync(active.Select(x => new RealPlayer { PlayerId = x.PlayerId, Name = x.Player.Name, Role = (Role)x.PlayerRole,
                 RealTeam = FootballMapping.DomainClubOrEmpty(x.Club), IsActive = x.IsActive, Visible = x.IsVisible }).ToArray(), cancellationToken);
         }
         catch (ExternalHttpDisabledException) { throw ExternalFetchingDisabled(); }
-        // The image service returns the legacy name-only image alias for the
-        // exact samples we sent. Map it back without changing the domain key.
-        string Identity(string imageAlias) => active.Single(x => KeyUtils.GetPlayerKey(x.Player.Name) == imageAlias).PlayerId;
-        var succeeded = result.Where(x => x.Succeeded).Select(x => new RefreshedPlayerImageDto(Identity(x.PlayerKey), Identity(x.PlayerKey), x.PlayerName, Guid.NewGuid().ToString("N"))).ToArray();
-        var failed = result.Where(x => !x.Succeeded).Select(x => new PlayerImageFailureDto(Identity(x.PlayerKey), Identity(x.PlayerKey), x.PlayerName, x.Error)).ToArray();
+        var succeeded = result.Where(x => x.Succeeded).Select(x => new RefreshedPlayerImageDto(x.PlayerId, x.PlayerKey, x.PlayerName, Guid.NewGuid().ToString("N"))).ToArray();
+        var failed = result.Where(x => !x.Succeeded).Select(x => new PlayerImageFailureDto(x.PlayerId, x.PlayerKey, x.PlayerName, x.Error)).ToArray();
         return new(result.Count, succeeded.Length, failed.Length, succeeded, failed);
     }
     private async Task MemberAsync(ClaimsPrincipal caller, Guid group)
     {
         if (!(await authorization.AuthorizeAsync(caller, group, "workspace-member")).Succeeded) throw new ApplicationFault(403, "player_images_access_denied", "Accesso al gruppo non consentito.");
     }
-    private static RealPlayer Domain(PlayerSeason row) => new() { Name = row.Player.Name, Role = (Role)row.Position,
+    private static RealPlayer Domain(PlayerSeason row) => new() { PlayerId = row.PlayerId, Name = row.Player.Name, Role = (Role)row.Position,
         RealTeam = row.Club == null ? null! : FootballMapping.DomainClub(row.Club), IsActive = row.IsActive, Visible = row.IsVisible };
     private static ApplicationFault ExternalFetchingDisabled() => new(503, "external_http_disabled",
         "Le chiamate alle fonti esterne sono disabilitate in questo ambiente. Per aggiornare le immagini abilita ExternalHttp:Enabled (EXTERNAL_HTTP_ENABLED=true nel file .env locale) e riavvia l'API.");
