@@ -11,7 +11,7 @@ location = "italynorth"
 
 app_service_sku         = "B1"
 container_registry_sku  = "Basic"
-background_jobs_enabled = false
+background_jobs_enabled = true
 
 postgres_sku                   = "B_Standard_B1ms"
 postgres_storage_mb            = 32768
