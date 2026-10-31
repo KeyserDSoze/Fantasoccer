@@ -15,6 +15,52 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.0',
+    date: '31 Ottobre 2026',
+    changes: [
+      {
+        category: 'Breaking',
+        description:
+          'Fantasoccer gira su una nuova infrastruttura con database PostgreSQL: dopo l’aggiornamento devi accedere di nuovo con Microsoft. Squadre, rose, voti e risultati sono stati importati',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Una squadra può partecipare a più competizioni della stessa lega, con classifiche, partecipanti e formazioni per competizione',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Le formazioni sono condivise tra le competizioni della squadra; se vuoi puoi separarle per squadra, cambiare competizione e copiare la formazione dall’una all’altra',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Se in una giornata non schieri nessuno, viene usata l’ultima formazione della squadra al posto della penalità',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Quando una giornata non ha ancora una formazione ti viene proposta direttamente quella precedente',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Le schermate delle squadre e dei giocatori mostrano tutte le competizioni della lega, limitate ai partecipanti scelti',
+      },
+      {
+        category: 'Breaking',
+        description:
+          'Per alcune partite delle stagioni passate il dettaglio può non essere disponibile; risultati e classifiche restano quelli già salvati. Le aste e il mercato delle stagioni passate non sono stati importati',
+      },
+      {
+        category: 'Breaking',
+        description:
+          'Per ora sono sospesi i collegamenti MCP e le notifiche push',
+      },
+    ],
+  },
+  {
     version: '3.0.0',
     date: '24 Ottobre 2026',
     changes: [
