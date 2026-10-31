@@ -2,6 +2,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Infrastructure.PostgreSql;
 
+// Callers that isolate failures item by item must let this one through:
+// once the lease is gone every further write of the job is refused.
+public sealed class SqlJobLeaseLostException() : InvalidOperationException("SQL job lease no longer owned; write refused.");
+
 // Flows through async execution and child DI scopes. Every SQL application write
 // rechecks the job's fencing token under the same global lock used for the write.
 // A slow/canceled old runner cannot commit after a replacement owns its lease.
@@ -21,7 +25,7 @@ public static class SqlJobLeaseFence
         var now = ticket.Now();
         if (!await database.SqlJobStates.AsNoTracking().AnyAsync(x => x.Name == ticket.Name && x.SeasonIndex == ticket.Year &&
             x.LeaseId == ticket.LeaseId && x.LeaseUntilUtc > now, cancellationToken))
-            throw new InvalidOperationException("SQL job lease no longer owned; write refused.");
+            throw new SqlJobLeaseLostException();
     }
     private sealed class Restore(Ticket? previous) : IDisposable
     { public void Dispose() => Current.Value = previous; }

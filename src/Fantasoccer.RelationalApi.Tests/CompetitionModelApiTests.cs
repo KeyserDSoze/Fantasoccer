@@ -850,6 +850,66 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         }
     }
 
+    // Two leagues of one group, each with a finished and fully voted match on the same Serie A day. The league the
+    // scheduled job meets first (database order) is returned as the one the caller will break.
+    private async Task<(World World, Guid SerieAMatch, Guid PremierMatch, Guid Broken)> TwoLeaguesWithAFinishedDayAsync(int year)
+    {
+        var world = await WorldAsync(year, peachOwnsFunghi: true);
+        var group = world.Group;
+        foreach (var team in new[] { world.Koopa, world.Draghi, world.Leoni, world.Funghi }) await RosterAsync(group, team, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(-3));
+        var serieA = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        var premier = await GameAsync(group, world.LeaguePL, year, (world.Leoni, world.Premier, world.Mario.Account.Email), (world.Funghi, world.Premier, world.Peach.Account.Email));
+        await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
+        await using var database = factory.Database.CreateContext();
+        var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year);
+        match.IsFinished = true; match.ActualOfficialVotesReady = true;
+        foreach (var player in await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToArrayAsync())
+            database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official,
+                PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = 6, HasVote = true, IsFinal = true, IsActive = true, IsVisible = true });
+        await database.SaveChangesAsync();
+        var broken = await database.Leagues.Where(x => x.GroupId == group && (x.LeagueId == world.LeagueSA || x.LeagueId == world.LeaguePL)).OrderBy(x => x.LeagueId).Select(x => x.LeagueId).FirstAsync();
+        return (world, serieA, premier, broken);
+    }
+
+    private async Task AssertOnlyTheHealthyLeagueWasScoredAsync(World world, Guid serieA, Guid premier, Guid broken, string expectedCode)
+    {
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var result = await scope.ServiceProvider.GetRequiredService<Fantasoccer.Application.Core.Operations.ISqlJobActions>().ExecuteAsync("results", world.Year, CancellationToken.None);
+            Assert.Equal(1, result.Processed); Assert.Equal(1, result.Skipped); Assert.Equal(expectedCode, result.Code);
+        }
+        await using var database = factory.Database.CreateContext();
+        var (brokenMatch, healthyMatch) = broken == world.LeagueSA ? (serieA, premier) : (premier, serieA);
+        Assert.Null((await database.FantasyMatches.SingleAsync(x => x.Id == brokenMatch)).Result);
+        Assert.NotNull((await database.FantasyMatches.SingleAsync(x => x.Id == healthyMatch)).Result);
+    }
+
+    [PostgreSqlFact]
+    public async Task A_league_that_cannot_be_scored_never_stops_the_scheduled_scoring_of_the_other_leagues()
+    {
+        var (world, serieA, premier, broken) = await TwoLeaguesWithAFinishedDayAsync(56);
+        await using (var database = factory.Database.CreateContext())
+        {
+            // A rule set no calculator exists for: a controlled application fault.
+            (await database.LeagueSeasons.SingleAsync(x => x.GroupId == world.Group && x.LeagueId == broken && x.SeasonIndex == world.Year)).CompetitionType = 99;
+            await database.SaveChangesAsync();
+        }
+        await AssertOnlyTheHealthyLeagueWasScoredAsync(world, serieA, premier, broken, "league_calculator_unavailable");
+    }
+
+    [PostgreSqlFact]
+    public async Task An_unexpected_exception_in_one_league_is_reported_without_stopping_the_scheduled_scoring_of_the_others()
+    {
+        var (world, serieA, premier, broken) = await TwoLeaguesWithAFinishedDayAsync(57);
+        await using (var database = factory.Database.CreateContext())
+        {
+            // Not an application fault: the rules row the scoring reads is simply gone.
+            await database.LeagueRules.Where(x => x.GroupId == world.Group && x.LeagueId == broken && x.SeasonIndex == world.Year).ExecuteDeleteAsync();
+        }
+        await AssertOnlyTheHealthyLeagueWasScoredAsync(world, serieA, premier, broken, "job_item_failed");
+    }
+
     [PostgreSqlFact]
     public async Task A_sale_and_repurchase_after_preparation_update_only_future_ownership_and_leave_one_active_copy()
     {

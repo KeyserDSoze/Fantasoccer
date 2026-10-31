@@ -8,12 +8,33 @@ using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Application.Core.Operations;
 
-public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider clock, IOptions<JobMaintenanceOptions> options) : ISqlJobActions
+public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider clock, IOptions<JobMaintenanceOptions> options, ILogger<SqlJobActions> logger) : ISqlJobActions
 {
+    // Normal waits for provider data: reported as "waiting", never as a failure.
+    private static readonly HashSet<string> WaitingFaults = ["official_matchday_incomplete", "competition_not_found"];
+
+    private sealed class Skips
+    {
+        public int Count { get; private set; }
+        public string? Code { get; private set; }
+        public void Add(string? code) { Count++; Code ??= code; }
+    }
+
+    // One broken scope (a league, a day) must not stop the others: every scope runs in its own DI scope and
+    // context, so its failure leaves nothing behind. A canceled job or a lost lease still stops everything.
+    private string Failure(string job, Exception error, Guid group, Guid league, int day)
+    {
+        if (error is ApplicationFault fault) return fault.Code;
+        logger.LogError("SQL job {JobName} skipped group {GroupId} league {LeagueId} day {Day} ({FailureType}); no exception message or payload logged.",
+            job, group, league, day, error.GetType().Name);
+        return "job_item_failed";
+    }
+
     public async Task<SqlJobWorkResult> ExecuteAsync(string name, int year, CancellationToken cancellationToken)
     {
         // Job state/leases use their own context. Actions call the very same
@@ -49,20 +70,24 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             var ended = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && (x.OriginalKickoffUtc ?? x.KickoffUtc) != null).ToArrayAsync(cancellationToken))
                 .GroupBy(x => x.SerieADay).Where(x => now >= x.Max(game => game.OriginalKickoffUtc ?? game.KickoffUtc)!.Value.AddMinutes(135)).Select(x => x.Key).ToArray();
             var pending = await database.FantasyMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.Result == null && ended.Contains(x.Matchday.SerieADay))
-                .Select(x => new { x.GroupId, x.LeagueId, Day = x.Matchday.SerieADay }).Distinct().Take(1000).ToArrayAsync(cancellationToken);
-            var processed = 0; var skipped = 0; string? code = null;
+                .Select(x => new { x.GroupId, x.LeagueId, Day = x.Matchday.SerieADay }).Distinct()
+                .OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).ThenBy(x => x.Day).Take(1000).ToArrayAsync(cancellationToken);
+            var processed = 0; var skips = new Skips();
             foreach (var item in pending)
             {
                 await using var child = scopes.CreateAsyncScope();
                 try
                 {
                     var result = await child.ServiceProvider.GetRequiredService<CompetitionLifecycleApplicationService>().RecalculateScheduledAsync(item.GroupId, item.LeagueId, year, item.Day, cancellationToken);
-                    if (result.AwaitingRecovery) skipped++; else processed++;
+                    if (result.AwaitingRecovery) skips.Add(null); else processed++;
                 }
-                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found" or "historical_roster_unavailable")
-                { skipped++; if (fault.Code == "historical_roster_unavailable") code = "historical_roster_unavailable"; }
+                catch (Exception error) when (error is not (OperationCanceledException or SqlJobLeaseLostException))
+                {
+                    var code = Failure(name, error, item.GroupId, item.LeagueId, item.Day);
+                    skips.Add(WaitingFaults.Contains(code) ? null : code);
+                }
             }
-            return new(processed, skipped, skipped > 0 ? code ?? "results_waiting_for_official_data" : null);
+            return new(processed, skips.Count, skips.Count > 0 ? skips.Code ?? "results_waiting_for_official_data" : null);
         }
         var ingestion = services.GetRequiredService<FootballIngestionApplicationService>();
         int? day = name switch { "live" => live?.Day, "official" => last?.Day, "chances" => (live ?? next)?.Day, _ => null };
@@ -112,8 +137,14 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             await using (var child = scopes.CreateAsyncScope())
             {
                 try { await child.ServiceProvider.GetRequiredService<FootballIngestionApplicationService>().RefreshPostponedDayAsync(day.Key.SeasonIndex, day.Key.Day, cancellationToken); }
-                catch (ApplicationFault fault) when (fault.Code is "recovery_calendar_season_unavailable" or "recovery_calendar_scope_mismatch" or "football_provider_incomplete" or "official_matchday_incomplete" or "postponed_recovery_not_pending") { code = fault.Code; }
+                catch (ApplicationFault fault) { code = fault.Code; }
                 catch (HttpRequestException) { code = "recovery_source_unavailable"; }
+                catch (Exception error) when (error is not (OperationCanceledException or SqlJobLeaseLostException))
+                {
+                    logger.LogError("SQL job postponed-results could not refresh season {SeasonIndex} day {Day} ({FailureType}); no exception message or payload logged.",
+                        day.Key.SeasonIndex, day.Key.Day, error.GetType().Name);
+                    code = "recovery_source_failed";
+                }
             }
             foreach (var item in day)
             {
@@ -129,7 +160,8 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
                     var result = await child.ServiceProvider.GetRequiredService<CompetitionLifecycleApplicationService>().RecalculateScheduledAsync(item.GroupId, item.LeagueId, item.SeasonIndex, item.Day, cancellationToken);
                     if (result.AwaitingRecovery) skipped++; else if (result.Changed) processed++;
                 }
-                catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "competition_not_found" or "opening_competition_unavailable" or "roster_missing_for_recalculation" or "historical_roster_unavailable") { skipped++; code ??= fault.Code; }
+                catch (Exception error) when (error is not (OperationCanceledException or SqlJobLeaseLostException))
+                { skipped++; code ??= Failure("postponed-results", error, item.GroupId, item.LeagueId, item.Day); }
             }
         }
         return new(processed, skipped, skipped > 0 ? code ?? "postponed_matchdays_pending" : null);
