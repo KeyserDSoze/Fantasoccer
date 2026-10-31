@@ -4,7 +4,7 @@ Crea da zero, in un nuovo resource group `fcv2`, l'ambiente applicativo su Postg
 
 | Area | Risorse | Note |
 | --- | --- | --- |
-| Gruppo | `azurerm_resource_group` `fcv2` | Regione `swedencentral`, modificabile solo prima del primo apply |
+| Gruppo | `azurerm_resource_group` `fcv2` | Regione `italynorth`, modificabile solo prima del primo apply. Sweden Central rifiuta PostgreSQL B1ms per la sottoscrizione (`SkuNotAvailable`, anche se `list-skus` lo mostra disponibile): provato con la creazione reale. Azure OpenAI resta in Sweden Central (`openai_location`) |
 | Immagini API | Azure Container Registry `Basic` | Utente admin e pull anonimo disattivati. Push da GitHub con il service principal; pull dell'App Service con identità gestita e ruolo `AcrPull`, senza password |
 | API | App Service plan Linux `B1`, Web App container `apifcv2` (https://apifcv2.azurewebsites.net) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
 | Database | PostgreSQL Flexible Server 17 `B_Standard_B1ms`, database `fantasoccer` | 32 GB con crescita automatica, backup 14 giorni, password generata, connessione `SSL Mode=VerifyFull`, `prevent_destroy` |
