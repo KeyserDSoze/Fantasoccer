@@ -315,11 +315,18 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         { Name = row.Player.Name, Role = (Role)row.PlayerRole, RealTeam = row.Club is null ? null! : FootballMapping.DomainClub(row.Club), Vote = FootballMapping.DomainVote(row) }).ToList() });
         var samples = FootballStatisticsCalculator.Calculate(players.Select(x => new RealPlayer { Name = x.Player.Name, Role = (Role)x.Position, RealTeam = FootballMapping.DomainClub(x.Club!), IsActive = x.IsActive, Visible = x.IsVisible }).ToList(), until, domain, scoring);
         var existing = await database.FootballPlayerStatistics.Where(x => x.SeasonIndex == year).AsSplitQuery().ToArrayAsync(cancellationToken);
+        var playersById = players.ToDictionary(x => x.PlayerId);
+        var statisticsById = existing.ToDictionary(x => x.PlayerId);
         foreach (var sample in samples.Players)
         {
-            var player = players.Single(x => x.PlayerId == sample.Key);
-            var row = existing.SingleOrDefault(x => x.PlayerId == player.PlayerId);
-            if (row is null) database.FootballPlayerStatistics.Add(row = new() { SeasonIndex = year, PlayerId = player.PlayerId });
+            cancellationToken.ThrowIfCancellationRequested();
+            var player = playersById[sample.Key];
+            if (!statisticsById.TryGetValue(player.PlayerId, out var row))
+            {
+                row = new() { SeasonIndex = year, PlayerId = player.PlayerId };
+                database.FootballPlayerStatistics.Add(row);
+                statisticsById.Add(player.PlayerId, row);
+            }
             row.ClubId = player.ClubId!; row.PlayerRole = (int)player.Position; row.IsActive = player.IsActive; row.IsVisible = player.IsVisible;
             row.Summatory = sample.Summatory; row.FantaSummatory = sample.FantaSummatory; row.WithVote = sample.WithVote; row.WithoutVote = sample.WithoutVote; row.NoPlayed = sample.NoPlayed;
             row.WithSpecial = sample.WithSpecial; row.Goals = sample.Goal; row.Penalties = sample.Penalty; row.Assists = sample.Assist; row.StoppedPenalties = sample.StoppedPenalty;
@@ -330,7 +337,11 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         await database.SaveChangesAsync(cancellationToken);
         foreach (var sample in samples.Players)
         {
-            var row = database.FootballPlayerStatistics.Local.Single(x => x.SeasonIndex == year && x.PlayerId == players.Single(player => KeyUtils.GetPlayerKey(player.Player.Name) == sample.Key).PlayerId);
+            cancellationToken.ThrowIfCancellationRequested();
+            // DbSet.Local performs DetectChanges on every access. Repeating it while
+            // adding each player's history turns a full-catalogue refresh quadratic
+            // and can hold the global write lock long past the job's timeout.
+            var row = statisticsById[sample.Key];
             foreach (var (game, ordinal) in sample.AllGames!.Select((game, ordinal) => (game, ordinal))) row.Games.Add(new() { Day = game.SerieADay, Ordinal = ordinal, Vote = game.Vote, Positiveness = game.Positiveness });
         }
         await DatasetAsync("statplayerswrapper", year, 0, cancellationToken);

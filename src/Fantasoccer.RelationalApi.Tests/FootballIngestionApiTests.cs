@@ -110,8 +110,9 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         using var ordinary = await factory.AccountAsync();
         Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.PostAsJsonAsync(path, new RefreshFootballRequest("catalogue", year))).StatusCode);
     }
-    private sealed class IngestionSources : ISerieAInformation, IAllPlayers, ILiveVote, IOfficialVote
+    internal sealed class IngestionSources : ISerieAInformation, IAllPlayers, ILiveVote, IOfficialVote
     {
+        public int ExtraPlayers { get; set; }
         public bool EmptyCatalogue { get; set; }
         public bool IncompleteOfficial { get; set; }
         public bool MissingOfficialClub { get; set; }
@@ -129,9 +130,46 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             var players = EmptyCatalogue ? new List<RealPlayer>() : Players.ToList();
             if (InvalidCatalogueRole) players[0].Role = (Role)99;
             if (DuplicateCatalogueKey) players.Add(new() { Name = "INGESTION-FORWARD", RealTeam = Players[0].RealTeam, Role = Role.Forward });
-            return Task.FromResult(players);
+            return Task.FromResult(players.Concat(Enumerable.Range(0, ExtraPlayers).Select(index => new RealPlayer
+            {
+                // Digits are removed from normalized identities, so use letters for unique names.
+                Name = $"Bulk player {(char)('a' + index / 26)}{(char)('a' + index % 26)}",
+                RealTeam = Players[0].RealTeam, Role = Role.Forward, IsActive = true
+            })).ToList());
         }
         public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
             { Name = player.Name, RealTeam = MissingOfficialClub ? null! : player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } }).ToList());
+    }
+}
+
+public sealed class CatalogueStatisticsScaleTests(WorkspaceApiFactory factory) : IClassFixture<WorkspaceApiFactory>
+{
+    [PostgreSqlFact]
+    public async Task A_full_catalogue_refresh_replaces_histories_without_duplicating_them()
+    {
+        using var account = await factory.AccountAsync(globalAdmin: true);
+        var email = account.DefaultRequestHeaders.GetValues("X-Workspace-User").Single();
+        var sources = new FootballIngestionApiTests.IngestionSources { ExtraPlayers = 350 };
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<ISerieAInformation>(sources); services.AddSingleton<IAllPlayers>(sources);
+            services.AddSingleton<IOfficialVote>(sources); services.AddSingleton<ILiveVote>(sources);
+        }));
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Workspace-User", email);
+        client.DefaultRequestHeaders.Add("X-Workspace-Admin", "true");
+        app.Services.GetRequiredService<IOptions<GlobalAdministratorOptions>>().Value.Emails = [email];
+        var year = FantacalcioTime.ActualYear;
+        foreach (var operation in new[] { "calendar", "catalogue", "official" })
+            (await client.PostAsJsonAsync("/api/football/refresh", new RefreshFootballRequest(operation, year, operation == "official" ? 1 : null))).EnsureSuccessStatusCode();
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            (await client.PostAsJsonAsync("/api/football/refresh", new RefreshFootballRequest("statistics", year, 38))).EnsureSuccessStatusCode();
+            await using var database = factory.Database.CreateContext();
+            var statistics = await database.FootballPlayerStatistics.Where(x => x.SeasonIndex == year).AsSplitQuery().ToArrayAsync();
+            Assert.Equal(352, statistics.Length);
+            Assert.All(statistics, row => Assert.Equal(38, row.Games.Count));
+            Assert.Equal(1, statistics.Single(x => x.PlayerId == KeyUtils.GetPlayerKey("Ingestion forward")).WithVote);
+        }
     }
 }

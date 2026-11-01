@@ -29,3 +29,17 @@ openai_model_version = "2026-09-22"
 
 # 2: the Microsoft client secret was replaced on 31/10/2026 (the previous one was committed to the public history).
 app_secrets_version = 2
+
+# Rotated operational secrets are provisioned directly in Key Vault, outside
+# Terraform state. Only references (never secret values) belong in this file.
+# Certificate expiry: November 2028; preserve it to read protected key-ring entries.
+extra_app_settings = {
+  Push__Enabled          = "true"
+  Push__Subject          = "https://fanta.zone"
+  Push__PublicKey        = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-public-key-20261101)"
+  Push__PrivateKey       = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-private-key-20261101)"
+  Mcp__Enabled           = "true"
+  Mcp__Issuer            = "https://apifcv2.azurewebsites.net"
+  Mcp__FrontendUrl       = "https://fanta.zone/"
+  Mcp__CertificateBase64 = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/mcp-certificate-20261101)"
+}
