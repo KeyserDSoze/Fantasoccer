@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.1',
+    date: '1 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Le API ora rispondono dal dominio dedicato api.fanta.zone, con HTTPS gestito: il sito e l’app usano il nuovo indirizzo, senza cambiare nulla per te',
+      },
+      {
+        category: 'Breaking',
+        description:
+          'Server MCP: il nuovo indirizzo è https://api.fanta.zone/mcp. Se avevi collegato Fantasoccer a ChatGPT o a un altro client MCP, rimuovi il vecchio connettore e aggiungilo di nuovo con il nuovo URL (la guida MCP del sito è già aggiornata)',
+      },
+    ],
+  },
+  {
     version: '4.0.0',
     date: '31 Ottobre 2026',
     changes: [
