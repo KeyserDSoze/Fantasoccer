@@ -1,4 +1,4 @@
 # Full legacy snapshots contain personal data and device credentials.
-# Keep raw archives local until an explicitly sanitized public copy is prepared.
+# Keep ZIP files out of Git: the filtered public edition is a GitHub Release asset.
 *.zip
 *.zip.*

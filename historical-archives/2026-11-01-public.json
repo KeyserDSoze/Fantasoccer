@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-01",
+  "archive": "2026-11-01.zip",
+  "edition": "public-filtered-blob-only",
+  "releaseUrl": "https://github.com/KeyserDSoze/Fantasoccer/releases/tag/legacy-history-2026-11-01",
+  "downloadUrl": "https://github.com/KeyserDSoze/Fantasoccer/releases/download/legacy-history-2026-11-01/2026-11-01.zip",
+  "checksumUrl": "https://github.com/KeyserDSoze/Fantasoccer/releases/download/legacy-history-2026-11-01/2026-11-01.zip.sha256",
+  "excludedContainers": [
+    "mcp-keys",
+    "mcp-oauth",
+    "notification",
+    "pushnotification",
+    "pushnotificationlocks",
+    "pushnotificationsent"
+  ],
+  "tableStorageIncluded": false,
+  "postgresDumpIncluded": false,
+  "snapshots": {
+    "migration-import-snapshot": {
+      "containers": 31,
+      "blobs": 12166,
+      "tables": 0,
+      "sourceCompletedAtUtc": "2026-10-31T21:29:14.4739621+00:00",
+      "sourceQuiesced": false
+    },
+    "legacy-final-snapshot": {
+      "containers": 31,
+      "blobs": 12167,
+      "tables": 0,
+      "sourceCompletedAtUtc": "2026-11-01T09:52:19.0339728+00:00",
+      "sourceQuiesced": true
+    }
+  },
+  "bytes": 616790415,
+  "sha256": "b4f15d7953848e26238a77c307e00aff9e678d356e9ac3a097fd84e42d2ad2ee",
+  "zipVerified": true,
+  "storageMigrationVerifyPassed": true,
+  "credentialScanPassed": true,
+  "githubAssetDigestVerified": true,
+  "publicDownloadHttpStatus": 200,
+  "originalPrivateArchiveModified": false
+}
