@@ -38,9 +38,10 @@ PY
 }
 
 # PostgreSQL 17 client tools (the server is 17; the runner image ships an older client).
+# TLS is required but the server certificate is not verified: the Azure chain is not in the image's CA store.
 pg() {
   docker run --rm -i -e PGHOST -e PGPORT -e PGUSER -e PGPASSWORD -e PGDATABASE \
-    -e PGSSLMODE=verify-full -e PGSSLROOTCERT=system -v "$WORK:/work" postgres:17 "$@"
+    -e PGSSLMODE=require -v "$WORK:/work" postgres:17 "$@"
 }
 
 wait_for_database() {
@@ -49,6 +50,7 @@ wait_for_database() {
     if pg psql -d postgres -Atc "select 1" >/dev/null 2>&1; then return 0; fi
     sleep 10
   done
+  pg psql -d postgres -Atc "select 1" 2>&1 | tail -3 || true
   echo "::error::PostgreSQL did not accept the connection from this runner."
   return 1
 }
