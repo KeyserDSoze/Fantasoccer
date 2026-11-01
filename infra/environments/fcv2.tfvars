@@ -32,7 +32,7 @@ app_secrets_version = 2
 
 # Rotated operational secrets are provisioned directly in Key Vault, outside
 # Terraform state. Only references (never secret values) belong in this file.
-# Certificate expiry: November 2028; preserve it to read protected key-ring entries.
+# Certificate expiry: late October 2028; preserve it to read protected key-ring entries.
 extra_app_settings = {
   # App Service terminates TLS at its reverse proxy; OAuth must see the original HTTPS scheme.
   ASPNETCORE_FORWARDEDHEADERS_ENABLED = "true"

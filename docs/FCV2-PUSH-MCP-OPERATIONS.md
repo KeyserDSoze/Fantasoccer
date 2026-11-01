@@ -8,7 +8,7 @@ valori, sono in `infra/environments/fcv2.tfvars` (`extra_app_settings`). Questi 
 segreti sono gestiti fuori da Terraform: non eliminarli durante la manutenzione.
 
 - `push-public-key-20261101`, `push-private-key-20261101`: coppia P-256 nuova.
-- `mcp-certificate-20261101`: PFX RSA con chiave privata, scadenza novembre 2028.
+- `mcp-certificate-20261101`: PFX RSA con chiave privata, scadenza 31 ottobre 2028.
   Il PFX senza password resta un segreto del vault, non un file nel repository.
   Conservare il certificato: protegge anche le nuove chiavi Data Protection nel
   blob già usato da fcv2. Una rotazione futura deve mantenere la decifratura delle
@@ -69,3 +69,9 @@ La pagina dei voti ufficiali include anche gli allenatori (`role=all`). Il parse
 ora li esclude prima della costruzione delle identità: importandoli come giocatori
 le identità vuote/ambigue facevano rifiutare tutta la giornata. I controlli sui
 calciatori, sulla completezza dei club e sui voti finiti restano invariati.
+
+Verifica finale, 1 novembre alle 09:18 UTC: `official` riuscito alle 09:10 e alle
+09:15 (circa 12 e 8 secondi), `statistics` riuscito alle 09:17, `chances` riuscito
+alle 09:00. Nessuna transazione aperta rimasta bloccata. Pipeline e deploy API
+verdi su `f8324bc`; Pages pubblicato con i collegamenti MCP visibili. Nuove
+iscrizioni push e login/consenso da client MCP richiedono il collaudo dell'utente.
