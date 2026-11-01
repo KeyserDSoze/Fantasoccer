@@ -61,6 +61,7 @@ internal sealed class SqlJobRunConfiguration : IEntityTypeConfiguration<SqlJobRu
     {
         builder.ToTable("SqlJobRuns"); builder.HasKey(x => x.Id); builder.Property(x => x.Id).ValueGeneratedNever();
         builder.HasIndex(x => x.StartedAtUtc);
+        builder.HasIndex(x => x.CompletedAtUtc);
         builder.HasOne<SqlJobState>().WithMany().HasForeignKey(x => new { x.Name, x.SeasonIndex }).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.ActorUserId).OnDelete(DeleteBehavior.Restrict);
     }

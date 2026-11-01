@@ -8,6 +8,22 @@ const { loadTypeScript } = require('./helpers/loadTypeScript.cjs')
 
 const defaults = () => ({ matchEvents: true, opponentMatchEvents: false, deploymentReminder: false, endDay: false,
   marketEvents: false, liveChangesReminder: false, liveFormationChangeEvents: false, subscriptions: [], version: 1, publicKey: 'BAAA', deliveryEnabled: false })
+
+test('operational toggle is hidden unless the server explicitly grants global admin eligibility', () => {
+  const { canShowOperationalAlerts, assertPushSettings } = loadTypeScript('types/pushNotification.ts')
+  assert.equal(canShowOperationalAlerts(defaults()), false)
+  assert.equal(canShowOperationalAlerts({ ...defaults(), canReceiveOperationalAlerts: false }), false)
+  assert.equal(canShowOperationalAlerts({ ...defaults(), canReceiveOperationalAlerts: true }), true)
+  assert.doesNotThrow(() => assertPushSettings(defaults())) // rolling-deploy compatibility
+  assert.throws(() => assertPushSettings({ ...defaults(), operationalAlerts: 'true' }))
+})
+
+test('operational-only preferences count as enabled notifications', () => {
+  const { buildPushNotificationSummary } = loadTypeScript('types/pushNotification.ts')
+  const summary = buildPushNotificationSummary({ ...defaults(), matchEvents: false, operationalAlerts: true })
+  assert.equal(summary.hasAnyEnabled, true)
+  assert.equal(summary.hasMatchNotifications, false)
+})
 const device = (endpoint = 'https://push.test/device', p256dh = 'key') => ({ endpoint, p256dh, auth: 'auth' })
 const silentConsole = { log() {}, warn() {}, error() {} }
 const loadService = fetch => {
@@ -38,6 +54,17 @@ test('updates use one partial server command and never load/replace devices', as
   assert.equal(calls.length, 1)
   assert.deepEqual(JSON.parse(calls[0].body), { endDay: true })
   assert.equal(new URL(calls[0].url).searchParams.get('email'), 'user+push@test.local')
+})
+
+test('operational preference uses the same partial patch without changing game preferences', async () => {
+  const calls = []
+  const { service } = loadService(async (url, options) => {
+    calls.push(options)
+    return Response.json({ ...defaults(), operationalAlerts: true, canReceiveOperationalAlerts: true })
+  })
+  const settings = await service.updateSettings('admin@test.local', { operationalAlerts: true })
+  assert.deepEqual(JSON.parse(calls[0].body), { operationalAlerts: true })
+  assert.equal(settings.operationalAlerts, true)
 })
 
 test('failed loads do not return empty defaults', async () => {

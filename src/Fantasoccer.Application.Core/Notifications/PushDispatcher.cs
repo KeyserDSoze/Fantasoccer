@@ -1,4 +1,5 @@
 using Fantasoccer.Business;
+using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Infrastructure.PostgreSql;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +7,8 @@ using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Application.Core.Notifications;
 
-public sealed class PushDispatcher(FantasoccerDbContext database, IPushDeliveryTransport transport, IOptions<PushTransportOptions> options, TimeProvider clock)
+public sealed class PushDispatcher(FantasoccerDbContext database, IPushDeliveryTransport transport, IOptions<PushTransportOptions> options, TimeProvider clock,
+    AccountApplicationService? accounts = null)
 {
     private const int MaximumAttempts = 10;
     public async Task<PushDispatchResult> DispatchAsync(int maximumDeliveries = 16, CancellationToken cancellationToken = default)
@@ -93,6 +95,16 @@ public sealed class PushDispatcher(FantasoccerDbContext database, IPushDeliveryT
     {
         if (row.ExpiresAtUtc <= clock.GetUtcNow()) return PushDeliveryStatus.Expired;
         if (row.Attempts > MaximumAttempts) return PushDeliveryStatus.AttemptsExhausted;
+        if (row.Kind == PushOutboxApplicationService.OperationalAlertKind)
+        {
+            if (!PushOutboxApplicationService.SafeUri(row.Uri) || row.Uri != "/logs" || row.GroupId != null || row.LeagueId != null || row.TeamId != null || row.BasketId != null || row.Day != 0)
+                return PushDeliveryStatus.Quarantined;
+            var email = await database.Users.Where(x => x.Id == row.UserId && x.IsEnabled).Select(x => x.Email).SingleOrDefaultAsync(cancellationToken);
+            var enabled = await database.UserPushPreferences.AnyAsync(x => x.UserId == row.UserId && x.OperationalAlerts, cancellationToken);
+            // Recheck opt-out and global admin eligibility before every send.
+            // A group SuperAdmin alone must never receive platform errors.
+            return accounts?.IsGlobalAdministrator(email) == true && enabled ? PushDeliveryStatus.Pending : PushDeliveryStatus.Suppressed;
+        }
         if (!PushOutboxApplicationService.SafeUri(row.Uri) || row.GroupId == null || row.LeagueId == null) return PushDeliveryStatus.Quarantined;
         var preferences = await database.UserPushPreferences.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == row.UserId, cancellationToken);
         return !PushDeliveryAccess.IsEnabled(preferences, row.Kind) || !await PushDeliveryAccess.IsCurrentOwnerAsync(database, row, cancellationToken)

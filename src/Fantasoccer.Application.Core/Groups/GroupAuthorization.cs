@@ -85,6 +85,8 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Notifications.NotificationSettingsApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.PushOutboxApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.PushDispatcher>();
+        services.AddScoped<Fantasoccer.Application.Core.Notifications.OperationalAlertProducer>();
+        services.AddScoped<Fantasoccer.Application.Core.Notifications.OperationalFailureRecorder>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.MarketPushProducer>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.MatchdayPushProducer>();
         services.AddOptions<Fantasoccer.Application.Core.Notifications.PushRetentionOptions>();

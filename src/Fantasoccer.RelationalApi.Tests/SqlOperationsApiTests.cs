@@ -133,6 +133,8 @@ public sealed partial class WorkspaceApiTests
         await using var final = factory.Database.CreateContext();
         Assert.Equal("Canceled", (await final.SqlJobRuns.SingleAsync(x => x.Id == result.RunId)).Status);
         Assert.Null((await final.SqlJobStates.SingleAsync(x => x.Name == "chances" && x.SeasonIndex == FantacalcioTime.ActualYear)).LeaseId);
+        var canceledState = await final.SqlJobStates.SingleAsync(x => x.Name == "chances" && x.SeasonIndex == FantacalcioTime.ActualYear);
+        Assert.InRange((canceledState.NextRunAtUtc - canceledState.LastCompletedAtUtc!.Value).TotalSeconds, 59, 61);
     }
 
     [PostgreSqlFact]
@@ -169,6 +171,8 @@ public sealed partial class WorkspaceApiTests
         Assert.True((await client.GetFromJsonAsync<OperationalLogStatistics>("/api/operations/logs/statistics"))!.Total >= 3);
         await using var final = factory.Database.CreateContext();
         Assert.DoesNotContain(await final.SqlJobRuns.Where(x => x.Id == result.RunId).ToArrayAsync(), x => (x.Code ?? "").Contains("secret"));
+        var failedState = await final.SqlJobStates.SingleAsync(x => x.Name == "calendar" && x.SeasonIndex == request.Year);
+        Assert.InRange((failedState.NextRunAtUtc - failedState.LastCompletedAtUtc!.Value).TotalSeconds, 59, 61);
     }
 }
 internal sealed class StubSqlJobs(Func<CancellationToken, Task<SqlJobWorkResult>> callback) : ISqlJobActions

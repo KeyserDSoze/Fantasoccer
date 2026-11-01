@@ -30,7 +30,7 @@ import { ToggleChip } from 'components/ToggleChip'
 import {
   useCurrentUserPushNotifications
 } from 'hooks/usePushNotifications'
-import { PushNotificationSettings, PushSubscription } from 'types/pushNotification'
+import { PushNotificationSettings, PushSubscription, canShowOperationalAlerts } from 'types/pushNotification'
 import { UpdatePushNotificationSettingsInput } from 'services/pushNotificationService'
 import { useAuth } from '../providers/AuthProvider'
 import { acknowledgePushActivation, rememberPushDevice } from '../services/pushDeviceService'
@@ -39,7 +39,7 @@ import {
   webPushSupport
 } from 'services/webPushClient'
 
-type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay' | 'liveChangesReminder' | 'liveFormationChangeEvents'
+type PushToggleKey = 'matchEvents' | 'opponentMatchEvents' | 'marketEvents' | 'deploymentReminder' | 'endDay' | 'liveChangesReminder' | 'liveFormationChangeEvents' | 'operationalAlerts'
 
 const notificationToggles: Array<{
   key: PushToggleKey
@@ -47,6 +47,12 @@ const notificationToggles: Array<{
   description: string
   icon: ReactNode
 }> = [
+  {
+    key: 'operationalAlerts',
+    title: 'Superadmin · Errori di sistema',
+    description: 'Avvisi per importazioni fallite, errori e timeout dei job. Ripetizioni dello stesso errore raggruppate in finestre di 30 minuti.',
+    icon: <TriangleAlert size={22} color="$orange10" />
+  },
   {
     key: 'matchEvents',
     title: 'Partita in tempo reale',
@@ -318,7 +324,7 @@ const PushNotificationScreen = () => {
             )}
 
             <YStack gap="$3">
-              {notificationToggles.map((toggle) => {
+              {notificationToggles.filter(toggle => toggle.key !== 'operationalAlerts' || canShowOperationalAlerts(settings)).map((toggle) => {
                 const value = Boolean(settings[toggle.key as keyof PushNotificationSettings])
                 return (
                   <Card

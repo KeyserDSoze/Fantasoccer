@@ -10,6 +10,8 @@ public sealed class UserPushPreferences
     public bool MarketEvents { get; set; }
     public bool LiveChangesReminder { get; set; }
     public bool LiveFormationChangeEvents { get; set; }
+    public bool OperationalAlerts { get; set; }
+    public DateTimeOffset? OperationalAlertsEnabledAtUtc { get; set; }
     public int Version { get; set; } = 1;
     public ICollection<LegacyPushSubscription> LegacySubscriptions { get; set; } = [];
 }

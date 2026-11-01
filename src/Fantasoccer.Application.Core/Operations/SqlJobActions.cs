@@ -68,9 +68,12 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
                     !database.SqlJobStates.Any(state => state.LeaseId == x.Id))
                 .OrderBy(x => x.CompletedAtUtc).ThenBy(x => x.Id).Select(x => x.Id).Take(5000).ToArrayAsync(cancellationToken);
             var removed = await database.SqlJobRuns.Where(x => ids.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
+            var failureIds = await database.OperationalFailures.Where(x => x.OccurredAtUtc < cutoff).OrderBy(x => x.OccurredAtUtc)
+                .Select(x => x.Id).Take(5000).ToArrayAsync(cancellationToken);
+            removed += await database.OperationalFailures.Where(x => failureIds.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
             await database.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return new(removed, 0) { HasMore = ids.Length == 5000 };
+            return new(removed, 0) { HasMore = ids.Length == 5000 || failureIds.Length == 5000 };
         }
         if (name == "postponed-results") return await RecoverPostponedAsync(database, cancellationToken);
         if (name == "hall") return await RefreshHallBatchAsync(database, year, cancellationToken);

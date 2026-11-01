@@ -2165,6 +2165,32 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.ToTable("OpeningStandingSnapshots", (string)null);
                 });
 
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.OperationalFailure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.ToTable("OperationalFailures", (string)null);
+                });
+
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.PlayedMatchSnapshot", b =>
                 {
                     b.Property<Guid>("GroupId")
@@ -2753,6 +2779,8 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.HasIndex("ActorUserId");
 
+                    b.HasIndex("CompletedAtUtc");
+
                     b.HasIndex("StartedAtUtc");
 
                     b.HasIndex("Name", "SeasonIndex");
@@ -3135,6 +3163,12 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
 
                     b.Property<bool>("MatchEvents")
                         .HasColumnType("boolean");
+
+                    b.Property<bool>("OperationalAlerts")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("OperationalAlertsEnabledAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("OpponentMatchEvents")
                         .HasColumnType("boolean");

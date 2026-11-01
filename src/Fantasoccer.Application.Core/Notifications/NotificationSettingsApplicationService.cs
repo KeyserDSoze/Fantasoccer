@@ -24,6 +24,14 @@ public sealed class NotificationSettingsApplicationService(FantasoccerDbContext 
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         var actor = await ActorAsync(caller, email, cancellationToken);
         var preferences = await PreferencesAsync(actor.Id, cancellationToken);
+        if (request.OperationalAlerts == true && (!caller.IsInRole("super_admin") || !accounts.IsGlobalAdministrator(actor.Email)))
+            throw new ApplicationFault(403, "operational_alerts_admin_required", "Gli avvisi operativi sono riservati agli amministratori globali.");
+        if (request.OperationalAlerts is { } operational)
+        {
+            if (operational && !preferences.OperationalAlerts) preferences.OperationalAlertsEnabledAtUtc = clock.GetUtcNow();
+            preferences.OperationalAlerts = operational;
+            if (!operational) preferences.OperationalAlertsEnabledAtUtc = null;
+        }
         preferences.MatchEvents = request.MatchEvents ?? preferences.MatchEvents;
         preferences.OpponentMatchEvents = request.OpponentMatchEvents ?? preferences.OpponentMatchEvents;
         preferences.DeploymentReminder = request.DeploymentReminder ?? preferences.DeploymentReminder;
@@ -87,7 +95,8 @@ public sealed class NotificationSettingsApplicationService(FantasoccerDbContext 
         var actor = await ActorAsync(caller, email, cancellationToken);
         var preferences = await PreferencesAsync(actor.Id, cancellationToken);
         preferences.MatchEvents = preferences.OpponentMatchEvents = preferences.DeploymentReminder = preferences.EndDay = preferences.MarketEvents =
-            preferences.LiveChangesReminder = preferences.LiveFormationChangeEvents = false;
+            preferences.LiveChangesReminder = preferences.LiveFormationChangeEvents = preferences.OperationalAlerts = false;
+        preferences.OperationalAlertsEnabledAtUtc = null;
         preferences.Version++;
         foreach (var binding in await database.PushDeviceBindings.Where(x => x.UserId == actor.Id && x.IsActive).ToArrayAsync(cancellationToken)) Deactivate(binding);
         await database.SaveChangesAsync(cancellationToken);
@@ -123,8 +132,11 @@ public sealed class NotificationSettingsApplicationService(FantasoccerDbContext 
         var row = await database.UserPushPreferences.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId, cancellationToken) ?? new() { UserId = userId, Version = 0 };
         var devices = await database.PushDeviceBindings.AsNoTracking().Where(x => x.UserId == userId && x.IsActive).OrderBy(x => x.EndpointHash)
             .Select(x => new PushSubscriptionDto(x.Endpoint, x.P256dh, x.Auth, x.Version, x.IsValid)).ToArrayAsync(cancellationToken);
+        var email = await database.Users.Where(x => x.Id == userId && x.IsEnabled).Select(x => x.Email).SingleOrDefaultAsync(cancellationToken);
+        var eligible = accounts.IsGlobalAdministrator(email);
         return new(row.MatchEvents, row.OpponentMatchEvents, row.DeploymentReminder, row.EndDay, row.MarketEvents, row.LiveChangesReminder, row.LiveFormationChangeEvents,
-            devices, row.Version, string.IsNullOrWhiteSpace(options.Value.PublicKey) ? null : options.Value.PublicKey, options.Value.Enabled);
+            devices, row.Version, string.IsNullOrWhiteSpace(options.Value.PublicKey) ? null : options.Value.PublicKey, options.Value.Enabled)
+            { OperationalAlerts = eligible && row.OperationalAlerts, CanReceiveOperationalAlerts = eligible };
     }
     private static string ProofHash(string proof) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(proof)));
     private static bool MatchesProof(string? hash, string? proof) => hash != null && proof != null &&

@@ -35,6 +35,10 @@ le autorizzazioni del vecchio issuer non valgono sul nuovo.
 
 ## Run dei job e spazio SQL
 
+Avvisi operativi opt-in per amministratori globali e retry a un minuto:
+[`OPERATIONAL-ALERTS.md`](OPERATIONAL-ALERTS.md). Questa funzionalità richiede il
+deploy della relativa migrazione e l'attivazione esplicita nelle impostazioni push.
+
 `SqlJobRuns` contiene un riepilogo per run (stato, tempi, contatori e codice),
 non i dati scaricati né un log completo delle richieste. `SqlJobStates` conserva
 la prossima scadenza e la lease per job e stagione. Al 1 novembre 2026: 577 run,

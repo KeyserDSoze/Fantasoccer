@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.2',
+    date: '1 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Gli amministratori globali possono attivare gli avvisi push per errori degli import e dei job dalle impostazioni delle notifiche, con collegamento ai log',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'I job in errore riprovano dopo un minuto; gli avvisi ripetuti dello stesso errore sono raggruppati in finestre di 30 minuti',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Un errore nella preparazione delle notifiche di partita o mercato non blocca più gli avvisi operativi e le altre fasi di invio',
+      },
+    ],
+  },
+  {
     version: '4.0.1',
     date: '1 Novembre 2026',
     changes: [

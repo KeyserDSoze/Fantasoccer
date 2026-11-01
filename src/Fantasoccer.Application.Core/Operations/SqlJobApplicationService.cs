@@ -91,7 +91,8 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             var run = await database.SqlJobRuns.SingleAsync(x => x.Id == id, receiptTimeout.Token);
             if (state.LeaseId != id) return new(id, name, year, "LeaseLost", work.Processed, work.Skipped, "lease_replaced");
             state.LeaseId = null; state.LeaseUntilUtc = null; state.LastStatus = status; state.LastCompletedAtUtc = clock.GetUtcNow();
-            state.NextRunAtUtc = status is "Failed" or "Canceled" ? clock.GetUtcNow().AddMinutes(5) : work.HasMore ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
+            var retry = status is "Failed" or "Canceled" || SqlJobOutcomes.IsIncident(status, work.Code);
+            state.NextRunAtUtc = retry || work.HasMore ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
             run.Status = status; run.Processed = work.Processed; run.Skipped = work.Skipped; run.Code = work.Code; run.CompletedAtUtc = clock.GetUtcNow();
             await database.SaveChangesAsync(receiptTimeout.Token); await transaction.CommitAsync(receiptTimeout.Token);
         }

@@ -31,7 +31,13 @@ public sealed class SqlJobsWorker(IServiceScopeFactory scopes, ILogger<SqlJobsWo
                     if (result != null) logger.LogInformation("SQL job {JobName} finished with {Status}, code {Code}; run {RunId}", name, result.Status, result.Code, result.RunId);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-                catch (Exception error) { logger.LogWarning("SQL job {JobName} did not finish ({FailureType}); attempt {AttemptId}. Its lease will expire safely.", name, error.GetType().Name, attemptId); }
+                catch (Exception error)
+                {
+                    logger.LogWarning("SQL job {JobName} did not finish ({FailureType}); attempt {AttemptId}. Its lease will expire safely.", name, error.GetType().Name, attemptId);
+                    await using var failureScope = scopes.CreateAsyncScope();
+                    await failureScope.ServiceProvider.GetRequiredService<Fantasoccer.Application.Core.Notifications.OperationalFailureRecorder>()
+                        .RecordAsync("job_runner_" + name, "job_runner_failed");
+                }
                 finally { slots.Release(); }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }

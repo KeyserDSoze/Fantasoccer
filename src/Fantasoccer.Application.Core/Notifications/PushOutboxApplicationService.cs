@@ -11,6 +11,21 @@ namespace Fantasoccer.Application.Core.Notifications;
 
 public sealed class PushOutboxApplicationService(FantasoccerDbContext database, AccountApplicationService accounts, TimeProvider clock)
 {
+    public const int OperationalAlertKind = 7;
+
+    internal async Task<bool> EnqueueOperationalAsync(Guid userId, int year, string eventKey, string body, CancellationToken cancellationToken)
+    {
+        if (database.Database.CurrentTransaction is null) throw new InvalidOperationException("Operational enqueue requires a transaction.");
+        var key = Hash($"operational|{userId}|{eventKey}");
+        if (database.PushDeliveries.Local.Any(x => x.DeduplicationKey == key) || await database.PushDeliveries.AnyAsync(x => x.DeduplicationKey == key, cancellationToken)) return false;
+        database.PushDeliveries.Add(new()
+        {
+            Id = Guid.NewGuid(), DeduplicationKey = key, UserId = userId, SeasonIndex = year, Day = 0,
+            Kind = OperationalAlertKind, Title = "Fantasoccer · Errore operativo", Body = body, Uri = "/logs",
+            Tag = "push-" + key, NextAttemptAtUtc = clock.GetUtcNow(), ExpiresAtUtc = clock.GetUtcNow().AddHours(1)
+        });
+        return true;
+    }
     // Producers must commit their checkpoint/event and the outbox together. No
     // network I/O occurs here. Stable keys prevent requeueing after a crash.
     public async Task EnqueueAsync(QueuedPushRequest request, CancellationToken cancellationToken = default)

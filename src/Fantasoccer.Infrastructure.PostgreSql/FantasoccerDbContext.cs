@@ -73,6 +73,7 @@ public sealed class FantasoccerDbContext(DbContextOptions<FantasoccerDbContext> 
     public DbSet<ArchivedOperationalLog> ArchivedOperationalLogs => Set<ArchivedOperationalLog>();
     public DbSet<SqlJobState> SqlJobStates => Set<SqlJobState>();
     public DbSet<SqlJobRun> SqlJobRuns => Set<SqlJobRun>();
+    public DbSet<OperationalFailure> OperationalFailures => Set<OperationalFailure>();
     public DbSet<HallRankContribution> HallRankContributions => Set<HallRankContribution>();
     public DbSet<HallBaselineConfirmation> HallBaselineConfirmations => Set<HallBaselineConfirmation>();
     public DbSet<GroupCreationCode> GroupCreationCodes => Set<GroupCreationCode>();

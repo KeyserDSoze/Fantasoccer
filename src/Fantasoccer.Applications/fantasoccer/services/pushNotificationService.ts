@@ -16,6 +16,7 @@ export interface UpdatePushNotificationSettingsInput {
   marketEvents?: boolean
   liveChangesReminder?: boolean
   liveFormationChangeEvents?: boolean
+  operationalAlerts?: boolean
 }
 
 export class PushNotificationService {

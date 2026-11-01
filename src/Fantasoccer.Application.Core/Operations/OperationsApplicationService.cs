@@ -18,28 +18,35 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
         if (query?.Length > 200) throw new ApplicationFault(400, "invalid_log_query", "Ricerca troppo lunga.");
         var logs = database.ArchivedOperationalLogs.AsNoTracking().AsQueryable();
         var jobs = database.SqlJobRuns.AsNoTracking().AsQueryable();
+        var imports = database.OperationalFailures.AsNoTracking().AsQueryable();
         if (errorsOnly is { } error)
         {
             logs = logs.Where(x => (x.PartitionKey == "AError" || x.Error != null && x.Error != "") == error);
             jobs = jobs.Where(x => (x.Status == "Failed" || x.Status == "LeaseLost") == error);
+            if (!error) imports = imports.Where(x => false);
         }
         if (!string.IsNullOrWhiteSpace(query))
         {
             var text = query.ToLowerInvariant();
             logs = logs.Where(x => (x.Message ?? "").ToLower().Contains(text) || (x.Error ?? "").ToLower().Contains(text) || x.PartitionKey.ToLower().Contains(text) || x.RowKey.ToLower().Contains(text));
             jobs = jobs.Where(x => x.Name.ToLower().Contains(text) || (x.Code ?? "").ToLower().Contains(text) || x.Status.ToLower().Contains(text));
+            imports = imports.Where(x => x.Source.ToLower().Contains(text) || x.Code.ToLower().Contains(text));
         }
         var archive = await logs.OrderByDescending(x => x.TimestampUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.PartitionKey, x.RowKey, x.TimestampUtc,
             x.Message ?? "Log legacy archiviato; proprietà originali conservate nel dump e nell'archivio privato.", x.Error ?? "", "legacy-table")).ToArrayAsync(cancellationToken);
         var runs = await jobs.OrderByDescending(x => x.StartedAtUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.Status == "Failed" || x.Status == "LeaseLost" ? "AError" : "ALog",
             x.Name + "_" + x.Id, x.CompletedAtUtc ?? x.StartedAtUtc, x.Name + ": " + x.Status + "; elaborati=" + x.Processed + "; saltati=" + x.Skipped, x.Code ?? "", "sql-job")).ToArrayAsync(cancellationToken);
-        return archive.Concat(runs).OrderByDescending(x => x.Timestamp).Take(limit).Select(Redact).ToArray();
+        var importFailures = await imports.OrderByDescending(x => x.OccurredAtUtc).Take(limit)
+            .Select(x => new OperationalLogDto(x.Id, "AError", x.Source + "_" + x.Id, x.OccurredAtUtc, x.Source + ": Failed", x.Code, "operational-import")).ToArrayAsync(cancellationToken);
+        return archive.Concat(runs).Concat(importFailures).OrderByDescending(x => x.Timestamp).Take(limit).Select(Redact).ToArray();
     }
     public async Task<OperationalLogDto> LogAsync(ClaimsPrincipal caller, Guid id, CancellationToken cancellationToken = default)
     {
         await AdministratorAsync(caller, cancellationToken);
         var log = await database.ArchivedOperationalLogs.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (log != null) return Redact(new(log.Id, log.PartitionKey, log.RowKey, log.TimestampUtc, log.Message ?? "Log legacy archiviato.", log.Error ?? "", "legacy-table"));
+        var import = await database.OperationalFailures.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (import != null) return Redact(new(import.Id, "AError", import.Source + "_" + import.Id, import.OccurredAtUtc, import.Source + ": Failed", import.Code, "operational-import"));
         var job = await database.SqlJobRuns.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new ApplicationFault(404, "log_not_found", "Log non trovato.");
         return new(job.Id, job.Status == "Failed" ? "AError" : "ALog", job.Name + "_" + job.Id, job.CompletedAtUtc ?? job.StartedAtUtc, $"{job.Name}: {job.Status}; elaborati={job.Processed}; saltati={job.Skipped}", job.Code ?? "", "sql-job");
     }
@@ -47,11 +54,12 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
     {
         await AdministratorAsync(caller, cancellationToken);
         var now = clock.GetUtcNow(); var today = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero); var hour = now.AddHours(-1);
-        var total = await database.ArchivedOperationalLogs.CountAsync(cancellationToken) + await database.SqlJobRuns.CountAsync(cancellationToken);
-        var errors = await database.ArchivedOperationalLogs.CountAsync(x => x.PartitionKey == "AError" || x.Error != null && x.Error != "", cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.Status == "Failed" || x.Status == "LeaseLost", cancellationToken);
+        var importCount = await database.OperationalFailures.CountAsync(cancellationToken);
+        var total = await database.ArchivedOperationalLogs.CountAsync(cancellationToken) + await database.SqlJobRuns.CountAsync(cancellationToken) + importCount;
+        var errors = await database.ArchivedOperationalLogs.CountAsync(x => x.PartitionKey == "AError" || x.Error != null && x.Error != "", cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.Status == "Failed" || x.Status == "LeaseLost", cancellationToken) + importCount;
         return new(total, errors, total - errors,
-            await database.ArchivedOperationalLogs.CountAsync(x => x.TimestampUtc >= today, cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.StartedAtUtc >= today, cancellationToken),
-            await database.ArchivedOperationalLogs.CountAsync(x => x.TimestampUtc >= hour, cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.StartedAtUtc >= hour, cancellationToken));
+            await database.ArchivedOperationalLogs.CountAsync(x => x.TimestampUtc >= today, cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.StartedAtUtc >= today, cancellationToken) + await database.OperationalFailures.CountAsync(x => x.OccurredAtUtc >= today, cancellationToken),
+            await database.ArchivedOperationalLogs.CountAsync(x => x.TimestampUtc >= hour, cancellationToken) + await database.SqlJobRuns.CountAsync(x => x.StartedAtUtc >= hour, cancellationToken) + await database.OperationalFailures.CountAsync(x => x.OccurredAtUtc >= hour, cancellationToken));
     }
     public async Task<AccountIdentityDto> AdministratorAsync(ClaimsPrincipal caller, CancellationToken cancellationToken)
     {

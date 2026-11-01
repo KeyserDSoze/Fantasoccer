@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Groups;
+using Fantasoccer.Application.Core.Notifications;
 using Fantasoccer.Application.Core.Teams;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
@@ -14,12 +15,24 @@ namespace Fantasoccer.Application.Core.Football;
 public sealed record RefreshFootballRequest(string Operation, int Year, int? Day = null);
 public sealed partial class FootballIngestionApplicationService(FantasoccerDbContext database, ISerieAInformation schedule, IAllPlayers catalogue,
     ILiveVote live, IOfficialVote official, IFactory<IFormationParser> formations, AccountApplicationService accounts,
-    TeamRosterAvailabilityService availability, ITeamCalculator scoring, IFootballLiveDataStore liveData, TimeProvider clock)
+    TeamRosterAvailabilityService availability, ITeamCalculator scoring, IFootballLiveDataStore liveData, TimeProvider clock, OperationalFailureRecorder failures)
 {
     public async Task RefreshAsync(ClaimsPrincipal caller, RefreshFootballRequest request, CancellationToken cancellationToken = default)
     {
         await AuthorizeAsync(caller, cancellationToken);
-        await RunCoreAsync(request, cancellationToken, caller);
+        try { await RunCoreAsync(request, cancellationToken, caller); }
+        catch (ApplicationFault fault) when ((request.Operation is "calendar" or "catalogue" or "live" or "official" or "chances" or "statistics") &&
+            (fault.Code is "football_provider_incomplete" or "official_matchday_incomplete"))
+        {
+            await failures.RecordAsync("import_" + request.Operation, fault.Code);
+            throw;
+        }
+        catch (ApplicationFault) { throw; } // User validation/authorization errors are not operational alerts.
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            await failures.RecordAsync("import_" + request.Operation, "import_execution_failed");
+            throw;
+        }
     }
     public Task RunAsync(RefreshFootballRequest request, CancellationToken cancellationToken = default) => RunCoreAsync(request, cancellationToken, null);
     private async Task RunCoreAsync(RefreshFootballRequest request, CancellationToken cancellationToken, ClaimsPrincipal? caller)
