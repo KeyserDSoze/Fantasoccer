@@ -122,7 +122,7 @@ await authService.exchangeToken(authorizationCode, verifier)
 **Purpose:** Generate player image URLs from Azure Blob Storage with fallback handling.
 
 ### Constants
-- **PLAYER_IMAGE_BASE_URL**: `'https://fasostorage.blob.core.windows.net/images/players'`
+- **PLAYER_IMAGE_BASE_URL**: `'https://stfcv2f71915.blob.core.windows.net/images/players'`
 - **DEFAULT_PLAYER_IMAGE_KEY**: `'default'`
 
 ### Functions
@@ -148,8 +148,8 @@ Preloads player image for better UX.
 ### Usage Example
 ```typescript
 const { src, fallback } = getPlayerImageUrlFromName("Paulo Dybala")
-// src: "https://fasostorage.../paulodybala.jpg"
-// fallback: "https://fasostorage.../default.jpg"
+// src: "https://stfcv2f71915.../paulodybala.jpg"
+// fallback: "https://stfcv2f71915.../default.jpg"
 
 const loaded = await preloadPlayerImage("Lautaro Martinez")
 ```
@@ -167,7 +167,7 @@ const loaded = await preloadPlayerImage("Lautaro Martinez")
 
 #### `getTeamLogoUrl(groupId: string, year: number, email: string): string`
 Generates the URL for a team logo.
-- **URL Pattern:** `https://fasostorage.blob.core.windows.net/logos/{groupId}/{year}/{email}.png`
+- **URL Pattern:** `https://stfcv2f71915.blob.core.windows.net/logos/{groupId}/{year}/{email}.png`
 
 #### `getTeamLogoUrlWithFallback(groupId, year, email, fallbackUrl?): { src, fallback? }`
 Generates team logo URL with optional custom fallback.

@@ -2,7 +2,7 @@ import { Image } from 'react-native';
 import { getPlayerKey } from './keyUtils';
 import { getPlayerImageRevision } from './playerImageRevision';
 
-const BLOB_BASE_URL = process.env.EXPO_PUBLIC_BLOB_URL?.replace(/\/$/, '') || 'https://fasostorage.blob.core.windows.net';
+const BLOB_BASE_URL = process.env.EXPO_PUBLIC_BLOB_URL?.replace(/\/$/, '') || 'https://stfcv2f71915.blob.core.windows.net';
 const PLAYER_IMAGE_BASE_URL = `${BLOB_BASE_URL}/images/players`;
 const DEFAULT_PLAYER_IMAGE_KEY = 'default';
 
