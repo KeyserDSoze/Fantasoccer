@@ -1,0 +1,78 @@
+name: Database restore
+
+# Restores an encrypted backup release (see "Database backup") into PostgreSQL.
+# By default it fills a scratch database and leaves production alone. To replace the
+# production database set target_database to "fantasoccer" and confirm to OVERWRITE-PRODUCTION:
+# the API is stopped for the restore and started again afterwards.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Backup release tag (db-backup-...). Empty: the latest one'
+        type: string
+        required: false
+      target_database:
+        description: 'Database to fill (dropped and recreated). "fantasoccer" is production'
+        type: string
+        default: fantasoccer_restore
+      confirm:
+        description: 'Required only when target_database is fantasoccer: type OVERWRITE-PRODUCTION'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BACKUP_PASSPHRASE: ${{ secrets.DB_BACKUP_PASSPHRASE }}
+      TARGET: ${{ inputs.target_database }}
+      TAG: ${{ inputs.tag }}
+      CONFIRM: ${{ inputs.confirm }}
+    steps:
+      - name: Check the inputs
+        run: |
+          set -euo pipefail
+          [[ "$TARGET" =~ ^[a-z][a-z0-9_]{0,62}$ ]] || { echo "::error::Invalid database name."; exit 1; }
+          case "$TARGET" in postgres|azure_maintenance|azure_sys) echo "::error::Reserved database."; exit 1;; esac
+          if [ "$TARGET" = fantasoccer ] && [ "$CONFIRM" != OVERWRITE-PRODUCTION ]; then
+            echo "::error::Restoring over production needs confirm = OVERWRITE-PRODUCTION."; exit 1
+          fi
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::DB_BACKUP_PASSPHRASE is not set"; exit 1; }
+      - uses: actions/checkout@v7
+      - uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Restore
+        run: |
+          set -euo pipefail
+          source infra/scripts/db-access.sh
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release list --limit 200 --json tagName,createdAt \
+              --jq '[.[] | select(.tagName | startswith("db-backup-"))] | sort_by(.createdAt) | reverse | .[0].tagName')"
+          fi
+          [ -n "$TAG" ] || { echo "::error::No backup release found."; exit 1; }
+          echo "Restoring $TAG into $TARGET"
+          gh release download "$TAG" --pattern '*.pgdump.gpg' --dir "$WORK" --clobber
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt -o "$WORK/dump.pgdump" "$WORK"/*.pgdump.gpg
+          app="$(az webapp list -g "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          if [ "$TARGET" = fantasoccer ]; then az webapp stop -g "$RESOURCE_GROUP" -n "$app"; fi
+          cleanup() { close_firewall || true; if [ "$TARGET" = fantasoccer ]; then az webapp start -g "$RESOURCE_GROUP" -n "$app" || true; fi; }
+          trap cleanup EXIT
+          load_connection
+          open_firewall
+          wait_for_database
+          pg psql -d postgres -c "drop database if exists $TARGET with (force)" -c "create database $TARGET"
+          pg pg_restore -d "$TARGET" --no-owner --no-privileges --exit-on-error /work/dump.pgdump
+          tables="$(pg psql -d "$TARGET" -Atc "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'")"
+          echo "Restored $TAG into $TARGET: $tables tables."

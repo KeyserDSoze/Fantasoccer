@@ -1,0 +1,72 @@
+name: Database backup
+
+# Weekly encrypted dump of the fcv2 PostgreSQL database, published as a GitHub release asset.
+# The repository is public: the dump is protected only by the DB_BACKUP_PASSPHRASE secret
+# (AES-256, gpg symmetric). The dump is restored into a scratch database to prove it works.
+# Restore with the "Database restore" workflow. The last 8 backups are kept.
+on:
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BACKUP_PASSPHRASE: ${{ secrets.DB_BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Dump, encrypt and verify
+        run: |
+          set -euo pipefail
+          source infra/scripts/db-access.sh
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::DB_BACKUP_PASSPHRASE is not set"; exit 1; }
+          trap close_firewall EXIT
+          load_connection
+          open_firewall
+          wait_for_database
+
+          pg pg_dump -d "$PGDATABASE" -Fc -Z 6 --no-owner --no-privileges -f /work/dump.pgdump
+          sudo chown "$USER" "$WORK"/dump.pgdump
+          source_tables="$(pg psql -d "$PGDATABASE" -Atc "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'")"
+
+          pg psql -d postgres -c 'drop database if exists restore_check with (force)' -c 'create database restore_check'
+          pg pg_restore -d restore_check --no-owner --no-privileges --exit-on-error /work/dump.pgdump
+          restored_tables="$(pg psql -d restore_check -Atc "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'")"
+          migrations="$(pg psql -d restore_check -Atc 'select count(*) from "__EFMigrationsHistory"')"
+          pg psql -d postgres -c 'drop database restore_check with (force)'
+          [ "$source_tables" = "$restored_tables" ] && [ "$migrations" -gt 0 ] || {
+            echo "::error::Verification failed: source tables=$source_tables restored=$restored_tables migrations=$migrations"; exit 1; }
+          echo "Verified restore: $restored_tables tables, $migrations migrations."
+
+          stamp="$(date -u +%Y%m%d-%H%M%S)"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o "$WORK/fantasoccer-$stamp.pgdump.gpg" "$WORK/dump.pgdump"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt "$WORK/fantasoccer-$stamp.pgdump.gpg" | cmp - "$WORK/dump.pgdump"
+          sum="$(sha256sum "$WORK/fantasoccer-$stamp.pgdump.gpg" | cut -d' ' -f1)"
+          size="$(du -h "$WORK/fantasoccer-$stamp.pgdump.gpg" | cut -f1)"
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"; echo "SUM=$sum" >> "$GITHUB_ENV"; echo "SIZE=$size" >> "$GITHUB_ENV"
+          echo "TABLES=$restored_tables" >> "$GITHUB_ENV"
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          gh release create "db-backup-$STAMP" "db-work/fantasoccer-$STAMP.pgdump.gpg" --prerelease \
+            --title "Database backup $STAMP" \
+            --notes "Encrypted pg_dump (custom format, gpg AES-256) of the fcv2 database. Size $SIZE, $TABLES tables, verified by a test restore. SHA-256 $SUM. Restore with the Database restore workflow."
+          gh release list --limit 200 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("db-backup-"))] | sort_by(.createdAt) | reverse | .[8:][] | .tagName' |
+            while read -r tag; do gh release delete "$tag" --cleanup-tag --yes; done
