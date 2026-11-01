@@ -19,7 +19,10 @@ public static class TelemetryRegistration
             if (!string.IsNullOrWhiteSpace(connection))
             {
                 // Application Insights 3.x uses the OpenTelemetry activity pipeline.
-                builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddProcessor(new SensitiveSpanProcessor()));
+                builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing
+                    .AddSource("Npgsql")
+                    .AddSource("Fantasoccer.Live")
+                    .AddProcessor(new SensitiveSpanProcessor()));
                 builder.Services.AddApplicationInsightsTelemetry(options => options.ConnectionString = connection);
             }
             return;
@@ -43,6 +46,7 @@ public static class TelemetryRegistration
                 .AddAspNetCoreInstrumentation(options => options.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
                 .AddHttpClientInstrumentation()
                 .AddSource("Npgsql")
+                .AddSource("Fantasoccer.Live")
                 .AddProcessor(new SensitiveSpanProcessor())
                 .AddOtlpExporter())
             .WithMetrics(metrics => metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation()

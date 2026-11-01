@@ -41,6 +41,28 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         // application services as HTTP/MCP, with no repository fallback or fake user.
         await using var scope = scopes.CreateAsyncScope();
         var services = scope.ServiceProvider; var database = services.GetRequiredService<FantasoccerDbContext>();
+        if (name == "live-projections")
+        {
+            // Refresh even outside the live-votes window. Each group uses its own context.
+            var groups = await database.LeagueSeasons.AsNoTracking()
+                .Where(x => x.SeasonIndex == year && !x.IsArchived && !x.League.IsArchived)
+                .Select(x => x.GroupId).Distinct().ToArrayAsync(cancellationToken);
+            var processed = 0;
+            var skipped = new Skips();
+            foreach (var group in groups)
+            {
+                await using var groupScope = scopes.CreateAsyncScope();
+                try
+                {
+                    await groupScope.ServiceProvider.GetRequiredService<LiveCompetitionApplicationService>()
+                        .RefreshAsync(group, year, cancellationToken);
+                    processed++;
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                { skipped.Add(Failure(name, error, group, Guid.Empty, 0)); }
+            }
+            return new(processed, skipped.Count, skipped.Code);
+        }
         if (name == "formations") { await services.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year, cancellationToken); return new(1, 0); }
         if (name == "images") { await services.GetRequiredService<IPlayerImageRefresher>().DownloadMissingAsync(cancellationToken); return new(1, 0); }
         if (name == "market-expiry") return await ExpireMarketAsync(database, year, cancellationToken);
