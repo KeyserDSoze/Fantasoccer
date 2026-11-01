@@ -137,7 +137,8 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
     {
         var samples = await official.GetAsync(year, day).WaitAsync(cancellationToken);
         if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
-        if (samples is not { Count: > 0 } || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) || samples.GroupBy(x => x.Key).Any(x => x.Count() != 1))
+        if (samples is not { Count: > 0 } || samples.All(x => x.Role == Role.Coach) || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) ||
+            samples.GroupBy(x => new { x.Key, IsCoach = x.Role == Role.Coach }).Any(x => x.Count() != 1))
             throw Invalid("Voti del provider mancanti o ambigui; lo snapshot salvato non viene cancellato.");
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         await AuthorizeAsync(caller, cancellationToken);
@@ -146,10 +147,21 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         const FootballVoteSource source = FootballVoteSource.Official;
         var identities = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         var rows = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == source).ToArrayAsync(cancellationToken);
+        var coaches = await database.FootballCoachVotes.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
         var received = new HashSet<string>(StringComparer.Ordinal);
         var finalClubs = new HashSet<string>(StringComparer.Ordinal);
         foreach (var sample in samples)
         {
+            if (sample.Role == Role.Coach)
+            {
+                if (string.IsNullOrWhiteSpace(sample.Name) || string.IsNullOrWhiteSpace(sample.Key)) throw Invalid("Allenatore del provider non valido.");
+                var coachClub = Club(sample.RealTeam, clubs);
+                var coach = coaches.SingleOrDefault(x => x.ClubId == coachClub.Id && x.CoachKey == sample.Key);
+                if (coach is null) database.FootballCoachVotes.Add(coach = new() { SeasonIndex = year, Day = day, Club = coachClub, ClubId = coachClub.Id, CoachKey = sample.Key });
+                coach.Name = sample.Name.Trim(); coach.Value = sample.Vote.Value; coach.HasVote = sample.Vote.HasVote; coach.IsFinal = sample.Vote.IsFinal;
+                coach.ProviderVoteJson = System.Text.Json.JsonSerializer.Serialize(sample.Vote);
+                continue;
+            }
             ValidatePlayer(sample);
             var person = identities.SingleOrDefault(x => x.PlayerId == sample.Key)?.Player ?? Person(sample, players);
             var club = Club(sample.RealTeam, clubs); received.Add(club.Id);

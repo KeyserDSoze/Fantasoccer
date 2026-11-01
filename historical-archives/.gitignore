@@ -1,0 +1,4 @@
+# Full legacy snapshots contain personal data and device credentials.
+# Keep raw archives local until an explicitly sanitized public copy is prepared.
+*.zip
+*.zip.*

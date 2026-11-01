@@ -6,7 +6,8 @@
         GoalKeeper,
         Defensor,
         Midfielder,
-        Forward
+        Forward,
+        Coach
     }
     public static class RoleExtensions
     {
@@ -18,6 +19,7 @@
                 Role.Defensor => "Difensore",
                 Role.Midfielder => "Centrocampista",
                 Role.Forward => "Attaccante",
+                Role.Coach => "Allenatore",
                 _ => "Non definito"
             };
         }

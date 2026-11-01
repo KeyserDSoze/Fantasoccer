@@ -2,7 +2,7 @@ namespace Fantasoccer.Application.Core.Operations;
 
 public static class SqlJobSchedule
 {
-    public static readonly string[] Names = ["calendar", "catalogue", "live", "official", "statistics", "chances", "formations", "results", "postponed-results", "market-expiry", "hall", "images", "push-retention", "cache-cleanup"];
+    public static readonly string[] Names = ["calendar", "catalogue", "live", "official", "statistics", "chances", "formations", "results", "postponed-results", "market-expiry", "hall", "images", "push-retention", "cache-cleanup", "job-retention"];
     public static DateTimeOffset Next(string name, DateTimeOffset now)
     {
         if (!Names.Contains(name, StringComparer.Ordinal)) throw new ArgumentException("Unknown SQL job.", nameof(name));
@@ -29,6 +29,7 @@ public static class SqlJobSchedule
                     "market-expiry" => hour == 2 && minute == 0,
                     "push-retention" => hour == 4 && minute == 10,
                     "cache-cleanup" => hour == 4 && minute == 20,
+                    "job-retention" => hour == 4 && minute == 30,
                     "hall" or "images" => hour == 3 && minute == 0,
                     _ => false
                 };

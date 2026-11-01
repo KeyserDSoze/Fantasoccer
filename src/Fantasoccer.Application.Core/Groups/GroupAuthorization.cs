@@ -78,6 +78,8 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Operations.SqlJobApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Operations.ISqlJobActions, Fantasoccer.Application.Core.Operations.SqlJobActions>();
         services.AddOptions<Fantasoccer.Application.Core.Operations.JobMaintenanceOptions>()
+            .Validate(x => x.RunRetentionDays is >= 1 and <= 3650, "Job run retention must be between one and 3650 days.")
+            .Validate(x => x.MaxConcurrentJobs is >= 1 and <= 8, "Job concurrency must be between one and eight.")
             .Validate(x => x.HallBatchSize is >= 1 and <= 1000, "Hall batches must contain between one and 1000 leagues.");
         services.AddScoped<Fantasoccer.Application.Core.Cards.CardApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Notifications.NotificationSettingsApplicationService>();

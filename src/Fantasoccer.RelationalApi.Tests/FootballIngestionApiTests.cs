@@ -21,7 +21,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
     {
         using var account = await factory.AccountAsync(globalAdmin: true);
         var email = account.DefaultRequestHeaders.GetValues("X-Workspace-User").Single();
-        var sources = new IngestionSources();
+        var sources = new IngestionSources { IncludeCoach = true };
         using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.AddSingleton<ISerieAInformation>(sources); services.AddSingleton<IAllPlayers>(sources);
@@ -104,6 +104,10 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             Assert.Equal("nap", (await database.PlayerSeasons.SingleAsync(x => x.PlayerId == forward.Id && x.SeasonIndex == year)).ClubId);
             Assert.Equal("fio", (await database.PlayerSeasons.SingleAsync(x => x.PlayerId == forward.Id && x.SeasonIndex == year - 1)).ClubId);
             Assert.Equal("fio", (await database.FootballVotes.SingleAsync(x => x.PlayerId == forward.Id)).ClubId);
+            var coach = Assert.Single(await database.FootballCoachVotes.ToArrayAsync());
+            Assert.Equal("Ingestion coach", coach.Name); Assert.Equal((int)Role.Coach, coach.Role); Assert.Equal(7, coach.Value);
+            Assert.DoesNotContain(await database.Players.Select(x => x.Name).ToArrayAsync(), name => name == coach.Name);
+            Assert.DoesNotContain(await database.FootballVotes.Select(x => x.PlayerRole).ToArrayAsync(), role => role == (int)Role.Coach);
             Assert.Equal(new[] { "fio", "nap" }, await database.ClubSeasons.Where(x => x.SeasonIndex == year).OrderBy(x => x.ClubId).Select(x => x.ClubId).ToArrayAsync());
             Assert.False(await database.ClubSeasons.AnyAsync(x => x.SeasonIndex == year - 1));
         }
@@ -113,6 +117,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
     internal sealed class IngestionSources : ISerieAInformation, IAllPlayers, ILiveVote, IOfficialVote
     {
         public int ExtraPlayers { get; set; }
+        public bool IncludeCoach { get; set; }
         public bool EmptyCatalogue { get; set; }
         public bool IncompleteOfficial { get; set; }
         public bool MissingOfficialClub { get; set; }
@@ -138,7 +143,9 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
             })).ToList());
         }
         public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
-            { Name = player.Name, RealTeam = MissingOfficialClub ? null! : player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } }).ToList());
+            { Name = player.Name, RealTeam = MissingOfficialClub ? null! : player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } })
+            .Concat(IncludeCoach ? new[] { new VotedRealPlayer { Name = "Ingestion coach", Role = Role.Coach, RealTeam = new() { Name = "Fiorentina" },
+                IsActive = true, Vote = new() { Role = Role.Coach, Value = 7, HasVote = true, IsFinal = true } } } : []).ToList());
     }
 }
 

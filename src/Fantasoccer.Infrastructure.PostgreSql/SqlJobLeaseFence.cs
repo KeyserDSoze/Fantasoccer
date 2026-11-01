@@ -7,7 +7,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql;
 public sealed class SqlJobLeaseLostException() : InvalidOperationException("SQL job lease no longer owned; write refused.");
 
 // Flows through async execution and child DI scopes. Every SQL application write
-// rechecks the job's fencing token under the same global lock used for the write.
+// rechecks the job's fencing token and holds its state row until the write commits.
 // A slow/canceled old runner cannot commit after a replacement owns its lease.
 public static class SqlJobLeaseFence
 {
@@ -23,8 +23,12 @@ public static class SqlJobLeaseFence
     {
         if (Current.Value is not { } ticket) return;
         var now = ticket.Now();
-        if (!await database.SqlJobStates.AsNoTracking().AnyAsync(x => x.Name == ticket.Name && x.SeasonIndex == ticket.Year &&
-            x.LeaseId == ticket.LeaseId && x.LeaseUntilUtc > now, cancellationToken))
+        // Lease bookkeeping now has a per-job lock rather than the global data
+        // lock. Protect this row through the business transaction as well: a
+        // replacement cannot claim the lease between our check and our commit.
+        var state = await database.SqlJobStates.FromSqlInterpolated($"SELECT * FROM \"SqlJobStates\" WHERE \"Name\" = {ticket.Name} AND \"SeasonIndex\" = {ticket.Year} FOR UPDATE")
+            .AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+        if (state is null || state.LeaseId != ticket.LeaseId || state.LeaseUntilUtc is null || state.LeaseUntilUtc <= now)
             throw new SqlJobLeaseLostException();
     }
     private sealed class Restore(Ticket? previous) : IDisposable

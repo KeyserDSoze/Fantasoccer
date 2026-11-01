@@ -8,6 +8,7 @@ namespace Fantasoccer.Business.IngestionData
         private static readonly Regex s_trRegex = new("<div class=\"player-item");
         private static readonly Regex s_tbodyRegex = new("<tbody>");
         private static readonly Regex s_spanRegex = new(@"<span>[^<]*</span>");
+        private static readonly Regex s_coachNameRegex = new("<span class=\"player-name\"[^>]*>([^<]+)</span>");
         private static readonly Regex s_takeTheVote = new("data-value=");
         private static readonly Regex s_takeTheTeams = new("<a class=\"team-name");
         private static readonly Regex s_takeTheBody = new("<ul class=\"teams");
@@ -54,12 +55,9 @@ namespace Fantasoccer.Business.IngestionData
                         realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                         foreach (var element in s_trRegex.Split(teamBody[1]).Skip(1))
                         {
-                            // The provider also lists each coach as a player-item
-                            // with role "all". It is not a footballer: parsing it as
-                            // one produces empty/ambiguous identities and rejects the
-                            // entire official matchday during ingestion.
+                            // Coaches use a different name span and must not share
+                            // the footballer catalogue or formation/scoring inputs.
                             var role = GetRole(element).ToLowerInvariant();
-                            if (role == "all") continue;
                             var elementSplitted = s_tdedRegex.Split(element);
                             if (elementSplitted.Length < 2)
                                 continue;
@@ -70,7 +68,7 @@ namespace Fantasoccer.Business.IngestionData
 
                             VotedRealPlayer player = new()
                             {
-                                Name = GetName(element),
+                                Name = role == "all" ? HttpUtility.HtmlDecode(s_coachNameRegex.Match(element).Groups[1].Value).Trim() : GetName(element),
                                 RealTeam = new RealTeam { Name = realTeam },
                                 IsActive = true
                             };
@@ -81,6 +79,7 @@ namespace Fantasoccer.Business.IngestionData
                                 "c" => Role.Midfielder,
                                 "d" => Role.Defensor,
                                 "p" => Role.GoalKeeper,
+                                "all" => Role.Coach,
                                 _ => Role.Undefined
                             };
 
@@ -103,7 +102,7 @@ namespace Fantasoccer.Business.IngestionData
                                 IsIn = true,
                                 IsOut = false
                             };
-                            if (!player.Vote.HasVote && player.Vote.Status > Behaviour.Nothing)
+                            if (player.Role != Role.Coach && !player.Vote.HasVote && player.Vote.Status > Behaviour.Nothing)
                             {
                                 player.Vote.HasVote = true;
                                 player.Vote.Value = 6;

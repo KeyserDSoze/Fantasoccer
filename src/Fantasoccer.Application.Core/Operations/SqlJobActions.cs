@@ -58,6 +58,20 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             var purged = await services.GetRequiredService<Fantasoccer.Caching.IDistributedCacheCoordinator>().PurgeExpiredAsync(TimeSpan.FromDays(1), 5000, cancellationToken);
             return new(purged.Deleted, 0);
         }
+        if (name == "job-retention")
+        {
+            var cutoff = clock.GetUtcNow().AddDays(-options.Value.RunRetentionDays);
+            await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
+            // Keep unfinished runs and any receipt still referenced by a lease,
+            // even if it is old. Limit each transaction and continue in one minute.
+            var ids = await database.SqlJobRuns.Where(x => x.Status != "Running" && x.CompletedAtUtc < cutoff &&
+                    !database.SqlJobStates.Any(state => state.LeaseId == x.Id))
+                .OrderBy(x => x.CompletedAtUtc).ThenBy(x => x.Id).Select(x => x.Id).Take(5000).ToArrayAsync(cancellationToken);
+            var removed = await database.SqlJobRuns.Where(x => ids.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
+            await database.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new(removed, 0) { HasMore = ids.Length == 5000 };
+        }
         if (name == "postponed-results") return await RecoverPostponedAsync(database, cancellationToken);
         if (name == "hall") return await RefreshHallBatchAsync(database, year, cancellationToken);
         var now = clock.GetUtcNow();

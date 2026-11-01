@@ -811,6 +811,56 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballCoachVote", b =>
+                {
+                    b.Property<int>("SeasonIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("ClubCode");
+
+                    b.Property<string>("CoachKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("HasVote")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFinal")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("ProviderVoteJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<float>("Value")
+                        .HasColumnType("real");
+
+                    b.HasKey("SeasonIndex", "Day", "ClubId", "CoachKey");
+
+                    b.HasIndex("ClubId");
+
+                    b.ToTable("FootballCoachVotes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_FootballCoachVotes_Day", "\"Day\" BETWEEN 1 AND 38");
+
+                            t.HasCheckConstraint("CK_FootballCoachVotes_Role", "\"Role\" = 4");
+                        });
+                });
+
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDataset", b =>
                 {
                     b.Property<string>("Kind")
@@ -4121,6 +4171,23 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Club");
 
                     b.Navigation("Season");
+                });
+
+            modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballCoachVote", b =>
+                {
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.Season", null)
+                        .WithMany()
+                        .HasForeignKey("SeasonIndex")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Club");
                 });
 
             modelBuilder.Entity("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballDataset", b =>

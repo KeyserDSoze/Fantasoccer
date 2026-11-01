@@ -40,15 +40,23 @@ non i dati scaricati né un log completo delle richieste. `SqlJobStates` conserv
 la prossima scadenza e la lease per job e stagione. Al 1 novembre 2026: 577 run,
 224 kB per la tabella con indici; database totale 177 MB.
 
-Non esiste attualmente retention automatica per `SqlJobRuns`. Con circa 3.500–4.000
-run al giorno la crescita indicativa è di qualche centinaio di MB all'anno,
-non di GB al giorno; dimensione e indici vanno monitorati. La retention delle
-notifiche e la pulizia della cache non cancellano le run. Prima di aggiungere una
-pulizia scegliere una durata e non eliminare run attive o ancora sotto lease.
+Il job `job-retention` elimina le run concluse da più di 30 giorni alle 04:30
+di Roma. Conserva le run `Running`, quelle non concluse e quelle referenziate
+da una lease. Elimina al massimo 5.000 righe per transazione e, se il lotto è
+pieno, continua dopo un minuto. Non cancella `SqlJobStates`, i dati applicativi
+o l'archivio dei log legacy. La durata è `JobMaintenance:RunRetentionDays`.
+
+Ogni job ha un timer indipendente e una lease per nome/stagione; al massimo 4
+job lavorano contemporaneamente (`JobMaintenance:MaxConcurrentJobs`, da 1 a 8).
+La registrazione delle lease usa un advisory lock distinto per job/stagione,
+dopo che la prima scrittura ha chiuso in sicurezza la finestra d'importazione.
+I tick non scaduti non prendono il lock globale. Il lock delle scritture dei dati
+di gioco resta: due operazioni che modificano dati condivisi possono attendersi,
+ma un provider lento fuori dalla transazione non ferma più tutti gli altri timer.
 
 ## Probabili formazioni e statistiche
 
-Lo scheduler è sequenziale. Il refresh delle statistiche usava `DbSet.Local` dentro
+Il precedente scheduler era sequenziale. Il refresh delle statistiche usava `DbSet.Local` dentro
 il ciclo di creazione degli storici, provocando ripetuti `DetectChanges` su tutto
 il grafo. Su dati reali una transazione restava aperta per oltre 20 minuti e
 bloccava le scritture degli altri job: `chances` non era ancora stato eseguito.
@@ -66,9 +74,12 @@ e OAuth rispondono `invalid_request` (ID2083). Il controllo
 configurazione attuale; il login reale e il consenso restano da provare dal client.
 
 La pagina dei voti ufficiali include anche gli allenatori (`role=all`). Il parser
-ora li esclude prima della costruzione delle identità: importandoli come giocatori
-le identità vuote/ambigue facevano rifiutare tutta la giornata. I controlli sui
-calciatori, sulla completezza dei club e sui voti finiti restano invariati.
+li riconosce con `Role.Coach = 4` e legge lo span del nome specifico. L'ingestione
+conserva nome, club, giornata, voto e JSON del voto in `FootballCoachVotes`,
+separata da `Players`, `PlayerSeasons` e `FootballVotes`. Non sono schierabili e
+non entrano in statistiche, sostituzioni, formazione migliore o punteggi. Sono
+raccolti per utilizzi futuri. Il controllo di completezza della giornata resta
+basato sui calciatori, non sugli allenatori.
 
 Verifica finale, 1 novembre alle 09:18 UTC: `official` riuscito alle 09:10 e alle
 09:15 (circa 12 e 8 secondi), `statistics` riuscito alle 09:17, `chances` riuscito

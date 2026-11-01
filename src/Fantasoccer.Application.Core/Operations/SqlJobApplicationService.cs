@@ -37,10 +37,15 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
         if (!SqlJobSchedule.Names.Contains(name, StringComparer.Ordinal) || year != FantacalcioTime.SeasonYearAt(clock.GetUtcNow().UtcDateTime))
             throw new ApplicationFault(400, "invalid_sql_job", "Job non valido o stagione non corrente.");
         var now = clock.GetUtcNow(); var id = Guid.NewGuid();
-        await using (var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken))
+        // Most ticks are not due. Avoid taking the application's global write
+        // lock simply to find out that this job has nothing to do yet.
+        if (!force && await database.SqlJobStates.AsNoTracking().AnyAsync(x => x.Name == name && x.SeasonIndex == year &&
+                (x.NextRunAtUtc > now || x.LeaseUntilUtc > now), cancellationToken)) return null;
+        await using (var transaction = await BeginLeaseWriteAsync(name, year, cancellationToken))
         {
             if (caller != null) await operations.AdministratorAsync(caller, cancellationToken);
-            if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == year, cancellationToken)) database.Seasons.Add(new() { SeasonIndex = year, StartYear = year + 2011 });
+            // Different job names may initialize the current season concurrently.
+            await database.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO \"Seasons\" (\"SeasonIndex\", \"StartYear\") VALUES ({year}, {year + 2011}) ON CONFLICT DO NOTHING", cancellationToken);
             var state = await database.SqlJobStates.SingleOrDefaultAsync(x => x.Name == name && x.SeasonIndex == year, cancellationToken);
             if (state == null) database.SqlJobStates.Add(state = new() { Name = name, SeasonIndex = year,
                 NextRunAtUtc = name is "calendar" or "catalogue" ? now : SqlJobSchedule.Next(name, now.AddMinutes(-1)) });
@@ -80,7 +85,7 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             logger.LogError("SQL job {JobName} failed ({FailureType}); run {RunId}. No exception message or payload logged.", name, error.GetType().Name, id);
         }
         using var receiptTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using (var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, receiptTimeout.Token))
+        await using (var transaction = await BeginLeaseWriteAsync(name, year, receiptTimeout.Token))
         {
             var state = await database.SqlJobStates.SingleAsync(x => x.Name == name && x.SeasonIndex == year, receiptTimeout.Token);
             var run = await database.SqlJobRuns.SingleAsync(x => x.Id == id, receiptTimeout.Token);
@@ -91,5 +96,22 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             await database.SaveChangesAsync(receiptTimeout.Token); await transaction.CommitAsync(receiptTimeout.Token);
         }
         return new(id, name, year, status, work.Processed, work.Skipped, work.Code);
+    }
+
+    private async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginLeaseWriteAsync(string name, int year, CancellationToken cancellationToken)
+    {
+        // The very first application write still closes the import window under
+        // the migration lock. Afterwards lease bookkeeping uses its own lock per
+        // job/season, not the business-data write lock held by another job.
+        if (!await database.CoreMigrationStates.AsNoTracking().AnyAsync(x => x.InteractiveWritesStartedAtUtc != null, cancellationToken))
+            return await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
+        var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var key = $"fantasoccer:job:{name}:{year}";
+            await database.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", cancellationToken);
+            return transaction;
+        }
+        catch { await transaction.DisposeAsync(); throw; }
     }
 }

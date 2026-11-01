@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-01",
+  "legacyApiState": "Stopped",
+  "archive": "2026-11-01.zip",
+  "rawArchiveCommitted": false,
+  "reason": "Contains RSA private key material, push device credentials and personal data; the original archive must remain private.",
+  "finalSnapshot": {
+    "startedAtUtc": "2026-11-01T09:37:38.8933837+00:00",
+    "completedAtUtc": "2026-11-01T09:52:19.0339728+00:00",
+    "sourceQuiesced": true,
+    "verified": true,
+    "containers": 37,
+    "blobs": 12384,
+    "tables": 3,
+    "tableEntities": 1469687
+  },
+  "blobChangesSinceImport": {
+    "new": 3,
+    "modified": 5,
+    "removed": 1
+  },
+  "reimportedIntoFcv2": false,
+  "sha256": "886e476fbc53d8d226da9acf36b7c398c70e224d256aa7f6804655a9c45c0397",
+  "bytes": 695304213,
+  "zipVerified": true
+}
