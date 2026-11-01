@@ -132,6 +132,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         var openings = await database.OpeningStandingSnapshots.AsNoTracking().Where(x => !x.IsComplete &&
             database.LeagueRules.Any(rule => rule.GroupId == x.GroupId && rule.LeagueId == x.LeagueId && rule.SeasonIndex == x.SeasonIndex && rule.WaitForPostponedMatches && rule.OpeningCompetitionEnabled) &&
             database.LeagueSeasons.Any(season => season.GroupId == x.GroupId && season.LeagueId == x.LeagueId && season.SeasonIndex == x.SeasonIndex && !season.IsArchived && !season.League.IsArchived))
+            .OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).ThenBy(x => x.SeasonIndex)
             .Select(x => new { x.GroupId, x.LeagueId, x.SeasonIndex, x.SerieADays }).Take(1000).ToArrayAsync(cancellationToken);
         var openingYears = openings.Select(x => x.SeasonIndex).Distinct().ToArray();
         var openingDays = await database.FootballMatchdays.AsNoTracking().Where(x => openingYears.Contains(x.SeasonIndex))

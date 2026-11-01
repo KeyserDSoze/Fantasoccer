@@ -141,8 +141,8 @@ run "default_environment" {
     error_message = "The API identity only reads secrets."
   }
   assert {
-    condition     = length(azurerm_postgresql_flexible_server_firewall_rule.azure_services) == 1 && length(azurerm_postgresql_flexible_server_firewall_rule.operators) == 0
-    error_message = "Only Azure services reach PostgreSQL by default."
+    condition     = length(azurerm_postgresql_flexible_server_firewall_rule.azure_services) == 0 && length(azurerm_postgresql_flexible_server_firewall_rule.operators) == 0
+    error_message = "No blanket Azure services rule: only the API outbound addresses and explicit operators reach PostgreSQL."
   }
   assert {
     condition = (azurerm_linux_web_app.api.site_config[0].application_stack[0].docker_image_name == "fantasoccer-api:0123456789abcdef" &&

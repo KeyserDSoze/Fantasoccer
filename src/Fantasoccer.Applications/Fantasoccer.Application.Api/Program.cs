@@ -129,7 +129,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors",
         policy => policy
-             .WithOrigins(new[] { "http://localhost:3000", "https://fanta.zone" }
+             .WithOrigins((builder.Environment.IsProduction() ? new[] { "https://fanta.zone" } : new[] { "http://localhost:3000", "https://fanta.zone" })
                 .Concat(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
                 .Concat(Uri.TryCreate(builder.Configuration["Mcp:FrontendUrl"], UriKind.Absolute, out var frontend)
                     ? [frontend.GetLeftPart(UriPartial.Authority)] : Array.Empty<string>()).Distinct().ToArray())

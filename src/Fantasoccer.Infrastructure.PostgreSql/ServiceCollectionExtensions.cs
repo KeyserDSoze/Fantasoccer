@@ -9,7 +9,7 @@ public static class ServiceCollectionExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         services.AddDbContext<FantasoccerDbContext>(options => options.UseNpgsql(connectionString,
-            postgres => postgres.CommandTimeout(120)));
+            postgres => postgres.CommandTimeout(120).UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)));
         return services;
     }
 

@@ -59,6 +59,17 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
+# Only the web app reaches the database: one rule per possible outbound address of the
+# App Service (the list comes from the variable because for_each cannot use apply-time
+# values). Refresh it if the plan moves to another scale unit, see infra/README.md.
+resource "azurerm_postgresql_flexible_server_firewall_rule" "api_outbound" {
+  for_each         = toset(var.postgres_api_outbound_ips)
+  name             = "api-${replace(each.value, ".", "-")}"
+  server_id        = azurerm_postgresql_flexible_server.main.id
+  start_ip_address = each.value
+  end_ip_address   = each.value
+}
+
 resource "azurerm_postgresql_flexible_server_firewall_rule" "operators" {
   for_each         = { for range in var.postgres_admin_ip_ranges : range.name => range }
   name             = each.key
