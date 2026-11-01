@@ -1,12 +1,12 @@
 name: Database backup
 
-# Weekly encrypted dump of the fcv2 PostgreSQL database, published as a GitHub release asset.
+# Weekly encrypted dump (night of Tuesday, Wednesdays 03:17 UTC) of the fcv2 PostgreSQL database, published as a GitHub release asset.
 # The repository is public: the dump is protected only by the DB_BACKUP_PASSPHRASE secret
 # (AES-256, gpg symmetric). The dump is restored into a scratch database to prove it works.
 # Restore with the "Database restore" workflow. The last 8 backups are kept.
 on:
   schedule:
-    - cron: '17 3 * * 0'
+    - cron: '17 3 * * 3'
   workflow_dispatch:
 
 permissions:
