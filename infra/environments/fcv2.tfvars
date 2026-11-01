@@ -36,12 +36,12 @@ app_secrets_version = 2
 extra_app_settings = {
   # App Service terminates TLS at its reverse proxy; OAuth must see the original HTTPS scheme.
   ASPNETCORE_FORWARDEDHEADERS_ENABLED = "true"
-  Push__Enabled          = "true"
-  Push__Subject          = "https://fanta.zone"
-  Push__PublicKey        = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-public-key-20261101)"
-  Push__PrivateKey       = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-private-key-20261101)"
-  Mcp__Enabled           = "true"
-  Mcp__Issuer            = "https://apifcv2.azurewebsites.net"
-  Mcp__FrontendUrl       = "https://fanta.zone/"
-  Mcp__CertificateBase64 = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/mcp-certificate-20261101)"
+  Push__Enabled                       = "true"
+  Push__Subject                       = "https://fanta.zone"
+  Push__PublicKey                     = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-public-key-20261101)"
+  Push__PrivateKey                    = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-private-key-20261101)"
+  Mcp__Enabled                        = "true"
+  Mcp__Issuer                         = "https://apifcv2.azurewebsites.net"
+  Mcp__FrontendUrl                    = "https://fanta.zone/"
+  Mcp__CertificateBase64              = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/mcp-certificate-20261101)"
 }
