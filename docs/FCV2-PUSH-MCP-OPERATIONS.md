@@ -19,7 +19,7 @@ se compromesse. I browser devono iscriversi di nuovo dopo una rotazione.
 Sono state rimosse le 6 vecchie associazioni dispositivo e le 6 sottoscrizioni
 legacy dal database fcv2, conservando le preferenze dei 12 utenti.
 
-L'issuer MCP è `https://apifcv2.azurewebsites.net`, la risorsa è `/mcp`, il frontend
+L'issuer MCP è `https://api.fanta.zone`, la risorsa è `/mcp`, il frontend
 del consenso è `https://fanta.zone/`. I client devono riconnettersi al nuovo server:
 le autorizzazioni del vecchio issuer non valgono sul nuovo.
 
@@ -70,7 +70,7 @@ giornate, ripetuto due volte senza duplicare le righe.
 MCP dietro App Service richiede `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` per
 riconoscere l'HTTPS terminato dal proxy Azure. Senza questa impostazione discovery
 e OAuth rispondono `invalid_request` (ID2083). Il controllo
-`python3 scripts/check-mcp.py https://apifcv2.azurewebsites.net` passa con la
+`python3 scripts/check-mcp.py https://api.fanta.zone` passa con la
 configurazione attuale; il login reale e il consenso restano da provare dal client.
 
 La pagina dei voti ufficiali include anche gli allenatori (`role=all`). Il parser

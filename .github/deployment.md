@@ -52,7 +52,7 @@ Both workflows reuse `AZURE_CREDENTIALS`, `MICROSOFT_CLIENT_SECRET`, `ENCRYPTION
 
 ## Cutover to fcv2 and rollback
 
-- The API of the PostgreSQL version is `https://apifcv2.azurewebsites.net` (`fcv2.azurewebsites.net` belongs to a third party). The frontend stays on GitHub Pages (`fanta.zone`).
+- The API of the PostgreSQL version is `https://api.fanta.zone` (custom domain of `apifcv2.azurewebsites.net`) (`fcv2.azurewebsites.net` belongs to a third party). The frontend stays on GitHub Pages (`fanta.zone`).
 - Once `refactor/postgresql-multi-group` is merged into `main`:
   - `Deploy API fcv2` deploys the commit that passed `Relational Migration Tests`;
   - `Deploy GitHub Pages` publishes the new frontend built against `apifcv2`, only after `apifcv2/health/ready` answers;

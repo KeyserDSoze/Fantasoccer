@@ -6,7 +6,7 @@ export interface ApiConfig {
 // Configuration for different environments. EXPO_PUBLIC_API_URL (set by the deploy pipeline) overrides the host.
 export const API_CONFIGS = {
   development: { baseUrl: 'https://localhost:7223' },
-  production: { baseUrl: 'https://apifcv2.azurewebsites.net' },
+  production: { baseUrl: 'https://api.fanta.zone' },
 } as const
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '')
