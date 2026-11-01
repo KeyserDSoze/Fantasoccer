@@ -54,6 +54,12 @@ namespace Fantasoccer.Business.IngestionData
                         realTeam = realTeam[..1].ToUpper() + realTeam[1..].ToLower();
                         foreach (var element in s_trRegex.Split(teamBody[1]).Skip(1))
                         {
+                            // The provider also lists each coach as a player-item
+                            // with role "all". It is not a footballer: parsing it as
+                            // one produces empty/ambiguous identities and rejects the
+                            // entire official matchday during ingestion.
+                            var role = GetRole(element).ToLowerInvariant();
+                            if (role == "all") continue;
                             var elementSplitted = s_tdedRegex.Split(element);
                             if (elementSplitted.Length < 2)
                                 continue;
@@ -69,7 +75,7 @@ namespace Fantasoccer.Business.IngestionData
                                 IsActive = true
                             };
                             var vote = GetVote(elementSplitted[1]);
-                            player.Role = GetRole(element).ToLower() switch
+                            player.Role = role switch
                             {
                                 "a" => Role.Forward,
                                 "c" => Role.Midfielder,

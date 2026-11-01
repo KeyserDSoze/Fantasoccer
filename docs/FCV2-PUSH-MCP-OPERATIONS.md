@@ -52,6 +52,20 @@ Lo scheduler è sequenziale. Il refresh delle statistiche usava `DbSet.Local` de
 il ciclo di creazione degli storici, provocando ripetuti `DetectChanges` su tutto
 il grafo. Su dati reali una transazione restava aperta per oltre 20 minuti e
 bloccava le scritture degli altri job: `chances` non era ancora stato eseguito.
-La correzione usa una mappa delle statistiche già caricate e controlla la
-cancellazione in entrambi i cicli. Verificare dopo il deploy gli esiti effettivi,
-non soltanto che `BackgroundJobs__Enabled` sia true.
+La correzione usa una mappa delle statistiche già caricate, aggiorna le righe
+storiche in posto invece di cancellarle e reinserirle, e controlla la
+cancellazione. Sul database reale `statistics` ha completato in circa 55 secondi,
+seguito da `chances`, `formations` e `results`. Le probabilità della giornata 10
+contengono 682 giocatori. La suite include un refresh di 352 giocatori per 38
+giornate, ripetuto due volte senza duplicare le righe.
+
+MCP dietro App Service richiede `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` per
+riconoscere l'HTTPS terminato dal proxy Azure. Senza questa impostazione discovery
+e OAuth rispondono `invalid_request` (ID2083). Il controllo
+`python3 scripts/check-mcp.py https://apifcv2.azurewebsites.net` passa con la
+configurazione attuale; il login reale e il consenso restano da provare dal client.
+
+La pagina dei voti ufficiali include anche gli allenatori (`role=all`). Il parser
+ora li esclude prima della costruzione delle identità: importandoli come giocatori
+le identità vuote/ambigue facevano rifiutare tutta la giornata. I controlli sui
+calciatori, sulla completezza dei club e sui voti finiti restano invariati.

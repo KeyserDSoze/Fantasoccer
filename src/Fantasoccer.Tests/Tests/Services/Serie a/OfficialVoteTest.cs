@@ -54,6 +54,21 @@ public sealed class OfficialVoteTest : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Coach_rows_with_the_all_role_are_not_imported_as_unnamed_footballers()
+    {
+        var coach = """
+            <div class="player-item cell">
+                <span class="role" data-value="all"></span>
+                <span class="player-name">Coach</span>
+            </td>
+            <td><span class="player-grade" data-value="5,5"></span></td>
+            """;
+        _handler.Content = ValidOfficialVotesHtml.Replace("</tbody>", coach + "</tbody>");
+        var players = await _officialVote.GetAsync(FantacalcioTime.ActualYear, 1);
+        Assert.Equal("Mario Rossi", Assert.Single(players).Name);
+    }
+
+    [Fact]
     public async Task ReturnsEmptyWhenTeamsBlockIsMissing()
     {
         _handler.Content = "<html><body>missing expected markup</body></html>";
