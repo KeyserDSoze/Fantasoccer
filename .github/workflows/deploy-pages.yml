@@ -24,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  API_URL: ${{ vars.FCV2_API_URL || 'https://apifcv2.azurewebsites.net' }}
+  API_URL: ${{ vars.FCV2_API_URL || 'https://api.fanta.zone' }}
   # Public Blob endpoint of the fcv2 storage account. The name is deterministic (infra/main.tf: st + environment + the first six
   # hex digits of sha256("<subscription>/fcv2")); the repository variable only overrides it, e.g. after a name_suffix change.
   BLOB_URL: ${{ vars.FCV2_BLOB_URL || 'https://stfcv2f71915.blob.core.windows.net' }}

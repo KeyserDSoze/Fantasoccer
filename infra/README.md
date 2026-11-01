@@ -6,7 +6,7 @@ Crea da zero, in un nuovo resource group `fcv2`, l'ambiente applicativo su Postg
 | --- | --- | --- |
 | Gruppo | `azurerm_resource_group` `fcv2` | Regione `italynorth`, modificabile solo prima del primo apply. Sweden Central rifiuta PostgreSQL B1ms per la sottoscrizione (`SkuNotAvailable`, anche se `list-skus` lo mostra disponibile): provato con la creazione reale. Azure OpenAI resta in Sweden Central (`openai_location`) |
 | Immagini API | Azure Container Registry `Basic` | Utente admin e pull anonimo disattivati. Push da GitHub con il service principal; pull dell'App Service con identità gestita e ruolo `AcrPull`, senza password |
-| API | App Service plan Linux `B1`, Web App container `apifcv2` (https://apifcv2.azurewebsites.net) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
+| API | App Service plan Linux `B1`, Web App container `apifcv2` (https://api.fanta.zone, alias `https://apifcv2.azurewebsites.net`) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
 | Database | PostgreSQL Flexible Server 17 `B_Standard_B1ms`, database `fantasoccer` | 32 GB con crescita automatica, backup 14 giorni, password generata, connessione `SSL Mode=VerifyFull`, `prevent_destroy` |
 | File e cache | Storage account StorageV2 | Contenitori pubblici in sola lettura dei blob: `images`, `logos`, `cardimages`. Privati: `fantazone-cache`, `mcp-keys`. Soft delete 7 giorni, nessun versioning, lifecycle della cache (ADR 0012) |
 | Segreti | Key Vault + identità gestita assegnata all'API | Tutti i segreti dell'API sono riferimenti Key Vault: nessun valore in chiaro nelle impostazioni |
@@ -73,13 +73,13 @@ Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `rollback-main` è una
 
 **Prima del merge** di `refactor/postgresql-multi-group` su `main`:
 1. apply dell'infrastruttura (l'API su `apifcv2` nasce con l'immagine del branch);
-2. migrazione dei dati e verifica di `https://apifcv2.azurewebsites.net/health/ready`;
+2. migrazione dei dati e verifica di `https://api.fanta.zone/health/ready`;
 3. `background_jobs_enabled = true` e apply, quando l'import è concluso;
 4. il frontend legge le foto dei giocatori direttamente dallo storage di `fcv2` (`https://stfcv2<suffisso>.blob.core.windows.net`, nome deterministico: per questo ambiente `stfcv2f71915`). `deploy-pages.yml` lo usa come valore predefinito e rifiuta qualunque altro account, quello legacy compreso; solo se il nome cambia (`name_suffix`) si imposta la variabile del repository `FCV2_BLOB_URL` con l'output `public_blob_base_url`.
 
 **Al merge su `main`** partono automaticamente:
 - `Relational Migration Tests`. Se riesce, `Deploy API fcv2` pubblica su `apifcv2` l'immagine dello stesso commit: i test bloccano il deploy, come nella pipeline precedente.
-- `Deploy GitHub Pages`. Attende fino a 15 minuti che `apifcv2` risponda a `/health/ready`, poi pubblica il nuovo frontend con `EXPO_PUBLIC_API_URL = https://apifcv2.azurewebsites.net` (sovrascrivibile con la variabile di repository `FCV2_API_URL`). Se l'API non è pronta il sito pubblicato non cambia.
+- `Deploy GitHub Pages`. Attende fino a 15 minuti che `apifcv2` risponda a `/health/ready`, poi pubblica il nuovo frontend con `EXPO_PUBLIC_API_URL = https://api.fanta.zone` (sovrascrivibile con la variabile di repository `FCV2_API_URL`). Se l'API non è pronta il sito pubblicato non cambia.
 - Il vecchio `Deploy API` su `main` non distribuisce più nulla: `apifc` resta com'è, come rete di sicurezza.
 
 **Rollback:**
@@ -110,3 +110,7 @@ Per un plan locale contro Azure:
 1. impostare `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID`;
 2. eseguire `az login`;
 3. eseguire `scripts/state-backend.sh check`, `terraform init -backend-config=backend.hcl`, poi `terraform plan -var-file=environments/fcv2.tfvars`, fornendo i tre secret e `TF_VAR_api_image_tag` come variabili d'ambiente.
+
+## Dominio personalizzato dell'API
+
+`api.fanta.zone` è associato a `apifcv2` con certificato App Service Managed (SNI SSL, gratuito, rinnovo automatico). DNS su GoDaddy: `CNAME api -> apifcv2.azurewebsites.net` e `TXT asuid.api` con il `customDomainVerificationId` della Web App. CORS non cambia: consente l'origine del frontend `https://fanta.zone`. `Mcp__Issuer` è `https://api.fanta.zone`.

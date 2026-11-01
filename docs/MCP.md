@@ -1,5 +1,7 @@
 # MCP Fantasoccer — backend PostgreSQL
 
+L'URL del server MCP è `https://api.fanta.zone/mcp` (issuer `https://api.fanta.zone`). Il vecchio indirizzo `https://apifcv2.azurewebsites.net/mcp` non è più l'issuer: i client già collegati vanno rimossi e riconfigurati con il nuovo URL.
+
 L'applicazione espone MCP su `/mcp`, usando gli stessi servizi applicativi e gli stessi controlli di appartenenza, proprietà e ruolo delle API HTTP. Non esiste più un backend runtime RepositoryFramework/Blob. Le descrizioni dei vecchi endpoint `api/Group/Get`, `api/Team/day/Get`, `Settings/*` e `McpAuction/*` non sono valide.
 
 ## Collegamento e autenticazione

@@ -41,7 +41,7 @@ extra_app_settings = {
   Push__PublicKey                     = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-public-key-20261101)"
   Push__PrivateKey                    = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-private-key-20261101)"
   Mcp__Enabled                        = "true"
-  Mcp__Issuer                         = "https://apifcv2.azurewebsites.net"
+  Mcp__Issuer                         = "https://api.fanta.zone"
   Mcp__FrontendUrl                    = "https://fanta.zone/"
   Mcp__CertificateBase64              = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/mcp-certificate-20261101)"
 }
