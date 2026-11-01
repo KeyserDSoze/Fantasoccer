@@ -923,7 +923,10 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
 
     // The world of the substitution tests: Koopa's first starting defender has no vote, every other player (his bench defender
     // included) has a final official vote of 7, and the day is under way.
-    private async Task<(World World, string[] Koopa, Guid Game)> SubstitutionWorldAsync(int year, bool bestFormation)
+    // bestFormation: the league asks for the best formation; superLeagueType: the league is of the SuperLeague type (how the real
+    // Super League is marked, with the normal formation setting). secondAbsent: the second starting defender has no vote either and
+    // the bench defender has a 9, so that the best eleven differs from what the plain automatic substitution gives.
+    private async Task<(World World, string[] Koopa, Guid Game)> SubstitutionWorldAsync(int year, bool bestFormation, bool superLeagueType = false, bool secondAbsent = false)
     {
         var world = await WorldAsync(year, peachOwnsFunghi: false);
         var group = world.Group;
@@ -934,11 +937,13 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         await RosterSnapshotFixtures.FreezeAsync(factory.Database, group, year, 1);
         await using var database = factory.Database.CreateContext();
         if (bestFormation) (await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).Formation = 1;
+        if (superLeagueType) (await database.LeagueSeasons.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).CompetitionType = (int)LeagueType.SuperLeague;
         foreach (var player in await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToArrayAsync())
         {
-            var voted = player.PlayerId != koopa[1];
+            var voted = player.PlayerId != koopa[1] && !(secondAbsent && player.PlayerId == koopa[2]);
+            var value = !voted ? 0 : secondAbsent && player.PlayerId == koopa[11] ? 9 : 7;
             database.FootballVotes.Add(new() { PlayerId = player.PlayerId, ClubId = player.ClubId, SeasonIndex = year, Day = 1, Source = FootballVoteSource.Official,
-                PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = voted ? 7 : 0, HasVote = voted, IsFinal = true, IsActive = true, IsVisible = true });
+                PlayerRole = (int)player.Position, VoteRole = (int)player.Position, Value = value, HasVote = voted, IsFinal = true, IsActive = true, IsVisible = true });
         }
         await database.SaveChangesAsync();
         return (world, koopa, game);
@@ -975,9 +980,17 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
-    public async Task A_best_formation_league_shows_its_best_eleven_in_view_and_live_and_keeps_the_saved_lineup_when_editing()
+    public async Task A_league_asking_for_the_best_formation_shows_its_best_eleven_in_view_and_live()
+        => await AssertBestElevenAsync(await SubstitutionWorldAsync(64, bestFormation: true, secondAbsent: true));
+
+    // The real Super League: marked by its type, with the normal formation setting, and scored by its own calculator.
+    [PostgreSqlFact]
+    public async Task A_league_of_the_SuperLeague_type_shows_its_best_eleven_in_view_and_live()
+        => await AssertBestElevenAsync(await SubstitutionWorldAsync(65, bestFormation: false, superLeagueType: true, secondAbsent: true));
+
+    private async Task AssertBestElevenAsync((World World, string[] Koopa, Guid Game) setup)
     {
-        var (world, koopa, game) = await SubstitutionWorldAsync(64, bestFormation: true);
+        var (world, koopa, game) = setup;
         var (group, year) = (world.Group, world.Year);
         Dictionary<string, int> saved;
         await using (var database = factory.Database.CreateContext())
@@ -988,8 +1001,9 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         var view = await ReadAsync("view");
         var score = view.Game.Result!.Home.Value;
         var best = view.Teams.Single(x => x.TeamId == world.Koopa).Players.ToDictionary(x => x.Current.PlayerId, x => x.CurrentPosition);
-        // The read-only view shows the best formation, as it always did: the starter without a vote is not among the best eleven.
-        Assert.NotEqual(saved[koopa[1]], best[koopa[1]]);
+        // The best eleven keeps the first defender without a vote and benches the second one: the plain automatic substitution would do
+        // the opposite, so this is the league's own calculator at work.
+        Assert.Equal((1, 5), (best[koopa[1]], best[koopa[2]]));
         Assert.All(view.Teams.Single(x => x.TeamId == world.Koopa).Players, x => Assert.Equal(x.CurrentPosition, x.ProjectedPosition));
         // Live: the pitch shows the same best eleven, while CurrentPosition stays the lineup as saved.
         var live = await ReadAsync("live");
