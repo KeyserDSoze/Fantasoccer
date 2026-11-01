@@ -3,7 +3,7 @@ name: Deploy GitHub Pages
 # Frontend of the PostgreSQL version, served by GitHub Pages (fanta.zone) and
 # calling the fcv2 API. The site is replaced only when that API is ready.
 #
-# Rollback: run this workflow choosing the "rollback-main" branch. GitHub then
+# Rollback: run this workflow choosing the "legacy-main" branch. GitHub then
 # uses that branch's own copy of this file, which builds the previous frontend
 # against FRONTEND_API_URL (the legacy apifc API). Keep FRONTEND_API_URL on apifc.
 on:

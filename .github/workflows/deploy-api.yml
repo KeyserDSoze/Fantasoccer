@@ -3,7 +3,7 @@ name: Deploy API
 # Legacy API (App Service apifc, Azure Storage repositories). The PostgreSQL
 # version on main is deployed to apifcv2 by deploy-api-fcv2.yml and must never
 # reach apifc. This workflow exists on main only so that it can be started
-# manually: choose the "rollback-main" branch in "Use workflow from" and GitHub
+# manually: choose the "legacy-main" branch in "Use workflow from" and GitHub
 # runs that branch's own copy of this file, i.e. the original legacy pipeline.
 on:
   workflow_dispatch:
@@ -17,5 +17,5 @@ jobs:
     steps:
       - name: Refuse to deploy the PostgreSQL version to the legacy API
         run: |
-          echo "::error::The legacy API (apifc) is deployed only from the rollback-main branch. The current API is deployed by 'Deploy API fcv2'."
+          echo "::error::The legacy API (apifc) is deployed only from the legacy-main branch. The current API is deployed by 'Deploy API fcv2'."
           exit 1

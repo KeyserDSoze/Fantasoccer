@@ -69,7 +69,7 @@ Lo stato sta nello storage account `fcv2tf<hash>`, nel resource group separato `
 
 ## Passaggio in produzione e rollback
 
-Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `rollback-main` è una copia esatta di `main` prima del passaggio (commit `9ee2c0a`), protetta da cancellazione e force push e autorizzata a pubblicare su GitHub Pages.
+Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `legacy-main` è una copia esatta di `main` prima del passaggio (commit `9ee2c0a`), protetta da cancellazione e force push e autorizzata a pubblicare su GitHub Pages.
 
 **Prima del merge** di `refactor/postgresql-multi-group` su `main`:
 1. apply dell'infrastruttura (l'API su `apifcv2` nasce con l'immagine del branch);
@@ -82,9 +82,9 @@ Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `rollback-main` è una
 - `Deploy GitHub Pages`. Attende fino a 15 minuti che `apifcv2` risponda a `/health/ready`, poi pubblica il nuovo frontend con `EXPO_PUBLIC_API_URL = https://api.fanta.zone` (sovrascrivibile con la variabile di repository `FCV2_API_URL`). Se l'API non è pronta il sito pubblicato non cambia.
 - Il vecchio `Deploy API` su `main` non distribuisce più nulla: `apifc` resta com'è, come rete di sicurezza.
 
-**Rollback:**
-1. *Actions → Deploy GitHub Pages → Run workflow*, scegliendo il branch **`rollback-main`**. GitHub usa la copia del workflow di quel branch: ricostruisce il frontend precedente con `FRONTEND_API_URL`. Le variabili `FRONTEND_API_URL`, `API_APP_NAME` e `API_RESOURCE_GROUP` devono restare sui valori legacy (`https://apifc.azurewebsites.net`, `apifc`, `fc`).
-2. L'API legacy `apifc` non è mai stata toccata. Solo se serve ridistribuirla: *Actions → Deploy API → Run workflow* su `rollback-main`.
+**Rollback (non più eseguibile dal 01/11/2026: `apifc` è stata eliminata; `legacy-main`, ex `rollback-main`, resta come ramo dormiente di archivio):**
+1. *Actions → Deploy GitHub Pages → Run workflow*, scegliendo il branch **`legacy-main`**. GitHub usa la copia del workflow di quel branch: ricostruisce il frontend precedente con `FRONTEND_API_URL`. Le variabili `FRONTEND_API_URL`, `API_APP_NAME` e `API_RESOURCE_GROUP` devono restare sui valori legacy (`https://apifc.azurewebsites.net`, `apifc`, `fc`).
+2. L'API legacy `apifc` non è mai stata toccata. Solo se serve ridistribuirla: *Actions → Deploy API → Run workflow* su `legacy-main`.
 3. I dati scritti nella nuova versione dopo il passaggio restano in PostgreSQL ma **non** esistono nello storage legacy: non c'è doppia scrittura.
 4. Finché `main` contiene la nuova versione, un push su `main` che tocca il frontend ripubblicherebbe il nuovo sito. Dopo un rollback non pushare su `main` (o fare il revert del merge) finché il problema non è risolto.
 
