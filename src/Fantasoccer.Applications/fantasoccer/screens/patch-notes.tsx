@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.3',
+    date: '1 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Il Live mostra subito l’ultima copia disponibile mentre i dati si aggiornano in background: non aspetta più il ricalcolo delle partite. Il controllo avviene ogni 5 minuti e ricostruisce la cache solo se cambiano i dati',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Aggiunto il tracciamento dei tempi delle query PostgreSQL e dei ricalcoli Live per individuare i rallentamenti, senza registrare testo SQL o parametri sensibili',
+      },
+    ],
+  },
+  {
     version: '4.0.2',
     date: '1 Novembre 2026',
     changes: [

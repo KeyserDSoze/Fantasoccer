@@ -45,7 +45,7 @@ public sealed class FootballLiveDataStore(SharedSnapshotCache cache, TimeProvide
     public static readonly TimeSpan ChancesFreshFor = TimeSpan.FromHours(12);
     public static readonly TimeSpan ChancesUsableFor = TimeSpan.FromDays(30);
     private static readonly TimeSpan ChancesConfirmEvery = TimeSpan.FromHours(1);
-    // Provisional votes: the job runs every minute during the live window. Even when
+    // Provisional votes: the job runs every five minutes during the live window. Even when
     // stale they stay usable (they are the last known provisional votes of that
     // matchday and official votes supersede them); callers flag them as not updated.
     public static readonly TimeSpan LiveVotesFreshFor = TimeSpan.FromMinutes(10);

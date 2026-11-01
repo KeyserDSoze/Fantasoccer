@@ -187,7 +187,8 @@ public sealed class SqlJobScheduleTests
     {
         var now = new DateTimeOffset(2026, 10, 25, 0, 5, 0, TimeSpan.Zero);
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 1, 0, 0, TimeSpan.Zero), SqlJobSchedule.Next("market-expiry", now));
-        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 6, 0, TimeSpan.Zero), SqlJobSchedule.Next("live", now));
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 10, 0, TimeSpan.Zero), SqlJobSchedule.Next("live", now));
+        Assert.Equal(SqlJobSchedule.Next("live", now), SqlJobSchedule.Next("live-projections", now));
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 10, 0, TimeSpan.Zero), SqlJobSchedule.Next("postponed-results", now));
         Assert.Contains("postponed-results", SqlJobSchedule.Names);
         var images = TimeZoneInfo.ConvertTime(SqlJobSchedule.Next("images", now), TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"));

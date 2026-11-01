@@ -8,6 +8,7 @@ using Fantasoccer.Application.Core.Competitions;
 using Fantasoccer.Application.Core.Football;
 using Fantasoccer.Application.Core.Groups;
 using Fantasoccer.Application.Core.Market;
+using Fantasoccer.Application.Core.Operations;
 using Fantasoccer.Application.Core.Teams;
 using Fantasoccer.Caching;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
@@ -27,6 +28,15 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     private sealed record World(HttpClient Admin, Guid Group, int Year, Guid SerieA, Guid Premier, Guid LeagueSA, Guid LeaguePL,
         Member Mario, Member Luigi, Member Peach, Member Toad, Guid Draghi, Guid Koopa, Guid Leoni, Guid Funghi);
     private static readonly int[] Roles = [0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 1];
+
+    // These projection-content tests explicitly simulate the scheduled worker before
+    // reading. HTTP itself is read-only, covered separately below.
+    private async Task<HttpResponseMessage> RefreshedLiveAsync(HttpClient client, Guid group, int year, IServiceProvider? services = null)
+    {
+        await using var scope = (services ?? factory.Services).CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<LiveCompetitionApplicationService>().RefreshAsync(group, year);
+        return await client.GetAsync($"/api/groups/{group}/live?year={year}");
+    }
 
     [PostgreSqlFact]
     public async Task A_user_can_own_teams_in_several_baskets_but_never_two_participants_of_one_league_season()
@@ -519,6 +529,30 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task Live_read_serves_an_hour_old_snapshot_while_worker_lease_is_held()
+    {
+        var world = await WorldAsync(59, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddDays(1));
+        var now = DateTimeOffset.UtcNow;
+        var old = now.AddHours(-1);
+        var key = CacheKeys.LiveGroup(group, year, 1);
+        var cache = factory.Services.GetRequiredService<SharedSnapshotCache>();
+        await cache.PublishAsync(key, new CacheEnvelope<LiveGroupSnapshot>(CacheKeys.LiveSchemaVersion,
+            LiveCompetitionApplicationService.Kind, old, old.AddMinutes(5), old.UtcTicks, "old-source",
+            new(group, "Old projection", year, 1, [])), TimeSpan.FromDays(3));
+        var coordinator = factory.Services.GetRequiredService<IDistributedCacheCoordinator>();
+        await using var lease = await coordinator.TryAcquireLeaseAsync(CacheKeys.RegenerationLock(key), TimeSpan.FromSeconds(30));
+        Assert.NotNull(lease);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var response = await Read<LiveGroupDto>(await world.Admin.GetAsync($"/api/groups/{group}/live?year={year}", deadline.Token));
+        Assert.Equal(old, response.GeneratedAtUtc);
+        Assert.Equal("Old projection", response.Name);
+        Assert.True(response.IsStale);
+        Assert.Equal("old-source", (await cache.ReadAsync<LiveGroupSnapshot>(key, LiveCompetitionApplicationService.Kind, CacheKeys.LiveSchemaVersion))!.SourceFingerprint);
+    }
+
+    [PostgreSqlFact]
     public async Task Live_projection_is_shared_by_members_rebuilt_only_on_source_changes_isolated_per_group_and_recovered_after_cache_loss()
     {
         var world = await WorldAsync(44, peachOwnsFunghi: true);
@@ -529,7 +563,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
         await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
         var livePath = $"/api/groups/{group}/live?year={year}";
-        var first = await Read<LiveGroupDto>(await world.Luigi.Client.GetAsync(livePath));
+        var first = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Luigi.Client, group, year));
         var second = await Read<LiveGroupDto>(await world.Mario.Client.GetAsync(livePath));
         Assert.Equal(1, first.SerieADay); Assert.False(first.IsStale);
         Assert.Equal(first.GeneratedAtUtc, second.GeneratedAtUtc); // one shared projection, built once
@@ -550,14 +584,24 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         // Global live votes changed: every group using that day is rebuilt.
         await factory.Services.GetRequiredService<IFootballLiveDataStore>().PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, 1,
             [new(koopaPlayers[9], "Scorer", "cmp", "Competition club", 3, true, true, new(3, 7, false, 1, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false))]), null);
-        var afterVotes = await Read<LiveGroupDto>(await world.Mario.Client.GetAsync(livePath));
+        // A changed source and a worker holding the regeneration lease must not
+        // force readers to wait or calculate. They keep receiving the previous blob.
+        await using (var lease = await coordinator.TryAcquireLeaseAsync(CacheKeys.RegenerationLock(CacheKeys.LiveGroup(group, year, 1)), TimeSpan.FromSeconds(30)))
+        {
+            Assert.NotNull(lease);
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var previous = await Read<LiveGroupDto>(await world.Mario.Client.GetAsync(livePath, deadline.Token));
+            Assert.Equal(first.GeneratedAtUtc, previous.GeneratedAtUtc);
+            Assert.Equal(first.Leagues.Length, previous.Leagues.Length);
+        }
+        var afterVotes = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Mario.Client, group, year));
         Assert.True(afterVotes.GeneratedAtUtc > first.GeneratedAtUtc);
         // A lineup change invalidates it as well.
         var team = (await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode=formation"))).Teams.Single(x => x.TeamId == world.Koopa);
         var positions = team.Players.Select(x => new FormationPositionRequest(x.Current.PlayerId, x.Current.PlayerId == koopaPlayers[1] ? 5 : x.Current.PlayerId == koopaPlayers[11] ? 1 : x.Current.Position)).ToArray();
         (await world.Luigi.Client.PutAsJsonAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}/formation",
             new SaveGameFormationRequest(world.Koopa, positions, 0, team.SourceVersion))).EnsureSuccessStatusCode();
-        var afterLineup = await Read<LiveGroupDto>(await world.Luigi.Client.GetAsync(livePath));
+        var afterLineup = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Luigi.Client, group, year));
         Assert.True(afterLineup.GeneratedAtUtc > afterVotes.GeneratedAtUtc);
         var shared = await Read<GameDto>(await world.Mario.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}"));
         Assert.Equal(5, shared.Teams.Single(x => x.TeamId == world.Koopa).Players.Single(x => x.Current.PlayerId == koopaPlayers[1]).Current.Position);
@@ -569,6 +613,14 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         // Cache loss is not data loss: the projection is rebuilt from PostgreSQL.
         await factory.Services.GetRequiredService<IDistributedCache>().RemoveAsync(CacheKeys.LiveGroup(group, year, 1));
         factory.Services.GetRequiredService<SharedSnapshotCache>().Forget(CacheKeys.LiveGroup(group, year, 1));
+        var cold = await Read<LiveGroupDto>(await world.Mario.Client.GetAsync(livePath));
+        Assert.Empty(cold.Leagues); Assert.True(cold.IsStale);
+        await using (var jobScope = factory.Services.CreateAsyncScope())
+        {
+            var outcome = await jobScope.ServiceProvider.GetRequiredService<ISqlJobActions>().ExecuteAsync("live-projections", year, CancellationToken.None);
+            Assert.True(outcome.Processed > 0);
+            Assert.Equal(0, outcome.Skipped);
+        }
         var rebuilt = await Read<LiveGroupDto>(await world.Mario.Client.GetAsync(livePath));
         Assert.True(rebuilt.GeneratedAtUtc > afterLineup.GeneratedAtUtc);
         Assert.Equal(afterLineup.Leagues.Single(x => x.Id == world.LeagueSA).Rank!.Rounds["@"].Select(x => x.TeamId),
@@ -591,7 +643,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
         await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
         var livePath = $"/api/groups/{group}/live?year={year}";
-        async Task<LiveGroupDto> ReadAsync() => await Read<LiveGroupDto>(await world.Luigi.Client.GetAsync(livePath));
+        async Task<LiveGroupDto> ReadAsync() => await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Luigi.Client, group, year));
         var first = await ReadAsync();
         Assert.Equal(first.GeneratedAtUtc, (await ReadAsync()).GeneratedAtUtc);
         Assert.False(first.LiveVotesStale); // the matchday has not started: nothing is overdue
@@ -743,7 +795,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         }
         using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<TimeProvider>(clock)));
         using var client = app.CreateClient(); client.DefaultRequestHeaders.Add("X-Workspace-User", world.Luigi.Account.Email);
-        async Task<LiveGroupDto> Live() => await Read<LiveGroupDto>(await client.GetAsync($"/api/groups/{group}/live?year={year}"));
+        async Task<LiveGroupDto> Live() => await Read<LiveGroupDto>(await RefreshedLiveAsync(client, group, year, app.Services));
         Assert.Equal(2, (await Live()).SerieADay); // future recoveries do not preempt the next ordinary matchday
         clock.Advance(TimeSpan.FromMinutes(10));
         string scorerName;
@@ -775,13 +827,13 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
             new CreateTeamRequest(world.SerieA, year, "Replacement", world.Toad.Account.Id, [])))).TeamId;
         var participantsPath = $"/api/competitions/{group}/{world.LeagueSA}/{year}/participants";
         (await world.Admin.DeleteAsync(participantsPath + $"/{extra}")).EnsureSuccessStatusCode();
-        var before = await Read<LiveGroupDto>(await world.Admin.GetAsync($"/api/groups/{group}/live?year={year}"));
+        var before = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Admin, group, year));
         long revision;
         await using (var database = factory.Database.CreateContext()) revision = await database.Groups.Where(x => x.Id == group).Select(x => x.Revision).SingleAsync();
         var beforeCount = (await Read<LeagueParticipantsDto>(await world.Admin.GetAsync(participantsPath))).Participants.Length;
         (await world.Admin.DeleteAsync(participantsPath + $"/{world.Koopa}")).EnsureSuccessStatusCode();
         (await world.Admin.PostAsJsonAsync(participantsPath, new AdmitParticipantRequest(extra))).EnsureSuccessStatusCode();
-        var after = await Read<LiveGroupDto>(await world.Admin.GetAsync($"/api/groups/{group}/live?year={year}"));
+        var after = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Admin, group, year));
         var members = (await Read<LeagueParticipantsDto>(await world.Admin.GetAsync(participantsPath))).Participants;
         Assert.Equal(beforeCount, members.Length);
         Assert.DoesNotContain(members, x => x.TeamId == world.Koopa); Assert.Contains(members, x => x.TeamId == extra);

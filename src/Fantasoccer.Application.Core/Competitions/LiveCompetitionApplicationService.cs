@@ -37,8 +37,9 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
     IAuthorizationService authorization, TimeProvider clock)
 {
     public const string Kind = "live-group";
+    private static readonly System.Diagnostics.ActivitySource Activities = new("Fantasoccer.Live");
     private static readonly TimeSpan Retention = TimeSpan.FromDays(3);
-    private static readonly TimeSpan MaxStale = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
 
     public async Task<LiveGroupDto> GetAsync(ClaimsPrincipal caller, Guid group, int year, CancellationToken cancellationToken = default)
     {
@@ -69,15 +70,42 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
 
     internal async Task<CacheRead<LiveGroupSnapshot>> SnapshotAsync(Guid group, int year, int day, CancellationToken cancellationToken)
     {
+        // Readers never acquire regeneration leases or rebuild games. The previous
+        // blob remains readable while the scheduled worker builds its replacement.
+        var cached = await cache.ReadAsync<LiveGroupSnapshot>(CacheKeys.LiveGroup(group, year, day), Kind, CacheKeys.LiveSchemaVersion, cancellationToken);
+        if (cached is not null) return new(cached, !cached.IsFreshAt(clock.GetUtcNow()));
+
+        // Cold cache: return promptly. The worker populates it on the next tick.
+        var now = clock.GetUtcNow();
+        var name = await database.Groups.Where(x => x.Id == group).Select(x => x.Name).SingleAsync(cancellationToken);
+        return new(new(CacheKeys.LiveSchemaVersion, Kind, now, now, 0, null, new(group, name, year, day, [])), true);
+    }
+
+    public async Task RefreshAsync(Guid group, int year, CancellationToken cancellationToken = default)
+    {
+        using var activity = Activities.StartActivity("live.refresh");
+        var day = (await SelectedDayAsync(year, cancellationToken)).Day ?? 0;
         var stamp = await SourceStampAsync(group, year, day, cancellationToken);
-        return await cache.GetOrRegenerateAsync(CacheKeys.LiveGroup(group, year, day), Kind, CacheKeys.LiveSchemaVersion,
+        var key = CacheKeys.LiveGroup(group, year, day);
+        var existing = await cache.ReadAsync<LiveGroupSnapshot>(key, Kind, CacheKeys.LiveSchemaVersion, cancellationToken);
+        if (existing is not null && existing.SourceFingerprint == stamp && existing.Payload.GroupId == group)
+        {
+            var now = clock.GetUtcNow();
+            // Keep GeneratedAtUtc (actual build time), extend the confirmation without rebuilding.
+            await cache.PublishAsync(key, existing with { FreshUntilUtc = now + RefreshInterval, SourceRevision = now.UtcTicks },
+                Retention, cancellationToken: cancellationToken);
+            activity?.SetTag("live.changed", false);
+            return;
+        }
+        activity?.SetTag("live.changed", true);
+        await cache.GetOrRegenerateAsync(key, Kind, CacheKeys.LiveSchemaVersion,
             envelope => envelope.SourceFingerprint == stamp && envelope.Payload.GroupId == group,
             async token =>
             {
                 var started = clock.GetUtcNow();
                 var payload = await BuildAsync(group, year, day, token);
-                return new CacheEnvelope<LiveGroupSnapshot>(CacheKeys.LiveSchemaVersion, Kind, started, started.AddSeconds(15), started.UtcTicks, stamp, payload);
-            }, Retention, MaxStale, cancellationToken);
+                return new CacheEnvelope<LiveGroupSnapshot>(CacheKeys.LiveSchemaVersion, Kind, started, clock.GetUtcNow() + RefreshInterval, started.UtcTicks, stamp, payload);
+            }, Retention, Retention, cancellationToken);
     }
 
     // Rebuilt only when a relevant source changed: votes, chances, lineups and
@@ -125,6 +153,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
 
     private async Task<LiveGroupSnapshot> BuildAsync(Guid group, int year, int day, CancellationToken cancellationToken)
     {
+        using var activity = Activities.StartActivity("live.build");
         var name = await database.Groups.Where(x => x.Id == group).Select(x => x.Name).SingleAsync(cancellationToken);
         var leagues = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).Where(x => x.GroupId == group && x.SeasonIndex == year && !x.IsArchived && !x.League.IsArchived)
             .OrderBy(x => x.League.Name).ToArrayAsync(cancellationToken);
@@ -143,6 +172,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
                     {
                         try
                         {
+                            using var gameActivity = Activities.StartActivity("live.build.game");
                             var detail = await games.BuildAsync(league, game.Id, "view", null, false, cancellationToken);
                             details[game.Id] = detail;
                             previews.Add(detail.Game);
