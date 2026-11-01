@@ -70,6 +70,19 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "api_outbound" {
   end_ip_address   = each.value
 }
 
+# Used by the weekly backup and the restore workflows: they point it at the runner address
+# and park it on an unroutable one afterwards (the resource group lock forbids deleting it).
+resource "azurerm_postgresql_flexible_server_firewall_rule" "backup_runner" {
+  name             = "backup-runner"
+  server_id        = azurerm_postgresql_flexible_server.main.id
+  start_ip_address = "192.0.2.1"
+  end_ip_address   = "192.0.2.1"
+
+  lifecycle {
+    ignore_changes = [start_ip_address, end_ip_address]
+  }
+}
+
 resource "azurerm_postgresql_flexible_server_firewall_rule" "operators" {
   for_each         = { for range in var.postgres_admin_ip_ranges : range.name => range }
   name             = each.key

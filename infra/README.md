@@ -118,3 +118,14 @@ Per un plan locale contro Azure:
 ## Lock di cancellazione sul resource group
 
 Su `fcv2` c'è un lock `CanNotDelete` (`no delete`). Blocca anche l'eliminazione delle risorse figlie: l'apply che rimuove una regola firewall di PostgreSQL (per esempio un IP operatore temporaneo, o l'aggiornamento di `postgres_api_outbound_ips`) fallisce con `ScopeLocked`. In quel caso: `az lock delete --name "no delete" --resource-group fcv2`, apply, poi `az lock create --name "no delete" --lock-type CanNotDelete --resource-group fcv2 --notes "Production resource group of Fantasoccer 4.x"`. Il lock non impedisce creazioni né modifiche. Le regole firewall vengono create una alla volta da Azure (circa 1 minuto ciascuna): con 43 indirizzi un apply completo dura circa 45 minuti.
+
+## Backup settimanale su GitHub release
+
+Oltre ai backup automatici di Azure (14 giorni, stessa regione, non scaricabili) c'è una copia esportabile:
+
+- **`Database backup`** (`.github/workflows/db-backup.yml`): ogni domenica alle 03:17 UTC fa un `pg_dump` in formato custom, lo ripristina in un database temporaneo `restore_check` per verificarlo (stesso numero di tabelle e migrazioni), lo cifra con `gpg` (AES-256) e lo pubblica come asset di una release `db-backup-<data>` (pre-release). Conserva le ultime 8. Si può avviare a mano da *Actions*.
+- **`Database restore`** (`.github/workflows/db-restore.yml`): scarica una release (di default l'ultima), la decifra e la ripristina in un database nuovo (`fantasoccer_restore`, ricreato a ogni esecuzione). Per sostituire la produzione: `target_database = fantasoccer` e `confirm = OVERWRITE-PRODUCTION`; l'API viene fermata durante il ripristino e riavviata alla fine.
+- **Password:** il secret GitHub `DB_BACKUP_PASSPHRASE`. I secret non si possono rileggere da GitHub: una copia è nel file `/root/.fantasoccer-db-backup-passphrase` del server di sviluppo e va conservata anche nel password manager. Senza password i backup non servono a nulla. Per decifrare a mano: `gpg --decrypt fantasoccer-<data>.pgdump.gpg > dump.pgdump`, poi `pg_restore --no-owner --no-privileges -d <database> dump.pgdump`.
+- **Rischio accettato:** il repository è pubblico, quindi le release sono scaricabili da chiunque; i dati (email e credenziali dei dispositivi push degli utenti) sono protetti solo dalla password. Se la password viene compromessa o persa: cambiare il secret, cancellare le release `db-backup-*` e rifare un backup.
+- **Rete:** i workflow aggiornano la regola firewall `backup-runner` (creata da Terraform) con l'IP del runner e la riportano su `192.0.2.1` alla fine, anche in caso di errore. Si aggiorna, non si cancella, per rispettare il lock del resource group. La password del database è letta da Key Vault con la stessa app registration dei deploy.
+
