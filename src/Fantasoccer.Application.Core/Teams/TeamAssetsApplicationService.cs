@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace Fantasoccer.Application.Core.Teams;
 
-public sealed class AssetLinkOptions { public string PublicBlobBaseUrl { get; set; } = "https://fasostorage.blob.core.windows.net"; }
+public sealed class AssetLinkOptions { public string PublicBlobBaseUrl { get; set; } = "https://stfcv2f71915.blob.core.windows.net"; }
 public static class AssetLinks
 {
     public static string? Logo(AssetLinkOptions options, string? blobName) => blobName is null ? null
