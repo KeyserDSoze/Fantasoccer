@@ -114,3 +114,7 @@ Per un plan locale contro Azure:
 ## Dominio personalizzato dell'API
 
 `api.fanta.zone` è associato a `apifcv2` con certificato App Service Managed (SNI SSL, gratuito, rinnovo automatico). DNS su GoDaddy: `CNAME api -> apifcv2.azurewebsites.net` e `TXT asuid.api` con il `customDomainVerificationId` della Web App. CORS non cambia: consente l'origine del frontend `https://fanta.zone`. `Mcp__Issuer` è `https://api.fanta.zone`.
+
+## Lock di cancellazione sul resource group
+
+Su `fcv2` c'è un lock `CanNotDelete` (`no delete`). Blocca anche l'eliminazione delle risorse figlie: l'apply che rimuove una regola firewall di PostgreSQL (per esempio un IP operatore temporaneo, o l'aggiornamento di `postgres_api_outbound_ips`) fallisce con `ScopeLocked`. In quel caso: `az lock delete --name "no delete" --resource-group fcv2`, apply, poi `az lock create --name "no delete" --lock-type CanNotDelete --resource-group fcv2 --notes "Production resource group of Fantasoccer 4.x"`. Il lock non impedisce creazioni né modifiche. Le regole firewall vengono create una alla volta da Azure (circa 1 minuto ciascuna): con 43 indirizzi un apply completo dura circa 45 minuti.
