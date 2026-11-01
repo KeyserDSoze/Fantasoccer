@@ -34,6 +34,8 @@ app_secrets_version = 2
 # Terraform state. Only references (never secret values) belong in this file.
 # Certificate expiry: November 2028; preserve it to read protected key-ring entries.
 extra_app_settings = {
+  # App Service terminates TLS at its reverse proxy; OAuth must see the original HTTPS scheme.
+  ASPNETCORE_FORWARDEDHEADERS_ENABLED = "true"
   Push__Enabled          = "true"
   Push__Subject          = "https://fanta.zone"
   Push__PublicKey        = "@Microsoft.KeyVault(SecretUri=https://kv-fcv2-f71915.vault.azure.net/secrets/push-public-key-20261101)"

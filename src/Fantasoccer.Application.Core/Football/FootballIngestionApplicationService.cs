@@ -332,17 +332,18 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             row.WithSpecial = sample.WithSpecial; row.Goals = sample.Goal; row.Penalties = sample.Penalty; row.Assists = sample.Assist; row.StoppedPenalties = sample.StoppedPenalty;
             row.SufferedGoals = sample.SufferedGoal; row.WrongedPenalties = sample.WrongedPenalty; row.OwnGoals = sample.OwnGoal; row.YellowCards = sample.YellowCard; row.RedCards = sample.RedCard;
             row.EnoughVotes = sample.IsEnough; row.ManOfTheMatch = sample.ManOfTheMatch; row.Injured = sample.Injured; row.HasGameHistory = true;
-            row.Games.Clear();
-        }
-        await database.SaveChangesAsync(cancellationToken);
-        foreach (var sample in samples.Players)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            // DbSet.Local performs DetectChanges on every access. Repeating it while
-            // adding each player's history turns a full-catalogue refresh quadratic
-            // and can hold the global write lock long past the job's timeout.
-            var row = statisticsById[sample.Key];
-            foreach (var (game, ordinal) in sample.AllGames!.Select((game, ordinal) => (game, ordinal))) row.Games.Add(new() { Day = game.SerieADay, Ordinal = ordinal, Vote = game.Vote, Positiveness = game.Positiveness });
+            // Update owned history rows in place. Deleting and re-inserting all
+            // histories creates thousands of needless tracked changes and FK fixups.
+            var history = row.Games.ToDictionary(x => x.Day);
+            var days = new HashSet<int>();
+            foreach (var (game, ordinal) in sample.AllGames!.Select((game, ordinal) => (game, ordinal)))
+            {
+                days.Add(game.SerieADay);
+                if (!history.TryGetValue(game.SerieADay, out var stored))
+                    row.Games.Add(stored = new() { Day = game.SerieADay });
+                stored.Ordinal = ordinal; stored.Vote = game.Vote; stored.Positiveness = game.Positiveness;
+            }
+            foreach (var obsolete in row.Games.Where(x => !days.Contains(x.Day)).ToArray()) row.Games.Remove(obsolete);
         }
         await DatasetAsync("statplayerswrapper", year, 0, cancellationToken);
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
