@@ -71,11 +71,11 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
             var enriched = calculator.Enrich(active.Select(x => x.Domain)).ToArray();
             // Where each player stands once the automatic substitutions are applied (a starter without a vote, or still to play, is
             // replaced by the first bench player of his role who has one). It is computed on its own copies and never replaces
-            // CurrentPosition: that is the saved lineup, which clients send back when they save. The best-formation calculator
-            // rebuilds the whole lineup from the votes, even when there are none: it is the read-only view's job, never the editing
-            // modes', where it would scramble the saved lineup.
+            // CurrentPosition: that is the saved lineup, which clients send back when they save. For a best-formation league the
+            // projection is the best eleven, which is what the score counts, so the view and the live mode show it. Only the
+            // pre-match formation editing is left out: there are no votes yet and the calculator would scramble the saved lineup.
             var projected = new Dictionary<RosterPlayerDto, int>();
-            if (editMode == "view" || projectionType != LeagueType.SuperLeague)
+            if (editMode != "formation" || projectionType != LeagueType.SuperLeague)
             {
                 var copies = active.Select(x => (x.Wire, Domain: DomainPlayer(x.Wire))).ToArray();
                 var wireOf = copies.ToDictionary(x => x.Domain, x => x.Wire);

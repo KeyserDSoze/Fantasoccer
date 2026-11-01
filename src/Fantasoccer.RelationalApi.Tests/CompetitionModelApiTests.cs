@@ -975,7 +975,7 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
-    public async Task A_best_formation_league_keeps_its_saved_lineup_in_the_editing_modes_and_its_score_in_every_mode()
+    public async Task A_best_formation_league_shows_its_best_eleven_in_view_and_live_and_keeps_the_saved_lineup_when_editing()
     {
         var (world, koopa, game) = await SubstitutionWorldAsync(64, bestFormation: true);
         var (group, year) = (world.Group, world.Year);
@@ -987,19 +987,26 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
             await Read<GameDto>(await world.Luigi.Client.GetAsync($"/api/competitions/{group}/{world.LeagueSA}/{year}/games/{game}?editMode={mode}"));
         var view = await ReadAsync("view");
         var score = view.Game.Result!.Home.Value;
-        // The read-only view shows the best formation, as it always did.
+        var best = view.Teams.Single(x => x.TeamId == world.Koopa).Players.ToDictionary(x => x.Current.PlayerId, x => x.CurrentPosition);
+        // The read-only view shows the best formation, as it always did: the starter without a vote is not among the best eleven.
+        Assert.NotEqual(saved[koopa[1]], best[koopa[1]]);
         Assert.All(view.Teams.Single(x => x.TeamId == world.Koopa).Players, x => Assert.Equal(x.CurrentPosition, x.ProjectedPosition));
-        foreach (var mode in new[] { "formation", "live" })
+        // Live: the pitch shows the same best eleven, while CurrentPosition stays the lineup as saved.
+        var live = await ReadAsync("live");
+        Assert.All(live.Teams.Single(x => x.TeamId == world.Koopa).Players, x =>
         {
-            var edit = await ReadAsync(mode);
-            // The editing modes never rebuild the lineup from the votes: what is saved is what is shown, and what a save would send.
-            Assert.All(edit.Teams.Single(x => x.TeamId == world.Koopa).Players, x =>
-            {
-                Assert.Equal(saved[x.Current.PlayerId], x.CurrentPosition);
-                Assert.Equal(saved[x.Current.PlayerId], x.ProjectedPosition);
-            });
-            Assert.Equal(score, edit.Game.Result!.Home.Value);
-        }
+            Assert.Equal(saved[x.Current.PlayerId], x.CurrentPosition);
+            Assert.Equal(best[x.Current.PlayerId], x.ProjectedPosition);
+        });
+        // Pre-match editing never rebuilds the lineup from the votes: what is saved is what is shown, and what a save would send.
+        var formation = await ReadAsync("formation");
+        Assert.All(formation.Teams.Single(x => x.TeamId == world.Koopa).Players, x =>
+        {
+            Assert.Equal(saved[x.Current.PlayerId], x.CurrentPosition);
+            Assert.Equal(saved[x.Current.PlayerId], x.ProjectedPosition);
+        });
+        // The score does not depend on the mode.
+        Assert.Equal(score, live.Game.Result!.Home.Value); Assert.Equal(score, formation.Game.Result!.Home.Value);
     }
 
     // Two leagues of one group, each with a finished and fully voted match on the same Serie A day. The league the
