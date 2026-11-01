@@ -149,9 +149,20 @@ variable "postgres_password_version" {
 }
 
 variable "postgres_allow_azure_services" {
-  description = "Firewall rule 0.0.0.0 for Azure services (App Service outbound addresses are not known at plan time). Authentication and TLS stay mandatory."
+  description = "Firewall rule 0.0.0.0 for every Azure service of any tenant. Off by default: the API is allowed by its own outbound addresses (api_outbound rules). Authentication and TLS stay mandatory."
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "postgres_api_outbound_ips" {
+  description = "Possible outbound IPv4 addresses of the API App Service (az webapp show --query possibleOutboundIpAddresses). Each becomes a PostgreSQL firewall rule."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for ip in var.postgres_api_outbound_ips : can(regex("^[0-9]{1,3}(\\.[0-9]{1,3}){3}$", ip))])
+    error_message = "Only IPv4 addresses are accepted."
+  }
 }
 
 variable "postgres_admin_ip_ranges" {

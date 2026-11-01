@@ -25,8 +25,16 @@ Importati da un export esplorativo del legacy in uso (circa 21:30 UTC del 31/10/
 
 ## Rollback
 
-`gh workflow run deploy-pages.yml --ref legacy-main` ripubblica il frontend verso `apifc`, che resta attivo e intatto. Non cancellare il vecchio client secret Microsoft prima della fine della finestra di rollback.
+Non più disponibile dal 1 novembre 2026: l'API legacy `apifc` e il suo piano sono stati eliminati (resta solo lo storage `fasostorage`, vedi issue #17). Il ramo `legacy-main` resta come snapshot dormiente di archivio, non come procedura di ripristino.
 
-## Dopo il go-live
+## Dopo il go-live (stato al 1 novembre 2026)
 
-Stringere `RedirectDomains` e CORS (`fantacalcio.xyz`, `localhost`), riattivare il push con nuove chiavi VAPID, ruotare i segreti finiti nella cronologia pubblica, rimuovere il dump reale da `migration-data/`, rivedere lo SKU dell'App Service (legacy P0v3, `fcv2` B1) e chiudere i warning EF su `formations` e `postponed-results`.
+Fatto:
+- API su `https://api.fanta.zone` con certificato gestito; `Mcp__Issuer` aggiornato (release 4.0.1).
+- Push riattivato con le nuove chiavi VAPID e segreti compromessi ruotati; dump reale rimosso da `migration-data/`.
+- Produzione: `SocialLogin__Microsoft__RedirectDomains` e CORS limitati a `https://fanta.zone` (`localhost` solo fuori produzione, `fantacalcio.xyz` rimosso); PostgreSQL raggiungibile solo dagli indirizzi in uscita dell'App Service (regole `api-*`), non più da tutta Internet né da "tutti i servizi Azure".
+- Warning EF: `MultipleCollectionIncludeWarning` (modalità query esplicita `SingleQuery`) e `Skip/Take` senza `OrderBy` nel job `postponed-results` (ordinamento aggiunto).
+
+Scelte accettate: le scritture sul legacy dopo l'export delle 21:30 UTC del 31/10, le aste e il mercato storici non importati non verranno recuperati (restano nell'archivio storico privato).
+
+Ancora aperto: dimensionamento dell'App Service e CPU notturna (issue #20) e spegnimento del vecchio gruppo `fc` (issue #17).

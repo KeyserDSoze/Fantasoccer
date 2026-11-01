@@ -60,9 +60,9 @@ Lo stato sta nello storage account `fcv2tf<hash>`, nel resource group separato `
 
 ## Dopo il primo apply
 
-1. **Login Microsoft:** nessuna modifica. Il redirect del login torna al frontend (`https://fanta.zone`, già in `RedirectDomains` e nell'app registration), non all'host dell'API. CORS consente già `fanta.zone`.
+1. **Login Microsoft:** nessuna modifica. Il redirect del login torna al frontend (`https://fanta.zone`, unico valore di `SocialLogin__Microsoft__RedirectDomains` in produzione, impostato in `extra_app_settings`, e nell'app registration), non all'host dell'API. CORS in produzione consente solo `https://fanta.zone` (e l'origine MCP); `http://localhost:3000` solo fuori produzione.
 2. **Migrazione dei dati:**
-   - (per ora il firewall è aperto a tutti: `0.0.0.0`-`255.255.255.255` in `postgres_admin_ip_ranges`, da restringere poi) aggiungere l IP dell operatore in `postgres_admin_ip_ranges` (`environments/fcv2.tfvars`) e fare apply;
+   - (il firewall oggi ammette solo l'API, vedi *Scelte e limiti*) aggiungere l'IP dell'operatore in `postgres_admin_ip_ranges` (`environments/fcv2.tfvars`) e fare apply;
    - importare seguendo [`docs/MIGRATION-RUNBOOK.md`](../docs/MIGRATION-RUNBOOK.md) e ripristinare i file nel nuovo storage;
    - togliere l'IP. Finché l'import non è concluso tenere `background_jobs_enabled = false`: la prima scrittura dell'applicazione chiude la finestra di reimportazione. L'API si avvia comunque e applica le migration EF Core sul database vuoto.
 3. **Opzionale:** MCP, Web Push (chiavi VAPID) e amministratori globali diversi da quelli di `appsettings.json`, tramite `extra_app_settings` o nuovi secret nel Key Vault. Oggi `Mcp__Enabled` e `Push__Enabled` sono `false`.
@@ -90,7 +90,7 @@ Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `legacy-main` è una c
 
 ## Scelte e limiti
 
-- **Rete:** PostgreSQL ha accesso pubblico con la regola "servizi Azure" (`0.0.0.0`). Gli indirizzi in uscita dell'App Service non sono noti al momento del plan. Restano obbligatori password e TLS con verifica del certificato. Rafforzamento possibile in seguito: integrazione VNet e private endpoint (`postgres_allow_azure_services = false`).
+- **Rete:** PostgreSQL ha accesso pubblico, ma il firewall ammette solo gli indirizzi in uscita dell'App Service (regole `api-<ip>`, elenco in `postgres_api_outbound_ips` di `environments/fcv2.tfvars`, ottenibile con `az webapp show -g fcv2 -n apifcv2 --query possibleOutboundIpAddresses`) più gli eventuali operatori in `postgres_admin_ip_ranges`. La regola "servizi Azure" (`0.0.0.0`) è disattivata (`postgres_allow_azure_services = false`). Se l'API cambia scale unit (cambio di piano) gli indirizzi possono cambiare: aggiornare la lista e rifare l'apply, altrimenti l'API perde il database. Per intervenire a mano aggiungere temporaneamente un solo IP operatore e rimuoverlo dopo l'uso. Restano obbligatori password e TLS con verifica del certificato. Rafforzamento possibile in seguito: integrazione VNet e private endpoint.
 - **Utente applicativo:** l'API usa l'amministratore del server, perché applica le migration allo startup. Un ruolo dedicato richiederebbe accesso SQL dal runner GitHub.
 - **Pulizia del registry:** il registry `Basic` non ha una retention automatica. Le immagini vecchie (una per deploy) si possono eliminare con `az acr repository delete`.
 - **Modello:** `gpt-6-luna` è un modello di ragionamento. Il limite di 4096 token di output della generazione editoriale include i token di ragionamento: se i testi risultano troncati, va alzato nel codice.
