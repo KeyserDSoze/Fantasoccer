@@ -25,7 +25,7 @@ Importati da un export esplorativo del legacy in uso (circa 21:30 UTC del 31/10/
 
 ## Rollback
 
-`gh workflow run deploy-pages.yml --ref rollback-main` ripubblica il frontend verso `apifc`, che resta attivo e intatto. Non cancellare il vecchio client secret Microsoft prima della fine della finestra di rollback.
+`gh workflow run deploy-pages.yml --ref legacy-main` ripubblica il frontend verso `apifc`, che resta attivo e intatto. Non cancellare il vecchio client secret Microsoft prima della fine della finestra di rollback.
 
 ## Dopo il go-live
 
