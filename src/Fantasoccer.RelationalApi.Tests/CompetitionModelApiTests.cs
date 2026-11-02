@@ -529,6 +529,80 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task Live_standings_follow_preview_results_without_writing_official_standings_or_double_counting()
+    {
+        var world = await WorldAsync(60, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        var home = await RosterAsync(group, world.Koopa, year, Roles.Length);
+        var away = await RosterAsync(group, world.Draghi, year, Roles.Length);
+        await MatchdayAsync(year, 1, DateTimeOffset.UtcNow.AddMinutes(-30));
+        var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
+        await using (var database = factory.Database.CreateContext())
+        {
+            var rosters = await database.RosterSnapshots.Include(x => x.Players)
+                .Where(x => x.GroupId == group && x.SeasonIndex == year && x.Kind == RosterKind.Season && (x.TeamId == world.Koopa || x.TeamId == world.Draghi)).ToArrayAsync();
+            foreach (var roster in rosters)
+                database.RosterSnapshots.Add(new() { GroupId = group, BasketId = roster.BasketId, SeasonIndex = year, TeamOriginYear = year, TeamId = roster.TeamId,
+                    Kind = RosterKind.Matchday, Day = 1, CompetitionId = Guid.Empty, Name = roster.Name, OwnerUserId = roster.OwnerUserId,
+                    Players = roster.Players.Select(p => new RosterPlayer { Ordinal = p.Ordinal, PlayerId = p.PlayerId, ClubId = p.ClubId, PlayerRole = p.PlayerRole,
+                        Position = p.Position, Status = p.Status, IsActive = p.IsActive, IsVisible = p.IsVisible, Price = p.Price }).ToList() });
+            await database.SaveChangesAsync();
+        }
+        Dictionary<string, string> names;
+        await using (var database = factory.Database.CreateContext())
+            names = await database.Players.Where(x => home.Contains(x.Id) || away.Contains(x.Id)).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var votes = factory.Services.GetRequiredService<IFootballLiveDataStore>();
+        async Task PublishAsync(float homeValue, float awayValue)
+        {
+            var players = home.Select((id, i) => Vote(id, i, homeValue)).Concat(away.Select((id, i) => Vote(id, i, awayValue))).ToArray();
+            await votes.PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, 1, players), null);
+        }
+        CachedLiveVote Vote(string id, int i, float value) => new(id, names[id], "cmp", "Competition club", Roles[i], true, true,
+            new(Roles[i], value, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, false, false));
+        async Task<LiveLeagueDto> LiveAsync()
+        {
+            var live = await Read<LiveGroupDto>(await RefreshedLiveAsync(world.Admin, group, year));
+            return live.Leagues.Single(x => x.Id == world.LeagueSA);
+        }
+        void AssertRank(LiveLeagueDto live)
+        {
+            var result = live.Rounds["@"].Games.Single().Result!;
+            var rows = live.Rank!.Rounds["@"];
+            var h = rows.Single(x => x.TeamId == world.Koopa);
+            var a = rows.Single(x => x.TeamId == world.Draghi);
+            Assert.Equal(result.HomeGoals > result.AwayGoals ? 3 : result.HomeGoals == result.AwayGoals ? 1 : 0, h.Point);
+            Assert.Equal(result.AwayGoals > result.HomeGoals ? 3 : result.AwayGoals == result.HomeGoals ? 1 : 0, a.Point);
+            Assert.Equal(result.Home.Value, h.ValuePoint); Assert.Equal(result.Away.Value, a.ValuePoint);
+            Assert.Equal(result.HomeGoals, h.Goal); Assert.Equal(result.AwayGoals, h.SufferedGoal);
+            Assert.Equal(1, h.Victories + h.Draws + h.Defeats);
+        }
+
+        await PublishAsync(8, 5);
+        var first = await LiveAsync(); AssertRank(first);
+        Assert.True(first.Rank!.Rounds["@"].Single(x => x.TeamId == world.Koopa).Point > first.Rank.Rounds["@"].Single(x => x.TeamId == world.Draghi).Point);
+        await PublishAsync(5, 8);
+        var changed = await LiveAsync(); AssertRank(changed);
+        Assert.True(changed.Rank!.Rounds["@"].Single(x => x.TeamId == world.Draghi).Point > changed.Rank.Rounds["@"].Single(x => x.TeamId == world.Koopa).Point);
+
+        // Officializing the same result must replace, not add to, its live contribution.
+        var score = changed.Rounds["@"].Games.Single().Result!;
+        await using (var database = factory.Database.CreateContext())
+        {
+            var match = await database.FantasyMatches.SingleAsync(x => x.Id == game);
+            match.Result = new() { Home = new() { Value = score.Home.Value }, Away = new() { Value = score.Away.Value }, HomeGoals = score.HomeGoals, AwayGoals = score.AwayGoals };
+            (await database.FantasyCalendars.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).Version++;
+            await database.SaveChangesAsync();
+        }
+        AssertRank(await LiveAsync());
+        await using (var database = factory.Database.CreateContext())
+        {
+            var official = await database.FantasyStandingSnapshots.AsNoTracking().AsSplitQuery().SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year);
+            Assert.Equal(new float[] { 10, 9 }, official.Stages.Single().Teams.OrderBy(x => x.Ordinal).Select(x => x.Points));
+        }
+    }
+
+    [PostgreSqlFact]
     public async Task Live_read_serves_an_hour_old_snapshot_while_worker_lease_is_held()
     {
         var world = await WorldAsync(59, peachOwnsFunghi: true);
