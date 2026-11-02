@@ -38,6 +38,13 @@ function buttons(node) {
   return [...(node.type === 'Button' ? [node] : []), ...buttons(node.props?.children)]
 }
 
+function text(node) {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (!node || typeof node !== 'object') return ''
+  if (Array.isArray(node)) return node.map(text).join(' ')
+  return text(node.props?.children)
+}
+
 for (const width of [390, 1280]) {
   test(`calendar and standings have no reload buttons when loaded or empty (${width}px)`, () => {
     const { calendar, rank } = widgets(width)
@@ -47,6 +54,7 @@ for (const width of [390, 1280]) {
     for (const tree of [calendar({ days, onRetry: retry }), calendar({ days: [], onRetry: retry }),
       rank({ rankedTeams: teams, onRetry: retry }), rank({ rankedTeams: [], onRetry: retry })]) {
       assert.equal(buttons(tree).filter(button => button.props.onPress === retry).length, 0)
+      for (const button of buttons(tree)) assert.doesNotMatch(text(button), /Aggiorna|Ricarica|Riprova/)
     }
   })
 
