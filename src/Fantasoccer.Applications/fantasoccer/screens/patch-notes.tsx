@@ -28,6 +28,11 @@ const patchNotes: PatchNote[] = [
         description:
           'Nelle statistiche giocatori anche proprietà e rose si aggiornano automaticamente dopo i cambiamenti di mercato, senza dover premere Aggiorna',
       },
+      {
+        category: 'Fix',
+        description:
+          'Aprendo una partita viene mostrato il caricamento corretto, non più il messaggio Nessuna partita disponibile mentre la richiesta è ancora in corso. Gli errori della partita sono distinti da quelli del calendario Serie A',
+      },
     ],
   },
   {
