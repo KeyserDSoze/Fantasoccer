@@ -35,7 +35,7 @@ Job `catalogue`, **ogni notte alle 02:30** (Europe/Rome), avviabile anche a mano
 
 ## Fase 2 — Sezione Serie A e partite reali (4.1.0)
 
-- Nuova sezione "Serie A" (menu, `/serie-a`): calendario per giornata e stagione (anche passate) e classifica. Si apre sulla giornata in corso, altrimenti sulla prossima, altrimenti sull'ultima.
+- Nuova sezione "Serie A" (menu, `/serie-a`): calendario per giornata e stagione (anche passate) e classifica ricalcolata alla giornata scelta (`rankAtDay`, dal calendario: solo partite giocate, poi differenza reti, gol fatti, ordine ufficiale). Si apre sulla giornata in corso, altrimenti sulla prossima, altrimenti sull'ultima.
 - Ogni partita è cliccabile dalla sezione e dal widget della home; il risultato pulsa con "LIVE" solo mentre si gioca (stessa regola del server: `FootballLiveTiming.IsPlaying`).
 - Pagina partita `/serie-a/match/{stagione}/{giornata}/{partita}` in sola lettura, stessa grafica del nostro campo. API: `GET /api/football/{year}/days/{day}/matches/{ordinal}` (opzionali `groupId` e `leagueId`).
 - Le formazioni vengono ricostruite da `SerieALineupBuilder` (funzione pura) per ciascuna squadra:

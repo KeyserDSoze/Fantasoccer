@@ -5,7 +5,7 @@ import test from 'node:test'
 
 const require = createRequire(import.meta.url)
 const { loadTypeScript } = require('./helpers/loadTypeScript.cjs')
-const { matchRefreshInterval, toFieldGame, lineupNote, defaultDay, seasonRefreshInterval } = loadTypeScript('utils/serieAMatch.ts')
+const { matchRefreshInterval, toFieldGame, lineupNote, defaultDay, seasonRefreshInterval, rankAtDay } = loadTypeScript('utils/serieAMatch.ts')
 const { playerEvents, sortByImportance, voteBand, formatVote } = loadTypeScript('utils/matchEvents.ts')
 const { RealCalendarHelper } = loadTypeScript('types/serieA.ts')
 
@@ -104,4 +104,28 @@ test('the match page is wired: route, menu, pulsing score and no refresh button'
   for (const screen of ['screens/serie-a.tsx', 'screens/serie-a-match.tsx']) assert.doesNotMatch(read(screen), /Aggiorna|RefreshCw|refetch/)
   assert.match(read('components/seriea/SerieALiveWidget.tsx'), /navigate\('SerieAMatch'/)
   assert.match(read('screens/serie-a-match.tsx'), /editMode="view"/)
+})
+
+test('the standings are rebuilt as they were after the chosen day', () => {
+  const t = (name, extra = {}) => ({ name, ...extra })
+  const match = (home, away, homeGoals, awayGoals, extra = {}) => game({ home: t(home), away: t(away), homeGoals, awayGoals, isFinished: true, date: new Date(kickoff - 900 * HOUR).toISOString(), ...extra })
+  const calendar = { year: 1, days: [
+    { year: 1, serieADay: 1, games: [match('A', 'B', 2, 0), match('C', 'D', 1, 1)] },
+    { year: 1, serieADay: 2, games: [match('A', 'C', 0, 1), match('B', 'D', 3, 0)] },
+    { year: 1, serieADay: 3, games: [match('A', 'D', 1, 1, { isFinished: null, homeGoals: null, awayGoals: null, date: new Date(kickoff + 900 * HOUR).toISOString() }), match('B', 'C', 0, 0, { delayed: true, homeGoals: null, awayGoals: null })] },
+  ] }
+  const row = (table, name) => JSON.parse(JSON.stringify(table.find(team => team.name === name)))
+  const afterOne = rankAtDay(calendar, 1)
+  eq(afterOne.map(team => team.name), ['A', 'C', 'D', 'B'])
+  eq([row(afterOne, 'A').points, row(afterOne, 'A').played, row(afterOne, 'C').points, row(afterOne, 'B').defeats], [3, 1, 1, 1])
+  const afterTwo = rankAtDay(calendar, 2)
+  eq(afterTwo.map(team => team.name), ['C', 'B', 'A', 'D'])
+  eq([row(afterTwo, 'C').points, row(afterTwo, 'A').goalDifference, row(afterTwo, 'B').goalsFor, row(afterTwo, 'D').played], [4, 1, 3, 2])
+  // The last day has only unplayed or postponed matches: nothing is added, but every club is still listed.
+  assert.equal(JSON.stringify(rankAtDay(calendar, 3)), JSON.stringify(afterTwo))
+  assert.equal(rankAtDay(calendar, 0).every(team => team.played === 0), true)
+  // A match in progress is not counted.
+  const live = { year: 1, days: [{ year: 1, serieADay: 1, games: [game({ home: t('A'), away: t('B'), homeGoals: 1, awayGoals: 0, date: new Date(Date.now() - 30 * 60000).toISOString() })] }] }
+  assert.equal(rankAtDay(live, 1).every(team => team.played === 0), true)
+  assert.equal(rankAtDay(null, 1).length, 0)
 })
