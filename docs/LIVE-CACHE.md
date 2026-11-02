@@ -7,6 +7,10 @@
 - Cache mancante (primo avvio, perdita del blob o nuova giornata): risposta immediata senza leghe, marcata stale. Il job la popola al prossimo giro. L'endpoint non deve ricostruire come ripiego.
 - I due job hanno lease SQL separate e possono partire in parallelo: un voto arrivato dopo il controllo della proiezione sarà incluso nel giro successivo. Il pulsante Aggiorna rilegge la copia pubblicata, non forza il ricalcolo.
 
+## Classifica provvisoria (4.0.4)
+
+La classifica del Live usa gli stessi risultati mostrati nelle partite: il job rilegge il calendario salvato e sostituisce in memoria i risultati della giornata con quelli della proiezione. Il calcolatore della competizione applica le regole annuali e le esclusioni delle fasi. Una partita già ufficializzata viene contata una sola volta, non aggiunta alla classifica ufficiale. Le identità di calcolo sono gli ID delle squadre, non il proprietario. I saldi disponibili vengono conservati dallo snapshot ufficiale; risultati, classifiche e saldi nel database non vengono modificati. L'impronta della cache cambia per invalidare gli snapshot con la vecchia classifica ufficiale-only (issue #29).
+
 ## Diagnostica
 
 In entrambe le modalità Application Insights e OpenTelemetry sono ascoltate le ActivitySource `Npgsql` (durata, operazione, correlazione delle query) e `Fantasoccer.Live` (`live.refresh`, `live.build`, `live.build.game`). Il processor rimuove `db.statement` e `db.query.text`: niente SQL completo o parametri utente nei trace.

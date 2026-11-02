@@ -117,6 +117,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         // the shared projection exactly consistent with its sources.
         var builder = new StringBuilder();
         void Add(object? value) => builder.Append(Convert.ToString(value, CultureInfo.InvariantCulture)).Append('|');
+        Add("live-rank-v2"); // Invalidate projections built with the official-only rank.
         Add(await database.Groups.Where(x => x.Id == group).Select(x => x.Revision).SingleOrDefaultAsync(cancellationToken));
         foreach (var calendar in await database.FantasyCalendars.Where(x => x.GroupId == group && x.SeasonIndex == year).OrderBy(x => x.LeagueId)
                      .Select(x => new { x.LeagueId, x.Version }).ToArrayAsync(cancellationToken)) Add($"{calendar.LeagueId:N}:{calendar.Version}");
@@ -181,8 +182,9 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
                     }
                     rounds.Add(rounds.ContainsKey(stage) ? $"{stage}/turn/{calendarDay.Number}" : stage, calendarDay with { Games = previews.ToArray() });
                 }
-            // Definitive standings are read, never modified, by the projection.
-            result.Add(new(league.LeagueId, league.League.Name, rounds, await competitions.CurrentRankAsync(group, league.LeagueId, year, cancellationToken), unavailable, details));
+            // Recalculate provisional standings using the same results displayed in
+            // the live cards. Official standings and balances are never persisted here.
+            result.Add(new(league.LeagueId, league.League.Name, rounds, await competitions.LiveRankAsync(league, details, cancellationToken), unavailable, details));
         }
         return new(group, name, year, day, result.ToArray());
     }

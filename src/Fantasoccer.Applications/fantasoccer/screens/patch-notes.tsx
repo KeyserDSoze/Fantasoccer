@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.4',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'La classifica del Live ora include i risultati provvisori mostrati nelle partite, con aggiornamento in background ogni 5 minuti. Classifica ufficiale e saldi restano invariati; i risultati già ufficializzati non vengono contati due volte',
+      },
+    ],
+  },
+  {
     version: '4.0.3',
     date: '1 Novembre 2026',
     changes: [
