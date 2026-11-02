@@ -31,7 +31,8 @@ public sealed partial class CoreMigrationTests
         Assert.Equal(other, (await database.Players.SingleAsync(x => x.Id == "fallbackdefender")).LegacyId);
         Assert.Equal(2, await database.Players.CountAsync());
         await Assert.ThrowsAsync<PostgresException>(() => migrator.MigrateAsync("20261026194948_UnresolvedPlayerCatalogEntries"));
-        Assert.Equal("recordedname", (await database.PlayerSeasons.AsNoTracking().SingleAsync(x => x.PlayerId == "recordedname")).PlayerKey);
+        // The refused downgrade already reverted later migrations: read only columns of that schema.
+        Assert.Equal("recordedname", await database.PlayerSeasons.AsNoTracking().Where(x => x.PlayerId == "recordedname").Select(x => x.PlayerId).SingleAsync());
     }
 
     [CoreFact]

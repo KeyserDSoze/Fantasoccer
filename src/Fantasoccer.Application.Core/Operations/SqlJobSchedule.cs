@@ -19,7 +19,7 @@ public static class SqlJobSchedule
                 var matches = name switch
                 {
                     "calendar" => hour >= 12 && minute % 5 == 0,
-                    "catalogue" => hour == 5 && minute == 0,
+                    "catalogue" => hour == 2 && minute == 30,
                     "live" or "live-projections" => minute % 5 == 0,
                     "formations" => true,
                     "official" => hour is >= 3 and <= 10 && minute % 15 == 0,

@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.7',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Trasferimenti dei giocatori: ogni notte alle 02:30 il listone della Serie A aggiorna squadra attuale, squadra precedente e data di trasferimento. Nella lista giocatori trovi le nuove colonne, anche nel CSV',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Chi lascia la Serie A (assente dal listone per due notti di fila) non compare più in aste e mercato, ma resta nella tua rosa con l’icona dell’aereo e la data, fino all’asta di riparazione. Chi cambia squadra resta in Serie A con il nuovo club',
+      },
+    ],
+  },
+  {
     version: '4.0.6',
     date: '2 Novembre 2026',
     changes: [

@@ -113,9 +113,13 @@ public sealed class OfficialVoteRevisionMigrationTests(PostgreSqlFixture fixture
         Assert.False(await TriggerExistsAsync(database));
         var club = new FootballClub { Name = "Migration revision club", Abbreviation = "mrv" };
         var player = new FootballPlayer { Name = "Migration revision player " + Guid.NewGuid().ToString("N") };
-        database.PlayerSeasons.Add(new() { Player = player, Club = club, Season = new() { SeasonIndex = 92, StartYear = 2103 }, Position = PlayerPosition.Defender });
-        database.FootballVotes.Add(new() { Player = player, SeasonIndex = 92, Day = 7, Source = FootballVoteSource.Official, Value = 6, HasVote = true });
-        database.FootballVotes.Add(new() { Player = player, SeasonIndex = 92, Day = 8, Source = FootballVoteSource.Live, Value = 6, HasVote = true });
+        database.Seasons.Add(new() { SeasonIndex = 92, StartYear = 2103 }); database.Clubs.Add(club); database.Players.Add(player);
+        await database.SaveChangesAsync();
+        // PlayerSeasons gained columns later: write it with this schema's SQL.
+        await database.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO \"PlayerSeasons\" (\"PlayerKey\",\"SeasonIndex\",\"ClubCode\",\"Position\",\"IsActive\",\"IsVisible\") VALUES ({player.Id}, 92, {club.Id}, 1, false, true)");
+        database.FootballVotes.Add(new() { PlayerId = player.Id, SeasonIndex = 92, Day = 7, Source = FootballVoteSource.Official, Value = 6, HasVote = true });
+        database.FootballVotes.Add(new() { PlayerId = player.Id, SeasonIndex = 92, Day = 8, Source = FootballVoteSource.Live, Value = 6, HasVote = true });
         await database.SaveChangesAsync(); database.ChangeTracker.Clear();
 
         await migrator.MigrateAsync();

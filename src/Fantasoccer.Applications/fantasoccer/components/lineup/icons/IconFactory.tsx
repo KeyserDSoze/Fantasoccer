@@ -2,7 +2,7 @@ import React from 'react'
 import { SoccerBallSVG } from './SoccerBallSVG'
 import { AssistSVG } from './AssistSVG'
 import { BehaviourCardSVG } from './BehaviourCardSVG'
-import { AlertTriangle } from '@tamagui/lucide-icons-2'
+import { AlertTriangle, PlaneTakeoff } from '@tamagui/lucide-icons-2'
 
 export type IconType =
   | 'goal'
@@ -16,6 +16,7 @@ export type IconType =
   | 'yellowCard'
   | 'redCard'
   | 'injury'
+  | 'leftSerieA'
   | 'manOfTheMatch'
 
 export interface IconFactoryProps {
@@ -78,6 +79,10 @@ export const IconFactory: React.FC<IconFactoryProps> = ({ type, size = 16 }) => 
       // Infortunio - emoji cerotto
       return <AlertTriangle size={size} color="#c21ed8ff" />
 
+    case 'leftSerieA':
+      // Non più nel listone della Serie A: resta in rosa fino a svincolo/asta
+      return <PlaneTakeoff size={size} color="#ffffff" />
+
     case 'manOfTheMatch':
       // Migliore in campo - emoji stella
       return <span style={{ fontSize: size }}>⭐</span>
@@ -103,6 +108,7 @@ export const useIconLabel = (type: IconType): string => {
     yellowCard: 'Ammonizione',
     redCard: 'Espulsione',
     injury: 'Infortunio',
+    leftSerieA: 'Ha lasciato la Serie A',
     manOfTheMatch: 'Migliore in campo',
   }
   return labels[type]

@@ -18,21 +18,31 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
     public async Task<PlayersDto<FootballPlayerDto>?> PlayersAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)
     {
         await AccessAsync(caller, year, cancellationToken);
-        var rows = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
+        var rows = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club).Include(x => x.PreviousClub)
             .Where(x => x.SeasonIndex == year).OrderBy(x => x.Position).ThenBy(x => x.Player.Name).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync("realplayerswrapper", year, 0, cancellationToken)) return null;
-        return new(rows.Select(x => new FootballPlayerDto(x.PlayerId, x.Player.Name, x.Club is null ? null : FootballMapping.Club(x.Club),
-            (int)x.Position, x.IsActive, x.IsVisible) { SeasonIndex = x.SeasonIndex }).ToArray());
+        return new(rows.Select(Player).ToArray());
+    }
+
+    // A player who left Serie A keeps his last club as RealTeam (logos, fantasy rosters), flagged LeftSerieA.
+    private static FootballPlayerDto Player(PlayerSeason x)
+    {
+        var left = x.ClubId is null && x.PreviousClubId is not null;
+        var team = x.Club ?? (left ? x.PreviousClub : null);
+        return new(x.PlayerId, x.Player.Name, team is null ? null : FootballMapping.Club(team), (int)x.Position, x.IsActive, x.IsVisible)
+        {
+            SeasonIndex = x.SeasonIndex, LeftSerieA = left, TransferredAtUtc = x.TransferredAtUtc,
+            PreviousTeam = x.PreviousClub is null ? null : FootballMapping.Club(x.PreviousClub),
+        };
     }
 
     public async Task<FootballPlayerDto?> PlayerByKeyAsync(ClaimsPrincipal caller, int year, string playerKey, CancellationToken cancellationToken = default)
     {
         await AccessAsync(caller, year, cancellationToken);
         if (string.IsNullOrEmpty(playerKey) || playerKey.Any(x => x is < 'a' or > 'z')) throw Invalid();
-        var row = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
+        var row = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club).Include(x => x.PreviousClub)
             .SingleOrDefaultAsync(x => x.PlayerId == playerKey && x.SeasonIndex == year, cancellationToken);
-        return row is null ? null : new(row.PlayerId, row.Player.Name, row.Club is null ? null : FootballMapping.Club(row.Club),
-            (int)row.Position, row.IsActive, row.IsVisible) { SeasonIndex = row.SeasonIndex };
+        return row is null ? null : Player(row);
     }
 
     public async Task<PlayerHistoryDto?> PlayerHistoryAsync(ClaimsPrincipal caller, string playerKey, CancellationToken cancellationToken = default)
@@ -140,11 +150,25 @@ public sealed class FootballApplicationService(FantasoccerDbContext database, Ac
         var rows = await database.FootballPlayerStatistics.AsNoTracking().Include(x => x.Player).Include(x => x.Club)
             .Where(x => x.SeasonIndex == year).OrderBy(x => x.Player.Name).AsSplitQuery().ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && !await ExistsAsync("statplayerswrapper", year, 0, cancellationToken)) return null;
-        return new(rows.Select(x => new StatisticPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(x.Club), x.PlayerRole, x.IsActive, x.IsVisible,
-            x.Summatory, x.FantaSummatory, x.WithVote, x.WithoutVote, x.NoPlayed, x.WithSpecial, x.Goals, x.Penalties, x.Assists, x.StoppedPenalties,
-            x.SufferedGoals, x.WrongedPenalties, x.OwnGoals, x.YellowCards, x.RedCards, x.EnoughVotes, x.ManOfTheMatch, x.Injured,
-            x.Games.OrderBy(game => game.Ordinal).Select(game => new StatisticGameDto(game.Day, game.Vote, game.Positiveness)).ToArray(),
-            x.HasDescription ? new(x.DescriptionTop, x.DescriptionDown) : null) { SeasonIndex = year }).ToArray());
+        // Current club, activity and transfer come from the nightly catalogue, which can be
+        // newer than the statistics run (and a player who left is no longer recalculated).
+        var seasons = await database.PlayerSeasons.AsNoTracking().Include(x => x.Club).Include(x => x.PreviousClub)
+            .Where(x => x.SeasonIndex == year).ToDictionaryAsync(x => x.PlayerId, cancellationToken);
+        return new(rows.Select(x =>
+        {
+            var season = seasons.GetValueOrDefault(x.PlayerId);
+            var left = season is { ClubId: null, PreviousClubId: not null };
+            return new StatisticPlayerDto(x.PlayerId, x.Player.Name, FootballMapping.Club(season?.Club ?? x.Club), x.PlayerRole,
+                season?.IsActive ?? x.IsActive, x.IsVisible,
+                x.Summatory, x.FantaSummatory, x.WithVote, x.WithoutVote, x.NoPlayed, x.WithSpecial, x.Goals, x.Penalties, x.Assists, x.StoppedPenalties,
+                x.SufferedGoals, x.WrongedPenalties, x.OwnGoals, x.YellowCards, x.RedCards, x.EnoughVotes, x.ManOfTheMatch, x.Injured,
+                x.Games.OrderBy(game => game.Ordinal).Select(game => new StatisticGameDto(game.Day, game.Vote, game.Positiveness)).ToArray(),
+                x.HasDescription ? new(x.DescriptionTop, x.DescriptionDown) : null)
+            {
+                SeasonIndex = year, LeftSerieA = left, TransferredAtUtc = season?.TransferredAtUtc,
+                PreviousTeam = season?.PreviousClub is null ? null : FootballMapping.Club(season.PreviousClub),
+            };
+        }).ToArray());
     }
 
     public async Task<ClubStandingsDto?> RankAsync(ClaimsPrincipal caller, int year, CancellationToken cancellationToken = default)

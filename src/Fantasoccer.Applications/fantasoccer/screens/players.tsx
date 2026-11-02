@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { SplashScreen } from 'components/layout/SplashScreen'
 import { leagueBasketTeams } from 'utils/myTeams'
+import { formatTransferDate } from 'utils/playerTransfer'
 import {
   AlertTriangle,
   BarChart3,
@@ -56,7 +57,7 @@ type NumericStatKey =
   | 'average'
   | 'fantaAverage'
 
-type ColumnKey = 'name' | 'role' | 'team' | 'fantaTeam' | NumericStatKey
+type ColumnKey = 'name' | 'role' | 'team' | 'previousTeam' | 'transferredAt' | 'fantaTeam' | NumericStatKey
 
 type PlayerOwnershipFilter = 'all' | 'owned' | 'free'
 
@@ -86,7 +87,11 @@ const getColumnValue = (player: EnhancedStatPlayer, columnKey: ColumnKey): strin
     case 'role':
       return player.roleLabel ?? RoleExtensions.asString(player.role)
     case 'team':
-      return player.realTeam?.name ?? '—'
+      return player.leftSerieA ? 'Fuori Serie A' : player.realTeam?.name ?? '—'
+    case 'previousTeam':
+      return player.previousTeam?.name ?? '—'
+    case 'transferredAt':
+      return formatTransferDate(player.transferredAtUtc)
     case 'fantaTeam':
       return player.fantaTeamName ?? 'Libero'
     case 'summatory':
@@ -156,7 +161,9 @@ const numericSortKeys = new Set<NumericStatKey>([
 
 const columnDefinitions: ColumnDefinition[] = [
   { key: 'name', label: 'Giocatore', minWidth: 220 },
-  { key: 'team', label: 'Squadra Serie A', minWidth: 160 },
+  { key: 'team', label: 'Squadra attuale', minWidth: 160 },
+  { key: 'previousTeam', label: 'Squadra precedente', minWidth: 170 },
+  { key: 'transferredAt', label: 'Data di trasferimento', minWidth: 190 },
   { key: 'fantaTeam', label: 'Squadra Fantacalcio', minWidth: 200 },
   { key: 'role', label: 'Ruolo', minWidth: 140 },
   { key: 'average', label: 'Media', minWidth: 120, align: 'right', isNumeric: true },
@@ -188,7 +195,11 @@ const getSortValue = (player: EnhancedStatPlayer, sortKey: SortKey): number | st
     case 'name':
       return player.name.toLowerCase()
     case 'team':
-      return player.realTeam?.name?.toLowerCase() ?? ''
+      return (player.leftSerieA ? 'zzz fuori serie a' : player.realTeam?.name?.toLowerCase()) ?? ''
+    case 'previousTeam':
+      return player.previousTeam?.name?.toLowerCase() ?? 'zzz'
+    case 'transferredAt':
+      return player.transferredAtUtc ?? ''
     case 'fantaTeam':
       return (player.fantaTeamOwner ?? 'zzz_libero').toLowerCase() // liberi vanno alla fine
     case 'role':

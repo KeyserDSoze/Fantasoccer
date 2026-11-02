@@ -11,6 +11,11 @@ public record FootballPlayerDto(string PlayerId, string Name, ClubDto? RealTeam,
     public int? SeasonIndex { get; init; }
     public string PlayerKey => PlayerId;
     public string RoleLabel => ((Role)Role).AsString();
+    // Last detected move of the season. LeftSerieA: no longer in the provider list
+    // (RealTeam is then the last Serie A club, kept for logos and fantasy rosters).
+    public ClubDto? PreviousTeam { get; init; }
+    public DateTimeOffset? TransferredAtUtc { get; init; }
+    public bool LeftSerieA { get; init; }
 }
 public sealed record PlayersDto<T>(T[] Players)
 {
