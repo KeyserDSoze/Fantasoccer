@@ -191,6 +191,9 @@ public sealed class SqlJobScheduleTests
         Assert.Equal(SqlJobSchedule.Next("live", now), SqlJobSchedule.Next("live-projections", now));
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 10, 0, TimeSpan.Zero), SqlJobSchedule.Next("postponed-results", now));
         Assert.Contains("postponed-results", SqlJobSchedule.Names);
+        // Official votes are checked every quarter of an hour all day, so a finished match is consolidated while the matchday is still going.
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 15, 0, TimeSpan.Zero), SqlJobSchedule.Next("official", now));
+        Assert.Equal(new DateTimeOffset(2026, 10, 25, 15, 30, 0, TimeSpan.Zero), SqlJobSchedule.Next("official", new DateTimeOffset(2026, 10, 25, 15, 17, 0, TimeSpan.Zero)));
         var images = TimeZoneInfo.ConvertTime(SqlJobSchedule.Next("images", now), TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"));
         Assert.Equal(3, images.Month); Assert.Equal(1, images.Day); Assert.Equal(3, images.Hour);
         Assert.Throws<ArgumentException>(() => SqlJobSchedule.Next("unknown", now));

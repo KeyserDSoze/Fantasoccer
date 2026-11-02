@@ -185,17 +185,14 @@ export function PlayerCard({
 
     // Determina il colore basato su isFinal e hasVote
     // VERDE: voto finale confermato (isFinal=true, hasVote=true)
-    // ARANCIONE: voto live ma non finale (isFinal=false, hasVote=true)
+    // ARANCIONE: voto provvisorio (isFinal=false, hasVote=true), anche se il giocatore è uscito
     // GRIGIO: voto non valido - non ha giocato abbastanza (hasVote=false)
     // ROSSO: casi edge/errore
     if (vote.isFinal && vote.hasVote) {
       backgroundColor = '#16a34a'; // Verde - voto finale confermato
     } else if (!vote.isFinal && vote.hasVote) {
-      if (!vote.isOut) {
-        backgroundColor = '#f59e0b'; // Arancione - voto live ma non finale
-      } else {
-        backgroundColor = '#dc2626'; // Rosso - voto non valido (giocatore uscito)
-      }
+      // Arancione: voto valido ma ancora provvisorio, anche per chi è già uscito (esce solo dal lampeggio).
+      backgroundColor = '#f59e0b';
     } else if (!vote.hasVote) {
       backgroundColor = '#6b7280'; // Grigio - voto non valido (non ha giocato abbastanza)
     }

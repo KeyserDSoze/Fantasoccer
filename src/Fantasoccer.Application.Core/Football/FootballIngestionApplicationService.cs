@@ -53,6 +53,9 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             case "official":
                 if (request.Day is null) throw Invalid("Specificare la giornata dei voti.");
                 await OfficialVotesAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
+            case "official-progress":
+                if (request.Day is null) throw Invalid("Specificare la giornata dei voti.");
+                await OfficialProgressAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
             case "chances":
                 if (request.Day is null) throw Invalid("Specificare la giornata delle probabilità.");
                 await ChancesAsync(request.Year, request.Day.Value, cancellationToken, caller); break;
@@ -160,10 +163,37 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         foreach (var group in rosters.GroupBy(x => x.GroupId)) await availability.SynchronizeFutureAsync(group.Key, year, group.Select(x => x.TeamId).ToArray(), cancellationToken);
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
-    // Official votes remain authoritative PostgreSQL data used by final scoring and statistics.
-    private async Task OfficialVotesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller, HashSet<string>? clubFilter = null)
+    // Matches of a matchday that are over and whose official votes are not consolidated yet, with how many of them were consolidated now.
+    public sealed record OfficialProgress(int Imported, int Pending);
+
+    // Official votes match by match: a finished match is consolidated as soon as the provider shows final votes for both clubs, without
+    // waiting for the whole matchday (the full import needs every club). Only clubs with at least one final vote are written, so a
+    // match whose votes are not published yet keeps its provisional live votes. The day's full import still runs afterwards and wins.
+    public async Task<OfficialProgress> OfficialProgressAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller = null)
     {
+        var now = clock.GetUtcNow();
+        var pending = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed &&
+                x.ActualOfficialVotesReady != true && x.KickoffUtc != null).ToArrayAsync(cancellationToken))
+            .Where(x => x.IsFinished == true || x.IsFinished is null && now >= x.KickoffUtc!.Value.AddMinutes(135)).ToArray();
+        if (pending.Length == 0) return new(0, 0);
         var samples = await official.GetAsync(year, day).WaitAsync(cancellationToken);
+        var voted = samples.Where(x => x.Role != Role.Coach && x.Vote is { HasVote: true, IsFinal: true } && ProviderClubCode(x.RealTeam) is not null)
+            .Select(x => ProviderClubCode(x.RealTeam)!).ToHashSet(StringComparer.Ordinal);
+        var imported = 0;
+        foreach (var match in pending)
+        {
+            if (!voted.Contains(match.HomeClubId) || !voted.Contains(match.AwayClubId)) continue;
+            try { await OfficialVotesAsync(year, day, cancellationToken, caller, [match.HomeClubId, match.AwayClubId], samples); imported++; }
+            catch (ApplicationFault fault) when (fault.Code == "official_matchday_incomplete") { database.ChangeTracker.Clear(); }
+        }
+        return new(imported, pending.Length - imported);
+    }
+
+    // Official votes remain authoritative PostgreSQL data used by final scoring and statistics.
+    private async Task OfficialVotesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller, HashSet<string>? clubFilter = null,
+        List<VotedRealPlayer>? fetched = null)
+    {
+        var samples = fetched ?? await official.GetAsync(year, day).WaitAsync(cancellationToken);
         if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
         if (samples is not { Count: > 0 } || samples.All(x => x.Role == Role.Coach) || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) ||
             samples.GroupBy(x => new { x.Key, IsCoach = x.Role == Role.Coach }).Any(x => x.Count() != 1))
