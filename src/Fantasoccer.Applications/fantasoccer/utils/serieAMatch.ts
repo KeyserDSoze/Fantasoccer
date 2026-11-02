@@ -1,6 +1,6 @@
 import type { FootballMatch, LineupSource } from '../types/footballMatch'
 import type { GameWrapper } from '../types/game'
-import { RealCalendarHelper, type RealCalendar } from '../types/serieA'
+import { RealCalendarHelper, type RealCalendar, type RealRankedTeam } from '../types/serieA'
 
 const HOUR = 60 * 60 * 1000
 
@@ -49,4 +49,32 @@ export function seasonRefreshInterval(calendar: RealCalendar | null | undefined,
   if (dates.some(date => now >= date - 3 * HOUR && now <= date + 5 * HOUR)) return 30 * 1000
   if (dates.some(date => date > now || now - date <= 36 * HOUR)) return 5 * 60 * 1000
   return null
+}
+
+// Standings as they were after a given day: only matches of days up to it, already played (a match being played is not counted).
+// Ties on points go by goal difference, goals scored, then the order of the official standings (head-to-head is not available).
+export function rankAtDay(calendar: RealCalendar | null | undefined, day: number, official: RealRankedTeam[] = []): RealRankedTeam[] {
+  const table = new Map<string, RealRankedTeam>()
+  const entry = (team: { clubId?: string; name: string }) => {
+    const key = team.clubId ?? team.name
+    let row = table.get(key)
+    if (!row) { row = { clubId: team.clubId, name: team.name, points: 0, victories: 0, draws: 0, defeats: 0, goalsFor: 0, goalsAgainst: 0, goalDifference: 0, played: 0 }; table.set(key, row) }
+    return row
+  }
+  for (const value of calendar?.days ?? []) {
+    for (const game of value.games) {
+      const home = entry(game.home); const away = entry(game.away)
+      if (value.serieADay > day || game.delayed || game.homeGoals == null || game.awayGoals == null) continue
+      if (!RealCalendarHelper.isGamePlayed(game) || RealCalendarHelper.isGamePlaying(game)) continue
+      home.played++; away.played++
+      home.goalsFor += game.homeGoals; home.goalsAgainst += game.awayGoals
+      away.goalsFor += game.awayGoals; away.goalsAgainst += game.homeGoals
+      if (game.homeGoals > game.awayGoals) { home.victories++; home.points += 3; away.defeats++ }
+      else if (game.homeGoals < game.awayGoals) { away.victories++; away.points += 3; home.defeats++ }
+      else { home.draws++; away.draws++; home.points++; away.points++ }
+    }
+  }
+  const position = (team: RealRankedTeam) => { const index = official.findIndex(value => (value.clubId && value.clubId === team.clubId) || value.name === team.name); return index < 0 ? Number.MAX_SAFE_INTEGER : index }
+  return [...table.values()].map(row => ({ ...row, goalDifference: row.goalsFor - row.goalsAgainst }))
+    .sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || position(a) - position(b) || a.name.localeCompare(b.name))
 }

@@ -11,7 +11,7 @@ import { useApp } from 'providers/AppProvider'
 import { useSerieASeason } from 'hooks/useSerieASeason'
 import { serieAService } from 'services/serieAService'
 import type { RealDay } from 'types/serieA'
-import { defaultDay } from 'utils/serieAMatch'
+import { defaultDay, rankAtDay } from 'utils/serieAMatch'
 import { formatSeasonFromYear, getCurrentSeasonYear } from 'utils/season'
 
 function Chip({ label, selected, onPress, accessibilityLabel }: { label: string; selected: boolean; onPress: () => void; accessibilityLabel: string }) {
@@ -50,6 +50,11 @@ export default function SerieAScreen() {
   useEffect(() => { if (day === null && calendar) setDay(defaultDay(calendar)) }, [calendar, day])
 
   const days = useMemo(() => [...(calendar?.days ?? [])].sort((a, b) => a.serieADay - b.serieADay), [calendar])
+  // The standings follow the chosen day; seasons whose results are missing fall back to the official standings.
+  const standings = useMemo(() => {
+    const computed = day === null ? [] : rankAtDay(calendar, day, rank?.teams ?? [])
+    return computed.some(team => team.played > 0) ? computed : (rank?.teams ?? [])
+  }, [calendar, day, rank])
   const current: RealDay | null = days.find(value => value.serieADay === day) ?? null
   const open = (game: RealDay['games'][number], index: number) => year !== null && current &&
     navigation.navigate('SerieAMatch', { year: String(year), day: String(current.serieADay), ordinal: String(game.ordinal ?? index) })
@@ -112,9 +117,9 @@ export default function SerieAScreen() {
               </Card>
 
               <Card flex={1} minWidth={media.gtSm ? 360 : 280} padding="$3" backgroundColor="$color2" borderRadius="$4" gap="$2">
-                <Text color="$color12" fontSize="$5" fontWeight="700">Classifica</Text>
+                <Text color="$color12" fontSize="$5" fontWeight="700">{day !== null ? `Classifica dopo la ${day}ª giornata` : 'Classifica'}</Text>
                 <Separator />
-                {rank?.teams.length ? <SerieARankTable teams={rank.teams} /> : <Text color="$color10">Classifica non disponibile.</Text>}
+                {standings.length ? <SerieARankTable teams={standings} /> : <Text color="$color10">Classifica non disponibile.</Text>}
               </Card>
             </XStack>
           </>

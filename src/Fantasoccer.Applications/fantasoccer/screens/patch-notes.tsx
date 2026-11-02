@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.2',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Sezione Serie A: cambiando giornata la classifica viene ricalcolata come era dopo quella giornata (solo partite già giocate; a parità di punti contano differenza reti e gol fatti)',
+      },
+    ],
+  },
+  {
     version: '4.1.1',
     date: '2 Novembre 2026',
     changes: [
