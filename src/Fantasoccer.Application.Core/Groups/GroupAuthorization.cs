@@ -55,6 +55,8 @@ public static class GroupServiceRegistration
         services.AddScoped<Fantasoccer.Application.Core.Competitions.LeagueLineupApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Competitions.CompetitionParticipationApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballApplicationService>();
+        services.AddOptions<Fantasoccer.Application.Core.Football.FootballMatchOptions>();
+        services.AddScoped<Fantasoccer.Application.Core.Football.FootballMatchApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.FootballIngestionApplicationService>();
         services.AddScoped<Fantasoccer.Application.Core.Football.PlayerImagesApplicationService>();
         services.AddScoped<Fantasoccer.Business.IFootballMatchdayReader, Fantasoccer.Application.Core.Football.SqlFootballMatchdayReader>();
