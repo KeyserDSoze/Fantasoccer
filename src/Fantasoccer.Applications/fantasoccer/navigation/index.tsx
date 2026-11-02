@@ -10,6 +10,8 @@ import Ranking from 'screens/ranking';
 import CalendarScreen from 'screens/calendar';
 import PlayersScreen from 'screens/players';
 import LiveScreen from 'screens/live';
+import SerieAScreen from 'screens/serie-a';
+import SerieAMatchScreen from 'screens/serie-a-match';
 import GameScreen from 'screens/game';
 import SettingsScreen from 'screens/settings';
 import McpGuideScreen from 'screens/mcp-guide';
@@ -61,6 +63,8 @@ export type RootStackParamList = {
   OpeningCompetition: undefined;
   Calendar: undefined;
   Players: undefined;
+  SerieA: undefined;
+  SerieAMatch: { year?: string; day?: string; ordinal?: string; groupId?: string | null; leagueId?: string | null };
   Teams: undefined;
   Edit: { leagueId?: string; year?: number } | undefined;
   Live: { leagueId?: string; groupId?: string } | undefined;
@@ -163,6 +167,8 @@ const linking = {
       Ranking: 'ranking',
       Calendar: 'calendar',
       Players: 'players',
+      SerieA: 'serie-a',
+      SerieAMatch: 'serie-a/match/:year?/:day?/:ordinal?',
       Teams: 'teams',
       Edit: 'edit',
       Live: 'live',
@@ -231,6 +237,8 @@ export default function Navigation({ theme, onReady }: NavigationProps) {
         <Stack.Screen name="OpeningCompetition" component={OpeningCompetitionScreen} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />
         <Stack.Screen name="Players" component={PlayersScreen} />
+        <Stack.Screen name="SerieA" component={SerieAScreen} />
+        <Stack.Screen name="SerieAMatch" component={SerieAMatchScreen} />
         <Stack.Screen name="Teams" component={TeamsScreen} />
         <Stack.Screen name="Edit" component={EditScreen} />
         <Stack.Screen name="Live" component={LiveScreen} />

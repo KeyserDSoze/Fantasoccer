@@ -33,20 +33,25 @@ Job `catalogue`, **ogni notte alle 02:30** (Europe/Rome), avviabile anche a mano
 - Lo storico non viene riscritto: i voti salvano la squadra del giorno (`FootballVote.ClubId`) e le rose giornaliere la loro.
 - Lista giocatori: colonne "Squadra attuale" ("Fuori Serie A"), "Squadra precedente", "Data di trasferimento", anche nel CSV. Carta e dettaglio del giocatore mostrano il movimento.
 
-## Fase 2 — Sezione Serie A e partite reali
+## Fase 2 — Sezione Serie A e partite reali (4.1.0)
 
-- Nuova sezione "Serie A": calendario completo per giornata e stagione (anche passate) e classifica.
-- Ogni partita è cliccabile dalla sezione e dal widget della home; il risultato pulsa con "LIVE" solo mentre si gioca.
-- Pagina partita in sola lettura con la stessa grafica del nostro campo:
-  - **prima del calcio d'inizio**: probabili formazioni;
-  - **titolari**: giocatori con voto o s.v. non entrati dalla panchina; modulo ricavato dai ruoli fanta (approssimato);
-  - **panchina**: prima i subentrati con voto ed eventi, poi i giocatori senza voto più utilizzati nelle giornate precedenti;
-  - **tribuna**: il resto della rosa a quella data (squadra del voto, altrimenti squadra attuale/precedente secondo la data di trasferimento);
-  - indicazione "Formazione ricostruita dai voti: panchina e tribuna stimate";
-  - stagioni senza voti: "Formazione non disponibile".
-- Sulle carte dei giocatori: la squadra fanta della **lega selezionata** che li possiede, con selettore di lega dentro la partita.
-- Dati globali (non per gruppo) in cache condivisa aggiornata dai job, senza ricalcoli nelle richieste.
+- Nuova sezione "Serie A" (menu, `/serie-a`): calendario per giornata e stagione (anche passate) e classifica. Si apre sulla giornata in corso, altrimenti sulla prossima, altrimenti sull'ultima.
+- Ogni partita è cliccabile dalla sezione e dal widget della home; il risultato pulsa con "LIVE" solo mentre si gioca (stessa regola del server: `FootballLiveTiming.IsPlaying`).
+- Pagina partita `/serie-a/match/{stagione}/{giornata}/{partita}` in sola lettura, stessa grafica del nostro campo. API: `GET /api/football/{year}/days/{day}/matches/{ordinal}` (opzionali `groupId` e `leagueId`).
+- Le formazioni vengono ricostruite da `SerieALineupBuilder` (funzione pura) per ciascuna squadra:
 
-## Fase 3 — Eventi live
+| Fonte | Quando | Contenuto |
+| --- | --- | --- |
+| `official` | voti ufficiali del club in `FootballVotes` | titolari = con voto/s.v. non subentrati; panchina = subentrati e convocati senza voto; panchina stimata (1 P, 2 D, 2 C, 2 A) con i più utilizzati nelle giornate precedenti; il resto in tribuna |
+| `live` | partita iniziata, voti provvisori nella cache condivisa | come sopra; con meno di 11 titolari (inizio gara) si completa con le probabili formazioni |
+| `probable` | partita non iniziata, almeno 8 giocatori della squadra segnalati dalle fonti | un portiere + 10 di movimento per numero di fonti, poi presenze; infortunati e squalificati esclusi |
+| `unavailable` | nessun dato | "Formazione non disponibile" |
 
-Una riga per giocatore, compatta; voto colorato per fascia; icone con conteggi ed etichette testuali; contrasto adeguato in dark mode; ordine per importanza degli eventi, senza minuti o cronologie inventate.
+- Rosa a quella data: giocatore con la squadra attuale, salvo arrivo dopo il calcio d'inizio; oppure con la squadra precedente se l'uscita è successiva al calcio d'inizio (data ignota = escluso). I voti con club nullo non vengono mai attribuiti.
+- Ogni giocatore porta `lineupKind` (`starter`, `estimated-starter`, `substitute`, `bench`, `estimated-bench`, `stand`) e, con una lega scelta, `fantasyTeam` (squadra fanta proprietaria, dalle rose del giorno: ultima rosa di giornata ≤ giornata, altrimenti rosa stagionale). Serve l'accesso al gruppo (`workspace-member`).
+- Cache in memoria per partita: 15 s vicino alla partita, 5 minuti altrimenti (`FootballMatchOptions`, 0 la disattiva). Nessun pulsante di aggiornamento: la pagina riesegue la richiesta da sola (15 s vicino alla partita, 2 minuti il giorno dopo, 5 minuti nei due giorni precedenti, mai per partite vecchie).
+- Sul campo: la banda sotto la carta mostra la squadra fanta; prezzo e info partita non compaiono. Il selettore di lega sta dentro la partita.
+
+## Fase 3 — Eventi live (4.1.0)
+
+Componente `MatchEvents` (widget home e pagina partita): una riga per giocatore, voto colorato per fascia (≥7 verde, ≥6,5 azzurro, ≥6 blu, ≥5,5 ambra, sotto rosso, s.v. grigio), badge con icona, conteggio ed etichetta ("Gol ×2", "Assist", "Autogol", "Ammonito"…), colori traslucidi leggibili in dark mode. Ordine per importanza: gol, rigori, assist, rigori parati, espulsioni, rigori sbagliati, autogol, gol subiti, ammonizioni (sulla pagina partita anche uscito/entrato). Nessun minuto inventato: il feed non li fornisce.

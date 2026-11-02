@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.0',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Nuova sezione Serie A: tutte le partite di ogni giornata e stagione, anche passate, con la classifica. Ogni partita è cliccabile, anche dalla home',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Pagina partita con la stessa grafica del campo: titolari, panchina e tribuna ricostruiti dai voti (panchina e tribuna sono stimate), probabili formazioni prima del calcio d’inizio. Sulle carte compare la squadra fanta che possiede il giocatore: la lega si cambia dentro la partita',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Eventi live ridisegnati: righe compatte, voto colorato per fascia, icone con conteggio ed etichetta, leggibili anche in dark mode e ordinati per importanza. Il risultato pulsa con LIVE solo mentre la partita è in corso',
+      },
+    ],
+  },
+  {
     version: '4.0.7',
     date: '2 Novembre 2026',
     changes: [

@@ -9,7 +9,7 @@ namespace Fantasoccer.Application.Api.Controllers;
 [Authorize(Policy = "authenticated")]
 [Route("api/football")]
 [ServiceFilter(typeof(WorkspaceFaultFilter))]
-public sealed class FootballController(FootballApplicationService football, FootballIngestionApplicationService ingestion) : ControllerBase
+public sealed class FootballController(FootballApplicationService football, FootballIngestionApplicationService ingestion, FootballMatchApplicationService matches) : ControllerBase
 {
     [HttpPost("refresh")] [Authorize(Policy = "super_admin")]
     public async Task<IActionResult> Refresh(RefreshFootballRequest request, CancellationToken cancellationToken)
@@ -30,6 +30,9 @@ public sealed class FootballController(FootballApplicationService football, Foot
     [HttpGet("{year:int}/statistics")] public Task<PlayersDto<StatisticPlayerDto>?> Statistics(int year, CancellationToken cancellationToken) => football.StatisticsAsync(User, year, cancellationToken);
     [HttpGet("{year:int}/days/{day:int}/votes/{source}")]
     public Task<PlayersDto<VotedPlayerDto>?> Votes(int year, int day, FootballVoteSource source, CancellationToken cancellationToken) => football.VotesAsync(User, year, day, source, cancellationToken);
+    [HttpGet("{year:int}/days/{day:int}/matches/{ordinal:int}")]
+    public Task<FootballMatchDto> Match(int year, int day, int ordinal, [FromQuery] Guid? groupId, [FromQuery] Guid? leagueId, CancellationToken cancellationToken) =>
+        matches.MatchAsync(User, year, day, ordinal, groupId, leagueId, cancellationToken);
     [HttpGet("{year:int}/days/{day:int}/chances")]
     public Task<PlayersDto<ChancedPlayerDto>?> Chances(int year, int day, CancellationToken cancellationToken) => football.ChancesAsync(User, year, day, cancellationToken);
     [HttpPatch("{year:int}/days/{day:int}/games/{ordinal:int}/delay")]

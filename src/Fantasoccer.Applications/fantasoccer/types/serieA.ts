@@ -76,6 +76,12 @@ export class RealCalendarHelper {
   static getLiveGames(calendar: RealCalendar): RealGame[] {
     return calendar.days.flatMap(day => day.games.filter(game => !!game.date && !game.delayed && game.isFinished !== true && Date.now() >= new Date(game.date).getTime() && Date.now() <= new Date(game.date).getTime() + this.GAME_DURATION))
   }
+  // Same rule as the server (FootballLiveTiming.IsPlaying): a match the feed still reports as unfinished may run longer than 135 minutes.
+  static isGamePlaying(game: RealGame, now = Date.now()) {
+    if (game.delayed || game.isFinished === true || !game.date) return false
+    const start = new Date(game.date).getTime()
+    return now >= start && now < start + (game.isFinished === false ? 240 : 135) * 60 * 1000
+  }
   static isLive(calendar: RealCalendar) { return this.getLiveGames(calendar).length > 0 }
   static getLiveSerieADay(calendar: RealCalendar) { return this.getLiveDay(calendar)?.serieADay ?? 0 }
   static isDuringSerieADay(calendar: RealCalendar) { return this.getLiveSerieADay(calendar) > 0 }

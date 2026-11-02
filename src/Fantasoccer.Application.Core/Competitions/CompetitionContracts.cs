@@ -30,6 +30,12 @@ public sealed record LivePlayerDto(RosterPlayerDto Current, VoteDto? Vote, Chanc
 {
     // Position after the automatic substitutions. CurrentPosition stays the lineup as saved in the editing modes.
     public int? ProjectedPosition { get; init; }
+    // Real-match view only: the fantasy team owning the player in the selected league, and how the lineup slot was derived
+    // (starter, estimated-starter, substitute, bench, estimated-bench, stand).
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public FantasyOwnerDto? FantasyTeam { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? LineupKind { get; init; }
 }
 public sealed record LiveTeamDto(Guid TeamId, Guid BasketId, int Version, int? SourceVersion, string Name, string Owner, string[] AdditionalOwners,
     LivePlayerDto[] Players, string? LastUpdate, int FormationChangesMaximum, int FormationChangesUsed, int FormationChangesRemaining,
