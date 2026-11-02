@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.3',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Pagina partita di Serie A: se un giocatore appartiene a più squadre fanta della lega (per esempio con più basket) le mostra tutte, una sotto l’altra',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Infortunati e squalificati della giornata (quando i dati sono ancora disponibili) compaiono sulle carte della pagina partita, con l’icona della croce rossa o del cartellino. Squalificato ora ha la sua icona anche nelle formazioni',
+      },
+    ],
+  },
+  {
     version: '4.1.2',
     date: '2 Novembre 2026',
     changes: [

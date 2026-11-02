@@ -26,6 +26,11 @@ public sealed partial class WorkspaceApiTests
         var me = (await manager.GetFromJsonAsync<AccountIdentityDto>("/api/accounts/me"))!;
         var basket = (await manager.GetFromJsonAsync<GameGroupDto>($"/api/groups/{group.GroupId}"))!.Baskets[0].Id;
         (await manager.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(basket, year, "Overlay team", me.Id, []))).EnsureSuccessStatusCode();
+        // A second team of the same league owns the keeper too: both must be shown.
+        using var guest = await factory.AccountAsync();
+        var guestIdentity = (await guest.GetFromJsonAsync<AccountIdentityDto>("/api/accounts/me"))!;
+        (await manager.PutAsJsonAsync($"/api/workspace/groups/{group.GroupId}/members", new SetGroupMemberRequest(guestIdentity.Email, "Guest", 2))).EnsureSuccessStatusCode();
+        (await manager.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(basket, year, "Second basket team", guestIdentity.Id, []))).EnsureSuccessStatusCode();
 
         var kickoff = DateTimeOffset.UtcNow.AddHours(-30);
         var home = new FootballClub { Name = "Match home", Abbreviation = "mxa" };
@@ -33,15 +38,16 @@ public sealed partial class WorkspaceApiTests
         var other = new FootballClub { Name = "Match other", Abbreviation = "mxc" };
         FootballPlayer Make(string name) => new() { Name = name + " " + Guid.NewGuid().ToString("N") };
         var keeper = Make("Mx keeper"); var defender = Make("Mx defender"); var substitute = Make("Mx substitute"); var called = Make("Mx called");
-        var regular = Make("Mx regular"); var leaver = Make("Mx leaver"); var arrival = Make("Mx arrival"); var awayKeeper = Make("Mx away keeper");
+        var injured = Make("Mx injured"); var regular = Make("Mx regular"); var leaver = Make("Mx leaver"); var arrival = Make("Mx arrival"); var awayKeeper = Make("Mx away keeper");
         await using (var database = factory.Database.CreateContext())
         {
             database.Clubs.AddRange(home, away, other);
-            database.Players.AddRange(keeper, defender, substitute, called, regular, leaver, arrival, awayKeeper);
+            database.Players.AddRange(injured, keeper, defender, substitute, called, regular, leaver, arrival, awayKeeper);
             void Season(FootballPlayer player, FootballClub? club, PlayerPosition position, FootballClub? previous = null, DateTimeOffset? moved = null) =>
                 database.PlayerSeasons.Add(new() { Player = player, SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(player.Name), Club = club, PreviousClub = previous,
                     TransferredAtUtc = moved, Position = position, IsActive = true, IsVisible = true });
             Season(keeper, home, PlayerPosition.Goalkeeper); Season(defender, home, PlayerPosition.Defender); Season(substitute, home, PlayerPosition.Forward);
+            Season(injured, home, PlayerPosition.Forward);
             Season(called, home, PlayerPosition.Midfielder); Season(regular, home, PlayerPosition.Defender);
             Season(leaver, null, PlayerPosition.Midfielder, home, DateTimeOffset.UtcNow);
             Season(arrival, home, PlayerPosition.Forward, other, DateTimeOffset.UtcNow);
@@ -54,11 +60,19 @@ public sealed partial class WorkspaceApiTests
             Vote(regular, home, 1, true, day: day - 1); // an earlier appearance, so he leads the estimated bench
             database.FootballMatchdays.Add(new() { SeasonIndex = year, SerieADay = day, Matches =
                 [new() { SeasonIndex = year, SerieADay = day, Ordinal = 0, HomeClub = home, AwayClub = away, KickoffUtc = kickoff, HomeGoals = 2, AwayGoals = 0, IsFinished = true }] });
-            var roster = await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group.GroupId && x.Kind == RosterKind.Season);
-            roster.Players.Add(new() { Ordinal = 0, PlayerId = KeyUtils.GetPlayerKey(keeper.Name), ClubId = home.Id, PlayerRole = 0, IsActive = true, IsVisible = true, Price = 5, Position = 0 });
+            var rosters = await database.RosterSnapshots.Include(x => x.Players).Where(x => x.GroupId == group.GroupId && x.Kind == RosterKind.Season).ToArrayAsync();
+            foreach (var roster in rosters)
+            {
+                roster.Players.Add(new() { Ordinal = 0, PlayerId = KeyUtils.GetPlayerKey(keeper.Name), ClubId = home.Id, PlayerRole = 0, IsActive = true, IsVisible = true, Price = 5, Position = 0 });
+                if (roster.OwnerUserId == me.Id)
+                    roster.Players.Add(new() { Ordinal = 1, PlayerId = KeyUtils.GetPlayerKey(substitute.Name), ClubId = home.Id, PlayerRole = 3, IsActive = true, IsVisible = true, Price = 5, Position = 11 });
+            }
             await database.SaveChangesAsync();
         }
 
+        // The day's availability data (injured / disqualified) is shown while the snapshot is still usable.
+        await factory.Services.GetRequiredService<IFootballLiveDataStore>().PublishChancesAsync(DateTimeOffset.UtcNow, new(year, day, ["fantagazzetta"],
+            [new CachedChance(KeyUtils.GetPlayerKey(injured.Name), injured.Name, "mxa", "Match home", 3, true, true, false, false, false, false, 1, "Distorsione")]));
         var path = $"/api/football/{year}/days/{day}/matches/0";
         var match = (await manager.GetFromJsonAsync<FootballMatchDto>(path))!;
         Assert.Equal(LineupSources.Official, match.HomeLineupSource); Assert.Equal(LineupSources.Official, match.AwayLineupSource);
@@ -75,13 +89,15 @@ public sealed partial class WorkspaceApiTests
         // He left after kickoff: still part of the club that day. The player who arrived after kickoff was not.
         Assert.Equal(LineupKinds.EstimatedBench, Find(homeSide, leaver).LineupKind);
         Assert.DoesNotContain(homeSide.Players, x => x.Current.PlayerId == KeyUtils.GetPlayerKey(arrival.Name));
+        Assert.Equal((LineupKinds.Stand, 1), (Find(homeSide, injured).LineupKind!, Find(homeSide, injured).Chance!.Status));
         Assert.Single(awaySide.Players);
-        Assert.All(homeSide.Players, x => Assert.Null(x.FantasyTeam));
+        Assert.All(homeSide.Players, x => Assert.Null(x.FantasyTeams));
 
         var withLeague = (await manager.GetFromJsonAsync<FootballMatchDto>($"{path}?groupId={group.GroupId}&leagueId={league}"))!;
         Assert.Equal("League", withLeague.FantasyLeagueName);
-        Assert.Equal("Overlay team", Find(withLeague.Lineup.Teams[0], keeper).FantasyTeam?.Name);
-        Assert.Null(Find(withLeague.Lineup.Teams[0], defender).FantasyTeam);
+        Assert.Equal(["Overlay team", "Second basket team"], Find(withLeague.Lineup.Teams[0], keeper).FantasyTeams!.Select(x => x.Name).Order().ToArray());
+        Assert.Equal(["Overlay team"], Find(withLeague.Lineup.Teams[0], substitute).FantasyTeams!.Select(x => x.Name).ToArray());
+        Assert.Null(Find(withLeague.Lineup.Teams[0], defender).FantasyTeams);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync($"{path}?groupId={group.GroupId}&leagueId={league}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"{path}?groupId={group.GroupId}&leagueId={Guid.NewGuid()}")).StatusCode);
