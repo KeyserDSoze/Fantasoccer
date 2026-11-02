@@ -26,9 +26,13 @@ public sealed partial class CoreMigrationTests
         // Rows of tables changed by later migrations use that version's SQL schema.
         database.FootballClubRanks.AddRange(new() { SeasonIndex = 15, ClubId = "cat", Points = 3 }, new() { SeasonIndex = 16, ClubId = "juv", Points = 4 });
         database.FootballDatasets.Add(new() { Kind = "realteamwrapper", SeasonIndex = 16 }); // Old marker cannot reconstruct the old list.
-        database.PlayerSeasons.AddRange(new() { Player = new() { Name = "Historical migration player" }, SeasonIndex = 16, ClubId = "cat", Position = PlayerPosition.Forward },
-            new() { Player = new() { Name = "External migration player" }, SeasonIndex = 15, ClubId = "xyz", Position = PlayerPosition.Forward });
+        var historical = new FootballPlayer { Name = "Historical migration player" }; var external = new FootballPlayer { Name = "External migration player" };
+        database.Players.AddRange(historical, external);
         await database.SaveChangesAsync(); database.ChangeTracker.Clear();
+        await database.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "PlayerSeasons" ("PlayerKey","SeasonIndex","ClubCode","Position","IsActive","IsVisible") VALUES
+                ({historical.Id}, 16, 'cat', 3, false, true), ({external.Id}, 15, 'xyz', 3, false, true);
+            """);
         await migrator.MigrateAsync();
         var club = await database.Clubs.SingleAsync(x => x.Id == "juv"); Assert.Equal("Juventus", club.Name); Assert.Equal("juv", club.Abbreviation); Assert.Equal(legacy, club.LegacyId);
         Assert.Equal("Catania", (await database.Clubs.SingleAsync(x => x.Id == "cat")).Name);

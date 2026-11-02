@@ -15,8 +15,12 @@ public sealed partial class CoreMigrationTests
         await using var database = fixture.CreateContext(); var migrator = database.GetService<IMigrator>();
         await migrator.MigrateAsync("20261027171151_ClubSeasonsAndCanonicalNames");
         var club = new FootballClub { Name = "Juve" }; var person = new FootballPlayer { Name = "Optional migration keeper" };
-        database.PlayerSeasons.Add(new() { Player = person, Club = club, Season = new() { SeasonIndex = 12, StartYear = 2023 }, Position = PlayerPosition.Goalkeeper });
-        database.FootballVotes.Add(new() { Player = person, Club = club, SeasonIndex = 12, Day = 10, Source = FootballVoteSource.Live, Value = 6, HasVote = true, IsActive = false });
+        database.Seasons.Add(new() { SeasonIndex = 12, StartYear = 2023 }); database.Clubs.Add(club); database.Players.Add(person);
+        await database.SaveChangesAsync();
+        // PlayerSeasons gained columns later: write it with this schema's SQL.
+        await database.Database.ExecuteSqlRawAsync(
+            "INSERT INTO \"PlayerSeasons\" (\"PlayerKey\", \"SeasonIndex\", \"ClubCode\", \"Position\", \"IsActive\", \"IsVisible\") VALUES ({0}, 12, {1}, 0, false, true)", person.Id, club.Id);
+        database.FootballVotes.Add(new() { PlayerId = person.Id, ClubId = club.Id, SeasonIndex = 12, Day = 10, Source = FootballVoteSource.Live, Value = 6, HasVote = true, IsActive = false });
         await database.SaveChangesAsync(); database.ChangeTracker.Clear();
         // Written with the columns of that historical schema (later migrations add more).
         await database.Database.ExecuteSqlRawAsync("""
