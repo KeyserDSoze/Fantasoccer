@@ -37,9 +37,10 @@ function SerieAMatchContent() {
   const year = parse(params?.year); const day = parse(params?.day); const ordinal = parse(params?.ordinal)
 
   const leagues = currentGroup?.leagues ?? []
-  const requestedLeague = params?.leagueId ?? selectedLeagueId ?? null
-  // null = no fantasy teams. The league can be changed here, without leaving the match.
-  const [leagueId, setLeagueId] = useState<string | null>(() => (leagues.some(value => value.id === requestedLeague) ? requestedLeague : null))
+  const requestedLeague = params?.leagueId ?? selectedLeagueId ?? leagues.find(value => value.isMain)?.id ?? null
+  // The league of the user (groups load after the screen opens) unless another is chosen here; null = no fantasy teams.
+  const [chosenLeague, setLeagueId] = useState<string | null | undefined>(undefined)
+  const leagueId = chosenLeague !== undefined ? chosenLeague : (leagues.some(value => value.id === requestedLeague) ? requestedLeague : null)
   const groupId = leagueId ? (params?.groupId ?? currentGroup?.id ?? null) : null
 
   const { match, isLoading, error } = useSerieAMatch({ year, day, ordinal, groupId, leagueId: groupId ? leagueId : null })

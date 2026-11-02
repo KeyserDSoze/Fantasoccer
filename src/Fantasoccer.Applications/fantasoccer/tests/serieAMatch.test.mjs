@@ -91,7 +91,7 @@ test('the vote is coloured by its value, not by how provisional it is', () => {
   assert.equal(new Set(bands.map(([value]) => voteBand({ value, hasVote: true }).background)).size, 5)
   assert.equal(voteBand({ value: 6, hasVote: false }).key, 'none')
   assert.equal(voteBand(null).key, 'none')
-  assert.equal(formatVote({ value: 6.5, hasVote: true }), '6.5'); assert.equal(formatVote({ value: 7, hasVote: true }), '7'); assert.equal(formatVote({ value: 6, hasVote: false }), 's.v.')
+  assert.equal(formatVote({ value: 6.5, hasVote: true }), '6.5'); assert.equal(formatVote({ value: 7, hasVote: true }), '7.0'); assert.equal(formatVote({ value: 6, hasVote: false }), 's.v.')
 })
 
 test('the match page is wired: route, menu, pulsing score and no refresh button', () => {

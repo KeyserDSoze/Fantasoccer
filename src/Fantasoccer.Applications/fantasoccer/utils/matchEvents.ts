@@ -60,4 +60,4 @@ export function voteBand(vote: Pick<Vote, 'value' | 'hasVote'> | null | undefine
 }
 
 export const formatVote = (vote: Pick<Vote, 'value' | 'hasVote'> | null | undefined) =>
-  vote?.hasVote ? (Number.isInteger(vote.value) ? vote.value.toFixed(0) : vote.value.toFixed(1)) : 's.v.'
+  vote?.hasVote ? vote.value.toFixed(1) : 's.v.'
