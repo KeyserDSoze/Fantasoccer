@@ -2,12 +2,12 @@ import { GameResultHelper, type CalendarDay, type CalendarGame } from './calenda
 import { enhanceRank, type Rank, type EnhancedRank } from './rank'
 
 export interface LiveLeagueRound { key: string; day: CalendarDay }
-export interface LiveLeague { id: string; name: string; rounds: Record<string, CalendarDay>; rank: Rank | null; previewUnavailable?: boolean }
+export interface LiveLeague { id: string; name: string; rounds: Record<string, CalendarDay>; rank: Rank | null; previewUnavailable?: boolean; isConsolidated?: boolean }
 // isStale: the shared projection is being rebuilt by another instance.
 // liveVotesStale: the matchday is being played and the provisional votes were not confirmed by the live job in time;
 // liveVotesUpdatedAtUtc: when they were last confirmed (null if the job never published them).
 export interface LiveGroup { name: string; year?: number; leagues: LiveLeague[]; serieADay?: number | null; generatedAtUtc?: string | null; isStale?: boolean;
-  liveVotesUpdatedAtUtc?: string | null; liveVotesStale?: boolean }
+  liveVotesUpdatedAtUtc?: string | null; liveVotesStale?: boolean; windowStartsAtUtc?: string | null; windowEndsAtUtc?: string | null; isInLiveWindow?: boolean; isPlaying?: boolean }
 export interface EnhancedLiveLeague extends LiveLeague { roundKeys: string[]; roundsList: LiveLeagueRound[]; latestRoundKey: string | null; pendingGames: CalendarGame[]; enhancedRank: EnhancedRank | null }
 export interface EnhancedLiveGroup extends LiveGroup { leaguesWithRounds: EnhancedLiveLeague[]; totalPendingGames: number }
 export class LiveLeagueHelper {

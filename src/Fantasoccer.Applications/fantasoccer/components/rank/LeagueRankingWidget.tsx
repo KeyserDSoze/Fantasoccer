@@ -1,12 +1,13 @@
 import { type FC, useEffect, useState } from 'react'
 import { AlertTriangle, RefreshCw, Info } from '@tamagui/lucide-icons-2'
-import { Button, Card, ScrollView, Separator, Spinner, Text, XStack, YStack } from 'tamagui'
+import { Button, Card, ScrollView, Separator, Text, XStack, YStack } from 'tamagui'
 import { useWindowDimensions, Platform } from 'react-native'
 import type { EnhancedRankedTeam, TeamLuck } from 'types/rank'
 import type { Calendar } from 'types/calendar'
 import { TeamLogo } from '../team/TeamLogo'
 import { LuckDetailModal } from './LuckDetailModal'
 import { LuckCalculator } from 'utils/luckCalculator'
+import { SplashScreen } from 'components/layout/SplashScreen'
 
 // Aggiungi stili CSS per scrollbar personalizzata (solo web)
 if (Platform.OS === 'web') {
@@ -371,8 +372,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
         </YStack>
       ) : showLoading ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
-          <Spinner size="small" color="$blue10" />
-          <Text color="$color10">{loadingMessage}</Text>
+          <SplashScreen compact message={loadingMessage} steps={[{ id: 'rank', label: 'Classifica della lega', status: 'pending' }]} />
         </YStack>
       ) : showEmpty ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">

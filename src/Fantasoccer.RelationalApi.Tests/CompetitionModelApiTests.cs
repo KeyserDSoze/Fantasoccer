@@ -529,6 +529,52 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
     }
 
     [PostgreSqlFact]
+    public async Task Home_live_window_starts_two_hours_before_and_ends_fourteen_hours_after_expected_finish()
+    {
+        var world = await WorldAsync(70, peachOwnsFunghi: true);
+        var (group, year) = (world.Group, world.Year);
+        await RosterAsync(group, world.Koopa, year, Roles.Length);
+        await RosterAsync(group, world.Draghi, year, Roles.Length);
+        // PostgreSQL timestamps have microsecond precision; start on an exact millisecond.
+        var clock = new ManualClock(DateTimeOffset.FromUnixTimeMilliseconds(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        var kickoff = clock.GetUtcNow().AddHours(3);
+        await MatchdayAsync(year, 1, kickoff);
+        var game = await GameAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA, world.Luigi.Account.Email), (world.Draghi, world.SerieA, world.Mario.Account.Email));
+        await StandingAsync(group, world.LeagueSA, year, (world.Koopa, world.SerieA), (world.Draghi, world.SerieA));
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<TimeProvider>(clock)));
+        using var client = app.CreateClient(); client.DefaultRequestHeaders.Add("X-Workspace-User", world.Luigi.Account.Email);
+        async Task<LiveGroupDto> ReadLive() => await Read<LiveGroupDto>(await client.GetAsync($"/api/groups/{group}/live?year={year}"));
+        var before = await ReadLive();
+        Assert.False(before.IsInLiveWindow); Assert.False(before.IsPlaying);
+        Assert.Equal(kickoff.AddHours(-2), before.WindowStartsAtUtc);
+        Assert.Equal(kickoff.AddMinutes(135).AddHours(14), before.WindowEndsAtUtc);
+        clock.Advance(TimeSpan.FromHours(1));
+        var preMatch = await Read<LiveGroupDto>(await RefreshedLiveAsync(client, group, year, app.Services));
+        Assert.True(preMatch.IsInLiveWindow); Assert.False(preMatch.IsPlaying);
+        Assert.False(preMatch.Leagues.Single(x => x.Id == world.LeagueSA).IsConsolidated);
+        clock.Advance(TimeSpan.FromHours(2));
+        Assert.True((await ReadLive()).IsPlaying);
+        clock.Advance(TimeSpan.FromMinutes(135));
+        var afterMatch = await ReadLive();
+        Assert.True(afterMatch.IsInLiveWindow); Assert.False(afterMatch.IsPlaying);
+        // Official, closed results are distinct from provisional preview results.
+        await using (var database = factory.Database.CreateContext())
+        {
+            (await database.FantasyMatches.SingleAsync(x => x.Id == game)).Result = new()
+                { Home = new() { Value = 70 }, Away = new() { Value = 60 }, HomeGoals = 1, AwayGoals = 0 };
+            (await database.FantasyCalendars.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).Version++;
+            await database.SaveChangesAsync();
+        }
+        var consolidated = await Read<LiveGroupDto>(await RefreshedLiveAsync(client, group, year, app.Services));
+        Assert.True(consolidated.IsInLiveWindow);
+        Assert.True(consolidated.Leagues.Single(x => x.Id == world.LeagueSA).IsConsolidated);
+        clock.Advance(TimeSpan.FromHours(14) - TimeSpan.FromSeconds(1));
+        Assert.True((await ReadLive()).IsInLiveWindow);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.False((await ReadLive()).IsInLiveWindow);
+    }
+
+    [PostgreSqlFact]
     public async Task Live_standings_follow_preview_results_without_writing_official_standings_or_double_counting()
     {
         var world = await WorldAsync(60, peachOwnsFunghi: true);
@@ -580,6 +626,8 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
 
         await PublishAsync(8, 5);
         var first = await LiveAsync(); AssertRank(first);
+        Assert.True(first.Rounds["@"].Games.Single().IsProvisional);
+        Assert.False(first.IsConsolidated);
         Assert.True(first.Rank!.Rounds["@"].Single(x => x.TeamId == world.Koopa).Point > first.Rank.Rounds["@"].Single(x => x.TeamId == world.Draghi).Point);
         await PublishAsync(5, 8);
         var changed = await LiveAsync(); AssertRank(changed);
@@ -594,7 +642,10 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
             (await database.FantasyCalendars.SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year)).Version++;
             await database.SaveChangesAsync();
         }
-        AssertRank(await LiveAsync());
+        var officialLive = await LiveAsync();
+        AssertRank(officialLive);
+        Assert.False(officialLive.Rounds["@"].Games.Single().IsProvisional);
+        Assert.True(officialLive.IsConsolidated);
         await using (var database = factory.Database.CreateContext())
         {
             var official = await database.FantasyStandingSnapshots.AsNoTracking().AsSplitQuery().SingleAsync(x => x.GroupId == group && x.LeagueId == world.LeagueSA && x.SeasonIndex == year);

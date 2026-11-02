@@ -6,7 +6,10 @@ namespace Fantasoccer.Application.Core.Competitions;
 public sealed record PointDto(float Value, bool DefensiveBonus, bool GoodPeople, bool OwnGoal);
 public sealed record ResultDto(PointDto Home, PointDto Away, bool IsCancelled, int HomeGoals, int AwayGoals);
 public sealed record CalendarGameDto(Guid Id, int Number, string Home, string? HomeOwner, string Away, string? AwayOwner,
-    ResultDto? Result, Guid? HomeTeamId, Guid? AwayTeamId);
+    ResultDto? Result, Guid? HomeTeamId, Guid? AwayTeamId)
+{
+    public bool IsProvisional { get; init; }
+}
 public sealed record CalendarDayDto(int SerieADay, int Number, CalendarGameDto[] Games)
 {
     public bool AwaitingPostponedMatches { get; init; }

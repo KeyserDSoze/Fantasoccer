@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { SplashScreen } from 'components/layout/SplashScreen'
 import { leagueBasketTeams } from 'utils/myTeams'
 import {
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
   Paragraph,
   ScrollView,
   Separator,
-  Spinner,
   Text,
   XStack,
   YStack,
@@ -460,10 +460,7 @@ export default function PlayersScreen() {
             borderWidth="$0.5"
             borderColor="$borderColor"
           >
-            <XStack alignItems="center" gap="$3" justifyContent="center">
-              <Spinner size="small" color="$blue10" />
-              <Text color="$color10">Caricamento dati del gruppo...</Text>
-            </XStack>
+            <SplashScreen compact message="Caricamento gruppo…" steps={[{ id: 'groups', label: 'Gruppi e rose', status: 'pending' }]} />
           </Card>
         ) : groupsError ? (
           <Card
@@ -663,8 +660,7 @@ export default function PlayersScreen() {
 
                 {isLoading && !hasPlayers ? (
                   <YStack gap="$3" alignItems="center" paddingVertical="$4">
-                    <Spinner size="small" color="$blue10" />
-                    <Text color="$color10">Carico le statistiche dei giocatori...</Text>
+                    <SplashScreen compact message="Caricamento giocatori…" steps={[{ id: 'statistics', label: 'Statistiche dei giocatori', status: 'pending' }]} />
                   </YStack>
                 ) : error ? (
                   <YStack gap="$3" alignItems="center" paddingVertical="$4">

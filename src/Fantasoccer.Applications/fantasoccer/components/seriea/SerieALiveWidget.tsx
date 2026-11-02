@@ -6,7 +6,6 @@ import {
   H3,
   H5,
   Separator,
-  Spinner,
   Text,
   XStack,
   YStack,
@@ -22,6 +21,7 @@ import { SoccerBallSVG } from 'components/lineup/icons/SoccerBallSVG'
 import { AssistSVG } from 'components/lineup/icons/AssistSVG'
 import { BehaviourCardSVG } from 'components/lineup/icons/BehaviourCardSVG'
 import { ResponsiveWidgetPair } from 'components/layout/ResponsiveWidgetPair'
+import { SplashScreen } from 'components/layout/SplashScreen'
 
 export type SerieALiveWidgetProps = {
   refreshInterval?: number
@@ -184,8 +184,7 @@ export function SerieALiveWidget({
         </YStack>
       ) : showLoadingState ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
-          <Spinner size="small" color="$blue10" />
-          <Text color="$color10">Caricamento calendario...</Text>
+          <SplashScreen compact message="Caricamento Serie A…" steps={[{ id: 'serie-a', label: 'Calendario e partite Serie A', status: 'pending' }]} />
         </YStack>
       ) : showEmptyState ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
@@ -229,10 +228,7 @@ export function SerieALiveWidget({
         </YStack>
       ) : isRankLoading && rankTeams.length === 0 ? (
         <XStack justifyContent="center" alignItems="center" gap="$3" paddingVertical="$3">
-          <Spinner size="small" color="$blue10" />
-          <Text color="$color10" fontSize="$3">
-            Caricamento classifica...
-          </Text>
+          <SplashScreen compact message="Caricamento classifica…" steps={[{ id: 'rank', label: 'Classifica Serie A', status: 'pending' }]} />
         </XStack>
       ) : (
         <YStack gap="$2">

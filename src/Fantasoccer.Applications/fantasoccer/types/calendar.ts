@@ -4,7 +4,7 @@ export enum GameResultType { HomeWon = 0, AwayWon = 1, Tie = 2 }
 export interface Point { value: number; defensiveBonus: boolean; goodPeople: boolean; ownGoal: boolean }
 export interface GameResult { home: Point; away: Point; isCancelled: boolean; homeGoals: number; awayGoals: number }
 export interface EnhancedGameResult extends GameResult { hasValue: boolean; resultType: GameResultType }
-export interface CalendarGame { id: string; number: number; home: string; homeOwner: string; away: string; awayOwner: string; result: GameResult | null; homeTeamId?: string | null; awayTeamId?: string | null }
+export interface CalendarGame { id: string; number: number; home: string; homeOwner: string; away: string; awayOwner: string; result: GameResult | null; homeTeamId?: string | null; awayTeamId?: string | null; isProvisional?: boolean }
 export interface CalendarDay { serieADay: number; number: number; games: CalendarGame[]; awaitingPostponedMatches?: boolean; isClosed?: boolean }
 export type CalendarRounds = Record<string, CalendarDay[]>
 export interface Calendar { year: number; rounds: CalendarRounds; version?: number }

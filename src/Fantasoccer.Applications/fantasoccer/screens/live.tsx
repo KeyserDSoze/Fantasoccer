@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
-import { AlertTriangle, Zap } from '@tamagui/lucide-icons-2'
-import { Card, Paragraph, Spinner, Text, XStack, YStack, useMedia } from 'tamagui'
+import { AlertTriangle } from '@tamagui/lucide-icons-2'
+import { Card, Paragraph, Text, XStack, YStack, useMedia } from 'tamagui'
 
 import { ScreenContent } from 'components/layout/ScreenContent'
+import { SplashScreen } from 'components/layout/SplashScreen'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
@@ -248,10 +249,7 @@ export default function LiveScreen() {
             borderRadius="$4"
             borderWidth="$0.5"
             borderColor="$borderColor">
-            <XStack alignItems="center" gap="$3" justifyContent="center">
-              <Spinner size="small" color="$blue10" />
-              <Text color="$color10">Caricamento dati della lega...</Text>
-            </XStack>
+            <SplashScreen compact message="Caricamento lega…" steps={[{ id: 'groups', label: 'Gruppi e leghe', status: 'pending' }]} />
           </Card>
         ) : groupsError ? (
           <Card
@@ -313,40 +311,13 @@ export default function LiveScreen() {
               />
             )}
 
-            <Card
-              padding="$4"
-              backgroundColor="$color2"
-              borderRadius="$4"
-              borderWidth="$0.5"
-              borderColor="$borderColor"
-              gap="$3">
-              <XStack alignItems="center" gap="$3" flexWrap="wrap">
-                <Zap size="$1.5" color="$yellow10" />
-                <YStack gap="$1" flex={1}>
-                  <Text fontSize="$5" fontWeight="700" color="$color12">
-                    Aggiornamento automatico live
-                  </Text>
-                  <Text color="$color10" fontSize="$3">
-                    {pendingGamesCount > 0
-                      ? `${pendingGamesCount} partite ancora in corso`
-                      : 'Nessuna partita in sospeso: tutti i risultati sono aggiornati'}
-                  </Text>
-                </YStack>
-              </XStack>
-              {liveLoading && (
-                <XStack alignItems="center" gap="$2">
-                  <Spinner size="small" color="$blue10" />
-                  <Text color="$color10">Sincronizzazione dati live...</Text>
-                </XStack>
-              )}
-              {liveError && (
-                <Text color="$red10" fontSize="$2">
-                  {liveError}
-                </Text>
-              )}
-            </Card>
-
-            {!showContent ? (
+            {liveError && <Text color="$red10">{liveError}</Text>}
+            {liveLoading && !showContent ? (
+              <SplashScreen compact message="Caricamento Live…" steps={[
+                { id: 'group', label: 'Gruppo selezionato', status: 'done' },
+                { id: 'live', label: 'Risultati e classifica Live', status: 'pending' },
+              ]} />
+            ) : !showContent ? (
               <Card
                 padding="$4"
                 backgroundColor="$color2"
@@ -380,6 +351,7 @@ export default function LiveScreen() {
                     leagueId={localLeagueId}
                     year={liveYear}
                     editMode="live"
+                    pulseResults={enhancedLiveGroup?.isPlaying && !selectedLiveLeague?.isConsolidated}
                   />
                 </YStack>
                 <YStack flex={1} minWidth={0} gap="$4">
@@ -428,6 +400,7 @@ export default function LiveScreen() {
                   leagueId={localLeagueId}
                   year={liveYear}
                   editMode="live"
+                  pulseResults={enhancedLiveGroup?.isPlaying && !selectedLiveLeague?.isConsolidated}
                 />
 
                 <LeagueRankingWidget

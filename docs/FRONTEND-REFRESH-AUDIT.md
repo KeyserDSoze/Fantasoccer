@@ -9,7 +9,7 @@ Non sono disponibili statistiche sui click: la rimozione si basa sul comportamen
 | Live (barra, calendario e classifica, desktop e mobile) | Polling ogni 15 secondi dell'ultima proiezione; ricalcolo server ogni 5 minuti solo se cambiano le sorgenti |
 | Calendario e classifica della lega | Polling ogni 2 minuti, anche con dati vuoti |
 | Home: calendario Serie A e classifica Serie A | Calendario ogni 10 secondi anche fuori dal live, classifica ogni 3 minuti |
-| Home: partita e classifica della lega | Calendario ogni 15 secondi in live / 1 minuto altrimenti; classifica ogni minuto |
+| Home: partita e classifica della lega | Dalla 4.0.6 proiezione Live ogni 15 secondi nella finestra 2 ore prima / 14 ore dopo (chiusura anticipata al consolidamento); calendario e classifica ufficiali ogni minuto per l'ultima giornata |
 | Statistiche giocatori | Statistiche ogni 2 minuti; aggiunto lo stesso aggiornamento delle rose per mantenere corrette proprietà e filtri dopo il mercato. Rimossa anche la doppia richiesta iniziale delle rose e ignorate risposte di selezioni precedenti |
 | Log | Polling ogni minuto |
 | Preferenze e dispositivi push (elenco sul server) | Polling ogni 30 secondi |

@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { ScreenContent } from 'components/layout/ScreenContent';
-import { YStack, XStack, Text, H3, Separator, Button, Card, Spinner, useMedia } from 'tamagui';
+import { SplashScreen } from 'components/layout/SplashScreen';
+import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui';
 import { useToastController } from '@tamagui/toast';
 import { Calculator } from '@tamagui/lucide-icons-2';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
@@ -34,7 +35,7 @@ export default function GameScreen() {
 function GameContent() {
   const media = useMedia();
   const toast = useToastController();
-  const { calendar, isLive: calendarIsLive } = useSerieACalendar({
+  const { calendar, isLive: calendarIsLive, error: calendarError } = useSerieACalendar({
     refreshInterval: 60000,
     enablePolling: true,
   });
@@ -82,7 +83,8 @@ function GameContent() {
 
   // StatPlayers map per calcoli trend/positiveness
   const [statPlayersMap, setStatPlayersMap] = useState<Map<string, StatPlayer>>(new Map());
-  const [statPlayersLoading, setStatPlayersLoading] = useState(false);
+  const [statPlayersLoading, setStatPlayersLoading] = useState(true);
+  const [statPlayersError, setStatPlayersError] = useState(false);
 
   // Funzione per ricaricare i dati della partita
   const refreshGame = async (isAutoRefresh = false) => {
@@ -157,11 +159,13 @@ function GameContent() {
   // Caricamento StatPlayers per calcoli trend/positiveness
   useEffect(() => {
     if (!routeYear) {
+      setStatPlayersLoading(false);
       return;
     }
 
     let mounted = true;
     setStatPlayersLoading(true);
+    setStatPlayersError(false);
 
     statPlayerService
       .getCurrentUserEnhancedWrapper({ year: parseInt(routeYear) })
@@ -169,9 +173,12 @@ function GameContent() {
         if (mounted && wrapper) {
           const map = createStatPlayerMap(wrapper.players);
           setStatPlayersMap(map);
+        } else if (mounted) {
+          setStatPlayersError(true);
         }
       })
       .catch((err) => {
+        if (mounted) setStatPlayersError(true);
         console.error('Error loading StatPlayers:', err);
       })
       .finally(() => {
@@ -373,10 +380,11 @@ function GameContent() {
         <YStack gap="$4" width="100%">
           <Card padding="$3" backgroundColor="$color2">
             {gameLoading ? (
-              <XStack gap="$2" alignItems="center">
-                <Spinner size="small" />
-                <Text>Caricamento partita...</Text>
-              </XStack>
+              <SplashScreen compact message="Caricamento partita..." steps={[
+                { id: 'game', label: 'Partita, formazioni e voti', status: 'pending' },
+                { id: 'calendar', label: 'Calendario Serie A (facoltativo)', status: calendar ? 'done' : calendarError ? 'error' : 'pending' },
+                { id: 'statistics', label: 'Statistiche giocatori (facoltative)', status: statPlayersLoading ? 'pending' : statPlayersError ? 'error' : 'done' },
+              ]} />
             ) : gameError ? (
               <Text color="$red10">{gameError}</Text>
             ) : !gameWrapper ? (

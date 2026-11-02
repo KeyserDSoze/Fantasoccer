@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native'
 import { useCurrentGroup } from 'hooks'
 import { useApp } from 'providers/AppProvider'
 import { TeamLogo } from '../team/TeamLogo'
+import { LiveScore } from 'components/live/LiveScore'
+import { SplashScreen } from 'components/layout/SplashScreen'
 
 export type LeagueCalendarWidgetProps = {
   leagueName?: string | null
@@ -35,6 +37,7 @@ export type LeagueCalendarWidgetProps = {
   leagueId?: string | null
   year?: number | null
   editMode?: 'live' | 'view'
+  pulseResults?: boolean
 }
 
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare il calendario.'
@@ -49,7 +52,8 @@ const GameRow: FC<{
   leagueId?: string | null
   year?: number | null
   editMode?: 'live' | 'view'
-}> = ({ game, dayNumber, groupId: propGroupId, leagueId: propLeagueId, year: propYear, editMode = 'view' }) => {
+  pulseResults?: boolean
+}> = ({ game, dayNumber, groupId: propGroupId, leagueId: propLeagueId, year: propYear, editMode = 'view', pulseResults = false }) => {
   let hasResult = Boolean(game.result)
   const homeGoals = game.result?.homeGoals ?? '—'
   const awayGoals = game.result?.awayGoals ?? '—'
@@ -128,6 +132,7 @@ const GameRow: FC<{
 
         {/* Score in the middle */}
         <YStack flexShrink={0} width={80} alignItems="center" gap="$1">
+          <LiveScore active={pulseResults && game.isProvisional === true && hasResult && !isCancelled}>
           <Text color="$color11" fontWeight="600">
             {!isCancelled ? (hasResult ? `${homeGoals} - ${awayGoals}` : 'VS') : "Annullata"}
           </Text>
@@ -136,6 +141,7 @@ const GameRow: FC<{
               {homePoints} • {awayPoints}
             </Text>
           )}
+          </LiveScore>
         </YStack>
 
         {/* Away team - name + logo */}
@@ -171,7 +177,8 @@ const DayCard: FC<{
   leagueId?: string | null
   year?: number | null
   editMode?: 'live' | 'view'
-}> = ({ day, groupId, leagueId, year, editMode }) => (
+  pulseResults?: boolean
+}> = ({ day, groupId, leagueId, year, editMode, pulseResults }) => (
   <Card
     padding="$3"
     backgroundColor="$color2"
@@ -216,6 +223,7 @@ const DayCard: FC<{
             leagueId={leagueId}
             year={year}
             editMode={editMode}
+            pulseResults={pulseResults}
           />
         </Card>
       ))}
@@ -241,6 +249,7 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   leagueId,
   year,
   editMode = 'view',
+  pulseResults = false,
 }) => {
   const showSelectionIncomplete = Boolean(isSelectionIncomplete)
   const showError = Boolean(error)
@@ -291,9 +300,9 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
               Girone: {roundLabel}
             </Text>
           )}
-          <Text fontSize="$2" color="$color10">
+          {pendingGamesCount > 0 && <Text fontSize="$2" color="$color10">
             {pendingGamesCount} partite in attesa di risultato
-          </Text>
+          </Text>}
         </YStack>
         {showLoading && (
           <Spinner size="small" color="$blue10" />
@@ -323,8 +332,7 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
         </YStack>
       ) : showLoading && !hasDays ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
-          <Spinner size="small" color="$blue10" />
-          <Text color="$color10">{loadingMessage}</Text>
+          <SplashScreen compact message={loadingMessage} steps={[{ id: 'calendar', label: 'Calendario e risultati', status: 'pending' }]} />
         </YStack>
       ) : !hasDays ? (
         <YStack gap="$3" alignItems="center" paddingVertical="$4">
@@ -348,7 +356,8 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
                   groupId={groupId}
                   leagueId={leagueId}
                   year={year}
-                  editMode={editMode}
+                    editMode={editMode}
+                    pulseResults={pulseResults}
                 />
               ))}
             </XStack>
