@@ -118,6 +118,8 @@ export function PlayerCard({
   const chance: Chance | null | undefined = (player as any).chance;
   const injury = (player as any).injury || (current && (current as any).injury);
   const realGame = player.realGame;
+  const lineupKind = (player as any).lineupKind as string | null | undefined;
+  const fantasyTeamName = ((player as any).fantasyTeam?.name as string | undefined) ?? null;
 
   const name = current?.name ?? 'Giocatore';
   const teamName = current?.team?.name ?? '';
@@ -351,7 +353,8 @@ export function PlayerCard({
 
   // Game info helper - informazioni complete della partita
   const gameInfo = useMemo(() => {
-    if (!realGame) return null;
+    // Nella pagina di una partita reale la partita è già nell'intestazione: la banda serve per la squadra fanta.
+    if (!realGame || lineupKind) return null;
     const actualDate = new Date();
     const gameDate = realGame.date ? new Date(realGame.date) : null;
     const isPlayed = gameDate && gameDate < actualDate;
@@ -406,7 +409,7 @@ export function PlayerCard({
         matchTextShort: `${homeTeamShort} vs ${awayTeamShort}`,
       };
     }
-  }, [realGame, teamName]);
+  }, [realGame, teamName, lineupKind]);
 
   // Dimensioni base riferite alle costanti esportate
   const cardWidth = PLAYER_CARD_WIDTH;
@@ -723,6 +726,33 @@ export function PlayerCard({
                 { scale: isGameLive && gameInfo.type === 'result' && isBlinking ? 1.2 : 1.0 },
               ]}>
               {gameInfo.type === 'result' ? `${gameInfo.resultText}` : gameInfo.dateText}
+            </Text>
+          </YStack>
+        )}
+
+        {fantasyTeamName && lineupKind && (
+          <YStack
+            position="absolute"
+            bottom={28}
+            left={0}
+            right={0}
+            backgroundColor="rgba(30, 64, 175, 0.9)"
+            paddingHorizontal={4}
+            paddingVertical={1}
+            alignItems="center"
+            zIndex={9}
+            borderTopWidth={1}
+            borderBottomWidth={1}
+            borderColor="rgba(255, 255, 255, 0.25)">
+            <Text
+              fontSize={10}
+              lineHeight={12}
+              fontWeight="700"
+              color="#fff"
+              textAlign="center"
+              numberOfLines={1}
+              accessibilityLabel={`Squadra fanta: ${fantasyTeamName}`}>
+              {fantasyTeamName}
             </Text>
           </YStack>
         )}

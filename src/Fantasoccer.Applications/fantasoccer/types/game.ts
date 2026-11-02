@@ -14,7 +14,12 @@ export interface LivePlayer {
   // Where the automatic substitutions put the player (a bench player of the role with a vote replaces a starter without one).
   // currentPosition stays the lineup as saved, which is what a save sends back.
   projectedPosition?: FantaSoccerRole | null
+  // Real Serie A match page only: how the slot was derived, and the fantasy team owning the player in the chosen league.
+  lineupKind?: LineupKind | null
+  fantasyTeam?: FantasyOwner | null
 }
+export type LineupKind = 'starter' | 'estimated-starter' | 'substitute' | 'bench' | 'estimated-bench' | 'stand'
+export interface FantasyOwner { teamId: string; name: string; owner: string }
 export interface LiveFormationPlayerChange { name: string; fromPosition: FantaSoccerRole; toPosition: FantaSoccerRole }
 export interface LiveFormationChange { date: string | null; author: string; players: LiveFormationPlayerChange[] }
 export interface LiveTeam {

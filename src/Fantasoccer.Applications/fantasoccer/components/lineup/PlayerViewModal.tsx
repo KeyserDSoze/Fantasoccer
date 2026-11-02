@@ -60,7 +60,10 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
   const playerRole = current?.role ?? Role.Undefined
   const roleLabel = ROLE_LABELS[playerRole as Role] ?? 'Non definito'
   const teamName = current?.team?.name ?? ''
-  const playerPrice = current?.price ?? null
+  const lineupKind = player?.lineupKind ?? null
+  const fantasyTeamName = player?.fantasyTeam?.name ?? null
+  // Nella pagina di una partita reale il prezzo non esiste: la squadra fanta è l'informazione utile.
+  const playerPrice = lineupKind ? null : (current?.price ?? null)
   const playerKey = getPlayerKey(playerName)
 
   // Lookup StatPlayer per calcoli e timeline
@@ -228,6 +231,13 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
                     <Text fontSize={13} fontWeight="600" color={leftSerieA ? '$orange10' : '$color10'} accessibilityLiveRegion="polite">
                       {transfer}
                     </Text>
+                  )}
+                  {fantasyTeamName && (
+                    <XStack paddingHorizontal={8} paddingVertical={2} backgroundColor="$blue3" borderRadius={6}>
+                      <Text fontSize={13} fontWeight="700" color="$blue11">
+                        {fantasyTeamName}
+                      </Text>
+                    </XStack>
                   )}
                   {playerPrice !== null && (
                     <XStack gap={4} alignItems="center" paddingHorizontal={8} paddingVertical={2} backgroundColor="$green3" borderRadius={6}>

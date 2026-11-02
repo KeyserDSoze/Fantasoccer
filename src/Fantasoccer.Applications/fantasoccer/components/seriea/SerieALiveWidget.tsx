@@ -9,17 +9,18 @@ import {
   Text,
   XStack,
   YStack,
-  useMedia,
   ScrollView
 } from 'tamagui'
 import { Pressable } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { useSerieACalendar, useSerieARank, getDayStatusText } from 'hooks/useSerieACalendar'
 import { useSerieALiveVotes } from 'hooks/useSerieALiveVotes'
-import { RealCalendarHelper, type RealDay, type RealGame, type VotedRealPlayer, type Vote } from 'types/serieA'
+import { RealCalendarHelper, type RealDay, type RealGame, type VotedRealPlayer } from 'types/serieA'
 import { formatItalianDate } from 'utils/timezoneHelpers'
-import { SoccerBallSVG } from 'components/lineup/icons/SoccerBallSVG'
-import { AssistSVG } from 'components/lineup/icons/AssistSVG'
-import { BehaviourCardSVG } from 'components/lineup/icons/BehaviourCardSVG'
+import { MatchEvents } from 'components/seriea/MatchEvents'
+import { SerieARankTable } from 'components/seriea/SerieARankTable'
+import { SerieAMatchRow } from 'components/seriea/SerieAMatchRow'
+import type { EventPlayer } from 'utils/matchEvents'
 import { ResponsiveWidgetPair } from 'components/layout/ResponsiveWidgetPair'
 import { SplashScreen } from 'components/layout/SplashScreen'
 
@@ -51,7 +52,6 @@ export function SerieALiveWidget({
   const {
     liveDay,
     nextDay,
-    liveGames,
     isLive,
     liveSerieADay,
     isLoading,
@@ -80,78 +80,31 @@ export function SerieALiveWidget({
     enablePolling: enablePolling ?? true
   })
 
-  const liveGameKeys = useMemo(
-    () => new Set((liveGames ?? []).map(buildGameKey)),
-    [liveGames]
+  // Giocatori che hanno fatto qualcosa: l'ordine per importanza lo decide MatchEvents.
+  const liveEvents = useMemo(
+    () => (liveVotes?.players ?? []).filter(player => player.vote?.hasDoneSomething),
+    [liveVotes]
   )
-
-  // Eventi live - giocatori che hanno fatto qualcosa ordinati per importanza
-  const liveEvents = useMemo(() => {
-    if (!liveVotes || !liveVotes.players || liveVotes.players.length === 0) {
-      return []
-    }
-
-    // Filtra solo giocatori con eventi (hasDoneSomething = true)
-    const playersWithEvents = liveVotes.players.filter(p => p.vote?.hasDoneSomething)
-
-    // Ordina per importanza eventi
-    return playersWithEvents.sort((a, b) => {
-      const va = a.vote
-      const vb = b.vote
-
-      // 1. Gol normali (più importanti)
-      if (va.goals !== vb.goals) return vb.goals - va.goals
-      
-      // 2. Rigori segnati
-      if (va.penalties !== vb.penalties) return vb.penalties - va.penalties
-      
-      // 3. Assist
-      if (va.assists !== vb.assists) return vb.assists - va.assists
-      
-      // 4. Rigori parati
-      if (va.stoppedPenalties !== vb.stoppedPenalties) return vb.stoppedPenalties - va.stoppedPenalties
-      
-      // 5. Cartellini rossi (negativi ma importanti)
-      const aRedCard = va.status === 2 ? 1 : 0 // Behaviour.RedCard = 2
-      const bRedCard = vb.status === 2 ? 1 : 0
-      if (aRedCard !== bRedCard) return bRedCard - aRedCard
-      
-      // 6. Rigori sbagliati
-      if (va.wrongedPenalties !== vb.wrongedPenalties) return vb.wrongedPenalties - va.wrongedPenalties
-      
-      // 7. Autogol
-      if (va.ownGoals !== vb.ownGoals) return vb.ownGoals - va.ownGoals
-      
-      // 8. Gol subiti
-      if (va.sufferedGoals !== vb.sufferedGoals) return vb.sufferedGoals - va.sufferedGoals
-      
-      // 9. Cartellini gialli
-      const aYellowCard = va.status === 1 ? 1 : 0 // Behaviour.YellowCard = 1
-      const bYellowCard = vb.status === 1 ? 1 : 0
-      if (aYellowCard !== bYellowCard) return bYellowCard - aYellowCard
-
-      return 0
-    })
-  }, [liveVotes])
 
   // Eventi live raggruppati per partita e divisi per squadra
   const eventsByGame = useMemo(() => {
     if (!liveEvents || liveEvents.length === 0 || !displayDay) {
-      return new Map<string, { home: VotedRealPlayer[], away: VotedRealPlayer[] }>()
+      return new Map<string, { home: EventPlayer[], away: EventPlayer[] }>()
     }
 
-    const map = new Map<string, { home: VotedRealPlayer[], away: VotedRealPlayer[] }>()
+    const map = new Map<string, { home: EventPlayer[], away: EventPlayer[] }>()
 
     displayDay.games.forEach(game => {
       const key = buildGameKey(game)
-      const homeEvents: VotedRealPlayer[] = []
-      const awayEvents: VotedRealPlayer[] = []
+      const homeEvents: EventPlayer[] = []
+      const awayEvents: EventPlayer[] = []
 
-      liveEvents.forEach(player => {
+      liveEvents.forEach((player: VotedRealPlayer) => {
+        const entry = { key: `${player.playerId ?? player.name}`, name: player.name, vote: player.vote }
         if (game.home.name === player.realTeam?.name) {
-          homeEvents.push(player)
+          homeEvents.push(entry)
         } else if (game.away.name === player.realTeam?.name) {
-          awayEvents.push(player)
+          awayEvents.push(entry)
         }
       })
 
@@ -168,7 +121,6 @@ export function SerieALiveWidget({
   const showErrorState = Boolean(error)
   const showEmptyState = !showLoadingState && !showErrorState && !hasGames
   const rankTeams = rank?.teams ?? []
-  const showLiveEvents = isLive && liveEvents.length > 0
 
   const calendarCard = (
     <Card elevation="$2" backgroundColor="$color1" gap="$3">
@@ -194,7 +146,7 @@ export function SerieALiveWidget({
         </YStack>
       ) : displayDay ? (
         <YStack gap="$3" paddingBottom="$2">
-          <SerieADayCard day={displayDay} liveGameKeys={liveGameKeys} eventsByGame={eventsByGame} />
+          <SerieADayCard day={displayDay} eventsByGame={eventsByGame} />
         </YStack>
       ) : null}
 
@@ -231,59 +183,7 @@ export function SerieALiveWidget({
           <SplashScreen compact message="Caricamento classifica…" steps={[{ id: 'rank', label: 'Classifica Serie A', status: 'pending' }]} />
         </XStack>
       ) : (
-        <YStack gap="$2">
-          <XStack justifyContent="space-between" alignItems="center" paddingHorizontal="$2">
-            <Text fontSize="$3" fontWeight="700" color="$color10" flex={1}>
-              Squadra
-            </Text>
-            <XStack gap="$3" alignItems="center">
-              <Text fontSize="$3" fontWeight="700" color="$color10" width={36} textAlign="center">
-                G
-              </Text>
-              <Text fontSize="$3" fontWeight="700" color="$color10" width={36} textAlign="center">
-                Pt
-              </Text>
-              <Text fontSize="$3" fontWeight="700" color="$color10" width={48} textAlign="center">
-                Diff
-              </Text>
-            </XStack>
-          </XStack>
-
-          <YStack gap="$1">
-            {rankTeams.map((team, index) => (
-              <XStack
-                key={`${team.name}-${index}`}
-                justifyContent="space-between"
-                alignItems="center"
-                paddingVertical="$1.5"
-                paddingHorizontal="$2"
-                backgroundColor={index % 2 === 0 ? '$color1' : 'transparent'}
-                borderRadius="$2"
-              >
-                <XStack alignItems="center" gap="$2" flex={1}>
-                  <Text fontSize="$3" fontWeight="700" color="$color9" width={24} textAlign="center">
-                    {index + 1}
-                  </Text>
-                  <Text fontSize="$3" fontWeight="700" color="$color12" flex={1} numberOfLines={1}>
-                    {team.name}
-                  </Text>
-                </XStack>
-
-                <XStack gap="$3" alignItems="center">
-                  <Text fontSize="$3" color="$color10" width={36} textAlign="center">
-                    {team.played}
-                  </Text>
-                  <Text fontSize="$3" fontWeight="700" color="$color12" width={36} textAlign="center">
-                    {team.points}
-                  </Text>
-                  <Text fontSize="$3" color={team.goalDifference >= 0 ? '$color10' : '$red10'} width={48} textAlign="center">
-                    {team.goalDifference >= 0 ? `+${team.goalDifference}` : team.goalDifference}
-                  </Text>
-                </XStack>
-              </XStack>
-            ))}
-          </YStack>
-        </YStack>
+        <SerieARankTable teams={rankTeams} />
       )}
 
       {rankLastUpdated && (
@@ -304,17 +204,19 @@ export function SerieALiveWidget({
 
 type SerieADayCardProps = {
   day: RealDay
-  liveGameKeys: Set<string>
-  eventsByGame: Map<string, { home: VotedRealPlayer[], away: VotedRealPlayer[] }>
+  eventsByGame: Map<string, { home: EventPlayer[], away: EventPlayer[] }>
 }
 
-function SerieADayCard({ day, liveGameKeys, eventsByGame }: SerieADayCardProps) {
-  // State per gestire l'accordion: di default aperto solo per le partite live
+function SerieADayCard({ day, eventsByGame }: SerieADayCardProps) {
+  const navigation = useNavigation<any>()
+  const openMatch = (game: RealGame, index: number) =>
+    navigation.navigate('SerieAMatch', { year: String(day.year), day: String(day.serieADay), ordinal: String(game.ordinal ?? index) })
+  // State per gestire l'accordion: di default aperto solo per le partite in corso
   const [expandedGames, setExpandedGames] = useState<Set<string>>(() => {
     const initialExpanded = new Set<string>()
     day.games.forEach(game => {
       const key = buildGameKey(game)
-      if (liveGameKeys.has(key)) {
+      if (RealCalendarHelper.isGamePlaying(game)) {
         initialExpanded.add(key)
       }
     })
@@ -364,80 +266,51 @@ function SerieADayCard({ day, liveGameKeys, eventsByGame }: SerieADayCardProps) 
       <Separator />
 
       <YStack gap="$2">
-        {day.games.map(game => {
+        {day.games.map((game, index) => {
           const key = buildGameKey(game)
-          const isGameLive = liveGameKeys.has(key)
+          const isGameLive = RealCalendarHelper.isGamePlaying(game)
           const gameEvents = eventsByGame.get(key)
           const hasEvents = gameEvents && (gameEvents.home.length > 0 || gameEvents.away.length > 0)
           const isExpanded = expandedGames.has(key)
 
           return (
             <YStack key={key} gap="$2">
-              <Pressable onPress={() => hasEvents && toggleGame(key)}>
-                <Card
-                  paddingHorizontal="$2"
-                  paddingVertical="$1.5"
-                  backgroundColor="$color1"
-                  borderRadius="$3"
-                  borderWidth="$0.25"
-                  borderColor={isGameLive ? '$red7' : '$color3'}
-                >
-                  <XStack alignItems="center" gap="$2">
-                    <YStack flex={1}>
-                      <SerieAGameRow game={game} isLive={isGameLive} />
-                    </YStack>
-                    {hasEvents && (
-                      <YStack paddingRight="$2">
-                        {isExpanded ? (
-                          <ChevronUp size={20} color="$color11" />
-                        ) : (
-                          <ChevronDown size={20} color="$color11" />
-                        )}
-                      </YStack>
-                    )}
-                  </XStack>
-                </Card>
-              </Pressable>
-              
-              {/* Eventi live per questa partita - layout a colonne */}
+              <Card
+                paddingHorizontal="$2"
+                paddingVertical="$1.5"
+                backgroundColor="$color1"
+                borderRadius="$3"
+                borderWidth="$0.25"
+                borderColor={isGameLive ? '$green7' : '$color3'}
+              >
+                <XStack alignItems="center" gap="$2">
+                  <Pressable
+                    style={{ flex: 1 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Apri la partita ${game.home.name} - ${game.away.name}`}
+                    onPress={() => openMatch(game, index)}
+                  >
+                    <SerieAMatchRow game={game} />
+                  </Pressable>
+                  {hasEvents && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={isExpanded ? 'Nascondi gli eventi' : 'Mostra gli eventi'}
+                      hitSlop={8}
+                      onPress={() => toggleGame(key)}
+                    >
+                      {isExpanded ? <ChevronUp size={20} color="$color11" /> : <ChevronDown size={20} color="$color11" />}
+                    </Pressable>
+                  )}
+                </XStack>
+              </Card>
+
               {hasEvents && isExpanded && (
-                <YStack gap="$2" paddingHorizontal="$2">
-                  <Text fontSize="$2" fontWeight="700" color="$red11">
-                    ⚡ Eventi Live
-                  </Text>
-                  <XStack gap="$3">
-                    {/* Colonna Casa */}
-                    <YStack flex={1} gap="$1.5" backgroundColor="$color3" padding="$2" borderRadius="$3">
-                      <Text fontSize="$1" fontWeight="800" color="$color11" textAlign="center">
-                        {game.home.name}
-                      </Text>
-                      {gameEvents.home.length > 0 ? (
-                        gameEvents.home.map((player, index) => (
-                          <LiveEventRow key={`home-${player.name}-${index}`} player={player} />
-                        ))
-                      ) : (
-                        <Text fontSize="$1" color="$color9" textAlign="center" paddingVertical="$2">
-                          Nessun evento
-                        </Text>
-                      )}
-                    </YStack>
-                    
-                    {/* Colonna Trasferta */}
-                    <YStack flex={1} gap="$1.5" backgroundColor="$color3" padding="$2" borderRadius="$3">
-                      <Text fontSize="$1" fontWeight="800" color="$color11" textAlign="center">
-                        {game.away.name}
-                      </Text>
-                      {gameEvents.away.length > 0 ? (
-                        gameEvents.away.map((player, index) => (
-                          <LiveEventRow key={`away-${player.name}-${index}`} player={player} />
-                        ))
-                      ) : (
-                        <Text fontSize="$1" color="$color9" textAlign="center" paddingVertical="$2">
-                          Nessun evento
-                        </Text>
-                      )}
-                    </YStack>
-                  </XStack>
+                <YStack paddingHorizontal="$1">
+                  <MatchEvents
+                    home={{ name: game.home.name, players: gameEvents.home }}
+                    away={{ name: game.away.name, players: gameEvents.away }}
+                  />
                 </YStack>
               )}
             </YStack>
@@ -448,288 +321,6 @@ function SerieADayCard({ day, liveGameKeys, eventsByGame }: SerieADayCardProps) 
   )
 }
 
-type SerieAGameRowProps = {
-  game: RealGame
-  isLive: boolean
-}
-
-function SerieAGameRow({ game, isLive }: SerieAGameRowProps) {
-  const kickoffLabel = game.date ? formatItalianDate(new Date(game.date).toISOString()) : 'Da definire'
-  const isPlayed = RealCalendarHelper.isGamePlayed(game)
-  const hasScore = game.homeGoals != null && game.awayGoals != null
-  const showScore = hasScore && (isLive || isPlayed)
-  const statusLabel = game.delayed
-    ? 'Rinviata'
-    : isLive
-      ? 'LIVE'
-      : isPlayed
-        ? 'Risultato finale'
-        : 'Da giocare'
-  const statusColor = game.delayed ? '$yellow10' : isLive ? '$red10' : isPlayed ? '$color10' : '$color9'
-
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="space-between"
-      gap="$3"
-      paddingVertical="$1.5"
-    >
-      <YStack flex={1} gap="$1">
-        <Text color="$color12" fontWeight="700" numberOfLines={1}>
-          {game.home.name}
-        </Text>
-      </YStack>
-
-      <YStack flexShrink={0} width={120} alignItems="center" gap="$1">
-        {showScore ? (
-          <Text fontWeight="800" fontSize="$5" color={isLive ? '$red10' : '$color12'} textAlign="center">
-            {game.homeGoals} - {game.awayGoals}
-          </Text>
-        ) : (
-          <Text fontWeight="700" fontSize="$5" color="$color10" textAlign="center">
-            vs
-          </Text>
-        )}
-
-        <Text fontSize="$3" color="$color10" textAlign="center">
-          {kickoffLabel}
-        </Text>
-
-        <Text fontSize="$2" fontWeight={isLive ? '700' : '600'} color={statusColor} textAlign="center">
-          {statusLabel}
-        </Text>
-      </YStack>
-
-      <YStack flex={1} gap="$1" alignItems="flex-end">
-        <Text color="$color12" fontWeight="700" numberOfLines={1}>
-          {game.away.name}
-        </Text>
-      </YStack>
-    </XStack>
-  )
-}
-
 function buildGameKey(game: RealGame): string {
   return `${game.home.name}-${game.away.name}-${game.date ?? ''}`
-}
-
-// ============================================
-// LIVE EVENT ROW COMPONENT
-// ============================================
-
-type LiveEventRowProps = {
-  player: VotedRealPlayer
-}
-
-function LiveEventRow({ player }: LiveEventRowProps) {
-  const vote = player.vote
-  const media = useMedia()
-  const isMobile = !media.gtMd
-
-  if (!vote) return null
-
-  // Raccoglie tutti gli eventi del giocatore
-  const events: Array<{ icon: React.ReactNode; label: string; count: number; color: string }> = []
-
-  // Gol normali
-  if (vote.goals > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#ffffff" secondaryColor="#000000" size={16} />,
-      label: vote.goals === 1 ? 'Gol' : `${vote.goals} Gol`,
-      count: vote.goals,
-      color: '$green10'
-    })
-  }
-
-  // Rigori segnati
-  if (vote.penalties > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#000000" secondaryColor="#ffffff" size={16} />,
-      label: vote.penalties === 1 ? 'Rigore' : `${vote.penalties} Rigori`,
-      count: vote.penalties,
-      color: '$blue10'
-    })
-  }
-
-  // Assist
-  if (vote.assists > 0) {
-    events.push({
-      icon: <AssistSVG color="#000" size={16} />,
-      label: vote.assists === 1 ? 'Assist' : `${vote.assists} Assist`,
-      count: vote.assists,
-      color: '$purple10'
-    })
-  }
-
-  // Rigori parati
-  if (vote.stoppedPenalties > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#3b82f6" secondaryColor="#ffffff" size={16} />,
-      label: vote.stoppedPenalties === 1 ? 'Rigore Parato' : `${vote.stoppedPenalties} Rigori Parati`,
-      count: vote.stoppedPenalties,
-      color: '$blue10'
-    })
-  }
-
-  // Cartellini
-  if (vote.status === 2) { // RedCard
-    events.push({
-      icon: <BehaviourCardSVG color="#ef4444" size={16} />,
-      label: 'Cartellino Rosso',
-      count: 1,
-      color: '$red10'
-    })
-  } else if (vote.status === 1) { // YellowCard
-    events.push({
-      icon: <BehaviourCardSVG color="#fbbf24" size={16} />,
-      label: 'Cartellino Giallo',
-      count: 1,
-      color: '$yellow10'
-    })
-  }
-
-  // Rigori sbagliati
-  if (vote.wrongedPenalties > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#c113d1ff" secondaryColor="#ffffff" size={16} />,
-      label: vote.wrongedPenalties === 1 ? 'Rigore Sbagliato' : `${vote.wrongedPenalties} Rigori Sbagliati`,
-      count: vote.wrongedPenalties,
-      color: '$purple10'
-    })
-  }
-
-  // Autogol
-  if (vote.ownGoals > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#fbbf24" secondaryColor="#ffffff" size={16} />,
-      label: vote.ownGoals === 1 ? 'Autogol' : `${vote.ownGoals} Autogol`,
-      count: vote.ownGoals,
-      color: '$orange10'
-    })
-  }
-
-  // Gol subiti
-  if (vote.sufferedGoals > 0) {
-    events.push({
-      icon: <SoccerBallSVG primaryColor="#ef4444" secondaryColor="#ffffff" size={16} />,
-      label: vote.sufferedGoals === 1 ? 'Gol Subito' : `${vote.sufferedGoals} Gol Subiti`,
-      count: vote.sufferedGoals,
-      color: '$red10'
-    })
-  }
-
-  if (events.length === 0) return null
-
-  // Layout mobile: verticale con nome sopra e eventi sotto
-  if (isMobile) {
-    return (
-      <Card
-        paddingHorizontal="$2"
-        paddingVertical="$2"
-        backgroundColor="$color1"
-        borderRadius="$3"
-        borderWidth="$0.25"
-        borderColor="$color3"
-      >
-        <YStack gap="$2">
-          {/* Nome giocatore */}
-          <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1}>
-            {player.name}
-          </Text>
-
-          {/* Eventi e voto */}
-          <XStack alignItems="center" justifyContent="space-between" gap="$2">
-            {/* Eventi */}
-            <XStack gap="$1.5" flexWrap="wrap" flex={1}>
-              {events.map((event, index) => (
-                <XStack
-                  key={`${player.name}-event-${index}`}
-                  alignItems="center"
-                  gap="$1"
-                  paddingHorizontal="$2"
-                  paddingVertical="$1"
-                  borderRadius="$2"
-                  backgroundColor="$color2"
-                >
-                  {event.icon}
-                  <Text fontSize="$2" fontWeight="600" color={event.color}>
-                    {event.count > 1 ? event.count : ''}
-                  </Text>
-                </XStack>
-              ))}
-            </XStack>
-
-            {/* Vote badge */}
-            <YStack
-              minWidth={44}
-              paddingHorizontal="$2"
-              paddingVertical="$1"
-              borderRadius="$2"
-              backgroundColor={vote.isFinal ? '$green10' : '$orange10'}
-              alignItems="center"
-              flexShrink={0}
-            >
-              <Text fontSize="$4" fontWeight="800" color="#fff">
-                {vote.value.toFixed(1)}
-              </Text>
-            </YStack>
-          </XStack>
-        </YStack>
-      </Card>
-    )
-  }
-
-  // Layout desktop: orizzontale senza nome squadra
-  return (
-    <Card
-      paddingHorizontal="$3"
-      paddingVertical="$2"
-      backgroundColor="$color1"
-      borderRadius="$3"
-      borderWidth="$0.25"
-      borderColor="$color3"
-    >
-      <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        {/* Player name only */}
-        <Text fontSize="$3" fontWeight="700" color="$color12" numberOfLines={1} flex={1}>
-          {player.name}
-        </Text>
-
-        {/* Events */}
-        <XStack gap="$2" flexWrap="wrap" maxWidth={200} justifyContent="flex-end">
-          {events.map((event, index) => (
-            <XStack
-              key={`${player.name}-event-${index}`}
-              alignItems="center"
-              gap="$1"
-              paddingHorizontal="$2"
-              paddingVertical="$1"
-              borderRadius="$2"
-              backgroundColor="$color2"
-            >
-              {event.icon}
-              <Text fontSize="$2" fontWeight="600" color={event.color}>
-                {event.count > 1 ? event.count : ''}
-              </Text>
-            </XStack>
-          ))}
-        </XStack>
-
-        {/* Vote badge */}
-        <YStack
-          minWidth={48}
-          paddingHorizontal="$2"
-          paddingVertical="$1"
-          borderRadius="$2"
-          backgroundColor={vote.isFinal ? '$green10' : '$orange10'}
-          alignItems="center"
-          flexShrink={0}
-        >
-          <Text fontSize="$4" fontWeight="800" color="#fff">
-            {vote.value.toFixed(1)}
-          </Text>
-        </YStack>
-      </XStack>
-    </Card>
-  )
 }

@@ -120,7 +120,7 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
         var awayClub = FootballMapping.Club(row.AwayClub);
         var game = new FootballGameDto(row.Ordinal, homeClub, awayClub, row.KickoffUtc, row.HomeGoals, row.AwayGoals, row.Delayed)
         { WasPostponed = row.WasPostponed, IsFinished = row.IsFinished, OriginalDate = row.OriginalKickoffUtc };
-        var teamsDto = new[] { Team(homeClub, home), Team(awayClub, away) };
+        var teamsDto = new[] { Team(homeClub, home, game), Team(awayClub, away, game) };
         var calendar = new CalendarGameDto(StableId($"serie-a:{year}:{day}:{ordinal}"), ordinal, homeClub.Name, null, awayClub.Name, null, null, teamsDto[0].TeamId, teamsDto[1].TeamId);
         var lineup = new GameDto(teamsDto, calendar, day, false, false, null, null, false);
         return new(year, day, game, FootballLiveTiming.IsPlaying(row.Delayed, row.IsFinished, row.KickoffUtc, now), home.Source, away.Source, lineup, now);
@@ -135,16 +135,16 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
         return player.PreviousClubId == club && player.TransferredAtUtc is { } left && left > date;
     }
 
-    private static LiveTeamDto Team(ClubDto club, SideLineup side) =>
-        new(StableId($"serie-a-club:{club.ClubId}"), Guid.Empty, 1, null, club.Name, "", [], side.Players.Select(x => Player(club, x)).ToArray(), null, 0, 0, 0, [], null, false);
+    private static LiveTeamDto Team(ClubDto club, SideLineup side, FootballGameDto game) =>
+        new(StableId($"serie-a-club:{club.ClubId}"), Guid.Empty, 1, null, club.Name, "", [], side.Players.Select(x => Player(club, x, game)).ToArray(), null, 0, 0, 0, [], null, false);
 
-    private static LivePlayerDto Player(ClubDto club, LineupPlacement placement)
+    private static LivePlayerDto Player(ClubDto club, LineupPlacement placement, FootballGameDto game)
     {
         var entry = placement.Entry;
         var team = new FootballClubDto(club.Name, club.Abbreviation);
         var roster = new RosterPlayerDto(entry.PlayerId, 0, entry.Name, team, entry.Role, entry.IsActive, entry.IsVisible, 0, 0, 0, placement.Position);
         var final = entry.Vote is { HasVote: true } vote ? new FinalVoteDto(vote.Value, false) : null;
-        return new(roster, entry.Vote, entry.Chance, null, final, placement.Position) { LineupKind = placement.Kind };
+        return new(roster, entry.Vote, entry.Chance, game, final, placement.Position) { LineupKind = placement.Kind };
     }
 
     private static Guid StableId(string text) => new(MD5.HashData(Encoding.UTF8.GetBytes(text)));
