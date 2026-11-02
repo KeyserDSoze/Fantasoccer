@@ -65,7 +65,7 @@ function SerieAMatchContent() {
 
   return (
     <ScreenContent title="Partita Serie A" path="serie-a/match">
-      <YStack gap="$4" width="100%" maxWidth={1400} alignSelf="center">
+      <YStack gap="$4" width="100%">
         <XStack>
           <Button size="$3" chromeless icon={ArrowLeft} onPress={back} accessibilityLabel="Torna alla Serie A">Serie A</Button>
         </XStack>

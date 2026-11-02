@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.1',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'La pagina di una partita di Serie A ora occupa tutta la larghezza, come la partita di fantacalcio: prima il campo veniva stretto e le carte uscivano dal prato su schermi larghi',
+      },
+    ],
+  },
+  {
     version: '4.1.0',
     date: '2 Novembre 2026',
     changes: [
