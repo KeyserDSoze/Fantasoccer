@@ -48,9 +48,10 @@ Job `catalogue`, **ogni notte alle 02:30** (Europe/Rome), avviabile anche a mano
 | `unavailable` | nessun dato | "Formazione non disponibile" |
 
 - Rosa a quella data: giocatore con la squadra attuale, salvo arrivo dopo il calcio d'inizio; oppure con la squadra precedente se l'uscita è successiva al calcio d'inizio (data ignota = escluso). I voti con club nullo non vengono mai attribuiti.
-- Ogni giocatore porta `lineupKind` (`starter`, `estimated-starter`, `substitute`, `bench`, `estimated-bench`, `stand`) e, con una lega scelta, `fantasyTeam` (squadra fanta proprietaria, dalle rose del giorno: ultima rosa di giornata ≤ giornata, altrimenti rosa stagionale). Serve l'accesso al gruppo (`workspace-member`).
+- Ogni giocatore porta `lineupKind` (`starter`, `estimated-starter`, `substitute`, `bench`, `estimated-bench`, `stand`) e, con una lega scelta, `fantasyTeams` (tutte le squadre fanta proprietarie, una per basket: un giocatore può averne più d'una; una squadra derivata non si ripete se c'è la sua origine. Dalle rose del giorno: ultima rosa di giornata ≤ giornata, altrimenti rosa stagionale). Serve l'accesso al gruppo (`workspace-member`).
 - Cache in memoria per partita: 15 s vicino alla partita, 5 minuti altrimenti (`FootballMatchOptions`, 0 la disattiva). Nessun pulsante di aggiornamento: la pagina riesegue la richiesta da sola (15 s vicino alla partita, 2 minuti il giorno dopo, 5 minuti nei due giorni precedenti, mai per partite vecchie).
-- Sul campo: la banda sotto la carta mostra la squadra fanta; prezzo e info partita non compaiono. Il selettore di lega sta dentro la partita.
+- Infortunati e squalificati della giornata (snapshot probabili formazioni, valido 30 giorni) sono segnalati sulle carte senza voto; non entrano mai nella formazione probabile né nella panchina stimata.
+- Sul campo: la banda sotto la carta elenca le squadre fanta; prezzo e info partita non compaiono. Il selettore di lega sta dentro la partita.
 
 ## Fase 3 — Eventi live (4.1.0)
 

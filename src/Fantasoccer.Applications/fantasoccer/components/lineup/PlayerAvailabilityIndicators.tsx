@@ -1,3 +1,4 @@
+import { BehaviourCardSVG } from './icons/BehaviourCardSVG';
 import { Plus } from '@tamagui/lucide-icons-2';
 import { Text, XStack, YStack } from 'tamagui';
 import type { Chance } from '../../types/chance';
@@ -28,6 +29,22 @@ export function PlayerAvailabilityIndicators({
         accessibilityRole="image"
         accessibilityLabel={`Infortunato${chance.description ? `: ${chance.description}` : ''}`}>
         <Plus size={14} color="#fff" strokeWidth={3} />
+      </YStack>
+    );
+  }
+
+  if (chance.status === ChanceType.Disqualified) {
+    return (
+      <YStack
+        width={INDICATOR_SIZE}
+        height={INDICATOR_SIZE}
+        borderRadius={4}
+        backgroundColor="#7f1d1d"
+        alignItems="center"
+        justifyContent="center"
+        accessibilityRole="image"
+        accessibilityLabel={`Squalificato${chance.description ? `: ${chance.description}` : ''}`}>
+        <BehaviourCardSVG color="#fecaca" size={10} />
       </YStack>
     );
   }

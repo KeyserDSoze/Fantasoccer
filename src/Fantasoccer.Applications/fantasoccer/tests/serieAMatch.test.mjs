@@ -104,6 +104,11 @@ test('the match page is wired: route, menu, pulsing score and no refresh button'
   for (const screen of ['screens/serie-a.tsx', 'screens/serie-a-match.tsx']) assert.doesNotMatch(read(screen), /Aggiorna|RefreshCw|refetch/)
   assert.match(read('components/seriea/SerieALiveWidget.tsx'), /navigate\('SerieAMatch'/)
   assert.match(read('screens/serie-a-match.tsx'), /editMode="view"/)
+  // Several fantasy teams can own the same player (one per basket): all are listed, and injured/disqualified players are marked on the pitch.
+  const card = read('components/lineup/PlayerCard.tsx')
+  assert.match(card, /fantasyTeamNames\.map/)
+  assert.match(card, /lineupKind && isUnavailable\(chance\)/)
+  assert.match(read('components/lineup/PlayerAvailabilityIndicators.tsx'), /Squalificato/)
 })
 
 test('the standings are rebuilt as they were after the chosen day', () => {

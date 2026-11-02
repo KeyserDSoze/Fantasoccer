@@ -7,7 +7,7 @@ import type { StatPlayer } from 'types/stat';
 import { getPlayerImageUrlFromName } from 'utils/playerImage';
 import type { Vote } from 'types/serieA';
 import { Behaviour } from 'types/serieA';
-import type { Chance } from '../../types/chance';
+import { ChanceType, type Chance } from '../../types/chance';
 import { PlayerAvailabilityIndicators } from './PlayerAvailabilityIndicators';
 import { FantaSoccerRole } from 'types/team';
 import { Role } from 'types/group';
@@ -102,6 +102,8 @@ const BONUS_MALUS_CONFIG: {
   },
 ];
 
+const isUnavailable = (chance: Chance) => chance.status === ChanceType.Injury || chance.status === ChanceType.Disqualified;
+
 export function PlayerCard({
   player,
   onPress,
@@ -119,7 +121,7 @@ export function PlayerCard({
   const injury = (player as any).injury || (current && (current as any).injury);
   const realGame = player.realGame;
   const lineupKind = (player as any).lineupKind as string | null | undefined;
-  const fantasyTeamName = ((player as any).fantasyTeam?.name as string | undefined) ?? null;
+  const fantasyTeamNames: string[] = (((player as any).fantasyTeams as { name: string }[] | undefined) ?? []).map((team) => team.name);
 
   const name = current?.name ?? 'Giocatore';
   const teamName = current?.team?.name ?? '';
@@ -660,7 +662,7 @@ export function PlayerCard({
         )}
 
         {/* Area chance organizzata - a destra */}
-        {!vote && isGameNotStarted && chance && (
+        {!vote && chance && (isGameNotStarted || (lineupKind && isUnavailable(chance))) && (
           <YStack
             position="absolute"
             top={0}
@@ -730,7 +732,7 @@ export function PlayerCard({
           </YStack>
         )}
 
-        {fantasyTeamName && lineupKind && (
+        {fantasyTeamNames.length > 0 && lineupKind && (
           <YStack
             position="absolute"
             bottom={28}
@@ -743,17 +745,13 @@ export function PlayerCard({
             zIndex={9}
             borderTopWidth={1}
             borderBottomWidth={1}
-            borderColor="rgba(255, 255, 255, 0.25)">
-            <Text
-              fontSize={10}
-              lineHeight={12}
-              fontWeight="700"
-              color="#fff"
-              textAlign="center"
-              numberOfLines={1}
-              accessibilityLabel={`Squadra fanta: ${fantasyTeamName}`}>
-              {fantasyTeamName}
-            </Text>
+            borderColor="rgba(255, 255, 255, 0.25)"
+            accessibilityLabel={`Squadre fanta: ${fantasyTeamNames.join(', ')}`}>
+            {fantasyTeamNames.map((name) => (
+              <Text key={name} fontSize={10} lineHeight={12} fontWeight="700" color="#fff" textAlign="center" numberOfLines={1}>
+                {name}
+              </Text>
+            ))}
           </YStack>
         )}
 

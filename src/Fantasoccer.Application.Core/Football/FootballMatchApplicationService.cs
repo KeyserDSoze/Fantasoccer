@@ -47,7 +47,7 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
             ?? throw new ApplicationFault(404, "league_not_found", "Lega non trovata nel gruppo richiesto.");
         var owners = await OwnersAsync(groupValue, leagueValue, year, day, cancellationToken);
         if (owners.Count == 0) return match with { FantasyLeagueName = league.Name };
-        LivePlayerDto Overlay(LivePlayerDto player) => owners.TryGetValue(player.Current.PlayerId, out var owner) ? player with { FantasyTeam = owner } : player;
+        LivePlayerDto Overlay(LivePlayerDto player) => owners.TryGetValue(player.Current.PlayerId, out var owned) ? player with { FantasyTeams = owned.ToArray() } : player;
         var sides = match.Lineup.Teams.Select(x => x with { Players = x.Players.Select(Overlay).ToArray() }).ToArray();
         return match with { Lineup = match.Lineup with { Teams = sides }, FantasyLeagueName = league.Name };
     }
@@ -149,23 +149,30 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
 
     private static Guid StableId(string text) => new(MD5.HashData(Encoding.UTF8.GetBytes(text)));
 
-    private async Task<Dictionary<string, FantasyOwnerDto>> OwnersAsync(Guid group, Guid league, int year, int day, CancellationToken cancellationToken)
+    private async Task<Dictionary<string, List<FantasyOwnerDto>>> OwnersAsync(Guid group, Guid league, int year, int day, CancellationToken cancellationToken)
     {
         var participants = await teams.ParticipantsAsync(group, league, year, false, cancellationToken);
-        var owners = new Dictionary<string, FantasyOwnerDto>(StringComparer.Ordinal);
+        var owners = new Dictionary<string, List<FantasyOwnerDto>>(StringComparer.Ordinal);
         if (participants.Length == 0) return owners;
         var authoritative = participants.Select(x => x.AuthoritativeTeamId).Distinct().ToArray();
         var snapshots = await database.RosterSnapshots.AsNoTracking()
             .Where(x => x.GroupId == group && x.SeasonIndex == year && authoritative.Contains(x.TeamId) && x.CompetitionId == Guid.Empty
                 && (x.Kind == RosterKind.Season || (x.Kind == RosterKind.Matchday && x.Day <= day)))
             .Select(x => new { x.TeamId, x.Kind, x.Day, Players = x.Players.Select(p => p.PlayerId).ToList() }).ToArrayAsync(cancellationToken);
-        foreach (var team in participants.OrderBy(x => x.IsDerived).ThenBy(x => x.Name, StringComparer.Ordinal))
+        // A player can be owned by several teams of the league (one per basket). A derived team shares its origin's roster:
+        // it is listed only when the origin is not a participant, so the same roster is never shown twice.
+        foreach (var team in participants.GroupBy(x => x.AuthoritativeTeamId).Select(x => x.OrderBy(y => y.IsDerived).ThenBy(y => y.Name, StringComparer.Ordinal).First())
+                     .OrderBy(x => x.Name, StringComparer.Ordinal))
         {
             var mine = snapshots.Where(x => x.TeamId == team.AuthoritativeTeamId).ToArray();
             var chosen = mine.Where(x => x.Kind == RosterKind.Matchday).OrderByDescending(x => x.Day).FirstOrDefault() ?? mine.FirstOrDefault(x => x.Kind == RosterKind.Season);
             if (chosen is null) continue;
             var dto = new FantasyOwnerDto(team.TeamId, team.Name, team.OwnerReference);
-            foreach (var playerId in chosen.Players) owners.TryAdd(playerId, dto);
+            foreach (var playerId in chosen.Players.Distinct())
+            {
+                if (!owners.TryGetValue(playerId, out var list)) owners[playerId] = list = [];
+                list.Add(dto);
+            }
         }
         return owners;
     }
