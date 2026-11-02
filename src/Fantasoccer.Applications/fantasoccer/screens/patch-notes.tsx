@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.6',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Voti ufficiali partita per partita: il controllo gira ogni 15 minuti tutto il giorno e consolida ogni partita finita appena il provider pubblica i voti, senza aspettare la fine della giornata. Prima i voti del sabato restavano provvisori fino al martedì mattina',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Colori dei voti più chiari: verde = voto ufficiale confermato, arancione = ancora provvisorio (anche per chi è già uscito dal campo), grigio = senza voto. Il rosso non è più usato per i sostituiti',
+      },
+    ],
+  },
+  {
     version: '4.1.5',
     date: '2 Novembre 2026',
     changes: [

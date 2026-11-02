@@ -33,3 +33,13 @@ AppDependencies
 ```
 
 I test verificano letture con lease occupata, copia vecchia di un'ora, cache vuota, invalidazioni e isolamento dei gruppi. Riferimenti: issue #27 (Live) e #20 (CPU/lock dei job).
+
+## Voti ufficiali: consolidamento partita per partita (4.1.6)
+
+I voti provvisori (arancioni) diventano ufficiali (verdi) con il job `official`, ora **ogni 15 minuti, tutto il giorno**:
+
+- **Giornata in corso:** ogni partita finita (fine prevista = calcio d'inizio + 135 minuti, o `IsFinished`) e non ancora consolidata viene importata appena il provider mostra voti finali (almeno un voto) per entrambe le squadre (`OfficialProgressAsync`, operazione `official-progress`). Una partita senza voti pubblicati non scrive nulla e conserva i voti live. Il provider si interroga una sola volta per passata, e solo se ci sono partite finite da consolidare.
+- **Giornata finita:** l'import completo (tutte le squadre, allenatori, correzioni) gira nella finestra 03:00–10:45 (Europe/Rome), e nelle ore dopo la fine finché qualche partita non è consolidata; se il provider non è completo si ripiega sull'import partita per partita.
+- Il risultato `Partial` con codice `official_votes_pending` è un'attesa prevista, non un incidente.
+
+Prima della 4.1.6 il job girava solo 03:00–10:45 e solo per la giornata già conclusa: le partite del sabato restavano provvisorie fino al martedì mattina (giornata finita il lunedì sera).

@@ -149,6 +149,52 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
     }
 }
 
+public sealed class ProgressiveOfficialVotesTests(WorkspaceApiFactory factory) : IClassFixture<WorkspaceApiFactory>
+{
+    [PostgreSqlFact]
+    public async Task A_finished_match_is_consolidated_as_soon_as_both_clubs_have_final_votes_and_never_from_unpublished_ones()
+    {
+        using var account = await factory.AccountAsync(globalAdmin: true);
+        var email = account.DefaultRequestHeaders.GetValues("X-Workspace-User").Single();
+        var sources = new FootballIngestionApiTests.IngestionSources();
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<ISerieAInformation>(sources); services.AddSingleton<IAllPlayers>(sources);
+            services.AddSingleton<IOfficialVote>(sources); services.AddSingleton<ILiveVote>(sources);
+        }));
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Workspace-User", email); client.DefaultRequestHeaders.Add("X-Workspace-Admin", "true");
+        app.Services.GetRequiredService<IOptions<GlobalAdministratorOptions>>().Value.Emails = [email];
+        var year = FantacalcioTime.ActualYear;
+        const string path = "/api/football/refresh";
+        foreach (var operation in new[] { "calendar", "catalogue" }) (await client.PostAsJsonAsync(path, new RefreshFootballRequest(operation, year))).EnsureSuccessStatusCode();
+
+        // One club has no published votes yet: nothing is written, the match stays pending and keeps its live votes.
+        sources.IncompleteOfficial = true;
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official-progress", year, 1))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            Assert.Equal(0, await database.FootballVotes.CountAsync(x => x.SeasonIndex == year));
+            Assert.NotEqual(true, (await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1)).ActualOfficialVotesReady);
+        }
+
+        // Both clubs published: the match is consolidated on its own, before any full-day import.
+        sources.IncompleteOfficial = false;
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official-progress", year, 1))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            Assert.Equal(2, await database.FootballVotes.CountAsync(x => x.SeasonIndex == year && x.Source == FootballVoteSource.Official && x.IsFinal && x.HasVote));
+            Assert.True((await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1)).ActualOfficialVotesReady);
+        }
+
+        // Nothing is left pending: another pass does not even ask the provider again.
+        sources.IncompleteOfficial = true;
+        (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official-progress", year, 1))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+            Assert.Equal(2, await database.FootballVotes.CountAsync(x => x.SeasonIndex == year && x.Source == FootballVoteSource.Official));
+    }
+}
+
 public sealed class CatalogueStatisticsScaleTests(WorkspaceApiFactory factory) : IClassFixture<WorkspaceApiFactory>
 {
     [PostgreSqlFact]

@@ -22,7 +22,8 @@ public static class SqlJobSchedule
                     "catalogue" => hour == 2 && minute == 30,
                     "live" or "live-projections" => minute % 5 == 0,
                     "formations" => true,
-                    "official" => hour is >= 3 and <= 10 && minute % 15 == 0,
+                    // Every 15 minutes, all day: during a matchday each finished match is consolidated as soon as its votes are out.
+                    "official" => minute % 15 == 0,
                     "statistics" => hour is >= 3 and <= 10 && minute is 2 or 17 or 32 or 47,
                     "results" => hour is >= 3 and <= 10 && minute is 5 or 20 or 35 or 50,
                     "postponed-results" => minute % 5 == 0,
