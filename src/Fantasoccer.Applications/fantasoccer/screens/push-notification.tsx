@@ -129,7 +129,6 @@ const PushNotificationScreen = () => {
     isLoading,
     error,
     lastUpdated,
-    refetch,
     updateSettings,
     addDevice,
     removeDevice,
@@ -438,13 +437,6 @@ const PushNotificationScreen = () => {
                 <Text color="$color10">Ultimo aggiornamento</Text>
                 <Text fontWeight="600" color="$color11">{formatTimestamp(lastUpdated)}</Text>
               </YStack>
-              <Button
-                icon={isLoading ? <Spinner size="small" color="$color1" /> : <RefreshCcw size="$1" color="$color1" />}
-                onPress={() => refetch()}
-                variant="outlined"
-              >
-                {isLoading ? 'Aggiornamento…' : 'Ricarica'}
-              </Button>
             </XStack>
           </Card>
 

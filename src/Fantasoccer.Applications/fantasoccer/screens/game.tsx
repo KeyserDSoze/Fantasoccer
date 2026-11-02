@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { ScreenContent } from 'components/layout/ScreenContent';
-import { YStack, XStack, Text, H3, Separator, Button, Card, useMedia } from 'tamagui';
+import { YStack, XStack, Text, H3, Separator, Button, Card, Spinner, useMedia } from 'tamagui';
 import { useToastController } from '@tamagui/toast';
 import { Calculator } from '@tamagui/lucide-icons-2';
 import { useSerieACalendar } from 'hooks/useSerieACalendar';
@@ -25,9 +25,16 @@ import { useApp } from '../providers/AppProvider';
 import { IdentityRole, hasRole } from '../types/identity';
 
 export default function GameScreen() {
+  const { params } = useRoute<RouteProp<RootStackParamList, 'Game'>>();
+  // React Navigation can reuse this screen for another match. Reset its request
+  // state immediately, rather than briefly displaying the previous match.
+  return <GameContent key={JSON.stringify([params?.groupId, params?.leagueId, params?.year, params?.gameId, params?.editMode])} />;
+}
+
+function GameContent() {
   const media = useMedia();
   const toast = useToastController();
-  const { calendar, isLive: calendarIsLive, isLoading, error } = useSerieACalendar({
+  const { calendar, isLive: calendarIsLive } = useSerieACalendar({
     refreshInterval: 60000,
     enablePolling: true,
   });
@@ -67,7 +74,7 @@ export default function GameScreen() {
   const [adminEditingTeam, setAdminEditingTeam] = useState<'home' | 'away' | null>(null);
   // gameService result (live teams + extra info) — prefer this when available
   const [gameWrapper, setGameWrapper] = useState<GameWrapper | null>(null);
-  const [gameLoading, setGameLoading] = useState(false);
+  const [gameLoading, setGameLoading] = useState(true);
   const [gameError, setGameError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false); // Flag per evitare refresh multipli
   const [isEditingFormation, setIsEditingFormation] = useState(false);
@@ -114,6 +121,8 @@ export default function GameScreen() {
   useEffect(() => {
     if (!routeGameId || !routeGroupId || !routeLeagueId || !routeYear) {
       setGameWrapper(null);
+      setGameLoading(false);
+      setGameError('Parametri della partita incompleti. Seleziona una partita dal calendario.');
       return;
     }
 
@@ -363,10 +372,13 @@ export default function GameScreen() {
       <ScreenContent path="screens/game.tsx" title={title}>
         <YStack gap="$4" width="100%">
           <Card padding="$3" backgroundColor="$color2">
-            {isLoading ? (
-              <Text>Caricamento...</Text>
-            ) : error ? (
-              <Text color="$red10">{error}</Text>
+            {gameLoading ? (
+              <XStack gap="$2" alignItems="center">
+                <Spinner size="small" />
+                <Text>Caricamento partita...</Text>
+              </XStack>
+            ) : gameError ? (
+              <Text color="$red10">{gameError}</Text>
             ) : !gameWrapper ? (
               <Text>Nessuna partita disponibile</Text>
             ) : (

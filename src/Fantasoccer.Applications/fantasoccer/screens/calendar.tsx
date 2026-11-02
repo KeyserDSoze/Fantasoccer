@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CalendarRange } from '@tamagui/lucide-icons-2'
 import {
   Card,
@@ -183,10 +183,6 @@ export default function CalendarScreen() {
   const shouldRenderSelectors = hasMultipleGroups || hasMultipleLeagues || hasMultipleYears || hasMultipleRounds
   const isSelectionIncomplete = (roundKeys?.length ?? 0) > 0 && !selectedRoundId
 
-  const handleRefresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
-
   return (
     <ScreenContent path="screens/calendar.tsx" title="Calendario">
       <YStack
@@ -282,11 +278,10 @@ export default function CalendarScreen() {
               loading={loading}
               error={error}
               isSelectionIncomplete={shouldSkipCalendar || isSelectionIncomplete}
-              onRefresh={handleRefresh}
+              onRetry={() => void refetch()}
               selectionMessage="Seleziona lega, stagione e girone per visualizzare il calendario."
               emptyMessage="Nessuna giornata disponibile per i filtri selezionati."
               loadingMessage="Caricamento calendario..."
-              refreshLabel="Aggiorna calendario"
               errorActionLabel="Riprova"
             />
           </YStack>

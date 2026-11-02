@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { leagueBasketTeams } from 'utils/myTeams'
 import {
   AlertTriangle,
@@ -218,7 +218,7 @@ export default function PlayersScreen() {
   const [ownershipFilter, setOwnershipFilter] = useState<PlayerOwnershipFilter>('all')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [teams, setTeams] = useState<Team[]>([])
-  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const teamsRequest = useRef(0)
 
   // Sync local state with global state
   useEffect(() => {
@@ -229,24 +229,17 @@ export default function PlayersScreen() {
     setLocalLeagueId(selectedLeagueId ?? null)
   }, [selectedLeagueId])
 
-  // Load teams when league/year changes
-  useEffect(() => {
-    loadTeams()
-  }, [currentGroup, localLeagueId, localYear])
-
-  const loadTeams = async () => {
+  const loadTeams = useCallback(async () => {
+    const request = ++teamsRequest.current
     if (!currentGroup || !localLeagueId || !localYear) {
       setTeams([])
       return
     }
 
-    setIsLoadingTeams(true)
-
     try {
       const league = currentGroup.leagues?.find(l => l.id === localLeagueId)
       if (!league || !league.basketsId || league.basketsId.length === 0) {
         setTeams([])
-        setIsLoadingTeams(false)
         return
       }
 
@@ -254,7 +247,6 @@ export default function PlayersScreen() {
       const seasons = leagueBasketTeams(currentGroup, localLeagueId, localYear)
       if (seasons.length === 0) {
         setTeams([])
-        setIsLoadingTeams(false)
         return
       }
 
@@ -265,14 +257,12 @@ export default function PlayersScreen() {
         entry.teams.map(t => t.owner)
       )))).flat()
 
-      setTeams(fetchedTeams)
+      if (request === teamsRequest.current) setTeams(fetchedTeams)
     } catch (err: any) {
       console.error('Error loading teams:', err)
-      setTeams([])
-    } finally {
-      setIsLoadingTeams(false)
+      // Keep the previous ownership data on a transient polling error.
     }
-  }
+  }, [currentGroup, localLeagueId, localYear])
 
   const availableYears = useMemo(() => {
     const yearsSet = new Set<number>()
@@ -300,12 +290,17 @@ export default function PlayersScreen() {
     }
   }, [availableYears, localYear])
 
-  // Load teams when league or year changes
+  // Ownership must refresh alongside statistics, not only when a button is pressed.
   useEffect(() => {
-    if (currentGroup && localLeagueId && localYear) {
-      loadTeams()
+    setTeams([])
+    void loadTeams()
+    if (!currentGroup || !localLeagueId || localYear == null) return
+    const interval = setInterval(() => { void loadTeams() }, 120000)
+    return () => {
+      clearInterval(interval)
+      teamsRequest.current++ // Ignore responses for a previous selection or an unmounted page.
     }
-  }, [currentGroup, localLeagueId, localYear])
+  }, [loadTeams, currentGroup, localLeagueId, localYear])
 
   const { players, isLoading, error, lastUpdated, refetch } = useStatPlayers({
     year: localYear ?? undefined,
@@ -650,18 +645,6 @@ export default function PlayersScreen() {
                   <Text color="$color10" fontSize="$2">
                     {hasPlayers ? `${sortedPlayers.length} giocatori` : 'Nessun giocatore disponibile'}
                   </Text>
-                  <Button
-                    size="$2"
-                    icon={isLoading || isLoadingTeams ? Spinner : RefreshCw}
-                    variant="outlined"
-                    disabled={isLoading || isLoadingTeams}
-                    onPress={() => {
-                      void refetch()
-                      void loadTeams()
-                    }}
-                  >
-                    Aggiorna
-                  </Button>
                   <Button
                     size="$2"
                     icon={Download}

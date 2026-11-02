@@ -152,7 +152,7 @@ function HomeLeagueMatchContent() {
               error={rankError}
               groupId={currentGroup.id}
               year={selectedYear}
-              onRefresh={() => void refetchRank()}
+              onRetry={() => void refetchRank()}
             />
           </ResponsiveWidgetPair>
         </YStack>

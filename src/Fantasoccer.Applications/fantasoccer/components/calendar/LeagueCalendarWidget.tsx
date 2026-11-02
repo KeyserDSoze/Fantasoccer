@@ -25,11 +25,10 @@ export type LeagueCalendarWidgetProps = {
   loading?: boolean
   error?: string | null
   isSelectionIncomplete?: boolean
-  onRefresh?: () => void
+  onRetry?: () => void
   selectionMessage?: string
   emptyMessage?: string
   loadingMessage?: string
-  refreshLabel?: string
   errorActionLabel?: string
   // Navigation parameters (optional, fallback to global context if not provided)
   groupId?: string | null
@@ -41,7 +40,6 @@ export type LeagueCalendarWidgetProps = {
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare il calendario.'
 const defaultEmptyMessage = 'Nessuna giornata disponibile per i filtri selezionati.'
 const defaultLoadingMessage = 'Caricamento calendario...'
-const defaultRefreshLabel = 'Aggiorna calendario'
 const defaultErrorActionLabel = 'Riprova'
 
 const GameRow: FC<{ 
@@ -234,11 +232,10 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
   loading,
   error,
   isSelectionIncomplete,
-  onRefresh,
+  onRetry,
   selectionMessage = defaultSelectionMessage,
   emptyMessage = defaultEmptyMessage,
   loadingMessage = defaultLoadingMessage,
-  refreshLabel = defaultRefreshLabel,
   errorActionLabel = defaultErrorActionLabel,
   groupId,
   leagueId,
@@ -318,8 +315,8 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
           <Text color="$color10" textAlign="center">
             {error}
           </Text>
-          {onRefresh && (
-            <Button icon={RefreshCw} variant="outlined" onPress={onRefresh}>
+          {onRetry && (
+            <Button icon={RefreshCw} variant="outlined" onPress={onRetry}>
               {errorActionLabel}
             </Button>
           )}
@@ -334,11 +331,6 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
           <Text color="$color10" fontSize="$3" textAlign="center">
             {emptyMessage}
           </Text>
-          {onRefresh && (
-            <Button variant="outlined" onPress={onRefresh}>
-              {refreshLabel}
-            </Button>
-          )}
         </YStack>
       ) : (
         <YStack gap="$3" paddingBottom="$2">
@@ -364,16 +356,6 @@ export const LeagueCalendarWidget: FC<LeagueCalendarWidgetProps> = ({
         </YStack>
       )}
 
-      {onRefresh && hasDays && (
-        <>
-          <Separator marginTop="$2" />
-          <XStack justifyContent="flex-end">
-            <Button size="$2" variant="outlined" icon={RefreshCw} onPress={onRefresh}>
-              {refreshLabel}
-            </Button>
-          </XStack>
-        </>
-      )}
     </Card>
   )
 }

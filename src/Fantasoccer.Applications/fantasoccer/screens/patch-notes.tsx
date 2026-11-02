@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.5',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Rimossi i pulsanti Aggiorna ridondanti da Live, calendari, classifiche, widget della home, statistiche, log e preferenze push: i dati si aggiornano già automaticamente. Restano Riprova dopo gli errori e i comandi necessari nelle pagine amministrative senza aggiornamento automatico',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Nelle statistiche giocatori anche proprietà e rose si aggiornano automaticamente dopo i cambiamenti di mercato, senza dover premere Aggiorna',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Aprendo una partita viene mostrato il caricamento corretto, non più il messaggio Nessuna partita disponibile mentre la richiesta è ancora in corso. Gli errori della partita sono distinti da quelli del calendario Serie A',
+      },
+    ],
+  },
+  {
     version: '4.0.4',
     date: '2 Novembre 2026',
     changes: [

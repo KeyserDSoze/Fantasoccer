@@ -192,9 +192,6 @@ export function SerieALiveWidget({
           <Text color="$color10" fontSize="$3" textAlign="center">
             Nessuna partita disponibile al momento. Riprova più tardi.
           </Text>
-          <Button variant="outlined" onPress={() => { void refetch() }}>
-            Aggiorna calendario
-          </Button>
         </YStack>
       ) : displayDay ? (
         <YStack gap="$3" paddingBottom="$2">
@@ -202,16 +199,6 @@ export function SerieALiveWidget({
         </YStack>
       ) : null}
 
-      {hasGames && (
-        <>
-          <Separator marginTop="$2" />
-          <XStack justifyContent="flex-end">
-            <Button size="$2" variant="outlined" icon={RefreshCw} onPress={() => { void refetch() }}>
-              Aggiorna calendario
-            </Button>
-          </XStack>
-        </>
-      )}
     </Card>
   )
 
@@ -226,9 +213,6 @@ export function SerieALiveWidget({
     >
       <XStack justifyContent="space-between" alignItems="center" gap="$2">
         <H3 color="$color12">Classifica Serie A</H3>
-        <Button size="$2" variant="outlined" disabled={isRankLoading} onPress={() => { void refetchRank() }}>
-          Aggiorna
-        </Button>
       </XStack>
 
       <Separator />
