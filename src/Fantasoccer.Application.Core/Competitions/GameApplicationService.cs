@@ -119,9 +119,9 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var match = await MatchAsync(group, league, year, matchId, cancellationToken);
         if (request.TeamId != match.HomeTeamId && request.TeamId != match.AwayTeamId)
             throw new ApplicationFault(400, "team_not_in_match", "La squadra non appartiene alla partita.");
-        // The lineup belongs to this competition only: other leagues are untouched.
+        // Pre-match saves follow the team's lineup setting; live changes reach other competitions only as described in LeagueLineupApplicationService.
         return await lineups.SaveAsync(caller, new(group, league, year, match.Matchday.SerieADay, request.TeamId, request.Positions, request.ExpectedVersion,
-            request.SourceVersion, request.Live, request.AsAdmin, matchId), cancellationToken);
+            request.SourceVersion, request.Live, request.AsAdmin, matchId) { ApplyToLeagues = request.ApplyToLeagues }, cancellationToken);
     }
 
     public async Task<FormationSavedDto> CopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, Guid matchId,

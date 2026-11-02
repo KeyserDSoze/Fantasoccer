@@ -22,7 +22,9 @@ import {
 import gameService, { type GameEditMode } from '../../services/gameService';
 import { getPlayerKey } from '../../utils/keyUtils';
 import { reloadPlayerImage } from '../../services/playerImageService';
-import { displayedPlayers, savedPlayer } from '../../services/gameFormation';
+import { displayedPlayers, savedPlayer, sameLineupLeagues } from '../../services/gameFormation';
+import { LiveChangeScopeDialog, type LiveChangeScope } from './LiveChangeScopeDialog';
+import type { LineupCopySource } from '../../services/gameService';
 
 // SVG field background as a React component with responsive orientation
 interface SoccerFieldSVGProps {
@@ -270,6 +272,9 @@ export const SoccerField = memo(
     const [editingTeamIndex, setEditingTeamIndex] = useState<number | null>(null); // 0 = home, 1 = away
     const [modifiedTeamIndex, setModifiedTeamIndex] = useState<number | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [liveScope, setLiveScope] = useState<{ leagues: LineupCopySource[]; resolve: (choice: LiveChangeScope) => void } | null>(null);
+    const askLiveScope = (leagues: LineupCopySource[]) =>
+      new Promise<LiveChangeScope>((resolve) => setLiveScope({ leagues, resolve }));
     const [isCalculatingOptimal, setIsCalculatingOptimal] = useState(false);
     const [currentTime, setCurrentTime] = useState(Date.now());
     const [quickMenu, setQuickMenu] = useState<{
@@ -1077,8 +1082,21 @@ export const SoccerField = memo(
             return;
           }
         }
+        // With separate lineups a live change stays in this league, unless the same lineup sits in other leagues and the owner agrees.
+        let applyToLeagues: string[] | undefined;
+        if (editMode === 'live' && teamToSave.separateLineups) {
+          const sources = await gameService
+            .getCopySources({ groupId, leagueId, year, day: gameWrapper?.serieADay ?? 0, teamId: teamToSave.teamId })
+            .catch(() => [] as LineupCopySource[]);
+          const same = sameLineupLeagues(sources);
+          if (same.length > 0) {
+            const choice = await askLiveScope(same);
+            if (choice === 'cancel') return;
+            if (choice === 'all') applyToLeagues = same.map((source) => source.leagueId);
+          }
+        }
         const response = await gameService.saveTeam(
-          { groupId, leagueId, year, gameId, editMode }, teamToSave, isAdminMode
+          { groupId, leagueId, year, gameId, editMode }, teamToSave, isAdminMode, applyToLeagues
         );
 
         if (response.isOk) {
@@ -2024,6 +2042,14 @@ export const SoccerField = memo(
           onAddToField={!isLiveEdit ? handleAddToField : undefined}
           onAddToBench={!isLiveEdit ? handleAddToBench : undefined}
           statPlayersMap={statPlayersMap}
+        />
+
+        <LiveChangeScopeDialog
+          leagues={liveScope ? liveScope.leagues.map((source) => source.leagueName) : null}
+          onChoose={(choice) => {
+            liveScope?.resolve(choice);
+            setLiveScope(null);
+          }}
         />
 
         {/* MODALE PER VISUALIZZAZIONE INFO GIOCATORE */}

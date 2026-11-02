@@ -6,7 +6,7 @@ import { formationRequest } from './gameFormation'
 export interface OptimalFormationPlayer { playerId: string; playerKey: string; playerName: string; role: number; position: number; projection: number; confidence: number }
 export interface OptimalFormationResult { players: OptimalFormationPlayer[]; module: string; score: number; confidence: number; warnings: string[] }
 export type GameEditMode = 'formation' | 'live' | 'view'
-export interface LineupCopySource { leagueId: string; leagueName: string; teamId: string; teamName: string; hasLineup: boolean; version: number; lastUpdateUtc: string | null; gameId?: string | null }
+export interface LineupCopySource { leagueId: string; leagueName: string; teamId: string; teamName: string; hasLineup: boolean; version: number; lastUpdateUtc: string | null; gameId?: string | null; sameLineup?: boolean }
 export interface TeamLineupSettings { separateLineups: boolean; competitions: number }
 export interface GameContext { groupId: string; leagueId: string; year: number; gameId: string; editMode: GameEditMode }
 export const competitionPath = (group: string, league: string, year: number) => `/api/competitions/${encodeURIComponent(group)}/${encodeURIComponent(league)}/${year}`
@@ -15,8 +15,9 @@ export const gameService = {
   getGame(params: Omit<GameContext, 'editMode'> & { editMode?: GameEditMode; asAdmin?: boolean }) {
     return apiRequest<GameWrapper>(`${gamePath(params)}?${new URLSearchParams({ editMode: params.editMode ?? 'view', asAdmin: String(params.asAdmin ?? false) })}`)
   },
-  saveTeam(context: GameContext, team: LiveTeam, asAdmin = false) {
-    return apiRequest<{ isOk: boolean; message: string; team: Team }>(`${gamePath(context)}/formation`, 'PUT', formationRequest(team, context.editMode === 'live', asAdmin))
+  // applyToLeagues: live change of a team with separate lineups, confirmed for the competitions that had the same lineup.
+  saveTeam(context: GameContext, team: LiveTeam, asAdmin = false, applyToLeagues?: string[]) {
+    return apiRequest<{ isOk: boolean; message: string; team: Team }>(`${gamePath(context)}/formation`, 'PUT', formationRequest(team, context.editMode === 'live', asAdmin, applyToLeagues))
   },
   // teamId selects the exact team (several teams per user, SuperAdmin acting for others).
   getOptimalFormation(params: { groupId: string; leagueId: string; year: number; day: number; owner: string; teamId?: string; asAdmin?: boolean }) {

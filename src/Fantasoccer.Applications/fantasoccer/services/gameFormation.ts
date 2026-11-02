@@ -1,6 +1,6 @@
 import type { LivePlayer, LiveTeam } from '../types/game'
 
-export function formationRequest(team: LiveTeam, live = false, asAdmin = false) {
+export function formationRequest(team: LiveTeam, live = false, asAdmin = false, applyToLeagues?: string[]) {
   if (!team.teamId || !Number.isInteger(team.version) || team.version < 0) throw new Error('Ricaricare la formazione dal server.')
   const active = team.players.filter(player => player.current.status === 0)
   const ids = active.map(player => player.current.playerId)
@@ -8,6 +8,7 @@ export function formationRequest(team: LiveTeam, live = false, asAdmin = false) 
   if (team.version === 0 && team.sourceVersion == null) throw new Error('Rosa di origine non versionata. Ricaricare.')
   return {
     teamId: team.teamId, expectedVersion: team.version, sourceVersion: team.sourceVersion, live, asAdmin,
+    ...(live && applyToLeagues?.length ? { applyToLeagues } : {}),
     positions: active.map(player => ({ playerId: player.current.playerId!, position: player.currentPosition })),
   }
 }
@@ -29,3 +30,6 @@ export function displayedPlayers(players: LivePlayer[], hasUnsavedEdits = false)
 }
 
 export const savedPlayer = (player: LivePlayer): LivePlayer => savedOf.get(player) ?? player
+
+// Competitions of the same team whose lineup is, right now, the same as the one being changed.
+export const sameLineupLeagues = <T extends { sameLineup?: boolean }>(sources: T[]): T[] => sources.filter(source => source.sameLineup === true)

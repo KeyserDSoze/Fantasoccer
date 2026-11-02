@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { displayedPlayers, formationRequest, savedPlayer } from '../services/gameFormation.ts'
+import { displayedPlayers, formationRequest, savedPlayer, sameLineupLeagues } from '../services/gameFormation.ts'
 
 const team = () => ({
   teamId: 'team-uuid', version: 0, sourceVersion: 7, name: 'Ignored name', owner: 'owner@example.test', moneyFromRank: 9999,
@@ -16,6 +16,17 @@ test('formation writes contain only stable IDs, positions and concurrency versio
     teamId: 'team-uuid', expectedVersion: 0, sourceVersion: 7, live: true, asAdmin: false,
     positions: [{ playerId: 'first-uuid', position: 1 }, { playerId: 'second-uuid', position: 5 }],
   })
+})
+test('a live change carries the confirmed leagues only when it is live', () => {
+  assert.deepEqual(formationRequest(team(), true, false, ['league-a', 'league-b']).applyToLeagues, ['league-a', 'league-b'])
+  assert.equal('applyToLeagues' in formationRequest(team(), true, false, []), false)
+  assert.equal('applyToLeagues' in formationRequest(team(), true, false), false)
+  assert.equal('applyToLeagues' in formationRequest(team(), false, false, ['league-a']), false)
+})
+test('only the competitions with the very same lineup are offered', () => {
+  const sources = [{ leagueName: 'A', sameLineup: true }, { leagueName: 'B', sameLineup: false }, { leagueName: 'C' }, { leagueName: 'D', sameLineup: true }]
+  assert.deepEqual(sameLineupLeagues(sources).map(source => source.leagueName), ['A', 'D'])
+  assert.deepEqual(sameLineupLeagues([]), [])
 })
 test('missing or duplicate active IDs and missing source versions stop before sending', () => {
   assert.throws(() => formationRequest({ ...team(), sourceVersion: null }))
