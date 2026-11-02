@@ -11,7 +11,15 @@
 
 La classifica del Live usa gli stessi risultati mostrati nelle partite: il job rilegge il calendario salvato e sostituisce in memoria i risultati della giornata con quelli della proiezione. Il calcolatore della competizione applica le regole annuali e le esclusioni delle fasi. Una partita già ufficializzata viene contata una sola volta, non aggiunta alla classifica ufficiale. Le identità di calcolo sono gli ID delle squadre, non il proprietario. I saldi disponibili vengono conservati dallo snapshot ufficiale; risultati, classifiche e saldi nel database non vengono modificati. L'impronta della cache cambia per invalidare gli snapshot con la vecchia classifica ufficiale-only (issue #29).
 
-## Diagnostica
+## Home, indicatori e caricamento (4.0.6)
+
+- La finestra della home è calcolata dal server e condivisa con la selezione della cache: **primo calcio d'inizio meno 2 ore → ultimo calcio d'inizio + 135 minuti (fine prevista) + 14 ore**. Quando ci sono finestre sovrapposte ha priorità quella iniziata più di recente. I recuperi in corso mantengono la precedenza sulla giornata originale.
+- La finestra è di visualizzazione, non riapre le formazioni né cambia l'orario dei job di ingestione. La home esce prima dal Live se tutte le partite della lega/giornata hanno risultati salvati e nessun turno è in attesa dei recuperi (`IsConsolidated`). I risultati **provvisori** della cache non sono un consolidamento.
+- Home e pagina Live leggono la stessa proiezione (inclusa la classifica provvisoria), con polling di lettura ogni 15 secondi; il calendario e la classifica ufficiali restano il fallback dell'ultima giornata giocata. Si mantiene l'anno selezionato nella home, senza sostituirlo con la preferenza del profilo. Se la cache è fredda o la lega non gioca in quella giornata (es. coppa), la home mantiene l'ultima giornata disponibile, senza inventare risultati né svuotare la pagina.
+- `IsPlaying` indica una gara Serie A effettivamente in corso, non l'intera finestra di visualizzazione: niente animazione nelle 2 ore pre-partita, tra gare già concluse o dopo l'ultimo match. `IsProvisional` distingue i punteggi di anteprima dagli ufficiali. Il calendario pulsa soltanto sui risultati provvisori non annullati mentre si gioca, con etichetta LIVE e supporto al movimento ridotto. Il vecchio riquadro informativo Live è rimosso; gli avvisi di dati vecchi/errori restano.
+- Il loader condiviso `SplashScreen` mantiene logo e stile del login e accetta fasi con stato pending/done/error. La partita spunta solo richieste davvero completate: il server restituisce partita, formazioni e voti in **una risposta**, non vengono simulate fasi interne né percentuali. Calendario e statistiche sono facoltativi e non bloccano una partita già pronta. Il loader iniziale non sostituisce contenuti già disponibili durante il polling.
+
+## Diagnostica query
 
 In entrambe le modalità Application Insights e OpenTelemetry sono ascoltate le ActivitySource `Npgsql` (durata, operazione, correlazione delle query) e `Fantasoccer.Live` (`live.refresh`, `live.build`, `live.build.game`). Il processor rimuove `db.statement` e `db.query.text`: niente SQL completo o parametri utente nei trace.
 

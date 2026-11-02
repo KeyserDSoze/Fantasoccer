@@ -15,6 +15,27 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.0.6',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Il loader FantaZone del login viene riusato nei caricamenti principali. Aprendo una partita mostra le richieste in corso e spunta quelle completate: partita e formazioni, calendario e statistiche. I dati facoltativi non rallentano l’apertura',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Rimosso il riquadro Aggiornamento automatico live: i risultati provvisori pulsano dolcemente con l’indicazione LIVE solo mentre si gioca. Con movimento ridotto l’indicatore resta fermo',
+      },
+      {
+        category: 'Feature',
+        description:
+          'La home mostra risultati e classifica Live della lega da 2 ore prima dell’inizio della giornata fino a 14 ore dopo la fine prevista dell’ultima partita, oppure fino al consolidamento. Fuori da questa finestra torna all’ultima giornata giocata',
+      },
+    ],
+  },
+  {
     version: '4.0.5',
     date: '2 Novembre 2026',
     changes: [

@@ -1,7 +1,8 @@
 import { ScreenContent } from 'components/layout/ScreenContent';
+import { SplashScreen } from 'components/layout/SplashScreen';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, Paragraph, YStack, H3, Card, Spinner } from 'tamagui';
+import { Button, Paragraph, YStack, H3, Card } from 'tamagui';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from 'navigation';
 import { useAuth } from 'providers/AuthProvider';
@@ -28,7 +29,10 @@ function AuthenticatedContent({ user }: { user: AuthUser | null }) {
   const { userGroups, hasLoadedGroups, isGroupsLoading, groupsError, refreshGroups } = useApp();
 
   if (!hasLoadedGroups || isGroupsLoading) {
-    return <YStack width="100%" alignItems="center" gap="$3" padding="$6"><Spinner /><Paragraph>Caricamento dei tuoi gruppi…</Paragraph></YStack>;
+    return <SplashScreen compact message="Caricamento dei tuoi gruppi…" steps={[
+      { id: 'profile', label: 'Profilo utente', status: 'done' },
+      { id: 'groups', label: 'Gruppi e leghe', status: 'pending' },
+    ]} />;
   }
 
   if (groupsError) {

@@ -5,11 +5,11 @@ import { getCurrentSeasonYear } from '../utils/season'
 import { enhanceLiveGroup, enhanceLiveLeague, LiveGroupHelper, LiveLeagueHelper, type LiveGroup } from '../types/liveGroup'
 
 export class LiveGroupService {
-  async getLiveGroup(groupId: string, _options: { forceRefresh?: boolean } = {}): Promise<LiveGroup | null> {
+  async getLiveGroup(groupId: string, options: { forceRefresh?: boolean; year?: number } = {}): Promise<LiveGroup | null> {
     if (!groupId) return null
     const token = await tokenStorageService.ensureValidToken()
     if (!token) throw new Error('Accesso richiesto.')
-    const year = (await authService.getUserInfo(token)).state.year ?? getCurrentSeasonYear()
+    const year = options.year ?? (await authService.getUserInfo(token)).state.year ?? getCurrentSeasonYear()
     return apiRequest(`/api/groups/${encodeURIComponent(groupId)}/live?year=${year}`)
   }
   async getEnhancedLiveGroup(groupId: string, options: { forceRefresh?: boolean } = {}) { const group = await this.getLiveGroup(groupId, options); return group ? enhanceLiveGroup(group) : null }

@@ -18,6 +18,7 @@ import { CalendarDay, CalendarGame } from '../types/calendar'
 
 export interface UseLiveGroupOptions {
   refreshInterval?: number
+  year?: number
 }
 
 export interface UseLiveGroupResult {
@@ -33,14 +34,18 @@ export interface UseLiveGroupResult {
 export function useLiveGroup(groupId: string | null, options: UseLiveGroupOptions = {}): UseLiveGroupResult {
   const [liveGroup, setLiveGroup] = useState<LiveGroup | null>(null)
   const [enhancedLiveGroup, setEnhancedLiveGroup] = useState<EnhancedLiveGroup | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(Boolean(groupId))
   const [refreshing, setRefreshing] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const hasDataRef = useRef<boolean>(false)
+  const requestRef = useRef(0)
+  const inFlightRef = useRef(false)
 
-  const { refreshInterval = 0 } = options
+  const { refreshInterval = 0, year } = options
 
   const fetchLiveGroup = useCallback(async (forceRefresh = false) => {
+    if (inFlightRef.current) return
+    const request = ++requestRef.current
     if (!groupId) {
       setLiveGroup(null)
       setEnhancedLiveGroup(null)
@@ -51,6 +56,8 @@ export function useLiveGroup(groupId: string | null, options: UseLiveGroupOption
       return
     }
 
+    inFlightRef.current = true
+
     const showInitialLoader = !hasDataRef.current
     if (showInitialLoader) {
       setLoading(true)
@@ -60,28 +67,35 @@ export function useLiveGroup(groupId: string | null, options: UseLiveGroupOption
     setError(null)
 
     try {
-      const groupData = await liveGroupService.getLiveGroup(groupId, { forceRefresh })
+      const groupData = await liveGroupService.getLiveGroup(groupId, { forceRefresh, year })
+      if (request !== requestRef.current) return
       const enhancedGroupData = groupData ? enhanceLiveGroup(groupData) : null
 
       setLiveGroup(groupData)
       setEnhancedLiveGroup(enhancedGroupData)
       hasDataRef.current = Boolean(groupData || enhancedGroupData)
     } catch (err) {
+      if (request !== requestRef.current) return
       const message = err instanceof Error ? err.message : 'Failed to fetch live group'
       setError(message)
       console.error('Error fetching live group:', err)
     } finally {
-      if (showInitialLoader) {
+      if (request === requestRef.current) inFlightRef.current = false
+      if (request === requestRef.current && showInitialLoader) {
         setLoading(false)
       }
-      if (forceRefresh) {
+      if (request === requestRef.current && forceRefresh) {
         setRefreshing(false)
       }
     }
-  }, [groupId])
+  }, [groupId, year])
 
   useEffect(() => {
+    hasDataRef.current = false
+    setLiveGroup(null)
+    setEnhancedLiveGroup(null)
     void fetchLiveGroup(true)
+    return () => { requestRef.current++; inFlightRef.current = false }
   }, [fetchLiveGroup])
 
   useEffect(() => {

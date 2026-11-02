@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { View } from 'react-native'
 import { ScreenContent } from 'components/layout/ScreenContent'
+import { SplashScreen } from 'components/layout/SplashScreen'
 import { 
   YStack, 
   XStack, 
@@ -8,7 +9,6 @@ import {
   H3, 
   H4,
   Card, 
-  Spinner, 
   Separator,
   ScrollView,
   useMedia,
@@ -220,8 +220,7 @@ export default function LogsScreen() {
           {/* Lista logs */}
           {loading && logs.length === 0 ? (
             <Card padding="$6" alignItems="center" gap="$3">
-              <Spinner size="large" color="$purple10" />
-              <Text color="$color10">Caricamento log...</Text>
+              <SplashScreen compact message="Caricamento log…" steps={[{ id: 'logs', label: 'Log e risultati dei job', status: 'pending' }]} />
             </Card>
           ) : error ? (
             <Card padding="$4" backgroundColor="$red3" borderColor="$red7" borderWidth="$0.5">

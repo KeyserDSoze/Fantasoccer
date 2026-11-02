@@ -25,6 +25,8 @@ function widgets(width) {
     '../team/TeamLogo': { TeamLogo: 'TeamLogo' },
     './LuckDetailModal': { LuckDetailModal: 'LuckDetailModal' },
     'utils/luckCalculator': { LuckCalculator: {} },
+    'components/live/LiveScore': { LiveScore: 'LiveScore' },
+    'components/layout/SplashScreen': { SplashScreen: 'SplashScreen' },
   }
   return {
     calendar: loadTypeScript('components/calendar/LeagueCalendarWidget.tsx', mocks).LeagueCalendarWidget,
@@ -43,6 +45,13 @@ function text(node) {
   if (!node || typeof node !== 'object') return ''
   if (Array.isArray(node)) return node.map(text).join(' ')
   return text(node.props?.children)
+}
+
+function renderedNodes(node, type) {
+  if (!node || typeof node !== 'object') return []
+  if (Array.isArray(node)) return node.flatMap(item => renderedNodes(item, type))
+  if (typeof node.type === 'function') return renderedNodes(node.type(node.props), type)
+  return [...(node.type === type ? [node] : []), ...renderedNodes(node.props?.children, type)]
 }
 
 for (const width of [390, 1280]) {
@@ -98,4 +107,18 @@ test('post-save reloads and non-polling editors keep their required actions', ()
   assert.match(source('screens/serie-a-admin.tsx'), /enablePolling: false/)
   assert.match(source('screens/serie-a-admin.tsx'), /Ricarica/)
   assert.match(source('components/ServiceWorkerUpdateNotification.tsx'), /Aggiorna Ora/)
+})
+
+test('only provisional, non-cancelled scores pulse while Serie A games are actually playing', () => {
+  const { calendar } = widgets(1280)
+  const result = { home: { value: 70 }, away: { value: 60 }, homeGoals: 1, awayGoals: 0, isCancelled: false }
+  for (const [playing, provisional, cancelled, expected] of [
+    [true, true, false, true], [false, true, false, false], [true, false, false, false], [true, true, true, false],
+  ]) {
+    const tree = calendar({ days: [{ serieADay: 1, number: 1, games: [{ id: 'game', home: 'Home', away: 'Away', result: { ...result, isCancelled: cancelled }, isProvisional: provisional }] }], pulseResults: playing })
+    const scores = renderedNodes(tree, 'LiveScore')
+    assert.equal(scores.length, 1)
+    assert.equal(scores[0].props.active, expected)
+  }
+  assert.doesNotMatch(source('screens/live.tsx'), /Aggiornamento automatico live|Nessuna partita in sospeso/)
 })

@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, RefreshCw } from '@tamagui/lucide-icons-2';
-import { Button, Card, Spinner, Text, XStack, YStack } from 'tamagui';
+import { Button, Card, Text, XStack, YStack } from 'tamagui';
 
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget';
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget';
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget';
 import { ResponsiveWidgetPair } from 'components/layout/ResponsiveWidgetPair';
+import { SplashScreen } from 'components/layout/SplashScreen';
 import { useCalendar } from 'hooks/useCalendar';
 import { useRankByComponents } from 'hooks/useRank';
-import { useSerieACalendar } from 'hooks/useSerieACalendar';
+import { useLiveGroup } from 'hooks/useLiveGroup';
 import { useApp } from 'providers/AppProvider';
 import { useAuth } from 'providers/AuthProvider';
-import { RankHelper } from 'types/rank';
+import { RankHelper, enhanceRankWithTeamPositions } from 'types/rank';
+import { homeMatchDisplay } from 'utils/homeMatchDisplay';
 import { formatSeasonFromYear } from 'utils/season';
 
 export function HomeLeagueMatchWidget() {
@@ -51,13 +53,12 @@ function HomeLeagueMatchContent() {
     if (!currentGroup || !selectedLeagueId || selectedYear == null) return null;
     return RankHelper.createLeagueKey(currentGroup.id, selectedLeagueId, selectedYear);
   }, [currentGroup, selectedLeagueId, selectedYear]);
-  const { liveDay, isLive } = useSerieACalendar({
+  const { liveGroup, loading: liveLoading, error: liveError, refetch: refetchLive } = useLiveGroup(selectedYear == null ? null : currentGroup?.id ?? null, {
+    year: selectedYear ?? undefined,
     refreshInterval: 15000,
-    enablePolling: true,
-    pollOnlyWhenLive: false,
   });
   const { days, loading, error, refetch } = useCalendar(leagueKey, {
-    refreshInterval: isLive ? 15000 : 60000,
+    refreshInterval: 60000,
   });
 
   const {
@@ -70,24 +71,13 @@ function HomeLeagueMatchContent() {
     refreshInterval: 60000,
   });
 
-  const selectedDay = useMemo(() => {
-    const ownDays = days
-      .filter((day) => day.games.length > 0)
-      .map((day) => ({ day, games: day.games }));
-
-    if (ownDays.length === 0) return null;
-    const live =
-      isLive && liveDay && ownDays.find(({ day }) => day.serieADay === liveDay.serieADay);
-    if (live) return { ...live, isLive: true };
-
-    const previous = ownDays
-      .filter(({ games }) => games.some((game) => Boolean(game.result)))
-      .sort((left, right) => right.day.serieADay - left.day.serieADay)[0];
-    return previous ? { ...previous, isLive: false } : null;
-  }, [days, isLive, liveDay]);
-
-  const rankingRoundId = availableRounds.includes('@') ? '@' : (availableRounds[0] ?? null);
-  const rankedTeams = rankingRoundId ? getEnhancedRoundRanking(rankingRoundId) : [];
+  const display = useMemo(() => homeMatchDisplay(days, liveGroup, selectedLeagueId, selectedYear), [days, liveGroup, selectedLeagueId, selectedYear]);
+  const rounds = display.isLive ? Object.keys(display.rank?.rounds ?? {}) : availableRounds;
+  const rankingRoundId = rounds.includes('@') ? '@' : (rounds[0] ?? null);
+  const rankedTeams = display.isLive
+    ? rankingRoundId && display.rank ? enhanceRankWithTeamPositions(display.rank)[rankingRoundId] ?? [] : []
+    : rankingRoundId ? getEnhancedRoundRanking(rankingRoundId) : [];
+  const displayError = display.isLive ? liveError : error;
 
   if (!currentGroup || !user) return null;
 
@@ -101,65 +91,66 @@ function HomeLeagueMatchContent() {
         selectedYear={selectedYear}
         onSelectYear={setSelectedYear}
         formatYearLabel={formatSeasonFromYear}
-        title={isLive ? 'Partita live' : 'La tua ultima partita'}
+        title={display.isLive ? 'Live della tua lega' : 'La tua ultima giornata'}
         leagueHint="Scegli la lega"
         yearHint="Scegli la stagione"
         showRoundSection={false}
         defaultExpanded={leagueOptions.length > 1 || availableYears.length > 1}
       />
 
-      {loading && !selectedDay ? (
+      {(loading || liveLoading) && display.days.length === 0 ? (
         <Card padding="$4" backgroundColor="$color2">
-          <XStack justifyContent="center" alignItems="center" gap="$3">
-            <Spinner size="small" color="$blue10" />
-            <Text color="$color10">Caricamento ultima partita...</Text>
-          </XStack>
+          <SplashScreen compact message="Caricamento della giornata…" steps={[
+            { id: 'calendar', label: 'Calendario della lega', status: loading ? 'pending' : error ? 'error' : 'done' },
+            { id: 'live', label: 'Risultati e classifica Live', status: liveLoading ? 'pending' : liveError ? 'error' : 'done' },
+          ]} />
         </Card>
-      ) : error ? (
+      ) : displayError && display.days.length === 0 ? (
         <Card padding="$4" backgroundColor="$red2">
           <YStack alignItems="center" gap="$3">
             <AlertTriangle color="$red10" />
             <Text color="$red11" textAlign="center">
-              {error}
+              {displayError}
             </Text>
-            <Button icon={RefreshCw} variant="outlined" onPress={() => void refetch()}>
+            <Button icon={RefreshCw} variant="outlined" onPress={() => { void refetch(); void refetchLive() }}>
               Riprova
             </Button>
           </YStack>
         </Card>
-      ) : selectedDay ? (
+      ) : display.days.length > 0 ? (
         <YStack gap="$3" flexShrink={0}>
-          <Text color={selectedDay.isLive ? '$red10' : '$color10'} fontWeight="700">
-            {selectedDay.isLive ? 'Partita live' : 'Ultima partita giocata'} · Giornata{' '}
-            {selectedDay.day.serieADay}
+          <Text color={display.isLive ? '$red10' : '$color10'} fontWeight="700">
+            {display.isLive ? 'Live della lega' : 'Ultima giornata giocata'} · Giornata{' '}
+            {display.serieADay}
           </Text>
           <ResponsiveWidgetPair testID="home-league-widgets">
             <LeagueCalendarWidget
               leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
               seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
-              days={[{ ...selectedDay.day, games: selectedDay.games }]}
+              days={display.days}
               groupId={currentGroup.id}
               leagueId={selectedLeagueId}
               year={selectedYear}
-              editMode={selectedDay.isLive ? 'live' : 'view'}
+              editMode={display.isLive ? 'live' : 'view'}
+              pulseResults={display.pulseResults}
             />
             <LeagueRankingWidget
               leagueName={leagues.find((league) => league.id === selectedLeagueId)?.name}
               seasonLabel={selectedYear == null ? null : formatSeasonFromYear(selectedYear)}
               roundLabel={rankingRoundId === '@' ? 'Classifica generale' : rankingRoundId}
               rankedTeams={rankedTeams}
-              loading={rankLoading}
-              error={rankError}
+              loading={display.isLive ? liveLoading : rankLoading}
+              error={display.isLive ? liveError : rankError}
               groupId={currentGroup.id}
               year={selectedYear}
-              onRetry={() => void refetchRank()}
+              onRetry={() => { if (display.isLive) void refetchLive(); else void refetchRank() }}
             />
           </ResponsiveWidgetPair>
         </YStack>
       ) : (
         <Card padding="$4" backgroundColor="$color2">
           <Text color="$color10" textAlign="center">
-            Non ci sono ancora partite giocate per i filtri selezionati.
+            {display.isLive ? 'Live in preparazione: i dati compariranno automaticamente al prossimo aggiornamento.' : 'Non ci sono ancora partite giocate per i filtri selezionati.'}
           </Text>
         </Card>
       )}

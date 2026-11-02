@@ -12,7 +12,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Competitions;
 
-public sealed record LiveLeagueDto(Guid Id, string Name, Dictionary<string, CalendarDayDto> Rounds, FantasyRankDto? Rank, bool PreviewUnavailable);
+public sealed record LiveLeagueDto(Guid Id, string Name, Dictionary<string, CalendarDayDto> Rounds, FantasyRankDto? Rank, bool PreviewUnavailable)
+{
+    public bool IsConsolidated { get; init; }
+}
 public sealed record LiveGroupDto(string Name, int Year, LiveLeagueDto[] Leagues)
 {
     public int? SerieADay { get; init; }
@@ -24,12 +27,19 @@ public sealed record LiveGroupDto(string Name, int Year, LiveLeagueDto[] Leagues
     // projection above was built from the last votes available either way.
     public DateTimeOffset? LiveVotesUpdatedAtUtc { get; init; }
     public bool LiveVotesStale { get; init; }
+    public DateTimeOffset? WindowStartsAtUtc { get; init; }
+    public DateTimeOffset? WindowEndsAtUtc { get; init; }
+    public bool IsPlaying { get; init; }
+    public bool IsInLiveWindow { get; init; }
 }
 
 // Shared projection stored in the distributed cache: user-independent (no
 // CanEdit flags, no personal data), one per group/season/day.
 public sealed record LiveLeagueSnapshot(Guid Id, string Name, Dictionary<string, CalendarDayDto> Rounds, FantasyRankDto? Rank, bool PreviewUnavailable,
-    Dictionary<Guid, GameDto> Games);
+    Dictionary<Guid, GameDto> Games)
+{
+    public bool IsConsolidated { get; init; }
+}
 public sealed record LiveGroupSnapshot(Guid GroupId, string Name, int Year, int SerieADay, LiveLeagueSnapshot[] Leagues);
 
 public sealed class LiveCompetitionApplicationService(FantasoccerDbContext database, CompetitionApplicationService competitions,
@@ -52,9 +62,12 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         // Overdue only while the matchday is being played: afterwards no job runs and
         // the last confirmation is simply the final provisional state.
         var votesOverdue = selection.LiveSince is { } since && (votes is null ? now - since > FootballLiveDataStore.LiveVotesFreshFor : !votes.IsFreshAt(now));
-        return new(snapshot.Name, snapshot.Year, snapshot.Leagues.Select(x => new LiveLeagueDto(x.Id, x.Name, x.Rounds, x.Rank, x.PreviewUnavailable)).ToArray())
+        return new(snapshot.Name, snapshot.Year, snapshot.Leagues.Select(x => new LiveLeagueDto(x.Id, x.Name, x.Rounds, x.Rank, x.PreviewUnavailable)
+            { IsConsolidated = x.IsConsolidated }).ToArray())
             { SerieADay = selection.Day, GeneratedAtUtc = read.Envelope.GeneratedAtUtc, IsStale = read.IsStale,
-              LiveVotesUpdatedAtUtc = votes?.GeneratedAtUtc, LiveVotesStale = votesOverdue };
+              LiveVotesUpdatedAtUtc = votes?.GeneratedAtUtc, LiveVotesStale = votesOverdue,
+              WindowStartsAtUtc = selection.StartsAt, WindowEndsAtUtc = selection.EndsAt, IsPlaying = selection.IsPlaying,
+              IsInLiveWindow = selection.StartsAt is { } start && selection.EndsAt is { } end && now >= start && now < end };
     }
 
     // View-mode game of the current live day, served from the shared projection.
@@ -117,7 +130,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         // the shared projection exactly consistent with its sources.
         var builder = new StringBuilder();
         void Add(object? value) => builder.Append(Convert.ToString(value, CultureInfo.InvariantCulture)).Append('|');
-        Add("live-rank-v2"); // Invalidate projections built with the official-only rank.
+        Add("live-display-v3"); // Invalidate projections without provisional/consolidation flags.
         Add(await database.Groups.Where(x => x.Id == group).Select(x => x.Revision).SingleOrDefaultAsync(cancellationToken));
         foreach (var calendar in await database.FantasyCalendars.Where(x => x.GroupId == group && x.SeasonIndex == year).OrderBy(x => x.LeagueId)
                      .Select(x => new { x.LeagueId, x.Version }).ToArrayAsync(cancellationToken)) Add($"{calendar.LeagueId:N}:{calendar.Version}");
@@ -176,7 +189,7 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
                             using var gameActivity = Activities.StartActivity("live.build.game");
                             var detail = await games.BuildAsync(league, game.Id, "view", null, false, cancellationToken);
                             details[game.Id] = detail;
-                            previews.Add(detail.Game);
+                            previews.Add(detail.Game with { IsProvisional = detail.ResultIsPreview });
                         }
                         catch (ApplicationFault fault) when (fault.Code == "historical_roster_unavailable") { previews.Add(game); unavailable = true; }
                     }
@@ -184,14 +197,17 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
                 }
             // Recalculate provisional standings using the same results displayed in
             // the live cards. Official standings and balances are never persisted here.
-            result.Add(new(league.LeagueId, league.League.Name, rounds, await competitions.LiveRankAsync(league, details, cancellationToken), unavailable, details));
+            var selectedDays = (fantasy?.Rounds.Values.SelectMany(x => x) ?? []).Where(x => x.SerieADay == day).ToArray();
+            var consolidated = selectedDays.Length > 0 && selectedDays.All(x => !x.AwaitingPostponedMatches && x.IsClosed);
+            result.Add(new(league.LeagueId, league.League.Name, rounds, await competitions.LiveRankAsync(league, details, cancellationToken), unavailable, details)
+                { IsConsolidated = consolidated });
         }
         return new(group, name, year, day, result.ToArray());
     }
 
     // LiveSince is set only while the selected matchday is being played (the same
     // window the live job runs in): first kickoff until 10 h 15 after the last one.
-    private sealed record DaySelection(int? Day, DateTimeOffset? LiveSince);
+    private sealed record DaySelection(int? Day, DateTimeOffset? LiveSince, DateTimeOffset? StartsAt = null, DateTimeOffset? EndsAt = null, bool IsPlaying = false);
 
     private async Task<DaySelection> SelectedDayAsync(int year, CancellationToken cancellationToken)
     {
@@ -202,12 +218,21 @@ public sealed class LiveCompetitionApplicationService(FantasoccerDbContext datab
         var recovery = (calendar?.Days ?? []).SelectMany(day => day.Games.Select(game => new { day.SerieADay, Game = game }))
             .Where(x => FootballLiveTiming.IsRecoveryLive(x.Game.WasPostponed, x.Game.Delayed, x.Game.IsFinished, x.Game.Date, now))
             .OrderByDescending(x => x.Game.Date).ThenByDescending(x => x.SerieADay).FirstOrDefault();
-        if (recovery is not null) return new(recovery.SerieADay, recovery.Game.Date);
+        if (recovery is not null) return new(recovery.SerieADay, recovery.Game.Date,
+            FootballLiveTiming.DisplayStarts(recovery.Game.Date!.Value), FootballLiveTiming.DisplayEnds(recovery.Game.Date.Value),
+            FootballLiveTiming.IsPlaying(recovery.Game.Delayed, recovery.Game.IsFinished, recovery.Game.Date, now));
         var windows = (calendar?.Days ?? []).Select(x => new { x.SerieADay, Times = x.Games.Where(game => !game.Delayed && !game.WasPostponed && game.Date != null).Select(game => game.Date!.Value).ToArray() })
             .Where(x => x.Times.Length > 0).ToArray();
-        var live = windows.Where(x => now >= x.Times.Min() && now <= x.Times.Max().AddHours(10.25)).MaxBy(x => x.SerieADay);
-        if (live is not null) return new(live.SerieADay, live.Times.Min());
-        return new(windows.Where(x => now < x.Times.Min()).MinBy(x => x.SerieADay)?.SerieADay ?? windows.MaxBy(x => x.SerieADay)?.SerieADay, null);
+        var selected = windows.Where(x => now >= FootballLiveTiming.DisplayStarts(x.Times.Min()) && now < FootballLiveTiming.DisplayEnds(x.Times.Max()))
+            .MaxBy(x => x.Times.Min())
+            ?? windows.Where(x => now < x.Times.Min()).MinBy(x => x.Times.Min())
+            ?? windows.MaxBy(x => x.Times.Max());
+        if (selected is null) return new(null, null);
+        // Keep vote-delay reporting tied to ingestion, not the wider home display window.
+        var since = now >= selected.Times.Min() && now <= selected.Times.Max().AddHours(10.25) ? (DateTimeOffset?)selected.Times.Min() : null;
+        var playing = calendar!.Days.Where(x => x.SerieADay == selected.SerieADay).SelectMany(x => x.Games)
+            .Any(x => FootballLiveTiming.IsPlaying(x.Delayed, x.IsFinished, x.Date, now));
+        return new(selected.SerieADay, since, FootballLiveTiming.DisplayStarts(selected.Times.Min()), FootballLiveTiming.DisplayEnds(selected.Times.Max()), playing);
     }
 
     private async Task AuthorizeAsync(ClaimsPrincipal caller, Guid group)
