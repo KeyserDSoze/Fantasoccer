@@ -56,8 +56,8 @@ export function LineupSettingsCard({ groupId, year, teamId }: LineupSettingsCard
           />
           <Text fontSize="$2" color="$color10">
             {settings.separateLineups
-              ? 'Ogni competizione ha la sua formazione. Nella schermata della partita trovi il cambio di competizione e "Copia formazione".'
-              : `Ogni salvataggio prepartita tenta di copiare la formazione nelle altre competizioni${settings.competitions > 1 ? ` (${settings.competitions} in totale)` : ''}, rispettando regole e scadenze. Le copie rifiutate sono segnalate al salvataggio. I cambi live restano separati; attivare questa modalità non riallinea le formazioni già salvate.`}
+              ? 'Ogni competizione ha la sua formazione. Nella schermata della partita trovi il cambio di competizione e "Copia formazione". Se facendo un cambio live hai la stessa formazione in più leghe, ti chiediamo se applicarlo anche alle altre (indicandole).'
+              : `Ogni salvataggio, anche i cambi live, tenta di copiare la formazione nelle altre competizioni${settings.competitions > 1 ? ` (${settings.competitions} in totale)` : ''}, rispettando regole, scadenze e cambi live disponibili di ciascuna. Le copie rifiutate sono segnalate al salvataggio. Attivare questa modalità non riallinea le formazioni già salvate.`}
           </Text>
         </YStack>
         {saving && <Spinner />}

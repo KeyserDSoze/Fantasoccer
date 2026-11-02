@@ -11,13 +11,20 @@ using Microsoft.Extensions.Options;
 namespace Fantasoccer.Application.Core.Competitions;
 
 public sealed record SaveLineupCommand(Guid GroupId, Guid LeagueId, int Year, int Day, Guid TeamId, FormationPositionRequest[] Positions, int ExpectedVersion,
-    int? SourceVersion = null, bool Live = false, bool AsAdmin = false, Guid? MatchId = null);
+    int? SourceVersion = null, bool Live = false, bool AsAdmin = false, Guid? MatchId = null)
+{
+    public Guid[]? ApplyToLeagues { get; init; }
+}
 public sealed record CopyLineupRequest(int Day, Guid TeamId, Guid SourceLeagueId, Guid SourceTeamId, int ExpectedVersion, int? SourceVersion = null,
     bool Live = false, bool AsAdmin = false);
 public sealed record TeamLineupSettingsDto(bool SeparateLineups, int Competitions);
 public sealed record SetTeamLineupSettingsRequest(Guid GroupId, int Year, Guid TeamId, bool SeparateLineups);
 // GameId: the match of that competition on the requested day (to switch competition), when it has one.
-public sealed record LineupCopySourceDto(Guid LeagueId, string LeagueName, Guid TeamId, string TeamName, bool HasLineup, int Version, DateTimeOffset? LastUpdateUtc, Guid? GameId = null);
+// SameLineup: the lineup of that competition is, right now, identical to the one of the requested team.
+public sealed record LineupCopySourceDto(Guid LeagueId, string LeagueName, Guid TeamId, string TeamName, bool HasLineup, int Version, DateTimeOffset? LastUpdateUtc, Guid? GameId = null)
+{
+    public bool SameLineup { get; init; }
+}
 
 // Effective formation of a participant in one competition and day: the
 // authoritative team's roster of the day with the competition lineup applied.
@@ -58,9 +65,20 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
 
     public async Task<FormationSavedDto> SaveAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken = default)
     {
+        // Live changes of a team with separate lineups reach only the competitions the owner confirmed, and only those that had the
+        // very same lineup before the change (checked here, not trusted from the client).
+        var confirmed = command.Live ? await ConfirmedLiveTargetsAsync(caller, command, cancellationToken) : null;
         var saved = await SaveOnceAsync(caller, command, cancellationToken);
-        // Live changes are limited per competition and never propagate.
-        return command.Live ? saved : await PropagateAsync(caller, command, saved, cancellationToken);
+        return await PropagateAsync(caller, command, saved, confirmed, cancellationToken);
+    }
+
+    private async Task<HashSet<Guid>?> ConfirmedLiveTargetsAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken)
+    {
+        if (command.ApplyToLeagues is not { Length: > 0 } requested) return null;
+        var team = await teams.ResolveAsync(command.GroupId, command.Year, command.TeamId, cancellationToken);
+        if (team is null || !await SeparateLineupsAsync(command.GroupId, command.Year, team.AuthoritativeTeamId, cancellationToken)) return null;
+        var sources = await CopySourcesAsync(caller, command.GroupId, command.LeagueId, command.Year, command.Day, command.TeamId, cancellationToken);
+        return sources.Where(x => x.SameLineup && requested.Contains(x.LeagueId)).Select(x => x.LeagueId).ToHashSet();
     }
 
     private async Task<FormationSavedDto> SaveOnceAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken)
@@ -109,15 +127,21 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         return result() with { Message = "Formazione copiata." };
     }
 
-    // Shared lineups (the default): every pre-match save is copied to the other competitions of the
-    // same team unless its owner chose separate lineups. Each target is an independent copy that goes
-    // through all the save validations: a refusal (deadline, rules) is reported and never undoes the save.
-    private async Task<FormationSavedDto> PropagateAsync(ClaimsPrincipal caller, SaveLineupCommand command, FormationSavedDto saved, CancellationToken cancellationToken)
+    // Shared lineups (the default): every save, pre-match or live, is copied to the other competitions of the same team.
+    // With separate lineups only a live change confirmed by the owner is copied, to the competitions that had the same lineup
+    // (`confirmed`). Each target is an independent copy that goes through all the save validations (deadline, rules, live changes
+    // left in that competition): a refusal is reported and never undoes the save.
+    private async Task<FormationSavedDto> PropagateAsync(ClaimsPrincipal caller, SaveLineupCommand command, FormationSavedDto saved, HashSet<Guid>? confirmed,
+        CancellationToken cancellationToken)
     {
         var team = await teams.ResolveAsync(command.GroupId, command.Year, command.TeamId, cancellationToken);
-        if (team is null || await SeparateLineupsAsync(command.GroupId, command.Year, team.AuthoritativeTeamId, cancellationToken)) return saved;
+        if (team is null) return saved;
+        var separate = await SeparateLineupsAsync(command.GroupId, command.Year, team.AuthoritativeTeamId, cancellationToken);
+        if (separate && (!command.Live || confirmed is not { Count: > 0 })) return saved;
         var targets = await SiblingsAsync(command.GroupId, command.LeagueId, command.Year, command.TeamId, team.AuthoritativeTeamId, cancellationToken);
-        var copied = 0; var warnings = new List<string>();
+        if (separate) targets = targets.Where(x => confirmed!.Contains(x.LeagueId)).ToArray();
+        var copiedTo = new List<string>();
+        var warnings = new List<string>();
         foreach (var target in targets)
         {
             try
@@ -128,8 +152,8 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
                         ((x.Kind == RosterKind.Matchday && x.Day == command.Day && x.CompetitionId == Guid.Empty) || (x.Kind == RosterKind.Season && x.Day == 0)))
                     .OrderByDescending(x => x.Kind == RosterKind.Matchday).Select(x => x.Version).FirstAsync(cancellationToken);
                 await CopyAsync(caller, command.GroupId, target.LeagueId, command.Year, new(command.Day, target.TeamId, command.LeagueId, command.TeamId, version,
-                    version == 0 ? baseline : null, false, command.AsAdmin), cancellationToken);
-                copied++;
+                    version == 0 ? baseline : null, command.Live, command.AsAdmin), cancellationToken);
+                copiedTo.Add(target.LeagueName);
             }
             catch (ApplicationFault fault)
             {
@@ -137,8 +161,8 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
                 warnings.Add($"{target.LeagueName}: {fault.Message}");
             }
         }
-        if (copied == 0 && warnings.Count == 0) return saved;
-        var message = saved.Message + (copied > 0 ? $" Copiata in {copied} {(copied == 1 ? "altra competizione" : "altre competizioni")}." : "") +
+        if (copiedTo.Count == 0 && warnings.Count == 0) return saved;
+        var message = saved.Message + (copiedTo.Count > 0 ? $" Copiata in {copiedTo.Count} {(copiedTo.Count == 1 ? "altra competizione" : "altre competizioni")} ({string.Join(", ", copiedTo)})." : "") +
             (warnings.Count > 0 ? " Non copiata: " + string.Join("; ", warnings) : "");
         return saved with { Message = message };
     }
@@ -202,14 +226,26 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
             .ToArrayAsync(cancellationToken);
         var resolved = (await teams.ResolveManyAsync(group, year, candidates.Select(x => x.TeamId).ToArray(), cancellationToken)).ToDictionary(x => x.TeamId);
         var result = new List<LineupCopySourceDto>();
+        var mine = await ReadAsync(group, league, year, target, day, true, cancellationToken);
         foreach (var candidate in candidates.Where(x => resolved.TryGetValue(x.TeamId, out var team) && team.AuthoritativeTeamId == target.AuthoritativeTeamId))
         {
+            var theirs = await ReadAsync(group, candidate.LeagueId, year, resolved[candidate.TeamId], day, true, cancellationToken);
             var lineup = await Lineups(group, candidate.LeagueId, year, candidate.TeamId, day).AsNoTracking().Select(x => new { x.Version, x.LastUpdateUtc }).SingleOrDefaultAsync(cancellationToken);
             var game = await database.FantasyMatches.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == candidate.LeagueId && x.SeasonIndex == year && x.Matchday.SerieADay == day &&
                 (x.HomeTeamId == candidate.TeamId || x.AwayTeamId == candidate.TeamId)).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(cancellationToken);
-            result.Add(new(candidate.LeagueId, candidate.Name, candidate.TeamId, resolved[candidate.TeamId].Name, lineup is not null, lineup?.Version ?? 0, lineup?.LastUpdateUtc, game));
+            result.Add(new(candidate.LeagueId, candidate.Name, candidate.TeamId, resolved[candidate.TeamId].Name, lineup is not null, lineup?.Version ?? 0, lineup?.LastUpdateUtc, game)
+                { SameLineup = SameFormation(mine, theirs) });
         }
         return result.OrderBy(x => x.LeagueName).ToArray();
+    }
+
+    // Same starters, bench and stands for every active player.
+    private static bool SameFormation(FormationView? left, FormationView? right)
+    {
+        if (left is null || right is null) return false;
+        var a = left.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
+        var b = right.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
+        return a.Count == b.Count && a.All(x => b.TryGetValue(x.Key, out var position) && position == x.Value);
     }
 
     // Players used to compute a result: the day roster (penalised if never submitted and no earlier

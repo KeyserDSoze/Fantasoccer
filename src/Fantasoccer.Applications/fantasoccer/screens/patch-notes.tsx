@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.4',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Cambi live con la stessa squadra in più leghe: con “Formazione diversa per ogni competizione” disattivo il cambio si applica ovunque (rispettando i cambi live disponibili di ogni lega, e segnalando dove non è stato possibile)',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Con la formazione diversa per competizione attiva, se hai la stessa formazione in più leghe il cambio live ti chiede se applicarlo anche alle altre, elencandole. Se le formazioni sono diverse non chiede nulla e il cambio resta dove lo fai',
+      },
+    ],
+  },
+  {
     version: '4.1.3',
     date: '2 Novembre 2026',
     changes: [

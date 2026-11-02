@@ -55,7 +55,11 @@ public sealed record GameDto(LiveTeamDto[] Teams, CalendarGameDto Game, int Seri
     public bool AwaitingPostponedMatches { get; init; }
 }
 public sealed record SaveGameFormationRequest(Guid TeamId, FormationPositionRequest[] Positions, int ExpectedVersion,
-    int? SourceVersion = null, bool Live = false, bool AsAdmin = false);
+    int? SourceVersion = null, bool Live = false, bool AsAdmin = false)
+{
+    // Separate lineups only: competitions that had the very same lineup before this live change and where it must be applied too.
+    public Guid[]? ApplyToLeagues { get; init; }
+}
 public sealed record CopyGameFormationRequest(Guid TeamId, Guid SourceLeagueId, Guid SourceTeamId, int ExpectedVersion, int? SourceVersion = null,
     bool Live = false, bool AsAdmin = false);
 public sealed record OptimalGamePlayerDto(string PlayerId, string PlayerKey, string PlayerName, int Role, int Position, float Projection, float Confidence);
