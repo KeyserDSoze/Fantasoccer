@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Dimensions } from 'react-native'
 import { Sheet, YStack, XStack, Text, Button, ScrollView, Card } from 'tamagui'
+import { transferNotice } from 'utils/playerTransfer'
 import { X, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus, Clock, CheckCircle, Circle } from '@tamagui/lucide-icons-2'
 import type { LivePlayer } from 'types/game'
 import type { StatPlayer } from 'types/stat'
@@ -74,6 +75,8 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
     }
     return calculatePlayerStats(statPlayer)
   }, [statPlayer])
+  const leftSerieA = Boolean(statPlayer?.leftSerieA || current?.isActive === false)
+  const transfer = transferNotice(statPlayer, current?.isActive === false)
 
   // Determina se la partita è iniziata, in corso o terminata
   const gameStatus = useMemo(() => {
@@ -221,6 +224,11 @@ export function PlayerViewModal({ isOpen, onClose, player, statPlayersMap }: Pla
                   <Text fontSize={14} color="$gray11">
                     {roleLabel} • {teamName}
                   </Text>
+                  {transfer && (
+                    <Text fontSize={13} fontWeight="600" color={leftSerieA ? '$orange10' : '$color10'} accessibilityLiveRegion="polite">
+                      {transfer}
+                    </Text>
+                  )}
                   {playerPrice !== null && (
                     <XStack gap={4} alignItems="center" paddingHorizontal={8} paddingVertical={2} backgroundColor="$green3" borderRadius={6}>
                       <Text fontSize={13} fontWeight="700" color="$green11">

@@ -1,6 +1,6 @@
 {
   "name": "fantasoccer",
-  "version": "4.0.6",
+  "version": "4.0.7",
   "scripts": {
     "start": "expo start --dev-client",
     "ios": "expo run:ios",
@@ -16,7 +16,7 @@
     "test:auth": "node --test tests/pkce.test.mjs tests/authExchange.test.mjs tests/mcpConnections.test.mjs tests/mcpGuide.test.mjs tests/mcpEntryPoints.test.mjs",
     "test:version": "node --test tests/version.test.mjs",
     "test:workspace": "node --experimental-transform-types --test tests/workspaceApi.test.mjs tests/relationalSurface.test.mjs tests/groupCreation.test.mjs tests/groupMembers.test.mjs",
-    "test:game": "node --experimental-transform-types --test tests/myTeams.test.mjs tests/gameFormation.test.mjs tests/minimalFootballVotes.test.mjs tests/historicalRank.test.mjs tests/postponedMatches.test.mjs tests/liveVotesFreshness.test.mjs tests/gameLoading.test.mjs",
+    "test:game": "node --experimental-transform-types --test tests/myTeams.test.mjs tests/gameFormation.test.mjs tests/minimalFootballVotes.test.mjs tests/historicalRank.test.mjs tests/postponedMatches.test.mjs tests/liveVotesFreshness.test.mjs tests/gameLoading.test.mjs tests/playerTransfer.test.mjs",
     "test:auto-refresh": "node --test tests/automaticRefresh.test.mjs tests/homeLive.test.mjs tests/loadingProgress.test.mjs",
     "test": "npm run test:group-admin && npm run test:market && npm run test:player-images && npm run test:push && npm run test:auth && npm run test:version && npm run test:workspace && npm run test:game && npm run test:auto-refresh",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",

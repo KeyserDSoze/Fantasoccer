@@ -18,6 +18,7 @@ import {
   convertDateToItalianTimezone,
 } from 'utils/timezoneHelpers';
 import { IconFactory } from './icons';
+import { transferNotice } from 'utils/playerTransfer';
 import { calculatePlayerStats, getTrendVisual } from 'utils/statPlayerCalculator';
 import { getPlayerKey } from 'utils/keyUtils';
 import { usePlayerImageRevision } from 'hooks/usePlayerImageRevision';
@@ -128,6 +129,10 @@ export function PlayerCard({
   const statPlayer = useMemo(() => {
     return statPlayersMap?.get(playerKey) ?? null;
   }, [statPlayersMap, playerKey]);
+
+  // Non più nel listone della Serie A (dal catalogo notturno): resta in rosa con un'icona dedicata.
+  const departure = transferNotice(statPlayer, current?.isActive === false);
+  const leftSerieA = Boolean(statPlayer?.leftSerieA || current?.isActive === false);
 
   // Calcola metriche da StatPlayer (sostituisce chance.trend e chance.lastGame)
   const playerStats = useMemo(() => {
@@ -586,6 +591,29 @@ export function PlayerCard({
             borderColor="#fff"
             elevation={5}>
             <IconFactory type="injury" size={20} />
+          </YStack>
+        )}
+
+        {/* Ha lasciato la Serie A - angolo bottom-left, speculare all'infortunio */}
+        {leftSerieA && (
+          <YStack
+            position="absolute"
+            bottom={55}
+            left={8}
+            width={32}
+            height={32}
+            borderRadius={16}
+            backgroundColor="rgba(51, 65, 85, 0.95)"
+            alignItems="center"
+            justifyContent="center"
+            zIndex={15}
+            borderWidth={2}
+            borderColor="#fff"
+            elevation={5}
+            accessibilityRole="image"
+            accessibilityLabel={departure ?? 'Ha lasciato la Serie A'}
+            {...({ title: departure ?? 'Ha lasciato la Serie A' } as any)}>
+            <IconFactory type="leftSerieA" size={18} />
           </YStack>
         )}
 

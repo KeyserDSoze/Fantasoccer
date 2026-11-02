@@ -2242,12 +2242,25 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<bool>("IsVisible")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("MissingSinceUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Position")
                         .HasColumnType("integer");
+
+                    b.Property<string>("PreviousClubId")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("PreviousClubCode");
+
+                    b.Property<DateTimeOffset?>("TransferredAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("PlayerId", "SeasonIndex");
 
                     b.HasIndex("ClubId");
+
+                    b.HasIndex("PreviousClubId");
 
                     b.HasIndex("SeasonIndex");
 
@@ -6209,6 +6222,11 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.FootballClub", "PreviousClub")
+                        .WithMany()
+                        .HasForeignKey("PreviousClubId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.Season", "Season")
                         .WithMany()
                         .HasForeignKey("SeasonIndex")
@@ -6218,6 +6236,8 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Navigation("Club");
 
                     b.Navigation("Player");
+
+                    b.Navigation("PreviousClub");
 
                     b.Navigation("Season");
                 });

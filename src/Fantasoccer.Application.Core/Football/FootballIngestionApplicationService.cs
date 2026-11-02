@@ -117,19 +117,29 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var existing = await database.PlayerSeasons.Include(x => x.Player).Where(x => x.SeasonIndex == year).ToArrayAsync(cancellationToken);
         if (existing.Length > 0 && parsed.Count < existing.Count(x => x.IsActive) * 0.8) throw Invalid("Il catalogo del provider è troppo ridotto; nessun giocatore è stato disattivato.");
         var players = await database.Players.ToArrayAsync(cancellationToken); var clubs = await database.Clubs.ToArrayAsync(cancellationToken);
+        var resolved = parsed.Select(sample => (Sample: sample, Club: Club(sample.RealTeam, clubs))).ToArray();
+        // A whole club missing from the list is a provider/parser problem, not a mass departure.
+        var listedClubs = resolved.Select(x => x.Club.Id).ToHashSet(StringComparer.Ordinal);
+        var emptied = existing.Where(x => x.IsActive && x.ClubId != null).GroupBy(x => x.ClubId!)
+            .Where(x => x.Count() >= 5 && !listedClubs.Contains(x.Key)).Select(x => x.Key).Order().ToArray();
+        if (emptied.Length > 0) throw Invalid($"Nel catalogo del provider mancano le squadre {string.Join(", ", emptied)}; nessun giocatore è stato modificato.");
+        var now = clock.GetUtcNow();
+        var initialSnapshot = existing.Length == 0;
+        var byId = existing.ToDictionary(x => x.PlayerId, StringComparer.Ordinal);
         var active = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var sample in parsed)
+        foreach (var (sample, club) in resolved)
         {
             ValidatePlayer(sample);
-            var row = existing.SingleOrDefault(x => x.PlayerId == sample.Key);
+            var row = byId.GetValueOrDefault(sample.Key);
             var person = row?.Player ?? Person(sample, players);
-            var club = Club(sample.RealTeam, clubs);
             active.Add(person.Id);
-            if (row is null && existing.Any(x => x.PlayerId == person.Id)) throw Invalid("La PlayerKey stagionale è cambiata: serve una riconciliazione esplicita.");
-            if (row is null) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year });
-            row.Club = club; row.Position = (PlayerPosition)sample.Role; row.IsActive = true; row.IsVisible = sample.Visible;
+            if (row is null && byId.ContainsKey(person.Id)) throw Invalid("La PlayerKey stagionale è cambiata: serve una riconciliazione esplicita.");
+            var isNew = row is null;
+            if (isNew) database.PlayerSeasons.Add(row = new() { Player = person, SeasonIndex = year });
+            PlayerTransferRules.Listed(row!, club.Id, isNew, initialSnapshot, now);
+            row!.Club = club; row.Position = (PlayerPosition)sample.Role; row.IsActive = true; row.IsVisible = sample.Visible;
         }
-        foreach (var row in existing.Where(x => !active.Contains(x.PlayerId))) row.IsActive = false;
+        foreach (var row in existing.Where(x => !active.Contains(x.PlayerId))) PlayerTransferRules.Missing(row, now);
         await DatasetAsync("realplayerswrapper", year, 0, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         var seasons = await database.PlayerSeasons.Where(x => x.SeasonIndex == year).ToDictionaryAsync(x => x.PlayerId, cancellationToken);
@@ -138,8 +148,13 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         {
             var changed = false;
             foreach (var player in roster.Players.Where(x => x.Status == 0))
-                if (seasons.TryGetValue(player.PlayerId, out var source) && (player.ClubId != source.ClubId || player.IsActive != source.IsActive))
-                { player.ClubId = source.ClubId!; player.IsActive = source.IsActive; changed = true; }
+            {
+                if (!seasons.TryGetValue(player.PlayerId, out var source)) continue;
+                // A player who left Serie A stays in the fantasy roster with his last club, flagged inactive.
+                var club = source.ClubId ?? player.ClubId;
+                if (player.ClubId != club || player.IsActive != source.IsActive)
+                { player.ClubId = club; player.IsActive = source.IsActive; changed = true; }
+            }
             if (changed) { roster.Version++; roster.LastUpdateUtc = clock.GetUtcNow(); }
         }
         foreach (var group in rosters.GroupBy(x => x.GroupId)) await availability.SynchronizeFutureAsync(group.Key, year, group.Select(x => x.TeamId).ToArray(), cancellationToken);
@@ -261,8 +276,13 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
     private async Task PlayerSeasonAsync(FootballPlayer person, FootballClub club, RealPlayer sample, int year, CancellationToken cancellationToken)
     {
         if (!database.PlayerSeasons.Local.Any(x => x.PlayerId == person.Id && x.SeasonIndex == year) && !await database.PlayerSeasons.AnyAsync(x => x.PlayerId == person.Id && x.SeasonIndex == year, cancellationToken))
+        {
+            // A player first seen in the votes after the season's catalogue exists is a new arrival.
+            var arrival = await database.PlayerSeasons.AnyAsync(x => x.SeasonIndex == year, cancellationToken);
             database.PlayerSeasons.Add(new() { Player = person, Club = club, SeasonIndex = year,
-                Position = (PlayerPosition)sample.Role, IsActive = sample.IsActive, IsVisible = sample.Visible });
+                Position = (PlayerPosition)sample.Role, IsActive = sample.IsActive, IsVisible = sample.Visible,
+                TransferredAtUtc = arrival ? clock.GetUtcNow() : null });
+        }
     }
     private FootballPlayer Person(RealPlayer sample, FootballPlayer[] players)
     {

@@ -78,5 +78,7 @@ internal sealed class PlayerSeasonConfiguration : IEntityTypeConfiguration<Playe
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(x => x.Club).WithMany().HasForeignKey(x => x.ClubId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.PreviousClub).WithMany().HasForeignKey(x => x.PreviousClubId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
