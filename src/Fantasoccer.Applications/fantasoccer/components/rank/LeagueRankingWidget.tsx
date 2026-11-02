@@ -49,11 +49,10 @@ export type LeagueRankingWidgetProps = {
   loading?: boolean
   error?: string | null
   isSelectionIncomplete?: boolean
-  onRefresh?: () => void
+  onRetry?: () => void
   selectionMessage?: string
   emptyMessage?: string
   loadingMessage?: string
-  refreshLabel?: string
   errorActionLabel?: string
   groupId?: string | null // Per il logo della squadra
   year?: number | null // Per il logo della squadra
@@ -65,7 +64,6 @@ export type LeagueRankingWidgetProps = {
 const defaultSelectionMessage = 'Seleziona lega, stagione e girone per visualizzare la classifica.'
 const defaultEmptyMessage = 'Non ci sono dati di classifica per i filtri selezionati.'
 const defaultLoadingMessage = 'Caricamento classifica per il girone selezionato...'
-const defaultRefreshLabel = 'Aggiorna classifica'
 const defaultErrorActionLabel = 'Riprova'
 
 type StatCellValue = {
@@ -274,11 +272,10 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   loading,
   error,
   isSelectionIncomplete,
-  onRefresh,
+  onRetry,
   selectionMessage = defaultSelectionMessage,
   emptyMessage = defaultEmptyMessage,
   loadingMessage = defaultLoadingMessage,
-  refreshLabel = defaultRefreshLabel,
   errorActionLabel = defaultErrorActionLabel,
   groupId,
   year,
@@ -366,8 +363,8 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
           <Text color="$color10" textAlign="center">
             {error}
           </Text>
-          {onRefresh && (
-            <Button onPress={() => { onRefresh() }} icon={RefreshCw} variant="outlined">
+          {onRetry && (
+            <Button onPress={onRetry} icon={RefreshCw} variant="outlined">
               {errorActionLabel}
             </Button>
           )}
@@ -382,11 +379,6 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
           <Text color="$color10" fontSize="$3" textAlign="center">
             {emptyMessage}
           </Text>
-          {onRefresh && (
-            <Button icon={RefreshCw} onPress={() => { onRefresh() }} variant="outlined">
-              {refreshLabel}
-            </Button>
-          )}
         </YStack>
       ) : (
         <YStack gap="$2">
@@ -570,16 +562,6 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
             </ScrollView>
           </XStack>
 
-          {onRefresh && (
-            <>
-              <Separator marginTop="$2" />
-              <XStack justifyContent="flex-end">
-                <Button icon={RefreshCw} size="$2" variant="outlined" onPress={() => { onRefresh() }}>
-                  {refreshLabel}
-                </Button>
-              </XStack>
-            </>
-          )}
         </YStack>
       )}
       

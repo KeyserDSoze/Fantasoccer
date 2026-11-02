@@ -5,7 +5,7 @@
 - `GET /api/groups/{groupId}/live` legge soltanto la cache: non acquisisce lease, non attende il job e non avvia ricalcoli. Il blob precedente resta disponibile durante l'aggiornamento, pubblicato solo a ricalcolo completato. Nessuna transazione SQL globale copre il ricalcolo della proiezione.
 - Una copia vecchia viene restituita con `IsStale=true` e la data dell'ultima generazione: il frontend già avvisa che i dati sono in aggiornamento. Retention fisica: 3 giorni, estesa a ogni conferma del worker.
 - Cache mancante (primo avvio, perdita del blob o nuova giornata): risposta immediata senza leghe, marcata stale. Il job la popola al prossimo giro. L'endpoint non deve ricostruire come ripiego.
-- I due job hanno lease SQL separate e possono partire in parallelo: un voto arrivato dopo il controllo della proiezione sarà incluso nel giro successivo. Il pulsante Aggiorna rilegge la copia pubblicata, non forza il ricalcolo.
+- I due job hanno lease SQL separate e possono partire in parallelo: un voto arrivato dopo il controllo della proiezione sarà incluso nel giro successivo. Il frontend rilegge automaticamente la copia pubblicata ogni 15 secondi, senza forzare il ricalcolo. Dalla 4.0.5 i pulsanti di aggiornamento manuale ridondanti sono rimossi (vedi [verifica frontend](FRONTEND-REFRESH-AUDIT.md)); restano i «Riprova» in caso di errore.
 
 ## Classifica provvisoria (4.0.4)
 

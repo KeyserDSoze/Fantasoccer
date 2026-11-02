@@ -323,7 +323,7 @@ export default function Ranking() {
               loading={loading}
               error={error}
               isSelectionIncomplete={shouldSkipRank || isRoundSelectionIncomplete}
-              onRefresh={() => {
+              onRetry={() => {
                 void refetch()
               }}
               selectionMessage="Seleziona lega, stagione e girone per visualizzare la classifica."

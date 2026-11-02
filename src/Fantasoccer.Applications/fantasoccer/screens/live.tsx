@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native'
 import type { RouteProp } from '@react-navigation/native'
-import { AlertTriangle, RefreshCw, Zap } from '@tamagui/lucide-icons-2'
-import { Button, Card, Paragraph, Spinner, Text, XStack, YStack, useMedia } from 'tamagui'
+import { AlertTriangle, Zap } from '@tamagui/lucide-icons-2'
+import { Card, Paragraph, Spinner, Text, XStack, YStack, useMedia } from 'tamagui'
 
 import { ScreenContent } from 'components/layout/ScreenContent'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
@@ -79,7 +79,6 @@ export default function LiveScreen() {
   const {
     enhancedLiveGroup,
     loading: liveLoading,
-    refreshing: liveRefreshing,
     error: liveError,
     refetch: refetchLive,
   } = useLiveGroup(groupId, {
@@ -325,7 +324,7 @@ export default function LiveScreen() {
                 <Zap size="$1.5" color="$yellow10" />
                 <YStack gap="$1" flex={1}>
                   <Text fontSize="$5" fontWeight="700" color="$color12">
-                    Aggiornamento live
+                    Aggiornamento automatico live
                   </Text>
                   <Text color="$color10" fontSize="$3">
                     {pendingGamesCount > 0
@@ -333,16 +332,6 @@ export default function LiveScreen() {
                       : 'Nessuna partita in sospeso: tutti i risultati sono aggiornati'}
                   </Text>
                 </YStack>
-                <Button
-                  size="$2"
-                  icon={RefreshCw}
-                  variant="outlined"
-                  onPress={() => {
-                    void refetchLive()
-                  }}
-                  disabled={liveLoading || liveRefreshing}>
-                  Aggiorna
-                </Button>
               </XStack>
               {liveLoading && (
                 <XStack alignItems="center" gap="$2">
@@ -380,13 +369,12 @@ export default function LiveScreen() {
                     loading={liveLoading && liveDays.length === 0}
                     error={liveError}
                     isSelectionIncomplete={!localLeagueId}
-                    onRefresh={() => {
+                    onRetry={() => {
                       void refetchLive()
                     }}
                     selectionMessage="Seleziona una lega per visualizzare il calendario live."
                     emptyMessage="Nessuna giornata live disponibile per la lega selezionata."
                     loadingMessage="Caricamento calendario live..."
-                    refreshLabel="Aggiorna live"
                     errorActionLabel="Riprova"
                     groupId={groupId}
                     leagueId={localLeagueId}
@@ -408,13 +396,12 @@ export default function LiveScreen() {
                     loading={liveLoading && rankedTeams.length === 0}
                     error={liveError}
                     isSelectionIncomplete={!localLeagueId}
-                    onRefresh={() => {
+                    onRetry={() => {
                       void refetchLive()
                     }}
                     selectionMessage="Seleziona una lega per visualizzare la classifica live."
                     emptyMessage="La classifica live non è disponibile per la lega selezionata."
                     loadingMessage="Caricamento classifica live..."
-                    refreshLabel="Aggiorna live"
                     errorActionLabel="Riprova"
                   />
                 </YStack>
@@ -430,13 +417,12 @@ export default function LiveScreen() {
                   loading={liveLoading && liveDays.length === 0}
                   error={liveError}
                   isSelectionIncomplete={!localLeagueId}
-                  onRefresh={() => {
+                  onRetry={() => {
                     void refetchLive()
                   }}
                   selectionMessage="Seleziona una lega per visualizzare il calendario live."
                   emptyMessage="Nessuna giornata live disponibile per la lega selezionata."
                   loadingMessage="Caricamento calendario live..."
-                  refreshLabel="Aggiorna live"
                   errorActionLabel="Riprova"
                   groupId={groupId}
                   leagueId={localLeagueId}
@@ -457,13 +443,12 @@ export default function LiveScreen() {
                   loading={liveLoading && rankedTeams.length === 0}
                   error={liveError}
                   isSelectionIncomplete={!localLeagueId}
-                  onRefresh={() => {
+                  onRetry={() => {
                     void refetchLive()
                   }}
                   selectionMessage="Seleziona una lega per visualizzare la classifica live."
                   emptyMessage="La classifica live non è disponibile per la lega selezionata."
                   loadingMessage="Caricamento classifica live..."
-                  refreshLabel="Aggiorna live"
                   errorActionLabel="Riprova"
                 />
               </YStack>

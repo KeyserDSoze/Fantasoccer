@@ -21,7 +21,6 @@ import {
   AlertCircle, 
   Info, 
   Clock,
-  RefreshCw,
   ChevronDown,
   ChevronUp
 } from '@tamagui/lucide-icons-2'
@@ -30,7 +29,7 @@ export default function LogsScreen() {
   const media = useMedia()
   const containerWidth = media.gtMd ? 960 : '100%'
 
-  const { logs, loading, error, refetch, statistics } = useAllLogs({
+  const { logs, loading, error, statistics } = useAllLogs({
     refreshInterval: 60000 // Auto-refresh ogni minuto
   })
 
@@ -216,14 +215,6 @@ export default function LogsScreen() {
                 Chiudi Tutti
               </Button>
             </XStack>
-            <Button
-              size="$3"
-              onPress={() => refetch()}
-              icon={<RefreshCw size="$1" />}
-              disabled={loading}
-            >
-              Aggiorna
-            </Button>
           </XStack>
 
           {/* Lista logs */}
