@@ -68,8 +68,17 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         // Live changes of a team with separate lineups reach only the competitions the owner confirmed, and only those that had the
         // very same lineup before the change (checked here, not trusted from the client).
         var confirmed = command.Live ? await ConfirmedLiveTargetsAsync(caller, command, cancellationToken) : null;
+        var before = command.Live ? await ActivePositionsAsync(command, cancellationToken) : null;
         var saved = await SaveOnceAsync(caller, command, cancellationToken);
-        return await PropagateAsync(caller, command, saved, confirmed, cancellationToken);
+        return await PropagateAsync(caller, command, saved, confirmed, before, cancellationToken);
+    }
+
+    // The lineup as it is before a live change: what the change is measured against when it is replayed on another competition.
+    private async Task<Dictionary<string, int>?> ActivePositionsAsync(SaveLineupCommand command, CancellationToken cancellationToken)
+    {
+        var team = await teams.ResolveAsync(command.GroupId, command.Year, command.TeamId, cancellationToken);
+        var view = team is null ? null : await ReadAsync(command.GroupId, command.LeagueId, command.Year, team, command.Day, true, cancellationToken);
+        return view?.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
     }
 
     private async Task<HashSet<Guid>?> ConfirmedLiveTargetsAsync(ClaimsPrincipal caller, SaveLineupCommand command, CancellationToken cancellationToken)
@@ -105,7 +114,12 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
 
     // Copy is a one-off transfer of positions between two competitions using the
     // same authoritative roster. The target goes through every save validation.
-    public async Task<FormationSavedDto> CopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CopyLineupRequest request, CancellationToken cancellationToken = default)
+    public Task<FormationSavedDto> CopyAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CopyLineupRequest request, CancellationToken cancellationToken = default) =>
+        CopyCoreAsync(caller, group, league, year, request, null, cancellationToken);
+
+    // overridePositions: the exact lineup to save in the target (a replayed live swap) instead of the source lineup.
+    private async Task<FormationSavedDto> CopyCoreAsync(ClaimsPrincipal caller, Guid group, Guid league, int year, CopyLineupRequest request,
+        Dictionary<string, int>? overridePositions, CancellationToken cancellationToken)
     {
         if (request.Day is < 1 or > 38) throw Invalid("Giornata non valida.");
         await competitions.AuthorizeAsync(caller, group, request.SourceLeagueId, year, cancellationToken);
@@ -119,7 +133,8 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         await RequireParticipationAsync(group, request.SourceLeagueId, year, source.TeamId, cancellationToken);
         var view = await ReadAsync(group, request.SourceLeagueId, year, source, request.Day, true, cancellationToken)
             ?? throw new ApplicationFault(404, "roster_not_found", "Formazione di origine non disponibile.");
-        var positions = view.Roster.Players.Where(x => x.Status == 0).Select(x => new FormationPositionRequest(x.PlayerId, x.Position)).ToArray();
+        var positions = (overridePositions ?? view.Roster.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position))
+            .Select(x => new FormationPositionRequest(x.Key, x.Value)).ToArray();
         var result = await SaveCoreAsync(caller, new(group, league, year, request.Day, target.TeamId, positions, request.ExpectedVersion, request.SourceVersion,
             request.Live, request.AsAdmin), cancellationToken);
         await DatabaseFaults.GuardAsync(() => database.SaveChangesAsync(cancellationToken));
@@ -132,7 +147,7 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
     // (`confirmed`). Each target is an independent copy that goes through all the save validations (deadline, rules, live changes
     // left in that competition): a refusal is reported and never undoes the save.
     private async Task<FormationSavedDto> PropagateAsync(ClaimsPrincipal caller, SaveLineupCommand command, FormationSavedDto saved, HashSet<Guid>? confirmed,
-        CancellationToken cancellationToken)
+        Dictionary<string, int>? before, CancellationToken cancellationToken)
     {
         var team = await teams.ResolveAsync(command.GroupId, command.Year, command.TeamId, cancellationToken);
         if (team is null) return saved;
@@ -141,7 +156,12 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
         var targets = await SiblingsAsync(command.GroupId, command.LeagueId, command.Year, command.TeamId, team.AuthoritativeTeamId, cancellationToken);
         if (separate) targets = targets.Where(x => confirmed!.Contains(x.LeagueId)).ToArray();
         var copiedTo = new List<string>();
+        var already = new List<string>();
         var warnings = new List<string>();
+        // A live change is a swap of two players. Replayed as that swap, it also works where the lineup differs elsewhere
+        // (copying the whole lineup would be refused as a module change); a different change falls back to the full copy.
+        var swap = command.Live && before is not null
+            ? command.Positions.Where(x => before.TryGetValue(x.PlayerId, out var old) && old != x.Position).ToArray() : [];
         foreach (var target in targets)
         {
             try
@@ -151,8 +171,17 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
                 var baseline = await database.RosterSnapshots.AsNoTracking().Where(x => x.GroupId == command.GroupId && x.SeasonIndex == command.Year && x.TeamId == team.AuthoritativeTeamId &&
                         ((x.Kind == RosterKind.Matchday && x.Day == command.Day && x.CompetitionId == Guid.Empty) || (x.Kind == RosterKind.Season && x.Day == 0)))
                     .OrderByDescending(x => x.Kind == RosterKind.Matchday).Select(x => x.Version).FirstAsync(cancellationToken);
-                await CopyAsync(caller, command.GroupId, target.LeagueId, command.Year, new(command.Day, target.TeamId, command.LeagueId, command.TeamId, version,
-                    version == 0 ? baseline : null, command.Live, command.AsAdmin), cancellationToken);
+                Dictionary<string, int>? replay = null;
+                if (swap.Length == 2)
+                {
+                    var resolved = await teams.ResolveAsync(command.GroupId, command.Year, target.TeamId, cancellationToken) ?? throw new ApplicationFault(404, "team_not_found", "Squadra non trovata.");
+                    var theirs = await ReadAsync(command.GroupId, target.LeagueId, command.Year, resolved, command.Day, true, cancellationToken)
+                        ?? throw new ApplicationFault(404, "roster_not_found", "Formazione non disponibile.");
+                    replay = ReplaySwap(theirs, swap[0], swap[1], out var aligned);
+                    if (aligned) { already.Add(target.LeagueName); continue; }
+                }
+                await CopyCoreAsync(caller, command.GroupId, target.LeagueId, command.Year, new(command.Day, target.TeamId, command.LeagueId, command.TeamId, version,
+                    version == 0 ? baseline : null, command.Live, command.AsAdmin), replay, cancellationToken);
                 copiedTo.Add(target.LeagueName);
             }
             catch (ApplicationFault fault)
@@ -161,10 +190,26 @@ public sealed class LeagueLineupApplicationService(FantasoccerDbContext database
                 warnings.Add($"{target.LeagueName}: {fault.Message}");
             }
         }
-        if (copiedTo.Count == 0 && warnings.Count == 0) return saved;
-        var message = saved.Message + (copiedTo.Count > 0 ? $" Copiata in {copiedTo.Count} {(copiedTo.Count == 1 ? "altra competizione" : "altre competizioni")} ({string.Join(", ", copiedTo)})." : "") +
+        if (copiedTo.Count == 0 && already.Count == 0 && warnings.Count == 0) return saved;
+        var message = saved.Message + (already.Count > 0 ? $" Già uguale in: {string.Join(", ", already)}." : "") + (copiedTo.Count > 0 ? $" Copiata in {copiedTo.Count} {(copiedTo.Count == 1 ? "altra competizione" : "altre competizioni")} ({string.Join(", ", copiedTo)})." : "") +
             (warnings.Count > 0 ? " Non copiata: " + string.Join("; ", warnings) : "");
         return saved with { Message = message };
+    }
+
+    private static string Slot(int position) => position < 4 ? "starter" : position < Tribune ? "bench" : "stand";
+
+    // The target lineup with the same two players exchanged. `aligned`: the target already has them as the change leaves them.
+    private static Dictionary<string, int> ReplaySwap(FormationView target, FormationPositionRequest a, FormationPositionRequest b, out bool aligned)
+    {
+        var positions = target.Players.Where(x => x.Status == 0).ToDictionary(x => x.PlayerId, x => x.Position, StringComparer.Ordinal);
+        aligned = false;
+        if (!positions.TryGetValue(a.PlayerId, out var ta) || !positions.TryGetValue(b.PlayerId, out var tb))
+            throw new ApplicationFault(409, "live_swap_player_missing", "Uno dei due giocatori non è nella rosa di questa competizione.");
+        if (Slot(ta) == Slot(a.Position) && Slot(tb) == Slot(b.Position)) { aligned = true; return positions; }
+        if (Slot(ta) != Slot(b.Position) || Slot(tb) != Slot(a.Position))
+            throw new ApplicationFault(409, "live_swap_lineup_differs", "La formazione di questa competizione è diversa: il cambio non è applicabile.");
+        (positions[a.PlayerId], positions[b.PlayerId]) = (tb, ta);
+        return positions;
     }
 
     private async Task<(Guid LeagueId, string LeagueName, Guid TeamId)[]> SiblingsAsync(Guid group, Guid league, int year, Guid teamId, Guid authoritative, CancellationToken cancellationToken)

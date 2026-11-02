@@ -556,6 +556,37 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         Assert.Contains("Copiata in 1 altra competizione (Champions)", both.Message);
         serieA = await Team(world.LeagueSA, gameSA, world.Koopa); champion = await Team(champions, gameCL, copyKoopa);
         foreach (var index in Enumerable.Range(0, Roles.Length)) Assert.Equal(Position(serieA, index), Position(champion, index));
+
+        // Lineups that already diverged (earlier live changes were never propagated) must not block the next one: the same swap is
+        // replayed where it fits, reported as already there when it is, and refused with a reason when the lineups really differ.
+        await using (var database = factory.Database.CreateContext())
+        {
+            foreach (var rules in await database.LeagueRules.Where(x => x.GroupId == group && x.SeasonIndex == year && (x.LeagueId == world.LeagueSA || x.LeagueId == champions)).ToArrayAsync())
+                rules.LiveFormationChanges = 20;
+            await database.SaveChangesAsync();
+        }
+        (await luigi.PutAsJsonAsync("/api/teams/lineup-settings", new SetTeamLineupSettingsRequest(group, year, world.Koopa, true))).EnsureSuccessStatusCode();
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var benched = Position(serieA, 1) >= 4 ? 1 : 11;
+        // Serie A alone: defender 2 and the bench defender trade places.
+        FormationPositionRequest[] TradePlayers(LiveTeamDto team, int a, int b) => Positions(team, (a, Position(team, b)), (b, Position(team, a)));
+        (await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, TradePlayers(serieA, 2, benched), serieA.Version, Live: true))).EnsureSuccessStatusCode();
+        Assert.False((await Source()).SameLineup);
+        (await luigi.PutAsJsonAsync("/api/teams/lineup-settings", new SetTeamLineupSettingsRequest(group, year, world.Koopa, false))).EnsureSuccessStatusCode();
+
+        // Shared again, but the lineups differ in exactly the slots this change touches: refused with the reason, Champions untouched.
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa); champion = await Team(champions, gameCL, copyKoopa);
+        var championPositions = Enumerable.Range(0, Roles.Length).Select(index => Position(champion, index)).ToArray();
+        var refused = await Read<FormationSavedDto>(await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, TradePlayers(serieA, 3, 2), serieA.Version, Live: true)));
+        Assert.Contains("Non copiata: Champions", refused.Message); Assert.Contains("diversa", refused.Message);
+        champion = await Team(champions, gameCL, copyKoopa);
+        Assert.Equal(championPositions, Enumerable.Range(0, Roles.Length).Select(index => Position(champion, index)).ToArray());
+
+        // A change that brings Serie A to what Champions already has is reported as already there, and the lineups match again.
+        serieA = await Team(world.LeagueSA, gameSA, world.Koopa);
+        var aligned = await Read<FormationSavedDto>(await luigi.PutAsJsonAsync(Game(world.LeagueSA, gameSA) + "/formation", new SaveGameFormationRequest(world.Koopa, TradePlayers(serieA, benched, 3), serieA.Version, Live: true)));
+        Assert.Contains("Già uguale in: Champions", aligned.Message);
+        Assert.True((await Source()).SameLineup);
     }
 
     [PostgreSqlFact]

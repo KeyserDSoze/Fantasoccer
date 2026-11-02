@@ -1105,8 +1105,8 @@ export const SoccerField = memo(
             gameWrapper?.isLiveFormationWindow && remaining != null
               ? ` Finestra live: rimangono ${Math.max(0, remaining - 1)} cambi.`
               : '';
-          const copyMessage = /Copiata in|Non copiata/.test(response.message ?? '') ? ` ${response.message.replace('Formazione salvata. ', '')}` : '';
-          toast.show(`✅ Formazione salvata con successo!${liveMessage}${copyMessage}`, { variant: 'success' });
+          const copyMessage = /Copiata in|Non copiata|Già uguale/.test(response.message ?? '') ? ` ${response.message.replace('Formazione salvata. ', '')}` : '';
+          toast.show(`✅ Formazione salvata con successo!${liveMessage}${copyMessage}`, { variant: /Non copiata/.test(response.message ?? '') ? 'warning' : 'success' });
           setHasLocalChanges(false);
           setModifiedTeamIndex(null);
           setFormationBackup(null); // Pulisce il backup dopo il salvataggio

@@ -1,6 +1,6 @@
 {
   "name": "fantasoccer",
-  "version": "4.1.4",
+  "version": "4.1.5",
   "scripts": {
     "start": "expo start --dev-client",
     "ios": "expo run:ios",

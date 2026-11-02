@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.5',
+    date: '2 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Cambi live su più leghe: il cambio viene ripetuto come scambio degli stessi due giocatori, quindi funziona anche se le formazioni delle leghe si erano già differenziate (prima veniva rifiutato). Se la lega ha già quella disposizione lo indica, se la formazione è davvero diversa spiega perché non l’ha applicato, con un avviso ben visibile',
+      },
+    ],
+  },
+  {
     version: '4.1.4',
     date: '2 Novembre 2026',
     changes: [
