@@ -82,3 +82,16 @@ Tracciamento: [#14](https://github.com/KeyserDSoze/Fantasoccer/issues/14).
 Attività future rinviate: [#15](https://github.com/KeyserDSoze/Fantasoccer/issues/15),
 Campionato iniziale [#4](https://github.com/KeyserDSoze/Fantasoccer/issues/4),
 Team Helper AI [#1](https://github.com/KeyserDSoze/Fantasoccer/issues/1).
+
+## Timeout dopo un deploy
+
+Un deploy può spegnere la vecchia API senza chiudere le connessioni. PostgreSQL
+tiene la sessione morta, e il lock globale delle scritture (`pg_advisory_xact_lock`
+in `CoreMigrationLock`) che eventualmente teneva, finché il keepalive TCP non si
+arrende: con i valori predefiniti (120 s + 9 sonde da 30 s) circa 6,5 minuti, in cui
+ogni altra scrittura (`formations`, `hall`, ricevute dei job) scade dopo 120 s con
+`NpgsqlException ← TimeoutException`, e il job che non riesce a scrivere la ricevuta
+resta `Running` fino a `LeaseLost` / `previous_lease_expired`. `infra/postgresql.tf`
+porta i keepalive a 30 s + 3 sonde da 10 s (circa un minuto). Il log lo spiega nel
+dettaglio. `hall_baseline_reconciliation_required` richiede una persona: il job
+viene ricontrollato ogni ora, non ogni minuto.

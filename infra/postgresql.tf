@@ -105,3 +105,30 @@ locals {
     "Maximum Pool Size=15",
   ])
 }
+
+# A deploy can kill the old API without closing its connections cleanly. PostgreSQL then keeps the
+# dead session (and the global write lock it may hold) until its TCP keepalive gives up: with the
+# defaults (idle 120 s, 9 probes every 30 s) that is about 6.5 minutes of 120 s lock timeouts for every
+# other writer. Probing after 30 s with 3 probes every 10 s frees the lock in about a minute.
+resource "azurerm_postgresql_flexible_server_configuration" "tcp_keepalives_idle" {
+  name      = "tcp_keepalives_idle"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "30"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "tcp_keepalives_interval" {
+  name      = "tcp_keepalives_interval"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "10"
+
+  # Server parameters are changed one at a time (the server rejects concurrent updates).
+  depends_on = [azurerm_postgresql_flexible_server_configuration.tcp_keepalives_idle]
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "tcp_keepalives_count" {
+  name      = "tcp_keepalives_count"
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "3"
+
+  depends_on = [azurerm_postgresql_flexible_server_configuration.tcp_keepalives_interval]
+}

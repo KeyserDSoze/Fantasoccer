@@ -13,8 +13,24 @@ public sealed class SqlJobOutcomesTest
     [InlineData("Partial", "results_waiting_for_official_data", false)]
     [InlineData("Partial", "postponed_matchdays_pending", false)]
     [InlineData("Partial", "hall_batch_pending", false)]
+    [InlineData("Partial", "hall_baseline_reconciliation_required", true)]
+    [InlineData("Partial", "chances_lineups_pending", false)]
     [InlineData("Partial", null, false)]
     [InlineData("Succeeded", null, false)]
     public void Only_actual_failures_are_operational_incidents(string status, string? code, bool expected)
         => Assert.Equal(expected, SqlJobOutcomes.IsIncident(status, code));
+
+    [Fact]
+    public void A_person_is_needed_for_the_hall_baseline_so_it_is_not_retried_every_minute()
+        => Assert.Contains("hall_baseline_reconciliation_required", SqlJobOutcomes.SlowRetryCodes);
+
+    [Fact]
+    public void A_database_timeout_is_explained_without_exposing_the_exception_text()
+    {
+        var detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(new InvalidOperationException("password=secret", new TimeoutException("Exception while reading from stream")));
+        Assert.StartsWith("Eccezione InvalidOperationException ← TimeoutException", detail);
+        Assert.Contains("120 secondi", detail);
+        Assert.DoesNotContain("secret", detail);
+        Assert.Equal("Eccezione HttpRequestException", Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(new HttpRequestException("x")));
+    }
 }
