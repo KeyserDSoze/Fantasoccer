@@ -3,6 +3,16 @@ namespace Fantasoccer.Application.Core.Operations;
 public static class SqlJobSchedule
 {
     public static readonly string[] Names = ["calendar", "catalogue", "live", "live-projections", "official", "statistics", "chances", "formations", "results", "postponed-results", "market-expiry", "hall", "images", "push-retention", "cache-cleanup", "job-retention"];
+    // When a job is due. The stored time was computed with the schedule in force at the last run: if the schedule became more frequent
+    // (a deploy), the first slot of the new schedule after that run wins, so the change applies at once instead of after the old slot.
+    // Earlier stored times (retries, batches still to finish) are kept.
+    public static DateTimeOffset DueAt(string name, DateTimeOffset stored, DateTimeOffset? lastCompleted)
+    {
+        if (lastCompleted is not { } done) return stored;
+        var next = Next(name, done);
+        return next < stored ? next : stored;
+    }
+
     public static DateTimeOffset Next(string name, DateTimeOffset now)
     {
         if (!Names.Contains(name, StringComparer.Ordinal)) throw new ArgumentException("Unknown SQL job.", nameof(name));

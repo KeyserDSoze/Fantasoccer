@@ -99,6 +99,35 @@ public sealed class JobIsolationAndRetentionTests(WorkspaceApiFactory factory) :
     }
 
     [PostgreSqlFact]
+    public async Task A_job_whose_schedule_became_more_frequent_runs_at_once_instead_of_waiting_for_the_old_slot()
+    {
+        using var admin = await factory.AccountAsync(globalAdmin: true);
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddSingleton<ISqlJobActions>(new NoWork())));
+        using var client = app.CreateClient();
+        var year = FantacalcioTime.ActualYear;
+        await using (var scope = app.Services.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<SqlJobApplicationService>().RunScheduledAsync("official", year);
+        // As after a deploy: the last run stored the next slot of the old schedule, hours away; the current schedule has passed slots since.
+        await using (var database = factory.Database.CreateContext())
+            await database.SqlJobStates.Where(x => x.Name == "official" && x.SeasonIndex == year).ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.NextRunAtUtc, DateTimeOffset.UtcNow.AddHours(3)).SetProperty(x => x.LastCompletedAtUtc, (DateTimeOffset?)DateTimeOffset.UtcNow.AddMinutes(-40))
+                .SetProperty(x => x.LeaseId, (Guid?)null).SetProperty(x => x.LeaseUntilUtc, (DateTimeOffset?)null));
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var result = await scope.ServiceProvider.GetRequiredService<SqlJobApplicationService>().RunScheduledAsync("official", year);
+            Assert.NotNull(result); Assert.Equal("Succeeded", result.Status);
+        }
+        // Once it has run, the next time follows the current schedule.
+        await using (var database = factory.Database.CreateContext())
+        {
+            var state = await database.SqlJobStates.SingleAsync(x => x.Name == "official" && x.SeasonIndex == year);
+            Assert.InRange((state.NextRunAtUtc - DateTimeOffset.UtcNow).TotalMinutes, 0, 15.1);
+        }
+        await using (var scope = app.Services.CreateAsyncScope())
+            Assert.Null(await scope.ServiceProvider.GetRequiredService<SqlJobApplicationService>().RunScheduledAsync("official", year));
+    }
+
+    [PostgreSqlFact]
     public async Task A_slow_calendar_provider_does_not_prevent_the_catalogue_job_from_starting()
     {
         using var admin = await factory.AccountAsync(globalAdmin: true);
