@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.8',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Log dei job più chiari: ogni esito riporta anche cosa è successo (giornata, partite o squadre mancanti, motivo), per esempio "Giornata 10: mancano i voti ufficiali di ata, par" o "in attesa dei voti ufficiali: Atalanta-Parma". Gli errori imprevisti riportano il tipo di eccezione, mai dati sensibili',
+      },
+      {
+        category: 'Fix',
+        description:
+          'A giornata finita il provider toglie i voti live: non viene più segnalato come errore ogni minuto (football_provider_incomplete), ma come attesa normale finché arrivano i voti ufficiali',
+      },
+    ],
+  },
+  {
     version: '4.1.7',
     date: '3 Novembre 2026',
     changes: [

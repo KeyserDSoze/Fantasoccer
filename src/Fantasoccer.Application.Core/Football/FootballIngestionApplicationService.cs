@@ -24,13 +24,13 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         catch (ApplicationFault fault) when ((request.Operation is "calendar" or "catalogue" or "live" or "official" or "chances" or "statistics") &&
             (fault.Code is "football_provider_incomplete" or "official_matchday_incomplete"))
         {
-            await failures.RecordAsync("import_" + request.Operation, fault.Code);
+            await failures.RecordAsync("import_" + request.Operation, fault.Code, $"{request.Operation}, giornata {request.Day?.ToString() ?? "-"}: {fault.Message}");
             throw;
         }
         catch (ApplicationFault) { throw; } // User validation/authorization errors are not operational alerts.
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            await failures.RecordAsync("import_" + request.Operation, "import_execution_failed");
+            await failures.RecordAsync("import_" + request.Operation, "import_execution_failed", OperationalAlertTextDetail(error));
             throw;
         }
     }
@@ -164,7 +164,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
     // Matches of a matchday that are over and whose official votes are not consolidated yet, with how many of them were consolidated now.
-    public sealed record OfficialProgress(int Imported, int Pending);
+    public sealed record OfficialProgress(int Imported, int Pending, string[]? PendingMatches = null);
 
     // Official votes match by match: a finished match is consolidated as soon as the provider shows final votes for both clubs, without
     // waiting for the whole matchday (the full import needs every club). Only clubs with at least one final vote are written, so a
@@ -172,21 +172,22 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
     public async Task<OfficialProgress> OfficialProgressAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller = null)
     {
         var now = clock.GetUtcNow();
-        var pending = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed &&
+        var pending = (await database.FootballMatches.AsNoTracking().Include(x => x.HomeClub).Include(x => x.AwayClub).Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed &&
                 x.ActualOfficialVotesReady != true && x.KickoffUtc != null).ToArrayAsync(cancellationToken))
             .Where(x => x.IsFinished == true || x.IsFinished is null && now >= x.KickoffUtc!.Value.AddMinutes(135)).ToArray();
         if (pending.Length == 0) return new(0, 0);
         var samples = await official.GetAsync(year, day).WaitAsync(cancellationToken);
         var voted = samples.Where(x => x.Role != Role.Coach && x.Vote is { HasVote: true, IsFinal: true } && ProviderClubCode(x.RealTeam) is not null)
             .Select(x => ProviderClubCode(x.RealTeam)!).ToHashSet(StringComparer.Ordinal);
-        var imported = 0;
+        var imported = 0; var waiting = new List<string>();
         foreach (var match in pending)
         {
-            if (!voted.Contains(match.HomeClubId) || !voted.Contains(match.AwayClubId)) continue;
+            var name = $"{match.HomeClub.Name}-{match.AwayClub.Name}";
+            if (!voted.Contains(match.HomeClubId) || !voted.Contains(match.AwayClubId)) { waiting.Add(name); continue; }
             try { await OfficialVotesAsync(year, day, cancellationToken, caller, [match.HomeClubId, match.AwayClubId], samples); imported++; }
-            catch (ApplicationFault fault) when (fault.Code == "official_matchday_incomplete") { database.ChangeTracker.Clear(); }
+            catch (ApplicationFault fault) when (fault.Code == "official_matchday_incomplete") { database.ChangeTracker.Clear(); waiting.Add(name); }
         }
-        return new(imported, pending.Length - imported);
+        return new(imported, waiting.Count, waiting.ToArray());
     }
 
     // Official votes remain authoritative PostgreSQL data used by final scoring and statistics.
@@ -195,9 +196,13 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
     {
         var samples = fetched ?? await official.GetAsync(year, day).WaitAsync(cancellationToken);
         if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
-        if (samples is not { Count: > 0 } || samples.All(x => x.Role == Role.Coach) || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) ||
-            samples.GroupBy(x => new { x.Key, IsCoach = x.Role == Role.Coach }).Any(x => x.Count() != 1))
-            throw Invalid("Voti del provider mancanti o ambigui; lo snapshot salvato non viene cancellato.");
+        if (samples is not { Count: > 0 } || samples.All(x => x.Role == Role.Coach))
+            throw new ApplicationFault(409, "official_votes_not_published", $"Il provider non ha voti ufficiali per la giornata {day}{(clubFilter is null ? "" : " (" + string.Join(", ", clubFilter.Order()) + ")")}: pagina vuota o non ancora pubblicata; nulla è stato cambiato.");
+        ValidateVotes(samples.Where(x => x.Role != Role.Coach).ToList(), "ufficiali", day);
+        if (samples.FirstOrDefault(x => x.Role == Role.Coach && (x.Vote == null || !float.IsFinite(x.Vote.Value))) is { } brokenCoach)
+            throw Invalid($"Voto non valido per l'allenatore {brokenCoach.Name} nella giornata {day}; nulla è stato cambiato.");
+        if (samples.Where(x => x.Role == Role.Coach).GroupBy(x => x.Key).FirstOrDefault(x => x.Count() != 1) is { } repeatedCoach)
+            throw Invalid($"Allenatore ripetuto nei voti ufficiali della giornata {day}: {repeatedCoach.Key}; nulla è stato cambiato.");
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         await AuthorizeAsync(caller, cancellationToken);
         await SeasonAsync(year, cancellationToken);
@@ -238,7 +243,10 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             // rewrites other historical official votes of the same day.
             var scoped = clubFilter is null ? matches : matches.Where(x => clubFilter.Contains(x.HomeClubId) && clubFilter.Contains(x.AwayClubId)).ToArray();
             var expected = (clubFilter is null ? matches.Where(x => !x.WasPostponed && !x.Delayed) : scoped).SelectMany(x => new[] { x.HomeClubId, x.AwayClubId }).ToArray();
-            if (matches.Length == 0 || !expected.All(received.Contains)) throw new ApplicationFault(409, "official_matchday_incomplete", "Mancano voti ufficiali per una squadra reale; nessuno snapshot è stato sostituito.");
+            if (matches.Length == 0) throw new ApplicationFault(409, "official_matchday_incomplete", $"Giornata {day} senza partite in calendario; nessun voto è stato sostituito.");
+            var missing = expected.Where(x => !received.Contains(x)).Distinct().Order().ToArray();
+            if (missing.Length > 0) throw new ApplicationFault(409, "official_matchday_incomplete",
+                $"Giornata {day}: mancano i voti ufficiali di {string.Join(", ", missing)} ({missing.Length} squadre su {expected.Distinct().Count()}); nessun voto è stato sostituito.");
             foreach (var match in scoped)
             {
                 var finished = !match.Delayed && (match.IsFinished == true || match.IsFinished is null && match.KickoffUtc is { } kickoff && clock.GetUtcNow() >= kickoff.AddMinutes(135));
@@ -257,8 +265,9 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var fetchedAt = clock.GetUtcNow();
         var samples = await live.GetAsync(year, day).WaitAsync(cancellationToken);
         if (clubFilter is not null) samples = samples.Where(x => ProviderClubCode(x.RealTeam) is { } code && clubFilter.Contains(code)).ToList();
-        if (samples is not { Count: > 0 } || samples.Any(x => x.Vote == null || !float.IsFinite(x.Vote.Value)) || samples.GroupBy(x => x.Key).Any(x => x.Count() != 1))
-            throw Invalid("Voti del provider mancanti o ambigui; lo snapshot salvato non viene cancellato.");
+        if (samples is not { Count: > 0 })
+            throw Invalid($"Il provider non ha voti live per la giornata {day}: risorsa assente o vuota (succede anche dopo la fine della giornata); lo snapshot salvato resta.");
+        ValidateVotes(samples, "live", day);
         await AuthorizeAsync(caller, cancellationToken);
         var clubs = await database.Clubs.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
         var names = await database.PlayerSeasons.AsNoTracking().Where(x => x.SeasonIndex == year).Select(x => new { x.PlayerId, x.Player.Name })
@@ -267,7 +276,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         foreach (var sample in samples)
         {
             ValidatePlayer(sample);
-            var code = ProviderClubCode(sample.RealTeam) ?? throw Invalid("Nome/codice club del provider non verificabile o discordante.");
+            var code = ProviderClubCode(sample.RealTeam) ?? throw Invalid($"Club del provider non riconosciuto nei voti live della giornata {day}: \"{sample.RealTeam?.Name}\" ({sample.Name}).");
             entries.Add(new(sample.Key, names.GetValueOrDefault(sample.Key) ?? sample.Name.Trim(), code,
                 clubs.GetValueOrDefault(code) ?? FantacalcioClubCodes.CanonicalName(code, sample.RealTeam.Name), (int)sample.Role,
                 sample.IsActive, sample.Visible, FootballLiveDataMapping.Cached(sample.Vote)));
@@ -429,5 +438,15 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var actor = await accounts.CurrentAsync(caller, cancellationToken);
         if (!caller.IsInRole("super_admin") || !accounts.IsGlobalAdministrator(actor.Email)) throw new ApplicationFault(403, "football_admin_required", "Serve un amministratore globale per aggiornare le sorgenti condivise.");
     }
+    // Values that are not numbers, or the same player twice: named in the message so the fault can be found on the provider page.
+    private static void ValidateVotes(List<VotedRealPlayer> samples, string kind, int day)
+    {
+        var broken = samples.Where(x => x.Vote == null || !float.IsFinite(x.Vote.Value)).Select(x => $"{x.Name} ({x.RealTeam?.Name})").Take(5).ToArray();
+        if (broken.Length > 0) throw Invalid($"Voti {kind} della giornata {day} non validi per: {string.Join(", ", broken)}; nulla è stato cambiato.");
+        var repeated = samples.GroupBy(x => x.Key).Where(x => x.Count() != 1).Select(x => x.Key).Take(5).ToArray();
+        if (repeated.Length > 0) throw Invalid($"Giocatori ripetuti nei voti {kind} della giornata {day}: {string.Join(", ", repeated)}; nulla è stato cambiato.");
+    }
+
     private static ApplicationFault Invalid(string message) => new(409, "football_provider_incomplete", message);
+    private static string OperationalAlertTextDetail(Exception error) => Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(error);
 }

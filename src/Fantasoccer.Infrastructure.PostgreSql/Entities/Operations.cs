@@ -47,4 +47,6 @@ public sealed class SqlJobRun
     public int Processed { get; set; }
     public int Skipped { get; set; }
     public string? Code { get; set; }
+    // What went wrong, in words: our own message (never a provider body), with the matchday, or the exception type.
+    public string? Detail { get; set; }
 }

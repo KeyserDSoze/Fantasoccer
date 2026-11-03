@@ -1,4 +1,6 @@
-export interface FantasoccerLog { id: string; primaryKey: string; secondaryKey: string; timestamp: string | null; message: string; error: string; source: string }
+export interface FantasoccerLog { id: string; primaryKey: string; secondaryKey: string; timestamp: string | null; message: string; error: string; source: string
+  // What went wrong in words (matchday, matches or clubs, reason); absent for older entries.
+  detail?: string | null }
 export const logHasError = (log: FantasoccerLog) => log.primaryKey === 'AError'
 export const getLogSeverity = (log: FantasoccerLog): 'info' | 'error' => logHasError(log) ? 'error' : 'info'
 export const formatLogTimestamp = (log: FantasoccerLog) => log.timestamp ? new Date(log.timestamp).toLocaleString('it-IT') : 'Data non disponibile'

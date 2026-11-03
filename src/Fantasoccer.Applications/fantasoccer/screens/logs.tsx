@@ -450,6 +450,13 @@ function LogEntry({ log, type }: LogEntryProps) {
             </Text>
           </Card>
         )}
+
+        {/* Detail: which matchday, which matches or clubs, why */}
+        {log.detail && (
+          <Text fontSize="$2" color="$color12" lineHeight="$3">
+            {log.detail}
+          </Text>
+        )}
       </YStack>
     </Card>
   )

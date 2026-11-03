@@ -10,6 +10,8 @@ namespace Fantasoccer.Application.Core.Operations;
 public sealed record SqlJobWorkResult(int Processed, int Skipped, string? Code = null)
 {
     public bool HasMore { get; init; }
+    // Explanation for the administrators' log (which matchday, which matches or clubs, why).
+    public string? Detail { get; init; }
 }
 public interface ISqlJobActions { Task<SqlJobWorkResult> ExecuteAsync(string name, int year, CancellationToken cancellationToken); }
 public sealed record RunSqlJobRequest(string Name, int Year);
@@ -83,11 +85,17 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             work = await actions.ExecuteAsync(name, year, timeout.Token).WaitAsync(timeout.Token);
             if (work.Skipped > 0 || work.HasMore) status = "Partial";
         }
-        catch (OperationCanceledException) { status = "Canceled"; work = new(0, 0, cancellationToken.IsCancellationRequested ? "job_canceled" : "job_timeout"); }
-        catch (ApplicationFault fault) { status = "Failed"; work = new(0, 0, fault.Code); }
+        catch (OperationCanceledException)
+        {
+            status = "Canceled";
+            work = cancellationToken.IsCancellationRequested
+                ? new(0, 0, "job_canceled") { Detail = "Interrotto dallo spegnimento o dal riavvio dell'API (deploy)." }
+                : new(0, 0, "job_timeout") { Detail = "Superato il tempo massimo di 4 minuti." };
+        }
+        catch (ApplicationFault fault) { status = "Failed"; work = new(0, 0, fault.Code) { Detail = fault.Message }; }
         catch (Exception error)
         {
-            status = "Failed"; work = new(0, 0, "job_execution_failed");
+            status = "Failed"; work = new(0, 0, "job_execution_failed") { Detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(error) };
             logger.LogError("SQL job {JobName} failed ({FailureType}); run {RunId}. No exception message or payload logged.", name, error.GetType().Name, id);
         }
         using var receiptTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -100,6 +108,7 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             var retry = status is "Failed" or "Canceled" || SqlJobOutcomes.IsIncident(status, work.Code);
             state.NextRunAtUtc = retry || work.HasMore ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
             run.Status = status; run.Processed = work.Processed; run.Skipped = work.Skipped; run.Code = work.Code; run.CompletedAtUtc = clock.GetUtcNow();
+            run.Detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.SafeDetail(work.Detail);
             await database.SaveChangesAsync(receiptTimeout.Token); await transaction.CommitAsync(receiptTimeout.Token);
         }
         return new(id, name, year, status, work.Processed, work.Skipped, work.Code);

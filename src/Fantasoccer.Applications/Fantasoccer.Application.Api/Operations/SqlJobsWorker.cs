@@ -36,7 +36,9 @@ public sealed class SqlJobsWorker(IServiceScopeFactory scopes, ILogger<SqlJobsWo
                     logger.LogWarning("SQL job {JobName} did not finish ({FailureType}); attempt {AttemptId}. Its lease will expire safely.", name, error.GetType().Name, attemptId);
                     await using var failureScope = scopes.CreateAsyncScope();
                     await failureScope.ServiceProvider.GetRequiredService<Fantasoccer.Application.Core.Notifications.OperationalFailureRecorder>()
-                        .RecordAsync("job_runner_" + name, "job_runner_failed");
+                        .RecordAsync("job_runner_" + name, "job_runner_failed",
+                            "Il job non è partito o non ha registrato l'esito (di solito durante un riavvio/deploy dell'API). " +
+                            Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(error));
                 }
                 finally { slots.Release(); }
             }
