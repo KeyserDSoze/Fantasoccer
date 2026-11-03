@@ -15,6 +15,8 @@ import { useAuth } from 'providers/AuthProvider';
 import { RankHelper, enhanceRankWithTeamPositions } from 'types/rank';
 import { homeMatchDisplay } from 'utils/homeMatchDisplay';
 import { formatSeasonFromYear } from 'utils/season';
+import { goalCreditsEnabled } from 'utils/rankMoney';
+import { GroupHelper } from 'types/group';
 
 export function HomeLeagueMatchWidget() {
   const { currentGroup, selectedLeagueId, selectedYear } = useApp();
@@ -143,6 +145,10 @@ function HomeLeagueMatchContent() {
               error={display.isLive ? liveError : rankError}
               groupId={currentGroup.id}
               year={selectedYear}
+              showGoalCredits={goalCreditsEnabled(
+                leagues.find((league) => league.id === selectedLeagueId)?.isMain,
+                selectedLeagueId && selectedYear != null && currentGroup ? GroupHelper.getAnnualLeague(currentGroup, selectedLeagueId, selectedYear)?.settings : null
+              )}
               onRetry={() => { if (display.isLive) void refetchLive(); else void refetchRank() }}
             />
           </ResponsiveWidgetPair>

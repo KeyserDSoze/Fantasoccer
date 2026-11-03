@@ -18,6 +18,7 @@ import { useRankByComponents } from 'hooks/useRank'
 import { useCalendar } from 'hooks/useCalendar'
 import { useGroupLeagues } from 'hooks/useGroup'
 import { formatSeasonFromYear } from 'utils/season'
+import { goalCreditsEnabled } from 'utils/rankMoney'
 
 const formatRoundLabel = (roundId: string): string => {
   if (roundId === '@') {
@@ -319,6 +320,7 @@ export default function Ranking() {
               year={localYear}
               moneyForGoal={moneyForGoal}
               moneyForSufferedGoal={moneyForSufferedGoal}
+              showGoalCredits={goalCreditsEnabled(selectedLeague?.isMain, selectedAnnualLeague?.settings)}
               calendar={calendar}
               loading={loading}
               error={error}

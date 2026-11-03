@@ -25,6 +25,8 @@ public sealed class LeagueRules
     public int MoneyForGoal { get; set; } = 5;
     public int MoneyForSufferedGoal { get; set; } = 3;
     // Share of the price given back when a player who left Serie A is replaced or set aside (percent, rounded down unless RoundUp).
+    // Credits for goals scored/conceded. null = default: on for the main league, off for the others.
+    public bool? GoalCreditsEnabled { get; set; }
     public int LeftSerieARefundPercent { get; set; } = 50;
     public bool LeftSerieARefundRoundUp { get; set; }
     public bool RandomAuction { get; set; }

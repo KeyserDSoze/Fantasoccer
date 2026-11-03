@@ -9,6 +9,7 @@ import { SplashScreen } from 'components/layout/SplashScreen'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
 import { LeagueCalendarWidget } from 'components/calendar/LeagueCalendarWidget'
 import { LeagueRankingWidget } from 'components/rank/LeagueRankingWidget'
+import { goalCreditsEnabled } from 'utils/rankMoney'
 import { useApp } from 'providers/AppProvider'
 import { useLiveGroup } from 'hooks/useLiveGroup'
 import { useGroupLeagues } from 'hooks/useGroup'
@@ -365,6 +366,7 @@ export default function LiveScreen() {
                     year={liveYear}
                     moneyForGoal={moneyForGoal}
                     moneyForSufferedGoal={moneyForSufferedGoal}
+                    showGoalCredits={goalCreditsEnabled(availableLeagues.find((league) => league.id === localLeagueId)?.isMain, selectedAnnualLeague?.settings)}
                     loading={liveLoading && rankedTeams.length === 0}
                     error={liveError}
                     isSelectionIncomplete={!localLeagueId}
@@ -413,6 +415,7 @@ export default function LiveScreen() {
                   year={liveYear}
                   moneyForGoal={moneyForGoal}
                   moneyForSufferedGoal={moneyForSufferedGoal}
+                  showGoalCredits={goalCreditsEnabled(availableLeagues.find((league) => league.id === localLeagueId)?.isMain, selectedAnnualLeague?.settings)}
                   loading={liveLoading && rankedTeams.length === 0}
                   error={liveError}
                   isSelectionIncomplete={!localLeagueId}

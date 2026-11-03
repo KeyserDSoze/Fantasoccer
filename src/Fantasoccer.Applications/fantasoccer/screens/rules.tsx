@@ -19,6 +19,7 @@ import { useApp } from 'providers/AppProvider'
 import { Role, RoleExtensions, GroupHelper, type LeagueSetting, type VoteLeagueSetting } from 'types/group'
 import { IconFactory, useIconLabel } from 'components/lineup/icons'
 import { formatSeasonFromYear } from 'utils/season'
+import { goalCreditsEnabled } from 'utils/rankMoney'
 
 // Regole fisse del fantacalcio
 const FIXED_RULES = {
@@ -218,6 +219,7 @@ export default function Rules() {
   }
 
   const renderLeagueSettings = (settings: LeagueSetting) => {
+    const goalCreditsOn = goalCreditsEnabled(availableLeagues.find((league) => league.id === localLeagueId)?.isMain, settings)
     return (
       <YStack gap="$4">
         {/* Modificatori Voto */}
@@ -359,13 +361,19 @@ export default function Rules() {
                 <Text fontSize="$3" color="$color11">🚫 Giornate cancellate</Text>
                 <Text fontSize="$3" fontWeight="600" color="$color12">prime {settings.cancelledDay}</Text>
               </XStack>
-              {settings.moneyForGoal !== 0 && (
+              {!goalCreditsOn && (
+                <XStack justifyContent="space-between">
+                  <Text fontSize="$3" color="$color11">💵 Crediti per i gol</Text>
+                  <Text fontSize="$3" fontWeight="600" color="$color12">spenti per questa lega</Text>
+                </XStack>
+              )}
+              {goalCreditsOn && settings.moneyForGoal !== 0 && (
                 <XStack justifyContent="space-between">
                   <Text fontSize="$3" color="$color11">💵 Denaro per gol fatto</Text>
                   <Text fontSize="$3" fontWeight="600" color="$color12">{settings.moneyForGoal} crediti</Text>
                 </XStack>
               )}
-              {settings.moneyForSufferedGoal !== 0 && (
+              {goalCreditsOn && settings.moneyForSufferedGoal !== 0 && (
                 <XStack justifyContent="space-between">
                   <Text fontSize="$3" color="$color11">💸 Denaro per gol subito</Text>
                   <Text fontSize="$3" fontWeight="600" color="$color12">{settings.moneyForSufferedGoal} crediti</Text>

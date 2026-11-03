@@ -76,7 +76,7 @@ public sealed class OpeningCompetitionApplicationService(FantasoccerDbContext da
             }
             scores[team.Id] = 0;
         }
-        var settings = LeagueRulesMapping.ToDomain(rules);
+        var settings = LeagueRulesMapping.ToDomain(rules, season.League.IsMain);
         var type = (LeagueType)(season.CompetitionType == 0 ? season.League.CompetitionType == 0 ? 1 : season.League.CompetitionType : season.CompetitionType);
         for (var day = 1; day <= rules.OpeningCompetitionSerieADays; day++)
         {

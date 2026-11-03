@@ -22,7 +22,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         var season = await ManageAsync(caller, group, league, year, cancellationToken);
         var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
-        var settings = LeagueRulesMapping.ToDomain(rules);
+        var settings = LeagueRulesMapping.ToDomain(rules, season.League.IsMain);
         var type = Type(season);
         var calculator = Calculator(type);
         var existing = await CalendarAsync(group, league, year, cancellationToken);
@@ -77,7 +77,7 @@ public sealed class CompetitionLifecycleApplicationService(FantasoccerDbContext 
         var calendar = await CalendarAsync(group, league, year, cancellationToken) ?? throw new ApplicationFault(404, "calendar_not_found", "Calendario non disponibile.");
         if (request.ExpectedVersion is { } version && version != calendar.Version) throw new ApplicationFault(409, "calendar_changed", "Ricaricare il calendario prima di ricalcolare.");
         var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
-        var settings = LeagueRulesMapping.ToDomain(rules);
+        var settings = LeagueRulesMapping.ToDomain(rules, season.League.IsMain);
         var type = Type(season);
         var calculator = Calculator(type);
         var selectedDays = calendar.Stages.SelectMany(x => x.Days).Where(x => request.PreciseDay || request.OnlyLastDay ? x.SerieADay == request.Day : x.SerieADay <= request.Day).ToArray();

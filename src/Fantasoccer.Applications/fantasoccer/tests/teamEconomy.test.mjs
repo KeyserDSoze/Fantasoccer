@@ -21,3 +21,13 @@ test('the team economy matches the server: refunds per status, sale price return
   assert.equal(economy.refunds, 98)
   assert.equal(economy.releasedCost, 41 - 20 + 30 + 41 - 58 + 41 - 20)
 })
+
+test('goal credits follow the main league unless the league chooses explicitly', () => {
+  const { goalCreditsEnabled } = loadTypeScript('utils/rankMoney.ts')
+  assert.equal(goalCreditsEnabled(true, {}), true)
+  assert.equal(goalCreditsEnabled(false, {}), false)
+  assert.equal(goalCreditsEnabled(false, { goalCreditsEnabled: null }), false)
+  assert.equal(goalCreditsEnabled(false, { goalCreditsEnabled: true }), true)
+  assert.equal(goalCreditsEnabled(true, { goalCreditsEnabled: false }), false)
+  assert.equal(goalCreditsEnabled(undefined, undefined), false)
+})

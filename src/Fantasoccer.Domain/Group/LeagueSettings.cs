@@ -185,6 +185,9 @@ namespace Fantasoccer
         public int MoneyForGoal { get; set; }
         [JsonPropertyName("n")]
         public int MoneyForSufferedGoal { get; set; }
+        // Off: the standings do not compute credits for goals at all.
+        [JsonPropertyName("gce")]
+        public bool GoalCreditsEnabled { get; set; } = true;
         [JsonPropertyName("q")]
         public bool RandomAuction { get; set; }
         [JsonPropertyName("vp")]

@@ -31,7 +31,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var (group, league, year) = (season.GroupId, season.LeagueId, season.SeasonIndex);
         var match = await MatchAsync(group, league, year, matchId, cancellationToken);
         var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
-        var settings = LeagueRulesMapping.ToDomain(rules);
+        var settings = LeagueRulesMapping.ToDomain(rules, season.League.IsMain);
         var type = Type(season);
         var day = match.Matchday.SerieADay;
         await calculator.BuildRequestAsync(year, day, type, settings, true, true, true);
@@ -154,7 +154,7 @@ public sealed class GameApplicationService(FantasoccerDbContext database, Compet
         var rules = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
         var roster = view.Roster;
         var domain = new Team { Name = roster.Name, Owner = roster.Owner, AdditionalOwners = roster.AdditionalOwners.ToList(), Players = roster.Players.Select(DomainPlayer).ToList() };
-        var result = await optimal.CalculateAsync(domain, year, day, Type(season), LeagueRulesMapping.ToDomain(rules), cancellationToken);
+        var result = await optimal.CalculateAsync(domain, year, day, Type(season), LeagueRulesMapping.ToDomain(rules, season.League.IsMain), cancellationToken);
         var identities = roster.Players.Where(x => x.Status == 0).ToDictionary(x => KeyUtils.GetPlayerKey(x.Name), x => x.PlayerId);
         return new(result.Players.Select(x => new OptimalGamePlayerDto(identities[x.PlayerKey], x.PlayerKey, x.PlayerName, (int)x.Role, (int)x.Position, x.Projection, x.Confidence)).ToArray(),
             result.Module, result.Score, result.Confidence, result.Warnings.ToArray());

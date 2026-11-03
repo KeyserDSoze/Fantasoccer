@@ -4,8 +4,10 @@ namespace Fantasoccer.Application.Core.Groups;
 
 public static class LeagueRulesMapping
 {
-    public static LeagueSetting ToDomain(LeagueRules row) => new()
+    // isMain: whether the league is the group's main one (the default for goal credits).
+    public static LeagueSetting ToDomain(LeagueRules row, bool isMain) => new()
     {
+        GoalCreditsEnabled = row.GoalCreditsEnabled ?? isMain,
         Votes = row.Votes.ToDictionary(x => (Role)x.PlayerRole, x => new VoteLeagueSetting { Goal = x.Goal, Penalty = x.Penalty,
             SufferedGoal = x.SufferedGoal, StoppedPenalty = x.StoppedPenalty, WrongedPenalty = x.WrongedPenalty, OwnGoal = x.OwnGoal,
             Assist = x.Assist, YellowCard = x.YellowCard, RedCard = x.RedCard, Injury = x.Injury, ManOfTheMatch = x.ManOfTheMatch }),
@@ -47,7 +49,7 @@ public static class LeagueRulesMapping
         PointForStrongDefense4 = row.PointForStrongDefense4, PointForStrongDefense5 = row.PointForStrongDefense5,
         PointForGoodPeople = row.PointForGoodPeople, PointForCleanSheet = row.PointForCleanSheet, MoneyForGoal = row.MoneyForGoal,
         MoneyForSufferedGoal = row.MoneyForSufferedGoal, RandomAuction = row.RandomAuction, RankWithValuePoints = row.RankWithValuePoints,
-        LeftSerieARefundPercent = row.LeftSerieARefundPercent, LeftSerieARefundRoundUp = row.LeftSerieARefundRoundUp,
+        GoalCreditsEnabled = row.GoalCreditsEnabled, LeftSerieARefundPercent = row.LeftSerieARefundPercent, LeftSerieARefundRoundUp = row.LeftSerieARefundRoundUp,
         Market = row.Market, LiveFormationChanges = row.LiveFormationChanges, AllowLiveModuleChange = row.AllowLiveModuleChange,
         Postponements = new(row.WaitForPostponedMatches, row.PoliticalGoalkeeper, row.PoliticalDefender, row.PoliticalMidfielder, row.PoliticalForward),
         OpeningCompetition = new(row.OpeningCompetitionEnabled, row.OpeningCompetitionSerieADays,
@@ -80,7 +82,7 @@ public static class LeagueRulesMapping
             PointForStrongDefense4 = dto.PointForStrongDefense4, PointForStrongDefense5 = dto.PointForStrongDefense5,
             PointForGoodPeople = dto.PointForGoodPeople, PointForCleanSheet = dto.PointForCleanSheet, MoneyForGoal = dto.MoneyForGoal,
             MoneyForSufferedGoal = dto.MoneyForSufferedGoal, RandomAuction = dto.RandomAuction, RankWithValuePoints = dto.RankWithValuePoints,
-            LeftSerieARefundPercent = dto.LeftSerieARefundPercent, LeftSerieARefundRoundUp = dto.LeftSerieARefundRoundUp,
+            GoalCreditsEnabled = dto.GoalCreditsEnabled, LeftSerieARefundPercent = dto.LeftSerieARefundPercent, LeftSerieARefundRoundUp = dto.LeftSerieARefundRoundUp,
             Market = dto.Market, LiveFormationChanges = dto.LiveFormationChanges, AllowLiveModuleChange = dto.AllowLiveModuleChange,
             WaitForPostponedMatches = dto.Postponements.WaitForRecovery, PoliticalGoalkeeper = dto.Postponements.Goalkeeper,
             PoliticalDefender = dto.Postponements.Defender, PoliticalMidfielder = dto.Postponements.Midfielder, PoliticalForward = dto.Postponements.Forward,

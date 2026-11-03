@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.15',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Crediti per i gol (segnati e subiti): nuova impostazione della lega per accenderli o spegnerli. Di default sono accesi solo per la lega principale (con i valori predefiniti) e spenti per le altre. Spenti non viene calcolato nulla: niente +$ né Crediti in classifica e nessun accredito all\'asta',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Se accendi i crediti anche per una lega secondaria, i suoi crediti si sommano a quelli della lega principale sulla squadra del basket (una squadra in più leghe incassa da ciascuna, senza doppi conteggi). La colonna Crediti della classifica mostra sempre il totale che la squadra porta alla prossima asta',
+      },
+    ],
+  },
+  {
     version: '4.1.14',
     date: '3 Novembre 2026',
     changes: [

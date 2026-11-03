@@ -1679,6 +1679,9 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<int>("Formation")
                         .HasColumnType("integer");
 
+                    b.Property<bool?>("GoalCreditsEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("HasPreviousYearSettings")
                         .HasColumnType("boolean");
 

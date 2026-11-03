@@ -9,6 +9,7 @@ import {
   type VoteLeagueSetting
 } from 'types/group'
 import { ToggleChip } from 'components/ToggleChip'
+import { goalCreditsEnabled } from '../utils/rankMoney'
 
 type NumberSettingKey =
   | 'startingMoney'
@@ -65,6 +66,8 @@ interface LeagueSettingsEditorProps {
   resetKey: string
   onChange: (value: LeagueSetting) => void
   onValidityChange: (valid: boolean) => void
+  // The credits for goals follow this unless the league chooses explicitly.
+  isMainLeague?: boolean
 }
 
 const generalFields: NumberFieldDefinition[] = [
@@ -92,7 +95,10 @@ const bonusFields: NumberFieldDefinition[] = [
 ]
 
 const economyFields: NumberFieldDefinition[] = [
-  { key: 'startingMoney', label: 'Crediti iniziali', description: 'Budget disponibile a inizio stagione.', min: 25 },
+  { key: 'startingMoney', label: 'Crediti iniziali', description: 'Budget disponibile a inizio stagione.', min: 25 }
+]
+
+const goalCreditFields: NumberFieldDefinition[] = [
   { key: 'moneyForGoal', label: 'Crediti per gol segnato', description: 'Crediti maturati per ogni gol segnato dalla squadra.' },
   { key: 'moneyForSufferedGoal', label: 'Crediti per gol subito', description: 'Crediti maturati per ogni gol subito dalla squadra.' }
 ]
@@ -194,7 +200,8 @@ export function LeagueSettingsEditor({
   disabled,
   resetKey,
   onChange,
-  onValidityChange
+  onValidityChange,
+  isMainLeague = false
 }: LeagueSettingsEditorProps) {
   const [selectedRole, setSelectedRole] = useState<Role>(Role.Undefined)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())
@@ -230,7 +237,10 @@ export function LeagueSettingsEditor({
     })
   }
 
-  const renderNumberFields = (fields: NumberFieldDefinition[], prefix: string) => (
+  const creditsOn = goalCreditsEnabled(isMainLeague, value)
+  const creditsExplicit = value.goalCreditsEnabled !== undefined && value.goalCreditsEnabled !== null
+
+  const renderNumberFields = (fields: NumberFieldDefinition[], prefix: string, forceDisabled = false) => (
     <XStack gap="$3" flexWrap="wrap" alignItems="flex-start">
       {fields.map(field => (
         <NumericField
@@ -241,7 +251,7 @@ export function LeagueSettingsEditor({
           value={value[field.key]}
           min={field.min}
           max={field.max}
-          disabled={disabled}
+          disabled={disabled || forceDisabled}
           onChange={nextValue => updateNumberSetting(field.key, nextValue)}
           onValidityChange={handleValidityChange}
         />
@@ -405,6 +415,29 @@ export function LeagueSettingsEditor({
           </Text>
           <Separator />
           {renderNumberFields(economyFields, 'economy')}
+          <Separator />
+          <Text fontSize="$3" fontWeight="700" color="$color12">Crediti per i gol</Text>
+          <Text fontSize="$2" color="$color10">
+            Per ogni gol segnato o subito la squadra matura crediti per le aste. Di default sono accesi solo per la lega principale; se li accendi
+            anche per una lega secondaria i suoi crediti si sommano a quelli della lega principale sulla squadra del basket. Spenti, non viene calcolato nulla.
+          </Text>
+          <XStack gap="$2" flexWrap="wrap" alignItems="center">
+            <ToggleChip
+              label={creditsOn ? 'Attivi' : 'Spenti'}
+              accent="green"
+              checked={creditsOn}
+              disabled={disabled}
+              onCheckedChange={checked => onChange({ ...value, goalCreditsEnabled: checked })}
+            />
+            {creditsExplicit ? (
+              <Button size="$2" variant="outlined" disabled={disabled} onPress={() => onChange({ ...value, goalCreditsEnabled: null })}>
+                Torna al predefinito ({isMainLeague ? 'attivi' : 'spenti'}: lega {isMainLeague ? 'principale' : 'secondaria'})
+              </Button>
+            ) : (
+              <Text fontSize="$2" color="$color10">Predefinito per una lega {isMainLeague ? 'principale' : 'secondaria'}.</Text>
+            )}
+          </XStack>
+          {renderNumberFields(goalCreditFields, 'goal-credits', !creditsOn)}
           <Separator />
           <Text fontSize="$3" fontWeight="700" color="$color12">Giocatori usciti dalla Serie A</Text>
           <Text fontSize="$2" color="$color10">

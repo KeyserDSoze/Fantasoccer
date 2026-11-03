@@ -8,3 +8,8 @@ export function rankPlusMoney(
   if (typeof team.plusMoney === 'number' && Number.isFinite(team.plusMoney)) return team.plusMoney
   return (team.goal ?? 0) * moneyForGoal + (team.sufferedGoal ?? 0) * moneyForSufferedGoal
 }
+
+// Credits for goals scored and conceded: by default on for the main league and off for the others, unless the league says otherwise.
+export function goalCreditsEnabled(isMain: boolean | null | undefined, settings?: { goalCreditsEnabled?: boolean | null } | null): boolean {
+  return settings?.goalCreditsEnabled ?? Boolean(isMain)
+}

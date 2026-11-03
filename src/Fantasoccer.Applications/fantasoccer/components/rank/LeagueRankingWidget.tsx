@@ -60,6 +60,7 @@ export type LeagueRankingWidgetProps = {
   year?: number | null // Per il logo della squadra
   moneyForGoal?: number // Soldi per goal fatto
   moneyForSufferedGoal?: number // Soldi per goal subito
+  showGoalCredits?: boolean // Colonne +$ e Crediti (spente se la lega non ha i crediti per i gol)
   calendar?: Calendar | null // Calendario per calcolare il parametro fortuna
 }
 
@@ -85,9 +86,10 @@ const createStatColumns = (
   isCompact: boolean, 
   moneyForGoal: number = 0, 
   moneyForSufferedGoal: number = 0,
-  teamLuckMap: Map<string, TeamLuck> | null = null
+  teamLuckMap: Map<string, TeamLuck> | null = null,
+  showGoalCredits: boolean = true
 ) => {
-  const columns: StatColumnDefinition[] = [
+  const allColumns: StatColumnDefinition[] = [
     {
       key: 'points',
       label: 'Pt',
@@ -244,6 +246,8 @@ const createStatColumns = (
       },
     },
   ]
+  // No credits for goals in this league: nothing to show for them.
+  const columns = showGoalCredits ? allColumns : allColumns.filter((column) => column.key !== 'goalMoney' && column.key !== 'credits')
 
   // Add luck column if data is available
   if (teamLuckMap) {
@@ -295,6 +299,7 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
   year,
   moneyForGoal = 0,
   moneyForSufferedGoal = 0,
+  showGoalCredits = true,
   calendar = null,
 }) => {
   const { width } = useWindowDimensions()
@@ -327,7 +332,8 @@ export const LeagueRankingWidget: FC<LeagueRankingWidgetProps> = ({
     isCompact, 
     moneyForGoal, 
     moneyForSufferedGoal,
-    teamLuckMap
+    teamLuckMap,
+    showGoalCredits
   )
 
   // Dimensioni aggiornate per fare spazio al logo

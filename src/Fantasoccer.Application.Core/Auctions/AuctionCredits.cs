@@ -1,4 +1,5 @@
 using Fantasoccer.Application.Core.Groups;
+using Fantasoccer.Application.Core.Teams;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +10,8 @@ public sealed partial class AuctionApplicationService
     private async Task InitializeCreditsAsync(AuctionSession auction, FantasyTeamSeason[] teams, CancellationToken cancellationToken)
     {
         var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == auction.GroupId && x.LeagueId == auction.LeagueId && x.SeasonIndex == auction.SeasonIndex, cancellationToken);
-        var rank = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == auction.GroupId && x.LeagueId == auction.LeagueId && x.SeasonIndex == auction.SeasonIndex && x.SnapshotDay == 0)
-            .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
+        // Goal credits of every league of the team that has them on (the main one by default): they add up on the team of the basket.
+        var goalCredits = await GoalCredits.ForTeamsAsync(database, auction.GroupId, auction.SeasonIndex, teams.Select(x => x.Id).ToArray(), cancellationToken);
         var opening = auction.Kind == 0 && rules.OpeningCompetitionEnabled
             ? await database.OpeningStandingSnapshots.AsNoTracking().SingleOrDefaultAsync(x => x.GroupId == auction.GroupId && x.LeagueId == auction.LeagueId && x.SeasonIndex == auction.SeasonIndex, cancellationToken) : null;
         if (auction.Kind == 0 && rules.OpeningCompetitionEnabled && opening is null)
@@ -21,10 +22,9 @@ public sealed partial class AuctionApplicationService
         {
             var roster = await RosterAsync(auction, team.Id, cancellationToken);
             var changed = false;
-            if (rank != null && (rules.MoneyForGoal != 0 || rules.MoneyForSufferedGoal != 0))
+            if (goalCredits.Active)
             {
-                var row = rank.Stages.OrderBy(x => x.Ordinal).SelectMany(x => x.Teams.OrderBy(teamRow => teamRow.Ordinal)).FirstOrDefault(x => x.TeamId == team.Id);
-                var entitlement = row is null ? 0L : (long)row.GoalsFor * rules.MoneyForGoal + (long)row.GoalsAgainst * rules.MoneyForSufferedGoal;
+                var entitlement = goalCredits.Total(team.Id);
                 if (roster.RankCreditGranted is not { } granted)
                     throw new ApplicationFault(409, "rank_credit_reconciliation_required", "Il saldo storico non registra i premi classifica già accreditati. Un responsabile deve confermare il checkpoint tramite api/teams/credits/confirm-rank-checkpoint; nessun credito è stato ricalcolato.");
                 var money = (long)roster.MoneyFromRank + entitlement - granted;

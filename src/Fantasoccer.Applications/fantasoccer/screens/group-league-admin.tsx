@@ -871,6 +871,7 @@ export default function GroupLeagueAdminScreen() {
                           resetKey={`${selectedLeague.id}-${currentYearIndex}-${settingsRevision}`}
                           onChange={updateSettings}
                           onValidityChange={setSettingsValid}
+                          isMainLeague={selectedLeague.isMain}
                         />
                       </YStack>
 
