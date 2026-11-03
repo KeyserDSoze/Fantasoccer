@@ -37,7 +37,11 @@ mancanti, motivo), oppure, per un errore imprevisto, solo il tipo di eccezione
 (e lo stato PostgreSQL), mai il testo dell'eccezione né il contenuto del
 provider. URL, segreti ed e-mail vengono mascherati. Esiti come
 `live_votes_closed` (feed live rimosso dal provider a giornata finita) e
-`official_votes_pending` sono attese previste, non incidenti.
+`official_votes_pending` sono attese previste, non incidenti. Lo è anche
+`chances_lineups_pending`: il job `chances` legge tre sorgenti (Fantagazzetta,
+Gazzetta, Indisponibili); se mancano solo le probabili formazioni e il primo
+calcio d'inizio è oltre 48 ore, attende il turno successivo. Altrimenti il log
+nomina la sorgente vuota o non leggibile e il numero di giocatori di ognuna.
 
 ## Deduplicazione e riservatezza
 
