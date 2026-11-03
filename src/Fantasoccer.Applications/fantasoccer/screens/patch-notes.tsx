@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.7',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Il nuovo controllo dei voti ufficiali ogni 15 minuti partiva solo dopo l’ultima esecuzione programmata con il vecchio orario (le 03:00). Ora un job il cui orario diventa più frequente si adegua subito dopo l’aggiornamento',
+      },
+    ],
+  },
+  {
     version: '4.1.6',
     date: '2 Novembre 2026',
     changes: [

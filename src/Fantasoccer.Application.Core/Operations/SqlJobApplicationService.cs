@@ -22,7 +22,9 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
     public async Task<SqlJobStateDto[]> StatesAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
     {
         await operations.AdministratorAsync(caller, cancellationToken);
-        return await database.SqlJobStates.AsNoTracking().OrderBy(x => x.Name).Select(x => new SqlJobStateDto(x.Name, x.SeasonIndex, x.NextRunAtUtc, x.LeaseUntilUtc, x.LastStatus)).ToArrayAsync(cancellationToken);
+        var states = await database.SqlJobStates.AsNoTracking().OrderBy(x => x.Name).ToArrayAsync(cancellationToken);
+        return states.Select(x => new SqlJobStateDto(x.Name, x.SeasonIndex, SqlJobSchedule.Names.Contains(x.Name, StringComparer.Ordinal) ? SqlJobSchedule.DueAt(x.Name, x.NextRunAtUtc, x.LastCompletedAtUtc) : x.NextRunAtUtc,
+            x.LeaseUntilUtc, x.LastStatus)).ToArray();
     }
     public async Task<SqlJobResult?> RunAsync(ClaimsPrincipal caller, RunSqlJobRequest request, CancellationToken cancellationToken = default)
     {
@@ -39,8 +41,12 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
         var now = clock.GetUtcNow(); var id = Guid.NewGuid();
         // Most ticks are not due. Avoid taking the application's global write
         // lock simply to find out that this job has nothing to do yet.
-        if (!force && await database.SqlJobStates.AsNoTracking().AnyAsync(x => x.Name == name && x.SeasonIndex == year &&
-                (x.NextRunAtUtc > now || x.LeaseUntilUtc > now), cancellationToken)) return null;
+        if (!force)
+        {
+            var current = await database.SqlJobStates.AsNoTracking().Where(x => x.Name == name && x.SeasonIndex == year)
+                .Select(x => new { x.NextRunAtUtc, x.LeaseUntilUtc, x.LastCompletedAtUtc }).SingleOrDefaultAsync(cancellationToken);
+            if (current is not null && (current.LeaseUntilUtc > now || SqlJobSchedule.DueAt(name, current.NextRunAtUtc, current.LastCompletedAtUtc) > now)) return null;
+        }
         await using (var transaction = await BeginLeaseWriteAsync(name, year, cancellationToken))
         {
             if (caller != null) await operations.AdministratorAsync(caller, cancellationToken);
@@ -54,7 +60,7 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
                 if (force) throw new ApplicationFault(409, "sql_job_running", "Un'altra istanza sta già eseguendo questo job.");
                 return null;
             }
-            if (!force && state.NextRunAtUtc > now)
+            if (!force && SqlJobSchedule.DueAt(name, state.NextRunAtUtc, state.LastCompletedAtUtc) > now)
             {
                 if (database.Entry(state).State == EntityState.Added) { await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
                 return null;

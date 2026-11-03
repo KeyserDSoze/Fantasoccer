@@ -43,3 +43,5 @@ I voti provvisori (arancioni) diventano ufficiali (verdi) con il job `official`,
 - Il risultato `Partial` con codice `official_votes_pending` è un'attesa prevista, non un incidente.
 
 Prima della 4.1.6 il job girava solo 03:00–10:45 e solo per la giornata già conclusa: le partite del sabato restavano provvisorie fino al martedì mattina (giornata finita il lunedì sera).
+
+Nota (4.1.7): `SqlJobStates.NextRunAtUtc` è calcolato con l'orario in vigore all'ultima esecuzione. Dopo un deploy che rende un orario più frequente, il job è dovuto al primo slot del nuovo orario successivo a `LastCompletedAtUtc` (`SqlJobSchedule.DueAt`), senza attendere lo slot vecchio. Con la 4.1.6 questo mancava: il primo controllo `official` era fissato alle 03:00.

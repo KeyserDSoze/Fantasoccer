@@ -191,6 +191,13 @@ public sealed class SqlJobScheduleTests
         Assert.Equal(SqlJobSchedule.Next("live", now), SqlJobSchedule.Next("live-projections", now));
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 10, 0, TimeSpan.Zero), SqlJobSchedule.Next("postponed-results", now));
         Assert.Contains("postponed-results", SqlJobSchedule.Names);
+        // A slot stored with an older, less frequent schedule gives way to the first slot of the current schedule after the last run.
+        var lastRun = new DateTimeOffset(2026, 11, 2, 8, 0, 0, TimeSpan.Zero);
+        var oldSlot = new DateTimeOffset(2026, 11, 3, 2, 0, 0, TimeSpan.Zero);
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 8, 15, 0, TimeSpan.Zero), SqlJobSchedule.DueAt("official", oldSlot, lastRun));
+        // A retry or an unfinished batch (earlier than the schedule) keeps its time; a job never run keeps the stored time.
+        Assert.Equal(lastRun.AddMinutes(1), SqlJobSchedule.DueAt("official", lastRun.AddMinutes(1), lastRun));
+        Assert.Equal(oldSlot, SqlJobSchedule.DueAt("official", oldSlot, null));
         // Official votes are checked every quarter of an hour all day, so a finished match is consolidated while the matchday is still going.
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 0, 15, 0, TimeSpan.Zero), SqlJobSchedule.Next("official", now));
         Assert.Equal(new DateTimeOffset(2026, 10, 25, 15, 30, 0, TimeSpan.Zero), SqlJobSchedule.Next("official", new DateTimeOffset(2026, 10, 25, 15, 17, 0, TimeSpan.Zero)));
