@@ -143,6 +143,9 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             // After the last match the provider removes the live feed: not a failure, official votes take over.
             if (name == "live" && fault.Code == "football_provider_incomplete" && await MatchdayOverAsync(database, year, day.Value, now, cancellationToken))
                 return new(0, 0, "live_votes_closed") { Detail = $"Giornata {day}: tutte le partite sono finite e il provider non pubblica più i voti live; restano gli ultimi salvati finché arrivano gli ufficiali." };
+            // Probable lineups appear a day or two before the matchday: until then, an empty page is a wait (retried at the next slot), not an incident.
+            if (name == "chances" && fault.Code == "chances_lineups_unavailable" && !await KickoffWithinAsync(database, year, day.Value, now, TimeSpan.FromHours(48), cancellationToken))
+                return new(0, 1, "chances_lineups_pending") { Detail = fault.Message + " Mancano ancora più di 48 ore al calcio d'inizio: le probabili formazioni non sono ancora state pubblicate." };
             if (fault.Message.Contains("giornata", StringComparison.OrdinalIgnoreCase)) throw;
             throw new ApplicationFault(fault.Status, fault.Code, $"Giornata {day}: {fault.Message}");
         }
@@ -171,6 +174,13 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             return progress with { Detail = progress.Detail + " " + fault.Message };
         }
     }
+    private static async Task<bool> KickoffWithinAsync(FantasoccerDbContext database, int year, int day, DateTimeOffset now, TimeSpan window, CancellationToken cancellationToken)
+    {
+        var first = (await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed && x.KickoffUtc != null)
+            .Select(x => x.KickoffUtc).ToArrayAsync(cancellationToken)).Min();
+        return first is null || first.Value - now <= window;
+    }
+
     private static async Task<bool> MatchdayOverAsync(FantasoccerDbContext database, int year, int day, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var matches = await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed).ToArrayAsync(cancellationToken);

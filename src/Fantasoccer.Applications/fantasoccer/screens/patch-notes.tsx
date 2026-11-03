@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.9',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Probabilità dei giocatori: l\'errore "Una sorgente non ha restituito dati" ora dice quale sorgente (Fantagazzetta, Gazzetta o Indisponibili) è vuota o non leggibile e quanti giocatori ha dato ciascuna',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Se mancano solo le probabili formazioni e la giornata è ancora lontana (oltre 48 ore) non è più un errore ritentato ogni minuto: è un\'attesa normale, riprovata all\'orario successivo',
+      },
+    ],
+  },
+  {
     version: '4.1.8',
     date: '3 Novembre 2026',
     changes: [

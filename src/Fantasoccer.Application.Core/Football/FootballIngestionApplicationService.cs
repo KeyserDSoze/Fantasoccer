@@ -22,7 +22,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         await AuthorizeAsync(caller, cancellationToken);
         try { await RunCoreAsync(request, cancellationToken, caller); }
         catch (ApplicationFault fault) when ((request.Operation is "calendar" or "catalogue" or "live" or "official" or "chances" or "statistics") &&
-            (fault.Code is "football_provider_incomplete" or "official_matchday_incomplete"))
+            (fault.Code is "football_provider_incomplete" or "official_matchday_incomplete" or "chances_lineups_unavailable"))
         {
             await failures.RecordAsync("import_" + request.Operation, fault.Code, $"{request.Operation}, giornata {request.Day?.ToString() ?? "-"}: {fault.Message}");
             throw;
@@ -288,12 +288,28 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var fetchedAt = clock.GetUtcNow();
         var sources = new[] { "Fantagazzetta", "Gazzetta", "Injury" };
         var samples = new List<ChancedRealPlayer>();
+        var empty = new List<string>(); var unreadable = new List<string>(); var counts = new List<string>();
         foreach (var name in sources)
         {
             var parser = formations.Create(name) ?? throw new InvalidOperationException("Formation parser missing.");
-            var values = await parser.GetPlayersAsync().WaitAsync(cancellationToken);
-            if (values.Count == 0) throw Invalid("Una sorgente probabilità non ha restituito dati; si conserva lo snapshot precedente.");
+            List<ChancedRealPlayer> values;
+            try { values = await parser.GetPlayersAsync().WaitAsync(cancellationToken); }
+            catch (Exception error) when (error is not OperationCanceledException)
+            {
+                // The source is named, the exception text is not (it can carry the address or the page).
+                unreadable.Add($"{name} ({error.GetType().Name}{(error is HttpRequestException { StatusCode: { } status } ? " " + (int)status : "")})"); continue;
+            }
+            counts.Add($"{name}: {values.Count}");
+            if (values.Count == 0) empty.Add(name);
             samples.AddRange(values);
+        }
+        if (empty.Count + unreadable.Count > 0)
+        {
+            var report = $"Giornata {day}: " + (unreadable.Count > 0 ? "sorgenti non leggibili: " + string.Join(", ", unreadable) + ". " : "") +
+                (empty.Count > 0 ? "sorgenti senza giocatori: " + string.Join(", ", empty) + ". " : "") + "Giocatori trovati per sorgente: " + string.Join(", ", counts) + "; si conserva lo snapshot precedente.";
+            // Only the probable lineups missing (Injury answered): usually they are not published yet.
+            var lineupsOnly = unreadable.Count == 0 && empty.All(x => x is "Fantagazzetta" or "Gazzetta") && samples.Count > 0;
+            throw new ApplicationFault(409, lineupsOnly ? "chances_lineups_unavailable" : "football_provider_incomplete", report);
         }
         await AuthorizeAsync(caller, cancellationToken);
         var players = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)

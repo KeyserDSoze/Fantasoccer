@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Fantasoccer.Application.Core.Accounts;
+using Fantasoccer.Application.Core.Operations;
 using Fantasoccer.Application.Core.Football;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
@@ -79,6 +80,56 @@ public sealed class FootballOperationalCacheApiTests(WorkspaceApiFactory factory
         Assert.Equal(ChanceType.Injury, input.Chances.Players.Single(x => x.Name == "Cache forward").Chance.Status);
         Assert.Equal(1, input.Live!.Players.Single(x => x.Name == "Cache forward").Vote.Goal);
         Assert.Null(input.Official);
+    }
+
+    [PostgreSqlFact]
+    public async Task Chances_job_names_the_empty_source_and_waits_while_lineups_are_not_published()
+    {
+        using var account = await factory.AccountAsync(globalAdmin: true);
+        var email = account.DefaultRequestHeaders.GetValues("X-Workspace-User").Single();
+        var sources = new Sources(); var parsers = new Parsers();
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<ISerieAInformation>(sources); services.AddSingleton<IAllPlayers>(sources); services.AddSingleton<ILiveVote>(sources);
+            services.AddSingleton<IFactory<IFormationParser>>(parsers);
+        }));
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Workspace-User", email); client.DefaultRequestHeaders.Add("X-Workspace-Admin", "true");
+        app.Services.GetRequiredService<IOptions<GlobalAdministratorOptions>>().Value.Emails = [email];
+        var year = FantacalcioTime.ActualYear;
+        foreach (var operation in new[] { "calendar", "catalogue" }) (await client.PostAsJsonAsync("/api/football/refresh", new RefreshFootballRequest(operation, year))).EnsureSuccessStatusCode();
+        async Task KickoffIn(TimeSpan span)
+        {
+            await using var database = factory.Database.CreateContext();
+            var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1);
+            match.KickoffUtc = DateTimeOffset.UtcNow + span; match.IsFinished = null; await database.SaveChangesAsync();
+        }
+        async Task<(SqlJobResult Run, OperationalLogDto Log)> Run()
+        {
+            var run = (await (await client.PostAsJsonAsync("/api/operations/jobs/run", new RunSqlJobRequest("chances", year))).Content.ReadFromJsonAsync<SqlJobResult>())!;
+            return (run, (await client.GetFromJsonAsync<OperationalLogDto>($"/api/operations/logs/{run.RunId}"))!);
+        }
+        parsers.Set("Fantagazzetta", []); parsers.Set("Gazzetta", [Chance("Cache defender", "Napoli", new() { Gazzetta = true })]);
+        parsers.Set("Injury", [Chance("Cache keeper", "Napoli", new() { Status = ChanceType.Disqualified, Description = "Squalificato" })]);
+
+        // Lineups of a faraway matchday are not published yet: an expected wait, not retried every minute.
+        await KickoffIn(TimeSpan.FromDays(5));
+        var waiting = await Run();
+        Assert.Equal("Partial", waiting.Run.Status); Assert.Equal("chances_lineups_pending", waiting.Run.Code);
+        Assert.Contains("senza giocatori: Fantagazzetta", waiting.Log.Detail); Assert.Contains("Gazzetta: 1", waiting.Log.Detail);
+        await using (var database = factory.Database.CreateContext())
+            Assert.True((await database.SqlJobStates.SingleAsync(x => x.Name == "chances" && x.SeasonIndex == year)).NextRunAtUtc > DateTimeOffset.UtcNow.AddMinutes(5));
+
+        // The matchday is close: the same gap is a failure and the log says which source is empty.
+        await KickoffIn(TimeSpan.FromHours(10));
+        var failed = await Run();
+        Assert.Equal("Failed", failed.Run.Status); Assert.Equal("chances_lineups_unavailable", failed.Run.Code);
+        Assert.Contains("Fantagazzetta", failed.Log.Detail); Assert.Contains("Giornata 1", failed.Log.Detail);
+
+        // The injuries source empty is always a failure, even far from the matchday.
+        await KickoffIn(TimeSpan.FromDays(5)); parsers.Set("Fantagazzetta", [Chance("Cache forward", "Fiorentina", new() { Fantagazzetta = true })]); parsers.Set("Injury", []);
+        var injuries = await Run();
+        Assert.Equal("Failed", injuries.Run.Status); Assert.Equal("football_provider_incomplete", injuries.Run.Code); Assert.Contains("senza giocatori: Injury", injuries.Log.Detail);
     }
 
     private static ChancedRealPlayer Chance(string name, string club, Chance chance) => new() { Name = name, RealTeam = new() { Name = club }, Role = Role.Forward, Chance = chance };
