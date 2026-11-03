@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.16',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Hall of Fame: l\'aggiornamento automatico non resta più bloccato in attesa di una conferma. Se i totali storici contengono già le stagioni disponibili (anni più vecchi, leghe nate dopo e stagioni non giocate stanno solo nei totali) il punto di partenza viene fissato da solo, senza ricalcolare né alterare lo storico. I proprietari vengono riconosciuti anche se non sono più nel gruppo, e chi non ha ancora una riga nell\'albo viene aggiunto con le sue stagioni',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Se una lega richiede davvero la verifica di un amministratore, il log indica quale proprietario e quali totali non tornano (per esempio "punti 2 su 3")',
+      },
+    ],
+  },
+  {
     version: '4.1.15',
     date: '3 Novembre 2026',
     changes: [

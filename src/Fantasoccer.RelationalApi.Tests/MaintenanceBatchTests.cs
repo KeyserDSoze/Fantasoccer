@@ -27,11 +27,17 @@ public sealed class MaintenanceBatchTests(WorkspaceApiFactory factory) : IClassF
         basketResponse.EnsureSuccessStatusCode(); var basket = (await basketResponse.Content.ReadFromJsonAsync<BasketCreatedDto>())!.BasketId;
         for (var index = 0; index < 3; index++)
             (await owner.PostAsJsonAsync($"/api/workspace/groups/{group}/leagues", new CreateLeagueRequest("Batch league " + index, year, [basket]))).EnsureSuccessStatusCode();
+        var teamResponse = await owner.PostAsJsonAsync($"/api/workspace/groups/{group}/teams", new CreateTeamRequest(basket, year, "Blocked hall team", account.Id, []));
+        teamResponse.EnsureSuccessStatusCode(); var team = (await teamResponse.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
         Guid[] ordered;
         await using (var database = factory.Database.CreateContext())
         {
             ordered = await database.Leagues.Where(x => x.GroupId == group).OrderBy(x => x.LeagueId).Select(x => x.LeagueId).ToArrayAsync();
-            database.HallArchives.Add(new() { GroupId = group, LeagueId = ordered[0], ContributionsInitialized = false });
+            // Blocked for real: the career total (1) is below the season we have (5 points), so only an administrator can decide.
+            database.FantasyStandingSnapshots.Add(new() { GroupId = group, LeagueId = ordered[0], SeasonIndex = year, SnapshotDay = 0, SerieADay = 38,
+                Stages = [new() { Stage = "@", Teams = [new() { Ordinal = 0, BasketId = basket, TeamId = team, Name = "Blocked", Owner = account.Email, Points = 5 }] }] });
+            database.HallArchives.Add(new() { GroupId = group, LeagueId = ordered[0], ContributionsInitialized = false,
+                Ranks = [new() { Ordinal = 0, OwnerUserId = account.Id, OwnerEmail = account.Email, Name = "Blocked", Points = 1 }] });
             await database.SaveChangesAsync();
         }
         using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.Configure<JobMaintenanceOptions>(x => x.HallBatchSize = 2)));
