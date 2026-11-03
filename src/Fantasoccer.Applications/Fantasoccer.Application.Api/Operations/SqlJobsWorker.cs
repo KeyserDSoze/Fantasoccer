@@ -7,6 +7,8 @@ public sealed class SqlJobsWorker(IServiceScopeFactory scopes, ILogger<SqlJobsWo
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Not during the container swap of a deploy (see JobMaintenanceOptions.StartDelaySeconds): every job catches up right after.
+        if (!await BackgroundStart.WaitAsync(options.Value.StartDelaySeconds, logger, "SQL jobs", stoppingToken)) return;
         // A slow provider in one job must not hold up every other job's timer.
         // The SQL lease still arbitrates this name/season across all replicas.
         // Bound active work to leave connections and CPU for HTTP and push.

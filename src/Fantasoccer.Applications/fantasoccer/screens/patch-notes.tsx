@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.17',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Dopo un aggiornamento dell\'app i job automatici e le notifiche ripartono dopo 5 minuti, quando il cambio di versione è finito: niente più errori "job_runner_failed" con timeout del database a ogni deploy. I job recuperano subito il lavoro arretrato',
+      },
+    ],
+  },
+  {
     version: '4.1.16',
     date: '3 Novembre 2026',
     changes: [

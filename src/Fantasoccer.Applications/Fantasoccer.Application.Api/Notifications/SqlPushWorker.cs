@@ -1,11 +1,14 @@
 using Fantasoccer.Application.Core.Notifications;
+using Fantasoccer.Application.Core.Operations;
+using Fantasoccer.Application.Api.Operations;
 
 namespace Fantasoccer.Application.Api.Notifications;
 
-public sealed class SqlPushWorker(IServiceScopeFactory scopes, ILogger<SqlPushWorker> logger) : BackgroundService
+public sealed class SqlPushWorker(IServiceScopeFactory scopes, ILogger<SqlPushWorker> logger, Microsoft.Extensions.Options.IOptions<JobMaintenanceOptions> options) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!await Operations.BackgroundStart.WaitAsync(options.Value.StartDelaySeconds, logger, "push", stoppingToken)) return;
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
