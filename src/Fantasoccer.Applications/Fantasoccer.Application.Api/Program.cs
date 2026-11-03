@@ -63,6 +63,7 @@ builder.Services.AddOptions<Fantasoccer.Application.Core.Editorial.EditorialAiOp
     .ValidateOnStart();
 builder.Services.AddScoped<Fantasoccer.Application.Core.Editorial.IEditorialTextGenerator, Fantasoccer.Application.Api.Editorial.AzureEditorialTextGenerator>();
 if (builder.Configuration.GetValue("BackgroundJobs:Enabled", false)) builder.Services.AddHostedService<Fantasoccer.Application.Api.Operations.SqlJobsWorker>();
+if (!builder.Environment.IsEnvironment("Testing") && !builder.Environment.IsDevelopment()) builder.Services.AddHostedService<Fantasoccer.Application.Api.Operations.AbandonedSessionWorker>();
 builder.Services.AddOptions<PushTransportOptions>().Bind(builder.Configuration.GetSection("Push"))
     .Validate(options => !options.Enabled || options.HasValidConfiguration(), "Push requires valid matching VAPID keys and a mailto/HTTPS subject from private configuration.").ValidateOnStart();
 builder.Services.AddHttpClient("sql-web-push", client => client.Timeout = TimeSpan.FromSeconds(15))
