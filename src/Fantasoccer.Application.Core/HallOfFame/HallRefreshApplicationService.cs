@@ -29,7 +29,7 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         if (archive.ContributionsInitialized) throw new ApplicationFault(409, "hall_baseline_already_initialized", "Il checkpoint dell'albo è già inizializzato.");
         if (archive.Ranks.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningTeams.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).Any(x => x.Count() > 1)) throw BaselineRequired();
         var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SnapshotDay == 0).AsSplitQuery().ToArrayAsync(cancellationToken);
-        var owners = await OwnersAsync(group, cancellationToken);
+        var owners = await OwnersAsync(group, snapshots, cancellationToken);
         var actor = await database.Users.Where(x => x.Email == caller.FindFirstValue(ClaimTypes.Email)!.Trim().ToLowerInvariant() && x.IsEnabled).Select(x => x.Id).SingleAsync(cancellationToken);
         await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ExecuteDeleteAsync(cancellationToken);
         foreach (var snapshot in snapshots) database.HallRankContributions.AddRange(HallContributionMath.FromSnapshot(snapshot, email => Owner(owners, group, email)));
@@ -49,10 +49,20 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         if (expectedVersion is { } version && version != (archive?.Version ?? 0)) throw Changed();
         var changed = archive == null;
         if (archive == null) database.HallArchives.Add(archive = new() { GroupId = group, LeagueId = league, ContributionsInitialized = true, Version = 0 });
-        if (!archive.ContributionsInitialized) throw BaselineRequired();
         var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SnapshotDay == 0).OrderBy(x => x.SeasonIndex).AsSplitQuery().ToArrayAsync(cancellationToken);
-        var users = await OwnersAsync(group, cancellationToken);
-        var baselines = await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ToListAsync(cancellationToken);
+        var users = await OwnersAsync(group, snapshots, cancellationToken);
+        List<HallRankContribution> baselines;
+        if (archive.ContributionsInitialized) baselines = await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ToListAsync(cancellationToken);
+        else
+        {
+            // Imported career totals that do not match the seasons we have: if they contain them (older years, leagues born later and seasons not
+            // played are only in the totals), those seasons are already counted and the checkpoint is sealed here. Otherwise an administrator decides.
+            baselines = Reconcile(archive, snapshots, users, group);
+            await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ExecuteDeleteAsync(cancellationToken);
+            database.HallRankContributions.AddRange(baselines);
+            database.HallBaselineConfirmations.Add(new() { GroupId = group, LeagueId = league, ActorUserId = null, ArchiveVersion = archive.Version, RecordedAtUtc = clock.GetUtcNow() });
+            archive.ContributionsInitialized = true; changed = true;
+        }
         foreach (var snapshot in snapshots)
         {
             var current = HallContributionMath.FromSnapshot(snapshot, email => Owner(users, group, email));
@@ -62,7 +72,7 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
                 var old = baselines.SingleOrDefault(x => x.SeasonIndex == snapshot.SeasonIndex && x.OwnerUserId == user);
                 if (old != null && Equal(old, next)) continue;
                 var rows = archive.Ranks.Where(x => x.OwnerUserId == user).ToArray();
-                if (rows.Length > 1) throw BaselineRequired();
+                if (rows.Length > 1) throw BaselineRequired("L'albo ha più righe per lo stesso proprietario: serve una verifica manuale.");
                 var rank = rows.SingleOrDefault();
                 if (rank == null)
                 {
@@ -127,21 +137,56 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         .Where(x => x.GroupId == group && x.LeagueId == league).AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
     private async Task ManagerAsync(ClaimsPrincipal caller, Guid group)
     { if (!(await authorization.AuthorizeAsync(caller, group, "workspace-manager")).Succeeded) throw new ApplicationFault(403, "hall_manager_required", "Serve un amministratore del gruppo per aggiornare l'albo."); }
-    private async Task<Dictionary<string, Guid>> OwnersAsync(Guid group, CancellationToken cancellationToken)
+    // Everyone who ever played the league, resolved from what the standings say: current accounts (even if no longer in the group),
+    // "user:<id>" references and the historical participants of the group. Not only the present members.
+    private async Task<Dictionary<string, Guid>> OwnersAsync(Guid group, IEnumerable<FantasyStandingSnapshot> snapshots, CancellationToken cancellationToken)
     {
-        var members = await database.GroupMemberships.AsNoTracking().Where(x => x.GroupId == group).Include(x => x.User).ToArrayAsync(cancellationToken);
-        var result = members.ToDictionary(x => x.User.OwnerReference, x => x.UserId, StringComparer.Ordinal);
-        var ids = members.Select(x => x.UserId).ToArray();
-        var historical = await database.LegacyIdentityMaps.AsNoTracking().Where(x => x.Kind == "user" &&
-            x.LegacyKey.StartsWith(HistoricalParticipantIdentity.Prefix) && ids.Contains(x.TargetId)).ToArrayAsync(cancellationToken);
-        foreach (var entry in historical) result.TryAdd(entry.LegacyKey, entry.TargetId);
+        var wanted = snapshots.SelectMany(x => x.Stages).SelectMany(x => x.Teams).Select(x => x.Owner.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var emails = wanted.Select(x => x.ToLowerInvariant()).ToArray();
+        var result = new Dictionary<string, Guid>(StringComparer.Ordinal);
+        foreach (var user in await database.Users.AsNoTracking().Where(x => x.Email != null && emails.Contains(x.Email)).Select(x => new { x.Email, x.Id }).ToArrayAsync(cancellationToken))
+            result.TryAdd(user.Email!.ToLowerInvariant(), user.Id);
+        foreach (var label in wanted) if (UserAccount.TryOwnerReference(label, out var id)) result.TryAdd(label.ToLowerInvariant(), id);
+        var keys = wanted.Select(label => HistoricalParticipantIdentity.Key(group, label)).ToArray();
+        foreach (var entry in await database.LegacyIdentityMaps.AsNoTracking().Where(x => x.Kind == "user" && keys.Contains(x.LegacyKey)).ToArrayAsync(cancellationToken))
+            result.TryAdd(entry.LegacyKey, entry.TargetId);
         return result;
     }
     private static Guid Owner(Dictionary<string, Guid> users, Guid group, string value)
     {
         var historical = users.GetValueOrDefault(HistoricalParticipantIdentity.Key(group, value));
         if (historical != Guid.Empty) return historical;
-        return users.GetValueOrDefault(value.Trim().ToLowerInvariant()) is var id && id != Guid.Empty ? id : throw BaselineRequired();
+        return users.GetValueOrDefault(value.Trim().ToLowerInvariant()) is var id && id != Guid.Empty ? id
+            : throw BaselineRequired($"Il proprietario \"{value}\" delle classifiche non corrisponde a nessun utente né a un partecipante storico del gruppo.");
+    }
+
+    // The seasons we have are already in the career totals when every owner's total is at least what those seasons add up to.
+    // An owner without a career row is not sealed: the first refresh adds his seasons. Returns the rows to seal.
+    private static List<HallRankContribution> Reconcile(HallArchive archive, FantasyStandingSnapshot[] snapshots, Dictionary<string, Guid> users, Guid group)
+    {
+        if (archive.Ranks.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningTeams.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) ||
+            archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).Any(x => x.Count() > 1))
+            throw BaselineRequired("L'albo ha più righe per lo stesso proprietario o giocatore: serve una verifica manuale.");
+        var label = snapshots.SelectMany(x => x.Stages).SelectMany(x => x.Teams).GroupBy(x => Owner(users, group, x.Owner)).ToDictionary(x => x.Key, x => x.First().Owner);
+        var contributions = snapshots.SelectMany(x => HallContributionMath.FromSnapshot(x, owner => Owner(users, group, owner))).ToList();
+        var sealedRows = new List<HallRankContribution>(); var problems = new List<string>();
+        foreach (var owner in contributions.GroupBy(x => x.OwnerUserId))
+        {
+            var rank = archive.Ranks.SingleOrDefault(x => x.OwnerUserId == owner.Key);
+            if (rank is null) continue;
+            var short_ = new[]
+            {
+                (rank.Points, owner.Sum(x => x.Points), "punti"), ((float)rank.Victories, owner.Sum(x => x.Victories), "vittorie"), ((float)rank.Draws, owner.Sum(x => x.Draws), "pareggi"),
+                ((float)rank.Defeats, owner.Sum(x => x.Defeats), "sconfitte"), ((float)rank.Goals, owner.Sum(x => x.Goals), "gol fatti"), ((float)rank.SufferedGoals, owner.Sum(x => x.SufferedGoals), "gol subiti"),
+                (rank.ValuePoints, owner.Sum(x => x.ValuePoints), "punti valore"), (rank.SufferedValuePoints, owner.Sum(x => x.SufferedValuePoints), "punti valore subiti"),
+            }.Where(x => x.Item1 + 0.001f < x.Item2).Select(x => $"{x.Item3} {x.Item1:0.##} su {x.Item2:0.##}").ToArray();
+            if (short_.Length > 0) problems.Add($"{label[owner.Key]} ({string.Join(", ", short_)})");
+            else sealedRows.AddRange(owner);
+        }
+        if (problems.Count > 0)
+            throw BaselineRequired("Il totale storico è inferiore alle stagioni disponibili per " + string.Join("; ", problems.Take(4)) + (problems.Count > 4 ? $" e altri {problems.Count - 4}" : "") +
+                ": l'albo non contiene tutte le stagioni importate, serve la conferma di un amministratore.");
+        return sealedRows;
     }
     private static bool AddWin(ICollection<HallWinStage> wins, string name, int year)
     {
@@ -169,5 +214,6 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
     }
     private static ApplicationFault Changed() => new(409, "hall_changed", "Ricaricare l'albo prima di aggiornarlo.");
     private static ApplicationFault Missing() => new(404, "hall_not_found", "Albo o lega non trovati nel gruppo richiesto.");
-    private static ApplicationFault BaselineRequired() => new(409, "hall_baseline_reconciliation_required", "I totali storici non sono ricostruibili dalle stagioni disponibili. Confermare esplicitamente il checkpoint senza alterare lo storico prima del refresh incrementale.");
+    private static ApplicationFault BaselineRequired(string? reason = null) => new(409, "hall_baseline_reconciliation_required",
+        reason ?? "I totali storici non sono ricostruibili dalle stagioni disponibili. Confermare esplicitamente il checkpoint senza alterare lo storico prima del refresh incrementale.");
 }

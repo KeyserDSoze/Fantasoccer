@@ -1378,7 +1378,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ActorUserId")
+                    b.Property<Guid?>("ActorUserId")
                         .HasColumnType("uuid");
 
                     b.Property<int>("ArchiveVersion")
@@ -5076,8 +5076,7 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.GroupMembership", null)
                         .WithMany()
                         .HasForeignKey("GroupId", "ActorUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Fantasoccer.Infrastructure.PostgreSql.Entities.HallArchive", null)
                         .WithMany()

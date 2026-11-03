@@ -24,7 +24,8 @@ public sealed class HallBaselineConfirmation
     public Guid Id { get; set; }
     public Guid GroupId { get; set; }
     public Guid LeagueId { get; set; }
-    public Guid ActorUserId { get; set; }
+    // null: sealed automatically because the career totals already contain the available seasons.
+    public Guid? ActorUserId { get; set; }
     public int ArchiveVersion { get; set; }
     public DateTimeOffset RecordedAtUtc { get; set; }
 }
