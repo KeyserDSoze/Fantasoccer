@@ -11,6 +11,9 @@ export interface ChangeStatusDialogProps {
   onOpenChange: (open: boolean) => void
   onConfirm: (owner: string, playerKey: string, status: number, revenue: number | null) => Promise<void>
   onCancel: () => void
+  // League rule for players who left Serie A (default: half the price, rounded down).
+  leftSerieARefundPercent?: number
+  leftSerieARefundRoundUp?: boolean
 }
 
 export function ChangeStatusDialog({
@@ -22,6 +25,8 @@ export function ChangeStatusDialog({
   onOpenChange,
   onConfirm,
   onCancel,
+  leftSerieARefundPercent = 50,
+  leftSerieARefundRoundUp = false,
 }: ChangeStatusDialogProps) {
   const [statusType, setStatusType] = useState(0)
   const [revenue, setRevenue] = useState('')
@@ -71,8 +76,8 @@ export function ChangeStatusDialog({
                     <Select.Item index={0} value="0">
                       <Select.ItemText>Attivo (ripristina)</Select.ItemText>
                     </Select.Item>
-                    <Select.Item index={1} value="1">
-                      <Select.ItemText>Infortunato/Estero</Select.ItemText>
+                    <Select.Item index={1} value="5">
+                      <Select.ItemText>Uscito dalla Serie A / infortunato</Select.ItemText>
                     </Select.Item>
                     <Select.Item index={2} value="2">
                       <Select.ItemText>Scartato</Select.ItemText>
@@ -91,18 +96,18 @@ export function ChangeStatusDialog({
             {needsRevenue && (
               <YStack gap="$2">
                 <Label htmlFor="revenue-input" fontSize="$4">
-                  Importo vendita (+ guadagno / - perdita):
+                  Prezzo di vendita (crediti incassati):
                 </Label>
                 <Input 
                   id="revenue-input"
-                  placeholder="Es: 50 o -30" 
+                  placeholder="Es: 58" 
                   value={revenue} 
                   onChangeText={setRevenue} 
                   keyboardType="numeric" 
                   size="$4" 
                 />
                 <Text fontSize="$2" color="$color10">
-                  Lascia vuoto o 0 se nessun importo da registrare
+                  Tornano tutti alla squadra; il prezzo d&apos;acquisto resta tra i costi. Vuoto = 0.
                 </Text>
               </YStack>
             )}
@@ -111,16 +116,17 @@ export function ChangeStatusDialog({
               <YStack gap="$2">
                 <Text fontSize="$3" fontWeight="600" color="$blue11">Spiegazione stati:</Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Infortunato/Estero:</Text> Venduto per un girone (torna secondo girone)
+                  • <Text fontWeight="600">Uscito dalla Serie A / infortunato:</Text> torna il {leftSerieARefundPercent}% del prezzo
+                  (arrotondato per {leftSerieARefundRoundUp ? 'eccesso' : 'difetto'}), come da regole della lega
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Scartato:</Text> Giocatore rimosso per scelta dell&apos;allenatore
+                  • <Text fontWeight="600">Scartato:</Text> scelta dell&apos;allenatore, non torna nulla
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Venduto:</Text> Venduto ad un altro giocatore (con/senza prezzo)
+                  • <Text fontWeight="600">Venduto:</Text> torna il prezzo di vendita
                 </Text>
                 <Text fontSize="$2" color="$blue11">
-                  • <Text fontWeight="600">Rimosso:</Text> Giocatore rimosso definitivamente
+                  • <Text fontWeight="600">Rimosso:</Text> correzione, come se non fosse mai stato acquistato
                 </Text>
               </YStack>
             </Card>
@@ -142,9 +148,9 @@ export function ChangeStatusDialog({
                 disabled={loading} 
                 onPress={async () => {
                   let revenueValue: number | null = null
-                  if (needsRevenue && revenue) {
-                    const parsed = parseInt(revenue, 10)
-                    if (!isNaN(parsed)) revenueValue = parsed
+                  if (needsRevenue) {
+                    const parsed = parseInt(revenue || '0', 10)
+                    revenueValue = Number.isNaN(parsed) ? 0 : Math.max(0, parsed)
                   }
                   
                   await onConfirm(owner, playerKey, statusType, revenueValue)

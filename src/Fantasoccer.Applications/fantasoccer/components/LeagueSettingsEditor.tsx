@@ -405,6 +405,39 @@ export function LeagueSettingsEditor({
           </Text>
           <Separator />
           {renderNumberFields(economyFields, 'economy')}
+          <Separator />
+          <Text fontSize="$3" fontWeight="700" color="$color12">Giocatori usciti dalla Serie A</Text>
+          <Text fontSize="$2" color="$color10">
+            Quando un giocatore che ha lasciato la Serie A viene sostituito all&apos;asta di riparazione (o segnato come uscito), torna questa
+            parte del prezzo pagato. Gli scarti per scelta non restituiscono nulla, una vendita restituisce il prezzo di vendita.
+          </Text>
+          <XStack gap="$3" flexWrap="wrap" alignItems="flex-start">
+            <NumericField
+              key={`${resetKey}-economy-left-percent`}
+              id={`${resetKey}-economy-left-percent`}
+              label="Rimborso (% del prezzo)"
+              description="50 = metà del prezzo, 0 = nessun rimborso, 100 = tutto."
+              value={value.leftSerieARefundPercent ?? 50}
+              min={0}
+              max={100}
+              disabled={disabled}
+              onChange={next => onChange({ ...value, leftSerieARefundPercent: next })}
+              onValidityChange={handleValidityChange}
+            />
+            <YStack gap="$2" flexGrow={1} flexBasis={280} minWidth={240}>
+              <Label>Arrotondamento</Label>
+              <ToggleChip
+                label={value.leftSerieARefundRoundUp ? 'Per eccesso' : 'Per difetto'}
+                accent="green"
+                checked={value.leftSerieARefundRoundUp ?? false}
+                disabled={disabled}
+                onCheckedChange={checked => onChange({ ...value, leftSerieARefundRoundUp: checked })}
+              />
+              <Text fontSize="$2" color="$color10">
+                Esempio: un giocatore pagato 41 restituisce {(value.leftSerieARefundRoundUp ? Math.ceil : Math.floor)(41 * (value.leftSerieARefundPercent ?? 50) / 100)} crediti.
+              </Text>
+            </YStack>
+          </XStack>
         </YStack>
       </Card>
 

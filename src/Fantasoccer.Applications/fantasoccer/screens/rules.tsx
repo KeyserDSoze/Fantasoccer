@@ -372,6 +372,12 @@ export default function Rules() {
                 </XStack>
               )}
               <XStack justifyContent="space-between">
+                <Text fontSize="$3" color="$color11">✈️ Rimborso per chi lascia la Serie A</Text>
+                <Text fontSize="$3" fontWeight="600" color="$color12">
+                  {settings.leftSerieARefundPercent ?? 50}% del prezzo, per {settings.leftSerieARefundRoundUp ? 'eccesso' : 'difetto'}
+                </Text>
+              </XStack>
+              <XStack justifyContent="space-between">
                 <Text fontSize="$3" color="$color11">🎲 Asta random</Text>
                 <Text fontSize="$3" fontWeight="600" color="$color12">{settings.randomAuction ? 'Sì' : 'No'}</Text>
               </XStack>

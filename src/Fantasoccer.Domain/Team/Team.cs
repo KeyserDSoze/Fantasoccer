@@ -26,7 +26,8 @@ namespace Fantasoccer
         [JsonIgnore]
         public IEnumerable<Player> ActivePlayers => Players.Where(x => x.Status == PlayerInTeamStatus.Active);
         [JsonIgnore]
-        public int RevenueMoney => Players.Where(x => x.Status == PlayerInTeamStatus.Sold).Sum(x => x.Revenue - x.Price);
+        // Credits received back: the sale price of sold players and the refund of players who left Serie A.
+        public int RevenueMoney => Players.Where(x => x.Status is PlayerInTeamStatus.Sold or PlayerInTeamStatus.LeftSerieA).Sum(x => x.Revenue);
         [JsonIgnore]
         public int MoneyFromSoldWithNoReturnedPrice => Players.Where(x => x.Status == PlayerInTeamStatus.SoldWithNoReturnedPrice).Sum(x => x.Price);
         [JsonIgnore]

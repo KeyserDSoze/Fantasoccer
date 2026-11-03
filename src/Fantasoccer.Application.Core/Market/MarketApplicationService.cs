@@ -179,8 +179,7 @@ public sealed class MarketApplicationService(FantasoccerDbContext database, Comp
     private static bool Matches(RosterPlayer[] rows, MarketTradePlayer item) => rows.Any(x => x.PlayerId == item.PlayerId && x.Price == item.Price && x.PlayerRole == item.PlayerRole && (item.RosterOrdinal == null || x.Ordinal == item.RosterOrdinal));
     private static bool SameRoles(RosterPlayer[] buyer, RosterPlayer[] seller) => buyer.GroupBy(x => x.PlayerRole).Select(x => (x.Key, Count: x.Count())).OrderBy(x => x.Key)
         .SequenceEqual(seller.GroupBy(x => x.PlayerRole).Select(x => (x.Key, Count: x.Count())).OrderBy(x => x.Key));
-    private static long Cost(RosterSnapshot row) => row.Players.Sum(x => (long)x.Price) - row.Players.Where(x => x.Status == 3).Sum(x => (long)x.Revenue - x.Price)
-        - row.MoneyFromRank - row.MarketBalanceAdjustment - row.OpeningCompetitionPrize - row.Players.Where(x => x.Status == 1).Sum(x => (long)(x.Price / 2));
+    private static long Cost(RosterSnapshot row) => Fantasoccer.Application.Core.Teams.RosterEconomy.Cost(row);
     private static string Primary(FantasyTeamSeason team) => team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
     private static void SetVote(MarketTrade trade, FantasyTeamSeason team, Guid actor, bool approve)
     {

@@ -113,7 +113,7 @@ export function TeamDetailDialog({
                       </XStack>
                       <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
                         <YStack gap="$1" flex={1} minWidth={120}>
-                          <Text fontSize="$2" color="$green10">Ricavi Vendite</Text>
+                          <Text fontSize="$2" color="$green10">Vendite e rimborsi</Text>
                           <Text fontSize="$4" fontWeight="600" color="$green11">
                             +€{TeamHelper.getRevenueMoney(team.value)}
                           </Text>
@@ -127,11 +127,25 @@ export function TeamDetailDialog({
                       </XStack>
                       <XStack gap="$3" flexWrap="wrap" justifyContent="space-between">
                         <YStack gap="$1" flex={1} minWidth={120}>
-                          <Text fontSize="$2" color="$green10">Infortunati/Ceduti</Text>
+                          <Text fontSize="$2" color="$green10">Metà prezzo (infortunati)</Text>
                           <Text fontSize="$4" fontWeight="600" color="$green11">
                             +€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}
                           </Text>
                         </YStack>
+                        {(team.value.marketBalanceAdjustment ?? 0) !== 0 && (
+                          <YStack gap="$0.5" flex={1} minWidth={120}>
+                            <Text fontSize="$1" color="$blue10">Mercato</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$blue11">
+                              {(team.value.marketBalanceAdjustment ?? 0) > 0 ? '+' : '-'}€{Math.abs(team.value.marketBalanceAdjustment ?? 0)}
+                            </Text>
+                          </YStack>
+                        )}
+                        {team.value.openingCompetitionPrize !== 0 && (
+                          <YStack gap="$0.5" flex={1} minWidth={120}>
+                            <Text fontSize="$1" color="$green10">Premio iniziale</Text>
+                            <Text fontSize="$4" fontWeight="600" color="$green11">+€{team.value.openingCompetitionPrize}</Text>
+                          </YStack>
+                        )}
                       </XStack>
                     </YStack>
                   </Card>
@@ -164,9 +178,9 @@ export function TeamDetailDialog({
                               <Text fontSize="$2" fontWeight="600" color={getPlayerStatusColor(player.status || 0)}>
                                 {getPlayerStatusLabel(player.status || 0)}
                               </Text>
-                              {(player.status === 3 || player.status === 1) && player.revenue !== undefined && player.revenue !== 0 && (
-                                <Text fontSize="$2" fontWeight="600" color={player.revenue > 0 ? '$green11' : '$red11'}>
-                                  ({player.revenue > 0 ? '+' : ''}{player.revenue}€)
+                              {player.status !== 0 && TeamHelper.getRefund(player) > 0 && (
+                                <Text fontSize="$2" fontWeight="600" color="$green11">
+                                  ({player.status === 3 ? 'venduto a' : 'rimborsati'} {TeamHelper.getRefund(player)}€)
                                 </Text>
                               )}
                             </XStack>

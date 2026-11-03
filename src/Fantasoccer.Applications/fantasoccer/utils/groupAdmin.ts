@@ -72,6 +72,7 @@ export const isLeagueSettingValid = (setting: LeagueSetting): boolean => {
     setting.pointForCleanSheet,
     setting.moneyForGoal,
     setting.moneyForSufferedGoal,
+    setting.leftSerieARefundPercent ?? 50,
     setting.liveFormationChanges ?? 0
   ]
 
@@ -83,6 +84,7 @@ export const isLeagueSettingValid = (setting: LeagueSetting): boolean => {
   if (setting.pointForFirstGoal < 1 || setting.pointForNextGoal < 1) return false
   if (setting.pointForOwnGoal < 0 || setting.differencePointForOwnGoal < 0) return false
   if (setting.pointForCleanSheet < 0) return false
+  if ((setting.leftSerieARefundPercent ?? 50) < 0 || (setting.leftSerieARefundPercent ?? 50) > 100) return false
 
   const fallbackVotes = setting.votes[-1]
   if (!fallbackVotes) return false

@@ -11,7 +11,9 @@ export enum PlayerInTeamStatus {
   SoldForOneHalf = 1,
   SoldWithNoReturnedPrice = 2,
   Sold = 3,
-  Removed = 4
+  Removed = 4,
+  // Left Serie A (or long out): revenue holds the refund fixed by the league rules at that moment.
+  LeftSerieA = 5
 }
 
 export enum FantaSoccerRole {
@@ -38,13 +40,15 @@ export const PlayerStatusHelper = {
       case PlayerInTeamStatus.Active:
         return 'Attivo'
       case PlayerInTeamStatus.SoldForOneHalf:
-        return 'Venduto metà prezzo'
+        return 'Infortunato/Estero (metà prezzo)'
       case PlayerInTeamStatus.SoldWithNoReturnedPrice:
-        return 'Venduto senza ritorno'
+        return 'Scartato (nessun rimborso)'
       case PlayerInTeamStatus.Sold:
         return 'Venduto'
       case PlayerInTeamStatus.Removed:
         return 'Rimosso'
+      case PlayerInTeamStatus.LeftSerieA:
+        return 'Uscito dalla Serie A'
       default:
         return 'Sconosciuto'
     }
@@ -183,9 +187,25 @@ export interface Team {
   lastUpdate: string | Date | null
 }
 
+// A team's money, the same way the server computes it for auctions, market and standings.
+export interface TeamEconomy {
+  startingMoney: number
+  activeCost: number // price of the players in the roster now
+  releasedCost: number // what the players no longer in the roster still cost (price minus refund)
+  refunds: number // credits given back: sale prices, refunds of players who left Serie A, old half refunds
+  rankCredits: number // goal credits already received at an auction
+  market: number // credits exchanged in market trades
+  openingPrize: number
+  cost: number
+  balance: number // credits available now
+}
+
 export interface EnhancedTeam extends Team {
   totalPlayers: number
   activePlayers: Player[]
+  activeCost: number
+  releasedCost: number
+  refunds: number
   totalCost: number
   revenueMoney: number
   moneyFromSoldWithNoReturnedPrice: number
@@ -216,10 +236,40 @@ export class TeamHelper {
     return TeamHelper.getTotalCostForPlayers(team)
   }
 
+  // Credits a roster row gives back: half price (old injured/abroad status), the sale price of a sale,
+  // the refund of a player who left Serie A. Active and discarded players give nothing back.
+  static getRefund(player: Player): number {
+    switch (player.status) {
+      case PlayerInTeamStatus.SoldForOneHalf: return Math.floor((player.price ?? 0) / 2)
+      case PlayerInTeamStatus.Sold:
+      case PlayerInTeamStatus.LeftSerieA: return player.revenue ?? 0
+      default: return 0
+    }
+  }
+
+  // Sale prices and refunds of players who left Serie A.
   static getRevenueMoney(team: Team): number {
     return team.players
-      .filter(player => player.status === PlayerInTeamStatus.Sold)
-      .reduce((sum, player) => sum + ((player.revenue ?? 0) - player.price), 0)
+      .filter(player => player.status === PlayerInTeamStatus.Sold || player.status === PlayerInTeamStatus.LeftSerieA)
+      .reduce((sum, player) => sum + TeamHelper.getRefund(player), 0)
+  }
+
+  static getEconomy(team: Team, startingMoney: number): TeamEconomy {
+    const active = team.players.filter(player => player.status === PlayerInTeamStatus.Active)
+    const released = team.players.filter(player => player.status !== PlayerInTeamStatus.Active)
+    const refunds = team.players.reduce((sum, player) => sum + TeamHelper.getRefund(player), 0)
+    const cost = TeamHelper.getCost(team)
+    return {
+      startingMoney,
+      activeCost: active.reduce((sum, player) => sum + (player.price ?? 0), 0),
+      releasedCost: released.reduce((sum, player) => sum + (player.price ?? 0) - TeamHelper.getRefund(player), 0),
+      refunds,
+      rankCredits: team.moneyFromRank,
+      market: team.marketBalanceAdjustment ?? 0,
+      openingPrize: team.openingCompetitionPrize,
+      cost,
+      balance: startingMoney - cost,
+    }
   }
 
   static getMoneyFromSoldWithNoReturnedPrice(team: Team): number {
@@ -234,13 +284,12 @@ export class TeamHelper {
       .reduce((sum, player) => sum + Math.floor(player.price / 2), 0)
   }
 
+  // Every player ever bought keeps his price; whoever left the roster gives back only his refund.
   static getCost(team: Team): number {
-    return TeamHelper.getTotalCostForPlayers(team)
-      - TeamHelper.getRevenueMoney(team)
+    return team.players.reduce((sum, player) => sum + (player.price ?? 0) - TeamHelper.getRefund(player), 0)
       - team.moneyFromRank
       - (team.marketBalanceAdjustment ?? 0)
       - team.openingCompetitionPrize
-      - TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
   }
 
   // Alias for backward compatibility
@@ -255,10 +304,14 @@ export class TeamHelper {
     const moneyHalfReturn = TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team)
     const cost = TeamHelper.getCost(team)
 
+    const economy = TeamHelper.getEconomy(team, 0)
     return {
       ...team,
       totalPlayers: team.players.length,
       activePlayers: TeamHelper.getActivePlayers(team),
+      activeCost: economy.activeCost,
+      releasedCost: economy.releasedCost,
+      refunds: economy.refunds,
       totalCost,
       revenueMoney,
       moneyFromSoldWithNoReturnedPrice: moneyNoReturn,

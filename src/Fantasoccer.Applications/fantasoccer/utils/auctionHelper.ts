@@ -65,10 +65,11 @@ export const getAuctionStatusColor = (status: AuctionStatus): string => {
 export const getPlayerStatusLabel = (status: number): string => {
   const labels: Record<number, string> = {
     0: 'Attivo',
-    1: 'Infortunato/Estero',
+    1: 'Infortunato/Estero (metà)',
     2: 'Scartato',
     3: 'Venduto',
-    4: 'Rimosso'
+    4: 'Rimosso',
+    5: 'Uscito dalla Serie A'
   }
   return labels[status] || 'Sconosciuto'
 }
@@ -82,7 +83,8 @@ export const getPlayerStatusColor = (status: number): string => {
     1: '$orange11', // SoldForOneHalf
     2: '$red11',    // SoldWithNoReturnedPrice
     3: '$blue11',   // Sold
-    4: '$gray11'    // Removed
+    4: '$gray11',   // Removed
+    5: '$orange11'  // LeftSerieA
   }
   return colors[status] || '$gray11'
 }

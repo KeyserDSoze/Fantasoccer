@@ -117,6 +117,78 @@ public sealed partial class WorkspaceApiTests
     }
 
     [PostgreSqlFact]
+    public async Task Repair_auction_refunds_players_who_left_Serie_A_by_league_rule_and_a_sale_returns_its_price()
+    {
+        using var manager = await factory.AccountAsync(globalAdmin: true);
+        var year = FantacalcioTime.ActualYear;
+        var group = await CreateGroupAsync(manager);
+        var league = await CreateLeagueAsync(manager, group.GroupId, year);
+        var graph = (await manager.GetFromJsonAsync<GameGroupDto>($"/api/groups/{group.GroupId}"))!;
+        var me = (await manager.GetFromJsonAsync<AccountIdentityDto>("/api/accounts/me"))!;
+        var created = await manager.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(graph.Baskets[0].Id, year, "Repair team", me.Id, []));
+        created.EnsureSuccessStatusCode(); var team = (await created.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
+        string incoming, left, sold, kept;
+        await using (var database = factory.Database.CreateContext())
+        {
+            (await database.Leagues.SingleAsync(x => x.GroupId == group.GroupId && x.LeagueId == league)).IsMain = true;
+            var club = new FootballClub { Name = "Repair club", Abbreviation = "rpc" };
+            database.Clubs.Add(club);
+            FootballPlayer Person(string name, bool inSerieA)
+            {
+                var person = new FootballPlayer { Name = name + " " + Guid.NewGuid().ToString("N")[..8] };
+                database.Players.Add(person);
+                // Left Serie A: no current club, the last one kept as previous club.
+                database.PlayerSeasons.Add(new() { Player = person, Club = inSerieA ? club : null, PreviousClub = inSerieA ? null : club, SeasonIndex = year,
+                    NormalizedName = KeyUtils.GetPlayerKey(person.Name), Position = PlayerPosition.Forward, IsActive = inSerieA });
+                return person;
+            }
+            var people = new[] { Person("Incoming", true), Person("Gone abroad", false), Person("Sold one", true), Person("Kept one", true) };
+            await database.SaveChangesAsync();
+            (incoming, left, sold, kept) = (people[0].Id, people[1].Id, people[2].Id, people[3].Id);
+            var seasonRoster = await database.RosterSnapshots.Include(x => x.Players).SingleAsync(x => x.GroupId == group.GroupId && x.TeamId == team && x.Kind == RosterKind.Season);
+            foreach (var (player, price, ordinal) in new[] { (left, 41, 0), (sold, 30, 1), (kept, 20, 2) })
+                seasonRoster.Players.Add(new() { Ordinal = ordinal, PlayerId = player, ClubId = club.Id, PlayerRole = 3, IsActive = true, IsVisible = true, Price = price, Position = 11 });
+            seasonRoster.RankCreditGranted = 0;
+            await database.SaveChangesAsync();
+        }
+        var create = await manager.PostAsJsonAsync("/api/auctions", new CreateAuctionRequest(group.GroupId, league, year, 2, 1));
+        create.EnsureSuccessStatusCode();
+        var path = $"/api/auctions/{await create.Content.ReadFromJsonAsync<Guid>()}";
+        var state = (await manager.GetFromJsonAsync<AuctionStateDto>(path))!;
+        var update = (await (await manager.PostAsJsonAsync(path + "/commands/show", new AuctionCommandRequest(state.Wrapper.Version, Role: 3, PlayerId: incoming))).Content.ReadFromJsonAsync<AuctionUpdateDto>())!;
+        // Replacing the player who left Serie A: half of 41 comes back (rounded down), and counts already in the budget check.
+        var bid = await manager.PostAsJsonAsync(path + "/commands/bid", new AuctionCommandRequest(update.Version, TeamId: team, Amount: 10, SubstitutedPlayerId: left));
+        bid.EnsureSuccessStatusCode();
+        (await manager.PostAsJsonAsync(path + "/commands/assign", new AuctionCommandRequest((await bid.Content.ReadFromJsonAsync<AuctionUpdateDto>())!.Version))).EnsureSuccessStatusCode();
+        state = (await manager.GetFromJsonAsync<AuctionStateDto>(path))!;
+        var roster = state.Teams.Single(x => x.Value.TeamId == team).Value;
+        var gone = roster.Players.Single(x => x.PlayerId == left);
+        Assert.Equal(5, gone.Status); Assert.Equal(20, gone.Revenue);
+
+        // A sale returns the whole sale price; a player out with the rule rounded up returns 21 of 41.
+        var sale = roster.Players.Single(x => x.PlayerId == sold);
+        (await manager.PostAsJsonAsync(path + "/commands/player-status", new AuctionCommandRequest(state.Wrapper.Version, PlayerId: sold, TeamId: team, PlayerStatus: 3,
+            Revenue: 58, RosterOrdinal: sale.Ordinal, ExpectedRosterVersion: roster.Version))).EnsureSuccessStatusCode();
+        await using (var database = factory.Database.CreateContext())
+        {
+            var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == group.GroupId && x.LeagueId == league && x.SeasonIndex == year);
+            Assert.Equal(50, rules.LeftSerieARefundPercent); Assert.False(rules.LeftSerieARefundRoundUp);
+            rules.LeftSerieARefundRoundUp = true; rules.LeftSerieARefundPercent = 51; await database.SaveChangesAsync();
+        }
+        state = (await manager.GetFromJsonAsync<AuctionStateDto>(path))!;
+        roster = state.Teams.Single(x => x.Value.TeamId == team).Value;
+        var injured = roster.Players.Single(x => x.PlayerId == kept);
+        (await manager.PostAsJsonAsync(path + "/commands/player-status", new AuctionCommandRequest(state.Wrapper.Version, PlayerId: kept, TeamId: team, PlayerStatus: 5,
+            RosterOrdinal: injured.Ordinal, ExpectedRosterVersion: roster.Version))).EnsureSuccessStatusCode();
+        await using var final = factory.Database.CreateContext();
+        var saved = await final.RosterSnapshots.AsNoTracking().Include(x => x.Players).SingleAsync(x => x.GroupId == group.GroupId && x.TeamId == team && x.Kind == RosterKind.Season);
+        Assert.Equal(11, saved.Players.Single(x => x.PlayerId == kept).Revenue);
+        Assert.Equal(58, saved.Players.Single(x => x.PlayerId == sold).Revenue);
+        // 1000 - (41 - 20) - (30 - 58) - (20 - 11) - 10 (the new player).
+        Assert.Equal(1000 - 21 + 28 - 9 - 10, RosterEconomy.Balance(saved, 1000));
+    }
+
+    [PostgreSqlFact]
     public async Task Opaque_bearer_query_tokens_are_hub_only_and_MCP_resource_tokens_cannot_negotiate_the_hub()
     {
         using var accountClient = await factory.AccountAsync();

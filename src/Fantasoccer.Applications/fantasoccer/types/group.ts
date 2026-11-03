@@ -24,6 +24,8 @@ export interface LeagueSetting {
   pointForOwnGoal: number; differencePointForOwnGoal: number; pointInHome: number; pointForVictory: number; pointForDefeat: number
   pointForDraw: number; pointForStrongDefense: number; pointForStrongDefense4: number; pointForStrongDefense5: number
   pointForGoodPeople: number; pointForCleanSheet: number; moneyForGoal: number; moneyForSufferedGoal: number
+  // Share of the price given back for a player who left Serie A (percent), rounded down unless roundUp.
+  leftSerieARefundPercent: number; leftSerieARefundRoundUp: boolean
   randomAuction: boolean; rankWithValuePoints: boolean; market: MarketType; liveFormationChanges: number
   allowLiveModuleChange: boolean; openingCompetition: OpeningCompetitionSettings; postponements: PostponementSettings
 }
@@ -58,6 +60,7 @@ export const DefaultLeagueSetting: LeagueSetting = {
   delayedDay: 2, cancelledDay: 1, pointForFirstGoal: 66, pointForNextGoal: 6, pointForOwnGoal: 6, differencePointForOwnGoal: 6,
   pointInHome: 0, pointForVictory: 3, pointForDefeat: 0, pointForDraw: 1, pointForStrongDefense: 2, pointForStrongDefense4: 4,
   pointForStrongDefense5: 6, moneyForGoal: 5, moneyForSufferedGoal: 3, pointForCleanSheet: 1, pointForGoodPeople: 2,
+  leftSerieARefundPercent: 50, leftSerieARefundRoundUp: false,
   randomAuction: false, rankWithValuePoints: false, market: MarketType.WithVote, liveFormationChanges: 0, allowLiveModuleChange: false,
   openingCompetition: { enabled: false, serieADays: 2, prizes: [{ position: 1, credits: 50 }, { position: 2, credits: 30 }, { position: 3, credits: 20 }] },
   postponements: { waitForRecovery: false, goalkeeper: 6, defender: 6, midfielder: 6, forward: 6 },

@@ -24,6 +24,9 @@ public sealed class LeagueRules
     public int PointForCleanSheet { get; set; } = 1;
     public int MoneyForGoal { get; set; } = 5;
     public int MoneyForSufferedGoal { get; set; } = 3;
+    // Share of the price given back when a player who left Serie A is replaced or set aside (percent, rounded down unless RoundUp).
+    public int LeftSerieARefundPercent { get; set; } = 50;
+    public bool LeftSerieARefundRoundUp { get; set; }
     public bool RandomAuction { get; set; }
     public bool RankWithValuePoints { get; set; }
     public int Market { get; set; }
