@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.11',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Hall of Fame: quando alcune leghe richiedono la conferma del checkpoint storico il job non viene più ritentato ogni minuto ma ogni ora, e il log elenca le leghe interessate',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Log dei job: i timeout del database dopo un deploy e le esecuzioni interrotte (lease scaduta) ora spiegano la causa invece di mostrare solo il codice',
+      },
+    ],
+  },
+  {
     version: '4.1.10',
     date: '3 Novembre 2026',
     changes: [

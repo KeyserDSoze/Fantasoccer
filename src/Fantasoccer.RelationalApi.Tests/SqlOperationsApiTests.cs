@@ -115,6 +115,7 @@ public sealed partial class WorkspaceApiTests
         (await client.PostAsJsonAsync("/api/operations/jobs/run", new RunSqlJobRequest("images", year))).EnsureSuccessStatusCode();
         await using var final = factory.Database.CreateContext();
         Assert.Equal("LeaseLost", (await final.SqlJobRuns.SingleAsync(x => x.Id == previous)).Status);
+        Assert.Contains("riavviata", (await final.SqlJobRuns.SingleAsync(x => x.Id == previous)).Detail);
         Assert.Null((await final.SqlJobStates.SingleAsync(x => x.Name == "images" && x.SeasonIndex == year)).LeaseId);
     }
 

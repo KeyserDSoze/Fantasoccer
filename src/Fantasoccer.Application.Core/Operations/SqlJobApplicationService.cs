@@ -70,7 +70,8 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             if (state.LeaseId is { } previous)
             {
                 var abandoned = await database.SqlJobRuns.SingleOrDefaultAsync(x => x.Id == previous && x.Status == "Running", cancellationToken);
-                if (abandoned != null) { abandoned.Status = "LeaseLost"; abandoned.Code = "previous_lease_expired"; abandoned.CompletedAtUtc = now; }
+                if (abandoned != null) { abandoned.Status = "LeaseLost"; abandoned.Code = "previous_lease_expired"; abandoned.CompletedAtUtc = now;
+                    abandoned.Detail = "L'esecuzione non ha registrato l'esito entro 5 minuti: l'API è stata riavviata (deploy) o il database non rispondeva mentre il job scriveva la ricevuta."; }
             }
             state.LeaseId = id; state.LeaseUntilUtc = now.AddMinutes(5); state.LastStartedAtUtc = now; state.LastStatus = "Running";
             database.SqlJobRuns.Add(new() { Id = id, Name = name, SeasonIndex = year, ActorUserId = actor, StartedAtUtc = now, Status = "Running" });
@@ -106,7 +107,10 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             if (state.LeaseId != id) return new(id, name, year, "LeaseLost", work.Processed, work.Skipped, "lease_replaced");
             state.LeaseId = null; state.LeaseUntilUtc = null; state.LastStatus = status; state.LastCompletedAtUtc = clock.GetUtcNow();
             var retry = status is "Failed" or "Canceled" || SqlJobOutcomes.IsIncident(status, work.Code);
-            state.NextRunAtUtc = retry || work.HasMore ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
+            // A condition that only an administrator can clear is rechecked now and then, not every minute.
+            state.NextRunAtUtc = work.HasMore ? clock.GetUtcNow().AddMinutes(1)
+                : retry && work.Code is not null && SqlJobOutcomes.SlowRetryCodes.Contains(work.Code, StringComparer.Ordinal) ? clock.GetUtcNow().AddHours(1)
+                : retry ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
             run.Status = status; run.Processed = work.Processed; run.Skipped = work.Skipped; run.Code = work.Code; run.CompletedAtUtc = clock.GetUtcNow();
             run.Detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.SafeDetail(work.Detail);
             await database.SaveChangesAsync(receiptTimeout.Token); await transaction.CommitAsync(receiptTimeout.Token);

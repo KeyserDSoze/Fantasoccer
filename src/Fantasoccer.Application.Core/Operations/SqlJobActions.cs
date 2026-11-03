@@ -272,7 +272,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         var rows = await pending.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && cursor?.CursorGroupId is not null)
             rows = await active.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
-        var processed = 0; var skipped = 0;
+        var processed = 0; var skipped = 0; var reconcile = new List<(Guid GroupId, Guid LeagueId)>();
         foreach (var row in rows.Take(limit))
         {
             // Persist progress even when this league needs reconciliation or a worker is interrupted. The next
@@ -280,11 +280,19 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             await StoreHallCursorAsync(year, row.GroupId, row.LeagueId, cancellationToken);
             await using var child = scopes.CreateAsyncScope();
             try { await child.ServiceProvider.GetRequiredService<HallRefreshApplicationService>().RefreshScheduledAsync(row.GroupId, row.LeagueId, cancellationToken); processed++; }
-            catch (ApplicationFault fault) when (fault.Code == "hall_baseline_reconciliation_required") { skipped++; }
+            catch (ApplicationFault fault) when (fault.Code == "hall_baseline_reconciliation_required") { skipped++; reconcile.Add((row.GroupId, row.LeagueId)); }
+        }
+        string? detail = null;
+        if (reconcile.Count > 0)
+        {
+            var groupIds = reconcile.Select(x => x.GroupId).Distinct().ToArray();
+            var names = (await database.Leagues.AsNoTracking().Where(x => groupIds.Contains(x.GroupId)).Select(x => new { x.GroupId, x.LeagueId, x.Name }).ToArrayAsync(cancellationToken))
+                .Where(x => reconcile.Contains((x.GroupId, x.LeagueId))).Select(x => x.Name).Order().Take(10).ToArray();
+            detail = $"{reconcile.Count} leghe con i totali storici non ricostruibili dalle stagioni disponibili: {string.Join(", ", names)}. Serve confermare il checkpoint storico (conferma amministratore); finché non viene confermato il refresh incrementale della Hall of Fame è sospeso per queste leghe. Ricontrollo ogni ora.";
         }
         var more = rows.Length > limit;
         if (!more) await StoreHallCursorAsync(year, null, null, cancellationToken);
-        return new(processed, skipped, more ? "hall_batch_pending" : skipped > 0 ? "hall_baseline_reconciliation_required" : null) { HasMore = more };
+        return new(processed, skipped, more ? "hall_batch_pending" : skipped > 0 ? "hall_baseline_reconciliation_required" : null) { HasMore = more, Detail = detail ?? $"{processed} leghe aggiornate." };
     }
 
     private async Task StoreHallCursorAsync(int year, Guid? group, Guid? league, CancellationToken cancellationToken)
