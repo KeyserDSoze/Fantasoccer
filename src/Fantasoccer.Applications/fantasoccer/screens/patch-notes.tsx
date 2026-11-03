@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.10',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Scambio e aggiunta giocatori su desktop ripensati: informazioni del giocatore (infortunio, probabilità, forma, ultima partita) in un\'unica fila di riquadri, azioni nell\'intestazione e candidati in pannelli affiancati (Titolari, Panchina, Tribuna) che indicano da dove arriva ogni giocatore. Su mobile resta com\'era',
+      },
+    ],
+  },
+  {
     version: '4.1.9',
     date: '3 Novembre 2026',
     changes: [
