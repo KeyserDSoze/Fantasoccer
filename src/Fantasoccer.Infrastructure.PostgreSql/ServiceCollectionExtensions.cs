@@ -8,7 +8,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFantasoccerPostgreSql(this IServiceCollection services, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        services.AddDbContext<FantasoccerDbContext>(options => options.UseNpgsql(connectionString,
+        services.AddDbContext<FantasoccerDbContext>(options => options.UseNpgsql(AbandonedSessionReaper.WithApplicationName(connectionString),
             postgres => postgres.CommandTimeout(120).UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery)));
         return services;
     }

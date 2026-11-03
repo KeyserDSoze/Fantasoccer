@@ -95,3 +95,11 @@ resta `Running` fino a `LeaseLost` / `previous_lease_expired`. `infra/postgresql
 porta i keepalive a 30 s + 3 sonde da 10 s (circa un minuto). Il log lo spiega nel
 dettaglio. `hall_baseline_reconciliation_required` richiede una persona: il job
 viene ricontrollato ogni ora, non ogni minuto.
+
+Dalla 4.1.12 ogni processo dell'API dà alle proprie sessioni PostgreSQL un
+`Application Name` unico (`fantasoccer-api:<id>`). Il nuovo processo (non in
+sviluppo né nei test) cerca per i primi 15 minuti, ogni 20 secondi, le sessioni
+di altri processi dell'API con una transazione aperta da oltre 60 secondi e le
+termina con `pg_terminate_backend`: il blocco globale torna libero subito, senza
+aspettare il keepalive del server. Una transazione sana dura pochi secondi; il
+messaggio "Released N database session(s)…" nei log indica che è servito.

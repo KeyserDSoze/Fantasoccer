@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.12',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Dopo un deploy la nuova versione libera subito le transazioni lasciate aperte dalla precedente (e il blocco delle scritture che tenevano), invece di aspettare circa 6 minuti di timeout: job e salvataggi non restano più bloccati dopo un aggiornamento',
+      },
+    ],
+  },
+  {
     version: '4.1.11',
     date: '3 Novembre 2026',
     changes: [
