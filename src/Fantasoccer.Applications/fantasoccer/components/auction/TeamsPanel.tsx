@@ -167,7 +167,7 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         </XStack>
                         <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
                           <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Ricavi Vendite</Text>
+                            <Text fontSize="$1" color="$green10">Vendite e rimborsi</Text>
                             <Text fontSize="$2" fontWeight="600" color="$green11">
                               +€{TeamHelper.getRevenueMoney(team.value)}
                             </Text>
@@ -181,11 +181,25 @@ export function TeamsPanel({ teams, user, startingMoney, calculateBudgetRemainin
                         </XStack>
                         <XStack gap="$2" flexWrap="wrap" justifyContent="space-between">
                           <YStack gap="$0.5" flex={1} minWidth={80}>
-                            <Text fontSize="$1" color="$green10">Infortunati/Ceduti</Text>
+                            <Text fontSize="$1" color="$green10">Metà prezzo (infortunati)</Text>
                             <Text fontSize="$2" fontWeight="600" color="$green11">
                               +€{TeamHelper.getMoneyFromSoldWithOneHalfReturnedPrice(team.value)}
                             </Text>
                           </YStack>
+                          {(team.value.marketBalanceAdjustment ?? 0) !== 0 && (
+                            <YStack gap="$0.5" flex={1} minWidth={80}>
+                              <Text fontSize="$1" color="$blue10">Mercato</Text>
+                              <Text fontSize="$2" fontWeight="600" color="$blue11">
+                                {(team.value.marketBalanceAdjustment ?? 0) > 0 ? '+' : '-'}€{Math.abs(team.value.marketBalanceAdjustment ?? 0)}
+                              </Text>
+                            </YStack>
+                          )}
+                          {team.value.openingCompetitionPrize !== 0 && (
+                            <YStack gap="$0.5" flex={1} minWidth={80}>
+                              <Text fontSize="$1" color="$green10">Premio iniziale</Text>
+                              <Text fontSize="$2" fontWeight="600" color="$green11">+€{team.value.openingCompetitionPrize}</Text>
+                            </YStack>
+                          )}
                         </XStack>
                       </YStack>
                     </Card>

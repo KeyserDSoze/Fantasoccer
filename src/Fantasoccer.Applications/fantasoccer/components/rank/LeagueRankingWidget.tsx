@@ -215,6 +215,20 @@ const createStatColumns = (
       },
     },
     {
+      // Credits saved from the starting budget (after purchases, refunds, sales, market) plus the goal credits:
+      // what the team takes to the next auction. Unknown for derived competitions and past days.
+      key: 'credits',
+      label: 'Crediti',
+      width: isCompact ? 72 : 84,
+      render: (team) => {
+        const credits = team.valueAssets
+        return {
+          value: typeof credits === 'number' ? `$${credits}` : '-',
+          color: typeof credits === 'number' && credits < 0 ? '$red10' : '$green11',
+        }
+      },
+    },
+    {
       key: 'pointsPerGame',
       label: 'Pt/G',
       width: isCompact ? 64 : 72,

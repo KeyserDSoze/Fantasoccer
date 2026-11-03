@@ -53,7 +53,7 @@ public sealed partial class AuctionApplicationService
                 case "show": await ShowAsync(caller, auction, request, teams, cancellationToken); break;
                 case "bid": await BidAsync(auction, request, teams, actor.Id, admin, rules, cancellationToken); break;
                 case "assign": await AssignAsync(auction, teams, rules, cancellationToken); break;
-                case "player-status": await ChangeStatusAsync(auction, request, teams, actor.Id, cancellationToken); break;
+                case "player-status": await ChangeStatusAsync(auction, request, teams, actor.Id, rules, cancellationToken); break;
                 case "finalize": await FinalizeAsync(auction, teams, cancellationToken); break;
                 default: throw Invalid("Comando asta non valido.");
             }
@@ -104,7 +104,8 @@ public sealed partial class AuctionApplicationService
         if (lot.WinningTeamId == team.Id) throw Invalid("La squadra è già il miglior offerente.");
         if (request.Amount is not (> 0) || request.Amount <= lot.Price) throw Invalid("L'offerta deve essere maggiore dell'offerta attuale.");
         var roster = await RosterAsync(auction, team.Id, cancellationToken);
-        ValidateBid(auction, lot, roster, rules, request.Amount.Value, request.SubstitutedPlayerId);
+        ValidateBid(auction, lot, roster, rules, request.Amount.Value, request.SubstitutedPlayerId,
+            await SubstitutionRefundAsync(auction, roster, rules, request.SubstitutedPlayerId, cancellationToken));
         lot.WinningTeamId = team.Id; lot.WinningBasketId = team.BasketId; lot.OwnerEmail = team.Owners.Single(x => x.IsPrimary).Membership.User.OwnerReference;
         lot.Price = request.Amount.Value; lot.SubstitutedPlayerId = request.SubstitutedPlayerId; lot.TimerStartedAtUtc = clock.GetUtcNow();
     }
@@ -115,9 +116,15 @@ public sealed partial class AuctionApplicationService
         if (lot.WinningTeamId is not { } teamId || !teams.Any(x => x.Id == teamId)) throw Invalid("Nessuna squadra ha un'offerta valida.");
         if (auction.Winnings.Any(x => x.PlayerId == lot.PlayerId) || await IsOwnedInLeagueAsync(auction, teams, lot.PlayerId, cancellationToken)) throw Invalid("Il giocatore è già assegnato.");
         var roster = await RosterAsync(auction, teamId, cancellationToken);
-        ValidateBid(auction, lot, roster, rules, lot.Price, lot.SubstitutedPlayerId);
+        var refund = await SubstitutionRefundAsync(auction, roster, rules, lot.SubstitutedPlayerId, cancellationToken);
+        ValidateBid(auction, lot, roster, rules, lot.Price, lot.SubstitutedPlayerId, refund);
         if (lot.SubstitutedPlayerId is { } replaced)
-            roster.Players.Single(x => x.PlayerId == replaced && x.Status == 0).Status = (int)PlayerInTeamStatus.SoldWithNoReturnedPrice;
+        {
+            // A player who left Serie A gives back the share fixed by the league rules; any other replaced player is discarded with no refund.
+            var row = roster.Players.Single(x => x.PlayerId == replaced && x.Status == 0);
+            if (refund is { } credits) { row.Status = RosterEconomy.LeftSerieA; row.Revenue = credits; }
+            else row.Status = (int)PlayerInTeamStatus.SoldWithNoReturnedPrice;
+        }
         roster.Players.Add(new() { Ordinal = roster.Players.Select(x => x.Ordinal).DefaultIfEmpty(-1).Max() + 1, PlayerId = lot.PlayerId,
             ClubId = lot.ClubId, PlayerRole = lot.PlayerRole, IsActive = lot.IsActive, IsVisible = lot.IsVisible, Price = lot.Price, Status = 0, Position = (int)FantaSoccerRole.Tribune });
         roster.Version++; roster.LastUpdateUtc = clock.GetUtcNow();
@@ -126,9 +133,9 @@ public sealed partial class AuctionApplicationService
         await availability.SynchronizeFutureAsync(auction.GroupId, auction.SeasonIndex, [teamId], cancellationToken);
     }
 
-    private async Task ChangeStatusAsync(AuctionSession auction, AuctionCommandRequest request, FantasyTeamSeason[] teams, Guid actor, CancellationToken cancellationToken)
+    private async Task ChangeStatusAsync(AuctionSession auction, AuctionCommandRequest request, FantasyTeamSeason[] teams, Guid actor, LeagueRules rules, CancellationToken cancellationToken)
     {
-        if (request.TeamId is not { } teamId || !teams.Any(x => x.Id == teamId) || request.PlayerStatus is not (>= 0 and <= 4) || request.RosterOrdinal is null) throw Invalid("Contesto giocatore non valido.");
+        if (request.TeamId is not { } teamId || !teams.Any(x => x.Id == teamId) || request.PlayerStatus is not (>= 0 and <= 5) || request.RosterOrdinal is null) throw Invalid("Contesto giocatore non valido.");
         var roster = await RosterAsync(auction, teamId, cancellationToken);
         if (request.ExpectedRosterVersion != roster.Version) throw new ApplicationFault(409, "roster_changed", "Ricaricare la rosa prima di modificarla.");
         var player = roster.Players.SingleOrDefault(x => x.Ordinal == request.RosterOrdinal && x.PlayerId == request.PlayerId) ?? throw Invalid("Giocatore non trovato nella riga richiesta.");
@@ -137,7 +144,7 @@ public sealed partial class AuctionApplicationService
         if (request.PlayerStatus == 0 && player.Status != 0 && (roster.Players.Count(x => x.Status == 0) >= 25 ||
             player.PlayerRole is < 0 or > 3 || roster.Players.Count(x => x.Status == 0 && x.PlayerRole == player.PlayerRole) >= new[] { 3, 8, 8, 6 }[player.PlayerRole]))
             throw Invalid("Il reintegro supererebbe i limiti della rosa o del ruolo.");
-        if (request.PlayerStatus == 3 && request.Revenue is not (>= 0)) throw Invalid("Specificare un ricavo non negativo per la vendita.");
+        if (request.PlayerStatus == 3 && request.Revenue is not (>= 0)) throw Invalid("Specificare il prezzo di vendita (zero o più crediti).");
         database.AuctionRosterChanges.Add(new() { GroupId = auction.GroupId, LeagueId = auction.LeagueId, SeasonIndex = auction.SeasonIndex, AuctionId = auction.Id,
             ActorUserId = actor, TeamId = roster.TeamId, BasketId = roster.BasketId, PlayerId = player.PlayerId, RosterOrdinal = player.Ordinal, PreviousStatus = player.Status,
             Status = request.PlayerStatus!.Value, Price = player.Price, Revenue = player.Revenue, ChangedAtUtc = clock.GetUtcNow() });
@@ -145,7 +152,17 @@ public sealed partial class AuctionApplicationService
         {
             roster.Players.Remove(player);
         }
-        else { player.Status = request.PlayerStatus.Value; player.Revenue = request.PlayerStatus == 3 ? request.Revenue!.Value : 0; }
+        else
+        {
+            // Sale: the whole sale price comes back. Left Serie A / injured: the share of the price fixed by the league rules now.
+            player.Status = request.PlayerStatus.Value;
+            player.Revenue = request.PlayerStatus switch
+            {
+                3 => request.Revenue!.Value,
+                RosterEconomy.LeftSerieA => RosterEconomy.LeftSerieARefund(player.Price, rules.LeftSerieARefundPercent, rules.LeftSerieARefundRoundUp),
+                _ => 0,
+            };
+        }
         roster.Version++; roster.LastUpdateUtc = clock.GetUtcNow();
         await availability.SynchronizeFutureAsync(auction.GroupId, auction.SeasonIndex, [teamId], cancellationToken);
     }
@@ -181,7 +198,15 @@ public sealed partial class AuctionApplicationService
         return database.RosterSnapshots.Where(x => x.GroupId == auction.GroupId && x.SeasonIndex == auction.SeasonIndex && x.Kind == RosterKind.Season && ids.Contains(x.TeamId))
             .SelectMany(x => x.Players).AnyAsync(x => x.PlayerId == player && x.Status == 0, cancellationToken);
     }
-    private static void ValidateBid(AuctionSession auction, AuctionCurrentLot lot, RosterSnapshot roster, LeagueRules rules, int price, string? replaced)
+    // Refund for the replaced player when he left Serie A (null: an ordinary discard, nothing comes back).
+    private async Task<int?> SubstitutionRefundAsync(AuctionSession auction, RosterSnapshot roster, LeagueRules rules, string? replaced, CancellationToken cancellationToken)
+    {
+        if (replaced is null || roster.Players.SingleOrDefault(x => x.PlayerId == replaced && x.Status == 0) is not { } row) return null;
+        var left = await database.PlayerSeasons.AnyAsync(x => x.PlayerId == replaced && x.SeasonIndex == auction.SeasonIndex && x.ClubId == null && x.PreviousClubId != null, cancellationToken);
+        return left ? RosterEconomy.LeftSerieARefund(row.Price, rules.LeftSerieARefundPercent, rules.LeftSerieARefundRoundUp) : null;
+    }
+
+    private static void ValidateBid(AuctionSession auction, AuctionCurrentLot lot, RosterSnapshot roster, LeagueRules rules, int price, string? replaced, int? refund)
     {
         var active = roster.Players.Where(x => x.Status == 0).ToArray();
         var substitute = replaced is null ? null : active.SingleOrDefault(x => x.PlayerId == replaced) ?? throw Invalid("Il sostituito non è attivo nella rosa della squadra.");
@@ -190,8 +215,7 @@ public sealed partial class AuctionApplicationService
         if (lot.PlayerRole is < 0 or > 3 || active.Count(x => x.PlayerRole == lot.PlayerRole) + 1 - (substitute == null ? 0 : 1) > limits[lot.PlayerRole]) throw Invalid("Limite di giocatori per ruolo raggiunto.");
         var finalCount = active.Length + 1 - (substitute == null ? 0 : 1);
         if (finalCount > 25) throw Invalid("La rosa non può superare 25 giocatori.");
-        var cost = roster.Players.Sum(x => (long)x.Price) - roster.Players.Where(x => x.Status == 3).Sum(x => (long)x.Revenue - x.Price)
-            - roster.MoneyFromRank - roster.MarketBalanceAdjustment - roster.OpeningCompetitionPrize - roster.Players.Where(x => x.Status == 1).Sum(x => (long)(x.Price / 2));
+        var cost = RosterEconomy.Cost(roster) - (refund ?? 0);
         if (price < 1 || (long)rules.StartingMoney - cost - price - Math.Max(0, 25 - finalCount) < 0) throw Invalid("Budget insufficiente, inclusi i crediti per completare la rosa.");
     }
     private static AuctionPlayerStatistic Snapshot(StatisticPlayerDto? row) => row is null ? new() : new()

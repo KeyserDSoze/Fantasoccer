@@ -44,6 +44,9 @@ public sealed class LeagueSettingDto
     public int PointForCleanSheet { get; set; }
     public int MoneyForGoal { get; set; }
     public int MoneyForSufferedGoal { get; set; }
+    // Defaults also for clients that do not send them yet.
+    public int LeftSerieARefundPercent { get; set; } = 50;
+    public bool LeftSerieARefundRoundUp { get; set; }
     public bool RandomAuction { get; set; }
     public bool RankWithValuePoints { get; set; }
     public int Market { get; set; }

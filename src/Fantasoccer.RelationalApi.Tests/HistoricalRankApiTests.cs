@@ -96,8 +96,12 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(9, cancelled.SerieADay); Assert.Equal(7, cancelled.Rounds["@"][0].Point);
         var current = (await client.GetFromJsonAsync<FantasyRankDto>(fixture.Path))!;
         Assert.False(current.IsReconstructed); Assert.Equal(0, current.SnapshotDay); Assert.Equal(777, current.Rounds["@"][0].Point);
-        Assert.Equal(123, current.Rounds["@"][0].Money); Assert.Equal(131, current.Rounds["@"][0].ValueAssets);
         await using var final = factory.Database.CreateContext();
+        // Current credits come from the season roster (not from the stored snapshot): starting credits minus the net cost,
+        // without the goal credits already received (19), so ValueAssets adds this season's goal credits (8).
+        var homeRoster = await final.RosterSnapshots.AsNoTracking().Include(x => x.Players).SingleAsync(x => x.GroupId == fixture.Group && x.TeamId == fixture.Home && x.Kind == RosterKind.Season);
+        var credits = (int)(Fantasoccer.Application.Core.Teams.RosterEconomy.Balance(homeRoster, 1000) - 19);
+        Assert.Equal(credits, current.Rounds["@"][0].Money); Assert.Equal(credits + 8, current.Rounds["@"][0].ValueAssets);
         Assert.Equal(1, await final.FantasyStandingSnapshots.CountAsync(x => x.GroupId == fixture.Group));
         Assert.False(await final.FantasyStandingSnapshots.AnyAsync(x => x.GroupId == fixture.Group && x.SnapshotDay != 0));
         Assert.Equal(9, (await final.FantasyCalendars.SingleAsync(x => x.GroupId == fixture.Group)).Version);

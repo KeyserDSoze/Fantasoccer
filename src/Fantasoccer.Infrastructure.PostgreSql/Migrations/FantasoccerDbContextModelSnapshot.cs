@@ -1685,6 +1685,12 @@ namespace Fantasoccer.Infrastructure.PostgreSql.Migrations
                     b.Property<bool>("HasTypeSettings")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("LeftSerieARefundPercent")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("LeftSerieARefundRoundUp")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("LiveFormationChanges")
                         .HasColumnType("integer");
 

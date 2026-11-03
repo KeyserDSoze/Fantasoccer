@@ -7,7 +7,7 @@ import { Users, DollarSign, TrendingUp, Award, ChevronDown, ChevronUp, User } fr
 import { useApp } from 'providers/AppProvider'
 import { teamService } from 'services/teamService'
 import type { EnhancedTeam, Player } from 'types/team'
-import { PlayerInTeamStatus } from 'types/team'
+import { PlayerInTeamStatus, TeamHelper } from 'types/team'
 import { TeamLogo } from 'components/team/TeamLogo'
 import { Role } from 'types/group'
 import { LeagueSelectorsWidget } from 'components/LeagueSelectorsWidget'
@@ -20,6 +20,7 @@ export default function TeamsScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedTeamIndex, setExpandedTeamIndex] = useState<number | null>(null)
+  const [startingMoney, setStartingMoney] = useState<number | null>(null)
   
   // Local state for selectors (independent from global context)
   const [localLeagueId, setLocalLeagueId] = useState<string | null>(selectedLeagueId)
@@ -71,6 +72,7 @@ export default function TeamsScreen() {
       // Get league settings for moneyFromRank calculation
       const annualLeague = league.years?.find((y: any) => y.year === localYear)
       const settings = annualLeague?.settings
+      setStartingMoney(typeof settings?.startingMoney === 'number' ? settings.startingMoney : null)
 
       // Recupera tutti i team enhanced usando il teamService
       const fetchedTeams = (await Promise.all(seasons.map(entry => teamService.getEnhancedTeamsByBasket(
@@ -100,16 +102,8 @@ export default function TeamsScreen() {
     }).format(amount)
   }
 
-  const getTotalCost = (team: EnhancedTeam) => {
-    // Usa i valori precalcolati dell'EnhancedTeam
-    return team.totalCost
-  }
-
-  const getBudget = (team: EnhancedTeam) => {
-    // Budget = starting money - netCost + revenue + rank money
-    // Per ora usiamo semplicemente il netCost che include i ricavi
-    return team.cost // netCost è già il costo netto (spese - ricavi)
-  }
+  // Credits available now: starting credits minus the net cost (purchases, minus refunds, sales, rank, market and opening credits).
+  const getCredits = (team: EnhancedTeam) => startingMoney === null ? null : startingMoney - team.cost
 
   const getActivePlayers = (team: EnhancedTeam) => {
     return team.activePlayers
@@ -170,13 +164,15 @@ export default function TeamsScreen() {
       case PlayerInTeamStatus.Active:
         return 'In squadra'
       case PlayerInTeamStatus.SoldForOneHalf:
-        return 'Scartato a gennaio (infortunato)'
+        return 'Infortunato/Estero (metà prezzo)'
       case PlayerInTeamStatus.SoldWithNoReturnedPrice:
         return 'Scartato'
       case PlayerInTeamStatus.Sold:
         return 'Venduto'
       case PlayerInTeamStatus.Removed:
         return 'Rimosso dall\'amministratore'
+      case PlayerInTeamStatus.LeftSerieA:
+        return 'Uscito dalla Serie A'
       default:
         return 'Stato sconosciuto'
     }
@@ -194,6 +190,8 @@ export default function TeamsScreen() {
         return '$blue10'
       case PlayerInTeamStatus.Removed:
         return '$gray10'
+      case PlayerInTeamStatus.LeftSerieA:
+        return '$orange10'
       default:
         return '$gray10'
     }
@@ -322,26 +320,42 @@ export default function TeamsScreen() {
                           <XStack gap="$2" alignItems="center">
                             <DollarSign size={18} color="$green10" />
                             <Text fontSize="$4" fontWeight="600" color="$color12">
-                              Valore: {formatCurrency(getTotalCost(team))}
+                              Crediti: {getCredits(team) === null ? '-' : formatCurrency(getCredits(team)!)}
                             </Text>
                           </XStack>
                           <XStack gap="$2" alignItems="center">
                             <TrendingUp size={16} color="$blue10" />
                             <Text fontSize="$3" color="$color11">
-                              Budget: {formatCurrency(getBudget(team))}
+                              Valore rosa: {formatCurrency(team.activeCost)}
                             </Text>
                           </XStack>
+                          {team.releasedCost > 0 && (
+                            <XStack gap="$2" alignItems="center">
+                              <TrendingUp size={16} color="$red10" />
+                              <Text fontSize="$3" color="$color11">
+                                Costo di chi è uscito: {formatCurrency(team.releasedCost)}
+                              </Text>
+                            </XStack>
+                          )}
                           <XStack gap="$2" alignItems="center">
                             <Users size={16} color="$purple10" />
                             <Text fontSize="$3" color="$color11">
                               {team.activePlayers.length}/{team.players.length} giocatori
                             </Text>
                           </XStack>
-                          {team.revenueMoney > 0 && (
+                          {team.refunds > 0 && (
                             <XStack gap="$2" alignItems="center">
                               <TrendingUp size={16} color="$orange10" />
                               <Text fontSize="$3" color="$color11">
-                                Ricavi: {formatCurrency(team.revenueMoney)}
+                                Rimborsi e vendite: {formatCurrency(team.refunds)}
+                              </Text>
+                            </XStack>
+                          )}
+                          {(team.marketBalanceAdjustment ?? 0) !== 0 && (
+                            <XStack gap="$2" alignItems="center">
+                              <TrendingUp size={16} color="$blue10" />
+                              <Text fontSize="$3" color="$color11">
+                                Mercato: {formatCurrency(team.marketBalanceAdjustment ?? 0)}
                               </Text>
                             </XStack>
                           )}
@@ -349,7 +363,7 @@ export default function TeamsScreen() {
                             <XStack gap="$2" alignItems="center">
                               <Award size={16} color="$yellow10" />
                               <Text fontSize="$3" color="$color11">
-                                Premi: {formatCurrency(team.moneyFromRank)}
+                                Crediti gol ricevuti: {formatCurrency(team.moneyFromRank)}
                               </Text>
                             </XStack>
                           )}
@@ -380,7 +394,7 @@ export default function TeamsScreen() {
                                 💰 Costo netto: {formatCurrency(team.netCost)}
                               </Text>
                               <Text fontSize="$3" color="$color11">
-                                📊 Valore: {formatCurrency(team.totalCost)}
+                                📊 Valore rosa: {formatCurrency(team.activeCost)}
                               </Text>
                               <Text fontSize="$3" color="$color11">
                                 👥 {team.activePlayers.length} attivi
@@ -422,6 +436,10 @@ export default function TeamsScreen() {
                                           {!isActive && (
                                             <Text fontSize="$2" color={getPlayerStatusColor(player.status)} fontStyle="italic">
                                               {getPlayerStatusLabel(player.status)}
+                                              {player.status === PlayerInTeamStatus.Sold
+                                                ? ` a ${formatCurrency(TeamHelper.getRefund(player))}`
+                                                : TeamHelper.getRefund(player) > 0 ? ` · rimborsati ${formatCurrency(TeamHelper.getRefund(player))}` : ''}
+                                              {` · costo che resta ${formatCurrency((player.price ?? 0) - TeamHelper.getRefund(player))}`}
                                             </Text>
                                           )}
                                         </YStack>

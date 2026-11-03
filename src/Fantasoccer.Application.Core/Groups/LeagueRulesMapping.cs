@@ -47,6 +47,7 @@ public static class LeagueRulesMapping
         PointForStrongDefense4 = row.PointForStrongDefense4, PointForStrongDefense5 = row.PointForStrongDefense5,
         PointForGoodPeople = row.PointForGoodPeople, PointForCleanSheet = row.PointForCleanSheet, MoneyForGoal = row.MoneyForGoal,
         MoneyForSufferedGoal = row.MoneyForSufferedGoal, RandomAuction = row.RandomAuction, RankWithValuePoints = row.RankWithValuePoints,
+        LeftSerieARefundPercent = row.LeftSerieARefundPercent, LeftSerieARefundRoundUp = row.LeftSerieARefundRoundUp,
         Market = row.Market, LiveFormationChanges = row.LiveFormationChanges, AllowLiveModuleChange = row.AllowLiveModuleChange,
         Postponements = new(row.WaitForPostponedMatches, row.PoliticalGoalkeeper, row.PoliticalDefender, row.PoliticalMidfielder, row.PoliticalForward),
         OpeningCompetition = new(row.OpeningCompetitionEnabled, row.OpeningCompetitionSerieADays,
@@ -63,7 +64,7 @@ public static class LeagueRulesMapping
     {
         if (dto.Votes is null || !dto.Votes.ContainsKey(-1) || dto.StartingMoney < 25 || dto.PointForFirstGoal < 1 ||
             dto.PointForNextGoal < 1 || dto.DelayedDay is < 0 or > 37 || dto.CancelledDay is < 0 or > 38 || dto.LiveFormationChanges < 0 ||
-            dto.Formation is < 0 or > 1 || dto.Market is < 0 or > 2 || dto.OpeningCompetition is null || dto.Postponements is null ||
+            dto.Formation is < 0 or > 1 || dto.Market is < 0 or > 2 || dto.LeftSerieARefundPercent is < 0 or > 100 || dto.OpeningCompetition is null || dto.Postponements is null ||
             !new[] { dto.Postponements.Goalkeeper, dto.Postponements.Defender, dto.Postponements.Midfielder, dto.Postponements.Forward }
                 .All(value => float.IsFinite(value) && value is >= 0 and <= 10) ||
             dto.Votes.Any(x => x.Key is < -1 or > 3 || !new[] { x.Value.Goal, x.Value.Penalty, x.Value.SufferedGoal, x.Value.StoppedPenalty,
@@ -79,6 +80,7 @@ public static class LeagueRulesMapping
             PointForStrongDefense4 = dto.PointForStrongDefense4, PointForStrongDefense5 = dto.PointForStrongDefense5,
             PointForGoodPeople = dto.PointForGoodPeople, PointForCleanSheet = dto.PointForCleanSheet, MoneyForGoal = dto.MoneyForGoal,
             MoneyForSufferedGoal = dto.MoneyForSufferedGoal, RandomAuction = dto.RandomAuction, RankWithValuePoints = dto.RankWithValuePoints,
+            LeftSerieARefundPercent = dto.LeftSerieARefundPercent, LeftSerieARefundRoundUp = dto.LeftSerieARefundRoundUp,
             Market = dto.Market, LiveFormationChanges = dto.LiveFormationChanges, AllowLiveModuleChange = dto.AllowLiveModuleChange,
             WaitForPostponedMatches = dto.Postponements.WaitForRecovery, PoliticalGoalkeeper = dto.Postponements.Goalkeeper,
             PoliticalDefender = dto.Postponements.Defender, PoliticalMidfielder = dto.Postponements.Midfielder, PoliticalForward = dto.Postponements.Forward,

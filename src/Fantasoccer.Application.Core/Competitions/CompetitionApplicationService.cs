@@ -59,9 +59,31 @@ public sealed partial class CompetitionApplicationService(FantasoccerDbContext d
         const int day = 0;
         var snapshot = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year && x.SnapshotDay == day)
             .AsSplitQuery().SingleOrDefaultAsync(cancellationToken);
-        return snapshot is null ? null : new(snapshot.SerieADay, snapshot.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,
+        if (snapshot is null) return null;
+        var rank = new FantasyRankDto(snapshot.SerieADay, snapshot.Stages.OrderBy(x => x.Ordinal).ToDictionary(x => x.Stage,
             x => x.Teams.OrderBy(team => team.Ordinal).Select(team => new RankedTeamDto(team.TeamId, team.BasketId, team.Name, team.Owner, team.Points,
                 team.Victories, team.Draws, team.Defeats, team.GoalsFor, team.GoalsAgainst, team.ValuePoints, team.SufferedValuePoints, team.PlusMoney, team.Money)).ToArray()), snapshot.SnapshotDay);
+        return await WithCreditsAsync(rank, group, league, year, cancellationToken);
+    }
+
+    // Credits of every team, from its season roster: Money is what it saved from the starting credits (purchases, refunds, sales,
+    // market, opening prize) without the goal credits already received, so ValueAssets = Money + PlusMoney is what it takes to the
+    // next auction. Derived competitions have no economy of their own (their goal credits are never paid): no value there.
+    private async Task<FantasyRankDto> WithCreditsAsync(FantasyRankDto rank, Guid group, Guid league, int year, CancellationToken cancellationToken)
+    {
+        var mode = await database.Leagues.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league).Select(x => (LeagueMode?)x.Mode).SingleOrDefaultAsync(cancellationToken);
+        var starting = await database.LeagueRules.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year)
+            .Select(x => (int?)x.StartingMoney).SingleOrDefaultAsync(cancellationToken);
+        var ids = rank.Rounds.Values.SelectMany(x => x).Select(x => x.TeamId).Distinct().ToArray();
+        var credits = new Dictionary<Guid, int>();
+        if (mode != LeagueMode.Derived && starting is { } money)
+        {
+            var rosters = await database.RosterSnapshots.AsNoTracking().Include(x => x.Players)
+                .Where(x => x.GroupId == group && x.SeasonIndex == year && x.Kind == RosterKind.Season && ids.Contains(x.TeamId)).AsSplitQuery().ToArrayAsync(cancellationToken);
+            foreach (var roster in rosters.GroupBy(x => x.TeamId).Where(x => x.Count() == 1).Select(x => x.Single()))
+                credits[roster.TeamId] = (int)Math.Clamp(Teams.RosterEconomy.Balance(roster, money) - (roster.RankCreditGranted ?? roster.MoneyFromRank), int.MinValue, int.MaxValue);
+        }
+        return rank with { Rounds = rank.Rounds.ToDictionary(x => x.Key, x => x.Value.Select(team => team with { Money = credits.TryGetValue(team.TeamId, out var value) ? value : null }).ToArray()) };
     }
 
     public static CalendarGameDto Game(FantasyMatch row) => new(row.Id, row.Number, row.HomeName, row.HomeOwner, row.AwayName, row.AwayOwner,

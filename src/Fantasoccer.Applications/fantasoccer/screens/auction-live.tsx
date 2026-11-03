@@ -1439,6 +1439,8 @@ export default function AuctionLiveScreen() {
   const renderChangeStatusDialog = () => (
     <ChangeStatusDialog
       open={showChangeStatusDialog}
+      leftSerieARefundPercent={auctionState?.league?.settings?.leftSerieARefundPercent}
+      leftSerieARefundRoundUp={auctionState?.league?.settings?.leftSerieARefundRoundUp}
       playerKey={changeStatusPlayer?.playerKey || null}
       playerName={changeStatusPlayer?.playerName || null}
       owner={changeStatusPlayer?.owner || null}

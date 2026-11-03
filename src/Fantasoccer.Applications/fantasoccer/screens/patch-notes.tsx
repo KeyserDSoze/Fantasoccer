@@ -15,6 +15,32 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.14',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Classifica: nuova colonna "Crediti" con quello che la squadra porta alla prossima asta, cioè i crediti risparmiati dal budget iniziale (dopo acquisti, rimborsi, vendite, mercato e premio iniziale) più i crediti maturati con i gol (+$). Non disponibile per le competizioni derivate e per le giornate passate',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Costi dei giocatori usciti dalla rosa: ora ogni acquisto resta nel costo e ogni giocatore uscito restituisce solo il suo rimborso, con la stessa formula per asta, mercato, classifica e schermata squadre. "Venduto ad altro giocatore" restituisce l\'intero prezzo di vendita (prima il costo che restava era il doppio del prezzo meno l\'importo). La schermata squadre mostra i crediti disponibili, il valore della rosa, il costo di chi è uscito, i rimborsi e il mercato',
+      },
+      {
+        category: 'Feature',
+        description:
+          'Nuova regola della lega per i giocatori usciti dalla Serie A: percentuale del prezzo che torna (default 50%) e arrotondamento per difetto o per eccesso. Si applica quando vengono sostituiti all\'asta di riparazione e con il nuovo stato "Uscito dalla Serie A / infortunato"; l\'importo viene registrato al momento del cambio',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Impostazioni lega: la scheda "Economia" ora comprende anche i crediti iniziali e la regola di rimborso',
+      },
+    ],
+  },
+  {
     version: '4.1.13',
     date: '3 Novembre 2026',
     changes: [
