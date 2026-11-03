@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Football;
+using Fantasoccer.Application.Core.Operations;
 using Fantasoccer.Business;
 using Fantasoccer.Business.IngestionData;
 using Fantasoccer.Infrastructure.PostgreSql.Entities;
@@ -120,6 +121,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
         public bool IncludeCoach { get; set; }
         public bool EmptyCatalogue { get; set; }
         public bool IncompleteOfficial { get; set; }
+        public bool NoVotes { get; set; }
         public bool MissingOfficialClub { get; set; }
         public bool InvalidCatalogueRole { get; set; }
         public bool DuplicateCatalogueKey { get; set; }
@@ -142,7 +144,7 @@ public sealed class FootballIngestionApiTests(WorkspaceApiFactory factory) : ICl
                 RealTeam = Players[0].RealTeam, Role = Role.Forward, IsActive = true
             })).ToList());
         }
-        public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
+        public Task<List<VotedRealPlayer>> GetAsync(int year, int day) => NoVotes ? Task.FromResult(new List<VotedRealPlayer>()) : Task.FromResult(Players.Take(IncompleteOfficial ? 1 : 2).Select((player, index) => new VotedRealPlayer
             { Name = player.Name, RealTeam = MissingOfficialClub ? null! : player.RealTeam, Role = player.Role, IsActive = true, Vote = new() { Role = player.Role, HasVote = true, IsFinal = true, Value = 7, Goal = index == 0 ? 1 : 0 } })
             .Concat(IncludeCoach ? new[] { new VotedRealPlayer { Name = "Ingestion coach", Role = Role.Coach, RealTeam = new() { Name = "Fiorentina" },
                 IsActive = true, Vote = new() { Role = Role.Coach, Value = 7, HasVote = true, IsFinal = true } } } : []).ToList());
@@ -192,6 +194,63 @@ public sealed class ProgressiveOfficialVotesTests(WorkspaceApiFactory factory) :
         (await client.PostAsJsonAsync(path, new RefreshFootballRequest("official-progress", year, 1))).EnsureSuccessStatusCode();
         await using (var database = factory.Database.CreateContext())
             Assert.Equal(2, await database.FootballVotes.CountAsync(x => x.SeasonIndex == year && x.Source == FootballVoteSource.Official));
+    }
+}
+
+public sealed class FootballJobDetailsTests(WorkspaceApiFactory factory) : IClassFixture<WorkspaceApiFactory>
+{
+    [PostgreSqlFact]
+    public async Task Jobs_explain_what_is_missing_and_a_live_feed_removed_after_the_matchday_is_not_an_error()
+    {
+        using var account = await factory.AccountAsync(globalAdmin: true);
+        var email = account.DefaultRequestHeaders.GetValues("X-Workspace-User").Single();
+        var sources = new FootballIngestionApiTests.IngestionSources();
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<ISerieAInformation>(sources); services.AddSingleton<IAllPlayers>(sources);
+            services.AddSingleton<IOfficialVote>(sources); services.AddSingleton<ILiveVote>(sources);
+        }));
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Workspace-User", email); client.DefaultRequestHeaders.Add("X-Workspace-Admin", "true");
+        app.Services.GetRequiredService<IOptions<GlobalAdministratorOptions>>().Value.Emails = [email];
+        var year = FantacalcioTime.ActualYear;
+        foreach (var operation in new[] { "calendar", "catalogue" }) (await client.PostAsJsonAsync("/api/football/refresh", new RefreshFootballRequest(operation, year))).EnsureSuccessStatusCode();
+        async Task Kickoff(TimeSpan ago, bool? finished)
+        {
+            await using var database = factory.Database.CreateContext();
+            var match = await database.FootballMatches.SingleAsync(x => x.SeasonIndex == year && x.SerieADay == 1);
+            match.KickoffUtc = DateTimeOffset.UtcNow - ago; match.IsFinished = finished; await database.SaveChangesAsync();
+        }
+        async Task<(SqlJobResult Run, OperationalLogDto Log)> Run(string job)
+        {
+            var run = (await (await client.PostAsJsonAsync("/api/operations/jobs/run", new RunSqlJobRequest(job, year))).Content.ReadFromJsonAsync<SqlJobResult>())!;
+            return (run, (await client.GetFromJsonAsync<OperationalLogDto>($"/api/operations/logs/{run.RunId}"))!);
+        }
+        sources.NoVotes = true;
+
+        // Match in progress and an empty live feed: a real failure, which says which matchday and what is missing.
+        await Kickoff(TimeSpan.FromMinutes(30), null);
+        var failed = await Run("live");
+        Assert.Equal("Failed", failed.Run.Status); Assert.Equal("football_provider_incomplete", failed.Log.Error);
+        Assert.Contains("giornata 1", failed.Log.Detail, StringComparison.OrdinalIgnoreCase); Assert.Contains("voti live", failed.Log.Detail);
+        // The official job has nothing finished to consolidate yet, and says so.
+        var waiting = await Run("official");
+        Assert.Equal("Succeeded", waiting.Run.Status); Assert.Contains("nessuna partita finita", waiting.Log.Detail);
+
+        // Matchday over: the provider has removed the live feed. Not an error, no retry storm.
+        await Kickoff(TimeSpan.FromHours(3), true);
+        var closed = await Run("live");
+        Assert.Equal("Succeeded", closed.Run.Status); Assert.Equal("live_votes_closed", closed.Run.Code);
+        Assert.Contains("Giornata 1", closed.Log.Detail);
+        await using (var database = factory.Database.CreateContext())
+        {
+            var state = await database.SqlJobStates.SingleAsync(x => x.Name == "live" && x.SeasonIndex == year);
+            Assert.True(state.NextRunAtUtc > DateTimeOffset.UtcNow.AddSeconds(70) || state.NextRunAtUtc.Minute % 5 == 0);
+        }
+        // Official votes not published yet for a finished match: an expected wait that names the match.
+        var pending = await Run("official");
+        Assert.Equal("Partial", pending.Run.Status); Assert.Equal("official_votes_pending", pending.Run.Code);
+        Assert.Contains("Fiorentina-Napoli", pending.Log.Detail); Assert.Contains("Giornata 1", pending.Log.Detail);
     }
 }
 

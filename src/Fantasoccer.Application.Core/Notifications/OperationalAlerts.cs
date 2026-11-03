@@ -14,11 +14,31 @@ public static class OperationalAlertText
     // Only internal codes, never exception messages or provider response bodies.
     public static string SafeCode(string? value) => value is { Length: > 0 and <= 100 } &&
         Regex.IsMatch(value, "^[a-zA-Z0-9_-]+$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)) ? value : "operation_failed";
+
+    // Detail shown to global administrators: our own messages only. URLs, secrets and e-mail addresses are masked, one line, at most 1000 characters.
+    public static string? SafeDetail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var text = Regex.Replace(value, @"\s+", " ", RegexOptions.None, TimeSpan.FromSeconds(1)).Trim();
+        text = Fantasoccer.Application.Core.Operations.OperationsApplicationService.SafeText(text);
+        text = Regex.Replace(text, @"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[email]", RegexOptions.None, TimeSpan.FromSeconds(1));
+        return text.Length <= 1000 ? text : text[..997] + "...";
+    }
+
+    // An unexpected exception: its type and the types it wraps, plus the PostgreSQL state when there is one. Never its message (it can carry data).
+    public static string ExceptionDetail(Exception error)
+    {
+        var types = new List<string>();
+        for (var current = error; current is not null && types.Count < 4; current = current.InnerException) types.Add(current.GetType().Name);
+        var state = error is Npgsql.PostgresException postgres ? $" (PostgreSQL {postgres.SqlState}{(postgres.ConstraintName is { } constraint ? ", vincolo " + constraint : "")})"
+            : error.InnerException is Npgsql.PostgresException inner ? $" (PostgreSQL {inner.SqlState})" : "";
+        return "Eccezione " + string.Join(" ← ", types) + state;
+    }
 }
 
 public sealed class OperationalFailureRecorder(IServiceScopeFactory scopes, TimeProvider clock, ILogger<OperationalFailureRecorder> logger)
 {
-    public async Task RecordAsync(string source, string? code)
+    public async Task RecordAsync(string source, string? code, string? detail = null)
     {
         // Independent context/token: an import's rolled-back transaction and its
         // canceled request must not erase the receipt. Failure to log is best effort.
@@ -28,7 +48,8 @@ public sealed class OperationalFailureRecorder(IServiceScopeFactory scopes, Time
             await using var scope = scopes.CreateAsyncScope();
             var database = scope.ServiceProvider.GetRequiredService<FantasoccerDbContext>();
             await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, timeout.Token);
-            database.OperationalFailures.Add(new() { Id = Guid.NewGuid(), Source = OperationalAlertText.SafeCode(source), Code = OperationalAlertText.SafeCode(code), OccurredAtUtc = clock.GetUtcNow() });
+            database.OperationalFailures.Add(new() { Id = Guid.NewGuid(), Source = OperationalAlertText.SafeCode(source), Code = OperationalAlertText.SafeCode(code),
+                Detail = OperationalAlertText.SafeDetail(detail), OccurredAtUtc = clock.GetUtcNow() });
             await database.SaveChangesAsync(timeout.Token); await transaction.CommitAsync(timeout.Token);
         }
         catch (Exception error) { logger.LogWarning("Operational failure receipt unavailable ({FailureType}); no original payload logged.", error.GetType().Name); }

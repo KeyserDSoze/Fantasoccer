@@ -8,4 +8,5 @@ public sealed class OperationalFailure
     public required string Source { get; set; }
     public required string Code { get; set; }
     public DateTimeOffset OccurredAtUtc { get; set; }
+    public string? Detail { get; set; }
 }

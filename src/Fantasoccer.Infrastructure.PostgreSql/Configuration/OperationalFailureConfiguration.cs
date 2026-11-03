@@ -12,6 +12,7 @@ internal sealed class OperationalFailureConfiguration : IEntityTypeConfiguration
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Source).HasMaxLength(100);
         builder.Property(x => x.Code).HasMaxLength(100);
+        builder.Property(x => x.Detail).HasMaxLength(1000);
         builder.HasIndex(x => x.OccurredAtUtc);
     }
 }

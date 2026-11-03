@@ -7,7 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Operations;
 
-public sealed record OperationalLogDto(Guid Id, string PrimaryKey, string SecondaryKey, DateTimeOffset? Timestamp, string Message, string Error, string Source);
+public sealed record OperationalLogDto(Guid Id, string PrimaryKey, string SecondaryKey, DateTimeOffset? Timestamp, string Message, string Error, string Source)
+{
+    public string? Detail { get; init; }
+}
 public sealed record OperationalLogStatistics(int Total, int Errors, int Info, int Today, int LastHour);
 public sealed class OperationsApplicationService(FantasoccerDbContext database, AccountApplicationService accounts, TimeProvider clock)
 {
@@ -29,15 +32,15 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
         {
             var text = query.ToLowerInvariant();
             logs = logs.Where(x => (x.Message ?? "").ToLower().Contains(text) || (x.Error ?? "").ToLower().Contains(text) || x.PartitionKey.ToLower().Contains(text) || x.RowKey.ToLower().Contains(text));
-            jobs = jobs.Where(x => x.Name.ToLower().Contains(text) || (x.Code ?? "").ToLower().Contains(text) || x.Status.ToLower().Contains(text));
-            imports = imports.Where(x => x.Source.ToLower().Contains(text) || x.Code.ToLower().Contains(text));
+            jobs = jobs.Where(x => x.Name.ToLower().Contains(text) || (x.Code ?? "").ToLower().Contains(text) || x.Status.ToLower().Contains(text) || (x.Detail ?? "").ToLower().Contains(text));
+            imports = imports.Where(x => x.Source.ToLower().Contains(text) || x.Code.ToLower().Contains(text) || (x.Detail ?? "").ToLower().Contains(text));
         }
         var archive = await logs.OrderByDescending(x => x.TimestampUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.PartitionKey, x.RowKey, x.TimestampUtc,
             x.Message ?? "Log legacy archiviato; proprietà originali conservate nel dump e nell'archivio privato.", x.Error ?? "", "legacy-table")).ToArrayAsync(cancellationToken);
         var runs = await jobs.OrderByDescending(x => x.StartedAtUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.Status == "Failed" || x.Status == "LeaseLost" ? "AError" : "ALog",
-            x.Name + "_" + x.Id, x.CompletedAtUtc ?? x.StartedAtUtc, x.Name + ": " + x.Status + "; elaborati=" + x.Processed + "; saltati=" + x.Skipped, x.Code ?? "", "sql-job")).ToArrayAsync(cancellationToken);
+            x.Name + "_" + x.Id, x.CompletedAtUtc ?? x.StartedAtUtc, x.Name + ": " + x.Status + "; elaborati=" + x.Processed + "; saltati=" + x.Skipped, x.Code ?? "", "sql-job") { Detail = x.Detail }).ToArrayAsync(cancellationToken);
         var importFailures = await imports.OrderByDescending(x => x.OccurredAtUtc).Take(limit)
-            .Select(x => new OperationalLogDto(x.Id, "AError", x.Source + "_" + x.Id, x.OccurredAtUtc, x.Source + ": Failed", x.Code, "operational-import")).ToArrayAsync(cancellationToken);
+            .Select(x => new OperationalLogDto(x.Id, "AError", x.Source + "_" + x.Id, x.OccurredAtUtc, x.Source + ": Failed", x.Code, "operational-import") { Detail = x.Detail }).ToArrayAsync(cancellationToken);
         return archive.Concat(runs).Concat(importFailures).OrderByDescending(x => x.Timestamp).Take(limit).Select(Redact).ToArray();
     }
     public async Task<OperationalLogDto> LogAsync(ClaimsPrincipal caller, Guid id, CancellationToken cancellationToken = default)
@@ -46,9 +49,9 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
         var log = await database.ArchivedOperationalLogs.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (log != null) return Redact(new(log.Id, log.PartitionKey, log.RowKey, log.TimestampUtc, log.Message ?? "Log legacy archiviato.", log.Error ?? "", "legacy-table"));
         var import = await database.OperationalFailures.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (import != null) return Redact(new(import.Id, "AError", import.Source + "_" + import.Id, import.OccurredAtUtc, import.Source + ": Failed", import.Code, "operational-import"));
+        if (import != null) return Redact(new(import.Id, "AError", import.Source + "_" + import.Id, import.OccurredAtUtc, import.Source + ": Failed", import.Code, "operational-import") { Detail = import.Detail });
         var job = await database.SqlJobRuns.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken) ?? throw new ApplicationFault(404, "log_not_found", "Log non trovato.");
-        return new(job.Id, job.Status == "Failed" ? "AError" : "ALog", job.Name + "_" + job.Id, job.CompletedAtUtc ?? job.StartedAtUtc, $"{job.Name}: {job.Status}; elaborati={job.Processed}; saltati={job.Skipped}", job.Code ?? "", "sql-job");
+        return Redact(new(job.Id, job.Status == "Failed" ? "AError" : "ALog", job.Name + "_" + job.Id, job.CompletedAtUtc ?? job.StartedAtUtc, $"{job.Name}: {job.Status}; elaborati={job.Processed}; saltati={job.Skipped}", job.Code ?? "", "sql-job") { Detail = job.Detail });
     }
     public async Task<OperationalLogStatistics> StatisticsAsync(ClaimsPrincipal caller, CancellationToken cancellationToken = default)
     {
@@ -67,7 +70,7 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
         if (!caller.IsInRole("super_admin") || !accounts.IsGlobalAdministrator(actor.Email)) throw new ApplicationFault(403, "operations_admin_required", "Serve un amministratore globale per consultare i log e avviare job globali.");
         return actor;
     }
-    private static OperationalLogDto Redact(OperationalLogDto row) => row with { Message = SafeText(row.Message), Error = SafeText(row.Error) };
+    private static OperationalLogDto Redact(OperationalLogDto row) => row with { Message = SafeText(row.Message), Error = SafeText(row.Error), Detail = row.Detail is null ? null : SafeText(row.Detail) };
     public static string SafeText(string text)
     {
         if (text.Length > 16000) text = text[..16000] + " [truncated; original retained in private archive]";

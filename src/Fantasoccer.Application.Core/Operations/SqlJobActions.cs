@@ -137,8 +137,16 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             day = await database.FootballDatasets.Where(x => x.SeasonIndex == year && x.Kind == "official").Select(x => (int?)x.Day).MaxAsync(cancellationToken);
             if (day == null) return new(0, 0, "no_official_votes");
         }
-        await ingestion.RunAsync(new(name, year, day), cancellationToken);
-        return new(1, 0);
+        try { await ingestion.RunAsync(new(name, year, day), cancellationToken); }
+        catch (ApplicationFault fault) when (day is not null)
+        {
+            // After the last match the provider removes the live feed: not a failure, official votes take over.
+            if (name == "live" && fault.Code == "football_provider_incomplete" && await MatchdayOverAsync(database, year, day.Value, now, cancellationToken))
+                return new(0, 0, "live_votes_closed") { Detail = $"Giornata {day}: tutte le partite sono finite e il provider non pubblica più i voti live; restano gli ultimi salvati finché arrivano gli ufficiali." };
+            if (fault.Message.Contains("giornata", StringComparison.OrdinalIgnoreCase)) throw;
+            throw new ApplicationFault(fault.Status, fault.Code, $"Giornata {day}: {fault.Message}");
+        }
+        return new(1, 0) { Detail = day is null ? null : $"Giornata {day}" };
     }
     // Matchday in progress: consolidate each finished match as its official votes appear. Matchday over: the full import (all clubs,
     // coaches, corrections) runs in the early-morning window, when the provider settles its votes, and any other time while matches
@@ -148,19 +156,31 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
     {
         if (liveDay is null && lastDay is null) return new(0, 0, "no_applicable_matchday");
         if (liveDay is { } running && (lastDay is null || running > lastDay))
-            return Progress(await ingestion.OfficialProgressAsync(year, running, cancellationToken));
+            return Progress(running, await ingestion.OfficialProgressAsync(year, running, cancellationToken));
         var day = lastDay!.Value;
         var rome = TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"));
         var settling = rome.Hour is >= 3 and <= 10;
         // Outside the settling window only a matchday that ended a few hours ago keeps being polled, and only while something is missing.
         var recent = liveDay == lastDay;
         var unconsolidated = recent && await database.FootballMatches.AnyAsync(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed && x.ActualOfficialVotesReady != true, cancellationToken);
-        if (!settling && !unconsolidated) return new(0, 0, "official_votes_up_to_date");
-        try { await ingestion.RunAsync(new("official", year, day), cancellationToken); return new(1, 0); }
-        catch (ApplicationFault fault) when (fault.Code == "official_matchday_incomplete") { return Progress(await ingestion.OfficialProgressAsync(year, day, cancellationToken)); }
+        if (!settling && !unconsolidated) return new(0, 0, "official_votes_up_to_date") { Detail = $"Giornata {day}: voti ufficiali già consolidati." };
+        try { await ingestion.RunAsync(new("official", year, day), cancellationToken); return new(1, 0) { Detail = $"Giornata {day}: voti ufficiali importati per tutte le partite." }; }
+        catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "official_votes_not_published")
+        {
+            var progress = Progress(day, await ingestion.OfficialProgressAsync(year, day, cancellationToken));
+            return progress with { Detail = progress.Detail + " " + fault.Message };
+        }
     }
-    private static SqlJobWorkResult Progress(FootballIngestionApplicationService.OfficialProgress progress) =>
-        progress.Pending > 0 ? new(progress.Imported, progress.Pending, "official_votes_pending") : new(progress.Imported, 0);
+    private static async Task<bool> MatchdayOverAsync(FantasoccerDbContext database, int year, int day, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var matches = await database.FootballMatches.AsNoTracking().Where(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed).ToArrayAsync(cancellationToken);
+        return matches.Length > 0 && matches.All(x => x.IsFinished == true || x.KickoffUtc is { } kickoff && now >= kickoff.AddMinutes(135));
+    }
+
+    private static SqlJobWorkResult Progress(int day, FootballIngestionApplicationService.OfficialProgress progress) => progress.Pending > 0
+        ? new(progress.Imported, progress.Pending, "official_votes_pending")
+            { Detail = $"Giornata {day}: {progress.Imported} partite consolidate ora; in attesa dei voti ufficiali: {string.Join(", ", progress.PendingMatches ?? [])}." }
+        : new(progress.Imported, 0) { Detail = $"Giornata {day}: " + (progress.Imported > 0 ? $"{progress.Imported} partite consolidate con i voti ufficiali." : "nessuna partita finita da consolidare.") };
 
     private async Task<SqlJobWorkResult> RecoverPostponedAsync(FantasoccerDbContext database, CancellationToken cancellationToken)
     {

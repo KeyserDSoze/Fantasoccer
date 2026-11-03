@@ -133,6 +133,7 @@ public sealed partial class WorkspaceApiTests
         await using var final = factory.Database.CreateContext();
         Assert.Equal("Canceled", (await final.SqlJobRuns.SingleAsync(x => x.Id == result.RunId)).Status);
         Assert.Null((await final.SqlJobStates.SingleAsync(x => x.Name == "chances" && x.SeasonIndex == FantacalcioTime.ActualYear)).LeaseId);
+        Assert.Contains("deploy", (await final.SqlJobRuns.SingleAsync(x => x.Id == result.RunId)).Detail);
         var canceledState = await final.SqlJobStates.SingleAsync(x => x.Name == "chances" && x.SeasonIndex == FantacalcioTime.ActualYear);
         Assert.InRange((canceledState.NextRunAtUtc - canceledState.LastCompletedAtUtc!.Value).TotalSeconds, 59, 61);
     }
@@ -169,6 +170,16 @@ public sealed partial class WorkspaceApiTests
         Assert.DoesNotContain("synthetic-secret", log.Message + log.Error); Assert.Contains("redacted", log.Message + log.Error);
         Assert.Single((await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?limit=1"))!);
         Assert.True((await client.GetFromJsonAsync<OperationalLogStatistics>("/api/operations/logs/statistics"))!.Total >= 3);
+        // A failure says what went wrong: our message with its context, or only the exception type (never the exception text).
+        var failedRun = (await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?errorsOnly=true&query=calendar"))!.First(x => x.Source == "sql-job");
+        Assert.Equal("Eccezione HttpRequestException", failedRun.Detail);
+        actions.Callback = _ => throw new ApplicationFault(409, "football_provider_incomplete", "Giornata 10: mancano i voti di ata, par per mario@example.test https://private.test/x?sig=synthetic-secret");
+        var explained = (await (await client.PostAsJsonAsync("/api/operations/jobs/run", request)).Content.ReadFromJsonAsync<SqlJobResult>())!;
+        var described = (await client.GetFromJsonAsync<OperationalLogDto>($"/api/operations/logs/{explained.RunId}"))!;
+        Assert.Equal("football_provider_incomplete", described.Error);
+        Assert.StartsWith("Giornata 10: mancano i voti di ata, par", described.Detail);
+        Assert.DoesNotContain("synthetic-secret", described.Detail); Assert.DoesNotContain("mario@example.test", described.Detail);
+        Assert.Contains(await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?query=mancano"), x => x.Id == explained.RunId);
         await using var final = factory.Database.CreateContext();
         Assert.DoesNotContain(await final.SqlJobRuns.Where(x => x.Id == result.RunId).ToArrayAsync(), x => (x.Code ?? "").Contains("secret"));
         var failedState = await final.SqlJobStates.SingleAsync(x => x.Name == "calendar" && x.SeasonIndex == request.Year);

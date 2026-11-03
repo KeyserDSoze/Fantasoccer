@@ -28,7 +28,16 @@ Richieste non autorizzate o con contesto non valido non sono errori di import.
 
 Gli import manuali e gli errori dei worker hanno ricevute minime in
 `OperationalFailures`, consultabili nei log amministrativi e conservate per
-30 giorni dal job `job-retention`. Le run restano in `SqlJobRuns`.
+30 giorni dal job `job-retention`. Le run restano in `SqlJobRuns` (anch'esse
+cancellate dopo 30 giorni dallo stesso job, alle 04:30 di Roma).
+
+Dalla 4.1.8 run e ricevute hanno anche un `Detail` (max 1000 caratteri) mostrato
+nei log: il nostro messaggio con il contesto (giornata, partite o squadre
+mancanti, motivo), oppure, per un errore imprevisto, solo il tipo di eccezione
+(e lo stato PostgreSQL), mai il testo dell'eccezione né il contenuto del
+provider. URL, segreti ed e-mail vengono mascherati. Esiti come
+`live_votes_closed` (feed live rimosso dal provider a giornata finita) e
+`official_votes_pending` sono attese previste, non incidenti.
 
 ## Deduplicazione e riservatezza
 
