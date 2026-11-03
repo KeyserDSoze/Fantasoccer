@@ -1,3 +1,4 @@
+import { rankPlusMoney } from '../../utils/rankMoney'
 import { type FC, useEffect, useState } from 'react'
 import { AlertTriangle, RefreshCw, Info } from '@tamagui/lucide-icons-2'
 import { Button, Card, ScrollView, Separator, Text, XStack, YStack } from 'tamagui'
@@ -205,9 +206,7 @@ const createStatColumns = (
       label: '+$',
       width: isCompact ? 64 : 72,
       render: (team) => {
-        const goalsMade = team.goal ?? 0
-        const goalsSuffered = team.sufferedGoal ?? 0
-        const totalMoney = (goalsMade * moneyForGoal) + (goalsSuffered * moneyForSufferedGoal)
+        const totalMoney = rankPlusMoney(team, moneyForGoal, moneyForSufferedGoal)
         
         return {
           value: `$${totalMoney}`,

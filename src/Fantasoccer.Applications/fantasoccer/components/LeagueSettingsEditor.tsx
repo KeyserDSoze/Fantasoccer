@@ -68,7 +68,6 @@ interface LeagueSettingsEditorProps {
 }
 
 const generalFields: NumberFieldDefinition[] = [
-  { key: 'startingMoney', label: 'Crediti iniziali', description: 'Budget disponibile a inizio stagione.', min: 25 },
   { key: 'delayedDay', label: 'Ritardo prima giornata', description: 'Numero di giornate di Serie A da saltare.', min: 0, max: 37 },
   { key: 'cancelledDay', label: 'Giornate annullate', description: 'Prime giornate fantasy considerate annullate.', min: 0, max: 38 },
   { key: 'liveFormationChanges', label: 'Modifiche a giornata iniziata', description: 'Modifiche massime dopo l’inizio delle partite. 0 disabilita la regola.', min: 0, max: 11 }
@@ -89,9 +88,13 @@ const bonusFields: NumberFieldDefinition[] = [
   { key: 'pointForStrongDefense4', label: 'Bonus difesa con 4 difensori' },
   { key: 'pointForStrongDefense5', label: 'Bonus difesa con 5 difensori' },
   { key: 'pointForGoodPeople', label: 'Bonus fair play' },
-  { key: 'pointForCleanSheet', label: 'Bonus porta inviolata', min: 0 },
-  { key: 'moneyForGoal', label: 'Crediti per gol segnato' },
-  { key: 'moneyForSufferedGoal', label: 'Crediti per gol subito' }
+  { key: 'pointForCleanSheet', label: 'Bonus porta inviolata', min: 0 }
+]
+
+const economyFields: NumberFieldDefinition[] = [
+  { key: 'startingMoney', label: 'Crediti iniziali', description: 'Budget disponibile a inizio stagione.', min: 25 },
+  { key: 'moneyForGoal', label: 'Crediti per gol segnato', description: 'Crediti maturati per ogni gol segnato dalla squadra.' },
+  { key: 'moneyForSufferedGoal', label: 'Crediti per gol subito', description: 'Crediti maturati per ogni gol subito dalla squadra.' }
 ]
 
 const voteFields: VoteFieldDefinition[] = [
@@ -387,10 +390,21 @@ export function LeagueSettingsEditor({
 
       <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
         <YStack gap="$3">
-          <Text fontSize="$4" fontWeight="700" color="$color12">Bonus ed economia</Text>
-          <Text fontSize="$2" color="$color10">Bonus formazione e crediti maturati con i risultati.</Text>
+          <Text fontSize="$4" fontWeight="700" color="$color12">Bonus</Text>
+          <Text fontSize="$2" color="$color10">Punti aggiunti al fantapunteggio della squadra in campo.</Text>
           <Separator />
           {renderNumberFields(bonusFields, 'bonuses')}
+        </YStack>
+      </Card>
+
+      <Card padding="$4" backgroundColor="$color1" borderWidth="$0.5" borderColor="$borderColor">
+        <YStack gap="$3">
+          <Text fontSize="$4" fontWeight="700" color="$color12">Economia</Text>
+          <Text fontSize="$2" color="$color10">
+            Crediti per le aste. Quelli maturati con i gol si sommano ai crediti iniziali e compaiono nella colonna +$ della classifica.
+          </Text>
+          <Separator />
+          {renderNumberFields(economyFields, 'economy')}
         </YStack>
       </Card>
 
