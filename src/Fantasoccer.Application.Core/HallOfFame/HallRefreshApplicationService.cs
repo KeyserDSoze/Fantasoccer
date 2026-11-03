@@ -16,9 +16,10 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
     public async Task RefreshAsync(ClaimsPrincipal caller, Guid group, Guid league, RefreshHallRequest request, CancellationToken cancellationToken = default)
     {
         await ManagerAsync(caller, group);
-        await RefreshCoreAsync(group, league, request.ExpectedVersion, cancellationToken, caller);
+        _ = await RefreshCoreAsync(group, league, request.ExpectedVersion, cancellationToken, caller);
     }
-    public Task RefreshScheduledAsync(Guid group, Guid league, CancellationToken cancellationToken = default) => RefreshCoreAsync(group, league, null, cancellationToken);
+    // Returns what was decided when the starting point was sealed automatically (for the job log), otherwise null.
+    public Task<string?> RefreshScheduledAsync(Guid group, Guid league, CancellationToken cancellationToken = default) => RefreshCoreAsync(group, league, null, cancellationToken);
 
     public async Task ConfirmBaselineAsync(ClaimsPrincipal caller, Guid group, Guid league, RefreshHallRequest request, CancellationToken cancellationToken = default)
     {
@@ -40,7 +41,7 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
 
-    private async Task RefreshCoreAsync(Guid group, Guid league, int? expectedVersion, CancellationToken cancellationToken, ClaimsPrincipal? caller = null)
+    private async Task<string?> RefreshCoreAsync(Guid group, Guid league, int? expectedVersion, CancellationToken cancellationToken, ClaimsPrincipal? caller = null)
     {
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         if (caller != null) await ManagerAsync(caller, group);
@@ -51,13 +52,14 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
         if (archive == null) database.HallArchives.Add(archive = new() { GroupId = group, LeagueId = league, ContributionsInitialized = true, Version = 0 });
         var snapshots = await database.FantasyStandingSnapshots.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league && x.SnapshotDay == 0).OrderBy(x => x.SeasonIndex).AsSplitQuery().ToArrayAsync(cancellationToken);
         var users = await OwnersAsync(group, snapshots, cancellationToken);
-        List<HallRankContribution> baselines;
+        EnsureOwners(snapshots, users, group);
+        List<HallRankContribution> baselines; string? note = null;
         if (archive.ContributionsInitialized) baselines = await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ToListAsync(cancellationToken);
         else
         {
             // Imported career totals that do not match the seasons we have: if they contain them (older years, leagues born later and seasons not
             // played are only in the totals), those seasons are already counted and the checkpoint is sealed here. Otherwise an administrator decides.
-            baselines = Reconcile(archive, snapshots, users, group);
+            (baselines, note) = Reconcile(archive, snapshots, users, group);
             await database.HallRankContributions.Where(x => x.GroupId == group && x.LeagueId == league).ExecuteDeleteAsync(cancellationToken);
             database.HallRankContributions.AddRange(baselines);
             database.HallBaselineConfirmations.Add(new() { GroupId = group, LeagueId = league, ActorUserId = null, ArchiveVersion = archive.Version, RecordedAtUtc = clock.GetUtcNow() });
@@ -128,9 +130,10 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
                 }
             }
         }
-        if (!changed) return;
+        if (!changed) return note;
         archive.Version++;
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+        return note;
     }
     private Task<HallArchive?> ArchiveAsync(Guid group, Guid league, CancellationToken cancellationToken) => database.HallArchives
         .Include(x => x.PlayerRecords).ThenInclude(x => x.Player).ThenInclude(x => x.Club).Include(x => x.WinningPlayers).ThenInclude(x => x.Player).ThenInclude(x => x.Club)
@@ -152,42 +155,128 @@ public sealed class HallRefreshApplicationService(FantasoccerDbContext database,
             result.TryAdd(entry.LegacyKey, entry.TargetId);
         return result;
     }
-    private static Guid Owner(Dictionary<string, Guid> users, Guid group, string value)
+    private static Guid Owner(Dictionary<string, Guid> users, Guid group, string value) => TryOwner(users, group, value, out var id) ? id
+        : throw BaselineRequired("Un proprietario delle classifiche non corrisponde a nessun utente né a un partecipante storico del gruppo.");
+    private static bool TryOwner(Dictionary<string, Guid> users, Guid group, string value, out Guid id)
     {
-        var historical = users.GetValueOrDefault(HistoricalParticipantIdentity.Key(group, value));
-        if (historical != Guid.Empty) return historical;
-        return users.GetValueOrDefault(value.Trim().ToLowerInvariant()) is var id && id != Guid.Empty ? id
-            : throw BaselineRequired($"Il proprietario \"{value}\" delle classifiche non corrisponde a nessun utente né a un partecipante storico del gruppo.");
+        id = users.GetValueOrDefault(HistoricalParticipantIdentity.Key(group, value));
+        if (id == Guid.Empty) id = users.GetValueOrDefault(value.Trim().ToLowerInvariant());
+        return id != Guid.Empty;
     }
 
-    // The seasons we have are already in the career totals when every owner's total is at least what those seasons add up to.
-    // An owner without a career row is not sealed: the first refresh adds his seasons. Returns the rows to seal.
-    private static List<HallRankContribution> Reconcile(HallArchive archive, FantasyStandingSnapshot[] snapshots, Dictionary<string, Guid> users, Guid group)
+    // Owners named in the standings must all be recognised; the message names the team and the season (e-mail addresses are masked in the logs).
+    private static void EnsureOwners(FantasyStandingSnapshot[] snapshots, Dictionary<string, Guid> users, Guid group)
     {
-        if (archive.Ranks.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) || archive.WinningTeams.GroupBy(x => x.OwnerUserId).Any(x => x.Count() > 1) ||
-            archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).Any(x => x.Count() > 1))
-            throw BaselineRequired("L'albo ha più righe per lo stesso proprietario o giocatore: serve una verifica manuale.");
-        var label = snapshots.SelectMany(x => x.Stages).SelectMany(x => x.Teams).GroupBy(x => Owner(users, group, x.Owner)).ToDictionary(x => x.Key, x => x.First().Owner);
-        var contributions = snapshots.SelectMany(x => HallContributionMath.FromSnapshot(x, owner => Owner(users, group, owner))).ToList();
-        var sealedRows = new List<HallRankContribution>(); var problems = new List<string>();
-        foreach (var owner in contributions.GroupBy(x => x.OwnerUserId))
-        {
-            var rank = archive.Ranks.SingleOrDefault(x => x.OwnerUserId == owner.Key);
-            if (rank is null) continue;
-            var short_ = new[]
-            {
-                (rank.Points, owner.Sum(x => x.Points), "punti"), ((float)rank.Victories, owner.Sum(x => x.Victories), "vittorie"), ((float)rank.Draws, owner.Sum(x => x.Draws), "pareggi"),
-                ((float)rank.Defeats, owner.Sum(x => x.Defeats), "sconfitte"), ((float)rank.Goals, owner.Sum(x => x.Goals), "gol fatti"), ((float)rank.SufferedGoals, owner.Sum(x => x.SufferedGoals), "gol subiti"),
-                (rank.ValuePoints, owner.Sum(x => x.ValuePoints), "punti valore"), (rank.SufferedValuePoints, owner.Sum(x => x.SufferedValuePoints), "punti valore subiti"),
-            }.Where(x => x.Item1 + 0.001f < x.Item2).Select(x => $"{x.Item3} {x.Item1:0.##} su {x.Item2:0.##}").ToArray();
-            if (short_.Length > 0) problems.Add($"{label[owner.Key]} ({string.Join(", ", short_)})");
-            else sealedRows.AddRange(owner);
-        }
-        if (problems.Count > 0)
-            throw BaselineRequired("Il totale storico è inferiore alle stagioni disponibili per " + string.Join("; ", problems.Take(4)) + (problems.Count > 4 ? $" e altri {problems.Count - 4}" : "") +
-                ": l'albo non contiene tutte le stagioni importate, serve la conferma di un amministratore.");
-        return sealedRows;
+        var missing = snapshots.SelectMany(snapshot => snapshot.Stages.SelectMany(x => x.Teams).Select(team => (snapshot.SeasonIndex, team.Name, team.Owner)))
+            .Where(x => !TryOwner(users, group, x.Owner, out _)).DistinctBy(x => (x.SeasonIndex, x.Name)).ToArray();
+        if (missing.Length > 0)
+            throw BaselineRequired("Proprietario non riconosciuto (nessun utente né partecipante storico del gruppo) per " +
+                string.Join(", ", missing.Take(5).Select(x => $"\"{x.Name}\" {Season(x.SeasonIndex)}")) + (missing.Length > 5 ? $" e altre {missing.Length - 5}" : "") + ".");
     }
+
+    // The old Hall of Fame summed every standings document at each run, the season in progress included (as it was then); since the import
+    // only that season's standings changed. So, per owner, the career totals are the earlier seasons plus part of the latest one: the earlier
+    // seasons are sealed as they are and the latest one with the part already counted, and the refresh adds the rest. When the totals also hold
+    // older seasons we have no standings for, the latest season Y whose standings are all within the totals is taken as already counted.
+    // An owner without a career row is never sealed (his seasons are added). Rows that the import split for the same person or player are merged.
+    private static (List<HallRankContribution> Rows, string Note) Reconcile(HallArchive archive, FantasyStandingSnapshot[] snapshots, Dictionary<string, Guid> users, Guid group)
+    {
+        var merged = MergeDuplicates(archive);
+        var names = snapshots.SelectMany(x => x.Stages).SelectMany(x => x.Teams).GroupBy(x => Owner(users, group, x.Owner)).ToDictionary(x => x.Key, x => x.Last().Name);
+        var contributions = snapshots.SelectMany(x => HallContributionMath.FromSnapshot(x, owner => Owner(users, group, owner))).ToList();
+        var ranked = contributions.Where(x => archive.Ranks.Any(rank => rank.OwnerUserId == x.OwnerUserId)).ToList();
+        var seasons = contributions.Select(x => x.SeasonIndex).Distinct().OrderByDescending(x => x).ToArray();
+        var prefix = merged > 0 ? $"unite {merged} righe doppie dello stesso proprietario o giocatore; " : "";
+        if (seasons.Length == 0) return ([], prefix + "punto di partenza fissato in automatico: nessuna classifica salvata.");
+        static float[] Metrics(HallCareerRank x) => [x.Points, x.Victories, x.Draws, x.Defeats, x.Goals, x.SufferedGoals, x.ValuePoints, x.SufferedValuePoints];
+        static float[] Sum(IEnumerable<HallRankContribution> rows) { var list = rows.ToArray(); return [list.Sum(x => x.Points), list.Sum(x => x.Victories), list.Sum(x => x.Draws),
+            list.Sum(x => x.Defeats), list.Sum(x => x.Goals), list.Sum(x => x.SufferedGoals), list.Sum(x => x.ValuePoints), list.Sum(x => x.SufferedValuePoints)]; }
+        static float Tolerance(float value) => Math.Max(0.05f, Math.Abs(value) * 2e-5f); // float sums of fifteen seasons in a different order
+        string[] labels = ["punti", "vittorie", "pareggi", "sconfitte", "gol fatti", "gol subiti", "punti valore", "punti valore subiti"];
+        var owners = ranked.Select(x => x.OwnerUserId).Distinct().ToArray();
+
+        // 1. Earlier seasons fully counted, the latest one partly (or fully).
+        var latest = seasons[0];
+        var partial = owners.All(owner =>
+        {
+            var total = Metrics(archive.Ranks.Single(x => x.OwnerUserId == owner));
+            var before = Sum(ranked.Where(x => x.OwnerUserId == owner && x.SeasonIndex < latest));
+            var now = Sum(ranked.Where(x => x.OwnerUserId == owner && x.SeasonIndex == latest));
+            return total.Select((value, index) => (rest: value - before[index], now: now[index], tol: Tolerance(value))).All(x => x.rest >= -x.tol && x.rest <= x.now + x.tol);
+        });
+        if (partial)
+        {
+            var rows = ranked.Where(x => x.SeasonIndex < latest).ToList(); var full = true;
+            foreach (var owner in owners)
+            {
+                var rank = archive.Ranks.Single(x => x.OwnerUserId == owner);
+                var before = ranked.Where(x => x.OwnerUserId == owner && x.SeasonIndex < latest).ToArray();
+                var now = ranked.SingleOrDefault(x => x.OwnerUserId == owner && x.SeasonIndex == latest);
+                if (now is null) continue;
+                float Part(float total, float sum, float current) => Math.Clamp(total - sum, 0, current);
+                var counted = new HallRankContribution
+                {
+                    GroupId = now.GroupId, LeagueId = now.LeagueId, SeasonIndex = latest, OwnerUserId = owner,
+                    Points = Part(rank.Points, before.Sum(x => x.Points), now.Points), Victories = (int)Part(rank.Victories, before.Sum(x => x.Victories), now.Victories),
+                    Draws = (int)Part(rank.Draws, before.Sum(x => x.Draws), now.Draws), Defeats = (int)Part(rank.Defeats, before.Sum(x => x.Defeats), now.Defeats),
+                    Goals = (int)Part(rank.Goals, before.Sum(x => x.Goals), now.Goals), SufferedGoals = (int)Part(rank.SufferedGoals, before.Sum(x => x.SufferedGoals), now.SufferedGoals),
+                    ValuePoints = Part(rank.ValuePoints, before.Sum(x => x.ValuePoints), now.ValuePoints),
+                    SufferedValuePoints = Part(rank.SufferedValuePoints, before.Sum(x => x.SufferedValuePoints), now.SufferedValuePoints),
+                    PlusMoney = (int)Part(rank.PlusMoney, before.Sum(x => x.PlusMoney), now.PlusMoney), Money = (int)Part(rank.Money, before.Sum(x => x.Money), now.Money),
+                };
+                full &= Math.Abs(counted.Points - now.Points) <= Tolerance(now.Points) && counted.Victories == now.Victories && counted.Goals == now.Goals;
+                rows.Add(counted);
+            }
+            return (rows, prefix + (full
+                ? $"punto di partenza fissato in automatico: tutte le stagioni fino al {Season(latest)} sono già nei totali."
+                : $"punto di partenza fissato in automatico: stagioni fino al {Season(latest - 1)} già nei totali, la {Season(latest)} in parte (fino all'import); il resto viene aggiunto ora."));
+        }
+
+        // 2. Older seasons only in the totals: the latest season whose standings all fit in them.
+        string[] Gaps(int until) => owners.SelectMany(owner =>
+        {
+            var total = Metrics(archive.Ranks.Single(x => x.OwnerUserId == owner));
+            var sum = Sum(ranked.Where(x => x.OwnerUserId == owner && x.SeasonIndex <= until));
+            return total.Select((value, index) => (value, sum: sum[index], label: labels[index])).Where(x => x.value + Tolerance(x.value) < x.sum)
+                .Select(x => $"{names.GetValueOrDefault(owner, "?")}: {x.label} {x.value:0.##} nei totali, {x.sum:0.##} nelle stagioni fino al {Season(until)}");
+        }).ToArray();
+        var cutoff = seasons.Cast<int?>().FirstOrDefault(y => Gaps(y!.Value).Length == 0);
+        if (cutoff is null)
+        {
+            var gaps = Gaps(seasons.Min());
+            throw BaselineRequired("I totali storici sono inferiori anche alla sola stagione più vecchia disponibile (" + string.Join("; ", gaps.Take(3)) +
+                "): l'albo non contiene le stagioni importate, serve la conferma di un amministratore.");
+        }
+        var later = seasons.Where(x => x > cutoff).Order().Select(Season).ToArray();
+        return (ranked.Where(x => x.SeasonIndex <= cutoff).ToList(), prefix + $"punto di partenza fissato in automatico: i totali contengono anche anni senza classifica; stagioni fino al {Season(cutoff.Value)} considerate già incluse" +
+            (later.Length > 0 ? $", aggiunte {string.Join(", ", later)}" : "") + ".");
+    }
+
+    // The import kept one row per legacy label: the same person (or player) can appear twice. Same totals and wins, one row.
+    private static int MergeDuplicates(HallArchive archive)
+    {
+        var merged = 0;
+        foreach (var rows in archive.Ranks.GroupBy(x => x.OwnerUserId).Where(x => x.Count() > 1).Select(x => x.OrderBy(row => row.Ordinal).ToArray()).ToArray())
+            foreach (var extra in rows.Skip(1))
+            {
+                var keep = rows[0];
+                keep.Points += extra.Points; keep.Victories += extra.Victories; keep.Draws += extra.Draws; keep.Defeats += extra.Defeats; keep.Goals += extra.Goals;
+                keep.SufferedGoals += extra.SufferedGoals; keep.ValuePoints += extra.ValuePoints; keep.SufferedValuePoints += extra.SufferedValuePoints;
+                keep.PlusMoney += extra.PlusMoney; keep.Money += extra.Money; archive.Ranks.Remove(extra); merged++;
+            }
+        foreach (var rows in archive.WinningTeams.GroupBy(x => x.OwnerUserId).Where(x => x.Count() > 1).Select(x => x.OrderBy(row => row.Ordinal).ToArray()).ToArray())
+            foreach (var extra in rows.Skip(1)) { MergeWins(rows[0].Wins, extra.Wins); archive.WinningTeams.Remove(extra); merged++; }
+        foreach (var rows in archive.WinningPlayers.GroupBy(x => x.Player.PlayerId).Where(x => x.Count() > 1).Select(x => x.OrderBy(row => row.Ordinal).ToArray()).ToArray())
+            foreach (var extra in rows.Skip(1)) { MergeWins(rows[0].Wins, extra.Wins); archive.WinningPlayers.Remove(extra); merged++; }
+        return merged;
+    }
+    private static void MergeWins(ICollection<HallWinStage> target, IEnumerable<HallWinStage> source)
+    {
+        foreach (var stage in source) foreach (var year in stage.Years) AddWin(target, stage.Stage, year.Year);
+    }
+
+    private static string Season(int year) => $"{year + 2011}/{(year + 2012) % 100:00}";
+
     private static bool AddWin(ICollection<HallWinStage> wins, string name, int year)
     {
         var stage = wins.SingleOrDefault(x => x.Stage == name);

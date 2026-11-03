@@ -272,25 +272,33 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
         var rows = await pending.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
         if (rows.Length == 0 && cursor?.CursorGroupId is not null)
             rows = await active.OrderBy(x => x.GroupId).ThenBy(x => x.LeagueId).Select(x => new { x.GroupId, x.LeagueId }).Take(limit + 1).ToArrayAsync(cancellationToken);
-        var processed = 0; var skipped = 0; var reconcile = new List<(Guid GroupId, Guid LeagueId, string Reason)>();
+        var processed = 0; var skipped = 0; var reconcile = new List<(Guid GroupId, Guid LeagueId, string Reason)>(); var notes = new List<(Guid GroupId, Guid LeagueId, string Note)>();
         foreach (var row in rows.Take(limit))
         {
             // Persist progress even when this league needs reconciliation or a worker is interrupted. The next
             // run visits later keys, and a completed sweep wraps so failed/new leagues are revisited as well.
             await StoreHallCursorAsync(year, row.GroupId, row.LeagueId, cancellationToken);
             await using var child = scopes.CreateAsyncScope();
-            try { await child.ServiceProvider.GetRequiredService<HallRefreshApplicationService>().RefreshScheduledAsync(row.GroupId, row.LeagueId, cancellationToken); processed++; }
+            try
+            {
+                var note = await child.ServiceProvider.GetRequiredService<HallRefreshApplicationService>().RefreshScheduledAsync(row.GroupId, row.LeagueId, cancellationToken);
+                if (note != null) notes.Add((row.GroupId, row.LeagueId, note));
+                processed++;
+            }
             catch (ApplicationFault fault) when (fault.Code == "hall_baseline_reconciliation_required") { skipped++; reconcile.Add((row.GroupId, row.LeagueId, fault.Message)); }
         }
         string? detail = null;
-        if (reconcile.Count > 0)
+        if (reconcile.Count + notes.Count > 0)
         {
-            var groupIds = reconcile.Select(x => x.GroupId).Distinct().ToArray();
+            var groupIds = reconcile.Select(x => x.GroupId).Concat(notes.Select(x => x.GroupId)).Distinct().ToArray();
             var names = (await database.Leagues.AsNoTracking().Where(x => groupIds.Contains(x.GroupId)).Select(x => new { x.GroupId, x.LeagueId, x.Name }).ToArrayAsync(cancellationToken))
                 .ToDictionary(x => (x.GroupId, x.LeagueId), x => x.Name);
             // The reason is ours (which owner, which totals): it says why the league cannot be reconciled by itself.
-            detail = $"{reconcile.Count} leghe da verificare per il refresh incrementale della Hall of Fame: " + string.Join(" | ", reconcile.Take(4).Select(x =>
-                $"{names.GetValueOrDefault((x.GroupId, x.LeagueId), "?")}: {(x.Reason.Length > 230 ? x.Reason[..230] + "…" : x.Reason)}")) + ". Ricontrollo ogni ora.";
+            var parts = notes.Select(x => $"{names.GetValueOrDefault((x.GroupId, x.LeagueId), "?")}: {x.Note}").ToList();
+            if (reconcile.Count > 0)
+                parts.Add($"{reconcile.Count} leghe da verificare per il refresh incrementale della Hall of Fame: " + string.Join(" | ", reconcile.Take(4).Select(x =>
+                    $"{names.GetValueOrDefault((x.GroupId, x.LeagueId), "?")}: {(x.Reason.Length > 200 ? x.Reason[..200] + "…" : x.Reason)}")) + ". Ricontrollo ogni ora.");
+            detail = string.Join(" ", parts);
         }
         var more = rows.Length > limit;
         if (!more) await StoreHallCursorAsync(year, null, null, cancellationToken);

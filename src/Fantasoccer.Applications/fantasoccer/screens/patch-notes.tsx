@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.17',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Dopo un aggiornamento dell\'app i job automatici e le notifiche ripartono dopo 5 minuti, quando il cambio di versione è finito: niente più errori "job_runner_failed" con timeout del database a ogni deploy. I job recuperano subito il lavoro arretrato',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Hall of Fame: il punto di partenza dell\'aggiornamento automatico tiene conto della stagione in corso già contata in parte dal vecchio albo, delle piccole differenze di arrotondamento e delle righe doppie dello stesso proprietario o giocatore (vengono unite). Il log dice cosa è stato deciso o, se resta da verificare, quale squadra e quali valori',
+      },
+    ],
+  },
+  {
     version: '4.1.16',
     date: '3 Novembre 2026',
     changes: [

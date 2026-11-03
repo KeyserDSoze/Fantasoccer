@@ -17,6 +17,9 @@ public static class AbandonedSessionReaper
     {
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
         if (string.IsNullOrWhiteSpace(builder.ApplicationName)) builder.ApplicationName = OwnApplicationName;
+        // A connection whose packets are dropped (seen right after the deploy swap) is noticed by TCP keepalive instead of only by the
+        // 120 s command timeout: first probe after 10 s of silence, then every 5 s.
+        if (!builder.TcpKeepAlive) { builder.TcpKeepAlive = true; builder.TcpKeepAliveTime = 10; builder.TcpKeepAliveInterval = 5; }
         return builder.ConnectionString;
     }
 

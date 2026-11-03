@@ -103,3 +103,14 @@ di altri processi dell'API con una transazione aperta da oltre 60 secondi e le
 termina con `pg_terminate_backend`: il blocco globale torna libero subito, senza
 aspettare il keepalive del server. Una transazione sana dura pochi secondi; il
 messaggio "Released N database session(s)…" nei log indica che è servito.
+
+### Cosa mostrano i log del database (4.1.17)
+
+I log di PostgreSQL (Log Analytics `log-fcv2`, categoria `PostgreSQLLogs`) mostrano che il vecchio
+processo chiude le sue connessioni in modo pulito. Il blocco riguarda il nuovo container: le
+connessioni aperte subito dopo lo stop del vecchio (spesso sulle stesse porte SNAT appena liberate)
+impiegano ~30 s ad aprirsi e poi restano appese fino al timeout di 120 s; quelle aperte dopo
+funzionano. Successo in 4 deploy su 7 il 3/11, per 2–6 minuti. Per questo i job in background e il
+produttore push partono `JobMaintenance:StartDelaySeconds` (300) secondi dopo l'avvio e recuperano
+subito dopo, e le connessioni usano il keepalive TCP (10 s, poi ogni 5 s) per accorgersi prima di una
+connessione appesa.

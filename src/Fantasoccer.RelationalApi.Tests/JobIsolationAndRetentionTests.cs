@@ -139,7 +139,7 @@ public sealed class JobIsolationAndRetentionTests(WorkspaceApiFactory factory) :
             await database.SqlJobStates.Where(x => x.Name == "calendar" || x.Name == "catalogue").ExecuteUpdateAsync(setters => setters
                 .SetProperty(x => x.NextRunAtUtc, DateTimeOffset.UtcNow.AddMinutes(-1)).SetProperty(x => x.LeaseId, (Guid?)null).SetProperty(x => x.LeaseUntilUtc, (DateTimeOffset?)null));
         using var worker = new SqlJobsWorker(app.Services.GetRequiredService<IServiceScopeFactory>(), app.Services.GetRequiredService<ILogger<SqlJobsWorker>>(),
-            Options.Create(new JobMaintenanceOptions { MaxConcurrentJobs = 2 }));
+            Options.Create(new JobMaintenanceOptions { MaxConcurrentJobs = 2, StartDelaySeconds = 0 }));
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         try
         {

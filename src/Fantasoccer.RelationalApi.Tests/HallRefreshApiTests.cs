@@ -46,7 +46,7 @@ public sealed partial class WorkspaceApiTests
         // The opponent's career total (2) is below the 3 points of the season we have: the totals do not contain it, an administrator decides.
         var blocked = await admin.PostAsJsonAsync(path + "/refresh", new RefreshHallRequest(1));
         Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
-        Assert.Contains("punti 2 su 3", await blocked.Content.ReadAsStringAsync());
+        Assert.Contains("punti 2 nei totali, 3 nelle stagioni", await blocked.Content.ReadAsStringAsync());
         (await admin.PostAsJsonAsync(path + "/confirm-baseline", new RefreshHallRequest(1))).EnsureSuccessStatusCode();
         var sealedArchive = (await admin.GetFromJsonAsync<HallOfFameDto>(path))!;
         Assert.Equal(1000.5f, sealedArchive.AllTimeRankings.Single(x => x.OwnerUserId == first.Id).Points);
@@ -99,5 +99,37 @@ public sealed partial class WorkspaceApiTests
         (await admin.PostAsJsonAsync(path + "/refresh", new RefreshHallRequest(hall.Version))).EnsureSuccessStatusCode();
         Assert.Equal(hall.Version, (await admin.GetFromJsonAsync<HallOfFameDto>(path))!.Version);
         Assert.Equal(4, (await admin.GetFromJsonAsync<HallOfFameDto>(path))!.AllTimeRankings.Single(x => x.OwnerUserId == gone.Id).Points);
+    }
+    [PostgreSqlFact]
+    public async Task Hall_refresh_counts_only_the_rest_of_the_season_that_was_in_progress_at_the_import_and_merges_rows_split_for_the_same_person()
+    {
+        using var admin = await factory.AccountAsync(globalAdmin: true);
+        var first = (await admin.GetFromJsonAsync<AccountIdentityDto>("/api/accounts/me"))!;
+        var group = await CreateGroupAsync(admin); var year = FantacalcioTime.ActualYear; var league = await CreateLeagueAsync(admin, group.GroupId, year);
+        var graph = (await admin.GetFromJsonAsync<GameGroupDto>($"/api/groups/{group.GroupId}"))!; var basket = graph.Baskets[0].Id;
+        var response = await admin.PostAsJsonAsync($"/api/workspace/groups/{group.GroupId}/teams", new CreateTeamRequest(basket, year, "In progress", first.Id, []));
+        response.EnsureSuccessStatusCode(); var team = (await response.Content.ReadFromJsonAsync<TeamCreatedDto>())!.TeamId;
+        await using (var database = factory.Database.CreateContext())
+        {
+            foreach (var past in new[] { year - 1, year - 2 })
+                if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == past)) database.Seasons.Add(new() { SeasonIndex = past, StartYear = past + 2011 });
+            // Now 10 points and 3 wins; at the import the old Hall of Fame had counted 6 and 1 of them, split on two rows for the same person.
+            database.FantasyStandingSnapshots.Add(new() { GroupId = group.GroupId, LeagueId = league, SeasonIndex = year, SnapshotDay = 0, SerieADay = 10,
+                Stages = [new() { Stage = "@", Teams = [new() { Ordinal = 0, BasketId = basket, TeamId = team, Name = "In progress", Owner = first.Email, Points = 10, Victories = 3 }] }] });
+            database.HallArchives.Add(new() { GroupId = group.GroupId, LeagueId = league, ContributionsInitialized = false,
+                Ranks = [new() { Ordinal = 0, OwnerUserId = first.Id, OwnerEmail = first.Email, Name = "In progress", Points = 4, Victories = 1 },
+                    new() { Ordinal = 1, OwnerUserId = first.Id, OwnerEmail = first.Email.ToUpperInvariant(), Name = "In progress", Points = 2 }],
+                WinningTeams = [new() { Ordinal = 0, OwnerUserId = first.Id, OwnerEmail = first.Email, Name = "A", Wins = [new() { Stage = "@", Years = [new() { Year = year - 2 }] }] },
+                    new() { Ordinal = 1, OwnerUserId = first.Id, OwnerEmail = first.Email, Name = "B", Wins = [new() { Stage = "@", Years = [new() { Year = year - 1 }] }] }] });
+            await database.SaveChangesAsync();
+        }
+        var path = $"/api/groups/{group.GroupId}/leagues/{league}/hall-of-fame";
+        (await admin.PostAsJsonAsync(path + "/refresh", new RefreshHallRequest(1))).EnsureSuccessStatusCode();
+        var hall = (await admin.GetFromJsonAsync<HallOfFameDto>(path))!;
+        var career = Assert.Single(hall.AllTimeRankings, x => x.OwnerUserId == first.Id);
+        Assert.Equal(10, career.Points); Assert.Equal(3, career.Victories); // 6 already counted + the 4 played after the import
+        Assert.Equal(new[] { year - 2, year - 1 }, Assert.Single(hall.WinningTeams, x => x.OwnerUserId == first.Id).Wins["@"].Order());
+        (await admin.PostAsJsonAsync(path + "/refresh", new RefreshHallRequest(hall.Version))).EnsureSuccessStatusCode();
+        Assert.Equal(10, (await admin.GetFromJsonAsync<HallOfFameDto>(path))!.AllTimeRankings.Single(x => x.OwnerUserId == first.Id).Points);
     }
 }
