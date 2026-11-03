@@ -34,3 +34,12 @@ test('rank balance aggregation propagates unknowns while known current and hall 
   const sorted = RankHelper.getTeamsSortedByValueAssets({ rounds: { '@': [historical, negative, known] } }, '@')
   assert.deepEqual(Array.from(sorted, row => row.valueAssets), [131, -5, null])
 })
+
+test('the +$ column uses the credits computed by the server and only falls back to the league rules', () => {
+  const { rankPlusMoney } = loadTypeScript('utils/rankMoney.ts')
+  // The home widget does not know the league rules: it used to show $0 for every team.
+  assert.equal(rankPlusMoney({ plusMoney: 22 * 5 + 18 * 3, goal: 22, sufferedGoal: 18 }), 164)
+  assert.equal(rankPlusMoney({ plusMoney: 0, goal: 22, sufferedGoal: 18 }, 5, 3), 0)
+  assert.equal(rankPlusMoney({ goal: 22, sufferedGoal: 18 }, 5, 3), 164)
+  assert.equal(rankPlusMoney({ goal: 22, sufferedGoal: 18 }), 0)
+})

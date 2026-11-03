@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.13',
+    date: '3 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Classifica nella home: la colonna +$ mostrava sempre $0 perché non conosceva le regole della lega. Ora usa i crediti calcolati dal server (gol segnati e subiti per i relativi crediti), come nelle altre classifiche e in linea con quanto verrà accreditato all\'asta',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Impostazioni lega: "Bonus ed economia" è diviso in due schede. Bonus (difesa, fair play, porta inviolata) e Economia (crediti iniziali, crediti per gol segnato e subito)',
+      },
+    ],
+  },
+  {
     version: '4.1.12',
     date: '3 Novembre 2026',
     changes: [
