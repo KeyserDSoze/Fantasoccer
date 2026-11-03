@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Dialog, YStack, XStack, Text, Button, ScrollView, Sheet } from 'tamagui'
+import { YStack, XStack, Text, Button, ScrollView, Sheet, useMedia } from 'tamagui'
 import { X, ArrowLeftRight, Plus, AlertTriangle, Ban, TrendingUp, TrendingDown, Minus } from '@tamagui/lucide-icons-2'
 import { Dimensions } from 'react-native'
 import type { LivePlayer } from 'types/game'
@@ -33,6 +33,50 @@ const ROLE_LABELS: Record<Role, string> = {
   [Role.Undefined]: 'Non definito'
 }
 
+type PlayerInfoView = {
+  hasInjury: boolean; injuryDescription: string; isSuspended: boolean; suspensionDescription: string
+  fantagazzettaStarter?: boolean; gazzettaStarter?: boolean
+  trend: number | null; trendLabel: string | null; trendArrow: string | null; lastGamePositiveness: number | null
+}
+
+// Desktop: le informazioni sul giocatore in un'unica fila di riquadri affiancati, non uno sotto l'altro.
+function DesktopInfoChips({ info }: { info: PlayerInfoView }) {
+  const tone = (value: number | null, high: number, low: number) =>
+    value === null ? 'gray' : value >= high ? 'green' : value <= low ? 'red' : 'yellow'
+  const chips: React.ReactNode[] = []
+  const chip = (key: string, color: string, title: string, body: React.ReactNode) => (
+    <YStack key={key} flexGrow={1} flexShrink={1} flexBasis={230} gap={2} paddingHorizontal={10} paddingVertical={6} borderRadius={8}
+      backgroundColor={`$${color}2` as any} borderLeftWidth={3} borderLeftColor={`$${color}9` as any}>
+      <Text fontSize={11} fontWeight="800" color={`$${color}11` as any}>{title}</Text>
+      {body}
+    </YStack>
+  )
+  if (info.hasInjury) chips.push(chip('injury', 'red', '⚠️ INFORTUNATO', <Text fontSize={12} color="$red10" numberOfLines={3}>{info.injuryDescription}</Text>))
+  if (info.isSuspended) chips.push(chip('suspended', 'red', '🚫 SQUALIFICATO', <Text fontSize={12} color="$red10" numberOfLines={3}>{info.suspensionDescription}</Text>))
+  if (info.fantagazzettaStarter !== undefined || info.gazzettaStarter !== undefined) {
+    const row = (label: string, value: boolean | undefined) => value === undefined ? null : (
+      <XStack key={label} gap={4}>
+        <Text fontSize={12} color="$blue10" fontWeight="600">{label}</Text>
+        <Text fontSize={12} fontWeight="700" color={value ? '$green11' : '$red11'}>{value ? '✓ Titolare' : '✗ Panchina'}</Text>
+      </XStack>
+    )
+    chips.push(chip('chance', 'blue', '📊 PROBABILITÀ TITOLARE', <XStack gap={14} flexWrap="wrap">{row('Fantacalcio.it', info.fantagazzettaStarter)}{row('Gazzetta', info.gazzettaStarter)}</XStack>))
+  }
+  if (info.trend !== null) {
+    const color = tone(info.trend, 3, 1)
+    chips.push(chip('trend', color, `${info.trendArrow ?? ''} FORMA RECENTE: ${(info.trendLabel ?? '').toUpperCase()}`,
+      <Text fontSize={12} color={`$${color}10` as any}>{info.trend >= 3 ? 'Sta giocando molto bene' : info.trend <= 1 ? 'Prestazioni negative' : 'Prestazioni altalenanti'}</Text>))
+  }
+  if (info.lastGamePositiveness !== null && info.lastGamePositiveness !== undefined) {
+    const value = info.lastGamePositiveness
+    const color = value > 0 ? 'green' : value < 0 ? 'red' : 'gray'
+    chips.push(chip('last', color, '⚽ ULTIMA PARTITA',
+      <Text fontSize={12} color={`$${color}10` as any}>{value > 0 ? '+' : ''}{value} • {value > 0 ? 'Ha fatto bonus' : value < 0 ? 'Ha preso malus' : 'Neutra'}</Text>))
+  }
+  if (chips.length === 0) return null
+  return <XStack gap={8} flexWrap="wrap" alignItems="stretch">{chips}</XStack>
+}
+
 export function PlayerSwapModal({
   isOpen,
   onClose,
@@ -45,6 +89,9 @@ export function PlayerSwapModal({
   onAddToBench,
   statPlayersMap
 }: PlayerSwapModalProps) {
+  const media = useMedia()
+  const isDesktop = !!media.gtSm
+
   // Filtra giocatori papabili per ruolo (stesso ruolo principale)
   const eligiblePlayers = useMemo(() => {
     if (!selectedPlayer) return []
@@ -161,13 +208,137 @@ export function PlayerSwapModal({
     }
   }, [selectedPlayer, selectedPlayerChance, selectedPlayerStats])
 
+  type SwapGroup = {
+    key: string; title: string; origin: string; players: LivePlayer[]; action: string
+    headerBg: string; headerText: string; headerCount: string; border: string; button: string
+  }
+  const swapGroups: SwapGroup[] = [
+    { key: 'starter', title: '⭐ TITOLARI', origin: 'In campo', players: groupedPlayers.starters, action: 'SCAMBIA',
+      headerBg: '$green2', headerText: '$green11', headerCount: '$green10', border: '$green7', button: '$green10' },
+    { key: 'bench', title: '🪑 PANCHINA', origin: 'In panchina', players: groupedPlayers.bench, action: 'SCAMBIA',
+      headerBg: '$orange2', headerText: '$orange11', headerCount: '$orange10', border: '$orange7', button: '$orange10' },
+    { key: 'tribune', title: '🏟️ TRIBUNA', origin: 'Fuori dai convocati', players: groupedPlayers.tribune, action: 'PORTA IN CAMPO',
+      headerBg: '$gray3', headerText: '$gray11', headerCount: '$gray10', border: '$gray7', button: '$blue10' },
+  ]
+
+  const renderSwapTile = (group: SwapGroup, player: LivePlayer, key: string) => (
+    <Button
+      key={key}
+      padding={0}
+      backgroundColor="transparent"
+      borderWidth={0}
+      onPress={() => {
+        onSwap(player)
+        onClose()
+      }}
+      pressStyle={{ opacity: 0.7, scale: 0.95 }}
+      height={200}
+    >
+      <YStack gap={6} alignItems="center" width={120}>
+        <PlayerCard player={player} statPlayersMap={statPlayersMap} />
+        <XStack
+          backgroundColor={group.button as any}
+          paddingHorizontal={10}
+          paddingVertical={6}
+          borderRadius={8}
+          alignItems="center"
+          gap={4}
+          width="100%"
+          justifyContent="center"
+        >
+          <ArrowLeftRight size={14} color="#fff" />
+          <Text fontSize={12} fontWeight="700" color="#fff">
+            {group.action}
+          </Text>
+        </XStack>
+      </YStack>
+    </Button>
+  )
+
+  const actionButtons = (
+  <YStack gap={8} flexDirection={isDesktop ? 'row' : 'column'} flexWrap="wrap" alignItems={isDesktop ? 'center' : 'stretch'}>
+    {canAddToFieldFromTribune && onAddToField && (
+      <Button
+        backgroundColor="$green10"
+        color="#fff"
+        size={isDesktop ? '$3' : '$4'}
+        fontWeight="700"
+        onPress={() => {
+          onAddToField(selectedPlayer!)
+          onClose()
+        }}
+        borderRadius={12}
+        pressStyle={{ opacity: 0.8, scale: 0.98 }}
+        icon={<Plus size={20} />}
+      >
+        ⚽ Aggiungi in Campo
+      </Button>
+    )}
+    
+    {canAddToBenchFromTribune && onAddToBench && (
+      <Button
+        backgroundColor="$orange10"
+        color="#fff"
+        size={isDesktop ? '$3' : '$4'}
+        fontWeight="700"
+        onPress={() => {
+          onAddToBench(selectedPlayer!)
+          onClose()
+        }}
+        borderRadius={12}
+        pressStyle={{ opacity: 0.8, scale: 0.98 }}
+        icon={<Plus size={20} />}
+      >
+        🪑 Aggiungi in Panchina
+      </Button>
+    )}
+    
+    {canAddToFieldFromBench && onAddToField && (
+      <Button
+        backgroundColor="$green10"
+        color="#fff"
+        size={isDesktop ? '$3' : '$4'}
+        fontWeight="700"
+        onPress={() => {
+          onAddToField(selectedPlayer!)
+          onClose()
+        }}
+        borderRadius={12}
+        pressStyle={{ opacity: 0.8, scale: 0.98 }}
+        icon={<Plus size={20} />}
+      >
+        ⚽ Porta in Campo
+      </Button>
+    )}
+
+    {/* Opzione rimozione (tribuna) */}
+    {canRemove && onRemove && (
+      <Button
+        backgroundColor="$red10"
+        color="#fff"
+        size={isDesktop ? '$3' : '$4'}
+        fontWeight="700"
+        onPress={() => {
+          onRemove()
+          onClose()
+        }}
+        borderRadius={12}
+        pressStyle={{ opacity: 0.8, scale: 0.98 }}
+      >
+        🏟️ Manda in Tribuna
+      </Button>
+    )}
+  </YStack>
+  )
+
   return (
     <Sheet
       modal
       open={isOpen}
       onOpenChange={onClose}
       dismissOnSnapToBottom
-      snapPoints={[85]}
+      snapPointsMode={isDesktop ? 'fit' : 'percent'}
+      snapPoints={isDesktop ? undefined : [85]}
       position={0}
       zIndex={100000}
     >
@@ -178,6 +349,7 @@ export function PlayerSwapModal({
         borderTopLeftRadius={20} 
         borderTopRightRadius={20}
         maxHeight={screenHeight * 0.85}
+        {...(isDesktop ? { width: '100%', maxWidth: 1240, alignSelf: 'center' as const } : {})}
       >
         <Sheet.Handle backgroundColor="$gray8" marginVertical={8} />
         
@@ -202,6 +374,7 @@ export function PlayerSwapModal({
                   )}
                 </XStack>
               </YStack>
+              {isDesktop && actionButtons}
               <Button
                 circular
                 size="$4"
@@ -212,7 +385,8 @@ export function PlayerSwapModal({
             </XStack>
 
             {/* Informazioni dettagliate giocatore */}
-            {playerInfo && (
+            {playerInfo && isDesktop && <DesktopInfoChips info={playerInfo} />}
+            {playerInfo && !isDesktop && (
               <YStack gap={8} backgroundColor="$color2" padding={12} borderRadius={12}>
                 {/* Infortunio */}
                 {playerInfo.hasInjury && (
@@ -361,80 +535,7 @@ export function PlayerSwapModal({
               </YStack>
             )}
 
-            {/* Pulsanti azione diretta per tribuna/panchina */}
-            <YStack gap={8}>
-              {canAddToFieldFromTribune && onAddToField && (
-                <Button
-                  backgroundColor="$green10"
-                  color="#fff"
-                  size="$4"
-                  fontWeight="700"
-                  onPress={() => {
-                    onAddToField(selectedPlayer!)
-                    onClose()
-                  }}
-                  borderRadius={12}
-                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
-                  icon={<Plus size={20} />}
-                >
-                  ⚽ Aggiungi in Campo
-                </Button>
-              )}
-              
-              {canAddToBenchFromTribune && onAddToBench && (
-                <Button
-                  backgroundColor="$orange10"
-                  color="#fff"
-                  size="$4"
-                  fontWeight="700"
-                  onPress={() => {
-                    onAddToBench(selectedPlayer!)
-                    onClose()
-                  }}
-                  borderRadius={12}
-                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
-                  icon={<Plus size={20} />}
-                >
-                  🪑 Aggiungi in Panchina
-                </Button>
-              )}
-              
-              {canAddToFieldFromBench && onAddToField && (
-                <Button
-                  backgroundColor="$green10"
-                  color="#fff"
-                  size="$4"
-                  fontWeight="700"
-                  onPress={() => {
-                    onAddToField(selectedPlayer!)
-                    onClose()
-                  }}
-                  borderRadius={12}
-                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
-                  icon={<Plus size={20} />}
-                >
-                  ⚽ Porta in Campo
-                </Button>
-              )}
-
-              {/* Opzione rimozione (tribuna) */}
-              {canRemove && onRemove && (
-                <Button
-                  backgroundColor="$red10"
-                  color="#fff"
-                  size="$4"
-                  fontWeight="700"
-                  onPress={() => {
-                    onRemove()
-                    onClose()
-                  }}
-                  borderRadius={12}
-                  pressStyle={{ opacity: 0.8, scale: 0.98 }}
-                >
-                  🏟️ Manda in Tribuna
-                </Button>
-              )}
-            </YStack>
+            {!isDesktop && actionButtons}
           </YStack>
 
           {/* Lista giocatori papabili - Scrollabile */}
@@ -443,178 +544,48 @@ export function PlayerSwapModal({
             contentContainerStyle={{ paddingTop: 16 }}
           >
             <YStack gap={20} paddingBottom={16}>
-              {/* Titolari */}
-              {groupedPlayers.starters.length > 0 && (
-                <YStack gap={12}>
-                  <XStack 
-                    backgroundColor="$green2" 
-                    paddingHorizontal={12} 
-                    paddingVertical={8} 
-                    borderRadius={8}
-                    alignItems="center"
-                    gap={8}
-                  >
-                    <Text fontSize={15} fontWeight="700" color="$green11">
-                      ⭐ TITOLARI
-                    </Text>
-                    <Text fontSize={13} color="$green10" fontWeight="600">
-                      ({groupedPlayers.starters.length})
-                    </Text>
-                  </XStack>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
-                      {groupedPlayers.starters.map((player, i) => (
-                        <Button
-                          key={`starter-${i}`}
-                          padding={0}
-                          backgroundColor="transparent"
-                          borderWidth={0}
-                          onPress={() => {
-                            onSwap(player)
-                            onClose()
-                          }}
-                          pressStyle={{ opacity: 0.7, scale: 0.95 }}
-                          height={200}
-                        >
-                          <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
-                            <XStack 
-                              backgroundColor="$green10" 
-                              paddingHorizontal={10} 
-                              paddingVertical={6} 
-                              borderRadius={8}
-                              alignItems="center"
-                              gap={4}
-                              width="100%"
-                              justifyContent="center"
-                            >
-                              <ArrowLeftRight size={14} color="#fff" />
-                              <Text fontSize={12} fontWeight="700" color="#fff">
-                                SCAMBIA
-                              </Text>
-                            </XStack>
-                          </YStack>
-                        </Button>
-                      ))}
+              {isDesktop ? (
+                // Desktop: i tre gruppi affiancati; ogni pannello dice da dove arriva il giocatore e quale azione si fa
+                <XStack gap={12} flexWrap="wrap" alignItems="stretch">
+                  {swapGroups.filter((group) => group.players.length > 0).map((group) => (
+                    <YStack
+                      key={group.key}
+                      flexGrow={group.players.length}
+                      flexShrink={1}
+                      flexBasis={Math.min(group.players.length, 4) * 132 + 24}
+                      minWidth={168}
+                      borderWidth={1}
+                      borderColor={group.border}
+                      borderRadius={12}
+                      overflow="hidden"
+                      backgroundColor="$color1"
+                    >
+                      <XStack backgroundColor={group.headerBg} paddingHorizontal={12} paddingVertical={8} alignItems="center" gap={8}
+                        borderBottomWidth={2} borderBottomColor={group.button}>
+                        <Text fontSize={14} fontWeight="800" color={group.headerText}>{group.title}</Text>
+                        <Text fontSize={12} fontWeight="600" color={group.headerCount}>({group.players.length})</Text>
+                        <Text fontSize={11} color={group.headerCount} marginLeft="auto">{group.origin}</Text>
+                      </XStack>
+                      <XStack gap={10} flexWrap="wrap" padding={10} justifyContent="flex-start">
+                        {group.players.map((player, i) => renderSwapTile(group, player, `${group.key}-${i}`))}
+                      </XStack>
+                    </YStack>
+                  ))}
+                </XStack>
+              ) : (
+                swapGroups.filter((group) => group.players.length > 0).map((group) => (
+                  <YStack key={group.key} gap={12}>
+                    <XStack backgroundColor={group.headerBg} paddingHorizontal={12} paddingVertical={8} borderRadius={8} alignItems="center" gap={8}>
+                      <Text fontSize={15} fontWeight="700" color={group.headerText}>{group.title}</Text>
+                      <Text fontSize={13} color={group.headerCount} fontWeight="600">({group.players.length})</Text>
                     </XStack>
-                  </ScrollView>
-                </YStack>
-              )}
-
-              {/* Panchina */}
-              {groupedPlayers.bench.length > 0 && (
-                <YStack gap={12}>
-                  <XStack 
-                    backgroundColor="$orange2" 
-                    paddingHorizontal={12} 
-                    paddingVertical={8} 
-                    borderRadius={8}
-                    alignItems="center"
-                    gap={8}
-                  >
-                    <Text fontSize={15} fontWeight="700" color="$orange11">
-                      🪑 PANCHINA
-                    </Text>
-                    <Text fontSize={13} color="$orange10" fontWeight="600">
-                      ({groupedPlayers.bench.length})
-                    </Text>
-                  </XStack>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
-                      {groupedPlayers.bench.map((player, i) => (
-                        <Button
-                          key={`bench-${i}`}
-                          padding={0}
-                          backgroundColor="transparent"
-                          borderWidth={0}
-                          onPress={() => {
-                            onSwap(player)
-                            onClose()
-                          }}
-                          pressStyle={{ opacity: 0.7, scale: 0.95 }}
-                          height={200}
-                        >
-                          <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
-                            <XStack 
-                              backgroundColor="$orange10" 
-                              paddingHorizontal={10} 
-                              paddingVertical={6} 
-                              borderRadius={8}
-                              alignItems="center"
-                              gap={4}
-                              width="100%"
-                              justifyContent="center"
-                            >
-                              <ArrowLeftRight size={14} color="#fff" />
-                              <Text fontSize={12} fontWeight="700" color="#fff">
-                                SCAMBIA
-                              </Text>
-                            </XStack>
-                          </YStack>
-                        </Button>
-                      ))}
-                    </XStack>
-                  </ScrollView>
-                </YStack>
-              )}
-
-              {/* Tribuna */}
-              {groupedPlayers.tribune.length > 0 && (
-                <YStack gap={12}>
-                  <XStack 
-                    backgroundColor="$gray3" 
-                    paddingHorizontal={12} 
-                    paddingVertical={8} 
-                    borderRadius={8}
-                    alignItems="center"
-                    gap={8}
-                  >
-                    <Text fontSize={15} fontWeight="700" color="$gray11">
-                      🏟️ TRIBUNA
-                    </Text>
-                    <Text fontSize={13} color="$gray10" fontWeight="600">
-                      ({groupedPlayers.tribune.length})
-                    </Text>
-                  </XStack>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
-                      {groupedPlayers.tribune.map((player, i) => (
-                        <Button
-                          key={`tribune-${i}`}
-                          padding={0}
-                          backgroundColor="transparent"
-                          borderWidth={0}
-                          onPress={() => {
-                            onSwap(player)
-                            onClose()
-                          }}
-                          pressStyle={{ opacity: 0.7, scale: 0.95 }}
-                          height={200}
-                        >
-                          <YStack gap={6} alignItems="center" width={120}>
-                            <PlayerCard player={player} statPlayersMap={statPlayersMap} />
-                            <XStack 
-                              backgroundColor="$blue10" 
-                              paddingHorizontal={10} 
-                              paddingVertical={6} 
-                              borderRadius={8}
-                              alignItems="center"
-                              gap={4}
-                              width="100%"
-                              justifyContent="center"
-                            >
-                              <ArrowLeftRight size={14} color="#fff" />
-                              <Text fontSize={12} fontWeight="700" color="#fff">
-                                PORTA IN CAMPO
-                              </Text>
-                            </XStack>
-                          </YStack>
-                        </Button>
-                      ))}
-                    </XStack>
-                  </ScrollView>
-                </YStack>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
+                        {group.players.map((player, i) => renderSwapTile(group, player, `${group.key}-${i}`))}
+                      </XStack>
+                    </ScrollView>
+                  </YStack>
+                ))
               )}
 
               {eligiblePlayers.length === 0 && (
