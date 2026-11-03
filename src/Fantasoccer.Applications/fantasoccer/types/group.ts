@@ -25,6 +25,8 @@ export interface LeagueSetting {
   pointForDraw: number; pointForStrongDefense: number; pointForStrongDefense4: number; pointForStrongDefense5: number
   pointForGoodPeople: number; pointForCleanSheet: number; moneyForGoal: number; moneyForSufferedGoal: number
   // Share of the price given back for a player who left Serie A (percent), rounded down unless roundUp.
+  // Goal credits: null/absent = default (on for the main league, off for the others), true/false = chosen explicitly.
+  goalCreditsEnabled?: boolean | null
   leftSerieARefundPercent: number; leftSerieARefundRoundUp: boolean
   randomAuction: boolean; rankWithValuePoints: boolean; market: MarketType; liveFormationChanges: number
   allowLiveModuleChange: boolean; openingCompetition: OpeningCompetitionSettings; postponements: PostponementSettings

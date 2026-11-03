@@ -55,7 +55,7 @@ public sealed partial class CompetitionApplicationService
             }
             if (days.Count > 0) domain.Rounds.Add(stage.Stage, days);
         }
-        var rank = calculator.GetRank(LeagueRulesMapping.ToDomain(rules), domain);
+        var rank = calculator.GetRank(LeagueRulesMapping.ToDomain(rules, season.League.IsMain), domain);
         return new(rank.SerieADay, rank.RankedTeams.ToDictionary(x => x.Key, x => x.Value.Select(team =>
         {
             var identity = identities[(x.Key, team.Owner)];

@@ -86,7 +86,7 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
                         var league = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).SingleAsync(x => x.GroupId == entry.GroupId && x.LeagueId == entry.LeagueId && x.SeasonIndex == year, cancellationToken);
                         var domain = new Team { Name = team.Name, Owner = team.OwnerReference, AdditionalOwners = [],
                             Players = daily.Players.Select(player => { var domainPlayer = CompetitionMapping.Domain(player); if (player.Status == 0) domainPlayer.Position = (FantaSoccerRole)positions[player.PlayerId]; return domainPlayer; }).ToList() };
-                        var proposal = await optimal.CalculateAsync(domain, year, next.Day, GameApplicationService.Type(league), LeagueRulesMapping.ToDomain(rules), cancellationToken);
+                        var proposal = await optimal.CalculateAsync(domain, year, next.Day, GameApplicationService.Type(league), LeagueRulesMapping.ToDomain(rules, true), cancellationToken);
                         var proposed = proposal.Players.ToDictionary(x => x.PlayerKey, x => (int)x.Position);
                         foreach (var player in daily.Players.Where(x => x.Status == 0))
                             if (proposed.TryGetValue(KeyUtils.GetPlayerKey(player.Player.Name), out var position)) positions[player.PlayerId] = position;

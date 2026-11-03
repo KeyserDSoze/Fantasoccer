@@ -70,8 +70,11 @@
                 else
                     team.Point += pointTeam + leagueSetting.PointForDraw;
             }
-            team.PlusMoney += leagueSetting.MoneyForGoal * goalTeam;
-            team.PlusMoney += leagueSetting.MoneyForSufferedGoal * goalOpponent;
+            if (leagueSetting.GoalCreditsEnabled)
+            {
+                team.PlusMoney += leagueSetting.MoneyForGoal * goalTeam;
+                team.PlusMoney += leagueSetting.MoneyForSufferedGoal * goalOpponent;
+            }
             return true;
         }
     }

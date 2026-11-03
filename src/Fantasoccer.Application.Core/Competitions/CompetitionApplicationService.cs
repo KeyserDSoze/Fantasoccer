@@ -76,14 +76,22 @@ public sealed partial class CompetitionApplicationService(FantasoccerDbContext d
             .Select(x => (int?)x.StartingMoney).SingleOrDefaultAsync(cancellationToken);
         var ids = rank.Rounds.Values.SelectMany(x => x).Select(x => x.TeamId).Distinct().ToArray();
         var credits = new Dictionary<Guid, int>();
+        var enabled = false;
         if (mode != LeagueMode.Derived && starting is { } money)
         {
+            var main = await database.Leagues.AsNoTracking().Where(x => x.GroupId == group && x.LeagueId == league).Select(x => x.IsMain).SingleAsync(cancellationToken);
+            var own = await database.LeagueRules.AsNoTracking().SingleAsync(x => x.GroupId == group && x.LeagueId == league && x.SeasonIndex == year, cancellationToken);
+            enabled = Teams.GoalCredits.Enabled(own, main, mode ?? LeagueMode.Autonomous);
+            // Goal credits of the team's other leagues are part of what it takes to the next auction; this league's own are PlusMoney.
+            var others = await Teams.GoalCredits.ForTeamsAsync(database, group, year, ids, cancellationToken);
             var rosters = await database.RosterSnapshots.AsNoTracking().Include(x => x.Players)
                 .Where(x => x.GroupId == group && x.SeasonIndex == year && x.Kind == RosterKind.Season && ids.Contains(x.TeamId)).AsSplitQuery().ToArrayAsync(cancellationToken);
             foreach (var roster in rosters.GroupBy(x => x.TeamId).Where(x => x.Count() == 1).Select(x => x.Single()))
-                credits[roster.TeamId] = (int)Math.Clamp(Teams.RosterEconomy.Balance(roster, money) - (roster.RankCreditGranted ?? roster.MoneyFromRank), int.MinValue, int.MaxValue);
+                credits[roster.TeamId] = (int)Math.Clamp(Teams.RosterEconomy.Balance(roster, money) - (roster.RankCreditGranted ?? roster.MoneyFromRank) + others.Outside(roster.TeamId, league), int.MinValue, int.MaxValue);
         }
-        return rank with { Rounds = rank.Rounds.ToDictionary(x => x.Key, x => x.Value.Select(team => team with { Money = credits.TryGetValue(team.TeamId, out var value) ? value : null }).ToArray()) };
+        // Credits off for this league: nothing is computed for it.
+        return rank with { Rounds = rank.Rounds.ToDictionary(x => x.Key, x => x.Value.Select(team => team with
+            { PlusMoney = enabled ? team.PlusMoney : 0, Money = credits.TryGetValue(team.TeamId, out var value) ? value : null }).ToArray()) };
     }
 
     public static CalendarGameDto Game(FantasyMatch row) => new(row.Id, row.Number, row.HomeName, row.HomeOwner, row.AwayName, row.AwayOwner,

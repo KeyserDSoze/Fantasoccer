@@ -65,7 +65,7 @@ public sealed partial class WorkspaceApiTests
         await using (var database = factory.Database.CreateContext())
         {
             var rules = await database.LeagueRules.SingleAsync(x => x.GroupId == fixture.Group && x.LeagueId == fixture.League && x.SeasonIndex == fixture.Year);
-            rules.PointForVictory = 5; rules.PointForDraw = 2; rules.PointForDefeat = -1; rules.MoneyForGoal = 3; rules.MoneyForSufferedGoal = 1;
+            rules.PointForVictory = 5; rules.PointForDraw = 2; rules.PointForDefeat = -1; rules.MoneyForGoal = 3; rules.MoneyForSufferedGoal = 1; rules.GoalCreditsEnabled = true; // not the main league: credits are off unless switched on
             database.FantasyCalendars.Add(new() { GroupId = fixture.Group, LeagueId = fixture.League, SeasonIndex = fixture.Year, Version = 9, Stages =
             [HistoryStage(fixture, "@", 0, (3, HistoryResult(3, 1, 80.5f)), (7, HistoryResult(2, 2, 71, 70)), (8, null),
                 (9, new() { IsCancelled = true }), (12, HistoryResult(0, 4))), HistoryStage(fixture, "Future", 1, (11, HistoryResult(9, 0))),

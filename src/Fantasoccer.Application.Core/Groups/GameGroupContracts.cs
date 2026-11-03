@@ -44,6 +44,8 @@ public sealed class LeagueSettingDto
     public int PointForCleanSheet { get; set; }
     public int MoneyForGoal { get; set; }
     public int MoneyForSufferedGoal { get; set; }
+    // null = default: on for the main league, off for the others.
+    public bool? GoalCreditsEnabled { get; set; }
     // Defaults also for clients that do not send them yet.
     public int LeftSerieARefundPercent { get; set; } = 50;
     public bool LeftSerieARefundRoundUp { get; set; }

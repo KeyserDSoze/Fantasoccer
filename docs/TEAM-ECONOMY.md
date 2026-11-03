@@ -34,3 +34,17 @@ la regola dopo non modifica i rimborsi già registrati. Le leghe esistenti parto
 quello che la squadra porta alla prossima asta. Colonne "+$" e "Crediti". Non valorizzato per le
 leghe derivate (nessuna economia propria) né per le giornate passate (nessuno storico dei saldi).
 `Money` non viene salvato negli snapshot: si calcola alla lettura dalla rosa della stagione.
+
+## Crediti per i gol: interruttore per lega
+
+`LeagueRules.GoalCreditsEnabled` (null = predefinito): acceso per la lega principale, spento
+per le altre (e per le leghe derivate, che non hanno economia). Impostazioni lega → Economia
+→ "Crediti per i gol"; si può forzare acceso/spento e tornare al predefinito. Se la lega
+diventa principale o secondaria, il predefinito la segue.
+
+Spento: `RankCalculator` non calcola `PlusMoney`, la classifica non mostra "+$" e "Crediti" e
+l'asta non accredita nulla. Acceso su più leghe: all'asta (`GoalCredits.ForTeamsAsync`) il
+diritto di una squadra è la somma dei crediti di tutte le leghe del suo basket che li hanno
+accesi, ciascuna con le proprie regole; `RankCreditGranted` registra il totale già accreditato,
+quindi una lega accesa dopo viene accreditata una sola volta. In classifica `Money` include i
+crediti maturati nelle altre leghe, così `ValueAssets` è lo stesso da ogni lega.

@@ -85,7 +85,7 @@ public sealed class EditorialApplicationService(FantasoccerDbContext database, I
         var season = await database.LeagueSeasons.AsNoTracking().Include(x => x.League).SingleAsync(x => x.GroupId == group && x.LeagueId == rules.LeagueId && x.SeasonIndex == year, cancellationToken);
         var domain = new Team { Name = roster.Name, Owner = roster.Owner, AdditionalOwners = [], Players = roster.Players.Where(x => x.Status == 0).Select(x => new Player
             { Name = x.Name, Role = (Role)x.Role, Position = (FantaSoccerRole)x.Position, RealTeam = new() { Name = x.Team.Name, Abbreviation = x.Team.Abbreviation } }).ToList() };
-        var proposal = await optimal.CalculateAsync(domain, year, day, (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1), LeagueRulesMapping.ToDomain(rules), cancellationToken);
+        var proposal = await optimal.CalculateAsync(domain, year, day, (LeagueType)(season.CompetitionType != 0 ? season.CompetitionType : season.League.CompetitionType != 0 ? season.League.CompetitionType : 1), LeagueRulesMapping.ToDomain(rules, true), cancellationToken);
         var prompt = (await accounts.SettingsAsync(caller, cancellationToken)).AiPrompt;
         var facts = JsonSerializer.Serialize(new { year, day, roster = domain.Players.Select(x => new { x.Name, role = x.Role.ToString(), club = x.RealTeam.Name }),
             proposal = proposal.Players.Select(x => new { x.PlayerName, role = x.Role.ToString(), position = x.Position.ToString(), x.Projection, x.Confidence }), personalInstructions = prompt });

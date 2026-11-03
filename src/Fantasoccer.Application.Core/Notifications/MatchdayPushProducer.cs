@@ -217,7 +217,7 @@ public sealed class MatchdayPushProducer(FantasoccerDbContext database, PushOutb
                 var row = rules.Single(x => x.GroupId == league.GroupId && x.LeagueId == league.LeagueId);
                 var type = (LeagueType)(league.CompetitionType != 0 ? league.CompetitionType : league.League.CompetitionType != 0 ? league.League.CompetitionType : 1);
                 if (row.Formation == (int)FormationType.Best || type == LeagueType.SuperLeague) continue;
-                await scoring.BuildRequestAsync(year, day, type, LeagueRulesMapping.ToDomain(row), false, true, false);
+                await scoring.BuildRequestAsync(year, day, type, LeagueRulesMapping.ToDomain(row, true), false, true, false);
                 var oldPoints = scoring.CalculatePoint(before.Select(Clone)).Value; var newPoints = scoring.CalculatePoint(states.Values.Select(Clone)).Value;
                 var names = string.Join(", ", change.Players.Select(x => $"{x.PlayerName} ({(FantaSoccerRole)x.FromPosition} → {(FantaSoccerRole)x.ToPosition})"));
                 var text = $"[{league.League.Name}] {team.Name}: cambio live di {change.Author} — {names}. {oldPoints.ToString("0.#", CultureInfo.InvariantCulture)} → {newPoints.ToString("0.#", CultureInfo.InvariantCulture)} pt.";
