@@ -114,3 +114,11 @@ funzionano. Successo in 4 deploy su 7 il 3/11, per 2–6 minuti. Per questo i jo
 produttore push partono `JobMaintenance:StartDelaySeconds` (300) secondi dopo l'avvio e recuperano
 subito dopo, e le connessioni usano il keepalive TCP (10 s, poi ogni 5 s) per accorgersi prima di una
 connessione appesa.
+
+## Quante esecuzioni mostra la pagina dei log
+
+Ogni job ha il suo spazio (`SqlJobLogPolicy`): 20 esecuzioni per i job frequenti (`formations`,
+`live`, `live-projections`, `postponed-results`, `calendar`, `official`, `statistics`, `results`),
+30 per `chances` e `hall`, 10 per gli altri (giornalieri o annuali). In più, a parte, gli ultimi
+errori di ciascun job, nello stesso numero. Le ricevute di errore sono 20 per sorgente. Una
+ricerca (`query`) invece usa il limite generale della richiesta.
