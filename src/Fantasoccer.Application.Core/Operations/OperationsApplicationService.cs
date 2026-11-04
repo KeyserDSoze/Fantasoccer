@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Fantasoccer.Application.Core.Accounts;
 using Fantasoccer.Application.Core.Groups;
 using Fantasoccer.Infrastructure.PostgreSql;
+using Fantasoccer.Infrastructure.PostgreSql.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fantasoccer.Application.Core.Operations;
@@ -37,11 +38,40 @@ public sealed class OperationsApplicationService(FantasoccerDbContext database, 
         }
         var archive = await logs.OrderByDescending(x => x.TimestampUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.PartitionKey, x.RowKey, x.TimestampUtc,
             x.Message ?? "Log legacy archiviato; proprietà originali conservate nel dump e nell'archivio privato.", x.Error ?? "", "legacy-table")).ToArrayAsync(cancellationToken);
-        var runs = await jobs.OrderByDescending(x => x.StartedAtUtc).Take(limit).Select(x => new OperationalLogDto(x.Id, x.Status == "Failed" || x.Status == "LeaseLost" ? "AError" : "ALog",
-            x.Name + "_" + x.Id, x.CompletedAtUtc ?? x.StartedAtUtc, x.Name + ": " + x.Status + "; elaborati=" + x.Processed + "; saltati=" + x.Skipped, x.Code ?? "", "sql-job") { Detail = x.Detail }).ToArrayAsync(cancellationToken);
-        var importFailures = await imports.OrderByDescending(x => x.OccurredAtUtc).Take(limit)
+        static IQueryable<OperationalLogDto> Dto(IQueryable<SqlJobRun> rows) => rows.Select(x => new OperationalLogDto(x.Id, x.Status == "Failed" || x.Status == "LeaseLost" ? "AError" : "ALog",
+            x.Name + "_" + x.Id, x.CompletedAtUtc ?? x.StartedAtUtc, x.Name + ": " + x.Status + "; elaborati=" + x.Processed + "; saltati=" + x.Skipped, x.Code ?? "", "sql-job") { Detail = x.Detail });
+        OperationalLogDto[] runs;
+        var perJob = string.IsNullOrWhiteSpace(query);
+        if (perJob)
+        {
+            // Each job has its own top: the latest runs and, apart, its latest failures.
+            var found = new Dictionary<Guid, OperationalLogDto>();
+            foreach (var job in SqlJobSchedule.Names)
+            {
+                var own = jobs.Where(x => x.Name == job);
+                foreach (var row in await Dto(own.OrderByDescending(x => x.StartedAtUtc).Take(SqlJobLogPolicy.Limit(job))).ToArrayAsync(cancellationToken)) found[row.Id] = row;
+                if (errorsOnly is null)
+                    foreach (var row in await Dto(own.Where(x => x.Status == "Failed" || x.Status == "LeaseLost").OrderByDescending(x => x.StartedAtUtc).Take(SqlJobLogPolicy.Limit(job))).ToArrayAsync(cancellationToken)) found[row.Id] = row;
+            }
+            runs = found.Values.ToArray();
+        }
+        else runs = await Dto(jobs.OrderByDescending(x => x.StartedAtUtc).Take(limit)).ToArrayAsync(cancellationToken);
+        // Failure receipts: the same, per source, so a loop of one failing source does not hide the others.
+        OperationalLogDto[] importFailures;
+        if (perJob)
+        {
+            var sources = await imports.Select(x => x.Source).Distinct().ToArrayAsync(cancellationToken);
+            var list = new List<OperationalLogDto>();
+            foreach (var source in sources)
+                list.AddRange(await imports.Where(x => x.Source == source).OrderByDescending(x => x.OccurredAtUtc).Take(SqlJobLogPolicy.FailureSourceLimit)
+                    .Select(x => new OperationalLogDto(x.Id, "AError", x.Source + "_" + x.Id, x.OccurredAtUtc, x.Source + ": Failed", x.Code, "operational-import") { Detail = x.Detail }).ToArrayAsync(cancellationToken));
+            importFailures = list.ToArray();
+        }
+        else importFailures = await imports.OrderByDescending(x => x.OccurredAtUtc).Take(limit)
             .Select(x => new OperationalLogDto(x.Id, "AError", x.Source + "_" + x.Id, x.OccurredAtUtc, x.Source + ": Failed", x.Code, "operational-import") { Detail = x.Detail }).ToArrayAsync(cancellationToken);
-        return archive.Concat(runs).Concat(importFailures).OrderByDescending(x => x.Timestamp).Take(limit).Select(Redact).ToArray();
+        // Without a search every job and source keeps its own share, so the total is not cut again.
+        var all = archive.Concat(runs).Concat(importFailures).OrderByDescending(x => x.Timestamp);
+        return (perJob ? all : all.Take(limit)).Select(Redact).ToArray();
     }
     public async Task<OperationalLogDto> LogAsync(ClaimsPrincipal caller, Guid id, CancellationToken cancellationToken = default)
     {

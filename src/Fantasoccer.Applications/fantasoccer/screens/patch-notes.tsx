@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.18',
+    date: '4 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Log dei job: ogni job ha il suo spazio. Le ultime esecuzioni sono 20 per i job frequenti (formations, live, calendar, official, results...), 30 per chances e hall, 10 per quelli giornalieri o annuali, più gli ultimi errori di ciascun job. Un job che gira ogni minuto non fa più sparire gli altri. Le ricevute di errore sono 20 per ogni sorgente',
+      },
+    ],
+  },
+  {
     version: '4.1.17',
     date: '3 Novembre 2026',
     changes: [

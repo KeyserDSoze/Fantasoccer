@@ -169,7 +169,8 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(HttpStatusCode.Forbidden, (await ordinary.GetAsync("/api/operations/logs")).StatusCode);
         var log = (await client.GetFromJsonAsync<OperationalLogDto>($"/api/operations/logs/{logId}"))!;
         Assert.DoesNotContain("synthetic-secret", log.Message + log.Error); Assert.Contains("redacted", log.Message + log.Error);
-        Assert.Single((await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?limit=1"))!);
+        // A search is bounded by the limit; without one every job has its own share (see LogsPerJobTests).
+        Assert.Single((await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?limit=1&query=calendar"))!);
         Assert.True((await client.GetFromJsonAsync<OperationalLogStatistics>("/api/operations/logs/statistics"))!.Total >= 3);
         // A failure says what went wrong: our message with its context, or only the exception type (never the exception text).
         var failedRun = (await client.GetFromJsonAsync<OperationalLogDto[]>("/api/operations/logs?errorsOnly=true&query=calendar"))!.First(x => x.Source == "sql-job");
