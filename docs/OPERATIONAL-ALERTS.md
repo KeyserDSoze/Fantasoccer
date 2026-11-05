@@ -122,3 +122,13 @@ Ogni job ha il suo spazio (`SqlJobLogPolicy`): 20 esecuzioni per i job frequenti
 30 per `chances` e `hall`, 10 per gli altri (giornalieri o annuali). In più, a parte, gli ultimi
 errori di ciascun job, nello stesso numero. Le ricevute di errore sono 20 per sorgente. Una
 ricerca (`query`) invece usa il limite generale della richiesta.
+
+## Copiare gli errori come prompt
+
+Nella pagina dei log il pulsante "Copia errori (prompt)" (`utils/logReport.ts`) raggruppa gli
+errori uguali (stesso job, codice e descrizione) e copia, per ognuno: job, codice, descrizione, quante
+volte e da quando a quando (ora italiana), l'ultima esecuzione (`job_<id>`) e l'ultimo esito del job,
+con l'indicazione "probabilmente già risolto" se dopo l'errore il job è andato bene. Il testo parte
+con la richiesta di analisi, quindi si può incollare direttamente. Anche le esecuzioni riuscite
+riportano ora un `Detail`: probabilità (giocatori per fonte e pubblicati), `formations` (rose e
+formazioni create o già pronte), voti live e calendario.

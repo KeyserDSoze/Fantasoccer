@@ -130,6 +130,12 @@ public sealed class FootballOperationalCacheApiTests(WorkspaceApiFactory factory
         await KickoffIn(TimeSpan.FromDays(5)); parsers.Set("Fantagazzetta", [Chance("Cache forward", "Fiorentina", new() { Fantagazzetta = true })]); parsers.Set("Injury", []);
         var injuries = await Run();
         Assert.Equal("Failed", injuries.Run.Status); Assert.Equal("football_provider_incomplete", injuries.Run.Code); Assert.Contains("senza giocatori: Injury", injuries.Log.Detail);
+
+        // All three sources answer: the log says what was read and published.
+        parsers.Set("Injury", [Chance("Cache keeper", "Napoli", new() { Status = ChanceType.Disqualified, Description = "Squalificato" })]);
+        var ok = await Run();
+        Assert.Equal("Succeeded", ok.Run.Status);
+        Assert.Contains("Probabilità della giornata 1", ok.Log.Detail); Assert.Contains("Fantagazzetta: 1", ok.Log.Detail); Assert.Contains("con infortunio, squalifica o diffida", ok.Log.Detail);
     }
 
     private static ChancedRealPlayer Chance(string name, string club, Chance chance) => new() { Name = name, RealTeam = new() { Name = club }, Role = Role.Forward, Chance = chance };

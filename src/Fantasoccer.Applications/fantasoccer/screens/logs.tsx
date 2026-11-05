@@ -16,13 +16,15 @@ import {
 } from 'tamagui'
 import { useAllLogs } from 'hooks/useFantasoccerLog'
 import { FantasoccerLog, formatLogTimestamp } from 'types/log'
+import { buildErrorReport, groupDistinctErrors, jobNameOfLog, latestRunByJob, type ErrorGroup } from '../utils/logReport'
 import { 
   FileText, 
   AlertCircle, 
   Info, 
   Clock,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Copy
 } from '@tamagui/lucide-icons-2'
 
 export default function LogsScreen() {
@@ -34,6 +36,7 @@ export default function LogsScreen() {
   })
 
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set())
+  const [copied, setCopied] = useState<'ok' | 'error' | null>(null)
 
   // Separa log per tipo (ALog vs AError) e raggruppa per job
   const { logsByJob, errorsByJob, jobNames } = useMemo(() => {
@@ -51,29 +54,7 @@ export default function LogsScreen() {
       const partitionKey = log.primaryKey
       const rowKey = log.secondaryKey
       
-      // Estrai il nome del job dalla rowKey
-      // Formato: {PartitionKey}_-_{JobName}_{timestamp} oppure {JobName}_{timestamp}
-      // Es: "ALog_-_AllPlayersAndAllTeamsJob_22" oppure "LiveJob_22"
-      let jobName = 'Unknown'
-      
-      if (rowKey.includes('_-_')) {
-        // Formato completo: "ALog_-_AllPlayersAndAllTeamsJob_22"
-        const parts = rowKey.split('_-_')
-        if (parts.length > 1) {
-          // Prendi la seconda parte e rimuovi il timestamp
-          const jobPart = parts[1]
-          const jobParts = jobPart.split('_')
-          // Rimuovi l'ultimo elemento (timestamp) e ricostruisci il nome
-          jobName = jobParts.slice(0, -1).join('_') || jobPart
-        }
-      } else if (rowKey.includes('_')) {
-        // Formato semplice: "LiveJob_22"
-        const parts = rowKey.split('_')
-        // Rimuovi l'ultimo elemento (timestamp) e ricostruisci il nome
-        jobName = parts.slice(0, -1).join('_') || parts[0]
-      } else {
-        jobName = rowKey
-      }
+      const jobName = jobNameOfLog(log)
 
       jobs.add(jobName)
 
@@ -133,6 +114,25 @@ export default function LogsScreen() {
 
   const collapseAll = () => {
     setExpandedJobs(new Set())
+  }
+
+  const latestRuns = useMemo(() => latestRunByJob(logs), [logs])
+  const errorGroupsByJob = useMemo(() => {
+    const map = new Map<string, ErrorGroup[]>()
+    groupDistinctErrors(logs).forEach(group => map.set(group.job, [...(map.get(group.job) ?? []), group]))
+    return map
+  }, [logs])
+
+  // Every distinct error with job, description and time, ready to be pasted as a prompt.
+  const copyErrors = async () => {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(buildErrorReport(logs))
+      setCopied('ok')
+    } catch {
+      setCopied('error')
+    }
+    setTimeout(() => setCopied(null), 3000)
   }
 
   return (
@@ -215,6 +215,14 @@ export default function LogsScreen() {
                 Chiudi Tutti
               </Button>
             </XStack>
+            <Button
+              size="$3"
+              theme="purple"
+              onPress={copyErrors}
+              icon={<Copy size="$1" />}
+            >
+              {copied === 'ok' ? 'Copiato negli appunti' : copied === 'error' ? 'Copia non riuscita' : 'Copia errori (prompt)'}
+            </Button>
           </XStack>
 
           {/* Lista logs */}
@@ -252,6 +260,8 @@ export default function LogsScreen() {
                     errorsCount={stats.errors}
                     logs={jobLogs}
                     errors={jobErrors}
+                    errorGroups={errorGroupsByJob.get(jobName) ?? []}
+                    latest={latestRuns.get(jobName) ?? null}
                     isExpanded={isExpanded}
                     onToggle={() => toggleJobExpanded(jobName)}
                   />
@@ -275,6 +285,8 @@ interface JobCardProps {
   errorsCount: number
   logs: FantasoccerLog[]
   errors: FantasoccerLog[]
+  errorGroups: ErrorGroup[]
+  latest: { status: string; at: string | null; detail: string } | null
   isExpanded: boolean
   onToggle: () => void
 }
@@ -285,6 +297,8 @@ function JobCard({
   errorsCount, 
   logs, 
   errors, 
+  errorGroups,
+  latest,
   isExpanded, 
   onToggle 
 }: JobCardProps) {
@@ -318,6 +332,13 @@ function JobCard({
               <AlertCircle size="$1" color="$red10" />
             )}
           </XStack>
+
+          {latest && (
+            <Text fontSize="$2" color={latest.status === 'Failed' || latest.status === 'LeaseLost' ? '$red10' : '$color10'}>
+              Ultimo esito: {latest.status} · {latest.at ? new Date(latest.at).toLocaleString('it-IT') : 'data non disponibile'}
+              {latest.detail ? ` · ${latest.detail}` : ''}
+            </Text>
+          )}
 
           <XStack gap="$3" flexWrap="wrap">
             {logsCount > 0 && (
@@ -361,8 +382,20 @@ function JobCard({
                 </H4>
               </XStack>
               <YStack gap="$2">
-                {errors.map((errorLog, idx) => (
-                  <LogEntry key={`error-${idx}`} log={errorLog} type="error" />
+                {/* The same error repeated is one line: how many times, from when to when. */}
+                {errorGroups.map((group, idx) => (
+                  <Card key={`error-${idx}`} padding="$3" backgroundColor="$red2" borderRadius="$3" borderWidth="$0.5" borderColor="$red5">
+                    <YStack gap="$1">
+                      <Text fontSize="$2" color="$color11">
+                        {group.count > 1
+                          ? `${group.count} volte · dal ${group.first ? new Date(group.first).toLocaleString('it-IT') : '?'} al ${group.last ? new Date(group.last).toLocaleString('it-IT') : '?'}`
+                          : group.last ? new Date(group.last).toLocaleString('it-IT') : 'data non disponibile'}
+                      </Text>
+                      <Text fontSize="$3" color="$red11" fontWeight="600">{group.code || '(senza codice)'}</Text>
+                      {group.detail ? <Text fontSize="$2" color="$color12" lineHeight="$3">{group.detail}</Text> : null}
+                      <Text fontSize="$1" color="$color10">ultima: {group.job}_{group.lastId}</Text>
+                    </YStack>
+                  </Card>
                 ))}
               </YStack>
             </YStack>

@@ -34,6 +34,8 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             throw;
         }
     }
+    // What the last operation of this instance read and published, in words, for the administrators' job log.
+    public string? Summary { get; private set; }
     public Task RunAsync(RefreshFootballRequest request, CancellationToken cancellationToken = default) => RunCoreAsync(request, cancellationToken, null);
     private async Task RunCoreAsync(RefreshFootballRequest request, CancellationToken cancellationToken, ClaimsPrincipal? caller)
     {
@@ -105,6 +107,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
                 match.HomeGoals = game.HomeGoal; match.AwayGoals = game.AwayGoal;
             }
         }
+        Summary = $"Calendario letto: {parsed.Days.Count} giornate, {parsed.Days.Sum(x => x.Games.Count)} partite (dalla giornata {parsed.Days.Min(x => x.SerieADay)} alla {parsed.Days.Max(x => x.SerieADay)}).";
         await DatasetAsync("realcalendar", year, 0, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await RealRankAsync(year, cancellationToken);
@@ -281,6 +284,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
                 clubs.GetValueOrDefault(code) ?? FantacalcioClubCodes.CanonicalName(code, sample.RealTeam.Name), (int)sample.Role,
                 sample.IsActive, sample.Visible, FootballLiveDataMapping.Cached(sample.Vote)));
         }
+        Summary = $"Voti live della giornata {day}: {entries.Count} giocatori da {entries.Select(x => x.ClubId).Distinct().Count()} squadre.";
         await liveData.PublishLiveVotesAsync(fetchedAt, new(year, day, entries.OrderBy(x => x.PlayerId, StringComparer.Ordinal).ToArray()), clubFilter, cancellationToken);
     }
     private async Task ChancesAsync(int year, int day, CancellationToken cancellationToken, ClaimsPrincipal? caller)
@@ -326,6 +330,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
                 rows.Any(x => x.Chance.Fantagazzetta), rows.Any(x => x.Chance.Gazzetta), rows.Any(x => x.Chance.Mediaset), rows.Any(x => x.Chance.Sky),
                 (int)(last?.Status ?? ChanceType.Normal), last?.Description);
         }).ToArray();
+        Summary = $"Probabilità della giornata {day}: {string.Join(", ", counts)} giocatori; pubblicate per {entries.Length} giocatori ({entries.Count(x => x.Fantagazzetta)} titolari per Fantagazzetta, {entries.Count(x => x.Gazzetta)} per Gazzetta, {entries.Count(x => x.Status != 0)} con infortunio, squalifica o diffida).";
         await liveData.PublishChancesAsync(fetchedAt, new(year, day, sources, entries), cancellationToken);
     }
     private async Task PlayerSeasonAsync(FootballPlayer person, FootballClub club, RealPlayer sample, int year, CancellationToken cancellationToken)

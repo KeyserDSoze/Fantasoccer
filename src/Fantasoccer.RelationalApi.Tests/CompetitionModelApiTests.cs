@@ -1395,7 +1395,13 @@ public sealed class CompetitionModelApiTests(WorkspaceApiFactory factory) : ICla
         }
         using var app = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => services.AddScoped<Fantasoccer.Business.IOptimalFormationService, FailingOptimalFormation>()));
         await using (var scope = app.Services.CreateAsyncScope())
-            await scope.ServiceProvider.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year);
+        {
+            var prepared = await scope.ServiceProvider.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year);
+            // The job log says what was created now (and, a second time, that nothing was left to do).
+            Assert.True(prepared.Day is not null); Assert.True(prepared.Rosters + prepared.Lineups > 0);
+            var again = await scope.ServiceProvider.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year);
+            Assert.Equal(0, again.Rosters + again.Lineups);
+        }
         await using var final = factory.Database.CreateContext();
         foreach (var team in new[] { world.Koopa, world.Draghi })
         {

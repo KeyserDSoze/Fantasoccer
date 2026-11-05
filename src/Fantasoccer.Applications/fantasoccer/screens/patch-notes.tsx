@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.19',
+    date: '5 Novembre 2026',
+    changes: [
+      {
+        category: 'Feature',
+        description:
+          'Pagina dei log: pulsante "Copia errori (prompt)" che copia tutti gli errori distinti, ognuno con job, codice, descrizione, quante volte, da quando a quando, ultima esecuzione e ultimo esito del job (così si vede se è già risolto), pronto da incollare come richiesta. Gli errori ripetuti sono ora una riga sola con il conteggio e ogni job mostra il suo ultimo esito',
+      },
+      {
+        category: 'Improvement',
+        description:
+          'Log dei job più parlanti anche quando vanno bene: probabilità (quanti giocatori da ogni fonte e quanti pubblicati, con infortuni e squalifiche), formations (rose e formazioni create o già pronte), voti live e calendario (quanti giocatori, squadre, giornate e partite)',
+      },
+    ],
+  },
+  {
     version: '4.1.18',
     date: '4 Novembre 2026',
     changes: [
