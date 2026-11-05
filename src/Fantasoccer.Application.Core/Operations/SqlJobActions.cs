@@ -63,7 +63,17 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             }
             return new(processed, skipped.Count, skipped.Code);
         }
-        if (name == "formations") { await services.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year, cancellationToken); return new(1, 0); }
+        if (name == "formations")
+        {
+            var prepared = await services.GetRequiredService<FormationAutomationService>().PrepareNextAsync(year, cancellationToken);
+            var created = prepared.Rosters + prepared.Lineups;
+            return new(created, prepared.Failed, prepared.Failed > 0 ? "formations_partially_prepared" : null)
+            {
+                Detail = prepared.Day is null ? "Nessuna giornata di Serie A futura: niente da preparare."
+                    : created == 0 && prepared.Failed == 0 ? $"Giornata {prepared.Day}: rose e formazioni già pronte."
+                    : $"Giornata {prepared.Day}: create {prepared.Rosters} rose e {prepared.Lineups} formazioni" + (prepared.Failed > 0 ? $"; {prepared.Failed} non preparate (vedi i log del server)." : "."),
+            };
+        }
         if (name == "images") { await services.GetRequiredService<IPlayerImageRefresher>().DownloadMissingAsync(cancellationToken); return new(1, 0); }
         if (name == "market-expiry") return await ExpireMarketAsync(database, year, cancellationToken);
         // Daily safety net: retention also runs when a new matchday is prepared, but
@@ -149,7 +159,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             if (fault.Message.Contains("giornata", StringComparison.OrdinalIgnoreCase)) throw;
             throw new ApplicationFault(fault.Status, fault.Code, $"Giornata {day}: {fault.Message}");
         }
-        return new(1, 0) { Detail = day is null ? null : $"Giornata {day}" };
+        return new(1, 0) { Detail = ingestion.Summary ?? (day is null ? null : $"Giornata {day}") };
     }
     // Matchday in progress: consolidate each finished match as its official votes appear. Matchday over: the full import (all clubs,
     // coaches, corrections) runs in the early-morning window, when the provider settles its votes, and any other time while matches

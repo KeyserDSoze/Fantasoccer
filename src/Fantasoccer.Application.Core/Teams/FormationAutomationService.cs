@@ -17,12 +17,16 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
     // transaction, a canceled job or a lost lease must stop everything, so those are never isolated.
     private static bool Isolatable(Exception error) => error is not (OperationCanceledException or SqlJobLeaseLostException or DbException or DbUpdateException);
 
-    public async Task PrepareNextAsync(int year, CancellationToken cancellationToken = default)
+    // Day: the next Serie A day (null if there is none); what was created now; what could not be prepared.
+    public sealed record FormationPreparation(int? Day, int Rosters, int Lineups, int Failed);
+
+    public async Task<FormationPreparation> PrepareNextAsync(int year, CancellationToken cancellationToken = default)
     {
+        int rosters = 0, lineups = 0, failed = 0;
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         var next = await database.FootballMatches.Where(x => x.SeasonIndex == year && (x.WasPostponed ? x.OriginalKickoffUtc : x.KickoffUtc) != null).GroupBy(x => x.SerieADay)
             .Select(x => new { Day = x.Key, Start = x.Min(game => game.WasPostponed ? game.OriginalKickoffUtc : game.KickoffUtc) }).Where(x => x.Start > clock.GetUtcNow()).OrderBy(x => x.Start).FirstOrDefaultAsync(cancellationToken);
-        if (next is null) return;
+        if (next is null) return new(null, 0, 0, 0);
         // 1) Roster of the day of every authoritative (autonomous) team: shared by
         //    all its competitions, never duplicated per league.
         var teams = await database.TeamSeasons.Include(x => x.Owners).ThenInclude(x => x.Membership).ThenInclude(x => x.User).Where(x => x.SeasonIndex == year && !x.IsArchived &&
@@ -46,10 +50,11 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
                 // Never reset an existing day's live counter/history. This branch
                 // creates only a missing future day from server-owned roster entries.
                 snapshot.FormationChanges = 0; snapshot.FormationHistory.Clear(); snapshot.LastUpdateUtc = clock.GetUtcNow();
-                database.RosterSnapshots.Add(snapshot);
+                database.RosterSnapshots.Add(snapshot); rosters++;
             }
             catch (Exception error) when (Isolatable(error))
             {
+                failed++;
                 logger.LogError("Roster of day {Day} could not be prepared for team {TeamId} ({FailureType}); the other teams are still prepared. No exception message or payload logged.",
                     next.Day, team.Id, error.GetType().Name);
             }
@@ -98,15 +103,18 @@ public sealed class FormationAutomationService(FantasoccerDbContext database, IO
                             entry.Team, entry.LeagueId, next.Day, error.GetType().Name);
                     }
                 }
+                lineups++;
                 database.LeagueLineups.Add(new() { GroupId = entry.GroupId, LeagueId = entry.LeagueId, SeasonIndex = year, TeamId = entry.Team, Day = next.Day,
                     LastUpdateUtc = clock.GetUtcNow(), Players = positions.Select(x => new LeagueLineupPlayer { PlayerId = x.Key, Position = x.Value }).ToList() });
             }
             catch (Exception error) when (Isolatable(error))
             {
+                failed++;
                 logger.LogError("Lineup of day {Day} could not be prepared for team {TeamId} in league {LeagueId} ({FailureType}); the other entries are still prepared. No exception message or payload logged.",
                     next.Day, entry.Team, entry.LeagueId, error.GetType().Name);
             }
         }
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+        return new(next.Day, rosters, lineups, failed);
     }
 }
