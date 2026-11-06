@@ -17,7 +17,6 @@ import { useAuth } from '../../providers/AuthProvider';
 import {
   canRemovePlayer,
   getAvailableFieldPosition,
-  getAvailableBenchPosition,
 } from '../../utils/teamValidation';
 import gameService, { type GameEditMode } from '../../services/gameService';
 import { getPlayerKey } from '../../utils/keyUtils';
@@ -792,26 +791,25 @@ export const SoccerField = memo(
       setEditingTeamIndex(null);
     };
 
-    // Callback modale: rimuovi in tribuna
-    const handleRemove = () => {
+    // Callback modale: sposta il giocatore selezionato in un posto libero (tribuna o panchina), da una scheda vuota
+    const handleMoveToPosition = (position: number) => {
       if (!selectedPlayer || editingTeamIndex === null) return;
 
-      // Trova il team da modificare
       const currentTeam = editingTeamIndex === 0 ? home : away;
       if (!currentTeam) return;
 
-      // Crea una copia aggiornata dei giocatori con il selezionato in tribuna
-      const updatedPlayers = currentTeam.players.map((p) => {
-        const pName = (p.current as any)?.name;
-        const selectedName = (selectedPlayer.current as any)?.name;
+      const selectedName = (selectedPlayer.current as any)?.name;
+      // Un posto di panchina occupato nel frattempo non va sovrascritto
+      const isBenchPlace = position >= FantaSoccerRole.BackupGoalKeeper && position <= FantaSoccerRole.SecondBackupForward;
+      if (isBenchPlace && currentTeam.players.some((p) => p.currentPosition === position && (p.current as any)?.name !== selectedName)) {
+        toast.show('❌ Quel posto in panchina è già occupato', { variant: 'error' });
+        return;
+      }
 
-        if (pName === selectedName) {
-          return { ...p, currentPosition: FantaSoccerRole.Tribune };
-        }
-        return p;
-      });
+      const updatedPlayers = currentTeam.players.map((p) =>
+        (p.current as any)?.name === selectedName ? { ...p, currentPosition: position } : p
+      );
 
-      // Aggiorna lo stato locale del team
       const updatedTeam = { ...currentTeam, players: updatedPlayers };
       setLocalTeams((prev) => ({
         ...prev,
@@ -838,47 +836,6 @@ export const SoccerField = memo(
 
       if (targetPosition === undefined) {
         toast.show('❌ Nessuno spazio disponibile in campo per questo ruolo', { variant: 'error' });
-        return;
-      }
-
-      // Aggiorna la posizione del giocatore
-      const updatedPlayers = currentTeam.players.map((p) => {
-        const pName = (p.current as any)?.name;
-        const playerName = (player.current as any)?.name;
-        if (pName === playerName) {
-          return { ...p, currentPosition: targetPosition };
-        }
-        return p;
-      });
-
-      const updatedTeam = { ...currentTeam, players: updatedPlayers };
-      setLocalTeams((prev) => ({
-        ...prev,
-        [editingTeamIndex === 0 ? 'home' : 'away']: updatedTeam,
-      }));
-      setHasLocalChanges(true);
-      setModifiedTeamIndex(editingTeamIndex);
-
-      setModalOpen(false);
-      setSelectedPlayer(null);
-      setEditingTeamIndex(null);
-    };
-
-    // Callback modale: aggiungi giocatore in panchina (dalla tribuna)
-    const handleAddToBench = (player: LivePlayer) => {
-      if (editingTeamIndex === null) return;
-
-      const currentTeam = editingTeamIndex === 0 ? home : away;
-      if (!currentTeam) return;
-
-      // Trova posizione disponibile in panchina per il ruolo del giocatore
-      const playerRole = (player.current as any)?.role ?? Role.Undefined;
-      const targetPosition = getAvailableBenchPosition(playerRole, currentTeam.players);
-
-      if (targetPosition === undefined) {
-        toast.show('❌ Nessuno spazio disponibile in panchina per questo ruolo', {
-          variant: 'error',
-        });
         return;
       }
 
@@ -2037,10 +1994,9 @@ export const SoccerField = memo(
           selectedPlayer={selectedPlayer}
           allPlayers={allPlayersForModal}
           onSwap={handleSwap}
-          onRemove={!isLiveEdit && selectedCanRemove ? handleRemove : undefined}
           canRemove={!isLiveEdit && selectedCanRemove}
           onAddToField={!isLiveEdit ? handleAddToField : undefined}
-          onAddToBench={!isLiveEdit ? handleAddToBench : undefined}
+          onMoveToPosition={!isLiveEdit ? handleMoveToPosition : undefined}
           statPlayersMap={statPlayersMap}
         />
 

@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.21',
+    date: '6 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Scambio giocatori: al posto dei pulsanti "Manda in tribuna" e "Aggiungi in panchina" ci sono schede vuote nei pannelli. Un clic sulla scheda "In tribuna" manda lì il giocatore; se la panchina del suo ruolo ha posti liberi compaiono le schede "1° panchinaro" e "2° panchinaro" (una sola per il portiere) per metterlo proprio in quel posto',
+      },
+    ],
+  },
+  {
     version: '4.1.20',
     date: '6 Novembre 2026',
     changes: [

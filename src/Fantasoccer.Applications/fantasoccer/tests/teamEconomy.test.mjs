@@ -31,3 +31,19 @@ test('goal credits follow the main league unless the league chooses explicitly',
   assert.equal(goalCreditsEnabled(true, { goalCreditsEnabled: false }), false)
   assert.equal(goalCreditsEnabled(undefined, undefined), false)
 })
+
+test('the swap window offers empty cards for the stands and for the free bench places of the role', () => {
+  const { emptySlotsFor } = loadTypeScript('utils/swapSlots.ts')
+  const labels = slots => Array.from(slots, x => `${x.area}:${x.position}:${x.label}`)
+  // A forward starter (position 3); the first forward bench place (9) is taken, the second (10) is free.
+  assert.deepEqual(labels(emptySlotsFor(3, 3, [0, 1, 2, 3, 9, 4], true)), ['bench:10:2° panchinaro', 'tribune:11:In tribuna'])
+  // Nobody on the bench for his role: two empty bench cards, first and second.
+  assert.deepEqual(labels(emptySlotsFor(1, 1, [0, 1, 4], true)), ['bench:5:1° panchinaro', 'bench:6:2° panchinaro', 'tribune:11:In tribuna'])
+  // A goalkeeper has one bench place.
+  assert.deepEqual(labels(emptySlotsFor(0, 11, [], true)), ['bench:4:Panchinaro'])
+  // A starter the formation cannot do without goes nowhere; a bench player can go to the stands or to the other bench place.
+  assert.deepEqual(labels(emptySlotsFor(2, 2, [], false)), [])
+  assert.deepEqual(labels(emptySlotsFor(2, 7, [7], false)), ['bench:8:2° panchinaro', 'tribune:11:In tribuna'])
+  // Everything taken: only the stands.
+  assert.deepEqual(labels(emptySlotsFor(3, 3, [9, 10], true)), ['tribune:11:In tribuna'])
+})

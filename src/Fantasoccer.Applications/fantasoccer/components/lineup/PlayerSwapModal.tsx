@@ -6,11 +6,12 @@ import type { LivePlayer } from 'types/game'
 import { FantaSoccerRole } from 'types/team'
 import { Role } from 'types/group'
 import { PlayerCard } from './PlayerCard'
-import { getAvailableFieldPosition, getAvailableBenchPosition } from '../../utils/teamValidation'
+import { getAvailableFieldPosition } from '../../utils/teamValidation'
 import { ChanceType } from '../../types/chance'
 import type { StatPlayer } from '../../types/stat'
 import { calculatePlayerStats } from '../../utils/statPlayerCalculator'
 import { getPlayerKey } from '../../utils/keyUtils'
+import { emptySlotsFor, type EmptySlot } from '../../utils/swapSlots'
 
 interface PlayerSwapModalProps {
   isOpen: boolean
@@ -18,10 +19,10 @@ interface PlayerSwapModalProps {
   selectedPlayer: LivePlayer | null
   allPlayers: LivePlayer[]
   onSwap: (targetPlayer: LivePlayer) => void
-  onRemove?: () => void // Opzione per mandare in tribuna (se permesso)
-  canRemove: boolean
+  canRemove: boolean // un titolare può lasciare il campo (modulo ancora valido)
+  // Sposta il giocatore selezionato in un posto libero (tribuna o panchina): schede vuote nei pannelli
+  onMoveToPosition?: (position: number) => void
   onAddToField?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna/panchina in campo
-  onAddToBench?: (player: LivePlayer) => void // Aggiunge giocatore dalla tribuna in panchina
   statPlayersMap?: Map<string, StatPlayer> // Mappa per statistiche giocatori
 }
 
@@ -83,10 +84,9 @@ export function PlayerSwapModal({
   selectedPlayer,
   allPlayers,
   onSwap,
-  onRemove,
   canRemove,
+  onMoveToPosition,
   onAddToField,
-  onAddToBench,
   statPlayersMap
 }: PlayerSwapModalProps) {
   const media = useMedia()
@@ -122,10 +122,8 @@ export function PlayerSwapModal({
   // Calcola se ci sono spazi disponibili in campo e panchina per il ruolo del giocatore selezionato
   const selectedRole = (selectedPlayer?.current as any)?.role ?? Role.Undefined
   const availableFieldPosition = selectedPlayer ? getAvailableFieldPosition(selectedRole, allPlayers) : undefined
-  const availableBenchPosition = selectedPlayer ? getAvailableBenchPosition(selectedRole, allPlayers) : undefined
   
   const canAddToFieldFromTribune = selectedIsInTribune && availableFieldPosition !== undefined
-  const canAddToBenchFromTribune = selectedIsInTribune && availableBenchPosition !== undefined
   const canAddToFieldFromBench = selectedIsInBench && availableFieldPosition !== undefined
 
   // Raggruppa per categoria (titolari, panchina, tribuna)
@@ -208,16 +206,23 @@ export function PlayerSwapModal({
     }
   }, [selectedPlayer, selectedPlayerChance, selectedPlayerStats])
 
+  // Posti liberi dove spostare il giocatore selezionato: schede vuote (tribuna, 1° e 2° panchinaro del ruolo)
+  const emptySlots: EmptySlot[] = useMemo(() => {
+    if (!selectedPlayer || !onMoveToPosition) return []
+    return emptySlotsFor(selectedRole, selectedPlayer.currentPosition, allPlayers.map((p) => p.currentPosition), canRemove)
+  }, [selectedPlayer, onMoveToPosition, selectedRole, allPlayers, canRemove])
+
   type SwapGroup = {
+    empty: EmptySlot[]
     key: string; title: string; origin: string; players: LivePlayer[]; action: string
     headerBg: string; headerText: string; headerCount: string; border: string; button: string
   }
   const swapGroups: SwapGroup[] = [
-    { key: 'starter', title: '⭐ TITOLARI', origin: 'In campo', players: groupedPlayers.starters, action: 'SCAMBIA',
+    { key: 'starter', empty: [], title: '⭐ TITOLARI', origin: 'In campo', players: groupedPlayers.starters, action: 'SCAMBIA',
       headerBg: '$green2', headerText: '$green11', headerCount: '$green10', border: '$green7', button: '$green10' },
-    { key: 'bench', title: '🪑 PANCHINA', origin: 'In panchina', players: groupedPlayers.bench, action: 'SCAMBIA',
+    { key: 'bench', empty: emptySlots.filter((x) => x.area === 'bench'), title: '🪑 PANCHINA', origin: 'In panchina', players: groupedPlayers.bench, action: 'SCAMBIA',
       headerBg: '$orange2', headerText: '$orange11', headerCount: '$orange10', border: '$orange7', button: '$orange10' },
-    { key: 'tribune', title: '🏟️ TRIBUNA', origin: 'Fuori dai convocati', players: groupedPlayers.tribune, action: 'PORTA IN CAMPO',
+    { key: 'tribune', empty: emptySlots.filter((x) => x.area === 'tribune'), title: '🏟️ TRIBUNA', origin: 'Fuori dai convocati', players: groupedPlayers.tribune, action: 'PORTA IN CAMPO',
       headerBg: '$gray3', headerText: '$gray11', headerCount: '$gray10', border: '$gray7', button: '$blue10' },
   ]
 
@@ -255,6 +260,57 @@ export function PlayerSwapModal({
     </Button>
   )
 
+  // Scheda vuota: un clic sposta qui il giocatore selezionato
+  const renderEmptyTile = (group: SwapGroup, slot: EmptySlot) => (
+    <Button
+      key={slot.key}
+      padding={0}
+      backgroundColor="transparent"
+      borderWidth={0}
+      onPress={() => {
+        onMoveToPosition?.(slot.position)
+        onClose()
+      }}
+      pressStyle={{ opacity: 0.7, scale: 0.95 }}
+      height={200}
+    >
+      <YStack gap={6} alignItems="center" width={120}>
+        <YStack
+          width={112}
+          height={150}
+          borderRadius={12}
+          borderWidth={2}
+          borderStyle="dashed"
+          borderColor={group.border as any}
+          backgroundColor={group.headerBg as any}
+          alignItems="center"
+          justifyContent="center"
+          gap={6}
+        >
+          <Plus size={28} color={group.headerText as any} />
+          <Text fontSize={12} fontWeight="700" color={group.headerText as any} textAlign="center" paddingHorizontal={6}>
+            {slot.label}
+          </Text>
+        </YStack>
+        <XStack
+          backgroundColor={group.button as any}
+          paddingHorizontal={10}
+          paddingVertical={6}
+          borderRadius={8}
+          alignItems="center"
+          gap={4}
+          width="100%"
+          justifyContent="center"
+        >
+          <ArrowLeftRight size={14} color="#fff" />
+          <Text fontSize={12} fontWeight="700" color="#fff">
+            {slot.area === 'tribune' ? 'MANDA QUI' : 'METTI QUI'}
+          </Text>
+        </XStack>
+      </YStack>
+    </Button>
+  )
+
   const actionButtons = (
   <YStack gap={8} flexDirection={isDesktop ? 'row' : 'column'} flexWrap="wrap" alignItems={isDesktop ? 'center' : 'stretch'}>
     {canAddToFieldFromTribune && onAddToField && (
@@ -272,24 +328,6 @@ export function PlayerSwapModal({
         icon={<Plus size={20} />}
       >
         ⚽ Aggiungi in Campo
-      </Button>
-    )}
-    
-    {canAddToBenchFromTribune && onAddToBench && (
-      <Button
-        backgroundColor="$orange10"
-        color="#fff"
-        size={isDesktop ? '$3' : '$4'}
-        fontWeight="700"
-        onPress={() => {
-          onAddToBench(selectedPlayer!)
-          onClose()
-        }}
-        borderRadius={12}
-        pressStyle={{ opacity: 0.8, scale: 0.98 }}
-        icon={<Plus size={20} />}
-      >
-        🪑 Aggiungi in Panchina
       </Button>
     )}
     
@@ -311,23 +349,6 @@ export function PlayerSwapModal({
       </Button>
     )}
 
-    {/* Opzione rimozione (tribuna) */}
-    {canRemove && onRemove && (
-      <Button
-        backgroundColor="$red10"
-        color="#fff"
-        size={isDesktop ? '$3' : '$4'}
-        fontWeight="700"
-        onPress={() => {
-          onRemove()
-          onClose()
-        }}
-        borderRadius={12}
-        pressStyle={{ opacity: 0.8, scale: 0.98 }}
-      >
-        🏟️ Manda in Tribuna
-      </Button>
-    )}
   </YStack>
   )
 
@@ -546,12 +567,12 @@ export function PlayerSwapModal({
               {isDesktop ? (
                 // Desktop: i tre gruppi affiancati; ogni pannello dice da dove arriva il giocatore e quale azione si fa
                 <XStack gap={12} flexWrap="wrap" alignItems="stretch">
-                  {swapGroups.filter((group) => group.players.length > 0).map((group) => (
+                  {swapGroups.filter((group) => group.players.length + group.empty.length > 0).map((group) => (
                     <YStack
                       key={group.key}
-                      flexGrow={group.players.length}
+                      flexGrow={group.players.length + group.empty.length}
                       flexShrink={1}
-                      flexBasis={Math.min(group.players.length, 4) * 132 + 24}
+                      flexBasis={Math.min(group.players.length + group.empty.length, 4) * 132 + 24}
                       minWidth={168}
                       borderWidth={1}
                       borderColor={group.border}
@@ -562,32 +583,34 @@ export function PlayerSwapModal({
                       <XStack backgroundColor={group.headerBg} paddingHorizontal={12} paddingVertical={8} alignItems="center" gap={8}
                         borderBottomWidth={2} borderBottomColor={group.button}>
                         <Text fontSize={14} fontWeight="800" color={group.headerText}>{group.title}</Text>
-                        <Text fontSize={12} fontWeight="600" color={group.headerCount}>({group.players.length})</Text>
+                        {group.players.length > 0 && <Text fontSize={12} fontWeight="600" color={group.headerCount}>({group.players.length})</Text>}
                         <Text fontSize={11} color={group.headerCount} marginLeft="auto">{group.origin}</Text>
                       </XStack>
                       <XStack gap={10} flexWrap="wrap" padding={10} justifyContent="flex-start">
                         {group.players.map((player, i) => renderSwapTile(group, player, `${group.key}-${i}`))}
+                        {group.empty.map((slot) => renderEmptyTile(group, slot))}
                       </XStack>
                     </YStack>
                   ))}
                 </XStack>
               ) : (
-                swapGroups.filter((group) => group.players.length > 0).map((group) => (
+                swapGroups.filter((group) => group.players.length + group.empty.length > 0).map((group) => (
                   <YStack key={group.key} gap={12}>
                     <XStack backgroundColor={group.headerBg} paddingHorizontal={12} paddingVertical={8} borderRadius={8} alignItems="center" gap={8}>
                       <Text fontSize={15} fontWeight="700" color={group.headerText}>{group.title}</Text>
-                      <Text fontSize={13} color={group.headerCount} fontWeight="600">({group.players.length})</Text>
+                      {group.players.length > 0 && <Text fontSize={13} color={group.headerCount} fontWeight="600">({group.players.length})</Text>}
                     </XStack>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <XStack gap={12} paddingVertical={8} paddingHorizontal={4}>
                         {group.players.map((player, i) => renderSwapTile(group, player, `${group.key}-${i}`))}
+                        {group.empty.map((slot) => renderEmptyTile(group, slot))}
                       </XStack>
                     </ScrollView>
                   </YStack>
                 ))
               )}
 
-              {eligiblePlayers.length === 0 && (
+              {eligiblePlayers.length === 0 && emptySlots.length === 0 && (
                 <YStack 
                   backgroundColor="$gray2" 
                   padding={32} 
