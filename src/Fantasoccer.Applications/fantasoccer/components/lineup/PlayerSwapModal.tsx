@@ -349,7 +349,6 @@ export function PlayerSwapModal({
         borderTopLeftRadius={20} 
         borderTopRightRadius={20}
         maxHeight={screenHeight * 0.85}
-        {...(isDesktop ? { width: '100%', maxWidth: 1240, alignSelf: 'center' as const } : {})}
       >
         <Sheet.Handle backgroundColor="$gray8" marginVertical={8} />
         
