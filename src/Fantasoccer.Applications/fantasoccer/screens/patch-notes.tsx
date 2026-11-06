@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.20',
+    date: '6 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Scambio e aggiunta giocatori su desktop: la finestra occupa sempre tutta la larghezza, anche sugli schermi molto larghi, senza il vuoto ai lati',
+      },
+    ],
+  },
+  {
     version: '4.1.19',
     date: '5 Novembre 2026',
     changes: [
