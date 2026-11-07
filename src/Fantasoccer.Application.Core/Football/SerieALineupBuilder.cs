@@ -57,8 +57,11 @@ public static class SerieALineupBuilder
 
         if (starters.Count > 11)
         {
-            var keep = starters.OrderByDescending(x => x.Entry.Vote is { HasVote: true }).ThenByDescending(x => x.Entry.Appearances)
-                .ThenBy(x => x.Entry.Name, StringComparer.Ordinal).Take(11).ToList();
+            // Nobody says who started (official votes): the keeper who played most, then the outfield players who played most.
+            IOrderedEnumerable<(LineupEntry Entry, string Kind)> Ranked(IEnumerable<(LineupEntry Entry, string Kind)> rows) => rows
+                .OrderByDescending(x => x.Entry.Vote is { HasVote: true }).ThenByDescending(x => x.Entry.Appearances).ThenBy(x => x.Entry.Name, StringComparer.Ordinal);
+            var keep = Ranked(starters.Where(x => x.Entry.Role == 0)).Take(1).Concat(Ranked(starters.Where(x => x.Entry.Role != 0)))
+                .Take(11).ToList();
             demoted.AddRange(starters.Except(keep).Select(x => x.Entry));
             starters = keep;
         }

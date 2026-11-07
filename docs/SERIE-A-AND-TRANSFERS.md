@@ -56,3 +56,11 @@ Job `catalogue`, **ogni notte alle 02:30** (Europe/Rome), avviabile anche a mano
 ## Fase 3 — Eventi live (4.1.0)
 
 Componente `MatchEvents` (widget home e pagina partita): una riga per giocatore, voto colorato per fascia (≥7 verde, ≥6,5 azzurro, ≥6 blu, ≥5,5 ambra, sotto rosso, s.v. grigio), badge con icona, conteggio ed etichetta ("Gol ×2", "Assist", "Autogol", "Ammonito"…), colori traslucidi leggibili in dark mode. Ordine per importanza: gol, rigori, assist, rigori parati, espulsioni, rigori sbagliati, autogol, gol subiti, ammonizioni (sulla pagina partita anche uscito/entrato). Nessun minuto inventato: il feed non li fornisce.
+
+## Titolari con i voti ufficiali
+
+La pagina dei voti ufficiali segna come "entrati" tutti i giocatori che ci sono (dice solo chi ha un
+voto), quindi non distingue titolari e subentrati. Dalla 4.1.22 la pagina partita usa i flag
+entrato/uscito dai dati live della giornata, se la cache li ha ancora, altrimenti li ignora: titolari
+sono il portiere che ha giocato di più e i 10 giocatori di movimento con più presenze, gli altri con
+voto o convocati vanno in panchina. Prima, con tutti "entrati", il campo restava vuoto.

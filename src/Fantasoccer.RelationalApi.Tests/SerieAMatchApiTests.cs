@@ -73,6 +73,10 @@ public sealed partial class WorkspaceApiTests
         // The day's availability data (injured / disqualified) is shown while the snapshot is still usable.
         await factory.Services.GetRequiredService<IFootballLiveDataStore>().PublishChancesAsync(DateTimeOffset.UtcNow, new(year, day, ["fantagazzetta"],
             [new CachedChance(KeyUtils.GetPlayerKey(injured.Name), injured.Name, "mxa", "Match home", 3, true, true, false, false, false, false, 1, "Distorsione")]));
+        // The official page does not say who came on (it marks everybody as in): the live feed does.
+        await factory.Services.GetRequiredService<IFootballLiveDataStore>().PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, day,
+            [new CachedLiveVote(KeyUtils.GetPlayerKey(substitute.Name), substitute.Name, home.Id, home.Name, 3, true, true,
+                new CachedVote(3, 6, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, false, true, false))]), null, default);
         var path = $"/api/football/{year}/days/{day}/matches/0";
         var match = (await manager.GetFromJsonAsync<FootballMatchDto>(path))!;
         Assert.Equal(LineupSources.Official, match.HomeLineupSource); Assert.Equal(LineupSources.Official, match.AwayLineupSource);
@@ -139,5 +143,57 @@ public sealed partial class WorkspaceApiTests
         Assert.Equal(1, starters.Count(x => x.CurrentPosition == 0));
         Assert.Contains(probable.Lineup.Teams[0].Players, x => x.LineupKind == LineupKinds.EstimatedBench);
         Assert.Equal(12, probable.Lineup.Teams[0].Players.Length);
+    }
+    [PostgreSqlFact]
+    public async Task Official_votes_mark_every_player_as_in_yet_the_pitch_gets_its_eleven_from_the_live_feed_or_from_who_played_most()
+    {
+        const int year = 38; const int day = 20;
+        using var manager = await factory.AccountAsync(globalAdmin: true);
+        var home = new FootballClub { Name = "Pitch home", Abbreviation = "pha" };
+        var away = new FootballClub { Name = "Pitch away", Abbreviation = "phb" };
+        var players = Enumerable.Range(0, 15).Select(i => new FootballPlayer { Name = $"Pitch player {i:00} {Guid.NewGuid():N}" }).ToArray();
+        var role = (int i) => i == 0 ? 0 : 1 + i % 3;
+        await using (var database = factory.Database.CreateContext())
+        {
+            if (!await database.Seasons.AnyAsync(x => x.SeasonIndex == year)) database.Seasons.Add(new() { SeasonIndex = year, StartYear = year + 2011 });
+            database.Clubs.AddRange(home, away); database.Players.AddRange(players);
+            for (var i = 0; i < players.Length; i++)
+            {
+                database.PlayerSeasons.Add(new() { Player = players[i], SeasonIndex = year, NormalizedName = KeyUtils.GetPlayerKey(players[i].Name), Club = home,
+                    Position = (PlayerPosition)role(i), IsActive = true, IsVisible = true });
+                // The official page: everyone on it is "in", all have a vote.
+                database.FootballVotes.Add(new() { Player = players[i], Club = home, SeasonIndex = year, Day = day, Source = FootballVoteSource.Official, PlayerRole = role(i), VoteRole = role(i),
+                    Value = 6, HasVote = true, IsIn = true, IsFinal = true, IsActive = true, IsVisible = true });
+                // Earlier appearances: the lower the number, the more he played.
+                for (var earlier = 1; earlier <= 14 - i; earlier++)
+                    database.FootballVotes.Add(new() { Player = players[i], Club = home, SeasonIndex = year, Day = day - earlier, Source = FootballVoteSource.Official, PlayerRole = role(i), VoteRole = role(i),
+                        Value = 6, HasVote = true, IsFinal = true, IsActive = true, IsVisible = true });
+            }
+            database.FootballMatchdays.Add(new() { SeasonIndex = year, SerieADay = day, Matches =
+                [new() { SeasonIndex = year, SerieADay = day, Ordinal = 0, HomeClub = home, AwayClub = away, KickoffUtc = DateTimeOffset.UtcNow.AddHours(-30), HomeGoals = 1, AwayGoals = 1, IsFinished = true }] });
+            await database.SaveChangesAsync();
+        }
+        var path = $"/api/football/{year}/days/{day}/matches/0";
+        Dictionary<string, int> Positions(FootballMatchDto match) => match.Lineup.Teams[0].Players.ToDictionary(x => x.Current.PlayerId, x => x.CurrentPosition);
+        string Key(int i) => KeyUtils.GetPlayerKey(players[i].Name);
+
+        // No live feed any more: the keeper and the ten outfield players who played most (the first ones) start, the rest is called up.
+        var heuristic = Positions((await manager.GetFromJsonAsync<FootballMatchDto>(path))!);
+        Assert.Equal(11, heuristic.Values.Count(x => x <= 3));
+        Assert.Equal(0, heuristic[Key(0)]);
+        for (var i = 1; i <= 10; i++) Assert.True(heuristic[Key(i)] <= 3, $"player {i} starts");
+        for (var i = 11; i < 15; i++) Assert.True(heuristic[Key(i)] is >= 4 and <= 10, $"player {i} is on the bench");
+
+        // The live feed still has the day: it says who really started (player 12 instead of 3) and who came on.
+        CachedVote Flags(bool isIn, bool isOut) => new(1, 6, false, 0, 0, 0, 0, 0, 0, 0, 0, false, true, isOut, isIn, false);
+        var starters = new[] { 0, 1, 2, 12, 4, 5, 6, 7, 8, 9, 10 };
+        await factory.Services.GetRequiredService<IFootballLiveDataStore>().PublishLiveVotesAsync(DateTimeOffset.UtcNow, new(year, day,
+            Enumerable.Range(0, 15).Select(i => new CachedLiveVote(Key(i), players[i].Name, home.Id, home.Name, role(i), true, true, Flags(!starters.Contains(i), false))).ToArray()), null, default);
+        factory.Services.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>().Remove($"serie-a-match:{year}:{day}:0");
+        var live = Positions((await manager.GetFromJsonAsync<FootballMatchDto>(path))!);
+        Assert.Equal(11, live.Values.Count(x => x <= 3));
+        Assert.True(live[Key(12)] <= 3); Assert.True(live[Key(3)] is >= 4 and <= 10);
+        // Who came on is a substitute, not a starter.
+        Assert.All(new[] { 3, 11, 13, 14 }, i => Assert.True(live[Key(i)] is >= 4 and <= 10, $"player {i}"));
     }
 }
