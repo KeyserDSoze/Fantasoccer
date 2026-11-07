@@ -169,19 +169,26 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
     {
         if (liveDay is null && lastDay is null) return new(0, 0, "no_applicable_matchday");
         if (liveDay is { } running && (lastDay is null || running > lastDay))
-            return Progress(running, await ingestion.OfficialProgressAsync(year, running, cancellationToken));
+        {
+            var result = Progress(running, await ingestion.OfficialProgressAsync(year, running, cancellationToken));
+            var corrected = await ingestion.SyncInOutFromLiveAsync(year, running, cancellationToken);
+            return corrected == 0 ? result : result with { Detail = result.Detail + $" Titolari e subentrati presi dal live per {corrected} squadre." };
+        }
         var day = lastDay!.Value;
+        // Votes imported before the live in/out were kept: set them while the live feed of the day still has the clubs.
+        var fixedClubs = await ingestion.SyncInOutFromLiveAsync(year, day, cancellationToken);
+        var live_ = fixedClubs == 0 ? "" : $" Titolari e subentrati presi dal live per {fixedClubs} squadre.";
         var rome = TimeZoneInfo.ConvertTime(now, TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome"));
         var settling = rome.Hour is >= 3 and <= 10;
         // Outside the settling window only a matchday that ended a few hours ago keeps being polled, and only while something is missing.
         var recent = liveDay == lastDay;
         var unconsolidated = recent && await database.FootballMatches.AnyAsync(x => x.SeasonIndex == year && x.SerieADay == day && !x.Delayed && !x.WasPostponed && x.ActualOfficialVotesReady != true, cancellationToken);
-        if (!settling && !unconsolidated) return new(0, 0, "official_votes_up_to_date") { Detail = $"Giornata {day}: voti ufficiali già consolidati." };
-        try { await ingestion.RunAsync(new("official", year, day), cancellationToken); return new(1, 0) { Detail = $"Giornata {day}: voti ufficiali importati per tutte le partite." }; }
+        if (!settling && !unconsolidated) return new(0, 0, "official_votes_up_to_date") { Detail = $"Giornata {day}: voti ufficiali già consolidati." + live_ };
+        try { await ingestion.RunAsync(new("official", year, day), cancellationToken); return new(1, 0) { Detail = $"Giornata {day}: voti ufficiali importati per tutte le partite." + live_ }; }
         catch (ApplicationFault fault) when (fault.Code is "official_matchday_incomplete" or "official_votes_not_published")
         {
             var progress = Progress(day, await ingestion.OfficialProgressAsync(year, day, cancellationToken));
-            return progress with { Detail = progress.Detail + " " + fault.Message };
+            return progress with { Detail = progress.Detail + " " + fault.Message + live_ };
         }
     }
     private static async Task<bool> KickoffWithinAsync(FantasoccerDbContext database, int year, int day, DateTimeOffset now, TimeSpan window, CancellationToken cancellationToken)

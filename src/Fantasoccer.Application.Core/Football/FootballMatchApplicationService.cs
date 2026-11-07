@@ -93,8 +93,12 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
         {
             // The official page marks every player on it as "in" (it only says who has a vote): that is no information about the substitutions.
             // In/out come from the live feed when it still has the player, otherwise nobody is known to have come on or gone off.
-            VoteDto OfficialVote(FootballVote x) => FootballMapping.Vote(x) with { IsIn = liveFlags.TryGetValue(x.PlayerId, out var flags) && flags.IsIn, IsOut = flags is { IsOut: true } };
-            var fromOfficial = official.Where(x => x.ClubId == club).Select(x => (x.PlayerId, x.Player.Name, x.PlayerRole, x.IsActive, x.IsVisible, OfficialVote(x))).ToArray();
+            // Rows imported since 4.1.23 keep in/out from the live feed. Older ones have every player "in": for those, the live feed if it still has them.
+            var clubRows = official.Where(x => x.ClubId == club).ToArray();
+            var storedInOut = clubRows.Any(x => !x.IsIn || x.IsOut);
+            VoteDto OfficialVote(FootballVote x) => storedInOut ? FootballMapping.Vote(x)
+                : FootballMapping.Vote(x) with { IsIn = liveFlags.TryGetValue(x.PlayerId, out var flags) && flags.IsIn, IsOut = flags is { IsOut: true } };
+            var fromOfficial = clubRows.Select(x => (x.PlayerId, x.Player.Name, x.PlayerRole, x.IsActive, x.IsVisible, OfficialVote(x))).ToArray();
             if (fromOfficial.Length > 0) { sources[club] = LineupSources.Official; votedByClub[club] = fromOfficial; continue; }
             var fromLive = live.Where(x => x.ClubId == club).Select(x => (x.PlayerId, x.Name, x.PlayerRole, x.IsActive, x.IsVisible, FootballLiveDataMapping.Dto(x.Vote))).ToArray();
             sources[club] = fromLive.Length > 0 ? LineupSources.Live : null;

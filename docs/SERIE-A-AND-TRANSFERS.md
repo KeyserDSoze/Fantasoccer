@@ -64,3 +64,12 @@ voto), quindi non distingue titolari e subentrati. Dalla 4.1.22 la pagina partit
 entrato/uscito dai dati live della giornata, se la cache li ha ancora, altrimenti li ignora: titolari
 sono il portiere che ha giocato di più e i 10 giocatori di movimento con più presenze, gli altri con
 voto o convocati vanno in panchina. Prima, con tutti "entrati", il campo restava vuoto.
+
+Dalla 4.1.23 entrato/uscito si conservano sulle righe dei voti ufficiali (`FootballVotes.IsIn`,
+`IsOut`): l'importazione li prende dal live della stessa giornata (quando la cache ha il giocatore),
+altrimenti mantiene quelli già salvati per la squadra, altrimenti nessun giocatore risulta
+entrato o uscito. Il job `official` corregge i voti importati prima (squadre in cui tutti sono
+"entrati") finché il live del giorno ha ancora la squadra (almeno 11 giocatori non subentrati).
+La pagina partita usa i flag salvati quando sono reali e, per i giorni vecchi con tutti "entrati",
+il live o la scelta per presenze descritta sopra. Effetto collaterale voluto: le carte con
+condizioni "entrato/uscito" ora vedono i dati veri anche con i voti ufficiali.
