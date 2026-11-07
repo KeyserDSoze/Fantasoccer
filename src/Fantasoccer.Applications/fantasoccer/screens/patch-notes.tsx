@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.22',
+    date: '7 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Partite di Serie A: con i voti ufficiali il campo restava vuoto e tutti i giocatori finivano in panchina, perché la pagina dei voti segna tutti come "entrati". Ora titolari e subentrati si ricavano dai dati live (se il giorno è ancora disponibile), altrimenti sono titolari il portiere e i 10 giocatori di movimento che hanno giocato di più, e gli altri restano in panchina',
+      },
+    ],
+  },
+  {
     version: '4.1.21',
     date: '6 Novembre 2026',
     changes: [

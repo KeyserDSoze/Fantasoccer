@@ -77,7 +77,9 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
         var official = await database.FootballVotes.AsNoTracking().Include(x => x.Player)
             .Where(x => x.SeasonIndex == year && x.Day == day && x.Source == FootballVoteSource.Official && x.ClubId != null && clubs.Contains(x.ClubId))
             .ToArrayAsync(cancellationToken);
-        var live = started && official.Length < 2 ? (await liveData.LiveVotesAsync(year, day, cancellationToken))?.Payload.Players ?? [] : [];
+        // The live feed also tells who started and who came on (events in/out); the official votes do not.
+        var live = started ? (await liveData.LiveVotesAsync(year, day, cancellationToken))?.Payload.Players ?? [] : [];
+        var liveFlags = live.GroupBy(x => x.PlayerId, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.First().Vote, StringComparer.Ordinal);
         var chances = (await liveData.ChancesAsync(year, day, cancellationToken))?.Payload.Players.GroupBy(x => x.PlayerId).ToDictionary(x => x.Key, x => x.First())
             ?? new Dictionary<string, CachedChance>();
 
@@ -89,7 +91,10 @@ public sealed class FootballMatchApplicationService(FantasoccerDbContext databas
         var votedByClub = new Dictionary<string, (string Id, string Name, int Role, bool Active, bool Visible, VoteDto Vote)[]>();
         foreach (var club in clubs)
         {
-            var fromOfficial = official.Where(x => x.ClubId == club).Select(x => (x.PlayerId, x.Player.Name, x.PlayerRole, x.IsActive, x.IsVisible, FootballMapping.Vote(x))).ToArray();
+            // The official page marks every player on it as "in" (it only says who has a vote): that is no information about the substitutions.
+            // In/out come from the live feed when it still has the player, otherwise nobody is known to have come on or gone off.
+            VoteDto OfficialVote(FootballVote x) => FootballMapping.Vote(x) with { IsIn = liveFlags.TryGetValue(x.PlayerId, out var flags) && flags.IsIn, IsOut = flags is { IsOut: true } };
+            var fromOfficial = official.Where(x => x.ClubId == club).Select(x => (x.PlayerId, x.Player.Name, x.PlayerRole, x.IsActive, x.IsVisible, OfficialVote(x))).ToArray();
             if (fromOfficial.Length > 0) { sources[club] = LineupSources.Official; votedByClub[club] = fromOfficial; continue; }
             var fromLive = live.Where(x => x.ClubId == club).Select(x => (x.PlayerId, x.Name, x.PlayerRole, x.IsActive, x.IsVisible, FootballLiveDataMapping.Dto(x.Vote))).ToArray();
             sources[club] = fromLive.Length > 0 ? LineupSources.Live : null;

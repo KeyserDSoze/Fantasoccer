@@ -38,6 +38,22 @@ public sealed class SerieALineupBuilderTests
     }
 
     [Fact]
+    public void Official_votes_that_say_nothing_about_who_started_still_give_eleven_on_the_pitch_with_one_keeper()
+    {
+        // Fifteen voted players, no in/out information: the keeper who played most, then the outfield players who played most.
+        var voted = new[] { Entry("gk-main", 0, Vote(true), appearances: 9), Entry("gk-second", 0, Vote(true), appearances: 1) }
+            .Concat(Enumerable.Range(0, 13).Select(i => Entry($"o{i:00}", 1 + i % 3, Vote(true), appearances: 13 - i))).ToArray();
+        var side = SerieALineupBuilder.Build(LineupSources.Official, voted, []);
+        var starters = side.Players.Where(x => x.Kind == LineupKinds.Starter).ToArray();
+        Assert.Equal(11, starters.Length);
+        Assert.Equal("gk-main", Assert.Single(starters, x => x.Position == 0).Entry.PlayerId);
+        Assert.Equal(Enumerable.Range(0, 10).Select(i => $"o{i:00}"), starters.Where(x => x.Position != 0).Select(x => x.Entry.PlayerId).Order());
+        // The others are called up: on the bench, not lost.
+        Assert.Equal(4, side.Players.Count(x => x.Kind == LineupKinds.Bench));
+        Assert.Equal(LineupKinds.Bench, side.Players.Single(x => x.Entry.PlayerId == "gk-second").Kind);
+    }
+
+    [Fact]
     public void An_early_live_feed_without_votes_completes_the_eleven_from_the_probable_lineups()
     {
         var voted = Eleven("v", _ => Vote(false));
