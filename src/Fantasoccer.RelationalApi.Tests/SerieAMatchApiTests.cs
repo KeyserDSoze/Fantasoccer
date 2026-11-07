@@ -195,5 +195,16 @@ public sealed partial class WorkspaceApiTests
         Assert.True(live[Key(12)] <= 3); Assert.True(live[Key(3)] is >= 4 and <= 10);
         // Who came on is a substitute, not a starter.
         Assert.All(new[] { 3, 11, 13, 14 }, i => Assert.True(live[Key(i)] is >= 4 and <= 10, $"player {i}"));
+
+        // Once the in/out flags are kept on the vote rows (real: not everybody is in) they are what counts, whatever the live feed says now.
+        await using (var database = factory.Database.CreateContext())
+        {
+            foreach (var row in await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync())
+                row.IsIn = Array.FindIndex(players, x => KeyUtils.GetPlayerKey(x.Name) == row.PlayerId) >= 11;
+            await database.SaveChangesAsync();
+        }
+        factory.Services.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>().Remove($"serie-a-match:{year}:{day}:0");
+        var stored = Positions((await manager.GetFromJsonAsync<FootballMatchDto>(path))!);
+        Assert.True(stored[Key(3)] <= 3); Assert.True(stored[Key(12)] is >= 4 and <= 10);
     }
 }

@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.23',
+    date: '7 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Titolari e subentrati ora vengono presi dal live e salvati con i voti ufficiali: quando i voti ufficiali vengono importati, per ogni giocatore si registra se è entrato o uscito, così l\'informazione resta anche quando il live non c\'è più. I voti già importati vengono corretti finché il live del giorno è disponibile. Prima i voti ufficiali segnavano tutti come "entrati"',
+      },
+    ],
+  },
+  {
     version: '4.1.22',
     date: '7 Novembre 2026',
     changes: [

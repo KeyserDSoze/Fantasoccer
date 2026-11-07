@@ -166,6 +166,31 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         foreach (var group in rosters.GroupBy(x => x.GroupId)) await availability.SynchronizeFutureAsync(group.Key, year, group.Select(x => x.TeamId).ToArray(), cancellationToken);
         await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
     }
+    // Clubs whose official rows already carry real in/out information: not everybody is "in" (the official page marks all of them).
+    private static HashSet<string> KnownInOutClubs(IEnumerable<FootballVote> rows) => rows.Where(x => x.ClubId != null).GroupBy(x => x.ClubId!)
+        .Where(x => x.Any(row => !row.IsIn || row.IsOut)).Select(x => x.Key).ToHashSet(StringComparer.Ordinal);
+
+    // Official votes imported before in/out were taken from the live feed have every player marked as "in". While the live feed of the day
+    // still has the club, set who started and who came on on those rows. Returns how many clubs were corrected.
+    public async Task<int> SyncInOutFromLiveAsync(int year, int day, CancellationToken cancellationToken)
+    {
+        var live = (await liveData.LiveVotesAsync(year, day, cancellationToken))?.Payload.Players;
+        if (live is not { Length: > 0 }) return 0;
+        var rows = await database.FootballVotes.Where(x => x.SeasonIndex == year && x.Day == day && x.Source == FootballVoteSource.Official && x.ClubId != null).ToArrayAsync(cancellationToken);
+        var known = KnownInOutClubs(rows);
+        var liveByPlayer = live.GroupBy(x => x.PlayerId, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.First(), StringComparer.Ordinal);
+        var clubs = rows.Select(x => x.ClubId!).Distinct().Where(club => !known.Contains(club) && live.Count(x => x.ClubId == club && x.Vote.HasVote && !x.Vote.IsIn) >= 11).ToArray();
+        if (clubs.Length == 0) return 0;
+        await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
+        foreach (var row in rows.Where(x => clubs.Contains(x.ClubId!)))
+        {
+            var seen = liveByPlayer.GetValueOrDefault(row.PlayerId);
+            row.IsIn = seen?.Vote.IsIn ?? false; row.IsOut = seen?.Vote.IsOut ?? false;
+        }
+        await database.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken);
+        return clubs.Length;
+    }
+
     // Matches of a matchday that are over and whose official votes are not consolidated yet, with how many of them were consolidated now.
     public sealed record OfficialProgress(int Imported, int Pending, string[]? PendingMatches = null);
 
@@ -206,6 +231,10 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             throw Invalid($"Voto non valido per l'allenatore {brokenCoach.Name} nella giornata {day}; nulla è stato cambiato.");
         if (samples.Where(x => x.Role == Role.Coach).GroupBy(x => x.Key).FirstOrDefault(x => x.Count() != 1) is { } repeatedCoach)
             throw Invalid($"Allenatore ripetuto nei voti ufficiali della giornata {day}: {repeatedCoach.Key}; nulla è stato cambiato.");
+        // The official page marks everybody as "in" (it only says who has a vote). Who started and who came on is in the live feed of the same day:
+        // it is kept on the vote rows here, so it stays when the live feed is gone.
+        var liveFlags = (await liveData.LiveVotesAsync(year, day, cancellationToken))?.Payload.Players
+            .GroupBy(x => x.PlayerId, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.First(), StringComparer.Ordinal) ?? [];
         await using var transaction = await CoreMigrationLock.BeginInteractiveWriteAsync(database, cancellationToken);
         await AuthorizeAsync(caller, cancellationToken);
         await SeasonAsync(year, cancellationToken);
@@ -216,6 +245,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var coaches = await database.FootballCoachVotes.Where(x => x.SeasonIndex == year && x.Day == day).ToArrayAsync(cancellationToken);
         var received = new HashSet<string>(StringComparer.Ordinal);
         var finalClubs = new HashSet<string>(StringComparer.Ordinal);
+        var knownInOut = KnownInOutClubs(rows);
         foreach (var sample in samples)
         {
             if (sample.Role == Role.Coach)
@@ -238,7 +268,10 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             row.Club = club; row.PlayerRole = (int)sample.Role; row.IsActive = sample.IsActive; row.IsVisible = sample.Visible;
             var vote = sample.Vote; row.VoteRole = (int)vote.Role; row.Value = vote.Value; row.IsFinal = vote.IsFinal; row.Goals = vote.Goal; row.Penalties = vote.Penalty;
             row.Assists = vote.Assist; row.StoppedPenalties = vote.StoppedPenalty; row.SufferedGoals = vote.SufferedGoal; row.WrongedPenalties = vote.WrongedPenalty;
-            row.OwnGoals = vote.OwnGoal; row.Status = (int)vote.Status; row.ManOfTheMatch = vote.ManOfTheMatch; row.HasVote = vote.HasVote; row.IsOut = vote.IsOut; row.IsIn = vote.IsIn; row.Injured = vote.Injured;
+            row.OwnGoals = vote.OwnGoal; row.Status = (int)vote.Status; row.ManOfTheMatch = vote.ManOfTheMatch; row.HasVote = vote.HasVote; row.Injured = vote.Injured;
+            // In/out: the live feed if it has the player; otherwise what was already kept for that club; otherwise nobody is known to have come on or gone off.
+            if (liveFlags.TryGetValue(sample.Key, out var seen)) { row.IsIn = seen.Vote.IsIn; row.IsOut = seen.Vote.IsOut; }
+            else if (!knownInOut.Contains(club.Id)) { row.IsIn = false; row.IsOut = false; }
         }
         {
             var matches = await database.FootballMatches.Where(x => x.SeasonIndex == year && x.SerieADay == day).ToArrayAsync(cancellationToken);
