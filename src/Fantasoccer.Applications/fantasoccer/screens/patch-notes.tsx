@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.24',
+    date: '14 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le letture dei dati di calcio (probabili formazioni, quotazioni, voti) ora si presentano ai siti come un normale browser Chrome, con gli header completi, per evitare i blocchi 403. Se un sito rifiuta comunque le richieste (401, 403, 410, 451) il problema viene segnalato ma il job non riprova ogni minuto: riparte al prossimo orario previsto',
+      },
+    ],
+  },
+  {
     version: '4.1.23',
     date: '7 Novembre 2026',
     changes: [

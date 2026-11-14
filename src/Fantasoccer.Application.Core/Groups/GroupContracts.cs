@@ -32,4 +32,6 @@ public sealed class ApplicationFault(int status, string code, string message) : 
 {
     public int Status { get; } = status;
     public string Code { get; } = code;
+    // The condition will not clear by asking again soon (the provider refuses us): the job is recorded as a problem but not retried every minute.
+    public bool NoRetry { get; init; }
 }

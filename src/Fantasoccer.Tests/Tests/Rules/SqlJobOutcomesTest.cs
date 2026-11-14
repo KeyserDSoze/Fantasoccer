@@ -33,4 +33,19 @@ public sealed class SqlJobOutcomesTest
         Assert.DoesNotContain("secret", detail);
         Assert.Equal("Eccezione HttpRequestException", Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(new HttpRequestException("x")));
     }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.Forbidden, true)]
+    [InlineData(System.Net.HttpStatusCode.Unauthorized, true)]
+    [InlineData(System.Net.HttpStatusCode.Gone, true)]
+    [InlineData(System.Net.HttpStatusCode.InternalServerError, false)]
+    [InlineData(System.Net.HttpStatusCode.TooManyRequests, false)]
+    public void A_provider_refusal_is_not_retried_but_a_temporary_error_is(System.Net.HttpStatusCode status, bool refusal)
+    {
+        Assert.Equal(refusal, SqlJobOutcomes.IsPermanentHttpRefusal(new HttpRequestException("x", null, status)));
+        Assert.Equal(refusal, SqlJobOutcomes.IsPermanentHttpRefusal(new InvalidOperationException("y", new HttpRequestException("x", null, status))));
+    }
+
+    [Fact]
+    public void A_network_error_without_status_is_retried() => Assert.False(SqlJobOutcomes.IsPermanentHttpRefusal(new HttpRequestException("x")));
 }

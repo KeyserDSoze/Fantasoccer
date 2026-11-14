@@ -41,7 +41,9 @@ namespace Fantasoccer.Business
             {
                 client.Timeout = TimeSpan.FromSeconds(20);
                 client.BaseAddress = new Uri("https://api-sdp.legaseriea.it/v1/serie-a/football/");
-            }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+                AddBrowserHeaders(client);
+            }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, AutomaticDecompression = Decompression })
+              .AddHttpMessageHandler(() => new BrowserLikeHandler(BrowserRequestProfile.Common));
             services.AddTransient<IOfficialVote, OfficialVote>();
             services.AddTransient<ILiveVote, LiveVote>();
             services.AddTransient<ISerieAInformation, SerieAInformation>();
@@ -55,10 +57,17 @@ namespace Fantasoccer.Business
                     client.Timeout = TimeSpan.FromSeconds(30);
                     if (name == "seriea-gazzetta-calendar") client.BaseAddress = new Uri("https://api2-mtc.gazzetta.it/api/");
                     else if (name is "seriea" or "all-players") client.BaseAddress = new Uri("https://www.legaseriea.it/api/");
-                    client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 Fantasoccer");
-                    client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "it-IT,it;q=0.9");
-                });
+                    AddBrowserHeaders(client);
+                }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AutomaticDecompression = Decompression })
+                  .AddHttpMessageHandler(() => new BrowserLikeHandler(name is "seriea" or "seriea-gazzetta-calendar" ? BrowserRequestProfile.Api : BrowserRequestProfile.Document));
             return services;
+        }
+
+        private const System.Net.DecompressionMethods Decompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate | System.Net.DecompressionMethods.Brotli;
+        private static void AddBrowserHeaders(HttpClient client)
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", BrowserLikeHandler.UserAgent);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", BrowserLikeHandler.AcceptLanguage);
         }
     }
 }

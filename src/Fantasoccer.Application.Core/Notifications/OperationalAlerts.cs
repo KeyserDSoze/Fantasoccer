@@ -35,7 +35,8 @@ public static class OperationalAlertText
         var timeout = error is TimeoutException || error.InnerException is TimeoutException
             ? ". Il database non ha risposto entro 120 secondi: di solito una transazione interrotta da un riavvio/deploy dell'API tiene ancora il blocco globale delle scritture finché PostgreSQL non si accorge che il client è sparito (circa 6 minuti)"
             : "";
-        return "Eccezione " + string.Join(" ← ", types) + state + timeout;
+        var http = error is HttpRequestException { StatusCode: { } code } ? " " + (int)code : "";
+        return "Eccezione " + string.Join(" ← ", types) + http + state + timeout;
     }
 }
 

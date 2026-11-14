@@ -157,7 +157,7 @@ public sealed class SqlJobActions(IServiceScopeFactory scopes, TimeProvider cloc
             if (name == "chances" && fault.Code == "chances_lineups_unavailable" && !await KickoffWithinAsync(database, year, day.Value, now, TimeSpan.FromHours(48), cancellationToken))
                 return new(0, 1, "chances_lineups_pending") { Detail = fault.Message + " Mancano ancora più di 48 ore al calcio d'inizio: le probabili formazioni non sono ancora state pubblicate." };
             if (fault.Message.Contains("giornata", StringComparison.OrdinalIgnoreCase)) throw;
-            throw new ApplicationFault(fault.Status, fault.Code, $"Giornata {day}: {fault.Message}");
+            throw new ApplicationFault(fault.Status, fault.Code, $"Giornata {day}: {fault.Message}") { NoRetry = fault.NoRetry };
         }
         return new(1, 0) { Detail = ingestion.Summary ?? (day is null ? null : $"Giornata {day}") };
     }

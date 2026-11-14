@@ -325,7 +325,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
         var fetchedAt = clock.GetUtcNow();
         var sources = new[] { "Fantagazzetta", "Gazzetta", "Injury" };
         var samples = new List<ChancedRealPlayer>();
-        var empty = new List<string>(); var unreadable = new List<string>(); var counts = new List<string>();
+        var empty = new List<string>(); var unreadable = new List<string>(); var counts = new List<string>(); var refused = false;
         foreach (var name in sources)
         {
             var parser = formations.Create(name) ?? throw new InvalidOperationException("Formation parser missing.");
@@ -334,6 +334,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
             catch (Exception error) when (error is not OperationCanceledException)
             {
                 // The source is named, the exception text is not (it can carry the address or the page).
+                refused |= Fantasoccer.Application.Core.Operations.SqlJobOutcomes.IsPermanentHttpRefusal(error);
                 unreadable.Add($"{name} ({error.GetType().Name}{(error is HttpRequestException { StatusCode: { } status } ? " " + (int)status : "")})"); continue;
             }
             counts.Add($"{name}: {values.Count}");
@@ -346,7 +347,7 @@ public sealed partial class FootballIngestionApplicationService(FantasoccerDbCon
                 (empty.Count > 0 ? "sorgenti senza giocatori: " + string.Join(", ", empty) + ". " : "") + "Giocatori trovati per sorgente: " + string.Join(", ", counts) + "; si conserva lo snapshot precedente.";
             // Only the probable lineups missing (Injury answered): usually they are not published yet.
             var lineupsOnly = unreadable.Count == 0 && empty.All(x => x is "Fantagazzetta" or "Gazzetta") && samples.Count > 0;
-            throw new ApplicationFault(409, lineupsOnly ? "chances_lineups_unavailable" : "football_provider_incomplete", report);
+            throw new ApplicationFault(409, lineupsOnly ? "chances_lineups_unavailable" : "football_provider_incomplete", report) { NoRetry = refused };
         }
         await AuthorizeAsync(caller, cancellationToken);
         var players = await database.PlayerSeasons.AsNoTracking().Include(x => x.Player).Include(x => x.Club)

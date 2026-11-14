@@ -12,6 +12,8 @@ public sealed record SqlJobWorkResult(int Processed, int Skipped, string? Code =
     public bool HasMore { get; init; }
     // Explanation for the administrators' log (which matchday, which matches or clubs, why).
     public string? Detail { get; init; }
+    // An incident that is not retried before the next regular slot.
+    public bool NoRetry { get; init; }
 }
 public interface ISqlJobActions { Task<SqlJobWorkResult> ExecuteAsync(string name, int year, CancellationToken cancellationToken); }
 public sealed record RunSqlJobRequest(string Name, int Year);
@@ -93,7 +95,13 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
                 ? new(0, 0, "job_canceled") { Detail = "Interrotto dallo spegnimento o dal riavvio dell'API (deploy)." }
                 : new(0, 0, "job_timeout") { Detail = "Superato il tempo massimo di 4 minuti." };
         }
-        catch (ApplicationFault fault) { status = "Failed"; work = new(0, 0, fault.Code) { Detail = fault.Message }; }
+        catch (ApplicationFault fault) { status = "Failed"; work = new(0, 0, fault.Code) { Detail = fault.Message, NoRetry = fault.NoRetry }; }
+        catch (Exception error) when (SqlJobOutcomes.IsPermanentHttpRefusal(error))
+        {
+            status = "Failed";
+            work = new(0, 0, "provider_access_denied") { NoRetry = true, Detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(error) + ": il provider rifiuta le richieste del server, nessun nuovo tentativo prima del prossimo orario previsto." };
+            logger.LogError("SQL job {JobName} refused by the provider ({FailureType}); run {RunId}. Not retried before the next slot.", name, error.GetType().Name, id);
+        }
         catch (Exception error)
         {
             status = "Failed"; work = new(0, 0, "job_execution_failed") { Detail = Fantasoccer.Application.Core.Notifications.OperationalAlertText.ExceptionDetail(error) };
@@ -109,6 +117,7 @@ public sealed class SqlJobApplicationService(FantasoccerDbContext database, Oper
             var retry = status is "Failed" or "Canceled" || SqlJobOutcomes.IsIncident(status, work.Code);
             // A condition that only an administrator can clear is rechecked now and then, not every minute.
             state.NextRunAtUtc = work.HasMore ? clock.GetUtcNow().AddMinutes(1)
+                : retry && work.NoRetry ? SqlJobSchedule.Next(name, clock.GetUtcNow())
                 : retry && work.Code is not null && SqlJobOutcomes.SlowRetryCodes.Contains(work.Code, StringComparer.Ordinal) ? clock.GetUtcNow().AddHours(1)
                 : retry ? clock.GetUtcNow().AddMinutes(1) : SqlJobSchedule.Next(name, clock.GetUtcNow());
             run.Status = status; run.Processed = work.Processed; run.Skipped = work.Skipped; run.Code = work.Code; run.CompletedAtUtc = clock.GetUtcNow();

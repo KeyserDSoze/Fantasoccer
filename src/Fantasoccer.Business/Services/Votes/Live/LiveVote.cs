@@ -13,9 +13,9 @@ namespace Fantasoccer.Business.IngestionData
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.fantacalcio.it");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.fantacalcio.it/live-serie-a");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Mode", "cors");
-            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua", "\"Chromium\";v=\"116\", \"Not)A;Brand\";v=\"24\", \"Google Chrome\";v=\"116\"");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua", Fantasoccer.Business.Services.BrowserLikeHandler.SecChUa);
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Mobile", "?0");
-            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Platform", "Windows");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Ch-Ua-Platform", "\"Windows\"");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Site", "same-origin");
             _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Sec-Fetch-Dest", "empty");
         }
