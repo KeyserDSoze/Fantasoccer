@@ -3,7 +3,10 @@
 environment_name    = "fcv2"
 resource_group_name = "fcv2"
 # https://apifcv2.azurewebsites.net (fcv2.azurewebsites.net belongs to a third party).
-api_app_name = "apifcv2"
+api_app_name            = "apifcv3"
+api_resource_group_name = "fcv2-b"
+app_service_plan_name   = "asp-fcv2b"
+adopt_existing_api      = true
 # Sweden Central refuses PostgreSQL B1ms (and B2s) for this subscription with SkuNotAvailable, although list-skus shows it
 # as available (31/10/2026). Italy North, West Europe, North Europe and Germany West Central accept it; Italy North is the
 # closest to the players and keeps the App Service next to the database. Azure OpenAI stays in Sweden Central.
@@ -22,49 +25,37 @@ postgres_admin_ip_ranges = []
 
 # Possible outbound addresses of apifcv2 (az webapp show -g fcv2 -n apifcv2 --query possibleOutboundIpAddresses).
 postgres_api_outbound_ips = [
-  "4.232.7.47",
-  "4.232.99.4",
-  "4.232.224.248",
-  "4.232.225.3",
-  "4.232.225.127",
-  "4.232.240.146",
-  "4.232.248.101",
-  "4.232.249.233",
-  "9.235.96.125",
-  "9.235.105.32",
-  "72.146.48.228",
-  "72.146.50.47",
-  "72.146.51.63",
-  "72.146.51.70",
-  "72.146.51.149",
-  "72.146.51.191",
-  "72.146.51.229",
-  "72.146.52.58",
-  "72.146.52.69",
-  "72.146.52.90",
-  "72.146.52.115",
-  "72.146.52.116",
-  "72.146.52.138",
-  "72.146.52.175",
-  "72.146.52.177",
-  "72.146.52.215",
-  "72.146.52.230",
-  "72.146.52.234",
-  "72.146.52.238",
-  "72.146.53.78",
-  "72.146.53.93",
-  "72.146.53.117",
-  "72.146.53.130",
-  "72.146.53.144",
-  "72.146.53.184",
-  "72.146.53.186",
-  "72.146.53.199",
-  "72.146.53.200",
-  "72.146.54.10",
-  "72.146.54.12",
-  "72.146.130.26",
-  "172.213.193.7",
-  "172.213.197.181",
+  "4.232.112.133",
+  "4.232.112.140",
+  "4.232.112.141",
+  "4.232.112.142",
+  "4.232.112.144",
+  "4.232.112.150",
+  "4.232.112.151",
+  "4.232.112.152",
+  "4.232.112.153",
+  "4.232.112.154",
+  "4.232.112.155",
+  "4.232.112.156",
+  "4.232.112.157",
+  "4.232.112.168",
+  "4.232.112.169",
+  "4.232.112.171",
+  "4.232.112.174",
+  "4.232.112.203",
+  "4.232.112.222",
+  "4.232.112.61",
+  "4.232.112.84",
+  "4.232.113.33",
+  "4.232.113.34",
+  "4.232.113.40",
+  "4.232.113.41",
+  "4.232.113.42",
+  "4.232.113.43",
+  "4.232.113.44",
+  "4.232.113.45",
+  "4.232.14.227",
+  "4.232.99.2",
 ]
 
 openai_enabled       = true

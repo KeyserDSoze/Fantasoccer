@@ -65,9 +65,9 @@ jobs:
           gh release download "$TAG" --pattern '*.pgdump.gpg' --dir "$WORK" --clobber
           printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --decrypt -o "$WORK/dump.pgdump" "$WORK"/*.pgdump.gpg
-          app="$(az webapp list -g "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
-          if [ "$TARGET" = fantasoccer ]; then az webapp stop -g "$RESOURCE_GROUP" -n "$app"; fi
-          cleanup() { close_firewall || true; if [ "$TARGET" = fantasoccer ]; then az webapp start -g "$RESOURCE_GROUP" -n "$app" || true; fi; }
+          APP_GROUP="${API_RESOURCE_GROUP:-fcv2-b}"; app="$(az webapp list -g "$APP_GROUP" --query "[0].name" -o tsv)"
+          if [ "$TARGET" = fantasoccer ]; then az webapp stop -g "$APP_GROUP" -n "$app"; fi
+          cleanup() { close_firewall || true; if [ "$TARGET" = fantasoccer ]; then az webapp start -g "$APP_GROUP" -n "$app" || true; fi; }
           trap cleanup EXIT
           load_connection
           open_firewall

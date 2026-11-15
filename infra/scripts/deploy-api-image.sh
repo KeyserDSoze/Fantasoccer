@@ -5,18 +5,29 @@
 set -euo pipefail
 tag=${1:?usage: deploy-api-image.sh <tag>}
 group=${RESOURCE_GROUP:-fcv2}
+# The web app lives in its own resource group (other outbound addresses); the registry stays in the main one.
+app_group=${API_RESOURCE_GROUP:-$group}
 repository=${API_IMAGE_REPOSITORY:-fantasoccer-api}
 
-app=$(az webapp list --resource-group "$group" --query "[?tags.component=='api'].name | [0]" --output tsv --only-show-errors)
+# API_APP_NAME names the app explicitly (needed while two API apps coexist during a replacement).
+app=${API_APP_NAME:-}
+if [[ -z "$app" ]]; then
+  apps=$(az webapp list --resource-group "$app_group" --query "[?tags.component=='api'].name" --output tsv --only-show-errors)
+  if [[ $(printf '%s\n' "$apps" | grep -c .) -gt 1 ]]; then
+    echo "More than one API app in $app_group ($(echo $apps)): set API_APP_NAME." >&2
+    exit 1
+  fi
+  app=$apps
+fi
 registry=$(az acr list --resource-group "$group" --query "[?tags.component=='api-registry'].loginServer | [0]" --output tsv --only-show-errors)
 if [[ -z "$app" || -z "$registry" ]]; then
   echo "App Service or registry missing in $group: run the infrastructure apply first." >&2
   exit 1
 fi
 image="DOCKER|$registry/$repository:$tag"
-current=$(az webapp config show --resource-group "$group" --name "$app" --query linuxFxVersion --output tsv --only-show-errors)
+current=$(az webapp config show --resource-group "$app_group" --name "$app" --query linuxFxVersion --output tsv --only-show-errors)
 if [[ "$current" != "$image" ]]; then
-  az webapp config set --resource-group "$group" --name "$app" --linux-fx-version "$image" --only-show-errors --output none
+  az webapp config set --resource-group "$app_group" --name "$app" --linux-fx-version "$image" --only-show-errors --output none
   echo "Deployed $registry/$repository:$tag to $app"
   # Let App Service stop the previous container before probing the new one.
   sleep 30
@@ -24,7 +35,7 @@ else
   echo "$app already runs $registry/$repository:$tag"
 fi
 
-host=$(az webapp show --resource-group "$group" --name "$app" --query defaultHostName --output tsv --only-show-errors)
+host=$(az webapp show --resource-group "$app_group" --name "$app" --query defaultHostName --output tsv --only-show-errors)
 # First start also pulls the image and applies the EF Core migrations.
 for _ in $(seq 1 36); do
   if curl --silent --fail --max-time 10 "https://$host/health/live" >/dev/null; then

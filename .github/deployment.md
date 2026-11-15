@@ -52,10 +52,10 @@ Both workflows reuse `AZURE_CREDENTIALS`, `MICROSOFT_CLIENT_SECRET`, `ENCRYPTION
 
 ## Cutover to fcv2 and rollback
 
-- The API of the PostgreSQL version is `https://api.fanta.zone` (custom domain of `apifcv2.azurewebsites.net`) (`fcv2.azurewebsites.net` belongs to a third party). The frontend stays on GitHub Pages (`fanta.zone`).
+- The API of the PostgreSQL version is `https://api.fanta.zone` (custom domain of `apifcv3.azurewebsites.net`) (`fcv2.azurewebsites.net` belongs to a third party). The frontend stays on GitHub Pages (`fanta.zone`).
 - Once `refactor/postgresql-multi-group` is merged into `main`:
   - `Deploy API fcv2` deploys the commit that passed `Relational Migration Tests`;
-  - `Deploy GitHub Pages` publishes the new frontend built against `apifcv2`, only after `apifcv2/health/ready` answers;
+  - `Deploy GitHub Pages` publishes the new frontend built against `apifcv3`, only after `apifcv3/health/ready` answers;
   - the old `Deploy API` on `main` refuses to run, so `apifc` is never overwritten.
 - `legacy-main` is an exact copy of `main` before the cutover (`9ee2c0a`). **Dormant since 2026-11-01**: the legacy API `apifc` and its plan were deleted from the `fc` resource group, so the rollback below no longer works; the branch is kept only as a historical snapshot (renamed from `rollback-main`). It is protected against deletion and force pushes and allowed by the `github-pages` environment. To roll back, run `Deploy GitHub Pages` (and, only if needed, `Deploy API`) choosing the `legacy-main` branch: GitHub executes that branch's original workflows, which build against `FRONTEND_API_URL` and deploy to `API_APP_NAME`/`API_RESOURCE_GROUP`: keep these variables on the legacy values (`https://apifc.azurewebsites.net`, `apifc`, `fc`).
 - Details and caveats (no dual write: data written after the cutover is not in the legacy storage): [`infra/README.md`](../infra/README.md#passaggio-in-produzione-e-rollback).

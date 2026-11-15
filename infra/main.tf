@@ -14,7 +14,7 @@ locals {
     postgres      = "psql-${var.environment_name}-${local.suffix}"
     openai        = "oai-${var.environment_name}-${local.suffix}"
     registry      = "cr${var.environment_name}${local.suffix}"
-    plan          = "asp-${var.environment_name}"
+    plan          = var.app_service_plan_name != "" ? var.app_service_plan_name : "asp-${var.environment_name}"
     api           = var.api_app_name != "" ? var.api_app_name : "app-${var.environment_name}-api-${local.suffix}"
   }
 
@@ -23,6 +23,17 @@ locals {
     environment = var.environment_name
     managed-by  = "terraform"
   }, var.tags)
+}
+
+resource "azurerm_resource_group" "api" {
+  count    = var.api_resource_group_name != "" ? 1 : 0
+  name     = var.api_resource_group_name
+  location = var.location
+  tags     = local.tags
+}
+
+locals {
+  api_resource_group_name = var.api_resource_group_name != "" ? azurerm_resource_group.api[0].name : azurerm_resource_group.main.name
 }
 
 resource "azurerm_resource_group" "main" {

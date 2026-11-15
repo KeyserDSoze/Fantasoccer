@@ -176,6 +176,8 @@ run "without_openai_and_with_operator_access" {
     openai_enabled          = false
     background_jobs_enabled = true
     api_app_name            = "apifcv2"
+    api_resource_group_name = "fcv2-b"
+    app_service_plan_name   = "asp-fcv2b"
     postgres_admin_ip_ranges = [
       { name = "migration-operator", start_ip = "203.0.113.10", end_ip = "203.0.113.10" },
     ]
@@ -192,6 +194,10 @@ run "without_openai_and_with_operator_access" {
   assert {
     condition     = azurerm_linux_web_app.api.name == "apifcv2"
     error_message = "The API keeps the fixed public name apifcv2.azurewebsites.net."
+  }
+  assert {
+    condition     = azurerm_linux_web_app.api.resource_group_name == "fcv2-b" && azurerm_service_plan.main.resource_group_name == "fcv2-b" && azurerm_service_plan.main.name == "asp-fcv2b"
+    error_message = "The plan and the web app can live in their own resource group (other outbound addresses), the rest stays in the main one."
   }
   assert {
     condition     = azurerm_postgresql_flexible_server_firewall_rule.operators["migration-operator"].start_ip_address == "203.0.113.10"

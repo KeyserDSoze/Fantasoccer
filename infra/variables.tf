@@ -36,6 +36,24 @@ variable "api_app_name" {
   default     = ""
 }
 
+variable "api_resource_group_name" {
+  description = "Resource group of the App Service plan and web app. Empty: the main resource group. App Service outbound addresses depend on the scale unit chosen for the region and resource group: a separate group lets the API be recreated on other addresses without touching the database, storage and Key Vault."
+  type        = string
+  default     = ""
+}
+
+variable "adopt_existing_api" {
+  description = "One-off: adopt the web app, plan, resource group and diagnostic setting created with the Azure CLI (see imports.tf). Turn it off after the first successful apply."
+  type        = bool
+  default     = false
+}
+
+variable "app_service_plan_name" {
+  description = "App Service plan name. Empty: asp-<environment>. A new name recreates the plan (and the web app on it) in another scale unit, which changes the outbound addresses."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Extra tags for every resource."
   type        = map(string)

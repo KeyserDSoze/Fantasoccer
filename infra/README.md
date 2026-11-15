@@ -6,7 +6,7 @@ Crea da zero, in un nuovo resource group `fcv2`, l'ambiente applicativo su Postg
 | --- | --- | --- |
 | Gruppo | `azurerm_resource_group` `fcv2` | Regione `italynorth`, modificabile solo prima del primo apply. Sweden Central rifiuta PostgreSQL B1ms per la sottoscrizione (`SkuNotAvailable`, anche se `list-skus` lo mostra disponibile): provato con la creazione reale. Azure OpenAI resta in Sweden Central (`openai_location`) |
 | Immagini API | Azure Container Registry `Basic` | Utente admin e pull anonimo disattivati. Push da GitHub con il service principal; pull dell'App Service con identità gestita e ruolo `AcrPull`, senza password |
-| API | App Service plan Linux `B1`, Web App container `apifcv2` (https://api.fanta.zone, alias `https://apifcv2.azurewebsites.net`) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
+| API | App Service plan Linux `B1`, Web App container `apifcv3` nel resource group `fcv2-b` (https://api.fanta.zone, alias `https://apifcv3.azurewebsites.net`) | Immagine di `ops/local/api.Dockerfile`, porta 8080. Always On (job SQL, worker push), WebSocket (SignalR), HTTPS e TLS 1.2, health check `/health/live`. Autenticazione di base FTP/WebDeploy disattivata |
 | Database | PostgreSQL Flexible Server 17 `B_Standard_B1ms`, database `fantasoccer` | 32 GB con crescita automatica, backup 14 giorni, password generata, connessione `SSL Mode=VerifyFull`, `prevent_destroy` |
 | File e cache | Storage account StorageV2 | Contenitori pubblici in sola lettura dei blob: `images`, `logos`, `cardimages`. Privati: `fantazone-cache`, `mcp-keys`. Soft delete 7 giorni, nessun versioning, lifecycle della cache (ADR 0012) |
 | Segreti | Key Vault + identità gestita assegnata all'API | Tutti i segreti dell'API sono riferimenti Key Vault: nessun valore in chiaro nelle impostazioni |
@@ -90,7 +90,7 @@ Il frontend resta su GitHub Pages (`fanta.zone`). Il ramo `legacy-main` è una c
 
 ## Scelte e limiti
 
-- **Rete:** PostgreSQL ha accesso pubblico, ma il firewall ammette solo gli indirizzi in uscita dell'App Service (regole `api-<ip>`, elenco in `postgres_api_outbound_ips` di `environments/fcv2.tfvars`, ottenibile con `az webapp show -g fcv2 -n apifcv2 --query possibleOutboundIpAddresses`) più gli eventuali operatori in `postgres_admin_ip_ranges`. La regola "servizi Azure" (`0.0.0.0`) è disattivata (`postgres_allow_azure_services = false`). Se l'API cambia scale unit (cambio di piano) gli indirizzi possono cambiare: aggiornare la lista e rifare l'apply, altrimenti l'API perde il database. Per intervenire a mano aggiungere temporaneamente un solo IP operatore e rimuoverlo dopo l'uso. Restano obbligatori password e TLS con verifica del certificato. Rafforzamento possibile in seguito: integrazione VNet e private endpoint.
+- **Rete:** PostgreSQL ha accesso pubblico, ma il firewall ammette solo gli indirizzi in uscita dell'App Service (regole `api-<ip>`, elenco in `postgres_api_outbound_ips` di `environments/fcv2.tfvars`, ottenibile con `az webapp show -g fcv2-b -n apifcv3 --query possibleOutboundIpAddresses`) più gli eventuali operatori in `postgres_admin_ip_ranges`. La regola "servizi Azure" (`0.0.0.0`) è disattivata (`postgres_allow_azure_services = false`). Se l'API cambia scale unit (cambio di piano) gli indirizzi possono cambiare: aggiornare la lista e rifare l'apply, altrimenti l'API perde il database. Per intervenire a mano aggiungere temporaneamente un solo IP operatore e rimuoverlo dopo l'uso. Restano obbligatori password e TLS con verifica del certificato. Rafforzamento possibile in seguito: integrazione VNet e private endpoint.
 - **Utente applicativo:** l'API usa l'amministratore del server, perché applica le migration allo startup. Un ruolo dedicato richiederebbe accesso SQL dal runner GitHub.
 - **Pulizia del registry:** il registry `Basic` non ha una retention automatica. Le immagini vecchie (una per deploy) si possono eliminare con `az acr repository delete`.
 - **Modello:** `gpt-6-luna` è un modello di ragionamento. Il limite di 4096 token di output della generazione editoriale include i token di ragionamento: se i testi risultano troncati, va alzato nel codice.
@@ -113,7 +113,18 @@ Per un plan locale contro Azure:
 
 ## Dominio personalizzato dell'API
 
-`api.fanta.zone` è associato a `apifcv2` con certificato App Service Managed (SNI SSL, gratuito, rinnovo automatico). DNS su GoDaddy: `CNAME api -> apifcv2.azurewebsites.net` e `TXT asuid.api` con il `customDomainVerificationId` della Web App. CORS non cambia: consente l'origine del frontend `https://fanta.zone`. `Mcp__Issuer` è `https://api.fanta.zone`.
+`api.fanta.zone` è associato a `apifcv3` con certificato App Service Managed (SNI SSL, gratuito, rinnovo automatico). DNS su GoDaddy: `CNAME api -> apifcv3.azurewebsites.net` e `TXT asuid.api` con il `customDomainVerificationId` della Web App. CORS non cambia: consente l'origine del frontend `https://fanta.zone`. `Mcp__Issuer` è `https://api.fanta.zone`.
+
+## Cambiare gli indirizzi in uscita dell'API (ban dei provider)
+
+Dal 15/11/2026 `fantacalcio.it` rispondeva 403 a ogni richiesta dall'IP in uscita di Azure (`72.146.x`, stamp del gruppo `fcv2`), anche con gli header di Chrome: dagli altri IP le stesse richieste davano 200. Un nuovo piano nello stesso resource group e nella stessa regione finisce sullo stesso stamp, quindi **stessi IP**: il piano e l'app stanno ora in un resource group a parte (`fcv2-b`, variabili `api_resource_group_name`, `app_service_plan_name`, `api_app_name`), così si possono ricreare senza toccare database, storage e Key Vault. Per cambiare di nuovo IP:
+
+1. creare un resource group nuovo con un piano e un'app di prova leggera e confrontare `possibleOutboundIpAddresses` con quelli attuali; ripetere (gruppo nuovo) finché non c'è nessun IP in comune;
+2. creare l'app vera sullo stesso piano con la stessa identità (`id-fcv2-api`), immagine e impostazioni, e aggiungere le regole firewall PostgreSQL `api-<ip>` per i suoi IP (una alla volta, circa 1 minuto ciascuna);
+3. verificare che `/health/ready` risponda e che le pagine di fantacalcio.it diano 200 dalla nuova app;
+4. spegnere i job (`BackgroundJobs__Enabled`) e i push (`Push__Enabled`) sulla vecchia, agganciare `api.fanta.zone` alla nuova (il TXT `asuid.api` è per sottoscrizione e resta uguale), cambiare il CNAME su GoDaddy, emettere il certificato gestito (richiede il CNAME già cambiato) e legarlo;
+5. impostare la variabile di repository `FCV2_API_APP_NAME` al nuovo nome (con due app taggate `component=api` lo script di deploy si ferma), togliere il lock, eliminare vecchia app, piano e regole firewall, rimettere il lock;
+6. aggiornare `fcv2.tfvars` e adottare le risorse con `adopt_existing_api = true` (`imports.tf`, da rimuovere dopo il primo apply).
 
 ## Lock di cancellazione sul resource group
 

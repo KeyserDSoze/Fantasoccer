@@ -1,7 +1,7 @@
 name: Deploy API fcv2
 
 # Builds the API container, pushes it to the fcv2 Container Registry and points
-# the App Service (apifcv2) to it. Settings (Key Vault references) and the
+# the App Service (apifcv3, resource group fcv2-b) to it. Settings (Key Vault references) and the
 # managed identity pull belong to Terraform (infra-fcv2.yml): never changed here.
 #
 # On main it runs automatically after "Relational Migration Tests" succeeded
@@ -28,6 +28,7 @@ concurrency:
 env:
   ENVIRONMENT_NAME: fcv2
   RESOURCE_GROUP: fcv2
+  API_RESOURCE_GROUP: fcv2-b
 
 jobs:
   deploy:
@@ -58,4 +59,7 @@ jobs:
       - name: Build and push the API image
         run: infra/scripts/push-api-image.sh "$COMMIT"
       - name: Deploy the image and check liveness
+        env:
+          # Repository variable, only while two API apps coexist (replacing the web app); empty otherwise.
+          API_APP_NAME: ${{ vars.FCV2_API_APP_NAME }}
         run: infra/scripts/deploy-api-image.sh "$COMMIT"
