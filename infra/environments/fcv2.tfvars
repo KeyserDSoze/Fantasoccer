@@ -6,7 +6,6 @@ resource_group_name = "fcv2"
 api_app_name            = "apifcv3"
 api_resource_group_name = "fcv2-b"
 app_service_plan_name   = "asp-fcv2b"
-adopt_existing_api      = true
 # Sweden Central refuses PostgreSQL B1ms (and B2s) for this subscription with SkuNotAvailable, although list-skus shows it
 # as available (31/10/2026). Italy North, West Europe, North Europe and Germany West Central accept it; Italy North is the
 # closest to the players and keeps the App Service next to the database. Azure OpenAI stays in Sweden Central.

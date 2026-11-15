@@ -124,7 +124,7 @@ Dal 15/11/2026 `fantacalcio.it` rispondeva 403 a ogni richiesta dall'IP in uscit
 3. verificare che `/health/ready` risponda e che le pagine di fantacalcio.it diano 200 dalla nuova app;
 4. spegnere i job (`BackgroundJobs__Enabled`) e i push (`Push__Enabled`) sulla vecchia, agganciare `api.fanta.zone` alla nuova (il TXT `asuid.api` è per sottoscrizione e resta uguale), cambiare il CNAME su GoDaddy, emettere il certificato gestito (richiede il CNAME già cambiato) e legarlo;
 5. impostare la variabile di repository `FCV2_API_APP_NAME` al nuovo nome (con due app taggate `component=api` lo script di deploy si ferma), togliere il lock, eliminare vecchia app, piano e regole firewall, rimettere il lock;
-6. aggiornare `fcv2.tfvars` e adottare le risorse con `adopt_existing_api = true` (`imports.tf`, da rimuovere dopo il primo apply).
+6. aggiornare `fcv2.tfvars` e adottare le risorse create a mano con blocchi `import` temporanei (app, piano, resource group, diagnostica e regole firewall); prima tolgono dallo state con `terraform state rm` le risorse vecchie ormai cancellate (altrimenti l'import viene saltato), poi si lancia l'apply dal workflow e si eliminano i blocchi.
 
 ## Lock di cancellazione sul resource group
 

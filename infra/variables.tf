@@ -42,12 +42,6 @@ variable "api_resource_group_name" {
   default     = ""
 }
 
-variable "adopt_existing_api" {
-  description = "One-off: adopt the web app, plan, resource group and diagnostic setting created with the Azure CLI (see imports.tf). Turn it off after the first successful apply."
-  type        = bool
-  default     = false
-}
-
 variable "app_service_plan_name" {
   description = "App Service plan name. Empty: asp-<environment>. A new name recreates the plan (and the web app on it) in another scale unit, which changes the outbound addresses."
   type        = string
