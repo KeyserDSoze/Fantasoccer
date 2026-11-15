@@ -15,6 +15,22 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.25',
+    date: '15 Novembre 2026',
+    changes: [
+      {
+        category: 'Improvement',
+        description:
+          'Nei log di piattaforma il colore di ogni job segue l\'ultimo esito: rosso solo se l\'ultima esecuzione è fallita, verde se è andata a buon fine (gli errori precedenti restano visibili come "errori passati"), arancione se è solo in attesa o parziale. Prima un solo errore nello storico lasciava il job rosso anche dopo che era stato risolto',
+      },
+      {
+        category: 'Fix',
+        description:
+          'Le letture dei dati di calcio ora partono da un nuovo indirizzo di rete: l\'API è stata spostata su una nuova web app perché il vecchio indirizzo era stato bloccato dal provider (errore 403) e probabili formazioni, quotazioni e voti non si aggiornavano',
+      },
+    ],
+  },
+  {
     version: '4.1.24',
     date: '14 Novembre 2026',
     changes: [

@@ -22,6 +22,14 @@ public sealed class ExternalFootballSmokeTests
         await using var provider = services.BuildServiceProvider();
         var parser = provider.GetRequiredService<IFactory<IFormationParser>>().Create(name)!;
         var players = await parser.GetPlayersAsync().WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
+        // Gazzetta publishes the probable lineups only a day or two before the matchday: until then its page says so.
+        if (players.Count == 0 && name == "Gazzetta")
+        {
+            var page = await provider.GetRequiredService<IHttpClientFactory>().CreateClient("base")
+                .GetStringAsync("https://www.gazzetta.it/Calcio/prob_form/", TestContext.Current.CancellationToken);
+            Assert.SkipWhen(page.Contains("non sono ancora disponibili", StringComparison.OrdinalIgnoreCase),
+                "Gazzetta: probable lineups not published yet, nothing to read.");
+        }
         Assert.NotEmpty(players);
         Assert.All(players, player =>
         {

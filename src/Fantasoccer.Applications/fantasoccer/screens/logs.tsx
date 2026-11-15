@@ -20,6 +20,7 @@ import { buildErrorReport, groupDistinctErrors, jobNameOfLog, latestRunByJob, ty
 import { 
   FileText, 
   AlertCircle, 
+  CheckCircle,
   Info, 
   Clock,
   ChevronDown,
@@ -303,6 +304,13 @@ function JobCard({
   onToggle 
 }: JobCardProps) {
   const hasErrors = errorsCount > 0
+  // The color follows the latest outcome: red only while the job is still failing; past errors of a job
+  // that has since succeeded (or is only waiting, Partial) are shown in a calmer color.
+  const lastStatus = latest?.status
+  const failing = hasErrors && (!lastStatus || lastStatus === 'Failed' || lastStatus === 'LeaseLost')
+  const resolved = hasErrors && !failing && lastStatus === 'Succeeded'
+  const tone = failing ? 'red' : resolved ? 'green' : hasErrors ? 'orange' : null
+  const errorsLabel = failing ? `${errorsCount} errori` : `${errorsCount} errori passati`
 
   return (
     <Card
@@ -310,7 +318,7 @@ function JobCard({
       backgroundColor="$color2"
       borderRadius="$4"
       borderWidth="$0.5"
-      borderColor={hasErrors ? "$red7" : "$borderColor"}
+      borderColor={tone ? `$${tone}7` : "$borderColor"}
     >
       {/* Header - Clickable */}
       <XStack
@@ -328,13 +336,15 @@ function JobCard({
             <Text fontSize="$5" fontWeight="bold" color="$color12">
               {jobName}
             </Text>
-            {hasErrors && (
-              <AlertCircle size="$1" color="$red10" />
+            {tone && (
+              resolved
+                ? <CheckCircle size="$1" color="$green10" />
+                : <AlertCircle size="$1" color={`$${tone}10`} />
             )}
           </XStack>
 
           {latest && (
-            <Text fontSize="$2" color={latest.status === 'Failed' || latest.status === 'LeaseLost' ? '$red10' : '$color10'}>
+            <Text fontSize="$2" color={latest.status === 'Failed' || latest.status === 'LeaseLost' ? '$red10' : latest.status === 'Succeeded' ? '$green10' : '$color10'}>
               Ultimo esito: {latest.status} · {latest.at ? new Date(latest.at).toLocaleString('it-IT') : 'data non disponibile'}
               {latest.detail ? ` · ${latest.detail}` : ''}
             </Text>
@@ -351,9 +361,9 @@ function JobCard({
             )}
             {errorsCount > 0 && (
               <XStack alignItems="center" gap="$1">
-                <AlertCircle size="$0.75" color="$red10" />
-                <Text fontSize="$2" color="$red10" fontWeight="600">
-                  {errorsCount} errori
+                <AlertCircle size="$0.75" color={`$${tone ?? 'red'}10`} />
+                <Text fontSize="$2" color={`$${tone ?? 'red'}10`} fontWeight="600">
+                  {errorsLabel}
                 </Text>
               </XStack>
             )}
