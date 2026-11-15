@@ -25,3 +25,9 @@ import {
   to       = azurerm_monitor_diagnostic_setting.api
   id       = "/subscriptions/c46eb61c-c951-471f-aa59-bf20aacf4d75/resourceGroups/fcv2-b/providers/Microsoft.Web/sites/apifcv3|to-log-analytics"
 }
+
+import {
+  for_each = var.adopt_existing_api ? toset(var.postgres_api_outbound_ips) : toset([])
+  to       = azurerm_postgresql_flexible_server_firewall_rule.api_outbound[each.key]
+  id       = "/subscriptions/c46eb61c-c951-471f-aa59-bf20aacf4d75/resourceGroups/fcv2/providers/Microsoft.DBforPostgreSQL/flexibleServers/psql-fcv2-f71915/firewallRules/api-${replace(each.key, ".", "-")}"
+}
