@@ -15,6 +15,17 @@ interface PatchNote {
 
 const patchNotes: PatchNote[] = [
   {
+    version: '4.1.26',
+    date: '15 Novembre 2026',
+    changes: [
+      {
+        category: 'Fix',
+        description:
+          'Le letture dei dati di calcio ora si presentano come l\'ultima versione di Chrome (157) invece di una vecchia di due anni, per ridurre il rischio di nuovi blocchi dei provider',
+      },
+    ],
+  },
+  {
     version: '4.1.25',
     date: '15 Novembre 2026',
     changes: [

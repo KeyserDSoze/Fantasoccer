@@ -14,8 +14,8 @@ namespace Fantasoccer.Business.Services
     // declare their own Sec-Fetch-Mode (the CORS calls of LiveVote) keep their headers.
     internal sealed class BrowserLikeHandler(BrowserRequestProfile profile) : DelegatingHandler
     {
-        public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-        public const string SecChUa = "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"";
+        public const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36";
+        public const string SecChUa = "\"Chromium\";v=\"157\", \"Google Chrome\";v=\"157\", \"Not.A/Brand\";v=\"99\"";
         public const string AcceptLanguage = "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7";
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
